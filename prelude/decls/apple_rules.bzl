@@ -18,7 +18,7 @@ load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs",
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
@@ -28,9 +28,11 @@ load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", 
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
+load("@prelude//apple/user:apple_toolchain_override.bzl", "apple_toolchain_override_impl")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", "apple_watchos_bundle_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
@@ -1288,6 +1290,16 @@ apple_watchos_bundle = prelude_rule(
     attrs = apple_watchos_bundle_attrs(),
 )
 
+apple_toolchain_override = prelude_rule(
+    name = "apple_toolchain_override",
+    impl = apple_toolchain_override_impl,
+    attrs = {
+        "base": attrs.toolchain_dep(providers = [AppleToolchainInfo]),
+        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
+    },
+    is_toolchain_rule = True,
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1300,6 +1312,7 @@ ios_rules = struct(
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
     apple_toolchain_set = apple_toolchain_set,
+    apple_toolchain_override = apple_toolchain_override,
     apple_tools = apple_tools,
     apple_selective_debugging = apple_selective_debugging,
     apple_simulators = apple_simulators,

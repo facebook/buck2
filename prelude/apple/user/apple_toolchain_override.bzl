@@ -9,9 +9,8 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _apple_toolchain_override_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_toolchain_override_impl(ctx: AnalysisContext) -> list[Provider]:
     base = ctx.attrs.base[AppleToolchainInfo]
     cxx_toolchain_override = ctx.attrs.cxx_toolchain[CxxToolchainInfo]
     providers = [
@@ -50,13 +49,3 @@ def _apple_toolchain_override_impl(ctx: AnalysisContext) -> list[Provider]:
         providers.append(ctx.attrs.base[SwiftToolchainInfo])
 
     return providers
-
-registration_spec = RuleRegistrationSpec(
-    name = "apple_toolchain_override",
-    impl = _apple_toolchain_override_impl,
-    attrs = {
-        "base": attrs.toolchain_dep(providers = [AppleToolchainInfo]),
-        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
-    },
-    is_toolchain_rule = True,
-)
