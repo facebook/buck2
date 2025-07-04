@@ -24,6 +24,7 @@ load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_i
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
+load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
@@ -1209,6 +1210,19 @@ apple_static_archive = prelude_rule(
     } | apple_common.apple_tools_arg(),
 )
 
+apple_selective_debugging = prelude_rule(
+    name = "apple_selective_debugging",
+    impl = apple_selective_debugging_impl,
+    attrs = {
+        "exclude_build_target_patterns": attrs.list(attrs.string(), default = []),
+        "exclude_regular_expressions": attrs.list(attrs.string(), default = []),
+        "include_build_target_patterns": attrs.list(attrs.string(), default = []),
+        "include_regular_expressions": attrs.list(attrs.string(), default = []),
+        "json_type": attrs.enum(SelectiveDebuggingJsonTypes),
+        "targets_json_file": attrs.option(attrs.source(), default = None),
+    } | apple_common.apple_tools_arg(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1221,6 +1235,7 @@ ios_rules = struct(
     apple_toolchain = apple_toolchain,
     apple_toolchain_set = apple_toolchain_set,
     apple_tools = apple_tools,
+    apple_selective_debugging = apple_selective_debugging,
     apple_simulators = apple_simulators,
     apple_spm_package = apple_spm_package,
     apple_static_archive = apple_static_archive,
