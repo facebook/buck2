@@ -147,7 +147,7 @@ SwiftDebugInfo = record(
 
 _IS_USER_BUILD = True # @oss-enable
 # @oss-disable: # To determine whether we're running on CI or not, we expect user.sandcastle_alias to be set.
-# @oss-disable[end= ]: # _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None)
+# @oss-disable[end= ]: _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None)
 
 _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 
@@ -797,7 +797,7 @@ def _compile_with_argsfile(
         allow_cache_upload = False
         local_only = True
         prefer_local = False
-    elif build_swift_incrementally:
+    elif build_swift_incrementally and _IS_USER_BUILD:
         # Swift incremental compilation requires the swiftdep files which are
         # only present when compiling locally. Prefer local unless otherwise
         # overridden.
