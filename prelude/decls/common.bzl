@@ -23,6 +23,7 @@ prelude_rule = record(
     impl = field([typing.Callable, None], None),
     uses_plugins = field([list[plugins.PluginKind], None], None),
     supports_incoming_transition = field([bool, None], None),
+    is_toolchain_rule = field([bool, None], None),
 )
 
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]
@@ -64,7 +65,7 @@ def _deps_query_arg():
     return {
         "deps_query": attrs.option(attrs.query(), default = None, doc = """
     Status: **experimental/unstable**.
-     The deps query takes a query string that accepts the following query 
+     The deps query takes a query string that accepts the following query
      functions, and appends the output of the query to the declared deps:
 
     * `attrfilter`
@@ -90,7 +91,7 @@ def _provided_deps_query_arg():
     return {
         "provided_deps_query": attrs.option(attrs.query(), default = None, doc = """
     Status: **experimental/unstable**.
-     The provided deps query functions in the same way as the deps query, but the 
+     The provided deps query functions in the same way as the deps query, but the
      results of the query are appended to the declared provided deps.
 """),
     }

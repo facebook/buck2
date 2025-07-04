@@ -89,8 +89,15 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     if rule_spec.supports_incoming_transition != None:
         extra_args["supports_incoming_transition"] = rule_spec.supports_incoming_transition
 
+    is_toolchain_rule = rule_spec.is_toolchain_rule
+    is_toolchain_rule_via_rule_name = name in toolchain_rule_names
+    if is_toolchain_rule == None:
+        is_toolchain_rule = is_toolchain_rule_via_rule_name
+    elif is_toolchain_rule_via_rule_name:
+        fail("Cannot set `is_toolchain_rule` on `prelude_rule` and also via `toolchain_rule_names`")
+
     extra_args.setdefault("is_configuration_rule", name in _config_implemented_rules)
-    extra_args.setdefault("is_toolchain_rule", name in toolchain_rule_names)
+    extra_args.setdefault("is_toolchain_rule", is_toolchain_rule)
     return rule(
         impl = impl,
         attrs = attributes,
