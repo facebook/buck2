@@ -45,6 +45,7 @@ pub fn get_host_info(
         HostArchOverride::DefaultArch => match std::env::consts::ARCH {
             "aarch64" => InterpreterHostArchitecture::AArch64,
             "x86_64" => InterpreterHostArchitecture::X86_64,
+            "riscv64" => InterpreterHostArchitecture::Riscv64,
             "arm" => InterpreterHostArchitecture::Arm,
             "x86" => InterpreterHostArchitecture::X86,
             "mips" => InterpreterHostArchitecture::Mips,

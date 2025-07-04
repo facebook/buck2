@@ -27,6 +27,7 @@ pub enum InterpreterHostArchitecture {
     AArch64,
     X86_64,
     Arm,
+    Riscv64,
     X86,
     Mips,
     Mips64,
