@@ -1,0 +1,16 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("golang")
+
+source_listing()
+
+prelude = native
+
+prelude.go_binary(
+    name = "gopackagesdriver",
+    srcs = ["main.go"],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//go/tools/gopackagesdriver/driver:driver",
+    ],
+)

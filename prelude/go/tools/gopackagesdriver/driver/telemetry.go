@@ -39,3 +39,10 @@ type PanicEvent struct {
 type Telemetry interface {
 	LogEvent(ctx context.Context, event any)
 }
+
+// NoopTelemetry is a noop implementation of Telemetry
+type NoopTelemetry struct{}
+
+func (*NoopTelemetry) LogEvent(ctx context.Context, event any) {
+	// noop
+}

@@ -41,9 +41,7 @@ def _system_go_bootstrap_toolchain_impl(ctx):
     go_cmd = cmd_script(ctx, "go", cmd_args(go), script_language)
 
     return [
-        DefaultInfo(sub_targets = {"go": [
-            RunInfo(go_cmd),
-        ]}),
+        DefaultInfo(),
         GoBootstrapToolchainInfo(
             env_go_arch = go_arch,
             env_go_os = go_os,
@@ -72,7 +70,9 @@ def _system_go_toolchain_impl(ctx):
     go = "go.exe" if go_os == "windows" else "go"
 
     return [
-        DefaultInfo(),
+        DefaultInfo(sub_targets = {"go": [
+            RunInfo(go),
+        ]}),
         GoToolchainInfo(
             assembler = RunInfo(cmd_script(ctx, "asm", cmd_args(go, "tool", "asm"), script_language)),
             cgo = RunInfo(cmd_script(ctx, "cgo", cmd_args(go, "tool", "cgo"), script_language)),
