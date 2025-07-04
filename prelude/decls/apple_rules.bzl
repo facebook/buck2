@@ -28,6 +28,7 @@ load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", 
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
+load("@prelude//apple/user:apple_watchos_bundle.bzl", "apple_watchos_bundle_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -95,6 +96,13 @@ def apple_macos_bundle_attrs():
     attributes = apple_bundle_default_attrs()
     attributes.update({
         "bundle_type": attrs.string(default = "default"),
+    })
+    return attributes
+
+def apple_watchos_bundle_attrs():
+    attributes = apple_bundle_default_attrs()
+    attributes.update({
+        "bundle_type": attrs.string(default = "watchapp"),
     })
     return attributes
 
@@ -1274,6 +1282,12 @@ apple_macos_bundle = prelude_rule(
     attrs = apple_macos_bundle_attrs(),
 )
 
+apple_watchos_bundle = prelude_rule(
+    name = "apple_watchos_bundle",
+    impl = apple_watchos_bundle_impl,
+    attrs = apple_watchos_bundle_attrs(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1292,6 +1306,7 @@ ios_rules = struct(
     apple_spm_package = apple_spm_package,
     apple_static_archive = apple_static_archive,
     apple_universal_executable = apple_universal_executable,
+    apple_watchos_bundle = apple_watchos_bundle,
     apple_xcframework = apple_xcframework,
     core_data_model = core_data_model,
     cxx_universal_executable = cxx_universal_executable,

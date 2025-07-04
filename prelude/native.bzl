@@ -352,7 +352,7 @@ def _apple_bundle_macro_stub(**kwargs):
 
 def _apple_watchos_bundle_macro_stub(**kwargs):
     apple_bundle_macro_impl(
-        apple_bundle_rule = _user_rules["apple_watchos_bundle"],
+        apple_bundle_rule = __rules__["apple_watchos_bundle"],
         apple_resource_bundle_rule = _user_rules["apple_resource_bundle"],
         **kwargs
     )
