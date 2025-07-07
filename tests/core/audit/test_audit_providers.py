@@ -63,6 +63,17 @@ async def test_audit_providers_with_single_modifier(buck: Buck) -> None:
 
 
 @buck_test(data_dir="modifiers")
+async def test_audit_providers_with_multiple_target_patterns(buck: Buck) -> None:
+    result = await buck.audit("providers", "//:dummy?//:macos", "//:dummy?//:arm")
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=GOLDEN_DIRECTORY
+        + "audit_providers_with_multiple_target_patterns.golden.txt",
+    )
+
+
+@buck_test(data_dir="modifiers")
 async def test_audit_providers_with_multiple_modifiers(buck: Buck) -> None:
     result = await buck.audit("providers", "//:dummy?//:macos+//:arm")
 
@@ -119,8 +130,63 @@ async def test_audit_providers_modifiers_with_subtarget(buck: Buck) -> None:
 
 
 @buck_test(data_dir="modifiers")
+async def test_audit_providers_modifiers_with_target_universe(buck: Buck) -> None:
+    result = await buck.audit(
+        "providers", "//:dummy", "--target-universe", "//:dummy?//:linux"
+    )
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=GOLDEN_DIRECTORY
+        + "audit_providers_modifiers_with_target_universe.golden.txt",
+    )
+
+
+@buck_test(data_dir="modifiers")
+async def test_audit_providers_modifiers_with_multiple_target_universe(
+    buck: Buck,
+) -> None:
+    result = await buck.audit(
+        "providers",
+        "//:dummy",
+        "--target-universe",
+        "//:dummy?//:linux,//:dummy?//:macos",
+    )
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=GOLDEN_DIRECTORY
+        + "audit_providers_modifiers_with_multiple_target_universe.golden.txt",
+    )
+
+
+@buck_test(data_dir="modifiers")
 async def test_audit_providers_modifiers_fail_with_global(buck: Buck) -> None:
     await expect_failure(
         buck.audit("providers", "--modifier", "//:linux", "//:dummy?//:arm"),
         stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+    )
+
+    await expect_failure(
+        buck.audit(
+            "providers",
+            "--modifier",
+            "//:linux",
+            "//:dummy",
+            "--target-universe",
+            "//:dummy?//:arm",
+        ),
+        stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+    )
+
+
+@buck_test(data_dir="modifiers")
+async def test_audit_providers_modifiers_fail_with_pattern_modifier_and_target_universe_modifier(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.audit(
+            "providers", "//:dummy?//:macos", "--target-universe", "//:dummy?//:linux"
+        ),
+        stderr_regex=r"Cannot use \?modifier syntax in target pattern expression with --target-universe flag",
     )
