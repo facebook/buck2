@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(
     ":mockingbird_types.bzl",
     "MockingbirdLibraryInfo",
@@ -16,7 +15,7 @@ load(
     "MockingbirdToolchainInfo",
 )
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def mockingbird_mock_impl(ctx: AnalysisContext) -> list[Provider]:
     if not MockingbirdLibraryInfo in ctx.attrs.module:
         fail("This module does not contain any swift files. Mockingbird only creates generated mock files for swift code.")
 
@@ -75,7 +74,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         MockingbirdSourcesInfo(srcs = [mockingbird_source]),
     ]
 
-def _attrs():
+def mockingbird_mock_attrs():
     attribs = {
         ## If the superclass for an object being mocked is in another module add it as a dep so mockingbird can find the implementation.
         "deps": attrs.list(attrs.dep(), default = []),
@@ -91,12 +90,6 @@ def _attrs():
         APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
     }
     return attribs
-
-registration_spec = RuleRegistrationSpec(
-    name = "mockingbird_mock",
-    impl = _impl,
-    attrs = _attrs(),
-)
 
 # Produce JSON project description for Mockingbird codegen
 # https://mockingbirdswift.com/json-project-description

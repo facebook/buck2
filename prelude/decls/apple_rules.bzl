@@ -24,6 +24,7 @@ load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
+load("@prelude//apple/mockingbird:mockingbird_mock.bzl", "mockingbird_mock_attrs", "mockingbird_mock_impl")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
@@ -1349,6 +1350,12 @@ apple_resource_dedupe_alias = prelude_rule(
     } | apple_common.skip_universal_resource_dedupe_arg(),
 )
 
+mockingbird_mock = prelude_rule(
+    name = "mockingbird_mock",
+    impl = mockingbird_mock_impl,
+    attrs = mockingbird_mock_attrs(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1374,6 +1381,7 @@ ios_rules = struct(
     apple_xcframework = apple_xcframework,
     core_data_model = core_data_model,
     cxx_universal_executable = cxx_universal_executable,
+    mockingbird_mock = mockingbird_mock,
     prebuilt_apple_framework = prebuilt_apple_framework,
     scene_kit_assets = scene_kit_assets,
     swift_toolchain = swift_toolchain,
