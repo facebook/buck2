@@ -16,9 +16,8 @@ async def test_hash_changes_after_buckconfig_rollout(buck: Buck) -> None:
         print("[buck2]", file=f)
         print("new_platform_hash_rollout = 1", file=f)
     result2 = await buck.cquery("//:target")
-    # FIXME(scottcao): This is a bug. They should not be equal.
-    assert result1.stdout == result2.stdout
+    assert result1.stdout != result2.stdout
 
     await buck.kill()
     result3 = await buck.cquery("//:target")
-    assert result1.stdout != result3.stdout
+    assert result2.stdout == result3.stdout
