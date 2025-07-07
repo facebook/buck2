@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
@@ -133,3 +134,25 @@ async def test_no_read_through_symlinks(buck: Buck) -> None:
         "--remote-only",
     )
     assert res.stdout.strip() == "True"
+
+
+@buck_test(setup_eden=True)
+async def test_eden_io_read_symlink_dir_build_target(buck: Buck) -> None:
+    setup_symlink(buck.cwd / "testlink", buck.cwd / "symdir" / "dir")
+
+    # FIXME(minglunli): read_dir fails on symlink on Eden I/O because it's not treated as a directory
+    await expect_failure(
+        buck.build("//:symlink_dep"),
+        stderr_regex="Eden service error: testlink: path must be a directory",
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_eden_io_read_symlink_dir_list_target(buck: Buck) -> None:
+    setup_symlink(buck.cwd / "testlink", buck.cwd / "symdir")
+
+    # FIXME(minglunli): read_dir fails on symlink on Eden I/O because it's not treated as a directory
+    await expect_failure(
+        buck.targets("//testlink/dir:"),
+        stderr_regex="Eden service error: testlink: path must be a directory",
+    )
