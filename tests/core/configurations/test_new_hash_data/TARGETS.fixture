@@ -1,0 +1,16 @@
+constraint_setting(name = "constraint")
+
+constraint_value(
+    name = "value",
+    constraint_setting = ":constraint",
+)
+
+platform(
+    name = "platform",
+    constraint_values = [":value"],
+)
+
+stub(
+    name = "target",
+    default_target_platform = ":platform",
+)
