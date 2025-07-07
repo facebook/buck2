@@ -93,6 +93,8 @@ impl<'v> StarlarkAuditCtx<'v> {
 
 /// The context for performing `audit` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the audit functions available within audit command.
+///
+/// An instance may be obtained with [`bxl.Context.audit()`](../Context/#contextaudit).
 #[starlark_module]
 fn audit_methods(builder: &mut MethodsBuilder) {
     /// Returns either:

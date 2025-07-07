@@ -64,6 +64,10 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyCqueryCtx {
     }
 }
 
+/// The context for performing lazy `cquery` operations in bxl. The functions offered on this ctx are
+/// the same behaviour as the query functions available within cquery command.
+///
+/// An instance may be obtained with [`bxl.LazyContext.cquery()`](../LazyContext#lazycontextcquery).
 #[starlark_module]
 fn lazy_cquery_methods(builder: &mut MethodsBuilder) {
     /// Evaluates some general query string. `query_args` can be a target_set of unconfigured nodes, or

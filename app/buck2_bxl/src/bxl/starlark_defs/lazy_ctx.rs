@@ -53,8 +53,6 @@ enum BxlBuildArtifactError {
     NotSupportDeclaredArtifact(String),
 }
 
-/// Context for lazy/batch/error handling operations.
-/// Available as `ctx.lazy`, has type `bxl.LazyContext`.
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -91,6 +89,9 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyCtx<'v> {
     }
 }
 
+/// Context for lazy/batch/error handling operations.
+///
+/// Available as [`bxl.Context.lazy`](../Context#contextlazy).
 #[starlark_module]
 fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// Join two lazy operations into a single operation that can be evaluated.
