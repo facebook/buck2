@@ -175,7 +175,12 @@ impl<Node: NodeLike> StarlarkTargetSet<Node> {
 }
 
 /// A set-like object for managing buck2 target nodes.
-/// It can be either `ConfiguredTargetSet` or `UnConfiguredTargetSet` where contains either [`ConfiguredTargetNode`](../ConfiguredTargetNode) or [`UnconfiguredTargetNode`](../UnconfiguredTargetNode) respectively.
+///
+/// It can be obtained from several functions in [`bxl.Context`](../Context) and
+/// [`bxl.UqueryContext`](../UqueryContext)/[`bxl.CqueryContext`](../CqueryContext)/[`bxl.AqueryContext`](../AqueryContext),
+/// among other places.
+///
+/// It can be either [`ConfiguredTargetSet`](../ConfiguredTargetSet) or [`UnconfiguredTargetSet`](../UnconfiguredTargetSet) which respectively contain either [`ConfiguredTargetNode`](../ConfiguredTargetNode) or [`UnconfiguredTargetNode`](../UnconfiguredTargetNode).
 ///
 /// It provides common set operations for target nodes.
 /// It supports iteration, indexing, addition (union), subtraction (difference), equality comparison, and intersection operations.
