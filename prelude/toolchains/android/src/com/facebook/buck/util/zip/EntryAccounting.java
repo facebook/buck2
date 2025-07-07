@@ -10,7 +10,8 @@
 
 package com.facebook.buck.util.zip;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.CountingOutputStream;
@@ -21,7 +22,6 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
-import javax.annotation.Nullable;
 
 /**
  * A wrapper containing the {@link ZipEntry} and additional book keeping information required to
@@ -41,11 +41,11 @@ class EntryAccounting {
 
   private static final int DATA_DESCRIPTOR_FLAG = 1 << 3;
   private static final int UTF8_NAMES_FLAG = 1 << 11;
-  private static final int ARBITRARY_SIZE = 8192;
 
   private final ZipEntry entry;
   private final Method method;
   private Hasher crc = Hashing.crc32().newHasher();
+  private LazyDeflate deflater = new LazyDeflate();
   private long offset;
   private long length = 0;
   private long externalAttributes = 0;
@@ -61,9 +61,6 @@ class EntryAccounting {
    */
   private int flags = UTF8_NAMES_FLAG;
 
-  @Nullable private Deflater deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, true);
-  @Nullable private byte[] buffer = new byte[ARBITRARY_SIZE];
-
   public EntryAccounting(ZipEntry entry, long currentOffset) {
     this.entry = entry;
     this.method = Method.detect(entry.getMethod());
@@ -74,7 +71,7 @@ class EntryAccounting {
     }
 
     if (entry instanceof CustomZipEntry) {
-      deflater.setLevel(((CustomZipEntry) entry).getCompressionLevel());
+      deflater.setCompressionLevel(((CustomZipEntry) entry).getCompressionLevel());
       externalAttributes = ((CustomZipEntry) entry).getExternalAttributes();
     }
   }
@@ -101,6 +98,11 @@ class EntryAccounting {
         | instance.get(Calendar.HOUR_OF_DAY) << 11
         | instance.get(Calendar.MINUTE) << 5
         | instance.get(Calendar.SECOND) >> 1;
+  }
+
+  /** Visible for test only */
+  ZipEntry getEntry() {
+    return entry;
   }
 
   public String getName() {
@@ -246,14 +248,8 @@ class EntryAccounting {
     return out.getCount();
   }
 
-  private int deflate(OutputStream out) throws IOException {
-    Preconditions.checkState(deflater != null);
-    Preconditions.checkState(buffer != null);
-    int written = deflater.deflate(buffer, 0, buffer.length);
-    if (written > 0) {
-      out.write(buffer, 0, written);
-    }
-    return written;
+  public void write(OutputStream out, byte[] b) throws IOException {
+    write(out, b, 0, b.length);
   }
 
   public void write(OutputStream out, byte[] b, int off, int len) throws IOException {
@@ -266,12 +262,7 @@ class EntryAccounting {
       out.write(b, off, len);
       length += len;
     } else if (method == Method.DEFLATE) {
-      Preconditions.checkState(deflater != null);
-      Preconditions.checkState(!deflater.finished());
-      deflater.setInput(b, off, len);
-      while (!deflater.needsInput()) {
-        deflate(out);
-      }
+      deflater.write(out, b, off, len);
     }
   }
 
@@ -280,19 +271,15 @@ class EntryAccounting {
    * local file header, but counting the data descriptor if present). Must be called exactly once.
    */
   public long finish(OutputStream out) throws IOException {
-    Preconditions.checkState(deflater != null);
     if (method == Method.STORE) {
-      Preconditions.checkState(
+      checkState(
           entry.getSize() == length && entry.getCompressedSize() == length,
           "Number of bytes written differs from what is specified in the entry.");
-      Preconditions.checkState(
+      checkState(
           entry.getCrc() == calculateCrc(),
           "CRC of bytes written differs from what is specified in the entry.");
     } else if (method == Method.DEFLATE) {
-      deflater.finish();
-      while (!deflater.finished()) {
-        deflate(out);
-      }
+      deflater.finish(out);
       entry.setSize(deflater.getBytesRead());
       entry.setCompressedSize(deflater.getBytesWritten());
       entry.setCrc(calculateCrc());
@@ -303,8 +290,6 @@ class EntryAccounting {
 
     // regardless of the method used, end the deflater to free native resources.
     deflater.end();
-    deflater = null;
-    buffer = null;
 
     return entry.getCompressedSize() + dataDescriptorLength;
   }
@@ -344,6 +329,77 @@ class EntryAccounting {
           return STORE;
         default:
           throw new IllegalArgumentException("Cannot determine zip method from: " + fromZipMethod);
+      }
+    }
+  }
+
+  /**
+   * A lazy initialization wrapper around Deflater for compressing data. The
+   * java.util.zip.Deflater.DeflaterZStreamRef is expensive to initialize, and is not always used if
+   * dealing with directories or read-only entries.
+   */
+  static class LazyDeflate {
+
+    private static final int DEFAULT_BUFFER_SIZE = 8192;
+
+    private byte[] buffer;
+    private Deflater deflater;
+    private int compressionLevel = Deflater.DEFAULT_COMPRESSION;
+
+    void setCompressionLevel(int compressionLevel) {
+      this.compressionLevel = compressionLevel;
+    }
+
+    long getBytesWritten() {
+      return deflater == null ? 0 : deflater.getBytesWritten();
+    }
+
+    long getBytesRead() {
+      return deflater == null ? 0 : deflater.getBytesRead();
+    }
+
+    /** Writes data to the output stream. */
+    void write(OutputStream out, byte[] bytes, int off, int len) throws IOException {
+      initializeIfNeeded();
+      deflater.setInput(bytes, off, len);
+      while (!deflater.needsInput()) {
+        deflate(out);
+      }
+    }
+
+    /** Finishes the compression process. */
+    void finish(OutputStream out) throws IOException {
+      initializeIfNeeded();
+      deflater.finish();
+      while (!deflater.finished()) {
+        deflate(out);
+      }
+    }
+
+    /** Compress data to the output stream. */
+    private int deflate(OutputStream out) throws IOException {
+      initializeIfNeeded();
+      final int written = deflater.deflate(buffer, 0, buffer.length);
+      if (written > 0) {
+        out.write(buffer, 0, written);
+      }
+      return written;
+    }
+
+    /** Initializes the deflater if necessary. */
+    private void initializeIfNeeded() {
+      if (deflater == null) {
+        buffer = new byte[DEFAULT_BUFFER_SIZE];
+        deflater = new Deflater(compressionLevel, true);
+      }
+    }
+
+    /** Ends the compression process and releases resources. */
+    void end() {
+      if (deflater != null) {
+        deflater.end();
+        deflater = null;
+        buffer = null;
       }
     }
   }
