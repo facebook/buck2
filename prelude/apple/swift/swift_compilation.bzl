@@ -1067,7 +1067,7 @@ def _add_swift_deps_flags(
         implicit_search_path_tset = get_implicit_framework_search_path_providers(
             ctx,
             None,
-            ctx.attrs.deps,
+            ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []),
         )
         cmd.add(implicit_search_path_tset.project_as_args("swift_framework_implicit_search_paths_args"))
 
