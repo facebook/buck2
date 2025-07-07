@@ -1377,7 +1377,7 @@ resource_group_map = prelude_rule(
     },
 )
 
-ios_rules = struct(
+apple_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
     apple_bundle = apple_bundle,

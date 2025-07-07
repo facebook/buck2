@@ -18,7 +18,7 @@ load("@prelude//:sh_test.bzl", "sh_test_impl")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
 load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-load("@prelude//apple:apple_rules_decls.bzl", "ios_rules")
+load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//apple/user:apple_resource_transition.bzl", "apple_resource_transition")
 load("@prelude//apple/user:macos_transition.bzl", "macos_transition")
@@ -138,7 +138,7 @@ categorized_rule_decl_records = {
     _GROOVY_RULES_KEY: groovy_rules,
     _HALIDE_RULES_KEY: halide_rules,
     _HASKELL_RULES_KEY: haskell_rules,
-    _APPLE_RULES_KEY: ios_rules,
+    _APPLE_RULES_KEY: apple_rules,
     _JAVA_RULES_KEY: java_rules,
     _JS_RULES_KEY: js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
