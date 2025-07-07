@@ -10,5 +10,5 @@
 
 package com.facebook.buck.jvm.kotlin.abtesting.ksic
 
-const val UNIVERSE_NAME: String = "ksic_universe"
+const val UNIVERSE_NAME: String = "devx_ksic_universe"
 const val PARAM_KSIC_ENABLED: String = "ksic_enabled"
