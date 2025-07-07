@@ -15,7 +15,6 @@ use buck2_audit::providers::AuditProvidersCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
-use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -28,7 +27,7 @@ use futures::StreamExt;
 use futures::stream::FuturesOrdered;
 
 use crate::ServerAuditSubcommand;
-use crate::common::target_resolution_config::audit_command_target_resolution_config_with_modifiers;
+use crate::common::target_resolution_config::audit_command_target_resolution_config;
 
 #[async_trait]
 impl ServerAuditSubcommand for AuditProvidersCommand {
@@ -59,6 +58,9 @@ async fn server_execute_with_dice(
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
 ) -> buck2_error::Result<()> {
+    let target_resolution_config =
+        audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
+
     let provider_labels_with_modifiers =
         parse_and_resolve_provider_labels_with_modifiers_from_cli_args(
             &mut ctx,
@@ -69,21 +71,8 @@ async fn server_execute_with_dice(
 
     let mut futs = Vec::new();
     for label_with_modifiers in provider_labels_with_modifiers {
-        let ProvidersLabelWithModifiers {
-            providers_label,
-            modifiers,
-        } = label_with_modifiers;
-
-        let target_resolution_config = audit_command_target_resolution_config_with_modifiers(
-            &mut ctx,
-            &command.target_cfg,
-            server_ctx,
-            modifiers.as_slice(),
-        )
-        .await?;
-
         for configured_providers_label in target_resolution_config
-            .get_configured_provider_label(&mut ctx, &providers_label)
+            .get_configured_provider_label_with_modifiers(&mut ctx, &label_with_modifiers)
             .await?
         {
             futs.push(DiceComputations::declare_closure(|ctx| {

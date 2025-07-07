@@ -12,6 +12,7 @@ use buck2_cli_proto::TargetCfg;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
+use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_core::pattern::pattern::TargetLabelWithExtra;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
@@ -23,6 +24,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::configured_universe::UNIVERSE_FROM_LITERALS;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
+use dupe::Dupe;
 use gazebo::prelude::VecExt;
 
 use crate::ctx::ServerCommandContextTrait;
@@ -37,6 +39,17 @@ enum PatternNotSupportedError {
         "Patterns with configuration label without configuration hash are not supported: `{0}`"
     )]
     ConfigurationLabelWithoutHashNotSupported(String),
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+pub enum ModifiersError {
+    #[error("Cannot use ?modifier syntax in target pattern expression with --target-universe flag")]
+    PatternModifiersWithTargetUniverse(),
+    #[error(
+        "Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
+    )]
+    PatternModifiersWithGlobalModifiers(),
 }
 
 pub enum TargetResolutionConfig {
@@ -70,42 +83,38 @@ impl TargetResolutionConfig {
         }
     }
 
-    pub async fn from_args_with_modifiers(
-        ctx: &mut DiceComputations<'_>,
-        target_cfg: &TargetCfg,
-        server_ctx: &dyn ServerCommandContextTrait,
-        target_universe: &[String],
-        modifiers: Option<&[String]>,
-    ) -> buck2_error::Result<TargetResolutionConfig> {
-        let Some(modifiers) = modifiers else {
-            return Self::from_args(ctx, target_cfg, server_ctx, target_universe).await;
-        };
-
-        if !target_cfg.cli_modifiers.is_empty() {
-            return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
-            ));
-        }
-
-        let mut target_cfg_with_modifiers = target_cfg.clone();
-        target_cfg_with_modifiers
-            .cli_modifiers
-            .extend_from_slice(modifiers);
-
-        Self::from_args(ctx, &target_cfg_with_modifiers, server_ctx, target_universe).await
-    }
-
     pub async fn get_configured_target(
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &TargetLabel,
+        modifiers: Option<&[String]>,
     ) -> buck2_error::Result<Vec<ConfiguredTargetLabel>> {
         match self {
-            TargetResolutionConfig::Default(global_cfg_options) => Ok(vec![
-                ctx.get_configured_target(label, global_cfg_options).await?,
-            ]),
+            TargetResolutionConfig::Default(global_cfg_options) => {
+                let local_cfg_options = match modifiers {
+                    None => global_cfg_options.dupe(),
+                    Some(modifiers) => {
+                        if !global_cfg_options.cli_modifiers.is_empty() {
+                            return Err(
+                                ModifiersError::PatternModifiersWithGlobalModifiers().into()
+                            );
+                        }
+
+                        GlobalCfgOptions {
+                            target_platform: global_cfg_options.target_platform.dupe(),
+                            cli_modifiers: modifiers.to_vec().into(),
+                        }
+                    }
+                };
+                Ok(vec![
+                    ctx.get_configured_target(label, &local_cfg_options).await?,
+                ])
+            }
             TargetResolutionConfig::Universe(universe) => {
+                if modifiers.is_some() {
+                    return Err(ModifiersError::PatternModifiersWithTargetUniverse().into());
+                }
+
                 // TODO(nga): whoever called this function,
                 //    they may have resolved pattern unnecessarily.
                 Ok(universe.get_target_label(label))
@@ -119,10 +128,31 @@ impl TargetResolutionConfig {
         label: &ProvidersLabel,
     ) -> buck2_error::Result<Vec<ConfiguredProvidersLabel>> {
         Ok(self
-            .get_configured_target(ctx, label.target())
+            .get_configured_target(ctx, label.target(), None)
             .await?
             .into_map(|configured_target_label| {
                 ConfiguredProvidersLabel::new(configured_target_label, label.name().clone())
+            }))
+    }
+
+    pub async fn get_configured_provider_label_with_modifiers(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        label_with_modifiers: &ProvidersLabelWithModifiers,
+    ) -> buck2_error::Result<Vec<ConfiguredProvidersLabel>> {
+        let ProvidersLabelWithModifiers {
+            providers_label,
+            modifiers,
+        } = label_with_modifiers;
+
+        Ok(self
+            .get_configured_target(ctx, providers_label.target(), modifiers.as_slice())
+            .await?
+            .into_map(|configured_target_label| {
+                ConfiguredProvidersLabel::new(
+                    configured_target_label,
+                    providers_label.name().clone(),
+                )
             }))
     }
 
@@ -137,7 +167,9 @@ impl TargetResolutionConfig {
             modifiers: _,
         } = &label;
         match &extra.cfg {
-            ConfigurationPredicate::Any => self.get_configured_target(ctx, &target_label).await,
+            ConfigurationPredicate::Any => {
+                self.get_configured_target(ctx, &target_label, None).await
+            }
             ConfigurationPredicate::Builtin(p) => Err(
                 PatternNotSupportedError::BuiltinConfigurationsNotSupported(p.to_string()).into(),
             ),

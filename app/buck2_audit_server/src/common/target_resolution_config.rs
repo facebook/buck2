@@ -26,19 +26,3 @@ pub(crate) async fn audit_command_target_resolution_config(
     )
     .await
 }
-
-pub(crate) async fn audit_command_target_resolution_config_with_modifiers(
-    ctx: &mut DiceComputations<'_>,
-    target_cfg: &TargetCfgWithUniverseOptions,
-    server_ctx: &dyn ServerCommandContextTrait,
-    modifiers: Option<&[String]>,
-) -> buck2_error::Result<TargetResolutionConfig> {
-    TargetResolutionConfig::from_args_with_modifiers(
-        ctx,
-        &target_cfg.target_cfg.target_cfg(),
-        server_ctx,
-        &target_cfg.target_universe,
-        modifiers,
-    )
-    .await
-}

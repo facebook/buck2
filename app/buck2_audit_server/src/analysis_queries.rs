@@ -56,7 +56,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                             for (target, TargetPatternExtra, _modifiers) in targets {
                                 let label = TargetLabel::new(package.dupe(), target.as_ref());
                                 for configured_target in target_resolution_config
-                                    .get_configured_target(&mut ctx, &label)
+                                    .get_configured_target(&mut ctx, &label, None)
                                     .await?
                                 {
                                     let node =
