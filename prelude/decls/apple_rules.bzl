@@ -36,7 +36,9 @@ load("@prelude//apple/user:apple_toolchain_override.bzl", "apple_toolchain_overr
 load("@prelude//apple/user:apple_watchos_bundle.bzl", "apple_watchos_bundle_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
+load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
@@ -1356,6 +1358,25 @@ mockingbird_mock = prelude_rule(
     attrs = mockingbird_mock_attrs(),
 )
 
+resource_group_map = prelude_rule(
+    name = "resource_group_map",
+    impl = resource_group_map_impl,
+    attrs = {
+        "map": attrs.list(
+            attrs.tuple(
+                attrs.string(),
+                attrs.list(
+                    attrs.tuple(
+                        attrs.one_of(attrs.dep(), attrs.list(attrs.dep())),
+                        attrs.enum(Traversal.values()),
+                        attrs.option(attrs.one_of(attrs.dep(providers = [GroupFilterInfo]), attrs.string())),
+                    ),
+                ),
+            ),
+        ),
+    },
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1383,6 +1404,7 @@ ios_rules = struct(
     cxx_universal_executable = cxx_universal_executable,
     mockingbird_mock = mockingbird_mock,
     prebuilt_apple_framework = prebuilt_apple_framework,
+    resource_group_map = resource_group_map,
     scene_kit_assets = scene_kit_assets,
     swift_toolchain = swift_toolchain,
 )

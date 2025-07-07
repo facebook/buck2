@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//android/user:android_emulators.bzl", _android_emulators_spec = "registration_spec")
-load("@prelude//apple/user:resource_group_map.bzl", _resource_group_map_spec = "registration_spec")
 load("@prelude//cxx/user:cxx_toolchain_override.bzl", _cxx_toolchain_override_spec = "cxx_toolchain_override_registration_spec")
 load("@prelude//cxx/user:link_group_map.bzl", _link_group_map_spec = "registration_spec")
 load("@prelude//http_archive:extract_archive.bzl", _extract_archive_spec = "registration_spec")
@@ -19,7 +18,6 @@ _all_specs = [
     _extract_archive_spec,
     _android_emulators_spec,
     _link_group_map_spec,
-    _resource_group_map_spec,
     _cxx_headers_bundle_spec,
     _cxx_toolchain_override_spec,
     _write_file_spec,
