@@ -24,6 +24,8 @@ prelude_rule = record(
     uses_plugins = field([list[plugins.PluginKind], None], None),
     supports_incoming_transition = field([bool, None], None),
     is_toolchain_rule = field([bool, None], None),
+    # TODO(mgd): should be `transition | None`, but `transition` does not work as type.
+    cfg = field(typing.Any | None, None),
 )
 
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]

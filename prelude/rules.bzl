@@ -54,8 +54,13 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     # Map of string identifier to platform.
     attributes[APPLE_PLATFORMS_KEY] = attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {})
 
+    cfg_via_transitions_map = transitions.get(name)
+    cfg_via_rule_spec = rule_spec.cfg
+    if cfg_via_rule_spec and cfg_via_transitions_map:
+        fail("Cannot specify rule transition via `prelude_rule` and via transitions map, pick one mechanism only")
+    cfg = cfg_via_rule_spec or cfg_via_transitions_map
+
     extra_args = dict(kwargs)
-    cfg = transitions.get(name)
     if cfg != None:
         extra_args["cfg"] = cfg
 
@@ -137,6 +142,7 @@ def _update_categorized_rules(categorized_rules: dict[str, dict[str, prelude_rul
                     further = rule_spec.further,
                     uses_plugins = rule_spec.uses_plugins,
                     supports_incoming_transition = rule_spec.supports_incoming_transition,
+                    cfg = rule_spec.cfg,
                 )
             else:
                 if attr_category not in categorized_rules:
