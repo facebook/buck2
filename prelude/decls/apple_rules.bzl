@@ -14,7 +14,7 @@
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
@@ -26,6 +26,7 @@ load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
+load("@prelude//apple/user:apple_resource_bundle.bzl", "apple_resource_bundle_impl")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
 load("@prelude//apple/user:apple_toolchain_override.bzl", "apple_toolchain_override_impl")
@@ -107,6 +108,38 @@ def apple_watchos_bundle_attrs():
         "bundle_type": attrs.string(default = "watchapp"),
     })
     return attributes
+
+def _get_apple_resources_toolchain_attr():
+    return attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo])
+
+def _apple_resource_bundle_attrs():
+    attribs = {
+        "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
+        "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
+        "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
+        "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
+        "info_plist": attrs.source(),
+        "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+        "labels": attrs.list(attrs.string(), default = []),
+        "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
+        "privacy_manifest": attrs.option(attrs.source(), default = None),
+        "product_name": attrs.option(attrs.string(), default = None),
+        "product_name_from_module_name": attrs.bool(default = False),
+        "resource_group": attrs.option(attrs.string(), default = None),
+        "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
+        "universal": attrs.option(attrs.bool(), default = None),
+        # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
+        "_apple_toolchain": _get_apple_resources_toolchain_attr(),
+        # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
+        # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
+        "_bundle_target_name": attrs.string(),
+        "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
+    }
+    attribs.update(get_apple_info_plist_build_system_identification_attrs())
+    attribs.update(apple_common.apple_tools_arg())
+    return attribs
 
 apple_asset_catalog = prelude_rule(
     name = "apple_asset_catalog",
@@ -1300,6 +1333,12 @@ apple_toolchain_override = prelude_rule(
     is_toolchain_rule = True,
 )
 
+apple_resource_bundle = prelude_rule(
+    name = "apple_resource_bundle",
+    impl = apple_resource_bundle_impl,
+    attrs = _apple_resource_bundle_attrs(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1314,6 +1353,7 @@ ios_rules = struct(
     apple_toolchain_set = apple_toolchain_set,
     apple_toolchain_override = apple_toolchain_override,
     apple_tools = apple_tools,
+    apple_resource_bundle = apple_resource_bundle,
     apple_selective_debugging = apple_selective_debugging,
     apple_simulators = apple_simulators,
     apple_spm_package = apple_spm_package,
