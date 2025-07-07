@@ -15,7 +15,7 @@ prelude.go_library(
     visibility = ["PUBLIC"],
     deps = [
         # @oss-disable[end= ]: "fbcode//third-party-go/vendor/golang.org/x/tools/go/packages:packages",
-        # "prelude//go/tools/gopackagesdriver/third-party:golang.org/x/tools/go/packages", # @oss-enable
+        "prelude//go/tools/gopackagesdriver/third-party:golang.org/x/tools/go/packages", # @oss-enable
     ],
 )
 
