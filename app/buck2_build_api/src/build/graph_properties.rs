@@ -42,6 +42,7 @@ pub struct GraphPropertiesOptions {
     pub configured_graph_unconfigured_sketch: bool,
     pub total_configured_graph_sketch: bool,
     pub total_configured_graph_unconfigured_sketch: bool,
+    pub total_per_configuration_sketch: bool,
 }
 
 impl fmt::Display for GraphPropertiesOptions {
@@ -52,6 +53,7 @@ impl fmt::Display for GraphPropertiesOptions {
             configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
+            total_per_configuration_sketch,
         } = *self;
 
         let mut comma = commas();
@@ -81,6 +83,11 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "total_configured_graph_unconfigured_sketch")?;
         }
 
+        if total_per_configuration_sketch {
+            comma(f)?;
+            write!(f, "total_per_configuration_sketch")?;
+        }
+
         Ok(())
     }
 }
@@ -93,6 +100,7 @@ impl GraphPropertiesOptions {
             configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
+            total_per_configuration_sketch,
         } = self;
 
         !configured_graph_size
@@ -100,6 +108,7 @@ impl GraphPropertiesOptions {
             && !configured_graph_unconfigured_sketch
             && !total_configured_graph_sketch
             && !total_configured_graph_unconfigured_sketch
+            && !total_per_configuration_sketch
     }
 
     pub(crate) fn should_compute_configured_graph_sketch(self) -> bool {
