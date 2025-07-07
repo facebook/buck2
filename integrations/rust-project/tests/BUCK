@@ -1,5 +1,7 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 
+oncall("rust_devx")
+
 buck2_e2e_test(
     name = "test_rust_project",
     srcs = [
