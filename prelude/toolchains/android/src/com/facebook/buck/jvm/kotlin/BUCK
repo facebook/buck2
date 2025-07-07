@@ -1,3 +1,4 @@
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -13,6 +14,8 @@ buck_kotlin_library(
     ],
     visibility = ["PUBLIC"],
     runtime_deps = [
+        "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/abtesting:abtesting",
+    ] if is_full_meta_repo() else [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/abtesting/noop:noop",
     ],
     deps = [

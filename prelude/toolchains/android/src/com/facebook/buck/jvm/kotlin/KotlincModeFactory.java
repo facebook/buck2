@@ -66,7 +66,7 @@ public class KotlincModeFactory {
       if (extraParams.getShouldIncrementalKotlicRunQe()
           && !experimentConfigService
               .loadConfig(KsicExperimentConstantsKt.UNIVERSE_NAME)
-              .getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true)) {
+              .getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false)) {
         LOG.info(
             "Non-incremental mode applied: experiment parameter "
                 + KsicExperimentConstantsKt.PARAM_KSIC_ENABLED
