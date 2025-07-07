@@ -14,6 +14,7 @@
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
+load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
@@ -27,6 +28,7 @@ load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion"
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
 load("@prelude//apple/user:apple_resource_bundle.bzl", "apple_resource_bundle_impl")
+load("@prelude//apple/user:apple_resource_transition.bzl", "apple_resource_transition")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
 load("@prelude//apple/user:apple_toolchain_override.bzl", "apple_toolchain_override_impl")
@@ -1339,6 +1341,14 @@ apple_resource_bundle = prelude_rule(
     attrs = _apple_resource_bundle_attrs(),
 )
 
+apple_resource_dedupe_alias = prelude_rule(
+    name = "apple_resource_dedupe_alias",
+    impl = apple_resource_dedupe_alias_impl,
+    attrs = {
+        "actual": attrs.transition_dep(cfg = apple_resource_transition),
+    } | apple_common.skip_universal_resource_dedupe_arg(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1354,6 +1364,7 @@ ios_rules = struct(
     apple_toolchain_override = apple_toolchain_override,
     apple_tools = apple_tools,
     apple_resource_bundle = apple_resource_bundle,
+    apple_resource_dedupe_alias = apple_resource_dedupe_alias,
     apple_selective_debugging = apple_selective_debugging,
     apple_simulators = apple_simulators,
     apple_spm_package = apple_spm_package,
