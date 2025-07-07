@@ -40,12 +40,12 @@ load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
+load("@prelude//decls:cxx_common.bzl", "cxx_common")
+load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:types.bzl", "Linkage")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
-load(":cxx_common.bzl", "cxx_common")
-load(":native_common.bzl", "native_common")
 
 AdditionalActions = ["pre_scheme_actions", "post_scheme_actions"]
 
