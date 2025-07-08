@@ -1,3 +1,4 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
 load("@prelude//toolchains/cxx/zig:defs.bzl", "cxx_zig_toolchain", "download_zig_distribution")
 

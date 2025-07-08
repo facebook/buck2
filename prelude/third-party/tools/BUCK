@@ -1,3 +1,4 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 source_listing()

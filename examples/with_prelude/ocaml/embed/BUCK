@@ -1,3 +1,4 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
 load("//:test_utils.bzl", "assert_output")
 
 _SUPPORTED = not host_info().os.is_windows

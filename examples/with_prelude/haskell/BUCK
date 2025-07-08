@@ -1,3 +1,4 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
 load("//:test_utils.bzl", "assert_output", "haskell_binary", "haskell_library")
 
 _SUPPORTED = host_info().os.is_macos or host_info().os.is_linux

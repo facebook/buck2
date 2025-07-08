@@ -1,3 +1,4 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
 # FIXME(marwhal): Get python_cextension example working again
 # python_binary(
 #     name = "cext",

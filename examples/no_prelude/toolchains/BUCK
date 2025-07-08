@@ -1,3 +1,4 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
 load("//:cpp_toolchain.bzl", "cpp_local_toolchain")
 load("//:go_toolchain.bzl", "go_toolchain", "toolchain_config")
 load("//:rust_toolchain.bzl", "rust_local_toolchain")
