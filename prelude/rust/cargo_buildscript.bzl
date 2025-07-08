@@ -27,6 +27,7 @@ load("@prelude//rust:targets.bzl", "targets")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "MetadataKind")
+load(":cargo_package.bzl", "apply_platform_attrs")
 load(":context.bzl", "DepCollectionContext")
 load(
     ":link_info.bzl",
@@ -152,8 +153,8 @@ _cargo_buildscript_rule = rule(
     impl = _cargo_buildscript_impl,
     attrs = {
         "buildscript": attrs.exec_dep(providers = [RunInfo]),
-        "env": attrs.dict(key = attrs.string(), value = attrs.arg()),
-        "features": attrs.list(attrs.string()),
+        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), default = {}),
+        "features": attrs.list(attrs.string(), default = []),
         "filegroup_for_manifest_dir": attrs.option(attrs.dict(key = attrs.string(), value = attrs.source()), default = None),
         "manifest_dir": attrs.option(attrs.dep(), default = None),
         "package_name": attrs.string(),
@@ -175,13 +176,14 @@ def buildscript_run(
         buildscript_rule,
         package_name,
         version,
-        features = [],
-        env = {},
+        platform = {},
         # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
         local_manifest_dir = None,
         # target or subtarget containing crate, e.g. ":serde.git[serde]"
         manifest_dir = None,
         **kwargs):
+    kwargs = apply_platform_attrs(platform, kwargs)
+
     if manifest_dir == None and local_manifest_dir == None:
         existing_filegroup_name = "{}-{}.crate".format(package_name, version)
         if rule_exists(existing_filegroup_name):
@@ -202,8 +204,6 @@ def buildscript_run(
         buildscript = buildscript_rule,
         package_name = package_name,
         version = version,
-        features = features,
-        env = env,
         filegroup_for_manifest_dir = filegroup_for_manifest_dir,
         manifest_dir = manifest_dir,
         **kwargs
