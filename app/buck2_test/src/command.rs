@@ -351,79 +351,10 @@ async fn test(
             test_executor_args.push("--config-entry".to_owned());
             test_executor_args.push(format!("host={}", platform));
 
-            let mut config_flags = String::new();
-            let mut config_files = String::new();
-            let mut flagfiles = String::new();
-            let mut modifiers = String::new();
-            let mut target_platforms = String::new();
-
-            for s in &client_ctx.representative_config_flags {
-                if let Some(source) = &s.source {
-                    match source {
-                        representative_config_flag::Source::ConfigFlag(s) => {
-                            if config_flags.is_empty() {
-                                config_flags.push_str(s);
-                            } else {
-                                config_flags.push(';');
-                                config_flags.push_str(s);
-                            }
-                        }
-                        representative_config_flag::Source::ConfigFile(s) => {
-                            if config_files.is_empty() {
-                                config_files.push_str(s);
-                            } else {
-                                config_files.push(';');
-                                config_files.push_str(s);
-                            }
-                        }
-                        representative_config_flag::Source::ModeFile(s) => {
-                            if flagfiles.is_empty() {
-                                flagfiles.push_str(s);
-                            } else {
-                                flagfiles.push(';');
-                                flagfiles.push_str(s);
-                            }
-                        }
-                        representative_config_flag::Source::Modifier(s) => {
-                            if modifiers.is_empty() {
-                                modifiers.push_str(s);
-                            } else {
-                                modifiers.push(';');
-                                modifiers.push_str(s);
-                            }
-                        }
-                        representative_config_flag::Source::TargetPlatforms(s) => {
-                            if target_platforms.is_empty() {
-                                target_platforms.push_str(s);
-                            } else {
-                                target_platforms.push(';');
-                                target_platforms.push_str(s);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !config_flags.is_empty() {
-                test_executor_args.push("--config-entry".to_owned());
-                test_executor_args.push(format!("config={}", config_flags));
-            }
-            if !config_files.is_empty() {
-                test_executor_args.push("--config-entry".to_owned());
-                test_executor_args.push(format!("config_file={}", config_flags));
-            }
-            if !flagfiles.is_empty() {
-                test_executor_args.push("--config-entry".to_owned());
-                test_executor_args.push(format!("mode={}", flagfiles));
-            }
-            if !modifiers.is_empty() {
-                test_executor_args.push("--config-entry".to_owned());
-                test_executor_args.push(format!("modifier={}", modifiers));
-            }
-            if !target_platforms.is_empty() {
-                test_executor_args.push("--config-entry".to_owned());
-                test_executor_args.push(format!("target_platforms={}", target_platforms));
-            }
+            generate_config_entry_args(
+                &mut test_executor_args,
+                &client_ctx.representative_config_flags,
+            );
 
             (test_executor, test_executor_args)
         }
@@ -1428,6 +1359,85 @@ impl TestLabelFiltering {
     }
 }
 
+fn generate_config_entry_args(
+    test_executor_args: &mut Vec<String>,
+    representative_config_flags: &[buck2_cli_proto::RepresentativeConfigFlag],
+) {
+    let mut config_flags = String::new();
+    let mut config_files = String::new();
+    let mut flagfiles = String::new();
+    let mut modifiers = String::new();
+    let mut target_platforms = String::new();
+
+    for s in representative_config_flags {
+        if let Some(source) = &s.source {
+            match source {
+                representative_config_flag::Source::ConfigFlag(s) => {
+                    if config_flags.is_empty() {
+                        config_flags.push_str(s);
+                    } else {
+                        config_flags.push(';');
+                        config_flags.push_str(s);
+                    }
+                }
+                representative_config_flag::Source::ConfigFile(s) => {
+                    if config_files.is_empty() {
+                        config_files.push_str(s);
+                    } else {
+                        config_files.push(';');
+                        config_files.push_str(s);
+                    }
+                }
+                representative_config_flag::Source::ModeFile(s) => {
+                    if flagfiles.is_empty() {
+                        flagfiles.push_str(s);
+                    } else {
+                        flagfiles.push(';');
+                        flagfiles.push_str(s);
+                    }
+                }
+                representative_config_flag::Source::Modifier(s) => {
+                    if modifiers.is_empty() {
+                        modifiers.push_str(s);
+                    } else {
+                        modifiers.push(';');
+                        modifiers.push_str(s);
+                    }
+                }
+                representative_config_flag::Source::TargetPlatforms(s) => {
+                    if target_platforms.is_empty() {
+                        target_platforms.push_str(s);
+                    } else {
+                        target_platforms.push(';');
+                        target_platforms.push_str(s);
+                    }
+                }
+            }
+        }
+    }
+
+    if !config_flags.is_empty() {
+        test_executor_args.push("--config-entry".to_owned());
+        test_executor_args.push(format!("config={}", config_flags));
+    }
+    if !config_files.is_empty() {
+        test_executor_args.push("--config-entry".to_owned());
+        test_executor_args.push(format!("config_file={}", config_files));
+    }
+    if !flagfiles.is_empty() {
+        test_executor_args.push("--config-entry".to_owned());
+        test_executor_args.push(format!("mode={}", flagfiles));
+    }
+    if !modifiers.is_empty() {
+        test_executor_args.push("--config-entry".to_owned());
+        test_executor_args.push(format!("modifier={}", modifiers));
+    }
+    if !target_platforms.is_empty() {
+        test_executor_args.push("--config-entry".to_owned());
+        test_executor_args.push(format!("target_platforms={}", target_platforms));
+    }
+}
+
 fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
     match s.split_once("$BUCK2_BINARY_DIR/") {
         Some(("", rest)) => {
@@ -1451,7 +1461,11 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_cli_proto::RepresentativeConfigFlag;
+    use buck2_cli_proto::representative_config_flag;
+
     use crate::command::TestLabelFiltering;
+    use crate::command::generate_config_entry_args;
 
     #[test]
     fn only_include_labels_in_includes() {
@@ -1518,5 +1532,155 @@ mod tests {
         );
 
         assert!(conflicting_filter.is_excluded(vec!["include_me"]));
+    }
+
+    #[test]
+    fn test_generate_config_entry_args_empty() {
+        let mut args = Vec::new();
+        let config_flags = Vec::new();
+
+        generate_config_entry_args(&mut args, &config_flags);
+
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_generate_config_entry_args_single_config_flag() {
+        let mut args = Vec::new();
+        let config_flags = vec![RepresentativeConfigFlag {
+            source: Some(representative_config_flag::Source::ConfigFlag(
+                "key=value".to_owned(),
+            )),
+        }];
+
+        generate_config_entry_args(&mut args, &config_flags);
+
+        assert_eq!(args, vec!["--config-entry", "config=key=value"]);
+    }
+
+    #[test]
+    fn test_generate_config_entry_args_multiple_config_flags() {
+        let mut args = Vec::new();
+        let config_flags = vec![
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFlag(
+                    "key1=value1".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFlag(
+                    "key2=value2".to_owned(),
+                )),
+            },
+        ];
+
+        generate_config_entry_args(&mut args, &config_flags);
+
+        assert_eq!(
+            args,
+            vec!["--config-entry", "config=key1=value1;key2=value2"]
+        );
+    }
+
+    #[test]
+    fn test_generate_config_entry_args_all_types() {
+        let mut args = Vec::new();
+        let config_flags = vec![
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFlag(
+                    "config_key=config_value".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFile(
+                    "config_file_path".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ModeFile(
+                    "mode_file_path".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::Modifier(
+                    "modifier_value".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::TargetPlatforms(
+                    "platform1".to_owned(),
+                )),
+            },
+        ];
+
+        generate_config_entry_args(&mut args, &config_flags);
+
+        let expected = vec![
+            "--config-entry",
+            "config=config_key=config_value",
+            "--config-entry",
+            "config_file=config_file_path",
+            "--config-entry",
+            "mode=mode_file_path",
+            "--config-entry",
+            "modifier=modifier_value",
+            "--config-entry",
+            "target_platforms=platform1",
+        ];
+        assert_eq!(args, expected);
+    }
+
+    #[test]
+    fn test_generate_config_entry_args_multiple_same_type() {
+        let mut args = Vec::new();
+        let config_flags = vec![
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFile(
+                    "file1.cfg".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFile(
+                    "file2.cfg".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::Modifier(
+                    "mod1".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::Modifier(
+                    "mod2".to_owned(),
+                )),
+            },
+        ];
+
+        generate_config_entry_args(&mut args, &config_flags);
+
+        let expected = vec![
+            "--config-entry",
+            "config_file=file1.cfg;file2.cfg",
+            "--config-entry",
+            "modifier=mod1;mod2",
+        ];
+        assert_eq!(args, expected);
+    }
+
+    #[test]
+    fn test_generate_config_entry_args_with_none_source() {
+        let mut args = Vec::new();
+        let config_flags = vec![
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::ConfigFlag(
+                    "key=value".to_owned(),
+                )),
+            },
+            RepresentativeConfigFlag { source: None },
+        ];
+
+        generate_config_entry_args(&mut args, &config_flags);
+
+        assert_eq!(args, vec!["--config-entry", "config=key=value"]);
     }
 }
