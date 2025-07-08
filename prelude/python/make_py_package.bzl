@@ -738,6 +738,7 @@ def _make_py_package_live(
     runtime_files.append(generated_manifest)
 
     if ctx.attrs.use_rust_make_par_incremental:
+        cmd.add(["--incremental"])
         ctx.actions.run(
             cmd,
             metadata_env_var = "ACTION_METADATA",
