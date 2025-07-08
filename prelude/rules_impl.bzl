@@ -20,10 +20,6 @@ load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attribu
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
-load("@prelude//apple/user:apple_resource_transition.bzl", "apple_resource_transition")
-load("@prelude//apple/user:macos_transition.bzl", "macos_transition")
-load("@prelude//apple/user:target_sdk_version_transition.bzl", "apple_test_target_sdk_version_transition", "target_sdk_version_transition")
-load("@prelude//apple/user:watch_transition.bzl", "watch_transition")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
@@ -527,14 +523,6 @@ categorized_extra_attributes = {
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
     "android_binary": constraint_overrides.transition,
-    "apple_asset_catalog": apple_resource_transition,
-    "apple_binary": target_sdk_version_transition,
-    "apple_bundle": target_sdk_version_transition,
-    "apple_library": target_sdk_version_transition,
-    "apple_macos_bundle": macos_transition,
-    "apple_resource": apple_resource_transition,
-    "apple_test": apple_test_target_sdk_version_transition,
-    "apple_watchos_bundle": watch_transition,
     "cxx_binary": constraint_overrides.transition,
     "cxx_test": constraint_overrides.transition,
     "export_file": constraint_overrides.transition,

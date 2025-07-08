@@ -36,7 +36,10 @@ load("@prelude//apple/user:apple_toolchain_override.bzl", "apple_toolchain_overr
 load("@prelude//apple/user:apple_watchos_bundle.bzl", "apple_watchos_bundle_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
+load("@prelude//apple/user:macos_transition.bzl", "macos_transition")
 load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_impl")
+load("@prelude//apple/user:target_sdk_version_transition.bzl", "apple_test_target_sdk_version_transition", "target_sdk_version_transition")
+load("@prelude//apple/user:watch_transition.bzl", "watch_transition")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -197,6 +200,7 @@ apple_asset_catalog = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    cfg = apple_resource_transition,
 )
 
 apple_binary = prelude_rule(
@@ -345,6 +349,7 @@ apple_binary = prelude_rule(
         } |
         buck.allow_cache_upload_arg()
     ),
+    cfg = target_sdk_version_transition,
 )
 
 apple_bundle = prelude_rule(
@@ -493,6 +498,7 @@ apple_bundle = prelude_rule(
             "xcode_product_type": attrs.option(attrs.string(), default = None),
         }
     ),
+    cfg = target_sdk_version_transition,
 )
 
 apple_library = prelude_rule(
@@ -640,6 +646,7 @@ apple_library = prelude_rule(
         buck.allow_cache_upload_arg()
     ),
     uses_plugins = [SwiftMacroPlugin],
+    cfg = target_sdk_version_transition,
 )
 
 apple_package = prelude_rule(
@@ -752,6 +759,7 @@ apple_resource = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    cfg = apple_resource_transition,
 )
 
 apple_test = prelude_rule(
@@ -918,6 +926,7 @@ apple_test = prelude_rule(
         apple_test_extra_attrs() |
         test_common.attributes()
     ),
+    cfg = apple_test_target_sdk_version_transition,
 )
 
 apple_toolchain = prelude_rule(
@@ -1320,12 +1329,14 @@ apple_macos_bundle = prelude_rule(
     name = "apple_macos_bundle",
     impl = apple_macos_bundle_impl,
     attrs = apple_macos_bundle_attrs(),
+    cfg = macos_transition,
 )
 
 apple_watchos_bundle = prelude_rule(
     name = "apple_watchos_bundle",
     impl = apple_watchos_bundle_impl,
     attrs = apple_watchos_bundle_attrs(),
+    cfg = watch_transition,
 )
 
 apple_toolchain_override = prelude_rule(
