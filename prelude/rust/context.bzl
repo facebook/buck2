@@ -8,6 +8,11 @@
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerInfo")
+load(
+    "@prelude//cxx:linker.bzl",
+    "get_default_shared_library_name",
+    "get_shared_library_name_for_param",
+)
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
@@ -50,22 +55,24 @@ DepCollectionContext = record(
 # Compile info which is reusable between multiple compilation command performed
 # by the same rule.
 CompileContext = record(
-    toolchain_info = field(RustToolchainInfo),
-    internal_tools_info = field(RustInternalToolsInfo),
-    cxx_toolchain_info = field(CxxToolchainInfo),
-    dep_ctx = field(DepCollectionContext),
-    exec_is_windows = field(bool),
-    path_sep = field(str),
-    # Symlink root containing all sources.
-    symlinked_srcs = field(Artifact),
-    # Linker args to pass the linker wrapper to rustc.
-    linker_args = field(cmd_args),
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
     common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, ProfileMode), CommonArgsInfo]),
-    transitive_dependency_dirs = field(dict[Artifact, None]),
+    cxx_toolchain_info = field(CxxToolchainInfo),
+    dep_ctx = field(DepCollectionContext),
+    exec_is_windows = field(bool),
+    internal_tools_info = field(RustInternalToolsInfo),
+    linker_args = field(cmd_args),
+    path_sep = field(str),
+    # Dylib name override, if any was provided by the target's `soname` attribute.
+    soname = field(str | None),
+    # Symlink root containing all sources.
+    symlinked_srcs = field(Artifact),
+    # Linker args to pass the linker wrapper to rustc.
     sysroot_args = field(cmd_args),
+    toolchain_info = field(RustToolchainInfo),
+    transitive_dependency_dirs = field(dict[Artifact, None]),
 )
 
 def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
@@ -135,18 +142,19 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     path_sep = "\\" if exec_is_windows else "/"
 
     return CompileContext(
-        toolchain_info = toolchain_info,
-        internal_tools_info = internal_tools_info,
+        clippy_wrapper = clippy_wrapper,
+        common_args = {},
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         exec_is_windows = exec_is_windows,
-        path_sep = path_sep,
-        symlinked_srcs = symlinked_srcs,
+        internal_tools_info = internal_tools_info,
         linker_args = linker,
-        clippy_wrapper = clippy_wrapper,
-        common_args = {},
-        transitive_dependency_dirs = {},
+        path_sep = path_sep,
+        soname = _attr_soname(ctx),
+        symlinked_srcs = symlinked_srcs,
         sysroot_args = sysroot_args,
+        toolchain_info = toolchain_info,
+        transitive_dependency_dirs = {},
     )
 
 # This is a hack because we need to pass the linker to rustc
@@ -219,3 +227,12 @@ def _clippy_wrapper(
         )
 
     return cmd_args(wrapper_file, hidden = [clippy_driver, rustc_print_sysroot])
+
+def _attr_soname(ctx: AnalysisContext) -> str:
+    """
+    Get the shared library name to set for the given rust library.
+    """
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    if getattr(ctx.attrs, "soname", None) != None:
+        return get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
+    return get_default_shared_library_name(linker_info, ctx.label)
