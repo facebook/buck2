@@ -363,25 +363,40 @@ async fn test(
                         representative_config_flag::Source::ConfigFlag(s) => {
                             if config_flags.is_empty() {
                                 config_flags.push_str(s);
+                            } else {
+                                config_flags.push(';');
+                                config_flags.push_str(s);
                             }
                         }
                         representative_config_flag::Source::ConfigFile(s) => {
                             if config_files.is_empty() {
+                                config_files.push_str(s);
+                            } else {
+                                config_files.push(';');
                                 config_files.push_str(s);
                             }
                         }
                         representative_config_flag::Source::ModeFile(s) => {
                             if flagfiles.is_empty() {
                                 flagfiles.push_str(s);
+                            } else {
+                                flagfiles.push(';');
+                                flagfiles.push_str(s);
                             }
                         }
                         representative_config_flag::Source::Modifier(s) => {
                             if modifiers.is_empty() {
                                 modifiers.push_str(s);
+                            } else {
+                                modifiers.push(';');
+                                modifiers.push_str(s);
                             }
                         }
                         representative_config_flag::Source::TargetPlatforms(s) => {
                             if target_platforms.is_empty() {
+                                target_platforms.push_str(s);
+                            } else {
+                                target_platforms.push(';');
                                 target_platforms.push_str(s);
                             }
                         }
