@@ -32,6 +32,13 @@ public class JavaCDMain {
       CompilerDaemonLoggerUtil.setDefaultLogger("javacd_worker", LOG_PATH);
       CompilerDaemonLoggerUtil.setConsoleHandlerLogLevelTo(Level.WARNING);
       Logger logger = Logger.get(JavaCDMain.class.getName());
+      Runtime.getRuntime()
+          .addShutdownHook(
+              new Thread(
+                  () -> {
+                    System.out.flush();
+                    System.err.flush();
+                  }));
       CompilerDaemonRunner.run(command);
       logger.info(String.format("Starting JavaCDWorkerTool %s", command));
       command.maybeWriteClassAbi();
@@ -42,7 +49,6 @@ public class JavaCDMain {
       System.exit(0);
     } catch (Exception e) {
       System.err.println("JavaCDWorkerTool failed: " + e.getMessage());
-      e.printStackTrace(System.err);
     }
     System.exit(2);
   }

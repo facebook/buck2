@@ -69,6 +69,6 @@ public class MainUtils {
             + thread
             + System.lineSeparator()
             + errorMessage);
-    System.exit(1);
+    System.exit(3);
   }
 }

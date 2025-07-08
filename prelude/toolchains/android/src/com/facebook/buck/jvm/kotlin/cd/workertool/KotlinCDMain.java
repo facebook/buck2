@@ -34,13 +34,20 @@ public class KotlinCDMain {
       Logger logger = Logger.get(KotlinCDMain.class.getName());
       logger.info(String.format("Starting KotlinCDWorkerTool %s", command));
       System.setErr(new KotlinStdErrInterceptor());
+      Runtime.getRuntime()
+          .addShutdownHook(
+              new Thread(
+                  () -> {
+                    System.out.flush();
+                    System.err.flush();
+                    // Your shutdown logic here...
+                  }));
       CompilerDaemonRunner.run(command);
       command.postExecute();
       System.err.println("KotlinCDWorkerTool succeeded!");
       System.exit(0);
     } catch (Exception e) {
       System.err.println("KotlinCDWorkerTool failed: " + e.getMessage());
-      e.printStackTrace(System.err);
     }
     System.exit(2);
   }

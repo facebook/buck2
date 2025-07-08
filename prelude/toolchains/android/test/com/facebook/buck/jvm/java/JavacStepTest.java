@@ -115,7 +115,7 @@ public class JavacStepTest {
             null,
             null);
 
-    FakeProcess fakeJavacProcess = new FakeProcess(1, "javac stdout\n", "javac stderr\n");
+    FakeProcess fakeJavacProcess = new FakeProcess(3, "javac stdout\n", "javac stderr\n");
 
     AbsPath rootPath = tmp.getRoot();
     IsolatedExecutionContext executionContext =

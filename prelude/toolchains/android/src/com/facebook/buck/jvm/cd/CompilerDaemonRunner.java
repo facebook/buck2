@@ -93,7 +93,7 @@ public class CompilerDaemonRunner implements Closeable {
   }
 
   /** Create a new runner, execute a single build command, close it and return */
-  public static void run(JvmCDCommand command) {
+  public static void run(JvmCDCommand command) throws IOException {
     Verbosity verbosity = getVerbosityForLevel(command.getLoggingLevel());
     Console console = new Console(verbosity, System.out, System.err, Ansi.withoutTty());
 
@@ -104,23 +104,21 @@ public class CompilerDaemonRunner implements Closeable {
       Executors.newSingleThreadScheduledExecutor()
           .scheduleAtFixedRate(MainUtils::logCurrentCDState, 1, 10, TimeUnit.SECONDS);
     }
-    try {
-      try (CompilerDaemonRunner runner =
-          new CompilerDaemonRunner(OutputStream.nullOutputStream(), console)) {
-        StepExecutionResult stepExecutionResult = runner.execute(command);
+    try (CompilerDaemonRunner runner =
+        new CompilerDaemonRunner(OutputStream.nullOutputStream(), console)) {
+      StepExecutionResult stepExecutionResult = runner.execute(command);
 
-        if (!stepExecutionResult.isSuccess()) {
-          String errorMessage = stepExecutionResult.getErrorMessage();
-          System.err.println(errorMessage);
-          // if there is a compiling error, we don't want to print buck stack trace
-          if (!CompilerDaemonRunner.isCompilerError(errorMessage)) {
-            stepExecutionResult.getCause().ifPresent(Throwable::printStackTrace);
-          }
-          System.exit(stepExecutionResult.getExitCode());
+      if (!stepExecutionResult.isSuccess()) {
+        String errorMessage = stepExecutionResult.getErrorMessage();
+        System.err.println(errorMessage);
+        // if there is a compiling error, we don't want to print buck stack trace
+        if (!CompilerDaemonRunner.isCompilerError(errorMessage)) {
+          stepExecutionResult.getCause().ifPresent(Throwable::printStackTrace);
         }
+        throw new RuntimeException(
+            "Compiler Daemon failed to execute command. Exit code: "
+                + stepExecutionResult.getExitCode());
       }
-    } catch (Exception e) {
-      MainUtils.handleExceptionAndTerminate(Thread.currentThread(), console, e);
     }
   }
 

@@ -38,7 +38,10 @@ data class StepExecutionResult(
     /** Creates `StepExecutionResult` from `exitCode` */
     @JvmStatic
     fun of(exitCode: Int): StepExecutionResult {
-      return StepExecutionResult(exitCode, Optional.empty(), Optional.empty())
+      return StepExecutionResult(
+          exitCode,
+          if (exitCode == 0) Optional.empty() else Optional.of("Failed to execute isolated step."),
+          Optional.empty())
     }
 
     /** Creates `StepExecutionResult` from `exception` */
@@ -46,7 +49,7 @@ data class StepExecutionResult(
     fun of(exception: Throwable): StepExecutionResult {
       return StepExecutionResult(
           StepExecutionResults.ERROR_EXIT_CODE,
-          Optional.empty(),
+          Optional.of("Failed to execute isolated step."),
           Optional.ofNullable(exception.cause as Exception?))
     }
   }

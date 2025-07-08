@@ -16,7 +16,7 @@ public class StepExecutionResults {
   // static initializer may cause deadlock during classloading.
 
   public static final int SUCCESS_EXIT_CODE = 0;
-  public static final int ERROR_EXIT_CODE = 1;
+  public static final int ERROR_EXIT_CODE = 3;
 
   public static final StepExecutionResult SUCCESS = StepExecutionResult.of(SUCCESS_EXIT_CODE);
   public static final StepExecutionResult ERROR = StepExecutionResult.of(ERROR_EXIT_CODE);
