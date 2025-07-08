@@ -142,6 +142,7 @@ def _update_categorized_rules(categorized_rules: dict[str, dict[str, prelude_rul
                     further = rule_spec.further,
                     uses_plugins = rule_spec.uses_plugins,
                     supports_incoming_transition = rule_spec.supports_incoming_transition,
+                    is_toolchain_rule = rule_spec.is_toolchain_rule,
                     cfg = rule_spec.cfg,
                 )
             else:
