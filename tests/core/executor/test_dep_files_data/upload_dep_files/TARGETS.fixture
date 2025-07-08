@@ -40,3 +40,30 @@ with_two_dep_files(
     exec_compatible_with = ["//platforms:cache_uploads"],
     fail = True,
 )
+
+write(
+    name = "target_with_output_like_content_based_hash",
+    out = "aaaabbbbccccdddd",
+    content = "content",
+)
+
+with_two_dep_files(
+    name = "input_cannot_be_normalized",
+    out_name = "out",
+    dep_file_contents = [
+        (
+            "dep_file_name0",
+            ["used.1", ":target_with_output_like_content_based_hash"],
+            ["unused.1"],
+        ),
+        (
+            "dep_file_name1",
+            ["used.3"],
+            ["unused.2"],
+        ),
+    ],
+    create_dep_file = "create_dep_file.py",
+    untagged_files = ["untagged.1"],
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:cache_uploads"],
+)

@@ -86,3 +86,17 @@ with_two_dep_files = rule(
     },
     impl = _with_two_dep_files_impl,
 )
+
+def _write_impl(ctx):
+    out = ctx.actions.write(ctx.attrs.out, ctx.attrs.content, uses_experimental_content_based_path_hashing = True)
+    return [
+        DefaultInfo(default_output = out),
+    ]
+
+write = rule(
+    attrs = {
+        "content": attrs.string(),
+        "out": attrs.string(),
+    },
+    impl = _write_impl,
+)

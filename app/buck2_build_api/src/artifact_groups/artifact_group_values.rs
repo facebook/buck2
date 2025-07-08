@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::directory::Directory;
 use buck2_error::BuckErrorContext;
@@ -45,6 +46,7 @@ impl ArtifactGroupValues {
     ) -> buck2_error::Result<Self> {
         let mut content_based_builder = ActionDirectoryBuilder::empty();
         let mut non_content_based_builder = ActionDirectoryBuilder::empty();
+        let mut dep_files_builder = ActionDirectoryBuilder::empty();
 
         for (artifact, value) in values.iter() {
             if artifact.has_content_based_path() {
@@ -52,6 +54,14 @@ impl ArtifactGroupValues {
                     .resolve_path(artifact_fs, Some(&value.content_based_path_hash()))
                     .buck_error_context("Invalid artifact")?;
                 insert_artifact(&mut content_based_builder, path.as_ref(), value)?;
+
+                let dep_files_path = artifact
+                    .resolve_path(
+                        artifact_fs,
+                        Some(&ContentBasedPathHash::DepFilesPlaceholder),
+                    )
+                    .buck_error_context("Invalid artifact")?;
+                insert_artifact(&mut dep_files_builder, dep_files_path.as_ref(), value)?;
             } else {
                 let path = artifact
                     .resolve_path(artifact_fs, None)
@@ -87,6 +97,15 @@ impl ArtifactGroupValues {
             content_based_builder
                 .merge(content_based_child_dir.to_builder())
                 .buck_error_context("Merge failed")?;
+
+            let dep_files_child_dir =
+                child.0.dep_files_directory.as_ref().buck_error_context(
+                    "TransitiveSetProjection was missing dep_files_directory!",
+                )?;
+
+            dep_files_builder
+                .merge(dep_files_child_dir.to_builder())
+                .buck_error_context("Merge failed")?;
         }
 
         let non_content_based_directory = non_content_based_builder
@@ -97,11 +116,16 @@ impl ArtifactGroupValues {
             .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER);
 
+        let dep_files_directory = dep_files_builder
+            .fingerprint(digest_config.as_directory_serializer())
+            .shared(&*INTERNER);
+
         Ok(Self(Arc::new(ArtifactGroupValuesData {
             values,
             children,
             non_content_based_directory: Some(non_content_based_directory),
             content_based_directory: Some(content_based_directory),
+            dep_files_directory: Some(dep_files_directory),
         })))
     }
 
@@ -111,6 +135,7 @@ impl ArtifactGroupValues {
             children: Vec::new(),
             non_content_based_directory: None,
             content_based_directory: None,
+            dep_files_directory: None,
         }))
     }
 
@@ -152,6 +177,44 @@ impl ArtifactGroupValues {
         Ok(())
     }
 
+    pub fn add_to_directory_for_dep_files(
+        &self,
+        builder: &mut ActionDirectoryBuilder,
+        artifact_fs: &ArtifactFs,
+    ) -> buck2_error::Result<()> {
+        match (
+            self.0.non_content_based_directory.as_ref(),
+            self.0.dep_files_directory.as_ref(),
+        ) {
+            (Some(d), Some(dep_files_dir)) => {
+                builder.merge(d.to_builder())?;
+                builder.merge(dep_files_dir.to_builder())?;
+                return Ok(());
+            }
+            (None, None) => {}
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(internal_error!(
+                    "Expected both or neither of dep_files_directory and non_content_based_directory to be set"
+                ));
+            }
+        }
+
+        for (artifact, value) in self.iter() {
+            let projrel_path = artifact.resolve_path(
+                artifact_fs,
+                if artifact.has_content_based_path() {
+                    Some(ContentBasedPathHash::DepFilesPlaceholder)
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
+            insert_artifact(builder, projrel_path.as_ref(), value)?;
+        }
+
+        Ok(())
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &(Artifact, ArtifactValue)> {
         TransitiveSetIterator::new(self)
     }
@@ -178,6 +241,7 @@ pub struct ArtifactGroupValuesData {
     /// If set, a precomputed directory represented the union of all content-based values in
     /// this ArtifactGroupValuesData.
     pub(super) content_based_directory: Option<ActionSharedDirectory>,
+    pub(super) dep_files_directory: Option<ActionSharedDirectory>,
 }
 
 /// An opaque identifier for the identity of a ArtifactGroupValue. There is no operation on this
@@ -334,6 +398,7 @@ mod tests {
             children: Default::default(),
             non_content_based_directory: None,
             content_based_directory: None,
+            dep_files_directory: None,
         }
     }
 

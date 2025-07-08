@@ -34,9 +34,12 @@ use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::category::Category;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -1159,7 +1162,24 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
         &self,
         ctx: &dyn ActionExecutionCtx,
     ) -> buck2_error::Result<PartitionedInputs<ActionDirectoryBuilder>> {
-        let reduce = |inputs: &[ArtifactGroup]| {
+        fn reduce(
+            ctx: &dyn ActionExecutionCtx,
+            inputs: &[ArtifactGroup],
+        ) -> buck2_error::Result<ActionDirectoryBuilder> {
+            let mut builder = ActionDirectoryBuilder::empty();
+
+            for input in inputs {
+                let input = ctx.artifact_values(input);
+                input.add_to_directory_for_dep_files(&mut builder, ctx.fs())?;
+            }
+
+            buck2_error::Ok(builder)
+        }
+
+        fn untagged_reduce(
+            ctx: &dyn ActionExecutionCtx,
+            inputs: &[ArtifactGroup],
+        ) -> buck2_error::Result<ActionDirectoryBuilder> {
             let mut builder = ActionDirectoryBuilder::empty();
 
             for input in inputs {
@@ -1168,14 +1188,14 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
             }
 
             buck2_error::Ok(builder)
-        };
+        }
 
         Ok(PartitionedInputs {
-            untagged: reduce(&self.untagged)?,
+            untagged: untagged_reduce(ctx, &self.untagged)?,
             tagged: self
                 .tagged
                 .iter()
-                .map(|(tag, inputs)| buck2_error::Ok((tag.dupe(), reduce(inputs)?)))
+                .map(|(tag, inputs)| buck2_error::Ok((tag.dupe(), reduce(ctx, inputs)?)))
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -1357,6 +1377,82 @@ impl DeclaredDepFiles {
         }
     }
 
+    /// If dep-files contain content-based paths, we "normalize" them by replacing the content-based
+    /// hash with a known placeholder. This is because the content-based path can affect the dep-file
+    /// such that we'll get a dep-file miss when we should get a hit (e.g. if a tagged input and an
+    /// untagged input are in the same dir, and the untagged input changes, then the tagged input's
+    /// content-based path will change).
+    ///
+    /// This does mean that we might over-approximate on the tagged input files, since multiple paths
+    /// can end up with the same representation, but (1) it's unlikely to happen anyway and (2) the
+    /// multiple files with conflicting paths are likely to change together anyway, so this doesn't
+    /// seem like a big issue.
+    fn normalize_content_based_path<'a>(
+        path: Cow<'a, ForwardRelativePath>,
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<Cow<'a, ForwardRelativePath>> {
+        if !path.starts_with(fs.buck_out_path_resolver().root()) {
+            // This path isn't in buck-out, no content-based hash to replace.
+            return Ok(path);
+        }
+
+        fn is_hash(s: &str) -> bool {
+            if s.len() != 16 {
+                return false;
+            }
+
+            for c in s.chars() {
+                if !c.is_ascii_hexdigit() {
+                    return false;
+                }
+            }
+
+            true
+        }
+
+        let path_iter = path.as_ref().iter();
+        // Paths always begin with "buck-out/<ISOLATION_DIR>/gen/<CELL>", so
+        // we can skip the first 4 segments.
+        let mut path_iter = path_iter.skip(4);
+        // If the path uses a configuration-based hash, it will come next.
+        let potential_configuration_hash = path_iter.next();
+        let should_look_for_content_based_hash = match potential_configuration_hash {
+            Some(s) => !is_hash(s.as_str()),
+            None => false,
+        };
+
+        if !should_look_for_content_based_hash {
+            return Ok(path);
+        }
+
+        let mut content_based_hash: Option<&str> = None;
+        for segment in path_iter {
+            if is_hash(segment.as_str()) {
+                content_based_hash = match content_based_hash {
+                    Some(_) => {
+                        return Err(buck2_error::internal_error!(
+                                "Path {} cannot be normalized for dep-files because it has two path segments that look like a content-based hash!",
+                                path,
+                            )
+                            .into());
+                    }
+                    None => Some(segment.as_str()),
+                }
+            }
+        }
+
+        Ok(match content_based_hash {
+            Some(content_based_hash) => {
+                let path = path.as_str().replace(
+                    content_based_hash,
+                    ContentBasedPathHash::DepFilesPlaceholder.as_str(),
+                );
+                Cow::Owned(ForwardRelativePathBuf::try_from(path)?)
+            }
+            None => path,
+        })
+    }
+
     /// Read this set of dep files, producing ConcreteDepFiles. This can then be used to compute
     /// signatures for the input set that was used, and for future input sets.
     fn read(
@@ -1409,10 +1505,20 @@ impl DeclaredDepFiles {
                         continue;
                     }
 
-                    // On windows, valid dep files can contain backslashes in paths, normalize them.
                     let path = ForwardRelativePathNormalizer::normalize_path(line)
                         .buck_error_context("Invalid line encountered in dep file")?;
+
+                    let path = match DeclaredDepFiles::normalize_content_based_path(path, fs) {
+                        Ok(path) => path,
+                        Err(e) => {
+                            soft_error!("failed_to_normalize_dep_file_path", e)?;
+                            return Ok(None);
+                        }
+                    };
+
                     selector.select(path.as_ref());
+
+                    // For content-based paths only, we need to normalize the path
                 }
             };
 

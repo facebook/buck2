@@ -15,13 +15,13 @@ def _c_binary_impl(ctx):
     headers_tag = ctx.actions.artifact_tag()
 
     headers_dir = ctx.actions.declare_output("headers", uses_experimental_content_based_path_hashing = True, dir = True)
-    headers_dir = ctx.actions.symlinked_dir(headers_dir, headers)
+    headers_dir = ctx.actions.copied_dir(headers_dir, headers)
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
     dep_file = ctx.actions.declare_output("depfile", uses_experimental_content_based_path_hashing = True)
     app = ctx.actions.declare_output(ctx.attrs.name)
 
-    cmd = [
+    cmd = cmd_args([
         ctx.attrs._cc[RunInfo].args,
         ctx.attrs.unused_command_line_param,
         ctx.attrs.main,
@@ -32,7 +32,7 @@ def _c_binary_impl(ctx):
         "-MMD",
         "-MF",
         headers_tag.tag_artifacts(dep_file.as_output()),
-    ]
+    ])
 
     ctx.actions.run(
         cmd,

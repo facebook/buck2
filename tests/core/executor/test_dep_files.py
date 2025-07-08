@@ -222,7 +222,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
 @buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
 @env(
     "BUCK2_TEST_TOMBSTONED_DIGESTS",
-    "514df2e6c6e40da4a27a17620b135169474dff9f:78",
+    "151ed6387904e98814958f9489711af7883db5ed:78",
 )
 async def test_dep_files_ignore_missing_digests(buck: Buck, tmp_path: Path) -> None:
     await buck.build("app:app")
@@ -740,3 +740,38 @@ async def test_flush_dep_files(buck: Buck) -> None:
     touch(buck, "app/other.h")
     await buck.build(*args)
     await expect_exec_count(buck, 1)
+
+
+async def run_test_input_cannot_be_normalized(
+    buck: Buck, allow_soft_errors: bool
+) -> None:
+    target = "root//:input_cannot_be_normalized"
+    tagged_unused = buck.cwd / "unused.1"
+    assert tagged_unused.exists()
+
+    # We query cache before we query dep file. Disable remote cache to make
+    # sure that for the last build what-ran doesn't return cached entry.
+    args = [target, "--no-remote-cache"]
+    await buck.build(*args)
+    await expect_exec_count(buck, 1)
+
+    # We should get a dep file cache hit, but we don't because the input cannot be normalized.
+    tagged_unused.write_text(random_string())
+    if allow_soft_errors:
+        await buck.build(*args)
+        await expect_exec_count(buck, 1)
+    else:
+        await expect_failure(
+            buck.build(*args),
+            stderr_regex="Path.*cannot be normalized for dep-files because it has two path segments that look like a content-based hash!",
+        )
+
+
+@buck_test(data_dir="upload_dep_files", allow_soft_errors=False)
+async def test_input_cannot_be_normalized_and_hard_error(buck: Buck) -> None:
+    await run_test_input_cannot_be_normalized(buck, False)
+
+
+@buck_test(data_dir="upload_dep_files", allow_soft_errors=True)
+async def test_input_cannot_be_normalized(buck: Buck) -> None:
+    await run_test_input_cannot_be_normalized(buck, True)
