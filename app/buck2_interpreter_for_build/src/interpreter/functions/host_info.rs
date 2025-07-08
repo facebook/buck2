@@ -59,6 +59,7 @@ fn new_host_info(
             host("is_x86_64", InterpreterHostArchitecture::X86_64),
             host("is_aarch64", InterpreterHostArchitecture::AArch64),
             host("is_arm", InterpreterHostArchitecture::Arm),
+            host("is_riscv64", InterpreterHostArchitecture::Riscv64),
             ("is_armeb", false),
             host("is_i386", InterpreterHostArchitecture::X86),
             host("is_mips", InterpreterHostArchitecture::Mips),
