@@ -61,7 +61,6 @@ load(
     "crate_type_codegen",
     "crate_type_linked",
     "dep_metadata_of_emit",
-    "output_filename",
 )
 load(":clippy_configuration.bzl", "ClippyConfiguration")
 load(
@@ -70,6 +69,7 @@ load(
     "CompileContext",
     "CrateName",  # @unused Used as a type
     "DepCollectionContext",
+    "output_filename",
 )
 load(
     ":extern.bzl",
@@ -666,6 +666,7 @@ def rust_compile(
     stripped_output = strip_debug_info(
         ctx,
         paths.join(common_args.subdir, "stripped", output_filename(
+            compile_ctx,
             attr_simple_crate_for_filenames(ctx),
             Emit("link"),
             params,
@@ -1266,7 +1267,7 @@ def _rustc_emit(
     else:
         extra_hash = "-" + _metadata(compile_ctx, ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
-        filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
+        filename = subdir + "/" + output_filename(compile_ctx, simple_crate, emit, params, extra_hash)
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
         emit_output = ctx.actions.declare_output(filename)
@@ -1317,7 +1318,7 @@ def _rustc_emit(
             emit_args.add(cmd_args("--emit=", effective_emit, "=", emit_output.as_output(), delimiter = ""))
 
         # Strip file extension from directory name.
-        base, _ext = paths.split_extension(output_filename(simple_crate, emit, params))
+        base, _ext = paths.split_extension(output_filename(compile_ctx, simple_crate, emit, params))
         extra_dir = subdir + "/extras/" + base
         extra_out = ctx.actions.declare_output(extra_dir, dir = True)
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))

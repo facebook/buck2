@@ -66,9 +66,13 @@ load(
     "ProfileMode",  # @unused Used as a type
     "RuleType",
     "build_params",
+)
+load(
+    ":context.bzl",
+    "CompileContext",
+    "compile_context",
     "output_filename",
 )
-load(":context.bzl", "CompileContext", "compile_context")
 load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STRATEGY",
@@ -125,7 +129,7 @@ def _rust_binary_common(
     strategy_param = _strategy_params(ctx, compile_ctx)
 
     params = strategy_param[link_strategy]
-    name = output_filename(simple_crate, Emit("link"), params)
+    name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
     output = ctx.actions.declare_output(name)
 
     rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(

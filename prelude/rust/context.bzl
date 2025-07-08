@@ -236,3 +236,31 @@ def _attr_soname(ctx: AnalysisContext) -> str:
     if getattr(ctx.attrs, "soname", None) != None:
         return get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
     return get_default_shared_library_name(linker_info, ctx.label)
+
+# Filenames used for various emitted forms
+# `None` for a prefix or suffix means use the build_param version
+_EMIT_PREFIX_SUFFIX = {
+    Emit("asm"): ("", ".s"),
+    Emit("llvm-bc"): ("", ".bc"),
+    Emit("llvm-ir"): ("", ".ll"),
+    Emit("llvm-ir-noopt"): ("", ".ll"),
+    Emit("obj"): ("", ".o"),
+    Emit("metadata-fast"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
+    Emit("metadata-full"): (None, None),  # Hollow rlibs, so they get the same name
+    Emit("link"): (None, None),  # crate type and reloc model dependent
+    Emit("dep-info"): ("", ".d"),
+    Emit("mir"): (None, ".mir"),
+    Emit("expand"): (None, ".rs"),
+    Emit("clippy"): ("lib", ".rmeta"),  # Treated like metadata-fast
+}
+
+# Return the filename for a particular emitted artifact type
+def output_filename(compile_ctx: CompileContext, cratename: str, emit: Emit, buildparams: BuildParams, extra: [str, None] = None) -> str:
+    # Allow for overriding the soname via the `soname` attribute.
+    if emit == Emit("link") and buildparams.crate_type in (CrateType("dylib"), CrateType("cdylib")):
+        return compile_ctx.soname
+
+    epfx, esfx = _EMIT_PREFIX_SUFFIX[emit]
+    prefix = epfx if epfx != None else buildparams.prefix
+    suffix = esfx if esfx != None else buildparams.suffix
+    return prefix + cratename + (extra or "") + suffix
