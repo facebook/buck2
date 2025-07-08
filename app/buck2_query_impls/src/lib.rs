@@ -24,7 +24,6 @@ pub(crate) mod uquery;
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        analysis::environment::init_classpath_for_targets();
         analysis::environment::init_query_functions();
         analysis::eval::init_eval_analysis_query();
         aquery::find_matching_action::init_find_matching_action();

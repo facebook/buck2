@@ -8,6 +8,5 @@
  * above-listed licenses.
  */
 
-pub mod analysis;
 pub mod bxl;
 pub mod oneshot;

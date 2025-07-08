@@ -1,5 +1,0 @@
-load(":defs.bzl", "classpath_with_content_based_path")
-
-classpath_with_content_based_path(
-    name = "classpath_with_content_based_path",
-)
