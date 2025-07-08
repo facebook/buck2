@@ -57,8 +57,13 @@ load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
 load(":apple_resource.bzl", "apple_resource_impl")
+load(
+    ":apple_rules_impl_utility.bzl",
+    "apple_xcuitest_extra_attrs",
+)
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
+load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
 
@@ -1412,6 +1417,12 @@ resource_group_map = prelude_rule(
     },
 )
 
+apple_xcuitest = prelude_rule(
+    name = "apple_xcuitest",
+    impl = apple_xcuitest_impl,
+    attrs = apple_xcuitest_extra_attrs(),
+)
+
 apple_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1435,6 +1446,7 @@ apple_rules = struct(
     apple_universal_executable = apple_universal_executable,
     apple_watchos_bundle = apple_watchos_bundle,
     apple_xcframework = apple_xcframework,
+    apple_xcuitest = apple_xcuitest,
     core_data_model = core_data_model,
     cxx_universal_executable = cxx_universal_executable,
     mockingbird_mock = mockingbird_mock,

@@ -31,16 +31,13 @@ load(
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_bundle_extra_attrs",
     "apple_dsymutil_attrs",
-    "apple_xcuitest_extra_attrs",
     "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
 )
-load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
 
 implemented_rules = {
-    "apple_xcuitest": apple_xcuitest_impl,
 # @oss-disable[end= ]: } | meta_only_apple_rule_implementations()
 } # @oss-enable
 
@@ -199,7 +196,6 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
-    "apple_xcuitest": apple_xcuitest_extra_attrs(),
     "core_data_model": {
         "module": attrs.option(attrs.string(), default = None),
         "path": attrs.source(allow_directory = True),
