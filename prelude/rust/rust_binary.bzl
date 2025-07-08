@@ -55,7 +55,6 @@ load(
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
-    "compile_context",
     "generate_rustdoc",
     "rust_compile",
 )
@@ -69,7 +68,7 @@ load(
     "build_params",
     "output_filename",
 )
-load(":context.bzl", "CompileContext")
+load(":context.bzl", "CompileContext", "compile_context")
 load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STRATEGY",

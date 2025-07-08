@@ -65,7 +65,6 @@ load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(
     ":build.bzl",
-    "compile_context",
     "generate_rustdoc",
     "generate_rustdoc_coverage",
     "generate_rustdoc_test",
@@ -86,6 +85,7 @@ load(
     "CompileContext",  # @unused Used as a type
     "CrateName",  # @unused Used as a type
     "DepCollectionContext",
+    "compile_context",
 )
 load(
     ":link_info.bzl",

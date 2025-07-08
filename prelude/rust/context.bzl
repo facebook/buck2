@@ -6,9 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerInfo")
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "ProfileMode")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
 
@@ -64,3 +67,155 @@ CompileContext = record(
     transitive_dependency_dirs = field(dict[Artifact, None]),
     sysroot_args = field(cmd_args),
 )
+
+def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+
+    # Setup source symlink tree.
+    srcs = {src.short_path: src for src in ctx.attrs.srcs}
+    srcs.update({k: v for v, k in ctx.attrs.mapped_srcs.items()})
+
+    # Decide whether to use symlinked_dir or copied_dir.
+    prefixes = {}
+    symlinked_srcs = None
+
+    if "generated" in ctx.attrs.labels:
+        # For generated code targets, we always want to copy files in the [sources]
+        # subtarget, never symlink.
+        #
+        # This ensures that IDEs that open the generated file always see the correct
+        # directory structure.
+        #
+        # VS Code will expand symlinks when doing go-to-definition. In normal source
+        # files this takes us back to the correct path, but for generated files the
+        # expanded path may not be a well-formed crate layout.
+        symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+    else:
+        # If a source is a prefix of any other source, use copied_dir. This supports
+        # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
+        # with a `mapped_srcs` which overlays additional generated files into that
+        # directory. Symlinked_dir would error in this situation.
+        for src in sorted(srcs.keys(), key = len, reverse = True):
+            if src in prefixes:
+                symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+                break
+            components = src.split("/")
+            for i in range(1, len(components)):
+                prefixes["/".join(components[:i])] = None
+
+    # Otherwise, symlink it.
+    if not symlinked_srcs:
+        symlinked_srcs = ctx.actions.symlinked_dir("__srcs", srcs)
+
+    linker = _linker_args(ctx, cxx_toolchain_info.linker_info, binary = binary)
+    clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
+
+    dep_ctx = DepCollectionContext(
+        advanced_unstable_linking = toolchain_info.advanced_unstable_linking,
+        include_doc_deps = False,
+        is_proc_macro = getattr(ctx.attrs, "proc_macro", False),
+        explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps,
+        panic_runtime = toolchain_info.panic_runtime,
+    )
+
+    # When we pass explicit sysroot deps, we need to override the default
+    # sysroot to avoid accidentally linking against the prebuilt sysroot libs
+    # provided by the toolchain.
+    if toolchain_info.explicit_sysroot_deps:
+        empty_sysroot = ctx.actions.copied_dir("empty_dir", {})
+        sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
+    elif toolchain_info.sysroot_path:
+        sysroot_args = cmd_args("--sysroot=", toolchain_info.sysroot_path, delimiter = "")
+    else:
+        sysroot_args = cmd_args()
+
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
+    path_sep = "\\" if exec_is_windows else "/"
+
+    return CompileContext(
+        toolchain_info = toolchain_info,
+        internal_tools_info = internal_tools_info,
+        cxx_toolchain_info = cxx_toolchain_info,
+        dep_ctx = dep_ctx,
+        exec_is_windows = exec_is_windows,
+        path_sep = path_sep,
+        symlinked_srcs = symlinked_srcs,
+        linker_args = linker,
+        clippy_wrapper = clippy_wrapper,
+        common_args = {},
+        transitive_dependency_dirs = {},
+        sysroot_args = sysroot_args,
+    )
+
+# This is a hack because we need to pass the linker to rustc
+# using -Clinker=path and there is currently no way of doing this
+# without an artifact. We create a wrapper (which is an artifact),
+# and add -Clinker=
+def _linker_args(
+        ctx: AnalysisContext,
+        linker_info: LinkerInfo,
+        binary: bool = False) -> cmd_args:
+    linker = cmd_args(
+        linker_info.linker,
+        linker_info.linker_flags or [],
+        # For "binary" rules, add C++ toolchain binary-specific linker flags.
+        # TODO(agallagher): This feels a bit wrong -- it might be better to have
+        # the Rust toolchain have it's own `binary_linker_flags` instead of
+        # implicltly using the one from the C++ toolchain.
+        linker_info.binary_linker_flags if binary else [],
+        ctx.attrs.linker_flags,
+    )
+
+    return cmd_script(
+        ctx = ctx,
+        name = "linker_wrapper",
+        cmd = linker,
+        language = ctx.attrs._exec_os_type[OsLookup].script,
+    )
+
+# Return wrapper script for clippy-driver to make sure sysroot is set right
+# We need to make sure clippy is using the same sysroot - compiler, std libraries -
+# as rustc itself, so explicitly invoke rustc to get the path. This is a
+# (small - ~15ms per invocation) perf hit but only applies when generating
+# specifically requested clippy diagnostics.
+def _clippy_wrapper(
+        ctx: AnalysisContext,
+        toolchain_info: RustToolchainInfo) -> cmd_args:
+    clippy_driver = cmd_args(toolchain_info.clippy_driver)
+    rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
+    if toolchain_info.rustc_target_triple:
+        rustc_print_sysroot.add("--target={}".format(toolchain_info.rustc_target_triple))
+
+    skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None or toolchain_info.sysroot_path != None
+
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
+        wrapper_file, _ = ctx.actions.write(
+            ctx.actions.declare_output("__clippy_driver_wrapper.bat"),
+            [
+                "@echo off",
+                "set __CLIPPY_INTERNAL_TESTS=true",
+            ] + [
+                cmd_args(rustc_print_sysroot, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{}`) DO (set SYSROOT=%%F)') if not skip_setting_sysroot else "",
+                cmd_args(clippy_driver, format = "{} %*"),
+            ],
+            allow_args = True,
+        )
+    else:
+        wrapper_file, _ = ctx.actions.write(
+            ctx.actions.declare_output("__clippy_driver_wrapper.sh"),
+            [
+                "#!/usr/bin/env bash",
+                # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
+                "export __CLIPPY_INTERNAL_TESTS=true",
+            ] + (
+                [] if skip_setting_sysroot else [cmd_args(rustc_print_sysroot, format = "export SYSROOT=$({})")]
+            ) + [
+                cmd_args(clippy_driver, format = "{} \"$@\"\n"),
+            ],
+            is_executable = True,
+            allow_args = True,
+        )
+
+    return cmd_args(wrapper_file, hidden = [clippy_driver, rustc_print_sysroot])
