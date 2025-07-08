@@ -95,7 +95,8 @@ def _python_executable_attrs():
         "strip_stapsdt": attrs.bool(default = False),
         "use_anon_target_for_analysis": attrs.bool(default = False),  # TODO(dcssiva) Delete this when we change the default analysis method to use anon targets
         "use_oss_python": attrs.bool(default = False),
-        "use_rust_make_par": attrs.bool(default = False),  # TODO(lorenarthur) Delete this when we change the default build style
+        "use_rust_make_par": attrs.bool(default = False),  # TODO(rishiarora) Delete this when we change the default build style
+        "use_rust_make_par_incremental": attrs.bool(default = False),  # TODO(rishiarora) Delete this when incremental is default build style
         "_build_info": BUILD_INFO_ATTR,
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
