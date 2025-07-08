@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::directory::Directory;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -42,46 +43,65 @@ impl ArtifactGroupValues {
         artifact_fs: &ArtifactFs,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut content_based_builder = ActionDirectoryBuilder::empty();
+        let mut non_content_based_builder = ActionDirectoryBuilder::empty();
 
         for (artifact, value) in values.iter() {
-            let path = artifact
-                .resolve_path(
-                    artifact_fs,
-                    if artifact.has_content_based_path() {
-                        Some(value.content_based_path_hash())
-                    } else {
-                        None
-                    }
-                    .as_ref(),
-                )
-                .buck_error_context("Invalid artifact")?;
-            insert_artifact(&mut builder, path.as_ref(), value)?;
+            if artifact.has_content_based_path() {
+                let path = artifact
+                    .resolve_path(artifact_fs, Some(&value.content_based_path_hash()))
+                    .buck_error_context("Invalid artifact")?;
+                insert_artifact(&mut content_based_builder, path.as_ref(), value)?;
+            } else {
+                let path = artifact
+                    .resolve_path(artifact_fs, None)
+                    .buck_error_context("Invalid artifact")?;
+                insert_artifact(&mut non_content_based_builder, path.as_ref(), value)?;
+            }
         }
 
         for child in children.iter() {
             // NOTE: Technically, we could fall back to iterating the artifacts in the
             // ArtifactGroupValues here, but we *do* rely on the fact that TransitiveSetProjections
             // produce intermediate directories, so if they don't, it is preferable to report it.
-            let child_dir = child
+            let non_content_based_child_dir = child
                 .0
-                .directory
+                .non_content_based_directory
                 .as_ref()
-                .buck_error_context("TransitiveSetProjection was missing directory!")?;
+                .buck_error_context(
+                    "TransitiveSetProjection was missing non_content_based_directory!",
+                )?;
 
-            builder
-                .merge(child_dir.to_builder())
+            non_content_based_builder
+                .merge(non_content_based_child_dir.to_builder())
+                .buck_error_context("Merge failed")?;
+
+            let content_based_child_dir = child
+                .0
+                .content_based_directory
+                .as_ref()
+                .buck_error_context(
+                    "TransitiveSetProjection was missing content_based_directory!",
+                )?;
+
+            content_based_builder
+                .merge(content_based_child_dir.to_builder())
                 .buck_error_context("Merge failed")?;
         }
 
-        let directory = builder
+        let non_content_based_directory = non_content_based_builder
+            .fingerprint(digest_config.as_directory_serializer())
+            .shared(&*INTERNER);
+
+        let content_based_directory = content_based_builder
             .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER);
 
         Ok(Self(Arc::new(ArtifactGroupValuesData {
             values,
             children,
-            directory: Some(directory),
+            non_content_based_directory: Some(non_content_based_directory),
+            content_based_directory: Some(content_based_directory),
         })))
     }
 
@@ -89,7 +109,8 @@ impl ArtifactGroupValues {
         Self(Arc::new(ArtifactGroupValuesData {
             values: smallvec![(artifact, value)],
             children: Vec::new(),
-            directory: None,
+            non_content_based_directory: None,
+            content_based_directory: None,
         }))
     }
 
@@ -98,9 +119,21 @@ impl ArtifactGroupValues {
         builder: &mut ActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
     ) -> buck2_error::Result<()> {
-        if let Some(d) = self.0.directory.as_ref() {
-            builder.merge(d.to_builder())?;
-            return Ok(());
+        match (
+            self.0.non_content_based_directory.as_ref(),
+            self.0.content_based_directory.as_ref(),
+        ) {
+            (Some(non_content_based_directory), Some(content_based_directory)) => {
+                builder.merge(non_content_based_directory.to_builder())?;
+                builder.merge(content_based_directory.to_builder())?;
+                return Ok(());
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(internal_error!(
+                    "Expected both or neither of content_based_directory and non_content_based_directory to be set"
+                ));
+            }
+            (None, None) => {}
         }
 
         for (artifact, value) in self.iter() {
@@ -139,9 +172,12 @@ impl ArtifactGroupValues {
 pub struct ArtifactGroupValuesData {
     pub(super) values: SmallVec<[(Artifact, ArtifactValue); 1]>,
     pub(super) children: Vec<ArtifactGroupValues>,
-    /// If set, a precomputed directory represented the union of all values in this
-    /// ArtifactGroupValuesData.
-    pub(super) directory: Option<ActionSharedDirectory>,
+    /// If set, a precomputed directory represented the union of all non-content-based values in
+    /// this ArtifactGroupValuesData.
+    pub(super) non_content_based_directory: Option<ActionSharedDirectory>,
+    /// If set, a precomputed directory represented the union of all content-based values in
+    /// this ArtifactGroupValuesData.
+    pub(super) content_based_directory: Option<ActionSharedDirectory>,
 }
 
 /// An opaque identifier for the identity of a ArtifactGroupValue. There is no operation on this
@@ -296,7 +332,8 @@ mod tests {
         ArtifactGroupValuesData {
             values: Default::default(),
             children: Default::default(),
-            directory: None,
+            non_content_based_directory: None,
+            content_based_directory: None,
         }
     }
 
