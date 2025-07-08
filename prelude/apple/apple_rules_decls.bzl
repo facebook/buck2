@@ -33,7 +33,6 @@ load("@prelude//apple/user:apple_resource_bundle.bzl", "apple_resource_bundle_im
 load("@prelude//apple/user:apple_resource_transition.bzl", "apple_resource_transition")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
-load("@prelude//apple/user:apple_toolchain_override.bzl", "apple_toolchain_override_impl")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", "apple_watchos_bundle_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
@@ -41,7 +40,6 @@ load("@prelude//apple/user:macos_transition.bzl", "macos_transition")
 load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_impl")
 load("@prelude//apple/user:target_sdk_version_transition.bzl", "apple_test_target_sdk_version_transition", "target_sdk_version_transition")
 load("@prelude//apple/user:watch_transition.bzl", "watch_transition")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
@@ -1368,16 +1366,6 @@ apple_watchos_bundle = prelude_rule(
     cfg = watch_transition,
 )
 
-apple_toolchain_override = prelude_rule(
-    name = "apple_toolchain_override",
-    impl = apple_toolchain_override_impl,
-    attrs = {
-        "base": attrs.toolchain_dep(providers = [AppleToolchainInfo]),
-        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
-    },
-    is_toolchain_rule = True,
-)
-
 apple_resource_bundle = prelude_rule(
     name = "apple_resource_bundle",
     impl = apple_resource_bundle_impl,
@@ -1435,7 +1423,6 @@ apple_rules = struct(
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
     apple_toolchain_set = apple_toolchain_set,
-    apple_toolchain_override = apple_toolchain_override,
     apple_tools = apple_tools,
     apple_resource_bundle = apple_resource_bundle,
     apple_resource_dedupe_alias = apple_resource_dedupe_alias,
