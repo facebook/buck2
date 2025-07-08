@@ -25,6 +25,7 @@ load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executab
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", "mockingbird_mock_attrs", "mockingbird_mock_impl")
+load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
@@ -49,6 +50,17 @@ load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:types.bzl", "Linkage")
+load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
+load(":apple_binary.bzl", "apple_binary_impl")
+load(":apple_bundle.bzl", "apple_bundle_impl")
+load(":apple_core_data.bzl", "apple_core_data_impl")
+load(":apple_library.bzl", "apple_library_impl")
+load(":apple_package.bzl", "apple_package_impl")
+load(":apple_resource.bzl", "apple_resource_impl")
+load(":apple_test.bzl", "apple_test_impl")
+load(":apple_toolchain.bzl", "apple_toolchain_impl")
+load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
+load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
 
 AdditionalActions = ["pre_scheme_actions", "post_scheme_actions"]
 
@@ -200,6 +212,7 @@ apple_asset_catalog = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    impl = apple_asset_catalog_impl,
     cfg = apple_resource_transition,
 )
 
@@ -349,6 +362,7 @@ apple_binary = prelude_rule(
         } |
         buck.allow_cache_upload_arg()
     ),
+    impl = apple_binary_impl,
     cfg = target_sdk_version_transition,
 )
 
@@ -498,6 +512,7 @@ apple_bundle = prelude_rule(
             "xcode_product_type": attrs.option(attrs.string(), default = None),
         }
     ),
+    impl = apple_bundle_impl,
     cfg = target_sdk_version_transition,
 )
 
@@ -646,6 +661,7 @@ apple_library = prelude_rule(
         buck.allow_cache_upload_arg()
     ),
     uses_plugins = [SwiftMacroPlugin],
+    impl = apple_library_impl,
     cfg = target_sdk_version_transition,
 )
 
@@ -687,6 +703,7 @@ apple_package = prelude_rule(
             "need_android_tools": attrs.bool(default = False),
         }
     ),
+    impl = apple_package_impl,
 )
 
 apple_resource = prelude_rule(
@@ -759,6 +776,7 @@ apple_resource = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    impl = apple_resource_impl,
     cfg = apple_resource_transition,
 )
 
@@ -926,6 +944,7 @@ apple_test = prelude_rule(
         apple_test_extra_attrs() |
         test_common.attributes()
     ),
+    impl = apple_test_impl,
     cfg = apple_test_target_sdk_version_transition,
 )
 
@@ -970,6 +989,7 @@ apple_toolchain = prelude_rule(
             "xctest": attrs.source(),
         }
     ),
+    impl = apple_toolchain_impl,
 )
 
 apple_toolchain_set = prelude_rule(
@@ -1019,6 +1039,7 @@ core_data_model = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    impl = apple_core_data_impl,
 )
 
 prebuilt_apple_framework = prelude_rule(
@@ -1070,6 +1091,7 @@ prebuilt_apple_framework = prelude_rule(
                 """),
         }
     ),
+    impl = prebuilt_apple_framework_impl,
 )
 
 scene_kit_assets = prelude_rule(
@@ -1087,6 +1109,7 @@ scene_kit_assets = prelude_rule(
             "path": attrs.source(),
         }
     ),
+    impl = scene_kit_assets_impl,
 )
 
 swift_toolchain = prelude_rule(
@@ -1118,6 +1141,7 @@ swift_toolchain = prelude_rule(
             })),
         }
     ),
+    impl = swift_toolchain_impl,
 )
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()

@@ -15,7 +15,6 @@ load(
 load("@prelude//apple:apple_common.bzl", "apple_common")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
-load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_extra_attrs")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
@@ -24,15 +23,9 @@ load("@prelude//linking:execution_preference.bzl", "link_execution_preference_at
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
-load(":apple_binary.bzl", "apple_binary_impl")
-load(":apple_bundle.bzl", "apple_bundle_impl")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "ApplePackageExtension")
-load(":apple_core_data.bzl", "apple_core_data_impl")
-load(":apple_library.bzl", "AppleSharedLibraryMachOFileType", "apple_library_impl")
-load(":apple_package.bzl", "apple_package_impl")
+load(":apple_library.bzl", "AppleSharedLibraryMachOFileType")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
-load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
@@ -44,26 +37,10 @@ load(
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
 )
-load(":apple_test.bzl", "apple_test_impl")
-load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
-load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
-load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
 
 implemented_rules = {
-    "apple_asset_catalog": apple_asset_catalog_impl,
-    "apple_binary": apple_binary_impl,
-    "apple_bundle": apple_bundle_impl,
-    "apple_library": apple_library_impl,
-    "apple_package": apple_package_impl,
-    "apple_resource": apple_resource_impl,
-    "apple_test": apple_test_impl,
-    "apple_toolchain": apple_toolchain_impl,
     "apple_xcuitest": apple_xcuitest_impl,
-    "core_data_model": apple_core_data_impl,
-    "prebuilt_apple_framework": prebuilt_apple_framework_impl,
-    "scene_kit_assets": scene_kit_assets_impl,
-    "swift_toolchain": swift_toolchain_impl,
 # @oss-disable[end= ]: } | meta_only_apple_rule_implementations()
 } # @oss-enable
 
