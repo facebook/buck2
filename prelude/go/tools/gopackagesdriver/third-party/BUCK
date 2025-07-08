@@ -133,6 +133,7 @@ prelude.go_library(
     name = "golang.org/x/tools/go/packages",
     package_name = "golang.org/x/tools/go/packages",
     srcs = [":golang.org/x/tools__srcs[go/packages]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/sync/errgroup",
         ":golang.org/x/tools/go/gcexportdata",
@@ -146,6 +147,7 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/gocommand",
     package_name = "golang.org/x/tools/internal/gocommand",
     srcs = [":golang.org/x/tools__srcs[internal/gocommand]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/mod/semver",
         ":golang.org/x/tools/internal/event",
@@ -158,6 +160,7 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/event",
     package_name = "golang.org/x/tools/internal/event",
     srcs = [":golang.org/x/tools__srcs[internal/event]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/tools/internal/event/core",
         ":golang.org/x/tools/internal/event/keys",
@@ -169,6 +172,7 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/event/core",
     package_name = "golang.org/x/tools/internal/event/core",
     srcs = [":golang.org/x/tools__srcs[internal/event/core]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/tools/internal/event/keys",
         ":golang.org/x/tools/internal/event/label",
@@ -179,6 +183,7 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/event/keys",
     package_name = "golang.org/x/tools/internal/event/keys",
     srcs = [":golang.org/x/tools__srcs[internal/event/keys]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [":golang.org/x/tools/internal/event/label"],
 )
 
@@ -186,18 +191,21 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/event/label",
     package_name = "golang.org/x/tools/internal/event/label",
     srcs = [":golang.org/x/tools__srcs[internal/event/label]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.go_library(
     name = "golang.org/x/tools/internal/packagesinternal",
     package_name = "golang.org/x/tools/internal/packagesinternal",
     srcs = [":golang.org/x/tools__srcs[internal/packagesinternal]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.go_library(
     name = "golang.org/x/tools/go/gcexportdata",
     package_name = "golang.org/x/tools/go/gcexportdata",
     srcs = [":golang.org/x/tools__srcs[go/gcexportdata]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/tools/internal/gcimporter",
     ],
@@ -207,6 +215,7 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/gcimporter",
     package_name = "golang.org/x/tools/internal/gcimporter",
     srcs = [":golang.org/x/tools__srcs[internal/gcimporter]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/tools/go/types/objectpath",
         ":golang.org/x/tools/internal/aliases",
@@ -219,6 +228,7 @@ prelude.go_library(
     name = "golang.org/x/tools/go/types/objectpath",
     package_name = "golang.org/x/tools/go/types/objectpath",
     srcs = [":golang.org/x/tools__srcs[go/types/objectpath]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/tools/internal/aliases",
         ":golang.org/x/tools/internal/typesinternal",
@@ -229,12 +239,14 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/aliases",
     package_name = "golang.org/x/tools/internal/aliases",
     srcs = [":golang.org/x/tools__srcs[internal/aliases]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.go_library(
     name = "golang.org/x/tools/internal/typesinternal",
     package_name = "golang.org/x/tools/internal/typesinternal",
     srcs = [":golang.org/x/tools__srcs[internal/typesinternal]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [
         ":golang.org/x/tools/go/types/typeutil",
         ":golang.org/x/tools/internal/aliases",
@@ -247,6 +259,7 @@ prelude.go_library(
     name = "golang.org/x/tools/go/types/typeutil",
     package_name = "golang.org/x/tools/go/types/typeutil",
     srcs = [":golang.org/x/tools__srcs[go/types/typeutil]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [":golang.org/x/tools/internal/typeparams"],
 )
 
@@ -254,6 +267,7 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/typeparams",
     package_name = "golang.org/x/tools/internal/typeparams",
     srcs = [":golang.org/x/tools__srcs[internal/typeparams]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
     deps = [":golang.org/x/tools/internal/aliases"],
 )
 
@@ -261,18 +275,21 @@ prelude.go_library(
     name = "golang.org/x/tools/internal/stdlib",
     package_name = "golang.org/x/tools/internal/stdlib",
     srcs = [":golang.org/x/tools__srcs[internal/stdlib]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.go_library(
     name = "golang.org/x/tools/internal/versions",
     package_name = "golang.org/x/tools/internal/versions",
     srcs = [":golang.org/x/tools__srcs[internal/versions]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.go_library(
     name = "golang.org/x/tools/internal/pkgbits",
     package_name = "golang.org/x/tools/internal/pkgbits",
     srcs = [":golang.org/x/tools__srcs[internal/pkgbits]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.http_archive(
@@ -291,6 +308,7 @@ prelude.go_library(
     name = "golang.org/x/mod/semver",
     package_name = "golang.org/x/mod/semver",
     srcs = [":golang.org/x/mod__srcs[semver]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
 
 prelude.http_archive(
@@ -309,4 +327,5 @@ prelude.go_library(
     name = "golang.org/x/sync/errgroup",
     package_name = "golang.org/x/sync/errgroup",
     srcs = [":golang.org/x/sync__srcs[errgroup]"],
+    visibility = ["prelude//go/tools/gopackagesdriver/..."],
 )
