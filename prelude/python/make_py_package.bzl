@@ -738,6 +738,8 @@ def _make_py_package_live(
     runtime_files.append(generated_manifest)
 
     if ctx.attrs.use_rust_make_par_incremental:
+        state = ctx.actions.declare_output("{}-state.json".format(name))
+        cmd.add(cmd_args(state.as_output(), format = "--state={}"))
         cmd.add(["--incremental"])
         ctx.actions.run(
             cmd,
@@ -747,6 +749,7 @@ def _make_py_package_live(
             identifier = "make_live_par_incremental{}".format(output_suffix),
             prefer_local = True,
         )
+        sub_targets["state"] = [DefaultInfo(default_output = state)]
     else:
         ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False)
 
