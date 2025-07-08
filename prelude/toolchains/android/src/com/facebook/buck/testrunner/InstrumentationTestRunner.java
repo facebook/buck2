@@ -927,7 +927,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return System.getenv();
   }
 
-  private boolean directoryExists(final String dirPath, final IDevice device)
+  public boolean directoryExists(final String dirPath, final IDevice device)
       throws AdbCommandRejectedException,
           IOException,
           ShellCommandUnresponsiveException,

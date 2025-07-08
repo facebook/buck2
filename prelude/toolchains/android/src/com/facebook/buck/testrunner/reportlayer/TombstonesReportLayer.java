@@ -45,6 +45,9 @@ public class TombstonesReportLayer extends ReportLayer {
   }
 
   private void collectTombstones(IDevice device) throws Exception {
+    if (!this.runner.directoryExists(TOMBSTONE_REMOTE_PATH, device)) {
+      return;
+    }
     // get the tombstones from the device
     Path tmp = Files.createTempDirectory("ait-tombstones-");
     if (!Files.exists(tmp)) {
