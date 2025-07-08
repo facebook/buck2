@@ -737,7 +737,17 @@ def _make_py_package_live(
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
     runtime_files.append(generated_manifest)
 
-    ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False)
+    if ctx.attrs.use_rust_make_par_incremental:
+        ctx.actions.run(
+            cmd,
+            metadata_env_var = "ACTION_METADATA",
+            metadata_path = "action_metadata-{}.json".format(name),
+            category = "par",
+            identifier = "make_live_par_incremental{}".format(output_suffix),
+            prefer_local = True,
+        )
+    else:
+        ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False)
 
     hidden_resources = pex_modules.manifests.hidden_resources(False)
 
