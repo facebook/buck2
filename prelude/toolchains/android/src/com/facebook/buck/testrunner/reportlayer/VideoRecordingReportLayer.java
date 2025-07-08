@@ -23,7 +23,7 @@ import java.nio.file.Path;
 public class VideoRecordingReportLayer extends ReportLayer {
 
   private static final String VIDEO_RECORDING_STORAGE_PATH =
-      "/storage/emulated/0/Android/data/%s/files";
+      "/sdcard/test_result/video_recordings/";
   private static final String VIDEO_RECORDING_SCRIPT_NAME = "test-video-record.sh";
   private static final String VIDEO_RECORDING_FILE_NAME = "test-video-record.mp4";
 
