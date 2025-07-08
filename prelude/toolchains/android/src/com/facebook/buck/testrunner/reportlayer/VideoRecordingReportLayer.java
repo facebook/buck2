@@ -51,9 +51,7 @@ public class VideoRecordingReportLayer extends ReportLayer {
 
   private Process startVideoRecording(IDevice device) {
     try {
-      System.out.println("starting video recording...");
       File scriptFile = File.createTempFile("video-recording-", ".sh");
-      System.out.println("script file: " + scriptFile.getAbsolutePath());
       FileWriter scriptFileWriter = new FileWriter(scriptFile);
       // create local script file
       scriptFileWriter.write(
@@ -74,7 +72,6 @@ public class VideoRecordingReportLayer extends ReportLayer {
       // push script to device
       String remoteScriptPath =
           String.format("%s/%s", this.getVideoRecordingStoragePath(), VIDEO_RECORDING_SCRIPT_NAME);
-      System.out.println("remote script path:" + remoteScriptPath);
       this.runner.pushFileWithSyncService(device, scriptFile.getAbsolutePath(), remoteScriptPath);
       // start recording process
       return this.runner.exec(String.format("adb shell sh %s", remoteScriptPath));

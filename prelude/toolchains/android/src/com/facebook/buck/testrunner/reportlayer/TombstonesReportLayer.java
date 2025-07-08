@@ -33,9 +33,7 @@ public class TombstonesReportLayer extends ReportLayer {
   }
 
   @Override
-  public void initialize() {
-    System.out.println("TombstoneReportLayer initializing..., do nothing.");
-  }
+  public void initialize() {}
 
   @Override
   public void report() {
