@@ -147,6 +147,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] absolute: bool,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = false)]
+        use_dep_files_placeholder_for_content_based_paths: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
         let mut this = this.state()?;
@@ -166,7 +168,11 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         this.register_action(
             visitor.content_based_inputs,
             indexset![output_artifact],
-            UnregisteredWriteJsonAction::new(pretty, absolute),
+            UnregisteredWriteJsonAction::new(
+                pretty,
+                absolute,
+                use_dep_files_placeholder_for_content_based_paths,
+            ),
             Some(content.value),
             None,
         )?;
@@ -214,6 +220,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] absolute: bool,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = false)]
+        use_dep_files_placeholder_for_content_based_paths: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<
         Either<
@@ -365,6 +373,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 is_executable,
                 macro_files: maybe_macro_files,
                 absolute,
+                use_dep_files_placeholder_for_content_based_paths,
             }
         };
         this.register_action(

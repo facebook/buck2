@@ -18,6 +18,15 @@ def _c_binary_impl(ctx):
     headers_dir = ctx.actions.copied_dir(headers_dir, headers)
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
+    headers_dir_written = ctx.actions.write("headers_dir_written", headers_dir, uses_experimental_content_based_path_hashing = True)
+    headers_dir_written = headers_tag.tag_artifacts(headers_dir_written)
+    headers_dir_written_with_dep_files_placeholder = ctx.actions.write(
+        "headers_dir_written_with_dep_files_placeholder",
+        headers_dir,
+        use_dep_files_placeholder_for_content_based_paths = True,
+        uses_experimental_content_based_path_hashing = True,
+    )
+
     dep_file = ctx.actions.declare_output("depfile", uses_experimental_content_based_path_hashing = True)
     app = ctx.actions.declare_output(ctx.attrs.name)
 
@@ -32,7 +41,7 @@ def _c_binary_impl(ctx):
         "-MMD",
         "-MF",
         headers_tag.tag_artifacts(dep_file.as_output()),
-    ])
+    ], hidden = [headers_dir_written, headers_dir_written_with_dep_files_placeholder])
 
     ctx.actions.run(
         cmd,

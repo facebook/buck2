@@ -42,6 +42,8 @@ use indexmap::indexmap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
+use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
 enum WriteActionValidationError {
@@ -58,6 +60,7 @@ pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
     pub(crate) absolute: bool,
     pub(crate) macro_files: Option<IndexSet<Artifact>>,
+    pub(crate) use_dep_files_placeholder_for_content_based_paths: bool,
 }
 
 impl UnregisteredAction for UnregisteredWriteAction {
@@ -205,9 +208,15 @@ impl Action for WriteAction {
             .materializer()
             .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
-                let content = self
-                    .get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
-                    .into_bytes();
+                let content = if self.inner.use_dep_files_placeholder_for_content_based_paths {
+                    self.get_contents(
+                        &ctx.executor_fs(),
+                        &DepFilesPlaceholderArtifactPathMapper {},
+                    )?
+                } else {
+                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
+                }
+                .into_bytes();
                 let path = fs.resolve_build(
                     self.output.get_path(),
                     if self.output.get_path().is_content_based_path() {

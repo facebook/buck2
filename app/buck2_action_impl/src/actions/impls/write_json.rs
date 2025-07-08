@@ -66,6 +66,8 @@ use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
 enum WriteJsonActionValidationError {
@@ -79,11 +81,20 @@ enum WriteJsonActionValidationError {
 pub(crate) struct UnregisteredWriteJsonAction {
     pretty: bool,
     absolute: bool,
+    use_dep_files_placeholder_for_content_based_paths: bool,
 }
 
 impl UnregisteredWriteJsonAction {
-    pub(crate) fn new(pretty: bool, absolute: bool) -> Self {
-        Self { pretty, absolute }
+    pub(crate) fn new(
+        pretty: bool,
+        absolute: bool,
+        use_dep_files_placeholder_for_content_based_paths: bool,
+    ) -> Self {
+        Self {
+            pretty,
+            absolute,
+            use_dep_files_placeholder_for_content_based_paths,
+        }
     }
 
     pub(crate) fn cli<'v>(
@@ -212,13 +223,18 @@ impl Action for WriteJsonAction {
         let fs = ctx.fs();
 
         let mut execution_start = None;
-
         let value = ctx
             .materializer()
             .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
-                let content =
-                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?;
+                let content = if self.inner.use_dep_files_placeholder_for_content_based_paths {
+                    self.get_contents(
+                        &ctx.executor_fs(),
+                        &DepFilesPlaceholderArtifactPathMapper {},
+                    )?
+                } else {
+                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
+                };
                 let path = fs.resolve_build(
                     self.output.get_path(),
                     if self.output.get_path().is_content_based_path() {

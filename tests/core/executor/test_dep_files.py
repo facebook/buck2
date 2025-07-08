@@ -190,7 +190,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
         f"test.dummy_config={dummy1}",
     )
     await check_execution_kind(
-        buck, [ACTION_EXECUTION_KIND_SIMPLE, ACTION_EXECUTION_KIND_LOCAL]
+        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
     )
 
     dummy2 = "dummy2"
