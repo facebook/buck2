@@ -641,7 +641,7 @@ impl RemoteExecutionClientImpl {
                 embedded_cas_daemon_config
                     .rich_client_config
                     .zdb_client_mode = if static_metadata.use_zippy_rich_client {
-                    RichClientMode::HYBRID
+                    RichClientMode::ENABLED
                 } else {
                     RichClientMode::DISABLED
                 };
