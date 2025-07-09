@@ -17,10 +17,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
@@ -133,13 +131,6 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                     metadata,
                     ..
                 } => {
-                    let size = match &metadata.0 {
-                        DirectoryEntry::Dir(meta) => meta.total_size,
-                        DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                            file_metadata.digest.size()
-                        }
-                        DirectoryEntry::Leaf(_) => 0,
-                    };
                     // drop nano-seconds
                     let ts = Utc
                         .timestamp_opt(last_access_time.timestamp(), 0)
@@ -147,7 +138,7 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                         .unwrap();
                     PathStage::Materialized {
                         ts,
-                        size: Some(size),
+                        size: Some(metadata.size()),
                     }
                 }
             };

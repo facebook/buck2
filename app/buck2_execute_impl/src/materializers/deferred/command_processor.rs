@@ -744,7 +744,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
-        let metadata = ArtifactMetadata::new(value.entry());
+        let metadata = ArtifactMetadata::new(value.entry(), true);
         on_materialization(
             self.sqlite_db.as_mut(),
             &self.log_buffer,
@@ -920,9 +920,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let is_match = match &data.stage {
             ArtifactMaterializationStage::Materialized { metadata, .. } => {
-                let is_match = value.entry();
-                tracing::trace!("materialized: found {}, is_match: {}", metadata.0, is_match);
-                metadata.matches_entry(is_match)
+                let is_match = metadata.matches_entry(value.entry());
+                tracing::trace!("materialized: found {}, is_match: {}", metadata, is_match);
+                is_match
             }
             ArtifactMaterializationStage::Declared { entry, .. } => {
                 // NOTE: In theory, if something was declared here, we should probably be able to
@@ -1314,7 +1314,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             entry,
                             method: _method,
                         } => {
-                            let metadata = ArtifactMetadata::new(entry);
+                            let metadata = ArtifactMetadata::new(entry, true);
                             // NOTE: We only insert this artifact if there isn't an in-progress cleanup
                             // future on this path.
                             on_materialization(

@@ -104,11 +104,11 @@ impl Processing {
     }
 }
 
-/// Metadata used to identify an artifact entry without all of its content. Stored on materialized
-/// artifacts to check matching artifact optimizations. For `ActionSharedDirectory`, we use its fingerprint,
+/// Metadata used to identify an artifact entry and stored for every materialized artifact.
+/// For directory entries it might only store their fingerprints for optimization purposes.
 /// For everything else (files, symlinks, and external symlinks), we use `ActionDirectoryMember`
-/// as is because it already holds the metadata we need.
-#[derive(Clone, Dupe, Debug)]
+/// as is.
+#[derive(Clone, Dupe, Debug, Display)]
 pub struct ArtifactMetadata(pub(crate) ActionDirectoryEntry<DirectoryMetadata>);
 
 impl ArtifactMetadata {
@@ -117,10 +117,9 @@ impl ArtifactMetadata {
         entry: &ActionDirectoryEntry<ActionSharedDirectory>,
     ) -> bool {
         match (&self.0, entry) {
-            (
-                DirectoryEntry::Dir(DirectoryMetadata { fingerprint, .. }),
-                DirectoryEntry::Dir(dir),
-            ) => fingerprint == dir.fingerprint(),
+            (DirectoryEntry::Dir(d1), DirectoryEntry::Dir(d2)) => {
+                d1.fingerprint() == d2.fingerprint()
+            }
             (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => {
                 // In Windows, the 'executable bit' absence can cause Buck2 to re-download identical artifacts.
                 // To avoid this, we exclude the executable bit from the comparison.
@@ -139,12 +138,19 @@ impl ArtifactMetadata {
         }
     }
 
-    pub(crate) fn new(entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
+    pub(crate) fn new(entry: &ActionDirectoryEntry<ActionSharedDirectory>, compact: bool) -> Self {
         let new_entry = match entry {
-            DirectoryEntry::Dir(dir) => DirectoryEntry::Dir(DirectoryMetadata {
-                fingerprint: dir.fingerprint().dupe(),
-                total_size: entry.calc_output_count_and_bytes().bytes,
-            }),
+            DirectoryEntry::Dir(dir) => {
+                let metadata = if compact {
+                    DirectoryMetadata::Compact {
+                        fingerprint: dir.fingerprint().dupe(),
+                        total_size: entry.calc_output_count_and_bytes().bytes,
+                    }
+                } else {
+                    DirectoryMetadata::Full(dir.dupe())
+                };
+                DirectoryEntry::Dir(metadata)
+            }
             DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf.dupe()),
         };
         Self(new_entry)
@@ -152,7 +158,7 @@ impl ArtifactMetadata {
 
     pub(crate) fn size(&self) -> u64 {
         match &self.0 {
-            DirectoryEntry::Dir(dir) => dir.total_size,
+            DirectoryEntry::Dir(dir) => dir.size(),
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
                 file_metadata.digest.size()
             }

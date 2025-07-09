@@ -45,7 +45,7 @@ pub struct MaterializerStateIdentity(String);
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const DB_SCHEMA_VERSION: u64 = 6;
+pub const DB_SCHEMA_VERSION: u64 = 7;
 
 const IDENTITY_KEY: &str = "timestamp_on_initialization";
 
@@ -319,13 +319,19 @@ pub(crate) fn testing_materializer_state_sqlite_db(
 mod tests {
 
     use assert_matches::assert_matches;
+    use buck2_common::cas_digest::TrackedCasDigest;
     use buck2_common::file_ops::metadata::FileMetadata;
+    use buck2_common::file_ops::metadata::Symlink;
     use buck2_common::file_ops::metadata::TrackedFileDigest;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_directory::directory::builder::DirectoryBuilder;
+    use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
     use buck2_directory::directory::entry::DirectoryEntry;
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::directory::new_symlink;
     use chrono::TimeZone;
+    use itertools::Itertools;
 
     use super::*;
     use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
@@ -350,12 +356,57 @@ mod tests {
 
         table.create_table().unwrap();
 
-        let dir_metadata = DirectoryMetadata {
+        let compact_dir_metadata = DirectoryMetadata::Compact {
             fingerprint: TrackedFileDigest::from_content(
                 b"directory",
                 digest_config.cas_digest_config(),
             ),
             total_size: 32,
+        };
+        let shared_directory = {
+            let mut builder = DirectoryBuilder::empty();
+            // Create the following directory:
+            // ├── foo - file
+            // ├── bar - empty directory
+            // └── baz
+            //     └── qux -> ../foo
+            {
+                let digest =
+                    TrackedCasDigest::from_content(b"hello", digest_config.cas_digest_config());
+                let metadata = FileMetadata {
+                    digest,
+                    is_executable: false,
+                };
+                let file = DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata));
+                builder
+                    .insert(ForwardRelativePath::unchecked_new("foo"), file)
+                    .unwrap();
+            }
+            {
+                let empty_directory = DirectoryEntry::Dir(DirectoryBuilder::empty());
+                builder
+                    .insert(ForwardRelativePath::unchecked_new("bar"), empty_directory)
+                    .unwrap();
+            }
+            {
+                let mut directory_builder = DirectoryBuilder::empty();
+                let symlink =
+                    ActionDirectoryMember::Symlink(Arc::new(Symlink::new("../foo".into())));
+                directory_builder
+                    .insert(
+                        ForwardRelativePath::unchecked_new("qux"),
+                        DirectoryEntry::Leaf(symlink),
+                    )
+                    .unwrap();
+                let directory = DirectoryEntry::Dir(directory_builder);
+                builder
+                    .insert(ForwardRelativePath::unchecked_new("baz"), directory)
+                    .unwrap();
+            }
+            let interner = DashMapDirectoryInterner::new();
+            builder
+                .fingerprint(digest_config.as_directory_serializer())
+                .shared(&interner)
         };
         let file = ActionDirectoryMember::File(FileMetadata {
             digest: TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config()),
@@ -377,7 +428,9 @@ mod tests {
         let artifacts = vec![
             MaterializerStateEntry {
                 path: ProjectRelativePath::unchecked_new("a").to_owned(),
-                metadata: ArtifactMetadata(DirectoryEntry::Dir(dir_metadata)),
+                metadata: ArtifactMetadata(DirectoryEntry::Dir(DirectoryMetadata::Full(
+                    shared_directory,
+                ))),
                 last_access_time: now_seconds(),
             },
             MaterializerStateEntry {
@@ -395,6 +448,11 @@ mod tests {
                 metadata: ArtifactMetadata(DirectoryEntry::Leaf(external_symlink)),
                 last_access_time: now_seconds(),
             },
+            MaterializerStateEntry {
+                path: ProjectRelativePath::unchecked_new("f").to_owned(),
+                metadata: ArtifactMetadata(DirectoryEntry::Dir(compact_dir_metadata)),
+                last_access_time: now_seconds(),
+            },
         ];
         let mut artifacts: HashMap<_, _> =
             artifacts.into_iter().map(|x| (x.path.clone(), x)).collect();
@@ -405,8 +463,16 @@ mod tests {
                 .unwrap();
         }
 
+        let check_materializer_state_expected =
+            |state: &MaterializerState,
+             artifacts: &HashMap<ProjectRelativePathBuf, MaterializerStateEntry>| {
+                let expected_values = artifacts.values().sorted_by_key(|x| x.path.as_str());
+                let result_values = state.iter().sorted_by_key(|x| x.path.as_str());
+                assert!(expected_values.eq(result_values));
+            };
+
         let state = table.read_materializer_state(digest_config).unwrap();
-        assert!(artifacts.values().eq(state.iter()));
+        check_materializer_state_expected(&state, &artifacts);
 
         let paths_to_remove = vec![
             ProjectRelativePath::unchecked_new("d").to_owned(),
@@ -419,15 +485,27 @@ mod tests {
             artifacts.remove(path);
         }
         let state = table.read_materializer_state(digest_config).unwrap();
-        assert!(artifacts.values().eq(state.iter()));
+
+        check_materializer_state_expected(&state, &artifacts);
     }
 
     impl PartialEq for ArtifactMetadata {
         fn eq(&self, other: &ArtifactMetadata) -> bool {
             match (&self.0, &other.0) {
-                (DirectoryEntry::Dir(d1), DirectoryEntry::Dir(d2)) => {
-                    d1.fingerprint == d2.fingerprint && d1.total_size == d2.total_size
-                }
+                (
+                    DirectoryEntry::Dir(DirectoryMetadata::Compact {
+                        fingerprint: fingerprint1,
+                        total_size: total_size1,
+                    }),
+                    DirectoryEntry::Dir(DirectoryMetadata::Compact {
+                        fingerprint: fingerprint2,
+                        total_size: total_size2,
+                    }),
+                ) => fingerprint1 == fingerprint2 && total_size1 == total_size2,
+                (
+                    DirectoryEntry::Dir(DirectoryMetadata::Full(d1)),
+                    DirectoryEntry::Dir(DirectoryMetadata::Full(d2)),
+                ) => d1 == d2,
                 (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => l1 == l2,
                 (_, _) => false,
             }
@@ -467,13 +545,12 @@ mod tests {
         let fs = ProjectRootTemp::new()?;
 
         let path = ProjectRelativePath::unchecked_new("foo").to_owned();
-        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(DirectoryMetadata {
-            fingerprint: TrackedFileDigest::from_content(
-                b"directory",
-                digest_config.cas_digest_config(),
-            ),
-            total_size: 32,
-        }));
+        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Leaf(
+            ActionDirectoryMember::File(FileMetadata {
+                digest: TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config()),
+                is_executable: false,
+            }),
+        ));
         let timestamp = now_seconds();
         let metadatas = testing_metadatas();
 
