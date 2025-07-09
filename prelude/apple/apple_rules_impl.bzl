@@ -44,38 +44,6 @@ implemented_rules = {
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
-def _apple_binary_extra_attrs():
-    attribs = {
-        "application_extension": attrs.bool(default = False),
-        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
-        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-        "enable_distributed_thinlto": attrs.bool(default = select({
-            "DEFAULT": False,
-            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
-        })),
-        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-        "link_execution_preference": link_execution_preference_attr(),
-        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "prefer_stripped_objects": attrs.bool(default = False),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
-        "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
-        "stripped": attrs.option(attrs.bool(), default = None),
-        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
-        "swift_package_name": attrs.option(attrs.string(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
-        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
-        "_enable_library_evolution": get_enable_library_evolution(),
-        "_stripped_default": attrs.bool(default = False),
-        "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
-        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    } | validation_common.attrs_validators_arg()
-    attribs.update(apple_common.apple_tools_arg())
-    attribs.update(apple_dsymutil_attrs())
-    attribs.update(constraint_overrides.attributes)
-    attribs.update(get_skip_swift_incremental_outputs_attrs())
-    return attribs
-
 def _apple_library_extra_attrs():
     attribs = {
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
@@ -120,7 +88,6 @@ extra_attributes = {
     "apple_asset_catalog": {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
-    "apple_binary": _apple_binary_extra_attrs(),
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": _apple_library_extra_attrs(),
     "apple_package": {

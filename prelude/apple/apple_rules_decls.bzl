@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
@@ -25,6 +26,7 @@ load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executab
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", "mockingbird_mock_attrs", "mockingbird_mock_impl")
+load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
@@ -48,7 +50,10 @@ load("@prelude//decls:cxx_common.bzl", "cxx_common")
 load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
+load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
@@ -59,6 +64,10 @@ load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
     "apple_xcuitest_extra_attrs",
+    "get_apple_xctoolchain_attr",
+    "get_apple_xctoolchain_bundle_id_attr",
+    "get_enable_library_evolution",
+    "get_skip_swift_incremental_outputs_attrs",
 )
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
@@ -82,6 +91,8 @@ SWIFT_VERSION_FEATURE_MAP = {
     "5": [],
     "6": [],
 }
+
+_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def apple_bundle_base_attrs():
     return (apple_common.product_name_from_module_name_arg() |
@@ -219,6 +230,38 @@ apple_asset_catalog = prelude_rule(
     impl = apple_asset_catalog_impl,
     cfg = apple_resource_transition,
 )
+
+def _apple_binary_extra_attrs():
+    attribs = {
+        "application_extension": attrs.bool(default = False),
+        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
+        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
+        "enable_distributed_thinlto": attrs.bool(default = select({
+            "DEFAULT": False,
+            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+        })),
+        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
+        "link_execution_preference": link_execution_preference_attr(),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "prefer_stripped_objects": attrs.bool(default = False),
+        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
+        "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
+        "stripped": attrs.option(attrs.bool(), default = None),
+        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
+        "swift_package_name": attrs.option(attrs.string(), default = None),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_enable_library_evolution": get_enable_library_evolution(),
+        "_stripped_default": attrs.bool(default = False),
+        "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
+        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
+    } | validation_common.attrs_validators_arg()
+    attribs.update(apple_common.apple_tools_arg())
+    attribs.update(apple_dsymutil_attrs())
+    attribs.update(constraint_overrides.attributes)
+    attribs.update(get_skip_swift_incremental_outputs_attrs())
+    return attribs
 
 apple_binary = prelude_rule(
     name = "apple_binary",
@@ -364,7 +407,8 @@ apple_binary = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        _apple_binary_extra_attrs()
     ),
     impl = apple_binary_impl,
     cfg = target_sdk_version_transition,
@@ -1130,8 +1174,6 @@ swift_toolchain = prelude_rule(
     ),
     impl = swift_toolchain_impl,
 )
-
-_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def _apple_universal_executable_attrs():
     attribs = {
