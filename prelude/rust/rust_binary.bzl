@@ -200,6 +200,9 @@ def _rust_binary_common(
         is_executable = True,
     )
 
+    # post link actions might mutate default output path
+    name = link.output.short_path
+
     args = cmd_args(link.output, hidden = executable_args.runtime_files)
     external_debug_info = project_artifacts(
         actions = ctx.actions,
