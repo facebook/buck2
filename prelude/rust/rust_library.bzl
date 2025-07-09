@@ -506,16 +506,15 @@ def _link_infos(
             children = lib.extra_external_debug_info,
         )
         if output_style == LibOutputStyle("shared_lib"):
-            # TODO(pickett): Link against import library for windows
+            exported_shlib = lib.output
+
+            # Link against import library on Windows.
+            if lib.import_library:
+                exported_shlib = lib.import_library
+
             link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = lib.output)],
-                    external_debug_info = external_debug_info,
-                    pre_flags = ctx.attrs.exported_linker_flags,
-                    post_flags = ctx.attrs.exported_post_linker_flags,
-                ),
-                stripped = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = lib.stripped_output)],
+                    linkables = [SharedLibLinkable(lib = exported_shlib)],
                     external_debug_info = external_debug_info,
                     pre_flags = ctx.attrs.exported_linker_flags,
                     post_flags = ctx.attrs.exported_post_linker_flags,
