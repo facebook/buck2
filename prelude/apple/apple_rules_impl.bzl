@@ -158,10 +158,6 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
-    "core_data_model": {
-        "module": attrs.option(attrs.string(), default = None),
-        "path": attrs.source(allow_directory = True),
-    },
     "prebuilt_apple_framework": {
         "contains_swift": attrs.bool(default = False),
         "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),

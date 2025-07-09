@@ -1061,13 +1061,14 @@ core_data_model = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "path": attrs.source(doc = """
+            "path": attrs.source(allow_directory = True, doc = """
                 Relative path of the .xcdatamodeld package directory.
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "module": attrs.option(attrs.string(), default = None),
         }
     ),
     impl = apple_core_data_impl,
