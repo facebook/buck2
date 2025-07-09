@@ -66,6 +66,8 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     /// Sample usage:
     /// ```python
     /// def _impl_utarget_set(ctx):
+    ///     unode_a = ctx.unconfigured_targets("root//bin:foo")
+    ///     unode_b = ctx.unconfigured_targets("root//bin:bar")
     ///     targets = bxl.utarget_set([unode_a, unode_b])
     ///     ctx.output.print(type(targets))
     ///     ctx.output.print(len(targets))
