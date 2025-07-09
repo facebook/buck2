@@ -833,20 +833,46 @@ def precompile_cxx(
     them; depending on those preprocessors will allow the corresponding module to load.
     """
     toolchain = get_cxx_toolchain_info(ctx)
-    if not _compiler_supports_header_units(toolchain.cxx_compiler_info):
+    compiler_info = toolchain.cxx_compiler_info
+    if not _compiler_supports_header_units(compiler_info):
         return []
 
-    ext = CxxExtension(".cpp")
-    headers_tag = ctx.actions.artifact_tag()
-    cmd = _generate_base_compile_command(
-        ctx,
-        impl_params,
-        header_preprocessor_info,
-        headers_tag,
-        ext,
-        uses_experimental_content_based_path_hashing = True,
-        filename_prefix = "pre_",
-    )
+    def mk_base_cmd():
+        base_compile_cmd = _get_compile_base(toolchain, compiler_info)
+        ext = CxxExtension(".cpp")
+        headers_tag = ctx.actions.artifact_tag()  # Currently ignored
+        argsfile = _mk_argsfiles(
+            ctx,
+            impl_params,
+            compiler_info,
+            header_preprocessor_info,
+            ext,
+            headers_tag,
+            is_xcode_argsfile = False,
+            is_precompile = True,
+            uses_experimental_content_based_path_hashing = True,
+            filename_prefix = "pre_",
+        )
+        header_units_argsfile = _mk_header_units_argsfile(
+            ctx,
+            compiler_info,
+            header_preprocessor_info,
+            ext,
+            uses_experimental_content_based_path_hashing = True,
+            filename_prefix = "pre_",
+        )
+        return CxxCompileCommand(
+            base_compile_cmd = base_compile_cmd,
+            argsfile = argsfile,
+            xcode_argsfile = argsfile,  # Unused
+            header_units_argsfile = header_units_argsfile,
+            headers_dep_files = None,
+            compiler_type = compiler_info.compiler_type,
+            category = "cxx_modules_precompile",
+            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
+        )
+
+    cmd = mk_base_cmd()
 
     header_unit_preprocessors = []
     if len(impl_params.export_header_unit_filter) <= 1:
@@ -1058,6 +1084,7 @@ def _mk_argsfiles(
         ext: CxxExtension,
         headers_tag: ArtifactTag,
         is_xcode_argsfile: bool,
+        is_precompile: bool = False,
         filename_prefix: str = "",
         uses_experimental_content_based_path_hashing: bool = False) -> CompileArgsfile:
     """
@@ -1125,7 +1152,11 @@ def _mk_argsfiles(
 
     def make_deps_argsfile():
         deps_args = []
-        deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
+        if is_precompile:
+            # TODO(nml): We don't support dep files for now in precompile.
+            deps_args.append(preprocessor.set.project_as_args("precompile_args"))
+        else:
+            deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
         # Different preprocessors will contain whether to use modules,
         # and the modulemap to use, so we need to get the final outcome.
@@ -1177,6 +1208,10 @@ def _mk_argsfiles(
     args_without_file_prefix_args = cmd_args(args_list)
 
     def make_file_prefix_argsfile():
+        if is_precompile:
+            # The precompile_args field overrides these.
+            return
+
         # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
         # to avoid "argument too long" errors
         file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
@@ -1312,9 +1347,31 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False, filename_prefix, uses_experimental_content_based_path_hashing)
-    xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True, filename_prefix, uses_experimental_content_based_path_hashing)
-    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, filename_prefix, uses_experimental_content_based_path_hashing)
+    def gen_argsfiles(**kwargs):
+        return _mk_argsfiles(
+            ctx,
+            impl_params,
+            compiler_info,
+            pre,
+            ext,
+            headers_tag,
+            is_precompile = False,
+            filename_prefix = filename_prefix,
+            uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+            **kwargs
+        )
+
+    argsfile = gen_argsfiles(is_xcode_argsfile = False)
+    xcode_argsfile = gen_argsfiles(is_xcode_argsfile = True)
+
+    header_units_argsfile = _mk_header_units_argsfile(
+        ctx,
+        compiler_info,
+        pre,
+        ext,
+        filename_prefix,
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+    )
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     return CxxCompileCommand(

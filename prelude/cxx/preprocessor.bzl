@@ -20,6 +20,7 @@ load(
     "CHeader",  # @unused Used as a type
     "CxxHeadersLayout",  # @unused Used as a type
     "CxxHeadersNaming",
+    "HeaderMode",
     "HeaderStyle",
     "HeadersAsRawHeadersMode",
     "RawHeadersAsHeadersMode",
@@ -44,6 +45,8 @@ CPreprocessorArgs = record(
     args = field(list[typing.Any], []),
     # File prefix args maps symlinks to source file location
     file_prefix_args = field(list[typing.Any], []),
+    # Arguments used for module precompilation, replacing args
+    precompile_args = field(list[typing.Any], []),
 )
 
 HeaderUnit = record(
@@ -88,6 +91,12 @@ def _cpreprocessor_modular_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
         args.add(pre.modular_args)
+    return args
+
+def _cpreprocessor_precompile_args(pres: list[CPreprocessor]):
+    args = cmd_args()
+    for pre in pres:
+        args.add(pre.args.precompile_args)
     return args
 
 def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
@@ -135,6 +144,7 @@ CPreprocessorTSet = transitive_set(
         "header_units_args": _cpreprocessor_header_units_args,
         "include_dirs": _cpreprocessor_include_dirs,
         "modular_args": _cpreprocessor_modular_args,
+        "precompile_args": _cpreprocessor_precompile_args,
     },
     reductions = {
         "uses_modules": _cpreprocessor_uses_modules,
@@ -194,7 +204,7 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
     else:
         return [cmd_args("-isystem"), path]
 
-def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout, extra_preprocessors: list[CPreprocessor] = [], uses_experimental_content_based_path_hashing: bool = False) -> CPreprocessor:
+def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout, extra_preprocessors: list[CPreprocessor] = []) -> CPreprocessor:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
@@ -253,7 +263,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
         system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
-    args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors, uses_experimental_content_based_path_hashing)
+    args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors)
 
     modular_args = []
     for pre in extra_preprocessors:
@@ -264,7 +274,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         header_units.extend(pre.header_units)
 
     return CPreprocessor(
-        args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args),
+        args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args, precompile_args = args.precompile_args),
         headers = exported_headers,
         raw_headers = raw_headers,
         include_dirs = include_dirs,
@@ -273,12 +283,26 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         header_units = header_units,
     )
 
-def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor], uses_experimental_content_based_path_hashing: bool) -> CPreprocessorArgs:
-    header_root = prepare_headers(ctx, headers, "buck-headers", uses_experimental_content_based_path_hashing)
+def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
+    header_root = prepare_headers(ctx, headers, "buck-headers")
+    precompile_root = prepare_headers(
+        ctx,
+        headers,
+        "buck-pre-headers",
+        HeaderMode("header_map_only"),
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     # Process args to handle the `$(cxx-header-tree)` macro.
+    #
+    # Note: said macro looks like it is used for user/macro-level modulemaps, which
+    # aren't compatible with header units precompilation. The macro expansion relies on
+    # the symlink tree, which isn't compatible with the hmap-only header mode used for
+    # precompile_args anyway.
     args = []
+    precompile_args = []
     for arg in cxx_attr_exported_preprocessor_flags(ctx):
+        precompile_args.append(arg)
         if _needs_cxx_header_tree_hack(arg):
             if header_root == None or header_root.symlink_tree == None:
                 fail("No headers")
@@ -289,6 +313,7 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
     file_prefix_args = []
     if header_root != None:
         args.extend(_header_style_args(style, header_root.include_path, compiler_type))
+        precompile_args.extend(_header_style_args(style, precompile_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
 
@@ -297,13 +322,16 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
     if raw_headers:
         # NOTE(agallagher): It's a bit weird adding an "empty" arg, but this
         # appears to do the job (and not e.g. expand to `""`).
-        args.append(cmd_args(hidden = raw_headers))
+        raw_header_args = cmd_args(hidden = raw_headers)
+        args.append(raw_header_args)
+        precompile_args.append(raw_header_args)
 
     # Append any extra preprocessor info passed in via the constructor params
     for pre in extra_preprocessors:
         args.extend(pre.args.args)
+        precompile_args.extend(pre.args.precompile_args)
 
-    return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
+    return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args, precompile_args = precompile_args)
 
 def cxx_private_preprocessor_info(
         ctx: AnalysisContext,
@@ -384,7 +412,7 @@ def _cxx_private_preprocessor_info(
     args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers)
 
     return CPreprocessor(
-        args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args),
+        args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args, precompile_args = args.precompile_args),
         headers = headers,
         raw_headers = all_raw_headers,
         include_dirs = include_dirs,

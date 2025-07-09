@@ -228,7 +228,12 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode:
 
     return toolchain_header_mode
 
-def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, uses_experimental_content_based_path_hashing: bool = False) -> [Headers, None]:
+def prepare_headers(
+        ctx: AnalysisContext,
+        srcs: dict[str, Artifact],
+        name: str,
+        header_mode: [HeaderMode, None] = None,
+        uses_experimental_content_based_path_hashing: bool = False) -> [Headers, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -240,7 +245,8 @@ def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, 
     if len(srcs) == 0:
         return None
 
-    header_mode = _header_mode(ctx)
+    if header_mode == None:
+        header_mode = _header_mode(ctx)
 
     # TODO(T110378135): There's a bug in clang where using header maps w/o
     # explicit `-I` anchors breaks module map lookups.  This will be fixed
