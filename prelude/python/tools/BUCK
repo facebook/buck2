@@ -1,7 +1,7 @@
 load("@prelude//python:internal_tools.bzl", "python_internal_tools")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
-oncall("build_infra")
+oncall("plf_experience")
 
 source_listing()
 
