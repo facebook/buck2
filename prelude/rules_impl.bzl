@@ -18,6 +18,7 @@ load("@prelude//:sh_test.bzl", "sh_test_impl")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
 load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
@@ -282,7 +283,6 @@ cxx_extra_attributes = {
         "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
         "deps_query": attrs.option(attrs.query(), default = None),
         "exported_needs_coverage_instrumentation": attrs.bool(default = False),
-        "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_deps_query_whole": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
@@ -308,7 +308,7 @@ cxx_extra_attributes = {
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_is_building_android_binary": is_building_android_binary_attr(),
-    },
+    } | apple_common.extra_xcode_sources(),
     "cxx_test": re_test_common.test_args(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
     "llvm_link_bitcode": {

@@ -116,7 +116,7 @@ def _info_plist_substitutions_arg():
 
 def _extra_xcode_sources():
     return {
-        "extra_xcode_sources": attrs.list(attrs.source(), default = [], doc = """
+        "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = [], doc = """
     When the project is generated, this is the list of files that will added to the build phase
      "Compile Sources" of the given target.
 """),
