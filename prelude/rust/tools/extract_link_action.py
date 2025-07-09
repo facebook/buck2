@@ -81,6 +81,14 @@ def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
             i += 2
             continue
 
+        # Windows form of version script
+        elif arg.startswith("/DEF:"):
+            def_file = Path(arg[5:])
+            new_path = shutil.copy(def_file, out_artifacts)
+            new_args.append("/DEF:{}".format(new_path))
+            i += 1
+            continue
+
         # These are the artifacts that rustc generates as inputs to the linker.
         elif (
             arg.endswith("rcgu.o")
