@@ -53,16 +53,10 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
-def unpack_objects(objects: Path) -> List[str]:
-    return [os.path.join(objects, x) for x in os.listdir(objects) if x.endswith(".o")]
-
-
 async def main() -> int:
     args = arg_parse()
 
     linker_cmd = args.linker[:1]
-
-    objects = unpack_objects(args.objects)
 
     with tempfile.NamedTemporaryFile(
         mode="wb",
@@ -77,7 +71,6 @@ async def main() -> int:
                 b"-Wl,--version-script=" + str(args.version_script).encode() + b"\n"
             )
 
-        args_file.write("\n".join(objects).encode() + b"\n")
         args_file.write("\n".join(args.linker[1:]).encode() + b"\n")
         args_file.flush()
 

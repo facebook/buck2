@@ -61,10 +61,11 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
-def process_link_args(args: List[str]) -> Tuple[List[str], Path | None, List[Path]]:
+def process_link_args(
+    args: List[str], out_objects: Path
+) -> Tuple[List[str], Path | None, Path | None]:
     new_args = []
     version_script = None
-    objects = []
 
     i = 0
     size = len(args)
@@ -78,10 +79,16 @@ def process_link_args(args: List[str]) -> Tuple[List[str], Path | None, List[Pat
             i += 1
             continue
         # These are the artifacts that rustc generates as inputs to the linker.
-        elif arg.endswith("rcgu.o") or arg.endswith("symbols.o"):
-            objects.append(Path(arg))
+        elif (
+            arg.endswith("rcgu.o")
+            or arg.endswith("symbols.o")
+            or arg.endswith("rcgu.rmeta")
+        ):
+            new_path = shutil.copy(Path(arg), out_objects)
+            new_args.append(new_path)
             i += 1
             continue
+
         # We don't need either of these, and omitting them from the deferred link args will save
         # us from having to pass them to the deferred link action.
         # The .rlib files here are hollow rlibs, providing only metadata for each dependency. These
@@ -105,17 +112,17 @@ def process_link_args(args: List[str]) -> Tuple[List[str], Path | None, List[Pat
         new_args.append(arg)
         i += 1
 
-    return (new_args, version_script, objects)
-
-
-def unpack_objects(objects: Path) -> List[str]:
-    return [x for x in os.listdir(objects) if x.endswith(".o") or x.endswith(".rmeta")]
+    return (new_args, version_script)
 
 
 def main() -> int:
     args = arg_parse()
 
-    filtered_args, version_script, objects = process_link_args(args.linker[1:])
+    os.mkdir(args.out_objects)
+
+    filtered_args, version_script = process_link_args(
+        args.linker[1:], out_objects=args.out_objects
+    )
     args.out_argsfile.write("\n".join(filtered_args))
     args.out_argsfile.close()
 
@@ -124,10 +131,6 @@ def main() -> int:
     else:
         # Touch the file to make buck2 happy
         args.out_version_script.touch()
-
-    os.mkdir(args.out_objects)
-    for obj in objects:
-        shutil.copy(obj, args.out_objects)
 
     return 0
 
