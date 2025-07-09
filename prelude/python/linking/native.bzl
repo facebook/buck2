@@ -243,6 +243,9 @@ def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensio
     extension_info_reduced = reduce_cxx_extension_info(extension_info)
     return extension_info, extension_info_reduced
 
+def _cxx_exe_allow_cache_upload(ctx) -> bool:
+    return hasattr(ctx.attrs, "exe_allow_cache_uplod") and bool(ctx.attrs.exe_allow_cache_uplod)
+
 def _compute_cxx_executable_info(
         ctx,
         extension_info_reduced,
@@ -320,7 +323,7 @@ def _compute_cxx_executable_info(
             extension_info_reduced.shared_only_libs +
             linkables(ctx.attrs.link_group_deps)
         ),
-        exe_allow_cache_upload = allow_cache_upload,
+        exe_allow_cache_upload = bool(allow_cache_upload) or _cxx_exe_allow_cache_upload(ctx),
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
