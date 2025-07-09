@@ -21,7 +21,6 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
@@ -45,6 +44,7 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionErrorType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::error::RemoteExecutionError;
@@ -387,8 +387,8 @@ impl CasDownloader<'_> {
         for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
-                to_declare.push((
-                    requested
+                to_declare.push(DeclareArtifactPayload {
+                    path: requested
                         .resolve(
                             artifact_fs,
                             if requested.has_content_based_path() {
@@ -400,8 +400,8 @@ impl CasDownloader<'_> {
                         )?
                         .path
                         .to_owned(),
-                    value.dupe(),
-                ));
+                    artifact: value.dupe(),
+                });
                 mapped_outputs.insert(requested.cloned(), value);
             }
         }
@@ -455,7 +455,7 @@ enum DownloadError {
 }
 
 struct ExtractedArtifacts {
-    to_declare: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    to_declare: Vec<DeclareArtifactPayload>,
     mapped_outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
     now: DateTime<Utc>,
     expires: DateTime<Utc>,

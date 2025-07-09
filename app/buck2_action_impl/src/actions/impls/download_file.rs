@@ -38,6 +38,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::http::Checksum;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_http::HttpClient;
 use dupe::Dupe;
@@ -339,7 +340,10 @@ impl Action for DownloadFileAction {
                         is_executable: self.inner.is_executable,
                     };
                     ctx.materializer()
-                        .declare_existing(vec![(rel_path, ArtifactValue::file(metadata.dupe()))])
+                        .declare_existing(vec![DeclareArtifactPayload {
+                            path: rel_path,
+                            artifact: ArtifactValue::file(metadata.dupe()),
+                        }])
                         .await?;
 
                     (ArtifactValue::file(metadata), ActionExecutionKind::Simple)

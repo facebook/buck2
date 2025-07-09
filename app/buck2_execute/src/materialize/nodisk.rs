@@ -24,6 +24,7 @@ use crate::artifact_value::ArtifactValue;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::CopiedArtifact;
+use crate::materialize::materializer::DeclareArtifactPayload;
 use crate::materialize::materializer::DeclareMatchOutcome;
 use crate::materialize::materializer::HttpDownloadInfo;
 use crate::materialize::materializer::MaterializationError;
@@ -44,7 +45,7 @@ impl Materializer for NoDiskMaterializer {
 
     async fn declare_existing(
         &self,
-        _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        _artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()> {
         // Nothing to do, we don't keep track of state;
         Ok(())
@@ -63,7 +64,7 @@ impl Materializer for NoDiskMaterializer {
     async fn declare_cas_many_impl<'a, 'b>(
         &self,
         _info: Arc<CasDownloadInfo>,
-        _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        _artifacts: Vec<DeclareArtifactPayload>,
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         Ok(())

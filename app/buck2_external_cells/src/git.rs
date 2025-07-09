@@ -47,6 +47,7 @@ use buck2_execute::entry::build_entry_from_disk;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_util::process::background_command;
@@ -184,7 +185,10 @@ async fn download_impl(
     });
 
     materializer
-        .declare_existing(vec![(path.to_owned(), ArtifactValue::new(entry, None))])
+        .declare_existing(vec![DeclareArtifactPayload {
+            path: path.to_owned(),
+            artifact: ArtifactValue::new(entry, None),
+        }])
         .await?;
 
     Ok(())

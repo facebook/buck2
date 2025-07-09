@@ -38,6 +38,7 @@ use buck2_execute::directory::re_directory_to_re_tree;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
@@ -304,7 +305,10 @@ impl Action for CasArtifactAction {
         ctx.materializer()
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case)),
-                vec![(path, value.dupe())],
+                vec![DeclareArtifactPayload {
+                    path,
+                    artifact: value.dupe(),
+                }],
                 ctx.cancellation_context(),
             )
             .await?;

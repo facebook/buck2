@@ -58,6 +58,7 @@ use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::CopiedArtifact;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
@@ -316,7 +317,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
     async fn declare_existing(
         &self,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()> {
         let cmd = MaterializerCommand::DeclareExisting(
             artifacts,
@@ -357,8 +358,10 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             }
         }
         let cmd = MaterializerCommand::Declare(
-            path,
-            value,
+            DeclareArtifactPayload {
+                path,
+                artifact: value,
+            },
             Box::new(ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs)),
             get_dispatcher(),
         );
@@ -369,13 +372,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn declare_cas_many_impl<'a, 'b>(
         &self,
         info: Arc<CasDownloadInfo>,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        artifacts: Vec<DeclareArtifactPayload>,
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
-        for (path, value) in artifacts {
+        for a in artifacts {
             let cmd = MaterializerCommand::Declare(
-                path,
-                value,
+                a,
                 Box::new(ArtifactMaterializationMethod::CasDownload { info: info.dupe() }),
                 get_dispatcher(),
             );
@@ -391,8 +393,10 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         let cmd = MaterializerCommand::Declare(
-            path,
-            ArtifactValue::file(info.metadata.dupe()),
+            DeclareArtifactPayload {
+                path,
+                artifact: ArtifactValue::file(info.metadata.dupe()),
+            },
             Box::new(ArtifactMaterializationMethod::HttpDownload { info }),
             get_dispatcher(),
         );
@@ -449,8 +453,10 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         for (path, (value, method)) in std::iter::zip(paths, std::iter::zip(values.iter(), methods))
         {
             self.command_sender.send(MaterializerCommand::Declare(
-                path,
-                value.dupe(),
+                DeclareArtifactPayload {
+                    path,
+                    artifact: value.dupe(),
+                },
                 Box::new(method),
                 get_dispatcher(),
             ))?;

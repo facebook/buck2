@@ -62,6 +62,7 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
@@ -642,10 +643,16 @@ impl LocalExecutor {
                                     })
                                     .await?;
 
-                                to_declare.push((hashed_path, value.dupe()));
+                                to_declare.push(DeclareArtifactPayload {
+                                    path: hashed_path,
+                                    artifact: value.dupe(),
+                                });
                             }
                         } else {
-                            to_declare.push((output_path, value.dupe()));
+                            to_declare.push(DeclareArtifactPayload {
+                                path: output_path,
+                                artifact: value.dupe(),
+                            });
                         }
                     }
                     CommandExecutionOutput::TestPath { .. } => {

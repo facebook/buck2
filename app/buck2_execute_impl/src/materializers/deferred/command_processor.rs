@@ -30,6 +30,7 @@ use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_util::threads::check_stack_overflow;
@@ -131,16 +132,11 @@ pub(super) enum MaterializerCommand<T: 'static> {
     ),
 
     /// Declares that a set of artifacts already exist
-    DeclareExisting(
-        Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        Option<SpanId>,
-        Option<TraceId>,
-    ),
+    DeclareExisting(Vec<DeclareArtifactPayload>, Option<SpanId>, Option<TraceId>),
 
     /// Declares an artifact: its path, value, and how to materialize it.
     Declare(
-        ProjectRelativePathBuf,
-        ArtifactValue,
+        DeclareArtifactPayload,
         Box<ArtifactMaterializationMethod>, // Boxed to avoid growing all variants
         EventDispatcher,
     ),
@@ -194,8 +190,12 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                     paths, current_span, trace_id
                 )
             }
-            MaterializerCommand::Declare(path, value, method, _dispatcher) => {
-                write!(f, "Declare({:?}, {:?}, {:?})", path, value, method,)
+            MaterializerCommand::Declare(
+                DeclareArtifactPayload { path, artifact },
+                method,
+                _dispatcher,
+            ) => {
+                write!(f, "Declare({:?}, {:?}, {:?})", path, artifact, method,)
             }
             MaterializerCommand::MatchArtifacts(paths, _) => {
                 write!(f, "MatchArtifacts({:?})", paths)
@@ -545,12 +545,19 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 result_sender.send(result).ok();
             }
             MaterializerCommand::DeclareExisting(artifacts, ..) => {
-                for (path, artifact) in artifacts {
+                for DeclareArtifactPayload { path, artifact } in artifacts {
                     self.declare_existing(&path, artifact);
                 }
             }
             // Entry point for `declare_{copy|cas}` calls
-            MaterializerCommand::Declare(path, value, method, event_dispatcher) => {
+            MaterializerCommand::Declare(
+                DeclareArtifactPayload {
+                    path,
+                    artifact: value,
+                },
+                method,
+                event_dispatcher,
+            ) => {
                 self.maybe_log_command(&event_dispatcher, || {
                     buck2_data::materializer_command::Data::Declare(
                         buck2_data::materializer_command::Declare {

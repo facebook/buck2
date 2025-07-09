@@ -126,6 +126,12 @@ pub enum MaterializationError {
     },
 }
 
+#[derive(Debug)]
+pub struct DeclareArtifactPayload {
+    pub path: ProjectRelativePathBuf,
+    pub artifact: ArtifactValue,
+}
+
 /// A trait providing methods to asynchronously materialize artifacts.
 ///
 /// # Invariants
@@ -159,7 +165,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     /// Declare that a set of artifacts exist on disk already.
     async fn declare_existing(
         &self,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()>;
 
     async fn declare_copy_impl(
@@ -173,7 +179,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     async fn declare_cas_many_impl<'a, 'b>(
         &self,
         info: Arc<CasDownloadInfo>,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        artifacts: Vec<DeclareArtifactPayload>,
         cancellations: &CancellationContext,
     ) -> buck2_error::Result<()>;
 
@@ -342,10 +348,13 @@ impl dyn Materializer {
     pub async fn declare_cas_many(
         &self,
         info: Arc<CasDownloadInfo>,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        artifacts: Vec<DeclareArtifactPayload>,
         cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
-        for (_, value) in artifacts.iter() {
+        for DeclareArtifactPayload {
+            artifact: value, ..
+        } in artifacts.iter()
+        {
             self.check_declared_external_symlink(value)?;
         }
         self.declare_cas_many_impl(info, artifacts, cancellations)
