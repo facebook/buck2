@@ -34,6 +34,8 @@ const (
 	metaStdLib      = "std"
 )
 
+var allPackagesTargetExprs = strings.Fields(os.Getenv("GOPACKAGESDRIVER_BUCK_ALL_PACKAGES_TARGET_EXPRS"))
+
 func query(ctx context.Context, req *packages.DriverRequest, bucker Bucker, platform Platform, targets []string) (*packages.DriverResponse, error) {
 	var resp *packages.DriverResponse
 	var err error
@@ -43,6 +45,7 @@ func query(ctx context.Context, req *packages.DriverRequest, bucker Bucker, plat
 	safeTargets := make([]string, 0, len(targets))
 	for _, target := range targets {
 		if target == metaAllPackages || target == metaAll {
+			safeTargets = append(safeTargets, allPackagesTargetExprs...)
 			continue
 		}
 		safeTargets = append(safeTargets, target)
