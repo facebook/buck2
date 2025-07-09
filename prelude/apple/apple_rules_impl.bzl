@@ -169,9 +169,6 @@ extra_attributes = {
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_stripped_default": attrs.bool(default = False),
     } | apple_common.apple_tools_arg(),
-    "scene_kit_assets": {
-        "path": attrs.source(allow_directory = True),
-    },
     "swift_toolchain": {
         "architecture": attrs.string(),
         "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),

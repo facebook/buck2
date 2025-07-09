@@ -1138,7 +1138,7 @@ scene_kit_assets = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "path": attrs.source(),
+            "path": attrs.source(allow_directory = True),
         }
     ),
     impl = scene_kit_assets_impl,
