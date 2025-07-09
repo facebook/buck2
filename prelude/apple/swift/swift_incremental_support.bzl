@@ -12,10 +12,7 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//utils:buckconfig.bzl", "read_bool")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
-
-_SKIP_INCREMENTAL_OUTPUTS = read_bool("apple", "skip_swift_incremental_outputs", False, False, True)
 
 _OutputFileMapData = record(
     artifacts = field(list[Artifact]),
@@ -74,6 +71,9 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
     src_threads = (num_srcs + _SWIFT_BATCH_SIZE - 1) // _SWIFT_BATCH_SIZE
     return min(_MAX_NUM_THREADS, src_threads)
 
+def _get_skip_swift_incremental_outputs(ctx: AnalysisContext):
+    return getattr(ctx.attrs, "skip_swift_incremental_outputs", False)
+
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
         output_file_map_data: _OutputFileMapData,
@@ -102,7 +102,8 @@ def _get_incremental_compilation_flags_and_objects(
         hidden = [output.as_output() for output in output_file_map_data.outputs],
     )
 
-    if _SKIP_INCREMENTAL_OUTPUTS:
+    skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
+    if skip_incremental_outputs:
         # When skipping incremental outputs, we write the contents of the
         # output_file_map in the swift wrapper and need to ensure this is
         # an output file (vs being an input in normal cases)
@@ -119,14 +120,14 @@ def _get_incremental_compilation_flags_and_objects(
         incremental_flags_cmd = cmd,
         num_threads = _get_incremental_num_threads(num_srcs),
         output_file_map = output_file_map_data.output_file_map,
-        skip_incremental_outputs = _SKIP_INCREMENTAL_OUTPUTS,
+        skip_incremental_outputs = skip_incremental_outputs,
         swiftdeps = output_file_map_data.swiftdeps,
     )
 
 def _get_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
-    if _SKIP_INCREMENTAL_OUTPUTS:
+    if _get_skip_swift_incremental_outputs(ctx):
         all_outputs = []
         swiftdeps = []
         artifacts = []

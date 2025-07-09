@@ -35,6 +35,7 @@ load(
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
+    "get_skip_swift_incremental_outputs_attrs",
 )
 
 implemented_rules = {
@@ -76,6 +77,7 @@ def _apple_binary_extra_attrs():
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(constraint_overrides.attributes)
+    attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 
 def _apple_library_extra_attrs():
@@ -116,6 +118,7 @@ def _apple_library_extra_attrs():
     } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
+    attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 
 extra_attributes = {

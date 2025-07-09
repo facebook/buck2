@@ -19,6 +19,7 @@ load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//ide_integrations/xcode:scheme_settings.bzl", "XCODE_SCHEME_SETTINGS_ATTR_NAME", "XCODE_SCHEME_SETTINGS_ATTR_TYPE")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
+load("@prelude//utils:buckconfig.bzl", "read_bool")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 
 AppleFrameworkBundleModuleMapType = ["auto"]
@@ -96,6 +97,11 @@ def get_apple_info_plist_build_system_identification_attrs():
     return {
         "info_plist_identify_build_system": attrs.option(attrs.bool(), default = None),
         "_info_plist_identify_build_system_default": attrs.bool(default = False),
+    }
+
+def get_skip_swift_incremental_outputs_attrs():
+    return {
+        "_skip_swift_incremental_outputs": attrs.bool(default = read_bool("apple", "skip_swift_incremental_outputs", False, False, True)),
     }
 
 def _apple_bundle_like_common_attrs():
@@ -178,6 +184,7 @@ def apple_test_extra_attrs():
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
     } | validation_common.attrs_validators_arg()
     attribs.update(_apple_bundle_like_common_attrs())
+    attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 
 def apple_xcuitest_extra_attrs():
