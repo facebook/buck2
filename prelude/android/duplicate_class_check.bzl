@@ -10,7 +10,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 
 def check_for_duplicate_classes_for_pre_dexed_libs(
         ctx: AnalysisContext,
-        target_name_to_class_name_mapping: dict[str, Artifact]) -> ValidationInfo:
+        target_name_to_class_name_mapping: dict[str, Artifact]) -> Artifact:
     validation_output = ctx.actions.declare_output("validation_output.txt")
     target_name_to_class_names_map_file = ctx.actions.declare_output("target_name_to_class_names_map_file.txt")
     ctx.actions.write_json(
@@ -31,16 +31,11 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
         ),
         category = "check_duplicate_classes_pre_dexed_libs",
     )
-    return ValidationInfo(
-        validations =
-            [
-                ValidationSpec(name = "duplicate_class_check", validation_result = validation_output),
-            ],
-    )
+    return validation_output
 
 def check_for_duplicate_classes_for_non_pre_dexed_jars(
         ctx: AnalysisContext,
-        jar_to_owning_target_mapping: dict[Artifact, TargetLabel]) -> ValidationInfo:
+        jar_to_owning_target_mapping: dict[Artifact, TargetLabel]) -> Artifact:
     validation_output = ctx.actions.declare_output("validation_output.txt")
     jar_to_owning_target_map_file = ctx.actions.declare_output("jar_to_owning_target_map_file.txt")
     ctx.actions.write_json(
@@ -61,9 +56,4 @@ def check_for_duplicate_classes_for_non_pre_dexed_jars(
         ),
         category = "check_duplicate_classes_non_pre_dexed_jars",
     )
-    return ValidationInfo(
-        validations =
-            [
-                ValidationSpec(name = "duplicate_class_check", validation_result = validation_output),
-            ],
-    )
+    return validation_output

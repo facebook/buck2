@@ -8,6 +8,7 @@
 
 import argparse
 import json
+import sys
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Set
@@ -59,17 +60,13 @@ def main() -> None:
         if len(target_name_list) > 1
     }
 
-    with open(args.validation_output, "w") as f:
-        json.dump(
-            {
-                "version": 1,
-                "data": {
-                    "status": "failure" if duplicate_classes else "success",
-                    "message": build_validation_message(duplicate_classes),
-                },
-            },
-            f,
-        )
+    print(build_validation_message(duplicate_classes), file=sys.stderr)
+    if duplicate_classes:
+        sys.exit(1)
+    else:
+        with open(args.validation_output, "w") as f:
+            f.write("No duplicate class names found")
+        sys.exit(0)
 
 
 def get_class_to_target_mapping_from_jars(

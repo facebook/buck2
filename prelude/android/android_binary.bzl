@@ -47,7 +47,7 @@ AndroidBinaryInfo = record(
     native_library_info = AndroidBinaryNativeLibsInfo,
     resources_info = AndroidBinaryResourcesInfo,
     materialized_artifacts = list[Artifact],
-    validation_info = list[ValidationInfo],
+    validation_outputs = list[Artifact],
 )
 
 def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo:
@@ -120,12 +120,12 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 default_output = r_dot_java_info.source_zipped,
             ),
         ]
-    validation_info = []
+    validation_outputs = []
     dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
     if should_pre_dex:
         pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
         if ctx.attrs.duplicate_class_checker_enabled:
-            validation_info.append(
+            validation_outputs.append(
                 check_for_duplicate_classes_for_pre_dexed_libs(
                     ctx,
                     {str(lib.class_names.owner.raw_target()): lib.class_names for lib in pre_dexed_libs if lib.dex},
@@ -145,7 +145,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     else:
         jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in dex_java_packaging_deps}
         if ctx.attrs.duplicate_class_checker_enabled:
-            validation_info.append(
+            validation_outputs.append(
                 check_for_duplicate_classes_for_non_pre_dexed_jars(
                     ctx,
                     jars_to_owners,
@@ -226,7 +226,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         native_library_info = native_library_info,
         resources_info = resources_info,
         materialized_artifacts = materialized_artifacts,
-        validation_info = validation_info,
+        validation_outputs = validation_outputs,
     )
 
 def get_build_config_java_libraries(
