@@ -417,11 +417,13 @@ def rust_compile(
     if params.crate_type == CrateType("dylib") and emit == Emit("link") and compile_ctx.dep_ctx.advanced_unstable_linking:
         out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
         out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
+        out_exported_symbols_list = ctx.actions.declare_output(common_args.subdir + "/exported-symbols-list")
         out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
         linker_cmd = cmd_args(
             compile_ctx.internal_tools_info.extract_link_action,
             cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
-            cmd_args(out_version_script.as_output(), format = "--out_version-script={}") if out_version_script else cmd_args(),
+            cmd_args(out_version_script.as_output(), format = "--out_version-script={}"),
+            cmd_args(out_exported_symbols_list.as_output(), format = "--out_exported-symbols-list={}"),
             cmd_args(out_objects_dir.as_output(), format = "--out_objects={}"),
             compile_ctx.linker_args,
         )
@@ -437,6 +439,7 @@ def rust_compile(
             compile_ctx.internal_tools_info.deferred_link_action,
             cmd_args(out_objects_dir, format = "--objects={}"),
             cmd_args(out_version_script, format = "--version-script={}"),
+            cmd_args(out_exported_symbols_list, format = "--exported-symbols-list={}"),
             compile_ctx.linker_args,
             cmd_args(out_argsfile, format = "@{}"),
         )

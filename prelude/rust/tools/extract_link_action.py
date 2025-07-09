@@ -30,6 +30,7 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 class Args(NamedTuple):
     out_argsfile: IO[str]
     out_version_script: Path
+    out_exported_symbols_list: Path
     out_objects: Path
     linker: List[str]
 
@@ -43,6 +44,11 @@ def arg_parse() -> Args:
     )
     parser.add_argument(
         "--out_version-script",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument(
+        "--out_exported-symbols-list",
         type=Path,
         required=True,
     )
@@ -66,6 +72,7 @@ def process_link_args(
 ) -> Tuple[List[str], Path | None, Path | None]:
     new_args = []
     version_script = None
+    exported_symbols_list = None
 
     i = 0
     size = len(args)
@@ -78,6 +85,14 @@ def process_link_args(
             version_script = Path(arg.split("=")[1])
             i += 1
             continue
+
+        # MacOS form of version script
+        elif arg.startswith("-Wl,-exported_symbols_list"):
+            arg = args[i + 1]
+            exported_symbols_list = Path(arg.split("-Wl,")[1])
+            i += 2
+            continue
+
         # These are the artifacts that rustc generates as inputs to the linker.
         elif (
             arg.endswith("rcgu.o")
@@ -112,7 +127,7 @@ def process_link_args(
         new_args.append(arg)
         i += 1
 
-    return (new_args, version_script)
+    return (new_args, version_script, exported_symbols_list)
 
 
 def main() -> int:
@@ -120,7 +135,7 @@ def main() -> int:
 
     os.mkdir(args.out_objects)
 
-    filtered_args, version_script = process_link_args(
+    filtered_args, version_script, exported_symbols_list = process_link_args(
         args.linker[1:], out_objects=args.out_objects
     )
     args.out_argsfile.write("\n".join(filtered_args))
@@ -131,6 +146,12 @@ def main() -> int:
     else:
         # Touch the file to make buck2 happy
         args.out_version_script.touch()
+
+    if exported_symbols_list:
+        shutil.copy(exported_symbols_list, args.out_exported_symbols_list)
+    else:
+        # Touch the file to make buck2 happy
+        args.out_exported_symbols_list.touch()
 
     return 0
 

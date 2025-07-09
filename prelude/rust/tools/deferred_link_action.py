@@ -28,6 +28,7 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 class Args(NamedTuple):
     objects: Path
     version_script: Path
+    exported_symbols_list: Path
     linker: List[str]
 
 
@@ -40,6 +41,11 @@ def arg_parse() -> Args:
     )
     parser.add_argument(
         "--version-script",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument(
+        "--exported-symbols-list",
         type=Path,
         required=True,
     )
@@ -69,6 +75,12 @@ async def main() -> int:
         if os.path.getsize(args.version_script) > 0:
             args_file.write(
                 b"-Wl,--version-script=" + str(args.version_script).encode() + b"\n"
+            )
+        if os.path.getsize(args.exported_symbols_list) > 0:
+            args_file.write(
+                b"-Wl,-exported_symbols_list,"
+                + str(args.exported_symbols_list).encode()
+                + b"\n"
             )
 
         args_file.write("\n".join(args.linker[1:]).encode() + b"\n")
