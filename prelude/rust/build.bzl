@@ -24,6 +24,7 @@ load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
     "@prelude//cxx:linker.bzl",
     "get_import_library",
+    "get_output_flags",
     "get_shared_library_name_linker_flags",
 )
 load(
@@ -416,15 +417,11 @@ def rust_compile(
     # deferred_link_action
     if params.crate_type == CrateType("dylib") and emit == Emit("link") and compile_ctx.dep_ctx.advanced_unstable_linking:
         out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
-        out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
-        out_exported_symbols_list = ctx.actions.declare_output(common_args.subdir + "/exported-symbols-list")
-        out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
+        out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True)
         linker_cmd = cmd_args(
             compile_ctx.internal_tools_info.extract_link_action,
             cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
-            cmd_args(out_version_script.as_output(), format = "--out_version-script={}"),
-            cmd_args(out_exported_symbols_list.as_output(), format = "--out_exported-symbols-list={}"),
-            cmd_args(out_objects_dir.as_output(), format = "--out_objects={}"),
+            cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
             compile_ctx.linker_args,
         )
 
@@ -437,11 +434,9 @@ def rust_compile(
 
         deferred_link_cmd = cmd_args(
             compile_ctx.internal_tools_info.deferred_link_action,
-            cmd_args(out_objects_dir, format = "--objects={}"),
-            cmd_args(out_version_script, format = "--version-script={}"),
-            cmd_args(out_exported_symbols_list, format = "--exported-symbols-list={}"),
             compile_ctx.linker_args,
             cmd_args(out_argsfile, format = "@{}"),
+            hidden = out_artifacts_dir,
         )
     else:
         linker_args = compile_ctx.linker_args
@@ -570,7 +565,7 @@ def rust_compile(
 
             # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
             # out in `extract_link_action.py` and provide our own output path here.
-            deferred_link_cmd.add("-o", emit_op.output.as_output())
+            deferred_link_cmd.add(get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output))
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
             rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))

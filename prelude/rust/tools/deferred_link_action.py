@@ -8,16 +8,13 @@
 # above-listed licenses.
 
 # Execute a previously deferred link action. The inputs to this script are expected to come from
-# a previous invocation of `extract_link_action.py`. The main special processing here is to handle
-# the optional version script argument, and pass the objects located in the provided directory
-# as individual inputs to the linker command.
+# a previous invocation of `extract_link_action.py`.
 
 import argparse
 import asyncio
 import os
 import sys
 import tempfile
-from pathlib import Path
 from typing import Any, List, NamedTuple
 
 
@@ -26,29 +23,11 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 
 
 class Args(NamedTuple):
-    objects: Path
-    version_script: Path
-    exported_symbols_list: Path
     linker: List[str]
 
 
 def arg_parse() -> Args:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--objects",
-        type=Path,
-        required=True,
-    )
-    parser.add_argument(
-        "--version-script",
-        type=Path,
-        required=True,
-    )
-    parser.add_argument(
-        "--exported-symbols-list",
-        type=Path,
-        required=True,
-    )
     parser.add_argument(
         "linker",
         nargs=argparse.REMAINDER,
@@ -70,19 +49,6 @@ async def main() -> int:
         suffix=".txt",
         delete=False,
     ) as args_file:
-        # Some platforms do not use version-scripts. For those platforms we simply
-        # do not pass the version-script to the linker.
-        if os.path.getsize(args.version_script) > 0:
-            args_file.write(
-                b"-Wl,--version-script=" + str(args.version_script).encode() + b"\n"
-            )
-        if os.path.getsize(args.exported_symbols_list) > 0:
-            args_file.write(
-                b"-Wl,-exported_symbols_list,"
-                + str(args.exported_symbols_list).encode()
-                + b"\n"
-            )
-
         args_file.write("\n".join(args.linker[1:]).encode() + b"\n")
         args_file.flush()
 

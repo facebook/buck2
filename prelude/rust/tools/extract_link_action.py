@@ -20,7 +20,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, IO, List, NamedTuple, Tuple
+from typing import Any, IO, List, NamedTuple
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -29,9 +29,7 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 
 class Args(NamedTuple):
     out_argsfile: IO[str]
-    out_version_script: Path
-    out_exported_symbols_list: Path
-    out_objects: Path
+    out_artifacts: Path
     linker: List[str]
 
 
@@ -43,17 +41,7 @@ def arg_parse() -> Args:
         required=True,
     )
     parser.add_argument(
-        "--out_version-script",
-        type=Path,
-        required=True,
-    )
-    parser.add_argument(
-        "--out_exported-symbols-list",
-        type=Path,
-        required=True,
-    )
-    parser.add_argument(
-        "--out_objects",
+        "--out_artifacts",
         type=Path,
         required=True,
     )
@@ -67,12 +55,8 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
-def process_link_args(
-    args: List[str], out_objects: Path
-) -> Tuple[List[str], Path | None, Path | None]:
+def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
     new_args = []
-    version_script = None
-    exported_symbols_list = None
 
     i = 0
     size = len(args)
@@ -83,6 +67,8 @@ def process_link_args(
         # must persist it ourselves between actions via an artifact.
         if arg.startswith("-Wl,--version-script"):
             version_script = Path(arg.split("=")[1])
+            new_path = shutil.copy(version_script, out_artifacts)
+            new_args.append("-Wl,--version-script={}".format(new_path))
             i += 1
             continue
 
@@ -90,6 +76,8 @@ def process_link_args(
         elif arg.startswith("-Wl,-exported_symbols_list"):
             arg = args[i + 1]
             exported_symbols_list = Path(arg.split("-Wl,")[1])
+            new_path = shutil.copy(exported_symbols_list, out_artifacts)
+            new_args.append("-Wl,-exported_symbols_list,{}".format(new_path))
             i += 2
             continue
 
@@ -98,8 +86,9 @@ def process_link_args(
             arg.endswith("rcgu.o")
             or arg.endswith("symbols.o")
             or arg.endswith("rcgu.rmeta")
+            or arg.endswith("dll_imports.lib")
         ):
-            new_path = shutil.copy(Path(arg), out_objects)
+            new_path = shutil.copy(Path(arg), out_artifacts)
             new_args.append(new_path)
             i += 1
             continue
@@ -113,6 +102,7 @@ def process_link_args(
         elif arg.endswith(".rlib") or arg.endswith(".rmeta"):
             i += 1
             continue
+
         # The -L flag is used by rustc to pass the sysroot as a linker search path. When compiling
         # we pass a dummy empty sysroot to rustc, so this path is not needed. The real -L flags for
         # transitive deps are passed along in a separate args file.
@@ -123,35 +113,24 @@ def process_link_args(
         elif arg.startswith("-L") or arg.startswith("-o"):
             i += 2  # skip the next line
             continue
+        elif arg.startswith("/OUT"):
+            i += 1
+            continue
 
         new_args.append(arg)
         i += 1
 
-    return (new_args, version_script, exported_symbols_list)
+    return new_args
 
 
 def main() -> int:
     args = arg_parse()
 
-    os.mkdir(args.out_objects)
+    os.mkdir(args.out_artifacts)
 
-    filtered_args, version_script, exported_symbols_list = process_link_args(
-        args.linker[1:], out_objects=args.out_objects
-    )
+    filtered_args = process_link_args(args.linker[1:], out_artifacts=args.out_artifacts)
     args.out_argsfile.write("\n".join(filtered_args))
     args.out_argsfile.close()
-
-    if version_script:
-        shutil.copy(version_script, args.out_version_script)
-    else:
-        # Touch the file to make buck2 happy
-        args.out_version_script.touch()
-
-    if exported_symbols_list:
-        shutil.copy(exported_symbols_list, args.out_exported_symbols_list)
-    else:
-        # Touch the file to make buck2 happy
-        args.out_exported_symbols_list.touch()
 
     return 0
 
