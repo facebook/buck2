@@ -686,7 +686,11 @@ def _create_precompile_cmd(
 
     module_name = _get_module_name(ctx, group_name)
     import_name = _get_import_filename(ctx, group_name)
-    input_header = ctx.actions.write(module_name, "")
+    input_header = ctx.actions.write(
+        module_name,
+        "",
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     import_stub = ctx.actions.write(
         import_name,
@@ -696,6 +700,7 @@ export
 #endif
 import \"{}\";
 """.format(module_name),
+        uses_experimental_content_based_path_hashing = True,
     )
 
     symlinked_files = {}
@@ -708,7 +713,11 @@ module "{}" {{
   export *
 }}
 """.format(module_name, module_name)
-    modulemap_file = ctx.actions.write("module.modulemap" + group_name, modulemap_content)
+    modulemap_file = ctx.actions.write(
+        "module.modulemap" + group_name,
+        modulemap_content,
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     src_dir = ctx.actions.symlinked_dir(
         "header-unit" + group_name,
@@ -717,6 +726,7 @@ module "{}" {{
             import_name: import_stub,
             "module.modulemap": modulemap_file,
         },
+        uses_experimental_content_based_path_hashing = True,
     )
 
     args = []
@@ -736,13 +746,18 @@ module "{}" {{
             compiler_info = compiler_info,
             preprocessor = cxx_merge_cpreprocessors(ctx, extra_preprocessors, []),
             ext = CxxExtension(".cpp"),
+            uses_experimental_content_based_path_hashing = True,
             filename_prefix = "export{}_".format(group_name),
         )
 
     include_args = cmd_args(header_paths, format = "-include{}", quote = "shell")
 
-    file_name = "{}.header_unit_headers".format(group_name)
-    headers_argsfile, _ = ctx.actions.write(file_name, include_args, allow_args = True)
+    headers_argsfile, _ = ctx.actions.write(
+        "{}.header_unit_headers".format(group_name),
+        include_args,
+        allow_args = True,
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     args.extend([cmd_args(headers_argsfile, format = "@{}")])
     args.extend(["-xc++-user-header", "-fmodule-header"])
@@ -767,7 +782,11 @@ def _precompile_single_cxx(
     identifier = src_compile_cmd.src.short_path
 
     filename = "{}.pcm".format(identifier)
-    module = ctx.actions.declare_output("__pcm_files__", filename)
+    module = ctx.actions.declare_output(
+        "__pcm_files__",
+        filename,
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
     if src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
@@ -783,42 +802,16 @@ def _precompile_single_cxx(
         cmd.add(["-ftime-trace"])
         clang_trace = ctx.actions.declare_output(
             paths.join("__pcm_files__", "{}.json".format(identifier)),
+            uses_experimental_content_based_path_hashing = True,
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
-    action_dep_files = {}
-    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-    if headers_dep_files:
-        dep_file = ctx.actions.declare_output(
-            paths.join("__dep_files__", identifier),
-        ).as_output()
-
-        processor_flags, compiler_flags = headers_dep_files.mk_flags(
-            ctx.actions,
-            identifier,
-            src_compile_cmd.src,
-        )
-        cmd.add(compiler_flags)
-
-        # API: First argument is the dep file source path, second is the
-        # dep file destination path, other arguments are the actual compile
-        # command.
-        cmd = cmd_args([
-            headers_dep_files.processor,
-            headers_dep_files.dep_tracking_mode.value,
-            processor_flags,
-            headers_dep_files.tag.tag_artifacts(dep_file),
-            cmd,
-        ])
-        action_dep_files["headers"] = headers_dep_files.tag
-
+    # TODO(nml): We don't meaningfully support dep files. See T225373444.
     ctx.actions.run(
         cmd,
         category = "cxx_modules_precompile",
         identifier = identifier,
-        dep_files = action_dep_files,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-        allow_dep_file_cache_upload = False,
         low_pass_filter = False,
     )
 
@@ -845,7 +838,15 @@ def precompile_cxx(
 
     ext = CxxExtension(".cpp")
     headers_tag = ctx.actions.artifact_tag()
-    cmd = _generate_base_compile_command(ctx, impl_params, header_preprocessor_info, headers_tag, ext, "pre_")
+    cmd = _generate_base_compile_command(
+        ctx,
+        impl_params,
+        header_preprocessor_info,
+        headers_tag,
+        ext,
+        uses_experimental_content_based_path_hashing = True,
+        filename_prefix = "pre_",
+    )
 
     header_unit_preprocessors = []
     if len(impl_params.export_header_unit_filter) <= 1:
