@@ -33,9 +33,3 @@ def apple_spm_package_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = output_dir),
     ]
-
-def apple_spm_package_extra_attrs():
-    attribs = {
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    }
-    return attribs

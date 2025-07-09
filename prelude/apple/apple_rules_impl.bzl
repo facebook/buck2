@@ -16,7 +16,6 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
-load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_extra_attrs")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
@@ -111,7 +110,6 @@ extra_attributes = {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
-    "apple_spm_package": apple_spm_package_extra_attrs(),
     "apple_test": constraint_overrides.attributes,
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
