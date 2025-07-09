@@ -995,23 +995,6 @@ apple_toolchain = prelude_rule(
     impl = apple_toolchain_impl,
 )
 
-apple_toolchain_set = prelude_rule(
-    name = "apple_toolchain_set",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "apple_toolchains": attrs.list(attrs.dep(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
-    ),
-)
-
 core_data_model = prelude_rule(
     name = "core_data_model",
     docs = """
@@ -1422,7 +1405,6 @@ apple_rules = struct(
     apple_resource = apple_resource,
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
-    apple_toolchain_set = apple_toolchain_set,
     apple_tools = apple_tools,
     apple_resource_bundle = apple_resource_bundle,
     apple_resource_dedupe_alias = apple_resource_dedupe_alias,
