@@ -64,4 +64,5 @@ def _apply_n(objs, func):
 selects = struct(
     apply = _apply,
     apply_n = _apply_n,
+    is_select = _is_select,
 )
