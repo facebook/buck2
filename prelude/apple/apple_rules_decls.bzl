@@ -208,7 +208,7 @@ apple_asset_catalog = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "dirs": attrs.list(attrs.source(), default = [], doc = """
+            "dirs": attrs.list(attrs.source(allow_directory = True), default = [], doc = """
                 Set of paths of Apple asset catalogs contained by this rule. All paths have to end with the `.xcassets` extension and be compatible with the asset catalog format used by Xcode.
             """),
             "app_icon": attrs.option(attrs.string(), default = None, doc = """
@@ -225,7 +225,7 @@ apple_asset_catalog = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } | apple_common.skip_universal_resource_dedupe_arg()
     ),
     impl = apple_asset_catalog_impl,
     cfg = apple_resource_transition,

@@ -85,9 +85,6 @@ def _apple_library_extra_attrs():
     return attribs
 
 extra_attributes = {
-    "apple_asset_catalog": {
-        "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
-    } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": _apple_library_extra_attrs(),
     "apple_package": {
