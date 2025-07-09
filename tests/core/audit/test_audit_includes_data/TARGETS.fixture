@@ -1,3 +1,5 @@
+load(":example.json", "value")
 load("incl.bzl", "x")
 
 print(x)  # buildifier: disable=print
+print(value)  # buildifier: disable=print

@@ -6,5 +6,15 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def nothing_a(*args):
-    pass
+# pyre-strict
+
+
+from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.buck_workspace import buck_test
+
+
+@buck_test()
+async def test_load_json(buck: Buck) -> None:
+    result = await buck.targets("root//:")
+    assert '[{"name": "item-0"}, {"name": "item-1"}]' in result.stderr
+    assert '{"name": "example", "object": {"foo": "bar"}}' in result.stderr

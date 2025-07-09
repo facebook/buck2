@@ -201,7 +201,10 @@ impl LoadResolver for InterpreterLoadResolver {
         // All bxl imports are parsed the same regardless of prelude or not.
         if path.path().extension() == Some("bxl") {
             match self.loader_file_type {
-                StarlarkFileType::Bzl | StarlarkFileType::Buck | StarlarkFileType::Package => {
+                StarlarkFileType::Bzl
+                | StarlarkFileType::Buck
+                | StarlarkFileType::Package
+                | StarlarkFileType::Json => {
                     return Err(LoadResolutionError::BxlLoadNotAllowed(path).into());
                 }
                 StarlarkFileType::Bxl => {
@@ -242,15 +245,26 @@ impl LoadResolver for InterpreterLoadResolver {
         // checks in t-sets, which would fail if we had > 1 copy of the prelude.
         if let Some(prelude_import) = self.config.global_state.configuror.prelude_import() {
             if prelude_import.is_prelude_path(&path) {
-                return Ok(OwnedStarlarkModulePath::LoadFile(
-                    ImportPath::new_same_cell(path)?,
-                ));
+                if path.path().extension() == Some("json") {
+                    return Ok(OwnedStarlarkModulePath::JsonFile(
+                        ImportPath::new_same_cell(path)?,
+                    ));
+                } else {
+                    return Ok(OwnedStarlarkModulePath::LoadFile(
+                        ImportPath::new_same_cell(path)?,
+                    ));
+                }
             }
         }
-
-        Ok(OwnedStarlarkModulePath::LoadFile(
-            ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
-        ))
+        if path.path().extension() == Some("json") {
+            Ok(OwnedStarlarkModulePath::JsonFile(
+                ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
+            ))
+        } else {
+            Ok(OwnedStarlarkModulePath::LoadFile(
+                ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
+            ))
+        }
     }
 }
 
@@ -411,6 +425,7 @@ impl InterpreterForDir {
                         return Some(prelude_import);
                     }
                 }
+                StarlarkPath::JsonFile(_) => return None,
             }
         }
 
@@ -555,6 +570,7 @@ impl InterpreterForDir {
                 bzl_path: bzl.clone(),
             }),
             StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
+            StarlarkModulePath::JsonFile(j) => PerFileTypeContext::Json(j.clone()),
         };
         let typecheck = self.global_state.unstable_typecheck
             || matches!(starlark_path, StarlarkModulePath::BxlFile(..))

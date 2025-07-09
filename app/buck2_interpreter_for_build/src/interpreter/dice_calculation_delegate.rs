@@ -37,6 +37,7 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
@@ -239,6 +240,42 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     }
 
     pub async fn eval_module_uncached(
+        &mut self,
+        starlark_file: StarlarkModulePath<'_>,
+        cancellation: &CancellationContext,
+    ) -> buck2_error::Result<LoadedModule> {
+        match starlark_file {
+            StarlarkModulePath::JsonFile(_) => self.eval_json_module_uncached(starlark_file).await,
+            _ => {
+                self.eval_starlark_module_uncached(starlark_file, cancellation)
+                    .await
+            }
+        }
+    }
+
+    async fn eval_json_module_uncached(
+        &mut self,
+        starlark_file: StarlarkModulePath<'_>,
+    ) -> buck2_error::Result<LoadedModule> {
+        let path = starlark_file.path();
+        let contents = DiceFileComputations::read_file(self.ctx, path.as_ref())
+            .await
+            .with_package_context_information(path.path().to_string())?;
+
+        let value: serde_json::Value = serde_json::from_str(&contents)
+            .with_buck_error_context(|| format!("Parsing {}", path))?;
+
+        let module = starlark::environment::Module::new();
+        module.set("value", module.heap().alloc(value));
+        let frozen = module.freeze().map_err(from_freeze_error)?;
+        Ok(LoadedModule::new(
+            OwnedStarlarkModulePath::new(starlark_file),
+            Default::default(),
+            frozen,
+        ))
+    }
+
+    async fn eval_starlark_module_uncached(
         &mut self,
         starlark_file: StarlarkModulePath<'_>,
         cancellation: &CancellationContext,

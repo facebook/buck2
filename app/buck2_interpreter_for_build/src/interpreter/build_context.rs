@@ -12,6 +12,7 @@ use std::cell::OnceCell;
 use std::fmt::Debug;
 
 use buck2_core::bxl::BxlFilePath;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -65,6 +66,8 @@ pub enum PerFileTypeContext {
     /// Context for evaluating `bzl` files.
     Bzl(BzlEvalCtx),
     Bxl(BxlFilePath),
+    /// Context for evaluating `json` files.
+    Json(ImportPath),
 }
 
 impl PerFileTypeContext {
@@ -74,6 +77,7 @@ impl PerFileTypeContext {
             PerFileTypeContext::Package(package) => StarlarkPath::PackageFile(&package.path),
             PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(&path.bzl_path),
             PerFileTypeContext::Bxl(path) => StarlarkPath::BxlFile(path),
+            PerFileTypeContext::Json(path) => StarlarkPath::JsonFile(path),
         }
     }
 

@@ -1,0 +1,8 @@
+load(":example_list.json", example_list = "value")
+load(":example_object.json", example_object = "value")
+
+# buildifier: disable=print
+print(example_list)
+
+# buildifier: disable=print
+print(example_object)

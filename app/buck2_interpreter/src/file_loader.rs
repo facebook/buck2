@@ -41,11 +41,9 @@ pub struct LoadedModules {
 
 impl LoadedModules {
     pub fn imports(&self) -> impl Iterator<Item = &ImportPath> {
-        self.map.values().map(|module| {
-            *module
-                .path()
-                .unpack_load_file()
-                .expect("imports should only be bzl files")
+        self.map.values().map(|module| match module.path() {
+            StarlarkModulePath::LoadFile(p) | StarlarkModulePath::JsonFile(p) => p,
+            _ => panic!("imports should only be bzl or json files"),
         })
     }
 }

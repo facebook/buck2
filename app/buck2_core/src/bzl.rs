@@ -61,7 +61,7 @@ impl ImportPath {
             return Err(ImportPathError::Invalid(path).into());
         }
 
-        if path.path().extension() != Some("bzl") {
+        if path.path().extension() != Some("bzl") && path.path().extension() != Some("json") {
             return Err(ImportPathError::Suffix(path).into());
         }
 

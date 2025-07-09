@@ -41,7 +41,7 @@ async def test_allbuildfiles(buck: Buck) -> None:
     out4.sort()
 
     # verify loads
-    expected1 = ["load/TARGETS.fixture", "load/a.bzl"]
+    expected1 = ["load/TARGETS.fixture", "load/a.bzl", "load/a.json"]
     assert out1 == expected1
 
     # verify transitive loads
@@ -49,6 +49,7 @@ async def test_allbuildfiles(buck: Buck) -> None:
         "transitive_load/TARGETS.fixture",
         "transitive_load/b.bzl",
         "transitive_load/c.bzl",
+        "transitive_load/c.json",
     ]
     assert out2 == expected2
     assert out3 == expected2
