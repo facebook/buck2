@@ -118,6 +118,25 @@ def _cargo_rust_library(name, platform = {}, **kwargs):
 
     native.rust_library(name = name, **kwargs)
 
+def alias(name, actual, platforms = None, visibility = None):
+    if platforms == None:
+        target_compatible_with = selects.apply(
+            DEFAULT_PLATFORM_TEMPLATES,
+            lambda plat: ["prelude//:none"] if plat == None else [],
+        )
+    else:
+        target_compatible_with = selects.apply(
+            DEFAULT_PLATFORM_TEMPLATES,
+            lambda plat: [] if plat in platforms else ["prelude//:none"],
+        )
+
+    native.alias(
+        name = name,
+        actual = actual,
+        target_compatible_with = target_compatible_with,
+        visibility = visibility,
+    )
+
 cargo = struct(
     rust_binary = _cargo_rust_binary,
     rust_library = _cargo_rust_library,
