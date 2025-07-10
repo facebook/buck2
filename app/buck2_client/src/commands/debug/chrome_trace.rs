@@ -959,13 +959,8 @@ impl ChromeTraceWriter {
 }
 
 impl ChromeTraceCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
-        ctx.exec(self, matches, events_ctx)
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        ctx.exec(self, matches)
     }
 
     async fn load_events(

@@ -10,7 +10,6 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 
 mod action_divergence;
@@ -25,15 +24,10 @@ pub enum DiffCommand {
 }
 
 impl DiffCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
-            Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches, events_ctx),
-            Self::ActionDivergence(cmd) => ctx.exec(cmd, matches, events_ctx),
+            Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches),
+            Self::ActionDivergence(cmd) => ctx.exec(cmd, matches),
         }
     }
 }

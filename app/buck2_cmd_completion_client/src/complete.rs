@@ -19,7 +19,6 @@ use std::time::Duration;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::buck2_env;
@@ -77,12 +76,7 @@ pub struct CompleteCommand {
 ///    make the corrections first, then next-step completions in a second
 ///    stage.
 impl CompleteCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let lockfile = buck2_env!("COMPLETION_VERIFY_LOCKFILE", applicability = testing)?
             .map(AbsPath::new)
             .transpose()?;
@@ -94,7 +88,7 @@ impl CompleteCommand {
         let timeout = Duration::from_millis(self.timeout_ms);
 
         let res = ctx.with_runtime(|ctx| {
-            let fut = self.exec_no_lockfile(matches, ctx, events_ctx);
+            let fut = self.exec_no_lockfile(matches, ctx);
             // Note: This `async` block is necessary - tokio timeout futures care about being
             // created within the context of a tokio runtime.
             async move { tokio::time::timeout(timeout, fut).await }
@@ -114,7 +108,6 @@ impl CompleteCommand {
         self,
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         match self.partial_target.split(':').collect::<Vec<_>>()[..] {
             // Package completion is performed locally and called here directly
@@ -130,7 +123,7 @@ impl CompleteCommand {
                     given_package.to_owned(),
                     given_partial_target.to_owned(),
                 );
-                ctx.exec_async(completer, matches, events_ctx).await
+                ctx.exec_async(completer, matches).await
             }
             _ => buck2_error!(
                 ErrorTag::Input,

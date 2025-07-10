@@ -10,7 +10,6 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 
 use crate::help_doc::MarkdownHelpDocCommand;
@@ -50,7 +49,6 @@ impl DocsCommand {
         top_level_cmd: clap::Command,
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         if let DocsKind::Uquery(_) | DocsKind::Cquery(_) | DocsKind::Aquery(_) = &self.docs_kind {
             // The docs for these are late-bound from the query impls, which is kind of hard to
@@ -62,8 +60,8 @@ impl DocsCommand {
 
         let submatches = matches.unwrap_subcommand();
         match self.docs_kind {
-            DocsKind::Starlark(cmd) => ctx.exec(cmd, submatches, events_ctx),
-            DocsKind::StarlarkBuiltins(cmd) => ctx.exec(cmd, submatches, events_ctx),
+            DocsKind::Starlark(cmd) => ctx.exec(cmd, submatches),
+            DocsKind::StarlarkBuiltins(cmd) => ctx.exec(cmd, submatches),
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Aquery(cmd) => cmd.exec(submatches, ctx),

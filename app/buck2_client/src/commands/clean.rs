@@ -20,7 +20,6 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::daemon::client::kill::kill_command_impl;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
@@ -79,12 +78,7 @@ the specified duration, without killing the daemon",
 }
 
 impl CleanCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
                 common_opts: self.common_opts,
@@ -92,7 +86,7 @@ impl CleanCommand {
                 dry_run: self.dry_run,
                 tracked_only: self.tracked_only,
             };
-            ctx.exec(cmd, matches, events_ctx)
+            ctx.exec(cmd, matches)
         } else {
             ctx.exec(
                 InnerCleanCommand {
@@ -100,7 +94,6 @@ impl CleanCommand {
                     common_opts: self.common_opts,
                 },
                 matches,
-                events_ctx,
             )
         }
     }

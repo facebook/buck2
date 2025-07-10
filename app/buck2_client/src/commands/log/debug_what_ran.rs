@@ -10,7 +10,6 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::soft_error;
 
@@ -34,13 +33,12 @@ impl DebugWhatRanCommand {
         self,
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         soft_error!(
             "debug_what_ran",
             DebugWhatRanCommandError::Deprecated.into(),
             deprecation: true
         )?;
-        ctx.exec(self.what_ran, matches, events_ctx)
+        ctx.exec(self.what_ran, matches)
     }
 }

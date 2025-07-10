@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -42,12 +41,10 @@ impl ForkserverCommand {
         self,
         _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
         let state_dir = AbsNormPathBuf::from(self.state_dir)?;
         fs_util::create_dir_all(&state_dir).map_err(buck2_error::Error::from)?;
-        events_ctx.log_invocation_record = false;
 
         #[cfg(unix)]
         {

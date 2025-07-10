@@ -25,7 +25,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
-use buck2_wrapper_common::invocation_id::TraceId;
 use futures::Future;
 use futures::FutureExt;
 use futures::Stream;
@@ -33,7 +32,6 @@ use futures::StreamExt;
 use futures::stream;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::VecExt;
-use tokio::runtime::Runtime;
 
 use crate::client_cpu_tracker::ClientCpuTracker;
 use crate::command_outcome::CommandOutcome;
@@ -409,13 +407,8 @@ pub struct EventsCtx {
     pub(crate) recorder: Option<Box<InvocationRecorder>>,
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     client_cpu_tracker: ClientCpuTracker,
-    // buck_log_dir and command_report_path are used to write the command report.
-    // Ensuring a command report is always written would require either simplifying
-    // how the isolation dir is determined, or writing to a different path.
     pub buck_log_dir: Option<AbsNormPathBuf>,
     pub command_report_path: Option<AbsPathBuf>,
-    // Internal commands triggered by other commands should not log an invocation record.
-    pub log_invocation_record: bool,
 }
 
 impl EventsCtx {
@@ -429,7 +422,6 @@ impl EventsCtx {
             client_cpu_tracker: ClientCpuTracker::new(),
             buck_log_dir: None,
             command_report_path: None,
-            log_invocation_record: true,
         }
     }
 
@@ -556,7 +548,7 @@ impl EventsCtx {
         });
     }
 
-    pub fn handle_exit_result(&mut self, exit_result: &ExitResult) {
+    pub(crate) fn handle_exit_result(&mut self, exit_result: &ExitResult) {
         self.for_each_subscriber(|subscriber| subscriber.handle_exit_result(exit_result));
     }
 
@@ -572,7 +564,7 @@ impl EventsCtx {
         .await
     }
 
-    pub async fn finalize(&mut self) -> Vec<String> {
+    pub(crate) async fn finalize(&mut self) -> Vec<String> {
         let mut errors = Vec::new();
 
         async fn finalize(subscriber: &mut dyn EventSubscriber, errors: &mut Vec<String>) {
@@ -597,47 +589,10 @@ impl EventsCtx {
             finalize(subscriber.as_mut(), &mut errors).await;
         }
 
-        if self.log_invocation_record
-            && let Some(recorder) = self.recorder.as_mut()
-        {
+        if let Some(recorder) = self.recorder.as_mut() {
             finalize(recorder.as_mut(), &mut errors).await;
         }
         errors
-    }
-
-    pub fn finalize_events(
-        &mut self,
-        trace_id: TraceId,
-        result: ExitResult,
-        runtime: &Runtime,
-    ) -> ExitResult {
-        runtime.block_on(async move {
-            let buck_log_dir = self.buck_log_dir.take();
-            let command_report_path = self.command_report_path.take();
-            let finalize_events = async {
-                self.handle_exit_result(&result);
-                self.finalize().await
-            };
-
-            let logging_timeout = Duration::from_secs(30);
-            let finalizing_errors = tokio::time::timeout(logging_timeout, finalize_events)
-                .await
-                .unwrap_or_else(|_| {
-                    vec![format!(
-                        "Timeout after {:?} waiting for logging cleanup",
-                        logging_timeout
-                    )]
-                });
-
-            // Don't fail the command if command report fails to write. TODO(ctolliday) show a warning?
-            let _unused = result.write_command_report(
-                trace_id,
-                buck_log_dir,
-                command_report_path,
-                finalizing_errors,
-            );
-            result
-        })
     }
 }
 

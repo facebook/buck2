@@ -10,7 +10,6 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use clap::Parser;
 use tokio::runtime::Runtime;
 
@@ -31,10 +30,7 @@ impl InternalTestRunnerCommand {
         self,
         _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
     ) -> anyhow::Result<()> {
-        events_ctx.log_invocation_record = false;
-
         // Internal test runner should only be used in the open source version of Buck2.
         if buck2_core::is_open_source()
             || std::env::var("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE").is_ok()

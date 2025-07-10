@@ -129,16 +129,11 @@ impl StreamingCommand for StarlarkSubcommand {
 }
 
 impl StarlarkCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let matches = matches.unwrap_subcommand();
         match self {
-            StarlarkCommand::Opaque(cmd) => ctx.exec(cmd, matches, events_ctx),
-            StarlarkCommand::DebugAttach(cmd) => ctx.exec(cmd, matches, events_ctx),
+            StarlarkCommand::Opaque(cmd) => ctx.exec(cmd, matches),
+            StarlarkCommand::DebugAttach(cmd) => ctx.exec(cmd, matches),
         }
     }
 

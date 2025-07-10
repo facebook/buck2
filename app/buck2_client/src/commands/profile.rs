@@ -48,18 +48,9 @@ pub enum ProfileCommand {
 }
 
 impl ProfileCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let submatches = matches.unwrap_subcommand();
-        ctx.exec(
-            ProfileSubcommand { subcommand: self },
-            submatches,
-            events_ctx,
-        )
+        ctx.exec(ProfileSubcommand { subcommand: self }, submatches)
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
