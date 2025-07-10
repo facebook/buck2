@@ -62,6 +62,7 @@ use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::invocation_id::TraceId;
 use console::strip_ansi_codes;
 use dupe::Dupe;
+use fbinit::FacebookInit;
 use gazebo::prelude::VecExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
@@ -97,6 +98,7 @@ pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
 const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
 
 pub struct InvocationRecorder {
+    fb: FacebookInit,
     write_to_path: Option<AbsPathBuf>,
     command_name: Option<&'static str>,
     cli_args: Vec<String>,
@@ -237,8 +239,14 @@ pub struct InvocationRecorder {
 }
 
 impl InvocationRecorder {
-    pub fn new(trace_id: TraceId, restarted_trace_id: Option<TraceId>, start_time: u64) -> Self {
+    pub fn new(
+        fb: FacebookInit,
+        trace_id: TraceId,
+        restarted_trace_id: Option<TraceId>,
+        start_time: u64,
+    ) -> Self {
         Self {
+            fb,
             write_to_path: None,
             command_name: None,
             cli_args: Vec::new(),
@@ -1948,12 +1956,9 @@ impl EventSubscriber for InvocationRecorder {
     }
 
     async fn finalize(&mut self) -> buck2_error::Result<()> {
-        // Can't set this before the daemon forks.
-        // Typically initialized already unless the command failed early.
-        let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
         let event = self.create_record_event();
         if let Some(scribe_sink) = new_remote_event_sink_if_enabled(
-            fb,
+            self.fb,
             ScribeConfig {
                 buffer_size: 1,
                 retry_backoff: Duration::from_millis(500),
