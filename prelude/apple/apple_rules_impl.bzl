@@ -21,7 +21,6 @@ load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "ApplePackageExtension")
 load(":apple_library.bzl", "AppleSharedLibraryMachOFileType")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
@@ -110,7 +109,6 @@ extra_attributes = {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
-    "apple_test": constraint_overrides.attributes,
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have

@@ -990,7 +990,8 @@ apple_test = prelude_rule(
         buck.allow_cache_upload_arg() |
         buck.inject_test_env_arg() |
         apple_test_extra_attrs() |
-        test_common.attributes()
+        test_common.attributes() |
+        constraint_overrides.attributes
     ),
     impl = apple_test_impl,
     cfg = apple_test_target_sdk_version_transition,
