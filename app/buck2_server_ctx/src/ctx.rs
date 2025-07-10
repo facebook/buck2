@@ -27,6 +27,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
@@ -138,6 +139,13 @@ pub trait ServerCommandContextTrait: Send + Sync {
     fn log_target_pattern(
         &self,
         providers_patterns: &[ParsedPattern<ConfiguredProvidersPatternExtra>],
+    );
+
+    fn log_target_pattern_with_modifiers(
+        &self,
+        providers_patterns_with_modifiers: &[ParsedPatternWithModifiers<
+            ConfiguredProvidersPatternExtra,
+        >],
     );
 
     fn cancellation_context(&self) -> &CancellationContext;

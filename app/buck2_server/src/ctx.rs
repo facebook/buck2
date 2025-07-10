@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::BufWriter;
@@ -67,6 +68,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
@@ -1028,6 +1030,27 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         let patterns = providers_patterns.map(|pat| buck2_data::TargetPattern {
             value: format!("{pat}"),
         });
+
+        self.events()
+            .instant_event(buck2_data::ParsedTargetPatterns {
+                target_patterns: patterns,
+            })
+    }
+
+    fn log_target_pattern_with_modifiers(
+        &self,
+        providers_patterns_with_modifiers: &[ParsedPatternWithModifiers<
+            ConfiguredProvidersPatternExtra,
+        >],
+    ) {
+        let seen_values = BTreeSet::from_iter(
+            providers_patterns_with_modifiers.map(|pat| format!("{}", pat.parsed_pattern)),
+        );
+
+        let patterns = seen_values
+            .into_iter()
+            .map(|pat| buck2_data::TargetPattern { value: pat })
+            .collect();
 
         self.events()
             .instant_event(buck2_data::ParsedTargetPatterns {

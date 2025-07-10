@@ -162,11 +162,7 @@ async fn build(
     > = parse_patterns_with_modifiers_from_cli_args(&mut ctx, &request.target_patterns, cwd)
         .await?;
 
-    let parsed_patterns = parsed_patterns_with_modifiers
-        .iter()
-        .map(|p| p.parsed_pattern.clone())
-        .collect::<Vec<_>>();
-    server_ctx.log_target_pattern(&parsed_patterns);
+    server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
         ResolveTargetPatterns::resolve_with_modifiers(&mut ctx, &parsed_patterns_with_modifiers)
