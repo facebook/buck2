@@ -781,13 +781,13 @@ apple_resource = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "dirs": attrs.list(attrs.source(), default = [], doc = """
+            "dirs": attrs.list(attrs.source(allow_directory = True), default = [], doc = """
                 Set of paths of resource directories that should be placed in an application bundle.
             """),
-            "content_dirs": attrs.list(attrs.source(), default = [], doc = """
+            "content_dirs": attrs.list(attrs.source(allow_directory = True), default = [], doc = """
                 Set of paths of directories containing resource files that should be placed in an application bundle. Unlike `dirs`, the directories themselves are not placed in the bundle.
             """),
-            "files": attrs.list(attrs.source(), default = [], doc = """
+            "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = [], doc = """
                 Set of paths of resource files that should be placed in an application bundle.
             """),
             "variants": attrs.list(attrs.source(), default = [], doc = """

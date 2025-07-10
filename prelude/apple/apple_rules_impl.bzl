@@ -104,10 +104,6 @@ extra_attributes = {
     "apple_resource": {
         "codesign_entitlements": attrs.option(attrs.source(), default = None),
         "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
-        "codesign_on_copy": attrs.bool(default = False),
-        "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
-        "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
-        "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
