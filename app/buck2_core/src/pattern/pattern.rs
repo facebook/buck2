@@ -148,7 +148,7 @@ pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, Provid
     }
 }
 
-#[derive(Dupe, Clone)]
+#[derive(Dupe, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Modifiers(Option<Arc<[String]>>);
 
 impl Modifiers {
@@ -429,6 +429,7 @@ impl<T: PatternType> Display for ParsedPattern<T> {
 
 pub struct ParsedPatternWithModifiers<T: PatternType> {
     pub parsed_pattern: ParsedPattern<T>,
+    // TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
     pub modifiers: Option<Vec<String>>,
 }
 
@@ -553,6 +554,7 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
         /// (rather than throwing an error).
         strip_package_trailing_slash: bool,
         extra: T,
+        // TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
         modifiers: Option<Vec<String>>,
     },
 }
@@ -640,6 +642,7 @@ where
     }
 }
 
+// TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
 /// The pattern data we extracted.
 #[derive(Debug)]
 pub enum PatternData<'a, T: PatternType> {
@@ -1247,6 +1250,7 @@ where
     }))
 }
 
+// TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
 #[derive(Debug, Eq, PartialEq)]
 pub enum PackageSpec<T: PatternType> {
     /// Given targets in a package.

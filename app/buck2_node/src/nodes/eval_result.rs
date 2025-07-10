@@ -18,6 +18,7 @@ use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::label::label::TargetLabel;
@@ -197,15 +198,20 @@ impl EvaluationResult {
         &self,
         spec: PackageSpec<T>,
     ) -> (
-        BTreeMap<(TargetName, T), TargetNode>,
+        BTreeMap<(TargetName, T, Modifiers), TargetNode>,
         Option<MissingTargets>,
     ) {
         match spec {
-            PackageSpec::All(_modifiers) => {
+            PackageSpec::All(modifiers) => {
                 let mut label_to_node = BTreeMap::new();
+                let modifiers = Modifiers::new(modifiers);
                 for target_info in self.targets().values() {
                     label_to_node.insert(
-                        (target_info.label().name().to_owned(), T::default()),
+                        (
+                            target_info.label().name().to_owned(),
+                            T::default(),
+                            modifiers.dupe(),
+                        ),
                         target_info.to_owned(),
                     );
                 }
@@ -214,11 +220,14 @@ impl EvaluationResult {
             PackageSpec::Targets(targets) => {
                 let mut label_to_node = BTreeMap::new();
                 let mut missing_targets = Vec::new();
-                for (target_name, extra, _modifiers) in targets {
+                for (target_name, extra, modifiers) in targets {
                     let node = self.get_target(target_name.as_ref());
                     match node {
                         Some(node) => {
-                            label_to_node.insert((target_name, extra), node.to_owned());
+                            label_to_node.insert(
+                                (target_name, extra, Modifiers::new(modifiers)),
+                                node.to_owned(),
+                            );
                         }
                         None => missing_targets
                             .push(TargetLabel::new(self.package(), target_name.as_ref())),

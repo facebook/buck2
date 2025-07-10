@@ -641,12 +641,14 @@ async fn build_targets_for_spec(
     }
     let todo_targets: Vec<TargetBuildSpec> = targets
         .into_iter()
-        .map(|((_target_name, extra), target)| TargetBuildSpec {
-            target: ProvidersLabel::new(target.label().dupe(), extra.providers),
-            global_cfg_options: global_cfg_options.dupe(),
-            skippable,
-            graph_properties,
-        })
+        .map(
+            |((_target_name, extra, _modifiers), target)| TargetBuildSpec {
+                target: ProvidersLabel::new(target.label().dupe(), extra.providers),
+                global_cfg_options: global_cfg_options.dupe(),
+                skippable,
+                graph_properties,
+            },
+        )
         .collect();
 
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);

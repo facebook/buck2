@@ -972,9 +972,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
-                let labels = targets.into_keys().map(|(target_name, providers_pattern)| {
-                    providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
-                });
+                let labels = targets
+                    .into_keys()
+                    .map(|(target_name, providers_pattern, _)| {
+                        providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
+                    });
 
                 let work = labels
                     .into_iter()

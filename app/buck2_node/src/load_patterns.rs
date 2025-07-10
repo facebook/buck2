@@ -16,6 +16,7 @@ use buck2_common::file_ops::trait_::DiceFileOps;
 use buck2_common::pattern::package_roots::collect_package_roots;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::name::TargetName;
@@ -120,16 +121,16 @@ pub struct LoadedPatterns<T: PatternType> {
 }
 
 pub struct PackageLoadedPatterns<T: PatternType> {
-    targets: BTreeMap<(TargetName, T), TargetNode>,
+    targets: BTreeMap<(TargetName, T, Modifiers), TargetNode>,
     super_package: SuperPackage,
 }
 
 impl<T: PatternType> PackageLoadedPatterns<T> {
-    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T), TargetNodeRef<'_>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T, Modifiers), TargetNodeRef<'_>)> {
         self.targets.iter().map(|(k, v)| (k, v.as_ref()))
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &(TargetName, T)> {
+    pub fn keys(&self) -> impl Iterator<Item = &(TargetName, T, Modifiers)> {
         self.targets.keys()
     }
 
@@ -147,8 +148,8 @@ impl<T: PatternType> PackageLoadedPatterns<T> {
 }
 
 impl<T: PatternType> IntoIterator for PackageLoadedPatterns<T> {
-    type Item = ((TargetName, T), TargetNode);
-    type IntoIter = std::collections::btree_map::IntoIter<(TargetName, T), TargetNode>;
+    type Item = ((TargetName, T, Modifiers), TargetNode);
+    type IntoIter = std::collections::btree_map::IntoIter<(TargetName, T, Modifiers), TargetNode>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.targets.into_iter()
