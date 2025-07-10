@@ -19,7 +19,7 @@ use crate::file_tailers::tailer::StdoutOrStderr;
 pub struct FileTailers {
     _stdout_tailer: Option<FileTailer>,
     _stderr_tailer: Option<FileTailer>,
-    pub(crate) stream: UnboundedReceiver<FileTailerEvent>,
+    pub(crate) stream: Option<UnboundedReceiver<FileTailerEvent>>,
 }
 
 impl FileTailers {
@@ -35,7 +35,7 @@ impl FileTailers {
         let this = Self {
             _stdout_tailer: Some(stdout_tailer),
             _stderr_tailer: Some(stderr_tailer),
-            stream: rx,
+            stream: Some(rx),
         };
         Ok(this)
     }
@@ -45,12 +45,20 @@ impl FileTailers {
             _stdout_tailer: None,
             _stderr_tailer: None,
             // Empty stream.
-            stream: mpsc::unbounded_channel().1,
+            stream: None,
         }
     }
 
-    pub fn stop_reading(self) -> UnboundedReceiver<FileTailerEvent> {
+    pub async fn recv(&mut self) -> Option<FileTailerEvent> {
+        if let Some(stream) = self.stream.as_mut() {
+            stream.recv().await
+        } else {
+            None
+        }
+    }
+
+    pub fn stop_reading(&mut self) -> Option<UnboundedReceiver<FileTailerEvent>> {
         // by dropping the tailers, they shut themselves down.
-        self.stream
+        self.stream.take()
     }
 }

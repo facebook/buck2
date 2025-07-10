@@ -10,7 +10,6 @@
 
 use std::fs::File;
 use std::fs::create_dir_all;
-use std::mem;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -39,10 +38,10 @@ use tonic::transport::Channel;
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
+use crate::events_ctx::DaemonEventsCtx;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
-use crate::file_tailers::tailers::FileTailers;
 
 pub mod connect;
 pub mod kill;
@@ -163,9 +162,7 @@ impl Drop for BuckdLifecycleLock {
 pub struct BuckdClient {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     constraints: buck2_cli_proto::DaemonConstraints,
-    daemon_dir: DaemonDir,
-    // TODO(brasselsprouts): events_ctx should own tailers
-    tailers: Option<FileTailers>,
+    pub(crate) daemon_dir: DaemonDir,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -233,20 +230,13 @@ fn grpc_to_stream(
 }
 
 impl BuckdClient {
-    fn open_tailers(&mut self) -> buck2_error::Result<()> {
-        let tailers = FileTailers::new(&self.daemon_dir)?;
-        self.tailers = Some(tailers);
-
-        Ok(())
-    }
-
     /// Some commands stream events back from the server.
     /// For these commands, we want to be able to manipulate CLI state.
-    async fn stream<'i, T, Res, Handler, Command>(
+    async fn stream<'i, 'j, T, Res, Handler, Command>(
         &mut self,
         command: Command,
         request: T,
-        events_ctx: &mut EventsCtx,
+        events_ctx: &mut DaemonEventsCtx<'j>,
         partial_result_handler: &mut Handler,
         console_interaction: Option<ConsoleInteractionStream<'i>>,
     ) -> buck2_error::Result<CommandOutcome<Res>>
@@ -270,25 +260,18 @@ impl BuckdClient {
         let stream = grpc_to_stream(response);
         pin_mut!(stream);
         events_ctx
-            .unpack_stream(
-                partial_result_handler,
-                stream,
-                self.tailers.take(),
-                console_interaction,
-            )
+            .unpack_stream(partial_result_handler, stream, console_interaction)
             .await
     }
 
-    pub async fn status(
+    pub async fn status<'a>(
         &mut self,
-        events_ctx: &mut EventsCtx,
+        events_ctx: &mut DaemonEventsCtx<'a>,
         snapshot: bool,
     ) -> buck2_error::Result<StatusResponse> {
         let outcome = events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
-            .unpack_oneshot(mem::take(&mut self.tailers), {
-                self.client.status(Request::new(StatusRequest { snapshot }))
-            })
+            .unpack_oneshot(self.client.status(Request::new(StatusRequest { snapshot })))
             .await;
         // TODO(nmj): We have a number of things that wish to use status() and return an buck2_error::Result,
         // for now we'll just turn a "CommandMessage" into a error, but that's really not what we
@@ -302,9 +285,9 @@ impl BuckdClient {
         }
     }
 
-    pub async fn set_log_filter(
+    pub async fn set_log_filter<'a>(
         &mut self,
-        _events_ctx: &mut EventsCtx,
+        _events_ctx: &mut DaemonEventsCtx<'a>,
         req: SetLogFilterRequest,
     ) -> buck2_error::Result<()> {
         self.client.set_log_filter(Request::new(req)).await?;
@@ -315,19 +298,6 @@ impl BuckdClient {
 
 pub struct FlushingBuckdClient<'a> {
     inner: &'a mut BuckdClient,
-}
-
-impl FlushingBuckdClient<'_> {
-    fn enter(&mut self) -> buck2_error::Result<()> {
-        self.inner.open_tailers()?;
-        Ok(())
-    }
-
-    async fn exit(&mut self, events_ctx: &mut EventsCtx) -> buck2_error::Result<()> {
-        events_ctx.flush(mem::take(&mut self.inner.tailers)).await?;
-
-        Ok(())
-    }
 }
 
 pub enum NoPartialResult {}
@@ -385,13 +355,13 @@ macro_rules! stream_method {
             console_interaction: Option<ConsoleInteractionStream<'j>>,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
-            self.enter()?;
+            let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
             let res = self
                 .inner
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
                     req,
-                    events_ctx,
+                    &mut events_ctx,
                     // For now we only support handlers that can be constructed like so, and we
                     // don't let anything go out. Eventually if we wanted to stream structured
                     // data, that could change.
@@ -399,7 +369,7 @@ macro_rules! stream_method {
                     console_interaction,
                 )
                 .await;
-            self.exit(events_ctx).await?;
+            events_ctx.flush().await?;
             res
         }
     };
@@ -419,19 +389,19 @@ macro_rules! bidirectional_stream_method {
             events_ctx: &mut EventsCtx,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
-            self.enter()?;
+            let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
             let req = create_client_stream(context, requests);
             let res = self
                 .inner
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$method(d, r)),
                     req,
-                    events_ctx,
+                    &mut events_ctx,
                     handler,
                     None,
                 )
                 .await;
-            self.exit(events_ctx).await?;
+            events_ctx.flush().await?;
             res
         }
     };
@@ -449,13 +419,11 @@ macro_rules! oneshot_method {
             req: $req,
             events_ctx: &mut EventsCtx,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
-            self.enter()?;
+            let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
             let res = events_ctx
-                .unpack_oneshot(mem::take(&mut self.inner.tailers), {
-                    self.inner.client.$method(Request::new(req))
-                })
+                .unpack_oneshot({ self.inner.client.$method(Request::new(req)) })
                 .await;
-            self.exit(events_ctx).await?;
+            events_ctx.flush().await?;
             res
         }
     };
@@ -473,9 +441,9 @@ macro_rules! debug_method {
             req: $req,
             events_ctx: &mut EventsCtx,
         ) -> buck2_error::Result<$res> {
-            self.enter()?;
+            let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
             let out = self.inner.client.$method(Request::new(req)).await;
-            self.exit(events_ctx).await?;
+            events_ctx.flush().await?;
             Ok(out?.into_inner())
         }
     };
@@ -483,17 +451,17 @@ macro_rules! debug_method {
 
 /// Wrap a method that exists on the BuckdClient, with flushing.
 macro_rules! wrap_method {
-     ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
-         pub async fn $method(&mut self, events_ctx: &mut EventsCtx, $($param: $param_type)*) -> buck2_error::Result<$res> {
-             self.enter()?;
-             let out = self
-                 .inner
-                 .$method(events_ctx, $($param)*)
-                 .await;
-             self.exit(events_ctx).await?;
-             out
-         }
-     };
+    ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
+        pub async fn $method(&mut self, events_ctx: &mut EventsCtx, $($param: $param_type)*) -> buck2_error::Result<$res> {
+            let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
+            let out = self
+                .inner
+                .$method(&mut events_ctx, $($param)*)
+                .await;
+            events_ctx.flush().await?;
+            out
+        }
+    };
  }
 
 impl FlushingBuckdClient<'_> {
