@@ -1,0 +1,5 @@
+load(":defs.bzl", "dummy")
+
+dummy(
+    name = "recursive_target",
+)

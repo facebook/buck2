@@ -1,0 +1,48 @@
+load(":defs.bzl", "dummy", "test_universe")
+
+constraint_setting(
+    name = "os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "macos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "cpu",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "arm",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
+
+test_universe(
+    name = "universe",
+    deps = [":dummy"],
+    default_target_platform = ":p_dummy",
+)
+
+platform(
+    name = "p_dummy",
+    constraint_values = [],
+)
+
+dummy(
+    name = "dummy",
+)
+
+dummy(
+    name = "dummy2",
+)
