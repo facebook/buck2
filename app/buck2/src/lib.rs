@@ -48,7 +48,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::subscribers::recorder::InvocationRecorder;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
@@ -391,13 +390,15 @@ impl CommandKind {
 
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
-        let runtime = client_tokio_runtime()?;
         let ProcessContext {
             trace_id,
             restarted_trace_id,
             start_time,
             shared,
+            runtime,
         } = process;
+
+        let runtime = runtime.get_or_init()?;
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
