@@ -35,13 +35,13 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
-use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
+use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
-use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
@@ -157,12 +157,20 @@ async fn build(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
-    let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
-        parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
+    let parsed_patterns_with_modifiers: Vec<
+        ParsedPatternWithModifiers<ConfiguredProvidersPatternExtra>,
+    > = parse_patterns_with_modifiers_from_cli_args(&mut ctx, &request.target_patterns, cwd)
+        .await?;
+
+    let parsed_patterns = parsed_patterns_with_modifiers
+        .iter()
+        .map(|p| p.parsed_pattern.clone())
+        .collect::<Vec<_>>();
     server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
-        ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
+        ResolveTargetPatterns::resolve_with_modifiers(&mut ctx, &parsed_patterns_with_modifiers)
+            .await?;
 
     let target_resolution_config = TargetResolutionConfig::from_args(
         &mut ctx,
