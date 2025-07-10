@@ -468,7 +468,7 @@ impl HashedConfigurationPlatform {
 
         let full_name = match &configuration_platform {
             ConfigurationPlatform::Bound(label, _cfg) => {
-                format!("{:#}#{}", label, output_hash)
+                format!("{label:#}#{output_hash}")
             }
             ConfigurationPlatform::Builtin(builtin) => builtin.label().to_owned(),
         };

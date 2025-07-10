@@ -190,7 +190,7 @@ impl Action for WriteAction {
         indexmap! {
             "contents".to_owned() => match self.get_contents(fs, artifact_path_mapping) {
                 Ok(v) => v,
-                Err(e) => format!("ERROR: constructing contents ({})", e)
+                Err(e) => format!("ERROR: constructing contents ({e})")
             },
             "absolute".to_owned() => self.inner.absolute.to_string(),
         }

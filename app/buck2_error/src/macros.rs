@@ -18,7 +18,7 @@ pub fn buck2_error_impl(tag: crate::ErrorTag, args: Arguments) -> crate::Error {
     let source_location =
         crate::source_location::SourceLocation::new(std::panic::Location::caller().file())
             .with_source_line(line_number);
-    crate::Error::new(format!("{}", args), tag, source_location, None)
+    crate::Error::new(format!("{args}"), tag, source_location, None)
 }
 
 #[doc(hidden)]

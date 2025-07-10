@@ -97,7 +97,7 @@ impl Display for StarlarkAnonTarget<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<anon target")?;
         if let Some(location) = &self.declaration_location {
-            write!(f, " declared at {}", location)?;
+            write!(f, " declared at {location}")?;
         }
         write!(f, ">")?;
         Ok(())
@@ -190,7 +190,7 @@ impl Display for StarlarkAnonTargets<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<anon targets")?;
         if let Some(location) = &self.declaration_location {
-            write!(f, " declared at {}", location)?;
+            write!(f, " declared at {location}")?;
         }
         write!(f, ">")?;
         Ok(())

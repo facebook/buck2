@@ -261,7 +261,7 @@ impl CleanStaleArtifactsCommand {
         {
             self.dispatcher.instant_event(buck2_data::UntrackedFile {
                 path: path.to_string(),
-                file_type: format!("{:?}", file_type),
+                file_type: format!("{file_type:?}"),
             });
         }
 

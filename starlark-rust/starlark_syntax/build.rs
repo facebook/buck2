@@ -17,7 +17,7 @@
 
 fn lalrpop() {
     let source = "src/syntax/grammar.lalrpop";
-    println!("cargo:rerun-if-changed={}", source);
+    println!("cargo:rerun-if-changed={source}");
     lalrpop::Configuration::new()
         .use_cargo_dir_conventions()
         .emit_report(true)

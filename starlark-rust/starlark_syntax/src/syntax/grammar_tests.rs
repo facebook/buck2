@@ -35,15 +35,15 @@ fn parse_fails_with_dialect(name: &str, dialect: &Dialect, programs: &[&str]) {
         let program = program.trim();
 
         writeln!(out, "Program:").unwrap();
-        writeln!(out, "{}", program).unwrap();
+        writeln!(out, "{program}").unwrap();
         writeln!(out).unwrap();
 
         let err = AstModule::parse(name, program.to_owned(), dialect).unwrap_err();
         writeln!(out, "Error:").unwrap();
-        writeln!(out, "{}", err).unwrap();
+        writeln!(out, "{err}").unwrap();
     }
 
-    golden_test_template(&format!("src/syntax/grammar_tests/{}.golden", name), &out);
+    golden_test_template(&format!("src/syntax/grammar_tests/{name}.golden"), &out);
 }
 
 fn parse_fail_with_dialect(name: &str, dialect: &Dialect, program: &str) {
@@ -392,8 +392,7 @@ fn parse_ast_with_dialect(program: &str, dialect: &Dialect) -> AstModule {
         Ok(x) => x,
         Err(e) => {
             panic!(
-                "starlark::assert::parse_ast, expected parse success but failed\nCode: {}\nError: {}",
-                program, e
+                "starlark::assert::parse_ast, expected parse success but failed\nCode: {program}\nError: {e}"
             );
         }
     }

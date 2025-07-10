@@ -214,7 +214,7 @@ def sum(a, b, *args, **kwargs):
     return [args, kwargs]
 "#;
 
-        assert::eq(expected, &format!("{}{}", sum, expr));
+        assert::eq(expected, &format!("{sum}{expr}"));
     }
 
     #[test]

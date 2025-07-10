@@ -38,7 +38,7 @@ fn display_configured_graph_cycle_error(cycle: &[ConfiguredGraphCycleKeys]) -> S
     )
     .unwrap();
     for p in cycle.iter() {
-        writeln!(s, "  {} ->", p).unwrap();
+        writeln!(s, "  {p} ->").unwrap();
     }
     // point back at the first item in the cycle.
     writeln!(s, "  {}", cycle.first().unwrap()).unwrap();

@@ -93,7 +93,7 @@ impl StreamingCommand for SubscribeCommand {
                 Err(e) => {
                     // NOTE: if stderr is gone there is not much we can do besides not write to
                     // stderr.
-                    let reason = format!("Error parsing request: {:#}", e);
+                    let reason = format!("Error parsing request: {e:#}");
                     let _ignored = buck2_client_ctx::eprintln!("{}", reason);
                     SubscriptionRequest {
                         request: Some(

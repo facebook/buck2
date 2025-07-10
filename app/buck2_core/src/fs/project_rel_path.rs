@@ -721,11 +721,11 @@ mod tests {
     #[test]
     fn path_display_is_readable() -> buck2_error::Result<()> {
         let buf = ProjectRelativePathBuf::try_from("foo/bar".to_owned())?;
-        assert_eq!("foo/bar", format!("{}", buf));
-        assert_eq!("ProjectRelativePathBuf(\"foo/bar\")", format!("{:?}", buf));
+        assert_eq!("foo/bar", format!("{buf}"));
+        assert_eq!("ProjectRelativePathBuf(\"foo/bar\")", format!("{buf:?}"));
         let refpath: &ProjectRelativePath = &buf;
-        assert_eq!("foo/bar", format!("{}", refpath));
-        assert_eq!("ProjectRelativePath(\"foo/bar\")", format!("{:?}", refpath));
+        assert_eq!("foo/bar", format!("{refpath}"));
+        assert_eq!("ProjectRelativePath(\"foo/bar\")", format!("{refpath:?}"));
 
         Ok(())
     }

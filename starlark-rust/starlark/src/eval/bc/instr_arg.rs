@@ -68,7 +68,7 @@ impl Display for TruncateValueRepr {
         if repr.len() > 100 {
             write!(f, "<{}>", self.0.to_value().get_type())
         } else {
-            write!(f, "{}", repr)
+            write!(f, "{repr}")
         }
     }
 }
@@ -106,7 +106,7 @@ impl BcInstrArg for u32 {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {}", param)
+        write!(f, " {param}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -119,7 +119,7 @@ impl BcInstrArg for i32 {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {}", param)
+        write!(f, " {param}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -325,7 +325,7 @@ impl BcInstrArg for TypeCompiled<FrozenValue> {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {}", param)
+        write!(f, " {param}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -358,7 +358,7 @@ impl BcInstrArg for String {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, "{:?}", param)
+        write!(f, "{param:?}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -390,11 +390,7 @@ where
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(
-            f,
-            " [{}]",
-            param.iter().map(|v| format!("{}", v)).join(", ")
-        )
+        write!(f, " [{}]", param.iter().map(|v| format!("{v}")).join(", "))
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -545,7 +541,7 @@ impl BcInstrArg for FrameSpan {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {}", param)
+        write!(f, " {param}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -559,7 +555,7 @@ impl BcInstrArg for BcOpcode {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {:?}", param)
+        write!(f, " {param:?}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -572,7 +568,7 @@ impl BcInstrArg for LoopDepth {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {}", param)
+        write!(f, " {param}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
@@ -687,7 +683,7 @@ impl<S: ArgSymbol> BcInstrArg for BcCallArgsFull<S> {
         _end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {{{}}}", param)
+        write!(f, " {{{param}}}")
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}

@@ -67,8 +67,8 @@ impl StarlarkFilePath {
 impl std::fmt::Display for StarlarkFilePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StarlarkFilePath::Bzl(import_path) => write!(f, "{}", import_path),
-            StarlarkFilePath::Bxl(bxl_file_path) => write!(f, "{}", bxl_file_path),
+            StarlarkFilePath::Bzl(import_path) => write!(f, "{import_path}"),
+            StarlarkFilePath::Bxl(bxl_file_path) => write!(f, "{bxl_file_path}"),
         }
     }
 }

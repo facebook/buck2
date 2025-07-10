@@ -157,10 +157,9 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         .await
         .1;
     assert!(
-        format!("{:?}", err)
+        format!("{err:?}")
             .contains("key set in parent `PACKAGE` file, and overwrite flag is not set"),
-        "err = {:?}",
-        err
+        "err = {err:?}"
     );
 }
 
@@ -352,10 +351,9 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
         .await
         .1;
     assert!(
-        format!("{:?}", err)
+        format!("{err:?}")
             .contains("In a Package context, consider using `read_parent_package_value`"),
-        "err = {:?}",
-        err
+        "err = {err:?}"
     );
 }
 
@@ -397,9 +395,8 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
         .eval_build_file(package_label, &CancellationContext::testing())
         .await;
     assert!(
-        format!("{:?}", err)
+        format!("{err:?}")
             .contains("In a Package context, consider using `read_parent_package_value`"),
-        "err = {:?}",
-        err
+        "err = {err:?}"
     );
 }

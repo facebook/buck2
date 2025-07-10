@@ -92,13 +92,12 @@ fn maybe_dice_dump(
         .location()
         .is_some_and(|loc| loc.file().split(&['/', '\\']).any(|x| x == "dice"));
     if is_dice_panic {
-        let dice_dump_folder = get_panic_dump_dir().join(format!("dice-dump-{}", panic_id));
+        let dice_dump_folder = get_panic_dump_dir().join(format!("dice-dump-{panic_id}"));
         eprintln!(
-            "Buck2 panicked and DICE may be responsible. Please be patient as we try to dump DICE graph to `{:?}` and create an archive file",
-            dice_dump_folder
+            "Buck2 panicked and DICE may be responsible. Please be patient as we try to dump DICE graph to `{dice_dump_folder:?}` and create an archive file"
         );
         if let Err(e) = daemon_state.dice_dump(&dice_dump_folder, DiceDumpFormat::Tsv) {
-            eprintln!("Failed to dump DICE graph: {:#}", e);
+            eprintln!("Failed to dump DICE graph: {e:#}");
         } else {
             if let Err(e) = tar_dice_dump(&dice_dump_folder) {
                 eprintln!(
@@ -118,8 +117,7 @@ fn maybe_dice_dump(
                 "".to_owned()
             };
             eprintln!(
-                "DICE graph dumped to `{:?}`. {}DICE dumps can take up a lot of disk space, you should delete the dump after reporting.",
-                dice_dump_folder, maybe_report_msg
+                "DICE graph dumped to `{dice_dump_folder:?}`. {maybe_report_msg}DICE dumps can take up a lot of disk space, you should delete the dump after reporting."
             );
         }
     }

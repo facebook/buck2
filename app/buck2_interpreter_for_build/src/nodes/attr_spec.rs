@@ -137,10 +137,7 @@ impl AttributeSpecExt for AttributeSpec {
                         v,
                     )
                     .with_buck_error_context(|| {
-                        format!(
-                            "Error coercing attribute `{}` of `{}`",
-                            attr_name, target_label,
-                        )
+                        format!("Error coercing attribute `{attr_name}` of `{target_label}`",)
                     })?;
 
                 if attr_is_visibility {

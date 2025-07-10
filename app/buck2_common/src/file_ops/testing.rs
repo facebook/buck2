@@ -68,8 +68,7 @@ impl TestFileOps {
             // make sure the test setup is correct and concise
             assert!(
                 entries.insert(path.to_owned(), entry).is_none(),
-                "Adding `{}`, it already exists.",
-                path
+                "Adding `{path}`, it already exists."
             );
 
             let mut path = path.as_ref();
@@ -88,7 +87,7 @@ impl TestFileOps {
                         file_type = FileType::Directory;
                         path = dir;
                     }
-                    _ => panic!("Adding `{}`, but `{}` exists and is not a dir", path, dir),
+                    _ => panic!("Adding `{path}`, but `{dir}` exists and is not a dir"),
                 };
             }
         }

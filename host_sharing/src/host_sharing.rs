@@ -42,7 +42,7 @@ pub enum WeightClass {
 impl fmt::Display for WeightClass {
     fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Permits(p) => write!(w, "{}", p),
+            Self::Permits(p) => write!(w, "{p}"),
             Self::Percentage(p) => write!(w, "{}%", p.into_value()),
         }
     }
@@ -99,12 +99,12 @@ impl fmt::Display for HostSharingRequirements {
         match &self {
             HostSharingRequirements::ExclusiveAccess => write!(f, "ExclusiveAccess"),
             HostSharingRequirements::OnePerToken(name, class) => {
-                write!(f, "OnePerToken({},{})", name, class)
+                write!(f, "OnePerToken({name},{class})")
             }
             HostSharingRequirements::OnePerTokens(names, class) => {
-                write!(f, "OnePerTokens({:?},{})", names, class)
+                write!(f, "OnePerTokens({names:?},{class})")
             }
-            HostSharingRequirements::Shared(class) => write!(f, "Shared({})", class),
+            HostSharingRequirements::Shared(class) => write!(f, "Shared({class})"),
         }
     }
 }

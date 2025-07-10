@@ -172,7 +172,7 @@ impl<V> ParametersSpecBuilder<V> {
         self.params.push((name.to_owned(), val));
         if self.current_style != CurrentParameterStyle::PosOnly {
             let old = self.names.insert(name, i.try_into().unwrap());
-            assert!(old.is_none(), "Repeated parameter `{}`", name);
+            assert!(old.is_none(), "Repeated parameter `{name}`");
         }
         if self.args.is_none() && self.current_style != CurrentParameterStyle::NamedOnly {
             // If you've already seen `args` or `no_args`, you can't enter these
@@ -307,11 +307,7 @@ impl<V> ParametersSpecBuilder<V> {
         let _ = current_style;
         let positional_only: u32 = positional_only.try_into().unwrap();
         let positional: u32 = positional.try_into().unwrap();
-        assert!(
-            positional_only <= positional,
-            "building `{}`",
-            function_name
-        );
+        assert!(positional_only <= positional, "building `{function_name}`");
         let (param_names, param_kinds): (Vec<String>, Vec<ParameterKind<V>>) =
             params.into_iter().unzip();
         ParametersSpec {
@@ -429,7 +425,7 @@ impl<V> ParametersSpec<V> {
             if cfg!(test) {
                 panic!("{}", args);
             }
-            format!("<{}>", args)
+            format!("<{args}>")
         }
 
         if let Some(args) = self.indices.args {

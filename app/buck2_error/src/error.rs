@@ -130,13 +130,13 @@ impl Error {
         for kind in self.iter_kinds() {
             match kind {
                 ErrorKind::Root(r) => {
-                    writeln!(s, "ROOT:\n{:#?}", r).unwrap();
+                    writeln!(s, "ROOT:\n{r:#?}").unwrap();
                 }
                 ErrorKind::Emitted(_, _) => {
                     writeln!(s, "EMITTED").unwrap();
                 }
                 ErrorKind::WithContext(ctx, _) => {
-                    writeln!(s, "CONTEXT: {:#}", ctx).unwrap();
+                    writeln!(s, "CONTEXT: {ctx:#}").unwrap();
                 }
             }
         }
@@ -325,7 +325,7 @@ impl Error {
                     b = b_inner;
                 }
                 (_, _) => {
-                    panic!("Left side did not match right: {:?} {:?}", a, b)
+                    panic!("Left side did not match right: {a:?} {b:?}")
                 }
             }
         }

@@ -156,7 +156,7 @@ impl fmt::Display for ReStdStream {
                 write!(fmt, "raw = `{}`", String::from_utf8_lossy(raw))?;
             }
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
-                write!(fmt, "digest = `{}`", digest,)?;
+                write!(fmt, "digest = `{digest}`",)?;
             }
             Self::None => {
                 write!(fmt, "none")?;
@@ -169,7 +169,7 @@ impl fmt::Display for ReStdStream {
 
 impl fmt::Debug for ReStdStream {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "ReStdStream({})", self)
+        write!(fmt, "ReStdStream({self})")
     }
 }
 

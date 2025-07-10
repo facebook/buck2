@@ -126,15 +126,15 @@ impl Drop for WatchmanInstance {
             format!("Failed to read log file at {}", self.log.display())
         });
         match log {
-            Ok(log) => eprintln!("Watchman logs follow\n{}", log),
-            Err(e) => eprintln!("Failed to read logs: {:#}", e),
+            Ok(log) => eprintln!("Watchman logs follow\n{log}"),
+            Err(e) => eprintln!("Failed to read logs: {e:#}"),
         };
 
         // Try to see if Watchman had exited or not.
         match child.try_wait() {
-            Ok(Some(status)) => eprintln!("Watchman had exited with status {:?}", status),
+            Ok(Some(status)) => eprintln!("Watchman had exited with status {status:?}"),
             Ok(None) => eprintln!("Watchan is still running"),
-            Err(e) => eprintln!("Failed to access Watchman status: {:#}", e),
+            Err(e) => eprintln!("Failed to access Watchman status: {e:#}"),
         }
     }
 }

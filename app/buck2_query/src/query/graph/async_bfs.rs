@@ -39,7 +39,7 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
         let node = self
             .visited
             .remove(last)
-            .with_internal_error(|| format!("missing node {}", last))?;
+            .with_internal_error(|| format!("missing node {last}"))?;
         if node.node.is_some() {
             return Err(internal_error!("duplicate node {}", last));
         }
@@ -48,10 +48,10 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
             let node = self
                 .visited
                 .remove(&key)
-                .with_internal_error(|| format!("missing node {}", key))?;
+                .with_internal_error(|| format!("missing node {key}"))?;
             item(
                 node.node
-                    .with_internal_error(|| format!("missing node {}", key))?,
+                    .with_internal_error(|| format!("missing node {key}"))?,
             );
             parent_key = node.parent;
         }
@@ -145,7 +145,7 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                 let prev = visited
                     .visited
                     .get_mut(&key)
-                    .with_internal_error(|| format!("missing node {}", key))?
+                    .with_internal_error(|| format!("missing node {key}"))?
                     .node
                     .replace(node);
                 if prev.is_some() {
@@ -153,7 +153,7 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                 }
             }
             Err(mut e) => {
-                e = e.context(format!("traversing {}", key));
+                e = e.context(format!("traversing {key}"));
                 let mut nodes = Vec::new();
                 visited.take_path(&key, |node| nodes.push(node))?;
                 for node in nodes {

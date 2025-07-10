@@ -186,7 +186,7 @@ impl Develop {
         let targets = self.related_targets(input.clone())?;
         if targets.is_empty() {
             let err = anyhow::anyhow!("No owning target found")
-                .context(format!("Could not find owning target for {:?}", input));
+                .context(format!("Could not find owning target for {input:?}"));
             return Err(err);
         }
 
@@ -203,7 +203,7 @@ impl Develop {
                     kind: "finished".to_owned(),
                 };
                 let out = serde_json::to_string(&out)?;
-                println!("{}", out);
+                println!("{out}");
             }
         } else {
             let mut targets = targets.into_values().flatten().collect::<Vec<_>>();

@@ -36,7 +36,7 @@ impl ToClientMessage {
         match self {
             ToClientMessage::Event(ev) => Ok(serde_json::to_string_pretty(&ev)?),
             ToClientMessage::Response(resp) => Ok(serde_json::to_string_pretty(&resp)?),
-            ToClientMessage::Shutdown(res) => Ok(format!("{:?}", res)),
+            ToClientMessage::Shutdown(res) => Ok(format!("{res:?}")),
         }
     }
 }

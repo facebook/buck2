@@ -165,35 +165,35 @@ mod tests {
     async fn invalid_certs_test() {
         let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
 
-        let empty_path = format!("{}/test_empty.pem", base_path);
+        let empty_path = format!("{base_path}/test_empty.pem");
         let empty_res = verify(&OsString::from(empty_path)).await;
         assert_eq!(true, empty_res.is_err());
         let err_msg = empty_res.unwrap_err().to_string();
         assert!(
             err_msg.starts_with("Could not find any certs to validate"),
             "{}",
-            format!("Actual: {}", err_msg)
+            format!("Actual: {err_msg}")
         );
 
-        let invalid_path = format!("{}/test_invalid.pem", base_path);
+        let invalid_path = format!("{base_path}/test_invalid.pem");
         let invalid_res = verify(&OsString::from(invalid_path)).await;
         assert_eq!(true, invalid_res.is_err());
         let err_msg = invalid_res.unwrap_err().to_string();
         assert!(
             err_msg.starts_with("Could not find any certs to validate"),
             "{}",
-            format!("Actual: {}", err_msg)
+            format!("Actual: {err_msg}")
         );
 
         // Self-signed cert for testing. Expired 05/31/2024
-        let expired_path = format!("{}/test_expired.pem", base_path);
+        let expired_path = format!("{base_path}/test_expired.pem");
         let expired_res = verify(&OsString::from(expired_path)).await;
         assert_eq!(true, expired_res.is_err());
         let err_msg = expired_res.unwrap_err().to_string();
         assert!(
             err_msg.starts_with("Certificate Expired"),
             "{}",
-            format!("Actual: {}", err_msg)
+            format!("Actual: {err_msg}")
         );
     }
 
@@ -206,7 +206,7 @@ mod tests {
         // 3. openssl x509 -req -in mycsr.csr -signkey mykey.pem -out x509.crt -days 36500
         // Copy content in x509.crt
         let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
-        let valid_path = format!("{}/test_valid.pem", base_path);
+        let valid_path = format!("{base_path}/test_valid.pem");
         assert_eq!(true, verify(&OsString::from(valid_path)).await.is_ok());
     }
 }

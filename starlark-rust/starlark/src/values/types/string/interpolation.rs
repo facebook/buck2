@@ -236,7 +236,7 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                     }
                     Some(NumRef::Float(v)) => {
                         match NumRef::Float(StarlarkFloat(v.0.trunc())).as_int() {
-                            Some(v) => write!(res, "{}", v).unwrap(),
+                            Some(v) => write!(res, "{v}").unwrap(),
                             None => ValueError::unsupported_type(value, "format(%d)")?,
                         }
                     }
@@ -252,7 +252,7 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                             Some(vp) => {
                                 write!(res, "{}{:o}", if v < 0 { "-" } else { "" }, vp).unwrap()
                             }
-                            None => write!(res, "{}", I32_MIN_OCTAL).unwrap(),
+                            None => write!(res, "{I32_MIN_OCTAL}").unwrap(),
                         }
                     }
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
@@ -279,7 +279,7 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                             Some(vp) => {
                                 write!(res, "{}{:x}", if v < 0 { "-" } else { "" }, vp).unwrap()
                             }
-                            None => write!(res, "{}", I32_MIN_HEX).unwrap(),
+                            None => write!(res, "{I32_MIN_HEX}").unwrap(),
                         }
                     }
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
@@ -306,7 +306,7 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                             Some(vp) => {
                                 write!(res, "{}{:X}", if v < 0 { "-" } else { "" }, vp).unwrap()
                             }
-                            None => write!(res, "{}", I32_MIN_HEX).unwrap(),
+                            None => write!(res, "{I32_MIN_HEX}").unwrap(),
                         }
                     }
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {

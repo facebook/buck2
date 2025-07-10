@@ -90,10 +90,10 @@ impl ProcessGroupImpl {
                 Duration::from_secs(graceful_shutdown_timeout_s as u64),
             )
             .await
-            .with_buck_error_context(|| format!("Failed to terminate process {} gracefully", pid))
+            .with_buck_error_context(|| format!("Failed to terminate process {pid} gracefully"))
         } else {
             signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
-                .with_buck_error_context(|| format!("Failed to kill process {}", pid))
+                .with_buck_error_context(|| format!("Failed to kill process {pid}"))
         }
     }
 }

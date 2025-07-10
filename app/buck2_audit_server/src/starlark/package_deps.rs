@@ -82,7 +82,7 @@ pub(crate) async fn server_execute(
                     }
                     self.first = false;
 
-                    writeln!(stdout, "# {}", path)?;
+                    writeln!(stdout, "# {path}")?;
                     writeln!(stdout)?;
                     write!(stdout, "{}", module.env().dump_debug())?;
 

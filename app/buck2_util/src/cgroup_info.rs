@@ -49,7 +49,7 @@ impl CGroupInfo {
             .nth(2)
             .buck_error_context("Failed to parse cgroup path")?;
         Ok(CGroupInfo {
-            path: format!("/sys/fs/cgroup{}", cgroup),
+            path: format!("/sys/fs/cgroup{cgroup}"),
         })
     }
 

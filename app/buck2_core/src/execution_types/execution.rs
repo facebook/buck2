@@ -136,8 +136,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
         match self {
             ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(v) => write!(
                 f,
-                "exec_compatible_with requires `{}` but it was not satisfied",
-                v
+                "exec_compatible_with requires `{v}` but it was not satisfied"
             ),
             ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(v) => v.fmt(f),
         }
@@ -148,7 +147,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 #[buck2(input)]
 pub enum ExecutionPlatformError {
     // .indented() losing the alternate flag that we want to use to format the reason so we need to explicitly do that.
-    #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{:#}", reason).indented("    "))).join("\n"))]
+    #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{reason:#}").indented("    "))).join("\n"))]
     NoCompatiblePlatform(Arc<Vec<(String, ExecutionPlatformIncompatibleReason)>>),
 }
 

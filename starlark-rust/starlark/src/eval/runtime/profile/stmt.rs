@@ -247,7 +247,7 @@ impl StmtProfileData {
             .collect();
         keys.sort();
         for key in keys {
-            writeln!(s, "{}", key).unwrap();
+            writeln!(s, "{key}").unwrap();
         }
         s
     }

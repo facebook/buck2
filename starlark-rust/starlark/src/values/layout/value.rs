@@ -173,7 +173,7 @@ impl Display for Value<'_> {
             Err(..) => {
                 let mut recursive = String::new();
                 self.get_ref().collect_repr_cycle(&mut recursive);
-                write!(f, "{}", recursive)
+                write!(f, "{recursive}")
             }
         }
     }
@@ -968,9 +968,7 @@ impl<'v> Value<'v> {
     /// Like `get_attr` but return an error if the attribute is not available.
     pub fn get_attr_error(self, attribute: &str, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self.get_attr(attribute, heap)? {
-            None => {
-                ValueError::unsupported_owned(self.get_type(), &format!(".{}", attribute), None)
-            }
+            None => ValueError::unsupported_owned(self.get_type(), &format!(".{attribute}"), None),
             Some(x) => Ok(x),
         }
     }

@@ -153,9 +153,9 @@ pub fn main() -> anyhow::Result<()> {
     let mut buff = SmallVec::<[u8; MiniperfOutput::EXPECTED_SIZE]>::new();
 
     bincode::serialize_into(&mut buff, &output)
-        .with_context(|| format!("Failed to write to `{:?}`", out))?;
+        .with_context(|| format!("Failed to write to `{out:?}`"))?;
 
-    std::fs::write(&out, &buff).with_context(|| format!("Failed to write to `{:?}`", out))?;
+    std::fs::write(&out, &buff).with_context(|| format!("Failed to write to `{out:?}`"))?;
 
     Ok(())
 }

@@ -160,7 +160,7 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
 
         fn failed_to_kill(&mut self, process: &ProcessInfo, error: buck2_error::Error) {
             let mut message = self.fmt_status(process, "Failed to kill");
-            for line in format!("{:?}", error).lines() {
+            for line in format!("{error:?}").lines() {
                 message.push_str("\n  ");
                 message.push_str(line);
             }

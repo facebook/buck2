@@ -240,6 +240,6 @@ mod tests {
     #[test]
     fn test_display() {
         let s = ArcS::<MyStringWrapper>::from(MyStringWrapper::new("hello"));
-        assert_eq!("<hello>", format!("{}", s));
+        assert_eq!("<hello>", format!("{s}"));
     }
 }

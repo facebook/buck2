@@ -57,7 +57,7 @@ impl<'a> DocModuleInfo<'a> {
             let path = if base_path.is_empty() {
                 name.to_owned()
             } else {
-                format!("{}/{}", base_path, name)
+                format!("{base_path}/{name}")
             };
             match doc {
                 DocItem::Module(doc_module) => {

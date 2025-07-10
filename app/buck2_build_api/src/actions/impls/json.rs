@@ -76,7 +76,7 @@ impl<'a, 'v> Serialize for Buck2ErrorResultOfSerializedValue<'a, 'v> {
     {
         match &self.result {
             Ok(v) => v.serialize(serializer),
-            Err(e) => Err(serde::ser::Error::custom(format!("{:#}", e))),
+            Err(e) => Err(serde::ser::Error::custom(format!("{e:#}"))),
         }
     }
 }
@@ -99,7 +99,7 @@ impl<'a, 'v> SerializeValue<'a, 'v> {
 fn err<R, E: serde::ser::Error>(res: buck2_error::Result<R>) -> Result<R, E> {
     match res {
         Ok(v) => Ok(v),
-        Err(e) => Err(serde::ser::Error::custom(format!("{:#}", e))),
+        Err(e) => Err(serde::ser::Error::custom(format!("{e:#}"))),
     }
 }
 

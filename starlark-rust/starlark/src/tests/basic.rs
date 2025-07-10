@@ -103,8 +103,8 @@ fn test_frozen_equality() {
     assert_eq!(a.value(), b.value());
 
     let mut a = Assert::new();
-    a.module("saved", &format!("val = {}", program));
-    a.is_true(&format!("load('saved', 'val'); val == {}", program));
+    a.module("saved", &format!("val = {program}"));
+    a.is_true(&format!("load('saved', 'val'); val == {program}"));
 }
 
 #[test]

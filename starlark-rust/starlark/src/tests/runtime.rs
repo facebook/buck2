@@ -184,7 +184,7 @@ def expensive(n):
     .to_owned();
     // I expect success in approx 25 times, so do 100 for safety
     for i in 0..100 {
-        writeln!(code, "expensive({})", i).unwrap();
+        writeln!(code, "expensive({i})").unwrap();
     }
     code.push_str("assert_eq(success[0], True)\nis_gc_disabled()");
     // I expect to run with GC disabled some of the time, but not on the last run
@@ -211,25 +211,25 @@ f()
 fn test_display_debug() {
     let heap = Heap::new();
     let val = heap.alloc((vec![1, 2], "test", true));
-    assert_eq!(format!("{}", val), "([1, 2], \"test\", True)");
+    assert_eq!(format!("{val}"), "([1, 2], \"test\", True)");
     assert_eq!(val.to_repr(), "([1, 2], \"test\", True)");
     assert_eq!(val.to_str(), "([1, 2], \"test\", True)");
     assert_eq!(
-        format!("{:?}", val),
+        format!("{val:?}"),
         "Value(TupleGen { content: [Value(ListGen(ListData { content: Cell { value: ValueTyped(Value(Array { len: 2, capacity: 4, iter_count: 0, content: [Value(1), Value(2)] })) } })), Value(\"test\"), Value(StarlarkBool(true))] })"
     );
     let v = heap.alloc("test");
-    assert_eq!(format!("{}", v), "\"test\"");
+    assert_eq!(format!("{v}"), "\"test\"");
     assert_eq!(v.to_repr(), "\"test\"");
     assert_eq!(v.to_str(), "test");
-    assert_eq!(format!("{:?}", v), "Value(\"test\")");
-    assert_eq!(format!("{:#?}", v), "Value(\n    \"test\",\n)");
+    assert_eq!(format!("{v:?}"), "Value(\"test\")");
+    assert_eq!(format!("{v:#?}"), "Value(\n    \"test\",\n)");
 
     let frozen_heap = FrozenHeap::new();
     let v = frozen_heap.alloc("test");
-    assert_eq!(format!("{}", v), "\"test\"");
+    assert_eq!(format!("{v}"), "\"test\"");
     assert_eq!(v.to_value().to_repr(), "\"test\"");
     assert_eq!(v.to_value().to_str(), "test");
-    assert_eq!(format!("{:?}", v), "FrozenValue(\"test\")");
-    assert_eq!(format!("{:#?}", v), "FrozenValue(\n    \"test\",\n)");
+    assert_eq!(format!("{v:?}"), "FrozenValue(\"test\")");
+    assert_eq!(format!("{v:#?}"), "FrozenValue(\n    \"test\",\n)");
 }

@@ -185,7 +185,7 @@ impl StreamingCommand for RunCommand {
 
         if let Some(file_path) = self.command_args_file {
             let mut output = File::create(&file_path).with_buck_error_context(|| {
-                format!("Failed to create/open `{}` to print command", file_path)
+                format!("Failed to create/open `{file_path}` to print command")
             })?;
 
             let command = CommandArgsFile {

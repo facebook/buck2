@@ -168,7 +168,7 @@ impl PluginKindSet {
     const fn pack(unpacked: PluginKindSetUnpacked) -> Self {
         match unpacked {
             PluginKindSetUnpacked::None => PluginKindSet(0 as *const ()),
-            PluginKindSetUnpacked::All => PluginKindSet(1 as *const ()),
+            PluginKindSetUnpacked::All => PluginKindSet(std::ptr::dangling::<()>()),
             PluginKindSetUnpacked::Interned(i) => {
                 PluginKindSet(i.deref_static() as *const _ as *const ())
             }

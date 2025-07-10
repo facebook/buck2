@@ -71,7 +71,7 @@ pub enum TestStage {
 impl fmt::Display for TestStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
-            TestStage::Listing { suite, .. } => write!(f, "Listing({})", suite),
+            TestStage::Listing { suite, .. } => write!(f, "Listing({suite})"),
             TestStage::Testing {
                 suite, testcases, ..
             } => {
@@ -178,9 +178,9 @@ pub enum ExternalRunnerSpecValue {
 impl std::fmt::Display for ExternalRunnerSpecValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Verbatim(s) => write!(f, "Verbatim({})", s),
-            Self::ArgHandle(h) => write!(f, "ArgHandle({})", h),
-            Self::EnvHandle(h) => write!(f, "EnvHandle({})", h),
+            Self::Verbatim(s) => write!(f, "Verbatim({s})"),
+            Self::ArgHandle(h) => write!(f, "ArgHandle({h})"),
+            Self::EnvHandle(h) => write!(f, "EnvHandle({h})"),
         }
     }
 }
@@ -219,8 +219,8 @@ pub enum ArgValueContent {
 impl fmt::Display for ArgValueContent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ExternalRunnerSpecValue(v) => write!(f, "ExternalRunnerSpecValue({})", v),
-            Self::DeclaredOutput(o) => write!(f, "DeclaredOutput({})", o),
+            Self::ExternalRunnerSpecValue(v) => write!(f, "ExternalRunnerSpecValue({v})"),
+            Self::DeclaredOutput(o) => write!(f, "DeclaredOutput({o})"),
         }
     }
 }

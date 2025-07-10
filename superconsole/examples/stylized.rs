@@ -50,8 +50,7 @@ impl Component for Greeter<'_> {
         let mut messages = vec![identification];
         for customer_name in customers {
             let greeting = Line::from_iter([Span::new_styled(style(format!(
-                "Welcome to {}, {}!",
-                store_name, customer_name
+                "Welcome to {store_name}, {customer_name}!"
             )))?]);
             messages.push(greeting);
         }

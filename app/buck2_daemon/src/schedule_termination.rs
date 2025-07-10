@@ -50,11 +50,10 @@ pub(crate) fn maybe_schedule_termination() -> buck2_error::Result<()> {
             );
             if let Some(elapsed_cpu_time_avg_in_percents) = elapsed_cpu_time_avg_in_percents {
                 panic!(
-                    "Buck is exiting after {}s elapsed; avg process CPU in the last {}s is {}%",
-                    duration, sleep_after, elapsed_cpu_time_avg_in_percents
+                    "Buck is exiting after {duration}s elapsed; avg process CPU in the last {sleep_after}s is {elapsed_cpu_time_avg_in_percents}%"
                 );
             } else {
-                panic!("Buck is exiting after {}s elapsed", duration);
+                panic!("Buck is exiting after {duration}s elapsed");
             }
         })?;
     }

@@ -94,7 +94,7 @@ impl TestSession {
         let res = self
             .labels
             .get(&id)
-            .with_context(|| format!("Invalid id provided to TestSession: {:?}", id))?;
+            .with_context(|| format!("Invalid id provided to TestSession: {id:?}"))?;
 
         Ok(res.clone())
     }

@@ -178,7 +178,7 @@ fn main() -> io::Result<()> {
     let input = std::io::read_to_string(io::stdin())?;
 
     for option in run(&args.name, &script, &input, &args.tempdir, args.shell)? {
-        println!("{}", option);
+        println!("{option}");
     }
 
     Ok(())
@@ -208,7 +208,7 @@ compdef _impl find
         let actual = run(
             "find",
             BASH_SCRIPT,
-            &format!("find {}", input),
+            &format!("find {input}"),
             &None,
             Shell::Bash,
         )
@@ -220,7 +220,7 @@ compdef _impl find
             let actual = run(
                 "find",
                 FISH_SCRIPT,
-                &format!("find {}", input),
+                &format!("find {input}"),
                 &None,
                 Shell::Fish,
             )
@@ -232,7 +232,7 @@ compdef _impl find
         let actual = run(
             "find",
             ZSH_SCRIPT,
-            &format!("find {}", input),
+            &format!("find {input}"),
             &None,
             Shell::Zsh,
         )
@@ -247,11 +247,10 @@ compdef _impl find
             .unwrap()
             .arg("--version")
             .output()
-            .expect(format!("Failed to run {:?}", shell).as_str());
+            .expect(format!("Failed to run {shell:?}").as_str());
         assert!(
             output.status.success(),
-            "checking that `{:?}` is available",
-            shell,
+            "checking that `{shell:?}` is available",
         );
     }
 

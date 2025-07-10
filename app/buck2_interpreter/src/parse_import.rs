@@ -277,10 +277,10 @@ mod tests {
             },
             &path,
         ) {
-            Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
+            Ok(import) => panic!("Expected parse failure for {path}, got result {import}"),
             Err(e) => {
                 assert_eq!(
-                    format!("{:#}", e),
+                    format!("{e:#}"),
                     ImportParseError::EmptyFileName(path.to_owned()).to_string()
                 );
             }
@@ -301,7 +301,7 @@ mod tests {
             },
             &path,
         ) {
-            Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
+            Ok(import) => panic!("Expected parse failure for {path}, got result {import}"),
             Err(_) => {
                 // TODO: should we verify the contents of the error?
             }
@@ -411,13 +411,10 @@ mod tests {
             },
         );
         match res {
-            Ok(res) => panic!(
-                "Expected parse failure for {}, got result {}",
-                imported_file, res
-            ),
+            Ok(res) => panic!("Expected parse failure for {imported_file}, got result {res}"),
             Err(e) => {
                 assert_eq!(
-                    format!("{:#}", e),
+                    format!("{e:#}"),
                     ImportParseError::ProhibitedRelativeImport(imported_file.to_owned())
                         .to_string()
                 );

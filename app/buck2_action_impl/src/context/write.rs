@@ -320,7 +320,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     .get_path()
                     .with_full_path(|path| Sha1::digest(path.as_str().as_bytes()));
                 let sha = hex::encode(digest);
-                format!("__macros/{}", sha)
+                format!("__macros/{sha}")
             };
 
             let mut written_macro_files = indexset![];

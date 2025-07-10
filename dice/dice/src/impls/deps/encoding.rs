@@ -125,7 +125,7 @@ impl SPEncoder for Vec<u32> {
 
 fn debug_string<'a>(iter: impl Iterator<Item = &'a u32>) -> String {
     iter.map(|v| SPDecoder::split(*v))
-        .map(|(x, y)| format!("({:#04b}, {})", x, y))
+        .map(|(x, y)| format!("({x:#04b}, {y})"))
         .join(",")
 }
 

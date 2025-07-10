@@ -227,7 +227,7 @@ impl BxlContextCoreData {
         let cell = label.bxl_path.cell();
         let bxl_cell = cell_resolver
             .get(cell)
-            .with_buck_error_context(|| format!("Cell does not exist: `{}`", cell))?
+            .with_buck_error_context(|| format!("Cell does not exist: `{cell}`"))?
             .dupe();
         let cell_name = bxl_cell.name();
         let target_alias_resolver = dice.target_alias_resolver().await?;
@@ -513,7 +513,7 @@ impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {
-            BxlContextType::Root(root) => writeln!(root.output_stream.error(), "{}", msg)?,
+            BxlContextType::Root(root) => writeln!(root.output_stream.error(), "{msg}")?,
             BxlContextType::Dynamic(_) => console_message(msg),
             BxlContextType::AnonTarget => console_message(msg),
         }

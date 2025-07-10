@@ -105,7 +105,7 @@ impl<S: ArgSymbol> Display for BcCallArgsFull<S> {
             args,
             kwargs,
         } = self;
-        write!(f, "{}", pos_named)?;
+        write!(f, "{pos_named}")?;
         // Number of positional arguments.
         if self.pos() != 0 {
             write!(f, " {}", self.pos())?;

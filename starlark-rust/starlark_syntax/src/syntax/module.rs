@@ -58,7 +58,7 @@ fn one_of(expected: &[String]) -> String {
             // Last expected message to be written
             _ => " or",
         };
-        write!(result, "{} {}", sep, e).unwrap();
+        write!(result, "{sep} {e}").unwrap();
     }
     result
 }
@@ -93,7 +93,7 @@ fn parse_error_add_span(
             Span::new(Pos::new(pos as u32), Pos::new(pos as u32)),
         ),
         lu::ParseError::ExtraToken { token: (x, t, y) } => (
-            format!("Parse error: extraneous token {}", t),
+            format!("Parse error: extraneous token {t}"),
             Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         ),
         lu::ParseError::User { error } => return error.into_error(),

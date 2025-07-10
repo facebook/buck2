@@ -368,7 +368,7 @@ impl FrozenDefaultInfo {
         mut processor: impl FnMut(Value) -> buck2_error::Result<()>,
     ) -> buck2_error::Result<()> {
         let outputs_list = ListRef::from_frozen_value(value)
-            .unwrap_or_else(|| panic!("expected list, got `{:?}` from info `{:?}`", value, self));
+            .unwrap_or_else(|| panic!("expected list, got `{value:?}` from info `{self:?}`"));
 
         for value in outputs_list.iter() {
             processor(value)?;

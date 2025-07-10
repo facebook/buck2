@@ -38,7 +38,7 @@ impl Display for LoadCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Load cycle detected (`->` means \"loads\"):")?;
         for p in self.cycle.iter() {
-            writeln!(f, "  {} ->", p)?;
+            writeln!(f, "  {p} ->")?;
         }
         // point back at the first item in the cycle.
         writeln!(f, "  {}", self.cycle.first().unwrap())?;

@@ -168,7 +168,7 @@ mod imp {
     ) {
         let event = panic_payload(
             Some(location),
-            format!("Soft Error: {}: {:#}", category, err),
+            format!("Soft Error: {category}: {err:#}"),
             Vec::new(),
             &options,
             Some(buck2_data::SoftError {

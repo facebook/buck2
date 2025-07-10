@@ -654,7 +654,7 @@ impl DebugServer for ServerState {
                 indexed_variables: None,
                 named_variables: None,
                 presentation_hint: None,
-                result: format!("{:#}", er),
+                result: format!("{er:#}"),
                 type_: None,
                 variables_reference: 0.0,
             }),
@@ -997,7 +997,7 @@ fn describe_frame(frame: dap::StackFrame) -> String {
             line,
             ..
         } => {
-            format!("{}:{}", path, line)
+            format!("{path}:{line}")
         }
         _ => "???".to_owned(),
     }
@@ -1010,10 +1010,7 @@ mod tests {
     fn check_variable_err(is_top_frame: bool, thread_id: u32, variable_id: u32) {
         assert!(
             VariableId::new(is_top_frame, thread_id, variable_id).is_err(),
-            "Expecting error for values ({}, {}, {})",
-            is_top_frame,
-            thread_id,
-            variable_id
+            "Expecting error for values ({is_top_frame}, {thread_id}, {variable_id})"
         );
     }
 

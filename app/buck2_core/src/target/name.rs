@@ -242,7 +242,7 @@ mod tests {
         assert!(TargetName::new("foo_eqsb_bar").is_err());
 
         if let Err(e) = TargetName::new("target[label]") {
-            let msg = format!("{:#}", e);
+            let msg = format!("{e:#}");
             assert!(msg.contains("found inner providers label when target names are expected. remove `[...]` portion of the target name from `target[label]`"), "{}", msg);
         } else {
             panic!("should have gotten an error")

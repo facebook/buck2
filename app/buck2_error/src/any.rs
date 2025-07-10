@@ -73,7 +73,7 @@ pub fn recover_crate_error(
         // alternate or debug formatting. We can match that behavior by just converting the error to
         // a string. That prevents us from having to deal with the type returned by `source` being
         // potentially non-`Send` or non-`Sync`.
-        let description = format!("{}", cur);
+        let description = format!("{cur}");
         let e = crate::Error::new(description, error_tag, source_location, action_error);
         break 'base maybe_add_context_from_metadata(e, cur);
     };
@@ -82,10 +82,10 @@ pub fn recover_crate_error(
     let mut e = base;
     for context_value in context_stack.into_iter().rev() {
         if let Some(starlark_err) = cur.downcast_ref::<crate::starlark_error::BuckStarlarkError>() {
-            e = e.context(format!("{}", starlark_err));
+            e = e.context(format!("{starlark_err}"));
         } else {
             // First, just add the value directly. This value is only used for formatting
-            e = e.context(format!("{}", context_value));
+            e = e.context(format!("{context_value}"));
             // Now add any additional information from the metadata, if it's available
             e = maybe_add_context_from_metadata(e, context_value);
         }
@@ -177,7 +177,7 @@ mod tests {
         struct T(usize);
         impl std::fmt::Display for T {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{:?}", self)
+                write!(f, "{self:?}")
             }
         }
 
@@ -254,7 +254,7 @@ mod tests {
         let e = e.context("anyhow");
         let e: crate::Error = from_any_with_tag(e, ErrorTag::Input);
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-        assert!(format!("{:?}", e).contains("anyhow"));
+        assert!(format!("{e:?}").contains("anyhow"));
     }
 
     #[derive(Debug, buck2_error_derive::Error)]
@@ -266,7 +266,7 @@ mod tests {
     fn test_metadata_through_wrapper() {
         let e: crate::Error = WrapperError(FullMetadataError).into();
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-        assert!(format!("{:?}", e).contains("wrapper"));
+        assert!(format!("{e:?}").contains("wrapper"));
     }
 
     #[derive(Debug, buck2_error_derive::Error)]
@@ -282,7 +282,7 @@ mod tests {
             e.source_location().to_string(),
             "buck2_error/src/any.rs::FullMetadataError"
         );
-        assert!(format!("{:?}", e).contains("wrapper2"));
+        assert!(format!("{e:?}").contains("wrapper2"));
     }
 
     #[derive(Debug, buck2_error_derive::Error)]

@@ -83,7 +83,7 @@ where
             let k = k.alloc_string_value(heap);
             let v = v.alloc_value(heap);
             let prev = fields.insert(k, v);
-            assert!(prev.is_none(), "non-unique key: {}", k);
+            assert!(prev.is_none(), "non-unique key: {k}");
         }
         heap.alloc(Struct::new(fields))
     }
@@ -102,7 +102,7 @@ where
             let k = k.alloc_frozen_string_value(heap);
             let v = v.alloc_frozen_value(heap);
             let prev = fields.insert(k, v);
-            assert!(prev.is_none(), "non-unique key: {}", k);
+            assert!(prev.is_none(), "non-unique key: {k}");
         }
         heap.alloc(FrozenStruct::new(fields))
     }

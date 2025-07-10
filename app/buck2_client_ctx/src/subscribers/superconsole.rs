@@ -321,7 +321,7 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
-        let header = format!("Command: {}.", command_name);
+        let header = format!("Command: {command_name}.");
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
             state: SuperConsoleState::new(
@@ -646,7 +646,7 @@ impl StatefulSuperConsoleImpl {
                     attributes: Attribute::Bold.into(),
                     ..Default::default()
                 },
-                format!("Action failed: {}", action_id,),
+                format!("Action failed: {action_id}",),
             ),
         )]));
 
@@ -769,7 +769,7 @@ impl StatefulSuperConsoleImpl {
                         .collect::<Vec<_>>()
                         .join("\n");
                     self.handle_stderr(
-                    &format!("Help:\n{}\nenv var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console", help_message),
+                    &format!("Help:\n{help_message}\nenv var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console"),
                 )
                 .await?
                 }
@@ -903,14 +903,13 @@ fn lines_for_command_details(
                     match truncate(command) {
                         None => Cow::Borrowed(command),
                         Some(short) => Cow::Owned(format!(
-                            "{} (run `buck2 log what-failed` to get the full command)",
-                            short
+                            "{short} (run `buck2 log what-failed` to get the full command)"
                         )),
                     }
                 };
 
                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
                 )]));
             }
             Some(Command::RemoteCommand(remote_command)) => {
@@ -939,14 +938,13 @@ fn lines_for_command_details(
                     match truncate(command) {
                         None => Cow::Borrowed(command),
                         Some(short) => Cow::Owned(format!(
-                            "{} (run `buck2 log what-failed` to get the full command)",
-                            short
+                            "{short} (run `buck2 log what-failed` to get the full command)"
                         )),
                     }
                 };
 
                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
                 )]));
             }
             Some(Command::WorkerCommand(worker_command)) => {
@@ -958,14 +956,13 @@ fn lines_for_command_details(
                     match truncate(command) {
                         None => Cow::Borrowed(command),
                         Some(short) => Cow::Owned(format!(
-                            "{} (run `buck2 log what-failed` to get the full command)",
-                            short
+                            "{short} (run `buck2 log what-failed` to get the full command)"
                         )),
                     }
                 };
 
                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
                 )]));
             }
         };

@@ -310,7 +310,7 @@ fn test_globals_docs_render(with_linked_type: bool) {
     for (k, v) in res {
         let k = if k.is_empty() { "globals" } else { &k };
         golden_test_template(
-            &format!("src/docs/tests/golden/{subfolder_name}/{}.golden.md", k),
+            &format!("src/docs/tests/golden/{subfolder_name}/{k}.golden.md"),
             &v,
         );
     }

@@ -60,7 +60,7 @@ impl SourceLocation {
             path.to_owned()
         } else {
             // Shouldn't happen, but we still want to see the path if it does.
-            format!("external:{}", path)
+            format!("external:{path}")
         };
 
         Self {
@@ -89,10 +89,10 @@ impl std::fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.path)?;
         if let Some(type_name) = &self.type_name {
-            write!(f, "::{}", type_name)?;
+            write!(f, "::{type_name}")?;
         }
         if let Some(source_line) = self.source_line {
-            write!(f, "::{}", source_line)?;
+            write!(f, "::{source_line}")?;
         }
         Ok(())
     }

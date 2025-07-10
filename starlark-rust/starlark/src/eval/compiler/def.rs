@@ -828,7 +828,7 @@ where
         self.bc()
             .dump_debug()
             .lines()
-            .for_each(|l| writeln!(w, "  {}", l).unwrap());
+            .for_each(|l| writeln!(w, "  {l}").unwrap());
         w
     }
 }

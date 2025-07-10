@@ -52,10 +52,7 @@ struct Vec2Layout<A, B> {
 impl<A, B> Vec2Layout<A, B> {
     fn new(cap: usize) -> Vec2Layout<A, B> {
         Self::new_checked(cap).unwrap_or_else(|err| {
-            panic!(
-                "Vec2Layout failed with {:?} when allocating capacity of {}",
-                err, cap
-            )
+            panic!("Vec2Layout failed with {err:?} when allocating capacity of {cap}")
         })
     }
 

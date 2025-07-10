@@ -315,7 +315,7 @@ where
                 },
             )?);
             let ty_enum_type = Ty::custom(TyUser::new(
-                format!("enum[{}]", variable_name),
+                format!("enum[{variable_name}]"),
                 TyStarlarkValue::new::<EnumType>(),
                 TypeInstanceId::r#gen(),
                 TyUserParams {

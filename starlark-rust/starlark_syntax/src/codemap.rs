@@ -419,7 +419,7 @@ impl CodeMap {
     /// Like `line_span_opt` but panics if the line number is out of range.
     pub fn line_span(&self, line: usize) -> Span {
         self.line_span_opt(line)
-            .unwrap_or_else(|| panic!("Line {} is out of range for {:?}", line, self))
+            .unwrap_or_else(|| panic!("Line {line} is out of range for {self:?}"))
     }
 
     /// Trim trailing newline if any, including windows, from the line span.

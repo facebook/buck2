@@ -224,8 +224,7 @@ async fn get_configuration_node(
     .await?
     .with_buck_error_context(|| {
         format!(
-            "Error getting configuration node of `{}` within the `{}` configuration",
-            cfg_target, target_cfg,
+            "Error getting configuration node of `{cfg_target}` within the `{target_cfg}` configuration",
         )
     })
 }

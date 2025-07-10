@@ -703,8 +703,7 @@ async fn join_all_existing_futs(
             ProcessingFuture::Cleaning(f) => {
                 f.await.with_buck_error_context(|| {
                     format!(
-                        "Error waiting for a previous future to finish cleaning output path {}",
-                        path
+                        "Error waiting for a previous future to finish cleaning output path {path}"
                     )
                 })?;
             }

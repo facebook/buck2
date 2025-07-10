@@ -68,9 +68,9 @@ fn with_timestamps(message: &str) -> String {
     let now = now_display();
     for line in message.lines() {
         if line.is_empty() {
-            writeln!(s, "[{}]", now).unwrap();
+            writeln!(s, "[{now}]").unwrap();
         } else {
-            writeln!(s, "[{}] {}", now, line).unwrap();
+            writeln!(s, "[{now}] {line}").unwrap();
         }
     }
     // Remove the trailing newline
@@ -268,7 +268,7 @@ where
                 }
             }
             if let Some(cpu) = snapshots.cpu_percents() {
-                parts.push(format!("CPU: {}%", cpu));
+                parts.push(format!("CPU: {cpu}%"));
             }
             if !parts.is_empty() {
                 echo!("Resource usage: {}", parts.join(" "))?;
@@ -277,7 +277,7 @@ where
             if let Some((_ts, snapshot)) = &snapshots.last {
                 let mut parts = Vec::new();
                 for (key, value) in io_in_flight_non_zero_counters(snapshot) {
-                    parts.push(format!("{:?}: {}", key, value));
+                    parts.push(format!("{key:?}: {value}"));
                 }
                 if !parts.is_empty() {
                     echo!("IO: {}", parts.join(" "))?;

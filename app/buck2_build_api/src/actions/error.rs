@@ -99,7 +99,7 @@ impl fmt::Display for ActionError {
         let s = display_action_error(&self.as_proto_event(), TargetDisplayOptions::for_log())
             .expect("Action key is always present in `ActionError`")
             .simple_format_for_build_report();
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -140,7 +140,7 @@ impl ActionError {
                 ),
             }
             .into(),
-            ExecuteError::Error { error } => format!("{:#}", error).into(),
+            ExecuteError::Error { error } => format!("{error:#}").into(),
             ExecuteError::CommandExecutionError { .. } => buck2_data::CommandExecutionError {}.into(),
         }
     }
@@ -172,7 +172,7 @@ fn error_items<T: fmt::Display>(xs: &[T]) -> String {
         if i != 0 {
             res.push_str(", ");
         }
-        write!(res, "`{}`", x).unwrap();
+        write!(res, "`{x}`").unwrap();
     }
     res
 }

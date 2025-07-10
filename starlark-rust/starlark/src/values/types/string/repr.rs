@@ -305,7 +305,7 @@ mod tests {
     fn to_repr_no_escape_all_lengths() {
         for len in 0..100 {
             let s = String::from_utf8((0..len).map(|i| b'0' + (i % 10)).collect()).unwrap();
-            assert_eq!(format!("\"{}\"", s), string_repr_for_test(&s));
+            assert_eq!(format!("\"{s}\""), string_repr_for_test(&s));
         }
     }
 
@@ -314,8 +314,8 @@ mod tests {
         for len in 0..100 {
             let s = String::from_utf8((0..len).map(|i| b'0' + (i % 10)).collect()).unwrap();
             assert_eq!(
-                format!("\"{}\\n\"", s),
-                string_repr_for_test(&format!("{}\n", s))
+                format!("\"{s}\\n\""),
+                string_repr_for_test(&format!("{s}\n"))
             );
         }
     }
@@ -325,8 +325,8 @@ mod tests {
         for len in 0..100 {
             let s = String::from_utf8((0..len).map(|i| b'0' + (i % 10)).collect()).unwrap();
             assert_eq!(
-                format!("\"{}\\n{}\"", s, s),
-                string_repr_for_test(&format!("{}\n{}", s, s))
+                format!("\"{s}\\n{s}\""),
+                string_repr_for_test(&format!("{s}\n{s}"))
             );
         }
     }

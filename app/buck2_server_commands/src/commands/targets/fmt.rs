@@ -455,7 +455,7 @@ struct StatsFormat;
 
 impl TargetFormatter for StatsFormat {
     fn end(&self, stats: &Stats, buffer: &mut String) {
-        writeln!(buffer, "{:?}", stats).unwrap()
+        writeln!(buffer, "{stats:?}").unwrap()
     }
 }
 

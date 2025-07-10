@@ -41,8 +41,8 @@ pub struct GitCellSetup {
 impl fmt::Display for ExternalCellOrigin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Bundled(cell) => write!(f, "bundled({})", cell),
-            Self::Git(git) => write!(f, "{}", git),
+            Self::Bundled(cell) => write!(f, "bundled({cell})"),
+            Self::Git(git) => write!(f, "{git}"),
         }
     }
 }

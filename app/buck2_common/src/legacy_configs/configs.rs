@@ -187,7 +187,7 @@ impl Display for LegacyBuckConfigLocation<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::File(file, line) => {
-                write!(f, "at {}:{}", file, line)
+                write!(f, "at {file}:{line}")
             }
             Self::CommandLineArgument => {
                 write!(f, "on the command line")
@@ -640,9 +640,7 @@ pub(crate) mod tests {
                 let cycle = "`x.d` -> `x.e` -> `x.f` -> `x.g` -> `x.d`";
                 assert!(
                     message.contains(cycle),
-                    "Expected error to contain \"{}\", but was `{}`",
-                    cycle,
-                    message
+                    "Expected error to contain \"{cycle}\", but was `{message}`"
                 );
             }
         }

@@ -46,9 +46,7 @@ pub fn raise_file_descriptor_limits() -> buck2_error::Result<()> {
     // And: https://github.com/facebook/buck2/pull/986
     resource::setrlimit(Resource::RLIMIT_NOFILE, hard_limit, hard_limit)
         .with_buck_error_context(|| format!(
-            "Open file descriptor limit is lower than 80,000. Buck needs a lot of FDs. Raising open FD limit from {} to hard limit {}",
-            soft_limit,
-            hard_limit,
+            "Open file descriptor limit is lower than 80,000. Buck needs a lot of FDs. Raising open FD limit from {soft_limit} to hard limit {hard_limit}",
         ))?;
 
     Ok(())

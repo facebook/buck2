@@ -89,7 +89,7 @@ pub fn display_configured_target_label(
         Ok(if opts.with_configuration {
             format!("{}:{} ({})", package, name, configuration.full_name)
         } else {
-            format!("{}:{}", package, name)
+            format!("{package}:{name}")
         })
     } else {
         Err(ParseEventError::InvalidConfiguredTargetLabel.into())
@@ -117,7 +117,7 @@ pub fn display_anon_target(ctl: &AnonTarget) -> buck2_error::Result<String> {
         hash,
     } = ctl
     {
-        Ok(format!("{}:{}@{}", package, name, hash))
+        Ok(format!("{package}:{name}@{hash}"))
     } else {
         Err(ParseEventError::InvalidAnonTarget.into())
     }
@@ -153,7 +153,7 @@ pub fn display_bxl_key(ctl: &BxlFunctionKey) -> buck2_error::Result<String> {
         label: Some(BxlFunctionLabel { bxl_path, name }),
     } = ctl
     {
-        Ok(format!("{}:{}", bxl_path, name))
+        Ok(format!("{bxl_path}:{name}"))
     } else {
         Err(ParseEventError::MissingBxlFunctionLabel.into())
     }
@@ -209,12 +209,12 @@ pub fn display_action_identity(
         Some(ActionName {
             category,
             identifier,
-        }) if !identifier.is_empty() => format!(" ({} {})", category, identifier),
-        Some(ActionName { category, .. }) => format!(" ({})", category),
+        }) if !identifier.is_empty() => format!(" ({category} {identifier})"),
+        Some(ActionName { category, .. }) => format!(" ({category})"),
         None => String::new(),
     };
 
-    Ok(format!("{}{}", key_string, action_string))
+    Ok(format!("{key_string}{action_string}"))
 }
 
 /// Formats event payloads for display.
@@ -230,7 +230,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 Some(key) => {
                     let string = display_action_key(key, opts)?;
                     let action_descriptor = display_action_name_opt(action.name.as_ref());
-                    Ok(format!("{} -- action ({})", string, action_descriptor))
+                    Ok(format!("{string} -- action ({action_descriptor})"))
                 }
                 None => Err(ParseEventError::MissingActionKey.into()),
             },
@@ -254,12 +254,12 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                         Ok(&build.path)
                     }
                 }?;
-                Ok(format!("{} -- materializing `{}`", key, path))
+                Ok(format!("{key} -- materializing `{path}`"))
             }
             Data::Analysis(analysis) => match &analysis.target {
                 Some(target) => {
                     let target = display_analysis_target(target, opts)?;
-                    Ok(format!("{} -- running analysis", target))
+                    Ok(format!("{target} -- running analysis"))
                 }
                 None => Err(ParseEventError::MissingConfiguredTargetLabel.into()),
             },
@@ -320,11 +320,10 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 } else {
                     "partial"
                 };
-                Ok(format!("dep_files({},{})", detail, location))
+                Ok(format!("dep_files({detail},{location})"))
             }
             Data::SharedTask(buck2_data::SharedTaskStart { owner_trace_id }) => Ok(format!(
-                "Waiting on task from another command: {}",
-                owner_trace_id
+                "Waiting on task from another command: {owner_trace_id}"
             )),
             Data::CacheUpload(_) => Ok("upload (action)".to_owned()),
             Data::DepFileUpload(_) => Ok("upload (dep_file)".to_owned()),
@@ -344,7 +343,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             Data::DiceCleanup(..) => Ok("Cleaning up graph state".to_owned()),
             Data::ExclusiveCommandWait(buck2_data::ExclusiveCommandWaitStart { command_name }) => {
                 if let Some(name) = command_name {
-                    Ok(format!("Waiting for command [{}] to finish", name))
+                    Ok(format!("Waiting for command [{name}] to finish"))
                 } else {
                     Ok("Waiting for dice".to_owned())
                 }
@@ -370,7 +369,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                     Owner::AnonTarget(anon_target) => display_anon_target(anon_target),
                 }?;
 
-                Ok(format!("{} -- dynamic analysis", label))
+                Ok(format!("{label} -- dynamic analysis"))
             }
             Data::BxlExecution(execution) => {
                 Ok(format!("Executing BXL script `{}`", execution.name))
@@ -378,7 +377,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             Data::BxlDiceInvocation(..) => Ok("Waiting for graph computations".to_owned()),
             Data::ReUpload(..) => Ok("re_upload".to_owned()),
             Data::ConnectToInstaller(buck2_data::ConnectToInstallerStart { tcp_port }) => {
-                Ok(format!("Connecting to installer on port {}", tcp_port))
+                Ok(format!("Connecting to installer on port {tcp_port}"))
             }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
             Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
@@ -441,7 +440,7 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
                 FileWatcherKind::Directory => "Directory",
                 FileWatcherKind::File | FileWatcherKind::Symlink => "File",
             };
-            res.push(format!("{} changed: {}", kind, path));
+            res.push(format!("{kind} changed: {path}"));
         }
         let unprinted_paths =
             // those we have the names of but didn't print
@@ -449,7 +448,7 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
                 // plus those we didn't get the names for
                 (stats.events_processed as usize).saturating_sub(stats.events.len());
         if unprinted_paths > 0 {
-            res.push(format!("{} additional file change events", unprinted_paths));
+            res.push(format!("{unprinted_paths} additional file change events"));
         }
 
         if let Some(fresh_instance) = &stats.fresh_instance_data {
@@ -459,7 +458,7 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
                 "File Watcher"
             };
 
-            let mut msg = format!("{} fresh instance: ", file_watcher);
+            let mut msg = format!("{file_watcher} fresh instance: ");
             let mut comma = commas();
             if fresh_instance.new_mergebase {
                 comma(&mut msg).unwrap();
@@ -595,7 +594,7 @@ pub fn format_test_result(
         TestStatus::RERUN => Span::new_styled("↻ Rerun".to_owned().cyan()),
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }?;
-    let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {}", name,))?]);
+    let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {name}",))?]);
 
     if let Some(duration) = duration {
         if let Ok(duration) = Duration::try_from(duration.clone()) {
@@ -715,7 +714,7 @@ impl ActionErrorDisplay<'_> {
             } else {
                 append!("{name}:");
                 let contents = strip_trailing_newline(contents);
-                writeln!(s, "{}", contents).unwrap();
+                writeln!(s, "{contents}").unwrap();
             }
         };
 
@@ -739,11 +738,11 @@ impl ActionErrorDisplay<'_> {
 
                             write!(sub_error_line, "[{}]", sub_error.category).unwrap();
                             if let Some(message) = &sub_error.message {
-                                write!(sub_error_line, " {}", message).unwrap();
+                                write!(sub_error_line, " {message}").unwrap();
                             }
 
                             // TODO(@wendyy) - handle locations later
-                            writeln!(all_sub_errors, "- {}", sub_error_line).unwrap();
+                            writeln!(all_sub_errors, "- {sub_error_line}").unwrap();
                         }
                         append_stream(
                             "\nAction sub-errors produced by error handlers",
@@ -845,10 +844,10 @@ fn failure_reason_for_command_execution(
                     match self.code {
                         Some(code) => {
                             if (i16::MIN as i32) < code && code < (i16::MAX as i32) {
-                                write!(f, "{}", code)
+                                write!(f, "{code}")
                             } else {
                                 let code = code as u32;
-                                write!(f, "{} ({:#X})", code, code)
+                                write!(f, "{code} ({code:#X})")
                             }
                         }
                         None => write!(f, "<no exit code>"),
@@ -874,7 +873,7 @@ fn failure_reason_for_command_execution(
             format!("Command timed out after {:.3}s", duration.as_secs_f64(),)
         }
         Status::Error(Error { stage, error }) => {
-            format!("Internal error (stage: {}): {}", stage, error)
+            format!("Internal error (stage: {stage}): {error}")
         }
         Status::Cancelled(Cancelled {}) => "Command was cancelled".to_owned(),
     })

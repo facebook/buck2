@@ -76,7 +76,7 @@ fn format_provider_keys_for_error(keys: &[String]) -> String {
     format!(
         "[{}]",
         keys.iter()
-            .map(|k| format!("`{}`", k))
+            .map(|k| format!("`{k}`"))
             .collect::<Vec<_>>()
             .join(", ")
     )

@@ -333,7 +333,7 @@ async fn check_plugin_deps(
                 .get_target_node(dep_label)
                 .await
                 .with_buck_error_context(|| {
-                    format!("looking up unconfigured target node `{}`", dep_label)
+                    format!("looking up unconfigured target node `{dep_label}`")
                 })?;
             if dep_node.is_toolchain_rule() {
                 return Err(PluginDepError::PluginDepIsToolchainRule(dep_label.dupe()).into());
@@ -661,7 +661,7 @@ fn verify_transitioned_attrs(
                     attr,
                     node.label(),
                     node.attrs(AttrInspectOptions::All)
-                        .format_with(", ", |v, f| f(&format_args!("{:?}", v)))
+                        .format_with(", ", |v, f| f(&format_args!("{v:?}")))
                 )
             })?;
         if &transition_configured_attr.value != attr_value.as_ref() {
@@ -700,7 +700,7 @@ async fn compute_configured_target_node_no_transition(
     )
     .await
     .with_buck_error_context(|| {
-        format!("Error resolving configuration deps of `{}`", target_label)
+        format!("Error resolving configuration deps of `{target_label}`")
     })?;
 
     // Must check for compatibility before evaluating non-compatibility attributes.
@@ -944,10 +944,7 @@ async fn compute_configured_forward_target_node(
     )
     .await
     .with_buck_error_context(|| {
-        format!(
-            "Error resolving configuration deps of `{}`",
-            target_label_before_transition
-        )
+        format!("Error resolving configuration deps of `{target_label_before_transition}`")
     })?;
 
     let attrs = resolve_transition_attrs(

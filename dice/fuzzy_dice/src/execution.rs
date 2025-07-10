@@ -148,17 +148,16 @@ impl Display for ExecutionResult {
                 write!(f, "Correct")
             }
             ExecutionResult::IncorrectResult { expected, actual } => {
-                write!(f, "Expected `{}` but got `{}`", expected, actual)
+                write!(f, "Expected `{expected}` but got `{actual}`")
             }
             ExecutionResult::ExpectedPanic(res) => {
                 write!(
                     f,
-                    "Expected panic from injected key missing but got `{}`",
-                    res
+                    "Expected panic from injected key missing but got `{res}`"
                 )
             }
             ExecutionResult::UnexpectedPanic(p) => {
-                write!(f, "Expected result but panicked `{}`", p)
+                write!(f, "Expected result but panicked `{p}`")
             }
         }
     }
@@ -225,7 +224,7 @@ impl DiceExecutionOrder {
     const VARS_PER_XOR: usize = 5;
 
     fn make_failure(&self, msg: String) -> TestResult {
-        TestResult::error(format!("Execution: {:?}\nFailure: `{}`", self, msg))
+        TestResult::error(format!("Execution: {self:?}\nFailure: `{msg}`"))
     }
 
     /// If a repro is nondeterministic, shrunk testcases that contain the
@@ -310,7 +309,7 @@ impl DiceExecutionOrder {
 
             if let Some(dump_loc) = self.get_dump_dir(options) {
                 // we don't keep dump of any runs that are not a failure
-                fs::remove_dir_all(dump_loc.join(format!("run-{}", run_count)))
+                fs::remove_dir_all(dump_loc.join(format!("run-{run_count}")))
                     .expect("failed to remove dump");
             }
         }
@@ -393,7 +392,7 @@ impl DiceExecutionOrder {
                                 ALL_PANICS
                                     .lock()
                                     .iter()
-                                    .map(|panic| format!("panic: `{}`", panic))
+                                    .map(|panic| format!("panic: `{panic}`"))
                                     .join("\n"),
                             );
                         }
@@ -439,7 +438,7 @@ impl DiceExecutionOrder {
                                         return ExecutionResult::UnexpectedPanic(
                                             panics
                                                 .iter()
-                                                .map(|panic| format!("panic: `{}`", panic))
+                                                .map(|panic| format!("panic: `{panic}`"))
                                                 .join("\n"),
                                         );
                                     }
@@ -491,8 +490,8 @@ impl DiceExecutionOrder {
     ) -> anyhow::Result<()> {
         if let Some(loc) = self.get_dump_dir(options) {
             let dump_path = loc
-                .join(format!("run-{}", run_count))
-                .join(format!("step-{}", step_count));
+                .join(format!("run-{run_count}"))
+                .join(format!("step-{step_count}"));
 
             fs::create_dir_all(dump_path.parent().unwrap())?;
             let mut dump_loc = File::create(&dump_path)?;

@@ -63,8 +63,8 @@ pub fn get_all_test_executors() -> Vec<Arc<dyn TestExecutor>> {
     TEST_EXECUTOR_CLIENTS
         .lock()
         .unwrap()
-        .iter()
-        .map(|(_, exe)| exe.clone())
+        .values()
+        .cloned()
         .collect()
 }
 

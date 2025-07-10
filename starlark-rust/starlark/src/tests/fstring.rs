@@ -122,7 +122,7 @@ mod fail {
 
         golden_test_template(
             &format!("src/tests/fstring/golden/{test_name}.err.golden.md"),
-            &format!("{}", err),
+            &format!("{err}"),
         );
     }
 

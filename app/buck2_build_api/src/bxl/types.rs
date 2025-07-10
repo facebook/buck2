@@ -43,7 +43,7 @@ impl Serialize for BxlFunctionLabel {
     where
         S: Serializer,
     {
-        s.serialize_str(&format!("{}", self))
+        s.serialize_str(&format!("{self}"))
     }
 }
 

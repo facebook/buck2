@@ -547,7 +547,7 @@ impl Display for TestExecutionPrefix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TestExecutionPrefix::Listing => write!(f, "Listing"),
-            TestExecutionPrefix::Testing(prefix) => write!(f, "Testing({})", prefix),
+            TestExecutionPrefix::Testing(prefix) => write!(f, "Testing({prefix})"),
         }
     }
 }
@@ -1192,7 +1192,7 @@ impl BuckTestOrchestrator<'_> {
                 ..
             } => ExecuteData {
                 stdout: ExecutionStream::Inline(Default::default()),
-                stderr: ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
+                stderr: ExecutionStream::Inline(format!("{error:?}").into_bytes()),
                 status: ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
@@ -1561,8 +1561,7 @@ impl BuckTestOrchestrator<'_> {
                         missing_target.dupe(),
                         setup.await.with_buck_error_context(|| {
                             format!(
-                                "Error setting up local resource declared in `{}`",
-                                missing_target
+                                "Error setting up local resource declared in `{missing_target}`"
                             )
                         }),
                     )
@@ -1761,13 +1760,13 @@ fn make_visit_arg_artifacts<'v>(
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                 let arg = cli_args_for_interpolation
                     .get(h.0)
-                    .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
+                    .with_context(|| format!("Invalid ArgHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                 let arg = env_for_interpolation
                     .get(h.0.as_str())
-                    .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
+                    .with_context(|| format!("Invalid EnvHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
             ArgValueContent::DeclaredOutput(_) | ArgValueContent::ExternalRunnerSpecValue(_) => {}
@@ -1863,13 +1862,13 @@ impl<'a> Execute2RequestExpander<'a> {
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                     let arg = cli_args_for_interpolation
                         .get(h.0)
-                        .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
+                        .with_context(|| format!("Invalid ArgHandle: {h:?}"))?;
                     arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                     let arg = env_for_interpolation
                         .get(h.0.as_str())
-                        .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
+                        .with_context(|| format!("Invalid EnvHandle: {h:?}"))?;
                     arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {

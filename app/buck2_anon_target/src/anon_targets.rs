@@ -189,7 +189,7 @@ impl AnonTargetKey {
                 attrs.insert(
                     k.to_owned(),
                     Self::coerce_to_anon_target_attr(attr.coercer(), v, &anon_attr_ctx)
-                        .with_buck_error_context(|| format!("Error coercing attribute `{}`", k))?,
+                        .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
                 );
             }
         }

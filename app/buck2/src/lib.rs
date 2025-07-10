@@ -363,7 +363,7 @@ impl CommandKind {
                     Ok(res) => res,
                     Err(_) => ExitResult::bail("Main thread panicked"),
                 },
-                Err(e) => ExitResult::bail(format_args!("Failed to start main thread: {}", e)),
+                Err(e) => ExitResult::bail(format_args!("Failed to start main thread: {e}")),
             }
         })
     }

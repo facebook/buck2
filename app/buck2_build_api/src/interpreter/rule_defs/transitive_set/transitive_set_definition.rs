@@ -201,7 +201,7 @@ impl<'v> Serialize for TransitiveSetDefinition<'v> {
     where
         S: Serializer,
     {
-        s.serialize_str(&format!("{}", self))
+        s.serialize_str(&format!("{self}"))
     }
 }
 
@@ -321,7 +321,7 @@ impl Serialize for FrozenTransitiveSetDefinition {
     where
         S: Serializer,
     {
-        s.serialize_str(&format!("{}", self))
+        s.serialize_str(&format!("{self}"))
     }
 }
 

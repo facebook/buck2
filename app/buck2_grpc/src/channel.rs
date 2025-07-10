@@ -89,7 +89,7 @@ where
 
     // NOTE: The uri here is only used to populate the requests we send. We don't actually connect
     // anywhere since we already have an I/O channel on hand.
-    let channel = Endpoint::try_from(format!("http://{}.invalid", name))
+    let channel = Endpoint::try_from(format!("http://{name}.invalid"))
         .context("Invalid endpoint")?
         .connect_with_connector(service_fn(move |_: Uri| {
             let io = io.take().context("Cannot reconnect after connection loss");

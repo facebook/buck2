@@ -160,14 +160,14 @@ impl Display for TyTuple {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TyTuple::Elems(elems) => match &**elems {
-                [x] => write!(f, "({},)", x),
+                [x] => write!(f, "({x},)"),
                 xs => display_container::fmt_container(f, "(", ")", xs),
             },
             TyTuple::Of(item) => {
                 if item.is_any() {
                     write!(f, "tuple")
                 } else {
-                    write!(f, "tuple[{}, ...]", item)
+                    write!(f, "tuple[{item}, ...]")
                 }
             }
         }

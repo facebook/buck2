@@ -315,7 +315,7 @@ where
             )?);
 
             let ty_record_type = Ty::custom(TyUser::new(
-                format!("record[{}]", variable_name),
+                format!("record[{variable_name}]"),
                 TyStarlarkValue::new::<RecordType>(),
                 TypeInstanceId::r#gen(),
                 TyUserParams {

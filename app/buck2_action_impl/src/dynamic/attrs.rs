@@ -59,7 +59,7 @@ pub(crate) enum DynamicAttrType {
     #[display("dynattrs.list({})", _0)]
     List(Box<DynamicAttrType>),
     /// Tuple.
-    #[display("dynattrs.tuple({})", _0.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(", "))]
+    #[display("dynattrs.tuple({})", _0.iter().map(|x| format!("{x}")).collect::<Vec<_>>().join(", "))]
     Tuple(Box<[DynamicAttrType]>),
     /// Value or `None`.
     #[display("dynattrs.option({})", _0)]

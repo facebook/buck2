@@ -304,7 +304,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
                 };
 
                 Ok(Arc::new(v.with_buck_error_context(|| {
-                    format!("Error computing transition `{}`", self)
+                    format!("Error computing transition `{__self}`")
                 })?))
             }
 

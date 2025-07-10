@@ -421,7 +421,7 @@ mod tests {
                 },
             )?);
             let ty_fruit_callable = Ty::custom(TyUser::new(
-                format!("fruit[{}]", name),
+                format!("fruit[{name}]"),
                 TyStarlarkValue::new::<FruitCallable>(),
                 TypeInstanceId::r#gen(),
                 TyUserParams {

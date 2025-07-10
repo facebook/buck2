@@ -132,7 +132,7 @@ impl syn::parse::Parse for Module {
                     "`#[query_module(..)]` can only be used on impls",
                 ));
             }
-            Err(e) => return Err(Error::new(span, format!("{}", e))),
+            Err(e) => return Err(Error::new(span, format!("{e}"))),
         };
 
         let ItemImpl {

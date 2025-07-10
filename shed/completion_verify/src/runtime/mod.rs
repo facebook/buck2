@@ -196,7 +196,7 @@ fn comptest(
 
     let mut stream = process.get_raw_handle()?;
     // pass the completion input
-    write!(stream, "{}", input)?;
+    write!(stream, "{input}")?;
     stream.flush()?;
 
     let (snd, rcv) = std::sync::mpsc::channel();

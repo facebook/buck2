@@ -256,7 +256,7 @@ impl Forkserver for UnixForkserverService {
         self.log_reload_handle
             .update_log_filter(&req.get_ref().log_filter)
             .buck_error_context("Error updating forkserver filter")
-            .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
+            .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
     }

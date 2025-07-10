@@ -125,7 +125,7 @@ pub(crate) fn err_response(req: &dap::Request, err: &buck2_error::Error) -> dap:
         request_seq: req.seq,
         seq: 0,
         success: false,
-        message: Some(format!("{:#}", err)),
+        message: Some(format!("{err:#}")),
         body: None,
     }
 }

@@ -130,7 +130,7 @@ pub(crate) fn find_unused_loads(
 
     for top in top_level_stmts(&module_scopes.cst) {
         top.visit_ident(|ident| {
-            println!("visit ident: {:?}", ident);
+            println!("visit ident: {ident:?}");
             let ResolvedIdent::Slot(Slot::Module(_), binding_id) = ident
                 .payload
                 .ok_or_else(|| anyhow::anyhow!("ident is not resolved (internal error)"))?

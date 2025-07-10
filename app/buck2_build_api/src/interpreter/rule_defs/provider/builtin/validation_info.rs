@@ -68,7 +68,7 @@ where
         .iter();
     let mut spec_names = HashSet::new();
     for value in values {
-        let wrong_type_error = || ValidationInfoError::WrongSpecType(format!("{}", value));
+        let wrong_type_error = || ValidationInfoError::WrongSpecType(format!("{value}"));
         let name = if let Some(frozen_value) = value.unpack_frozen() {
             let spec = frozen_value
                 .downcast_ref::<FrozenStarlarkValidationSpec>()

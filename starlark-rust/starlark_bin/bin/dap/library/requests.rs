@@ -60,7 +60,7 @@ pub(crate) fn dispatch(server: &impl DebugServer, r: &Request) -> Response {
             request_seq: r.seq,
             seq: 0,
             success: v.is_ok(),
-            message: v.as_ref().err().map(|e| format!("{:#}", e)),
+            message: v.as_ref().err().map(|e| format!("{e:#}")),
             body: v.unwrap_or(None).map(|v| serde_json::to_value(v).unwrap()),
         }
     }

@@ -355,7 +355,7 @@ impl DapAdapter for DapAdapterImpl {
                     // since vars is owned within this closure scope we can just remove value from the map
                     // obtaining owned variable as the rest of the map will be dropped anyway
                     vars.shift_remove(name).ok_or_else(|| {
-                        anyhow::Error::msg(format!("Local variable {} not found", name))
+                        anyhow::Error::msg(format!("Local variable {name} not found"))
                     })
                 }
                 super::Scope::Expr(expr) => evaluate_expr(&state, eval, expr.to_owned()),

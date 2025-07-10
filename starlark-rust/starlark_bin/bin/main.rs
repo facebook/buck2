@@ -241,9 +241,9 @@ fn drain(
             if !error.is_empty() && !error.ends_with('\n') {
                 error.push('\n');
             }
-            print!("{}", error);
+            print!("{error}");
         } else {
-            println!("{}", x);
+            println!("{x}");
         }
     }
     Ok(())
@@ -358,7 +358,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             if !args.json {
-                println!("{}", stats);
+                println!("{stats}");
                 if stats.error > 0 {
                     return Err(anyhow::anyhow!("Failed with {} errors", stats.error));
                 }

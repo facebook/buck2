@@ -99,7 +99,7 @@ fn duplicate_variant(data: &Variant, duplicate: &TokenStream) -> TokenStream {
                 .iter()
                 .enumerate()
                 .map(|(i, f)| {
-                    let var = Ident::new(&format!("v{}", i), f.span());
+                    let var = Ident::new(&format!("v{i}"), f.span());
                     (quote! {#var}, quote! {#duplicate(#var)})
                 })
                 .unzip();

@@ -67,7 +67,7 @@ impl CommandExecutionTarget for ActionExecutionTarget<'_> {
         )
         .unwrap();
         if let Some(ident) = self.action.identifier().as_ref() {
-            write!(&mut key, " {}", ident).unwrap();
+            write!(&mut key, " {ident}").unwrap();
         }
         key
     }

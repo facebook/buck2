@@ -170,7 +170,7 @@ mod tests {
                     indexset! {output.dupe()},
                     Vec::new(),
                     Category::new("category".to_owned()).unwrap(),
-                    Some(format!("id-{}", idx)),
+                    Some(format!("id-{idx}")),
                 )),
                 CommandExecutorConfig::testing_local(),
             );

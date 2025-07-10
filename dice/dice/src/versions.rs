@@ -88,7 +88,7 @@ impl Display for VersionRange {
                 write!(f, "Unbounded")?;
             }
             Some(end) => {
-                write!(f, "{}", end)?;
+                write!(f, "{end}")?;
             }
         }
         write!(f, ")")
@@ -262,7 +262,7 @@ impl Display for VersionRanges {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{}", range)?;
+            write!(f, "{range}")?;
         }
         write!(f, "}}")
     }
@@ -836,8 +836,7 @@ mod tests {
 
             assert_eq!(
                 as_ranges, expected_ranges,
-                "in assert_intersect_range(\n  {:?},\n  {:?},\n  {:?}\n)",
-                initial, intersect_with, expected
+                "in assert_intersect_range(\n  {initial:?},\n  {intersect_with:?},\n  {expected:?}\n)"
             )
         }
 
@@ -919,11 +918,7 @@ mod tests {
             let expected = into_ranges(expected);
             assert!(
                 r == expected,
-                "test_insert assertion failed\n initial: {}\n range: {}\n expected: {}\n actual: {}",
-                initial,
-                range,
-                expected,
-                r
+                "test_insert assertion failed\n initial: {initial}\n range: {range}\n expected: {expected}\n actual: {r}"
             );
         }
 

@@ -134,7 +134,7 @@ impl IncompatiblePlatformReason {
     }
 
     pub fn skipping_message(&self, target: &ConfiguredTargetLabel) -> String {
-        format!("Skipping target incompatible node `{}`", target)
+        format!("Skipping target incompatible node `{target}`")
     }
 
     pub fn skipping_message_for_multiple<'t>(
@@ -152,15 +152,15 @@ impl IncompatiblePlatformReason {
         .unwrap();
         if incompatible_targets.len() < 10 {
             for target in incompatible_targets.iter() {
-                writeln!(message, "  {}", target).unwrap();
+                writeln!(message, "  {target}").unwrap();
             }
         } else {
             for target in incompatible_targets.iter().take(3) {
-                writeln!(message, "  {}", target).unwrap();
+                writeln!(message, "  {target}").unwrap();
             }
             writeln!(message, "  ...").unwrap();
             for target in incompatible_targets.iter().rev().take(3).rev() {
-                writeln!(message, "  {}", target).unwrap();
+                writeln!(message, "  {target}").unwrap();
             }
         }
         message
@@ -216,7 +216,7 @@ mod tests {
             IncompatiblePlatformReason::skipping_message_for_multiple(&set);
 
             set.push(
-                TargetLabel::testing_parse(&format!("plate//foo:bar{}", i))
+                TargetLabel::testing_parse(&format!("plate//foo:bar{i}"))
                     .configure(ConfigurationData::testing_new()),
             );
         }

@@ -37,7 +37,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
                 .into_providers_label(package, target_name.as_ref())
                 .configure(ConfigurationData::testing_new()),
             _ => {
-                eprintln!("Expected a target, not {}", s);
+                eprintln!("Expected a target, not {s}");
                 panic!();
             }
         };

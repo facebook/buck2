@@ -47,7 +47,7 @@ impl fmt::Display for PathAccumulator {
                 write!(f, "/")?;
             }
             first = false;
-            write!(f, "{}", e)?;
+            write!(f, "{e}")?;
         }
         Ok(())
     }

@@ -137,7 +137,7 @@ impl NodeLookup<TestTarget> for TestEnv {
         self.graph
             .get(label)
             .duped()
-            .with_buck_error_context(|| format!("Invalid node: {:?}", label))
+            .with_buck_error_context(|| format!("Invalid node: {label:?}"))
     }
 }
 
@@ -150,7 +150,7 @@ impl AsyncNodeLookup<TestTarget> for TestEnv {
         self.graph
             .get(label)
             .duped()
-            .with_buck_error_context(|| format!("Invalid node: {:?}", label))
+            .with_buck_error_context(|| format!("Invalid node: {label:?}"))
     }
 }
 

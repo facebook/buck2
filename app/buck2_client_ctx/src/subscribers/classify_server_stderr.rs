@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn test_generated_stack_trace() {
         let backtrace = std::backtrace::Backtrace::force_capture();
-        let stderr = format!("stack backtrace:\n{}", backtrace);
+        let stderr = format!("stack backtrace:\n{backtrace}");
         assert!(extract_trace(&stderr).is_some());
     }
 

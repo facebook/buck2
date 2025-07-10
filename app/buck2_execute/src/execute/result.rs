@@ -90,13 +90,13 @@ impl Display for CommandExecutionStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => {
-                write!(f, "success {}", execution_kind,)
+                write!(f, "success {execution_kind}",)
             }
             CommandExecutionStatus::WorkerFailure { execution_kind } => {
-                write!(f, "worker failure {}", execution_kind,)
+                write!(f, "worker failure {execution_kind}",)
             }
             CommandExecutionStatus::Failure { execution_kind } => {
-                write!(f, "failure {}", execution_kind,)
+                write!(f, "failure {execution_kind}",)
             }
             CommandExecutionStatus::Error {
                 stage,
@@ -104,7 +104,7 @@ impl Display for CommandExecutionStatus {
                 execution_kind: Some(execution_kind),
                 ..
             } => {
-                write!(f, "error {}:{}\n{:#}", execution_kind, stage, error)
+                write!(f, "error {execution_kind}:{stage}\n{error:#}")
             }
             CommandExecutionStatus::Error {
                 stage,
@@ -112,14 +112,14 @@ impl Display for CommandExecutionStatus {
                 execution_kind: None,
                 ..
             } => {
-                write!(f, "error:{}\n{:#}", stage, error)
+                write!(f, "error:{stage}\n{error:#}")
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 write!(f, "timed out after {:.3}s", duration.as_secs_f64())
             }
             CommandExecutionStatus::Cancelled { reason } => {
                 if let Some(reason) = reason {
-                    write!(f, "Cancelled due to {:?}", reason)
+                    write!(f, "Cancelled due to {reason:?}")
                 } else {
                     write!(f, "Cancelled")
                 }
@@ -350,7 +350,7 @@ impl CommandExecutionReport {
             CommandExecutionStatus::Error { stage, error, .. } => {
                 buck2_data::command_execution::Error {
                     stage: (*stage).to_owned(),
-                    error: format!("{:#}", error),
+                    error: format!("{error:#}"),
                 }
                 .into()
             }

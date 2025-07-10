@@ -147,12 +147,12 @@ impl Display for ProvidersName {
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
                 NonDefaultProvidersName::Named(names) => {
                     for name in &**names {
-                        write!(f, "[{}]", name)?;
+                        write!(f, "[{name}]")?;
                     }
                     Ok(())
                 }
                 NonDefaultProvidersName::UnrecognizedFlavor(s) => {
-                    write!(f, "#{}", s)
+                    write!(f, "#{s}")
                 }
             },
         }

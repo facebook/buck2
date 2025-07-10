@@ -133,7 +133,7 @@ impl AnonTarget {
         exec_cfg.hash(&mut strong_hash);
         variant.hash(&mut strong_hash);
         let strong_hash = strong_hash.finish();
-        let strong_hash_str = format!("{:x}", strong_hash);
+        let strong_hash_str = format!("{strong_hash:x}");
 
         AnonTarget {
             name,

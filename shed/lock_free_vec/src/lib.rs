@@ -564,7 +564,7 @@ mod tests {
     fn test_allocative() {
         let v = LockFreeVec::<String, 10>::new();
         for i in 0..100 {
-            v.push_at(v.len(), format!("{:<3}", i)).unwrap();
+            v.push_at(v.len(), format!("{i:<3}")).unwrap();
         }
 
         let mut builder = FlameGraphBuilder::default();
@@ -576,7 +576,7 @@ mod tests {
         // https://www.internalfb.com/intern/px/p/2GgX5
         // Alternatively we can set up a golden test.
         if false {
-            println!("{}", flame_graph);
+            println!("{flame_graph}");
         }
     }
 }

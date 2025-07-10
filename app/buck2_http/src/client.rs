@@ -239,7 +239,7 @@ async fn read_truncated_error_response(
     let read = StreamReader::new(resp.body_mut().map_err(std::io::Error::other));
     let mut buf = Vec::with_capacity(1024);
     read.take(1024).read_to_end(&mut buf).await.map_or_else(
-        |e| format!("Error decoding response: {:?}", e),
+        |e| format!("Error decoding response: {e:?}"),
         |_| String::from_utf8_lossy(buf.as_ref()).into_owned(),
     )
 }
@@ -643,7 +643,7 @@ mod tests {
                             http::header::VIA,
                             http::HeaderValue::from_static("testing-proxy-server"),
                         );
-                        println!("Proxying request: {:?}", req);
+                        println!("Proxying request: {req:?}");
                         client
                             .request(req.map(Body::from))
                             .await
@@ -892,7 +892,7 @@ mod proxy_tests {
                         http::header::VIA,
                         http::HeaderValue::from_static("testing-proxy-server"),
                     );
-                    println!("Proxying request: {:?}", req);
+                    println!("Proxying request: {req:?}");
                     client
                         .request(req)
                         .await
@@ -966,7 +966,7 @@ mod proxy_tests {
 
         let authority = proxy_server.uri()?.authority().unwrap().clone();
         let proxy_uri = format!("{}:{}", authority.host(), authority.port().unwrap());
-        println!("proxy_uri: {}", proxy_uri);
+        println!("proxy_uri: {proxy_uri}");
         let client = HttpClientBuilder::https_with_system_roots()
             .await?
             .with_proxy(Proxy::new(

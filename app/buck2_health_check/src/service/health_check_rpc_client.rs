@@ -129,7 +129,7 @@ impl HealthCheckRpcClient {
             .buck_error_context("Buck2 executable directory has no parent")?;
 
         let ext = if cfg!(windows) { ".exe" } else { "" };
-        let cli_name = format!("{}{}", CLI_NAME, ext);
+        let cli_name = format!("{CLI_NAME}{ext}");
 
         Ok(exe_dir.join(cli_name).to_string())
     }

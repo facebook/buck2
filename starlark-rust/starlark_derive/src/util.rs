@@ -55,7 +55,7 @@ impl<'a> FieldsUtil<'a> {
                 .unnamed
                 .iter()
                 .enumerate()
-                .map(|(i, f)| syn::Ident::new(&format!("f{}", i), f.span()))
+                .map(|(i, f)| syn::Ident::new(&format!("f{i}"), f.span()))
                 .collect(),
             Fields::Unit => Vec::new(),
         }

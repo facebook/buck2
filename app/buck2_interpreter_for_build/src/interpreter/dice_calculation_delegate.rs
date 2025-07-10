@@ -263,7 +263,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             .with_package_context_information(path.path().to_string())?;
 
         let value: serde_json::Value = serde_json::from_str(&contents)
-            .with_buck_error_context(|| format!("Parsing {}", path))?;
+            .with_buck_error_context(|| format!("Parsing {path}"))?;
 
         let module = starlark::environment::Module::new();
         module.set("value", module.heap().alloc(value));
@@ -441,7 +441,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 provider,
                 cancellation,
             )
-            .with_buck_error_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))
+            .with_buck_error_context(|| format!("evaluating Starlark PACKAGE file `{path}`"))
     }
 
     pub(crate) async fn eval_package_file(
@@ -590,7 +590,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                     .with_buck_error_context(|| {
                         DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
                     });
-                let error = result_with_stats.as_ref().err().map(|e| format!("{:#}", e));
+                let error = result_with_stats.as_ref().err().map(|e| format!("{e:#}"));
                 let (starlark_peak_allocated_bytes, cpu_instruction_count, target_count) =
                     match &result_with_stats {
                         Ok((_, rs)) => (

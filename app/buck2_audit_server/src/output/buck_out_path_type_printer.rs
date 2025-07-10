@@ -45,7 +45,7 @@ impl BuckOutPathTypePrinter {
         } else {
             self.printable_attributes(path_type)
                 .values()
-                .try_for_each(|a| writeln!(&mut stdout, "{}", a))?;
+                .try_for_each(|a| writeln!(&mut stdout, "{a}"))?;
         }
         Ok(())
     }

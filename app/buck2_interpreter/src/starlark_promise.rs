@@ -435,13 +435,10 @@ mod tests {
         match assert_promise(modu, content) {
             Ok(_) => panic!("Expected an error, got a result"),
             Err(e) => {
-                if format!("{:#}", e).contains(err) {
+                if format!("{e:#}").contains(err) {
                     e
                 } else {
-                    panic!(
-                        "Wrong error message, expected to see `{}`, got `{:?}`",
-                        err, e
-                    )
+                    panic!("Wrong error message, expected to see `{err}`, got `{e:?}`")
                 }
             }
         }

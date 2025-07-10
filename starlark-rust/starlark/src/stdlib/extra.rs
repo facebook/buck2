@@ -98,7 +98,7 @@ pub fn debug(builder: &mut GlobalsBuilder) {
     /// Print the value with full debug formatting. The result may not be stable over time.
     /// Intended for debugging purposes and guaranteed to produce verbose output not suitable for user display.
     fn debug(#[starlark(require = pos)] val: Value) -> anyhow::Result<String> {
-        Ok(format!("{:?}", val))
+        Ok(format!("{val:?}"))
     }
 }
 
@@ -125,7 +125,7 @@ pub(crate) struct StderrPrintHandler;
 
 impl PrintHandler for StderrPrintHandler {
     fn println(&self, text: &str) -> crate::Result<()> {
-        eprintln!("{}", text);
+        eprintln!("{text}");
         Ok(())
     }
 }
@@ -165,7 +165,7 @@ fn pretty_repr<'v>(
     use std::fmt::Write;
 
     let mut s = eval.string_pool.alloc();
-    write!(s, "{:#}", a).unwrap();
+    write!(s, "{a:#}").unwrap();
     let r = eval.heap().alloc_str(&s);
     eval.string_pool.release(s);
     Ok(r)

@@ -15,11 +15,11 @@ use gazebo::prelude::*;
 pub(crate) enum CoercionError {
     #[error("Used one_of with an empty list.")]
     OneOfEmpty,
-    #[error("one_of fails, the errors against each alternative in turn were:\n{}", .0.map(|x| format!("{:#}", x)).join("\n"))]
+    #[error("one_of fails, the errors against each alternative in turn were:\n{}", .0.map(|x| format!("{x:#}")).join("\n"))]
     OneOfMany(Vec<buck2_error::Error>),
     #[error("default_only is not allowed to be specified, but got `{0}`")]
     DefaultOnly(String),
-    #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{}`", x)).join(", "))]
+    #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{x}`")).join(", "))]
     InvalidEnumVariant(String, Vec<String>),
 }
 

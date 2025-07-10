@@ -358,17 +358,11 @@ bar()
         let the_line = profile
             .lines()
             .find(|l| l.contains("foo"))
-            .with_context(|| {
-                format!(
-                    "There must be a line with `foo` in the profile: {:?}",
-                    profile
-                )
-            })
+            .with_context(|| format!("There must be a line with `foo` in the profile: {profile:?}"))
             .unwrap();
         assert!(
             the_line.contains("bar"),
-            "Profile must contain a line `bar.*foo`: {:?}",
-            profile
+            "Profile must contain a line `bar.*foo`: {profile:?}"
         );
     }
 }

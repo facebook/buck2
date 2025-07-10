@@ -98,11 +98,11 @@ pub async fn get_channel_uds(
 }
 
 pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> buck2_error::Result<Channel> {
-    Endpoint::try_from(format!("http://{}:{}", socket_addr, port))?
+    Endpoint::try_from(format!("http://{socket_addr}:{port}"))?
         .connect()
         .await
         .tag(ErrorTag::ServerTransportError)
-        .with_buck_error_context(|| format!("failed to connect to port {}", port))
+        .with_buck_error_context(|| format!("failed to connect to port {port}"))
 }
 
 #[derive(buck2_error::Error, Debug)]

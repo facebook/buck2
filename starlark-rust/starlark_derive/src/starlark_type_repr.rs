@@ -49,7 +49,7 @@ impl StarlarkTypeReprInput {
                                 _ => {
                                     Err(syn::Error::new_spanned(
                                         variant,
-                                        format!("`{}` can be derived only for enums with single tuple field variants", trait_name),
+                                        format!("`{trait_name}` can be derived only for enums with single tuple field variants"),
                                     ))
                                 }
                             }
@@ -57,7 +57,7 @@ impl StarlarkTypeReprInput {
                         _ => {
                             Err(syn::Error::new_spanned(
                                 variant,
-                                format!("`{}` can be derived only for enums with single tuple field variants", trait_name),
+                                format!("`{trait_name}` can be derived only for enums with single tuple field variants"),
                             ))
                         }
                     }
@@ -70,7 +70,7 @@ impl StarlarkTypeReprInput {
             }
             _ => Err(syn::Error::new_spanned(
                 input,
-                format!("`{}` can be derived only for enums", trait_name),
+                format!("`{trait_name}` can be derived only for enums"),
             )),
         }
     }

@@ -125,7 +125,7 @@ async fn server_execute_with_dice(
                                 providers.default_info()?.sub_targets().iter()
                             {
                                 label.push(subtarget.to_string());
-                                writeln!(stdout, "{}", label)?;
+                                writeln!(stdout, "{label}")?;
                                 recursive_iterate(providers, stdout, label)?;
                                 label.pop();
                             }
@@ -147,7 +147,7 @@ async fn server_execute_with_dice(
                         .keys()
                     {
                         label.push(sub.to_string());
-                        writeln!(&mut stdout, "{}", label)?;
+                        writeln!(&mut stdout, "{label}")?;
                         label.pop();
                     }
                 }
@@ -157,7 +157,7 @@ async fn server_execute_with_dice(
                     &mut stderr,
                     "{}: failed:\n{}",
                     target,
-                    indent("  ", &format!("{:?}", e))
+                    indent("  ", &format!("{e:?}"))
                 )?;
                 at_least_one_evaluation_error = true;
             }
@@ -212,7 +212,7 @@ impl Display for Subtarget {
         let subtargets = self
             .subtargets
             .iter()
-            .map(|s| format!("[{}]", s))
+            .map(|s| format!("[{s}]"))
             .collect::<Vec<_>>()
             .join("");
         write!(

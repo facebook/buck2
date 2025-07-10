@@ -45,7 +45,7 @@ impl TupleAttrType {
             }
             write!(f, "{x}")?;
         }
-        write!(f, "{})", arg)
+        write!(f, "{arg})")
     }
 }
 

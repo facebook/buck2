@@ -97,7 +97,7 @@ async fn server_execute_with_dice(
                 let v: FrozenProviderCollectionValue = v.require_compatible()?;
 
                 if command.quiet {
-                    writeln!(&mut stdout, "{}", target)?
+                    writeln!(&mut stdout, "{target}")?
                 } else if command.list {
                     let mut provider_names = v.provider_collection().provider_names();
                     // Create a deterministic output.
@@ -110,7 +110,7 @@ async fn server_execute_with_dice(
                             "  ",
                             &provider_names
                                 .iter()
-                                .fold(String::new(), |acc, arg| acc + &format!("- {}\n", arg))
+                                .fold(String::new(), |acc, arg| acc + &format!("- {arg}\n"))
                         )
                     )?;
                 } else if command.print_debug {
@@ -134,7 +134,7 @@ async fn server_execute_with_dice(
                     &mut stderr,
                     "{}: failed:\n{}",
                     target,
-                    indent("  ", &format!("{:?}", e))
+                    indent("  ", &format!("{e:?}"))
                 )?;
                 at_least_one_error = true;
             }

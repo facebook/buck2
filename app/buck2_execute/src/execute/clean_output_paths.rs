@@ -30,7 +30,7 @@ impl CleanOutputPaths {
     ) -> buck2_error::Result<()> {
         for path in paths {
             cleanup_path(fs, path)
-                .with_buck_error_context(|| format!("Error cleaning up output path `{}`", path))?;
+                .with_buck_error_context(|| format!("Error cleaning up output path `{path}`"))?;
         }
         Ok(())
     }

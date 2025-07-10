@@ -61,7 +61,7 @@ impl StartupDeadline {
     pub(crate) fn rem_duration(&self, op: &str) -> buck2_error::Result<Duration> {
         self.deadline
             .checked_duration_since(Instant::now())
-            .with_buck_error_context(|| format!("timed out before {}", op))
+            .with_buck_error_context(|| format!("timed out before {op}"))
     }
 
     /// Decrease the deadline by 100ms and invoke the given function with the new deadline.

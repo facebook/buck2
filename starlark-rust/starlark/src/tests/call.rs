@@ -49,8 +49,7 @@ def rec3(): rec4()
 def rec4(): rec5()
 def rec5(): rec6()
 def rec6(): rec2()
-{}",
-            x
+{x}"
         )
     }
     assert::is_true(&f("(f1() == 1)"));
@@ -87,8 +86,7 @@ fn funcall_extra_args_def() {
             "
 def f3(a, b, c):
    return a + b + c
-{}",
-            x
+{x}"
         )
     }
     assert::fail(&f("noop(f3)(1,2,3,4)"), "extra positional");
@@ -181,8 +179,7 @@ def g(a=1, b=2):
     return a+b
 def h(a=1, *, b=2):
     return a+b
-{}",
-            x
+{x}"
         )
     }
     assert::is_true(&f("f(*[2, 3]) == 11"));
@@ -336,7 +333,6 @@ G_F_PTR = g([])
     assert!(frame_native_size > 20, "sanity check");
     assert!(
         frame_native_size < 20000,
-        "native frame size is too large: {}, evaluation may result in native stack overflow",
-        frame_native_size,
+        "native frame size is too large: {frame_native_size}, evaluation may result in native stack overflow",
     );
 }

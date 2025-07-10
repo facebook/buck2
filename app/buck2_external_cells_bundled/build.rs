@@ -80,7 +80,7 @@ fn write_include_file(prelude: &Path, mut include_file: impl io::Write) -> io::R
             exec_bit = false;
         }
 
-        writeln!(include_file, "  is_executable: {},", exec_bit)?;
+        writeln!(include_file, "  is_executable: {exec_bit},")?;
         writeln!(include_file, "}},")?;
     }
 

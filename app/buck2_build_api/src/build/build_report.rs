@@ -770,7 +770,7 @@ fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
         ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
             NonDefaultProvidersName::Named(names) => names.iter().join("|"),
             NonDefaultProvidersName::UnrecognizedFlavor(s) => {
-                format!("#{}", s)
+                format!("#{s}")
             }
         },
     }

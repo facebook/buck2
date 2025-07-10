@@ -320,7 +320,7 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
     let err = package_ctx
         .coerce_path("/invalid/absolute/path", false)
         .unwrap_err();
-    assert!(format!("{:#}", err).contains("absolute path"), "{:?}", err);
+    assert!(format!("{err:#}").contains("absolute path"), "{err:?}");
 
     let err = package_ctx
         .coerce_path("../upward/traversal", false)

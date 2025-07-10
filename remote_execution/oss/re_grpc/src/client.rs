@@ -151,7 +151,7 @@ async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<Cli
                 substitute_env_vars(tls_ca_certs).context("Invalid `tls_ca_certs`")?;
             let data = tokio::fs::read(&tls_ca_certs)
                 .await
-                .with_context(|| format!("Error reading `{}`", tls_ca_certs))?;
+                .with_context(|| format!("Error reading `{tls_ca_certs}`"))?;
             config.ca_certificate(Certificate::from_pem(data))
         }
         None => {
@@ -166,7 +166,7 @@ async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<Cli
                 substitute_env_vars(tls_client_cert).context("Invalid `tls_client_cert`")?;
             let data = tokio::fs::read(&tls_client_cert)
                 .await
-                .with_context(|| format!("Error reading `{}`", tls_client_cert))?;
+                .with_context(|| format!("Error reading `{tls_client_cert}`"))?;
             config.identity(Identity::from_pem(&data, &data))
         }
         None => config,
@@ -243,7 +243,7 @@ impl InstanceName {
 
     fn as_resource_prefix(&self) -> String {
         match &self.0 {
-            Some(instance_name) => format!("{}/", instance_name),
+            Some(instance_name) => format!("{instance_name}/"),
             None => "".to_owned(),
         }
     }
@@ -275,7 +275,7 @@ impl REClientBuilder {
                 channel
                     .connect()
                     .await
-                    .with_context(|| format!("Error connecting to `{}`", address))?,
+                    .with_context(|| format!("Error connecting to `{address}`"))?,
             )
         };
 
@@ -424,10 +424,10 @@ impl InjectHeadersInterceptor {
                 let value = substitute_env_vars(&h.value)?;
 
                 let key = MetadataKey::<metadata::Ascii>::from_bytes(key.as_bytes())
-                    .with_context(|| format!("Invalid key in header: `{}: {}`", key, value))?;
+                    .with_context(|| format!("Invalid key in header: `{key}: {value}`"))?;
 
                 let value = MetadataValue::try_from(&value)
-                    .with_context(|| format!("Invalid value in header: `{}: {}`", key, value))?;
+                    .with_context(|| format!("Invalid value in header: `{key}: {value}`"))?;
 
                 anyhow::Ok((key, value))
             })
@@ -1170,7 +1170,7 @@ where
             read_limit: 0,
         })
         .await
-        .with_context(|| format!("Failed to read {} from Bytestream service", resource_name))
+        .with_context(|| format!("Failed to read {resource_name} from Bytestream service"))
     };
 
     let inlined_digests = request.inlined_digests.unwrap_or_default();
@@ -1232,7 +1232,7 @@ where
 
         Ok(batched_blobs_response
             .get(digest)
-            .with_context(|| format!("Did not receive digest data for `{}`", digest))?
+            .with_context(|| format!("Did not receive digest data for `{digest}`"))?
             .clone())
     };
 
@@ -1288,7 +1288,7 @@ where
                 let mut responses = bystream_fut(req.named_digest.digest.clone()).await?;
                 while let Some(resp) = responses.next().await {
                     let data = resp
-                        .with_context(|| format!("Failed to fetch file: {:?}", file))?
+                        .with_context(|| format!("Failed to fetch file: {file:?}"))?
                         .data;
                     file.write_all(&data).await.with_context(|| {
                         format!("Error writing chunk of: {}", req.named_digest.digest)

@@ -99,16 +99,16 @@ impl StarlarkEvalKind {
 impl std::fmt::Display for StarlarkEvalKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StarlarkEvalKind::Analysis(target) => write!(f, "analysis:{}", target),
-            StarlarkEvalKind::Load(module) => write!(f, "load:{}", module),
-            StarlarkEvalKind::LoadPackageFile(package) => write!(f, "load_packagefile:{}", package),
-            StarlarkEvalKind::LoadBuildFile(package) => write!(f, "load_buildfile:{}", package),
-            StarlarkEvalKind::LoadJson(package) => write!(f, "load_json:{}", package),
-            StarlarkEvalKind::AnonTarget(key) => write!(f, "anon_analysis:{}", key),
-            StarlarkEvalKind::Transition(id) => write!(f, "transition:{}", id),
-            StarlarkEvalKind::Bxl(key) => write!(f, "bxl:{}", key),
-            StarlarkEvalKind::BxlDynamic(key) => write!(f, "bxl_dynamic:{}", key),
-            StarlarkEvalKind::Unknown(key) => write!(f, "generic_starlark:{}", key),
+            StarlarkEvalKind::Analysis(target) => write!(f, "analysis:{target}"),
+            StarlarkEvalKind::Load(module) => write!(f, "load:{module}"),
+            StarlarkEvalKind::LoadPackageFile(package) => write!(f, "load_packagefile:{package}"),
+            StarlarkEvalKind::LoadBuildFile(package) => write!(f, "load_buildfile:{package}"),
+            StarlarkEvalKind::LoadJson(package) => write!(f, "load_json:{package}"),
+            StarlarkEvalKind::AnonTarget(key) => write!(f, "anon_analysis:{key}"),
+            StarlarkEvalKind::Transition(id) => write!(f, "transition:{id}"),
+            StarlarkEvalKind::Bxl(key) => write!(f, "bxl:{key}"),
+            StarlarkEvalKind::BxlDynamic(key) => write!(f, "bxl_dynamic:{key}"),
+            StarlarkEvalKind::Unknown(key) => write!(f, "generic_starlark:{key}"),
         }
     }
 }

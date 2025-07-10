@@ -188,13 +188,13 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                         .artifacts
                         .iter()
                         .map(|a| {
-                            let idx = keys.get(a).with_buck_error_context(|| {
-                                format!("Cannot find artifact: {}", a)
-                            })?;
+                            let idx = keys
+                                .get(a)
+                                .with_buck_error_context(|| format!("Cannot find artifact: {a}"))?;
                             critical_path_accessor
                                 .critical_path_for_vertex(idx)
                                 .with_buck_error_context(|| {
-                                    format!("Invalid index for artifact: {}", a)
+                                    format!("Invalid index for artifact: {a}")
                                 })
                         })
                         .collect::<Result<Vec<_>, _>>()?

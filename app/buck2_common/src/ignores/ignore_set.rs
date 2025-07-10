@@ -78,7 +78,7 @@ impl IgnoreSet {
                 );
             } else {
                 patterns_builder.add(
-                    globset::Glob::new(&format!("{{{},{}/**}}", val, val))
+                    globset::Glob::new(&format!("{{{val},{val}/**}}"))
                         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
                 );
             }

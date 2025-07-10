@@ -35,7 +35,7 @@ impl QueryCommandTarget for ActionQueryNode {
     }
 
     fn attr_to_string_alternate(&self, _options: AttrFmtOptions, attr: &Self::Attr<'_>) -> String {
-        format!("{:#}", attr)
+        format!("{attr:#}")
     }
 
     fn attr_serialize<S: serde::Serializer>(

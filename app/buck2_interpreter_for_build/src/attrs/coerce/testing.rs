@@ -90,7 +90,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         content.to_owned(),
         &StarlarkFileType::Bzl.dialect(false),
     )
-    .unwrap_or_else(|err| panic!("Failed parsing `{}`. Error: `{}`", content, err));
+    .unwrap_or_else(|err| panic!("Failed parsing `{content}`. Error: `{err}`"));
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
         cell_resolver(),
@@ -116,5 +116,5 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let mut eval = Evaluator::new(env);
     eval.extra = Some(&build_ctx);
     eval.eval_module(ast, globals)
-        .unwrap_or_else(|err| panic!("Failed interpreting `{}`. Error: `{}`", content, err))
+        .unwrap_or_else(|err| panic!("Failed interpreting `{content}`. Error: `{err}`"))
 }

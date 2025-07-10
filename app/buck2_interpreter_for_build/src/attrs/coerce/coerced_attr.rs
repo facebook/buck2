@@ -116,7 +116,7 @@ impl CoercedAttrExr for CoercedAttr {
                     if !attr.supports_concat() {
                         return Err(SelectError::ConcatNotSupported(
                             attr.to_string(),
-                            format!("{} + {}", l, r),
+                            format!("{l} + {r}"),
                         )
                         .into());
                     }
@@ -138,7 +138,7 @@ impl CoercedAttrExr for CoercedAttr {
         } else {
             Ok(attr
                 .coerce_item(configurable, ctx, value)
-                .with_buck_error_context(|| format!("Error coercing {}", value))?)
+                .with_buck_error_context(|| format!("Error coercing {value}"))?)
         }
     }
 }

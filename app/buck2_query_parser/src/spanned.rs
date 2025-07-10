@@ -112,7 +112,7 @@ impl<T> Spanned<T> {
             l if l < 3 => format!("{}^", " ".repeat(start.len())),
             l => format!("{}^{}^", " ".repeat(start.len()), "-".repeat(l - 2)),
         };
-        format!("\n    {}{}{}\n    {}\n", start, inner, end, pointer)
+        format!("\n    {start}{inner}{end}\n    {pointer}\n")
     }
 }
 

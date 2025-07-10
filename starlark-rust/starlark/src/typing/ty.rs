@@ -68,7 +68,7 @@ impl Approximation {
     pub fn new(category: &'static str, message: impl Debug) -> Self {
         Self {
             category,
-            message: format!("{:?}", message),
+            message: format!("{message:?}"),
         }
     }
 }

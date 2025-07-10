@@ -423,7 +423,7 @@ impl Compiler<'_, '_, '_, '_> {
                 let binding_id = ident
                     .node
                     .payload
-                    .unwrap_or_else(|| panic!("unresolved binding: `{}`", name));
+                    .unwrap_or_else(|| panic!("unresolved binding: `{name}`"));
                 let binding = self.scope_data.get_binding(binding_id);
                 let slot = binding.resolved_slot(&self.codemap).unwrap();
                 match (slot, binding.captured) {

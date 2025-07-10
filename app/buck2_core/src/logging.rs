@@ -71,7 +71,7 @@ where
     let filter = match buck2_env!(ENV_VAR)? {
         Some(v) => EnvFilter::try_new(v)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogFilter))
-            .with_buck_error_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?,
+            .with_buck_error_context(|| format!("Failed to parse ${ENV_VAR} as a filter"))?,
         // daemon_listener is all emitted before the client starts tailing, which is why we log
         // those by default.
         None => EnvFilter::new("warn,[daemon_listener]=info"),

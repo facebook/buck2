@@ -359,7 +359,7 @@ pub trait StarlarkValue<'v>:
     /// ```
     fn collect_repr(&self, collector: &mut String) {
         // Rust won't return Err when writing to a String, so safe unwrap
-        write!(collector, "{}", self).unwrap()
+        write!(collector, "{self}").unwrap()
     }
 
     /// Invoked to print `repr` when a cycle is the object stack is detected.
@@ -875,7 +875,7 @@ pub trait StarlarkValue<'v>:
     /// Set the attribute named `attribute` of the current value to
     /// `value` (e.g. `a.attribute = value`).
     fn set_attr(&self, attribute: &str, _new_value: Value<'v>) -> crate::Result<()> {
-        ValueError::unsupported(self, &format!(".{}=", attribute))
+        ValueError::unsupported(self, &format!(".{attribute}="))
     }
 
     /// Dynamically provide values based on type.

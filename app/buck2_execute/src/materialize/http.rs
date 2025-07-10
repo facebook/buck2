@@ -359,7 +359,7 @@ async fn copy_and_hash(
 
         writer
             .write(&chunk)
-            .with_buck_error_context(|| format!("write({})", abs_path))
+            .with_buck_error_context(|| format!("write({abs_path})"))
             .map_err(HttpDownloadError::IoError)?;
 
         digester.update(&chunk);
@@ -371,7 +371,7 @@ async fn copy_and_hash(
     }
     writer
         .flush()
-        .with_buck_error_context(|| format!("flush({})", abs_path))
+        .with_buck_error_context(|| format!("flush({abs_path})"))
         .map_err(HttpDownloadError::IoError)?;
 
     let digest = digester.finalize();
@@ -489,14 +489,14 @@ impl fmt::Display for MaybeResponseDebugInfo {
                 write!(f, "<none>")?;
             } else {
                 for (header, header_value) in interesting_headers {
-                    writeln!(f, "{}: {}", header, header_value)?;
+                    writeln!(f, "{header}: {header_value}")?;
                 }
             }
         }
 
         match &self.buff {
             Some(text) => {
-                write!(f, "\n\nResponse started with:\n\n{}", text)?;
+                write!(f, "\n\nResponse started with:\n\n{text}")?;
             }
             None => {
                 write!(f, "Response is not UTF-8")?;

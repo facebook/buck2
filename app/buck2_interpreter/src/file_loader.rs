@@ -251,7 +251,7 @@ mod tests {
         let path = "some//random:file.bzl".to_owned();
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver());
         match loader.load(&path) {
-            Ok(_) => panic!("Expected load failure for {}", path),
+            Ok(_) => panic!("Expected load failure for {path}"),
             Err(_) => {
                 // TODO: verify the error is correct
             }
@@ -269,7 +269,7 @@ mod tests {
         loaded_modules.map.remove(&id);
         let loader = InterpreterFileLoader::new(loaded_modules, resolver);
         match loader.load(&path) {
-            Ok(_) => panic!("Expected load failure for {}", path),
+            Ok(_) => panic!("Expected load failure for {path}"),
             Err(_) => {
                 // TODO: verify the error is correct
             }

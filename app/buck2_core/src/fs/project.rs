@@ -305,17 +305,14 @@ impl ProjectRoot {
         let abs_path = self.root().join(path.as_ref());
         if let Some(parent) = abs_path.parent() {
             fs_util::create_dir_all(parent).with_buck_error_context(|| {
-                format!(
-                    "`write_file` for `{}` creating directory `{}`",
-                    abs_path, parent
-                )
+                format!("`write_file` for `{abs_path}` creating directory `{parent}`")
             })?;
         }
         fs_util::write(&abs_path, contents)
-            .with_buck_error_context(|| format!("`write_file` writing `{}`", abs_path))?;
+            .with_buck_error_context(|| format!("`write_file` writing `{abs_path}`"))?;
         if executable {
             fs_util::set_executable(&abs_path, true).with_buck_error_context(|| {
-                format!("`write_file` setting executable `{}`", abs_path)
+                format!("`write_file` setting executable `{abs_path}`")
             })?;
         }
         Ok(())
@@ -330,17 +327,14 @@ impl ProjectRoot {
         let abs_path = self.root().join(path.as_ref());
         if let Some(parent) = abs_path.parent() {
             fs_util::create_dir_all(parent).with_buck_error_context(|| {
-                format!(
-                    "`create_file` for `{}` creating directory `{}`",
-                    abs_path, parent
-                )
+                format!("`create_file` for `{abs_path}` creating directory `{parent}`")
             })?;
         }
         let file = File::create(&abs_path)
-            .with_buck_error_context(|| format!("`create_file` creating `{}`", abs_path))?;
+            .with_buck_error_context(|| format!("`create_file` creating `{abs_path}`"))?;
         if executable {
             fs_util::set_executable(&abs_path, true).with_buck_error_context(|| {
-                format!("`create_file` setting executable `{}`", abs_path)
+                format!("`create_file` setting executable `{abs_path}`")
             })?;
         }
         Ok(file)
@@ -424,10 +418,7 @@ impl ProjectRoot {
 
         let result = self.copy_resolved(&src_abs, &dest_abs);
         result.with_buck_error_context(|| {
-            format!(
-                "Error copying from src path `{}` to dest path `{}`",
-                src_abs, dest_abs
-            )
+            format!("Error copying from src path `{src_abs}` to dest path `{dest_abs}`")
         })
     }
 

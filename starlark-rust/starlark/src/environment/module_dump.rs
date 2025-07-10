@@ -35,11 +35,11 @@ impl FrozenModule {
             // TODO(nga): this prints public, private and imported symbols.
             //   We only care about public and private symbols, but no imported.
             writeln!(w).unwrap();
-            writeln!(w, "{} = {}", name, value).unwrap();
+            writeln!(w, "{name} = {value}").unwrap();
             if let Some(def) = FrozenValueTyped::<FrozenDef>::new(value) {
                 def.dump_debug()
                     .lines()
-                    .for_each(|line| writeln!(w, "  {}", line).unwrap());
+                    .for_each(|line| writeln!(w, "  {line}").unwrap());
             }
         }
         w

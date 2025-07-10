@@ -67,8 +67,7 @@ pub(crate) async fn required_providers<'v>(
         .map(|type_name| {
             available_resources.get(type_name).copied().ok_or_else(|| {
                 anyhow::Error::msg(format!(
-                    "Required local resource of type `{}` not found.",
-                    type_name
+                    "Required local resource of type `{type_name}` not found."
                 ))
             })
         })
@@ -108,8 +107,7 @@ async fn get_local_resource_info<'v>(
                 .builtin_provider_value::<FrozenLocalResourceInfo>()
         })
         .context(format!(
-            "Target `{}` expected to contain `LocalResourceInfo` provider",
-            target
+            "Target `{target}` expected to contain `LocalResourceInfo` provider"
         ))?;
     Ok((target.target(), local_resource_info))
 }

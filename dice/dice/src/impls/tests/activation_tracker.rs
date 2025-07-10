@@ -84,7 +84,7 @@ impl Kind {
             return Self::Stage1;
         }
 
-        panic!("Unexpected key: {}", key)
+        panic!("Unexpected key: {key}")
     }
 }
 

@@ -131,9 +131,9 @@ pub enum PathSegment {
 impl Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PathSegment::Index(x) => write!(f, "{}", x),
+            PathSegment::Index(x) => write!(f, "{x}"),
             PathSegment::Attr(x) => f.write_str(x),
-            PathSegment::Key(x) => write!(f, "\"{}\"", x),
+            PathSegment::Key(x) => write!(f, "\"{x}\""),
         }
     }
 }
@@ -165,21 +165,21 @@ impl Variable {
 
     fn tuple_value_as_str<'v>(v: Value<'v>) -> String {
         match v.length() {
-            Ok(size) if size > 0 => format!("<tuple, size={}>", size),
+            Ok(size) if size > 0 => format!("<tuple, size={size}>"),
             _ => "()".to_owned(),
         }
     }
 
     fn list_value_as_str<'v>(v: Value<'v>) -> String {
         match v.length() {
-            Ok(size) if size > 0 => format!("<list, size={}>", size),
+            Ok(size) if size > 0 => format!("<list, size={size}>"),
             _ => "[]".to_owned(),
         }
     }
 
     fn dict_value_as_str<'v>(v: Value<'v>) -> String {
         match v.length() {
-            Ok(size) if size > 0 => format!("<dict, size={}>", size),
+            Ok(size) if size > 0 => format!("<dict, size={size}>"),
             _ => "{}".to_owned(),
         }
     }

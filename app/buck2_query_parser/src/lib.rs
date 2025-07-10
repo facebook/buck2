@@ -137,9 +137,9 @@ impl Display for Expr<'_> {
                 // this assert should help ensure this gets updated if the grammar changes
                 // to allow that.
                 assert!(!word.contains(quote));
-                write!(f, "{0}{1}{0}", quote, word)?;
+                write!(f, "{quote}{word}{quote}")?;
             }
-            Expr::Integer(val) => write!(f, "{}", val)?,
+            Expr::Integer(val) => write!(f, "{val}")?,
             Expr::Function {
                 function_name,
                 args,
@@ -486,7 +486,7 @@ mod tests {
             }
             Err(nom::Err::Error(e)) => e,
             _ => {
-                panic!("{} Got `{:?}`", ctx, res);
+                panic!("{ctx} Got `{res:?}`");
             }
         }
     }
@@ -501,7 +501,7 @@ mod tests {
             }
             Err(nom::Err::Failure(e)) => e,
             _ => {
-                panic!("{} Got `{:?}`", ctx, res);
+                panic!("{ctx} Got `{res:?}`");
             }
         }
     }
@@ -527,7 +527,7 @@ mod tests {
                 value: Expr::Set(..),
                 ..
             }) => {}
-            v => panic!("expected set expr, got `{:?}`", v),
+            v => panic!("expected set expr, got `{v:?}`"),
         }
 
         match parse_expr("set(a b c) ^ func()") {
@@ -535,7 +535,7 @@ mod tests {
                 value: Expr::BinaryOpSequence(..),
                 ..
             }) => {}
-            v => panic!("expected intersect expr, got `{:?}`", v),
+            v => panic!("expected intersect expr, got `{v:?}`"),
         }
 
         match parse_expr("func(set(a b c))") {
@@ -543,7 +543,7 @@ mod tests {
                 value: Expr::Function { .. },
                 ..
             }) => {}
-            v => panic!("expected function expr, got `{:?}`", v),
+            v => panic!("expected function expr, got `{v:?}`"),
         }
 
         match parse_expr("//:tgt") {
@@ -551,7 +551,7 @@ mod tests {
                 value: Expr::String("//:tgt"),
                 ..
             }) => {}
-            v => panic!("expected '//:tgt', got `{:?}`", v),
+            v => panic!("expected '//:tgt', got `{v:?}`"),
         }
 
         Ok(())
@@ -571,8 +571,7 @@ mod tests {
                 .parse(Span::new(case))
                 .unwrap_or_else(|err| {
                     panic!(
-                        "Expected successful, complete parse for input `{}`. Got error `{:?}`",
-                        case, err
+                        "Expected successful, complete parse for input `{case}`. Got error `{err:?}`"
                     )
                 });
         }
@@ -580,14 +579,14 @@ mod tests {
         for case in recoverable_cases {
             assert_err(
                 parser(Span::new(case)),
-                &format!("Expected recoverable error for input `{}`.", case),
+                &format!("Expected recoverable error for input `{case}`."),
             );
         }
 
         for case in nonrecoverable_cases {
             assert_fail(
                 parser(Span::new(case)),
-                &format!("Expected hard failure for input `{}`.", case),
+                &format!("Expected hard failure for input `{case}`."),
             );
         }
     }

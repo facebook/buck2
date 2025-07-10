@@ -145,7 +145,7 @@ async fn build_action_no_redirect(
     let executor = ctx
         .get_action_executor(action.execution_config())
         .await
-        .buck_error_context(format!("for action `{}`", action))?;
+        .buck_error_context(format!("for action `{action}`"))?;
 
     let now = Instant::now();
     let action = &action;
@@ -319,7 +319,7 @@ async fn build_action_inner(
                     // in the future) other commands
                     .mark_emitted({
                         let owner = action.owner().dupe();
-                        Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
+                        Arc::new(move |f| write!(f, "Failed to build '{owner}'"))
                     })
                     .into(),
             );
@@ -429,7 +429,7 @@ fn try_run_error_handler(
     ) {
         (
             Some(ActionErrorDiagnostics {
-                data: Some(Data::HandlerInvocationError(format!("{:#}", e))),
+                data: Some(Data::HandlerInvocationError(format!("{e:#}"))),
             }),
             buck2_data::ActionErrorHandlerExecutionEnd {},
         )
@@ -492,7 +492,7 @@ fn try_run_error_handler(
                         },
                         Err(e) => {
                             let e = buck2_error::Error::from(e).context("Error handler failed");
-                            Data::HandlerInvocationError(format!("{:#}", e))
+                            Data::HandlerInvocationError(format!("{e:#}"))
                         }
                     };
                     (
@@ -644,7 +644,7 @@ async fn command_execution_report_to_proto(
         CommandExecutionStatus::Error { stage, error, .. } => {
             buck2_data::command_execution::Error {
                 stage: (*stage).to_owned(),
-                error: format!("{:#}", error),
+                error: format!("{error:#}"),
             }
             .into()
         }

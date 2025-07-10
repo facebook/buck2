@@ -99,7 +99,7 @@ impl FrozenDynamicLambdaParamsStorageImpl {
                 .internal_error("Wrong type for lambda params storage")?
                 .lambda_params
                 .get(key)
-                .with_internal_error(|| format!("missing lambda `{}`", key))
+                .with_internal_error(|| format!("missing lambda `{key}`"))
         })
     }
 }

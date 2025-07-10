@@ -191,9 +191,8 @@ impl EdenIoProvider {
                         .await
                         .with_buck_error_context(|| {
                             format!(
-                                "Eden returned that `{}` was a symlink, but it was not.  \
-                                This path may have changed during the build",
-                                path
+                                "Eden returned that `{path}` was a symlink, but it was not.  \
+                                This path may have changed during the build"
                             )
                         })?;
 

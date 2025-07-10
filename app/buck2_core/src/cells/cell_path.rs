@@ -326,7 +326,7 @@ impl<'a> CellPathRef<'a> {
     pub fn testing_new(path: &str) -> CellPathRef {
         let (cell, path) = path
             .split_once("//")
-            .with_buck_error_context(|| format!("invalid path: `{}`", path))
+            .with_buck_error_context(|| format!("invalid path: `{path}`"))
             .unwrap();
         CellPathRef {
             cell: CellName::testing_new(cell),

@@ -68,10 +68,10 @@ impl std::fmt::Display for ContextValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Dyn(v) => f.write_str(v),
-            Self::Tags(tags) => write!(f, "{:?}", tags),
+            Self::Tags(tags) => write!(f, "{tags:?}"),
             Self::Typed(v) => std::fmt::Display::fmt(v, f),
             Self::StringTag(v) => f.write_str(&v.tag),
-            Self::StarlarkError(v) => write!(f, "{}", v),
+            Self::StarlarkError(v) => write!(f, "{v}"),
         }
     }
 }
@@ -158,7 +158,7 @@ mod tests {
         let e: crate::Error = TestError.into();
         let e = e.context("foo");
         let e2 = e.clone().tag([ErrorTag::Input]);
-        assert_eq!(format!("{:#}", e), format!("{:#}", e2));
+        assert_eq!(format!("{e:#}"), format!("{:#}", e2));
     }
 
     #[test]

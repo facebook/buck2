@@ -48,8 +48,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     None => {
                         writeln!(
                             stdout,
-                            "Execution platforms are not configured: {} unset",
-                            EXECUTION_PLATFORMS_BUCKCONFIG
+                            "Execution platforms are not configured: {EXECUTION_PLATFORMS_BUCKCONFIG} unset"
                         )?;
                         writeln!(stdout, "Using legacy execution platform")?;
                     }
@@ -70,7 +69,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                         .get_internal_configured_target_node(&configured_target)
                         .await?;
                     let configured_node = configured_node.require_compatible()?;
-                    writeln!(stdout, "{}:", configured_target)?;
+                    writeln!(stdout, "{configured_target}:")?;
                     let resolution = configured_node.execution_platform_resolution();
                     match resolution.platform() {
                         Ok(platform) => {
@@ -93,11 +92,11 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                                 writeln!(stdout, "      {}", config_dep.label())?;
                             }
                             for (label, reason) in resolution.skipped() {
-                                writeln!(stdout, "    Skipped {}", label)?;
-                                writeln!(IndentWriter::new("      ", &mut stdout), "{:#}", reason)?;
+                                writeln!(stdout, "    Skipped {label}")?;
+                                writeln!(IndentWriter::new("      ", &mut stdout), "{reason:#}")?;
                             }
                         }
-                        Err(e) => writeln!(stdout, "{}", e)?,
+                        Err(e) => writeln!(stdout, "{e}")?,
                     }
                 }
 

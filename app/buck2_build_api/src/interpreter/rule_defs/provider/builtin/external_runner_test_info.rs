@@ -268,7 +268,7 @@ fn iter_test_command<'v>(
         }
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(item)
-            .with_buck_error_context(|| format!("Invalid item in `command`: {}", item))?
+            .with_buck_error_context(|| format!("Invalid item in `command`: {item}"))?
             .0;
 
         Ok(TestCommandMember::Arglike(arglike))
@@ -297,11 +297,11 @@ fn iter_test_env<'v>(
 
     Either::Right(env.into_iter().map(|(key, value)| {
         let key = key.unpack_str().with_buck_error_context(|| {
-            format!("Invalid key in `env`: Expected a str, got: `{}`", key)
+            format!("Invalid key in `env`: Expected a str, got: `{key}`")
         })?;
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(value)
-            .with_buck_error_context(|| format!("Invalid value in `env` for key `{}`", key))?
+            .with_buck_error_context(|| format!("Invalid value in `env` for key `{key}`"))?
             .0;
 
         Ok((key, arglike))
@@ -320,7 +320,7 @@ fn iter_opt_str_list<'v>(
         Ok(v) => v,
         Err(e) => {
             return Either::Left(Either::Right(once(Err(
-                e.context(format!("Invalid `{}`", name))
+                e.context(format!("Invalid `{name}`"))
             ))));
         }
     };
@@ -328,7 +328,7 @@ fn iter_opt_str_list<'v>(
     Either::Right(iterable.map(move |item| {
         let item = item
             .unpack_str()
-            .with_buck_error_context(|| format!("Invalid item in `{}`: {}", name, item))?;
+            .with_buck_error_context(|| format!("Invalid item in `{name}`: {item}"))?;
 
         Ok(item)
     }))
@@ -356,15 +356,12 @@ fn iter_executor_overrides<'v>(
 
     Either::Right(executor_overrides.into_iter().map(|(key, value)| {
         let key = key.unpack_str().with_buck_error_context(|| {
-            format!(
-                "Invalid key in `executor_overrides`: Expected a str, got: `{}`",
-                key
-            )
+            format!("Invalid key in `executor_overrides`: Expected a str, got: `{key}`")
         })?;
 
         let config =
             StarlarkCommandExecutorConfig::from_value(value).with_buck_error_context(|| {
-                format!("Invalid value in `executor_overrides` for key `{}`", key)
+                format!("Invalid value in `executor_overrides` for key `{key}`")
             })?;
 
         Ok((key, config))
@@ -393,10 +390,7 @@ fn iter_local_resources<'v>(
 
     Either::Right(local_resources.into_iter().map(|(key, value)| {
         let key = key.unpack_str().with_buck_error_context(|| {
-            format!(
-                "Invalid key in `local_resources`: Expected a str, got: `{}`",
-                key
-            )
+            format!("Invalid key in `local_resources`: Expected a str, got: `{key}`")
         })?;
 
         let resource = if value.is_none() {
@@ -427,7 +421,7 @@ fn unpack_opt_executor<'v>(
     }
 
     let executor = StarlarkCommandExecutorConfig::from_value(executor)
-        .with_buck_error_context(|| format!("Value is not an executor config: `{}`", executor))?;
+        .with_buck_error_context(|| format!("Value is not an executor config: `{executor}`"))?;
 
     Ok(Some(executor))
 }
@@ -438,7 +432,7 @@ fn unpack_opt_worker<'v>(worker: Value<'v>) -> buck2_error::Result<Option<&'v Wo
     }
 
     let worker = WorkerInfo::from_value(worker)
-        .with_buck_error_context(|| format!("Value is not a worker: `{}`", worker))?;
+        .with_buck_error_context(|| format!("Value is not a worker: `{worker}`"))?;
 
     Ok(Some(worker))
 }

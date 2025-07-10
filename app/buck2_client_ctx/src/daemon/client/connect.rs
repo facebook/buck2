@@ -484,7 +484,7 @@ impl<'a> BuckdLifecycle<'a> {
             Err(e) => Err(BuckdConnectError::BuckDaemonStartupFailed {
                 code: 1,
                 stdout: "".to_owned(),
-                stderr: format!("Failed to launch Buck2 daemon: {:#}", e),
+                stderr: format!("Failed to launch Buck2 daemon: {e:#}"),
             }
             .into()),
             Ok((status, stdout, stderr)) => {
@@ -500,7 +500,7 @@ impl<'a> BuckdLifecycle<'a> {
                         // set memory limits to buck2 daemon slice to control
                         // the buck memory including daemon, fork-server and all actions
                         systemd_runner
-                            .set_slice_memory_limit(&format!("{}.slice", slice_name))
+                            .set_slice_memory_limit(&format!("{slice_name}.slice"))
                             .await?;
                     }
                     Ok(())
@@ -560,7 +560,7 @@ impl BootstrapBuckdClient {
         let daemon_dir = paths.daemon_dir()?;
 
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
-            .with_buck_error_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
+            .with_buck_error_context(|| format!("Error creating daemon dir: {daemon_dir}"))?;
 
         let res = match constraints {
             BuckdConnectConstraints::ExistingOnly => {
@@ -788,8 +788,7 @@ async fn establish_connection_inner(
             Err(e) => {
                 events_ctx
                     .eprintln(&format!(
-                        "Could not load buckd.info: {}, starting new buck2 daemon...",
-                        e
+                        "Could not load buckd.info: {e}, starting new buck2 daemon..."
                     ))
                     .await?;
 
@@ -1034,7 +1033,7 @@ pub fn get_daemon_exe() -> buck2_error::Result<PathBuf> {
         Ok(exe
             .parent()
             .buck_error_context("Expected current exe to be in a directory")?
-            .join(format!("buck2-daemon{}", ext)))
+            .join(format!("buck2-daemon{ext}")))
     } else {
         Ok(exe)
     }
@@ -1106,8 +1105,7 @@ async fn daemon_connect_error(
         let stderr = truncate(&stderr, 64000);
         let error = error
             .context(format!(
-                "Error connecting to the daemon, daemon stderr follows:\n{}",
-                stderr
+                "Error connecting to the daemon, daemon stderr follows:\n{stderr}"
             ))
             .tag([ErrorTag::DaemonConnect]);
 
@@ -1122,8 +1120,7 @@ async fn daemon_connect_error(
     let error_message = format!(
         "Failed to connect to buck daemon.
     Try running `buck2 kill` and your command afterwards.
-    Alternatively, try running `{}` and your command afterwards",
-        delete_commad
+    Alternatively, try running `{delete_commad}` and your command afterwards"
     );
     error.context(error_message)
 }

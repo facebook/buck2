@@ -554,7 +554,7 @@ impl<'v> UnpackUnconfiguredQueryArgs<'v> {
             UnpackUnconfiguredQueryArgs::TargetSet(set) => {
                 // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
                 // as a quick solution.
-                set.0.iter_names().map(|e| format!("\"{}\"", e)).collect()
+                set.0.iter_names().map(|e| format!("\"{e}\"")).collect()
             }
         }
     }

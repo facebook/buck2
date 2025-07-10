@@ -42,10 +42,7 @@ impl FileReadError {
         match self {
             FileReadError::NotFound(path) => {
                 let err_message = if *TIME_TO_FIX_USE_BETTER_ERROR.get().unwrap() {
-                    format!(
-                        "`{}`.\n     Included in `{}` but does not exist",
-                        path, package_path
-                    )
+                    format!("`{path}`.\n     Included in `{package_path}` but does not exist")
                 } else {
                     path
                 };

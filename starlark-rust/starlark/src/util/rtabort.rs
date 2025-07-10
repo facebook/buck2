@@ -44,7 +44,7 @@ pub(crate) use rtabort;
 
 #[cold]
 pub(crate) fn rtabort_impl_fixed_string(file: &str, line: u32, message: &str) -> ! {
-    rtabort_impl(file, line, format_args!("{}", message));
+    rtabort_impl(file, line, format_args!("{message}"));
 }
 
 #[cold]
@@ -55,7 +55,7 @@ pub(crate) fn rtabort_impl(file: &str, line: u32, msg: Arguments) -> ! {
     // `eprintln!` followed by `abort` does not print anything in tests.
     io::Write::write_fmt(
         &mut io::stderr(),
-        format_args!("{}:{}: abort: {}\n", file, line, msg),
+        format_args!("{file}:{line}: abort: {msg}\n"),
     )
     .ok();
 

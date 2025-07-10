@@ -448,7 +448,7 @@ def pos_only_d(x, /, *args, **kwargs): pass
             let (errors, typemap, _interface, approximations) =
                 ast.typecheck(&Globals::standard(), &HashMap::new());
             if let Some(error) = errors.into_iter().next() {
-                panic!("Error: {:?}", error);
+                panic!("Error: {error:?}");
             }
             assert!(approximations.is_empty());
             let def = typemap.find_first_binding().unwrap();

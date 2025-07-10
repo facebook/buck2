@@ -69,10 +69,10 @@ impl std::fmt::Display for HealthIssue {
         } else {
             match &self.remediation {
                 Some(Remediation::Message(message)) => {
-                    format!(". {}", message)
+                    format!(". {message}")
                 }
                 Some(Remediation::Link(link)) => {
-                    format!(". Refer to {}", link)
+                    format!(". Refer to {link}")
                 }
                 None => String::new(),
             }

@@ -35,7 +35,7 @@ impl Display for ConnectionType {
         // NOTE: `Display` must be compatible with `parse`.
         match self {
             ConnectionType::Uds { unix_socket } => write!(f, "uds:{}", unix_socket.display()),
-            ConnectionType::Tcp { port } => write!(f, "tcp:{}", port),
+            ConnectionType::Tcp { port } => write!(f, "tcp:{port}"),
         }
     }
 }
@@ -51,7 +51,7 @@ impl ConnectionType {
             }),
             "tcp" => Ok(ConnectionType::Tcp {
                 port: endpoint.parse().with_buck_error_context(|| {
-                    format!("port number is incorrect in `{}`", endpoint)
+                    format!("port number is incorrect in `{endpoint}`")
                 })?,
             }),
             _ => Err(ConnectionTypeError::ParseError(endpoint.to_owned()).into()),

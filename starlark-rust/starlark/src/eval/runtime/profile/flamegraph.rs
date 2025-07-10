@@ -111,7 +111,7 @@ impl FlameGraphWriter {
     pub(crate) fn write<'s>(&mut self, key: impl IntoIterator<Item = &'s str>, value: u64) {
         let key = key.into_iter().collect::<Vec<_>>();
         if key.is_empty() {
-            writeln!(self.buf, "(unknown) {}", value).unwrap();
+            writeln!(self.buf, "(unknown) {value}").unwrap();
         } else {
             writeln!(self.buf, "{} {}", key.join(";"), value).unwrap();
         }

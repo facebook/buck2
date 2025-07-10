@@ -367,7 +367,7 @@ fn get_rule_callable(
     let rule_callable = module
         .get_any_visibility(name)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-        .with_buck_error_context(|| format!("Couldn't find rule `{}`", name))?
+        .with_buck_error_context(|| format!("Couldn't find rule `{name}`"))?
         .0;
     let rule_callable = rule_callable.owned_value(eval.frozen_heap());
     let rule_callable = rule_callable

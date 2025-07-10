@@ -34,9 +34,8 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
         let context = format!(
             "Error loading system root certificates native frameworks.
             This is usually due to Chef not installed or working properly.
-            Please try `getchef -reason 'chef broken'`{}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
-            If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state.",
-            windows_message
+            Please try `getchef -reason 'chef broken'`{windows_message}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
+            If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state."
         );
         native_certs.buck_error_context(context)
     } else {

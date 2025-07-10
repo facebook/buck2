@@ -29,7 +29,7 @@ fn test_remove(name: &str, program: &str) {
     let mut out = String::new();
 
     writeln!(out, "Program:").unwrap();
-    writeln!(out, "{}", program).unwrap();
+    writeln!(out, "{program}").unwrap();
     writeln!(out).unwrap();
 
     let removed = remove_unused_loads(name, program).unwrap();
@@ -37,7 +37,7 @@ fn test_remove(name: &str, program: &str) {
         None => writeln!(out, "No unused loads").unwrap(),
         Some(removed) => {
             writeln!(out, "Removed unused loads:").unwrap();
-            writeln!(out, "{}", removed).unwrap();
+            writeln!(out, "{removed}").unwrap();
         }
     }
 

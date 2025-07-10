@@ -63,7 +63,7 @@ enum ConfigError {
 fn format_cycle(cycle: &[(String, String)]) -> String {
     cycle
         .iter()
-        .map(|(section, key)| format!("`{}.{}`", section, key))
+        .map(|(section, key)| format!("`{section}.{key}`"))
         .join(" -> ")
 }
 
@@ -124,7 +124,7 @@ impl LegacyConfigParser {
         file_parser
             .parse_file_on_stack(path, follow_includes, file_ops)
             .await
-            .with_buck_error_context(|| format!("Error parsing buckconfig `{}`", path))?;
+            .with_buck_error_context(|| format!("Error parsing buckconfig `{path}`"))?;
         file_parser.finish_file();
 
         Ok(())

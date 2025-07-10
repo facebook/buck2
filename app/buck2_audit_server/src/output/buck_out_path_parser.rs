@@ -509,10 +509,8 @@ mod tests {
         let res = buck_out_parser.parse(cell_does_not_exist);
         assert!(res.err().unwrap().to_string().contains("Malformed"));
 
-        let no_artifacts_after_target_name = &format!(
-            "buck-out/v2/gen/bar/{}/path/to/target/__target_name__",
-            config_hash
-        );
+        let no_artifacts_after_target_name =
+            &format!("buck-out/v2/gen/bar/{config_hash}/path/to/target/__target_name__");
         let res = buck_out_parser.parse(no_artifacts_after_target_name);
         assert!(res.err().unwrap().to_string().contains("Malformed"));
 
@@ -525,8 +523,7 @@ mod tests {
             get_test_data();
 
         let rule_path = format!(
-            "buck-out/v2/gen/bar/{}/path/to/target/__target_name__/output",
-            expected_config_hash
+            "buck-out/v2/gen/bar/{expected_config_hash}/path/to/target/__target_name__/output"
         );
 
         let res = buck_out_parser.parse(&rule_path)?;
@@ -562,8 +559,7 @@ mod tests {
             get_test_data();
 
         let rule_path_target_label_with_slashes = format!(
-            "buck-out/v2/gen/bar/{}/path/to/target/__target_name_start/target_name_end__/output",
-            expected_config_hash
+            "buck-out/v2/gen/bar/{expected_config_hash}/path/to/target/__target_name_start/target_name_end__/output"
         );
 
         let res = buck_out_parser.parse(&rule_path_target_label_with_slashes)?;
@@ -604,8 +600,7 @@ mod tests {
             get_test_data();
 
         let rule_path_with_equal_sign = format!(
-            "buck-out/v2/gen/bar/{}/path/to/target/__target_name_eqsb_out__/output",
-            expected_config_hash
+            "buck-out/v2/gen/bar/{expected_config_hash}/path/to/target/__target_name_eqsb_out__/output"
         );
 
         let res = buck_out_parser.parse(&rule_path_with_equal_sign)?;
@@ -646,8 +641,7 @@ mod tests {
             get_test_data();
 
         let tmp_path = format!(
-            "buck-out/v2/tmp/bar/{}/path/to/target/__target_name__/output",
-            expected_config_hash
+            "buck-out/v2/tmp/bar/{expected_config_hash}/path/to/target/__target_name__/output"
         );
 
         let res = buck_out_parser.parse(&tmp_path)?;
@@ -676,10 +670,8 @@ mod tests {
     fn test_test_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
-        let test_path = format!(
-            "buck-out/v2/test/bar/{}/path/to/target/test/output",
-            expected_config_hash
-        );
+        let test_path =
+            format!("buck-out/v2/test/bar/{expected_config_hash}/path/to/target/test/output");
 
         let expected_test_cell_path = CellPath::new(
             CellName::testing_new("bar"),
@@ -709,8 +701,7 @@ mod tests {
             get_test_data();
 
         let anon_path = format!(
-            "buck-out/v2/gen-anon/bar/{}/path/to/target/anon_hash/__target_name__/output",
-            expected_config_hash
+            "buck-out/v2/gen-anon/bar/{expected_config_hash}/path/to/target/anon_hash/__target_name__/output"
         );
 
         let res = buck_out_parser.parse(&anon_path)?;
@@ -742,8 +733,7 @@ mod tests {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let path = format!(
-            "buck-out/v2/gen-bxl/bar/{}/path/to/function.bxl/__function_name__/output",
-            expected_config_hash
+            "buck-out/v2/gen-bxl/bar/{expected_config_hash}/path/to/function.bxl/__function_name__/output"
         );
 
         let res = buck_out_parser.parse(&path)?;
@@ -781,10 +771,8 @@ mod tests {
     fn test_empty_package_path() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
-        let target_path = format!(
-            "buck-out/v2/gen/bar/{}/__target_name__/output",
-            expected_config_hash
-        );
+        let target_path =
+            format!("buck-out/v2/gen/bar/{expected_config_hash}/__target_name__/output");
 
         let BuckOutPathType::RuleOutput {
             path, target_label, ..

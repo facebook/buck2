@@ -241,7 +241,7 @@ impl DefaultIoHandler {
                             })
                         }
                         _ => MaterializeEntryError::Error(e.context({
-                            format!("Error materializing files declared by action: {}", info)
+                            format!("Error materializing files declared by action: {info}")
                         })),
                     }
                 })?;
@@ -419,7 +419,7 @@ impl IoHandler for DefaultIoHandler {
                 let res = self
                     .materialize_entry_span(path, method.dupe(), entry, &mut stat, cancellations)
                     .await;
-                let error = res.as_ref().err().map(|e| format!("{:#}", e));
+                let error = res.as_ref().err().map(|e| format!("{e:#}"));
 
                 (
                     res,
@@ -479,7 +479,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .map_err(|e| from_any_with_tag(e, ErrorTag::InvalidDigest))
-                    .with_buck_error_context(|| format!("Invalid digest: `{}`", digest))?;
+                    .with_buck_error_context(|| format!("Invalid digest: `{digest}`"))?;
                 // This code is only used by E2E tests, so while it's not *a test*, testing_default
                 // is an OK choice here.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;

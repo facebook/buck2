@@ -61,7 +61,7 @@ pub(crate) enum FunctionError {
     #[error("The argument provided for **kwargs is not a dictionary")]
     KwArgsIsNotDict,
     #[error("Wrong number of positional arguments, expected {}, got {got}",
-        if min == max {min.to_string()} else {format!("between {} and {}", min, max)})]
+        if min == max {min.to_string()} else {format!("between {min} and {max}")})]
     WrongNumberOfArgs { min: usize, max: usize, got: usize },
 }
 

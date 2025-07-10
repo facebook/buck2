@@ -121,10 +121,10 @@ fn do_render(
     if user_cpu_percents.is_some() || system_cpu_percents.is_some() {
         let mut cpu_str_parts = vec!["buckd CPU".to_owned()];
         if let Some(p) = user_cpu_percents {
-            cpu_str_parts.push(format!("user = {}%", p));
+            cpu_str_parts.push(format!("user = {p}%"));
         }
         if let Some(p) = system_cpu_percents {
-            cpu_str_parts.push(format!("system = {}%", p));
+            cpu_str_parts.push(format!("system = {p}%"));
         }
         let cpu_str = cpu_str_parts.join("  ");
         parts.push(cpu_str);
@@ -149,7 +149,7 @@ fn do_render(
 
     let mut counters = Vec::new();
     for (key, value) in io_in_flight_non_zero_counters(snapshot) {
-        counters.push(format!("{:?} = {}", key, value));
+        counters.push(format!("{key:?} = {value}"));
     }
     lines.extend(words_to_lines(counters, width).into_try_map(|s| Line::unstyled(&s))?);
 

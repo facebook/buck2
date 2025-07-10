@@ -123,18 +123,14 @@ pub fn cells(extra_root_config: Option<&str>) -> buck2_error::Result<CellsData> 
 pub fn expect_error<T>(result: buck2_error::Result<T>, content: &str, expected: &str) {
     match result {
         Ok(_) => {
-            eprintln!(
-                "Expected starlark failure, got success.\nCode contents:\n{}",
-                content
-            );
+            eprintln!("Expected starlark failure, got success.\nCode contents:\n{content}");
             panic!();
         }
         Err(e) => {
-            let returned = format!("{:?}", e);
+            let returned = format!("{e:?}");
             if !returned.contains(expected) {
                 eprintln!(
-                    "Could not find expected error string.\nExpected:\n{}\n\nError:\n{}\n\nCode contents:\n{}",
-                    expected, returned, content
+                    "Could not find expected error string.\nExpected:\n{expected}\n\nError:\n{returned}\n\nCode contents:\n{content}"
                 );
                 panic!();
             }
@@ -404,7 +400,7 @@ impl Tester {
             "#
         );
 
-        self.add_import(&import_path, &format!("{}\n\n{}", template, content))?;
+        self.add_import(&import_path, &format!("{template}\n\n{content}"))?;
 
         let test_path = ImportPath::testing_new("root//some/package:test.bzl");
         let test_content = indoc!(

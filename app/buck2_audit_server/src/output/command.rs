@@ -149,8 +149,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
                             AuditOutputResult::MaybeRelevant(label) => {
                                 writeln!(
                                     stdout,
-                                    "Platform configuration of the buck-out path did not match the one used to invoke this command. Returning the most relevant unconfigured target label for the buck-out path: {}",
-                                    label
+                                    "Platform configuration of the buck-out path did not match the one used to invoke this command. Returning the most relevant unconfigured target label for the buck-out path: {label}"
                                 )?;
                             }
                         }

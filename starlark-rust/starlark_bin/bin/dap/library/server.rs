@@ -39,7 +39,7 @@ fn server(dap: impl DebugServer) {
     let orig_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
-            log(&format!("Panic occurred: {:?}", s));
+            log(&format!("Panic occurred: {s:?}"));
         } else {
             log("Panic occurred: Unknown message");
         }

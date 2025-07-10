@@ -100,8 +100,7 @@ async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
         assert_eq!(
             Some(*cost),
             ctx.resource_cost(resource).await?,
-            "Testing {}",
-            resource
+            "Testing {resource}",
         );
     }
     Ok(())
@@ -160,8 +159,7 @@ async fn test_complex() -> Result<(), Arc<anyhow::Error>> {
         assert_eq!(
             Some(*cost),
             ctx.resource_cost(resource).await?,
-            "Testing {}",
-            resource
+            "Testing {resource}",
         );
     }
     Ok(())

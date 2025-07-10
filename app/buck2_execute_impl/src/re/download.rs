@@ -153,8 +153,7 @@ pub async fn download_action_results<'a>(
                             Err(e) => {
                                 // TODO(minglunli): Properly handle this and the error below and add a test for it.
                                 console_message(format!(
-                                    "Failed to materialize inputs for failed action: {}",
-                                    e
+                                    "Failed to materialize inputs for failed action: {e}"
                                 ));
                                 None
                             }
@@ -171,8 +170,7 @@ pub async fn download_action_results<'a>(
                     Ok(materialized_paths) => Some(materialized_paths.clone()),
                     Err(e) => {
                         console_message(format!(
-                            "Failed to materialize outputs for failed action: {}",
-                            e
+                            "Failed to materialize outputs for failed action: {e}"
                         ));
                         None
                     }

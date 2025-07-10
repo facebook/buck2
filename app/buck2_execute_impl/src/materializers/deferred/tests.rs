@@ -925,7 +925,7 @@ mod state_machine {
 
             assert_matches!(
             res,
-            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+            Err(SharedMaterializingError::Error(e)) if format!("{e:#}").contains("Injected error")
         );
 
             // We do not actually get to materializing or cleaning.
@@ -1001,7 +1001,7 @@ mod state_machine {
                 .await;
             assert_matches!(
             res,
-            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+            Err(SharedMaterializingError::Error(e)) if format!("{e:#}").contains("Injected error")
         );
             assert_eq!(
                 dm.io.take_log(),
@@ -1047,7 +1047,7 @@ mod state_machine {
 
             assert_matches!(
                 res,
-                Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+                Err(SharedMaterializingError::Error(e)) if format!("{e:#}").contains("Injected error")
             );
 
             // Unset fail, but we haven't processed materialization_finished yet so this does nothing.
@@ -1061,14 +1061,14 @@ mod state_machine {
 
             assert_matches!(
                 res,
-                Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+                Err(SharedMaterializingError::Error(e)) if format!("{e:#}").contains("Injected error")
             );
 
             // Now process cleanup_finished_vacant and materialization_finished.
             let mut processed = 0;
 
             while let Ok(cmd) = channel.low_priority.try_recv() {
-                eprintln!("got cmd = {:?}", cmd);
+                eprintln!("got cmd = {cmd:?}");
                 dm.testing_process_one_low_priority_command(cmd);
                 processed += 1;
             }

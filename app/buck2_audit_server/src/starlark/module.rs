@@ -65,7 +65,7 @@ pub(crate) async fn server_execute(
             writeln!(stdout)?;
             writeln!(stdout, "Imports:")?;
             for import in loaded_module.imports() {
-                writeln!(stdout, "  {}", import)?;
+                writeln!(stdout, "  {import}")?;
             }
             writeln!(stdout)?;
             write!(stdout, "{}", loaded_module.env().dump_debug())?;

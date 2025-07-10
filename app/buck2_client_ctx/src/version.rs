@@ -60,20 +60,14 @@ impl BuckVersion {
         let file_m = match unsafe { memmap2::Mmap::map(&file) } {
             Ok(mmap) => mmap,
             Err(err) => {
-                panic!(
-                    "Failed to map buck2 binary for version extraction: {:?}",
-                    err
-                );
+                panic!("Failed to map buck2 binary for version extraction: {err:?}");
             }
         };
 
         let file_object = match object::File::parse(&*file_m) {
             Ok(file) => file,
             Err(err) => {
-                panic!(
-                    "Failed to parse buck2 file for version extraction: {:?}",
-                    err
-                );
+                panic!("Failed to parse buck2 file for version extraction: {err:?}");
             }
         };
 
@@ -93,7 +87,7 @@ impl BuckVersion {
         let version = if let Some(version) = buck2_build_info::revision() {
             version.to_owned()
         } else {
-            format!("{} {}", internal_exe_hash, internal_exe_hash_kind)
+            format!("{internal_exe_hash} {internal_exe_hash_kind}")
         };
 
         BuckVersion {

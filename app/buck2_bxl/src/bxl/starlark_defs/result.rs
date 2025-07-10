@@ -52,7 +52,7 @@ enum BxlResultError {
     Allocative,
     Trace
 )]
-#[display("bxl.Error({})", StarlarkStr::repr(&format!("{:?}", err)))]
+#[display("bxl.Error({})", StarlarkStr::repr(&format!("{err:?}")))]
 pub(crate) struct StarlarkError {
     err: buck2_error::Error,
 }
@@ -106,7 +106,7 @@ impl<T: Display> Display for StarlarkResultGen<T> {
                 "Result(Err = ",
                 ")",
                 // TODO(nero): implement multiline when multiline is requested
-                [StarlarkStr::repr(&format!("{:?}", err))],
+                [StarlarkStr::repr(&format!("{err:?}"))],
             ),
         }
     }
@@ -202,7 +202,7 @@ impl<'v, V: ValueLike<'v>> StarlarkResultGen<V> {
     fn unwrap_err(&self) -> buck2_error::Result<StarlarkError> {
         match self {
             StarlarkResultGen::Ok(val) => {
-                let display_str = format!("{}", val);
+                let display_str = format!("{val}");
                 Err(BxlResultError::UnwrapErrOnOk(display_str).into())
             }
             StarlarkResultGen::Err(err) => Ok(StarlarkError { err: err.dupe() }),

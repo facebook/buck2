@@ -80,12 +80,6 @@ impl HelpEnvCommand {
         for (name, ty, default) in rows {
             let line = format!(
                 "{name:name_column_width$} {ty:ty_column_width$} {default:default_column_width$}",
-                name = name,
-                ty = ty,
-                default = default,
-                name_column_width = name_column_width,
-                ty_column_width = ty_column_width,
-                default_column_width = default_column_width,
             );
             buck2_client_ctx::println!("{}", line.trim_end())?;
         }

@@ -53,6 +53,6 @@ impl<T> EnvHelper<T> {
                 )),
             })
             .map(Option::as_ref)
-            .with_buck_error_context(|| format!("Invalid value for ${}", var))
+            .with_buck_error_context(|| format!("Invalid value for ${var}"))
     }
 }

@@ -66,9 +66,7 @@ _{completion_name} >/dev/null 2>/dev/null ; # Force the completion to be loaded
     extract_from_outputs(
         input,
         std::iter::empty()
-            .chain(std::iter::once_with(|| r.complete(&format!("{}\t", input))))
-            .chain(std::iter::once_with(|| {
-                r.complete(&format!("{}\t\t", input))
-            })),
+            .chain(std::iter::once_with(|| r.complete(&format!("{input}\t"))))
+            .chain(std::iter::once_with(|| r.complete(&format!("{input}\t\t")))),
     )
 }

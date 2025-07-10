@@ -326,7 +326,7 @@ fn test_radd() {
             Some(Ok(heap.alloc(self.clone().add(&rhs))))
         }
         fn collect_repr(&self, collector: &mut String) {
-            write!(collector, "{}", self).unwrap()
+            write!(collector, "{self}").unwrap()
         }
     }
 
@@ -459,17 +459,17 @@ should_fail()"#,
 
     golden_test_template(
         "src/tests/uncategorized_diagnostics_display_default.golden",
-        trim_rust_backtrace(&format!("{}", err)),
+        trim_rust_backtrace(&format!("{err}")),
     );
 
     golden_test_template(
         "src/tests/uncategorized_diagnostics_display_hash.golden",
-        trim_rust_backtrace(&format!("{:#}", err)),
+        trim_rust_backtrace(&format!("{err:#}")),
     );
 
     golden_test_template(
         "src/tests/uncategorized_diagnostics_display_debug.golden",
-        trim_rust_backtrace(&format!("{:?}", err)),
+        trim_rust_backtrace(&format!("{err:?}")),
     );
 }
 
@@ -503,12 +503,12 @@ add3(8)"#,
 
     golden_test_template(
         "src/tests/uncategorized_error_display.golden",
-        trim_rust_backtrace(&format!("{}", err)),
+        trim_rust_backtrace(&format!("{err}")),
     );
 
     golden_test_template(
         "src/tests/uncategorized_error_display_hash.golden",
-        trim_rust_backtrace(&format!("{:#}", err)),
+        trim_rust_backtrace(&format!("{err:#}")),
     );
 }
 
@@ -573,9 +573,7 @@ fn test_module_visibility_preserved_by_evaluator() -> crate::Result<()> {
         let expected_msg = "Variable `b` not found";
         assert!(
             msg.contains(expected_msg),
-            "Expected `{}` to be in error message `{}`",
-            expected_msg,
-            msg
+            "Expected `{expected_msg}` to be in error message `{msg}`"
         );
     }
 
@@ -612,9 +610,9 @@ fn test_cancellation() -> crate::Result<()> {
     let err = eval.eval_module(ast, &globals);
 
     let expected = "Evaluation cancelled";
-    let err_msg = format!("{:#?}", err);
+    let err_msg = format!("{err:#?}");
     if !err_msg.contains(expected) {
-        panic!("Error:\n{:#?}\nExpected:\n{:?}", err, expected)
+        panic!("Error:\n{err:#?}\nExpected:\n{expected:?}")
     }
 
     Ok(())
@@ -985,7 +983,7 @@ animal("Joe")
     let ast = AstModule::parse("code.bzl", code.to_owned(), &Dialect::Standard).unwrap();
     let res: Value = eval.eval_module(ast, &globals).unwrap();
     let animal = SmallMap::<String, Value>::unpack_value(res).unwrap();
-    println!("animal = {:?}", animal);
+    println!("animal = {animal:?}");
 }
 
 #[test]
@@ -995,7 +993,7 @@ fn test_fuzzer_59102() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    let _unused = format!("{:?}", res);
+    let _unused = format!("{res:?}");
 }
 
 #[test]
@@ -1005,7 +1003,7 @@ fn test_fuzzer_59371() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    let _unused = format!("{:?}", res);
+    let _unused = format!("{res:?}");
 }
 
 #[test]

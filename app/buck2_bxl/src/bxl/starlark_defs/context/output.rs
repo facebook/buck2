@@ -402,9 +402,9 @@ impl OutputStream {
             item: &dyn std::fmt::Display,
         ) -> buck2_error::Result<()> {
             if !*first {
-                write!(output, "{}{}", sep, item)?;
+                write!(output, "{sep}{item}")?;
             } else {
-                write!(output, "{}", item)?;
+                write!(output, "{item}")?;
                 *first = false;
             }
             Ok(())
@@ -483,7 +483,7 @@ impl OutputStream {
                 S: Serializer,
             {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value)
-                    .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
+                    .map_err(|e| serde::ser::Error::custom(format!("{e:#}")))?
                 {
                     let path = get_artifact_path_display(
                         ensured.get_artifact_path(),
@@ -491,10 +491,10 @@ impl OutputStream {
                         self.project_fs,
                         self.artifact_fs,
                     )
-                    .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
+                    .map_err(|err| serde::ser::Error::custom(format!("{err:#}")))?;
                     serializer.serialize_str(&path)
                 } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value)
-                    .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
+                    .map_err(|e| serde::ser::Error::custom(format!("{e:#}")))?
                 {
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
@@ -523,7 +523,7 @@ impl OutputStream {
                                 )
                                 .boxed_local()
                         })
-                        .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
+                        .map_err(|err| serde::ser::Error::custom(format!("{err:#}")))?;
                     seq_ser.end()
                 } else if let Some(x) = ListRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))

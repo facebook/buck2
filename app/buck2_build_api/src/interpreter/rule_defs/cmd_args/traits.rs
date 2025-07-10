@@ -458,7 +458,7 @@ pub trait CommandLineContext {
         self.resolve_project_path(
             artifact.resolve_path(self.fs().fs(), artifact_path_mapping.get(artifact))?,
         )
-        .with_buck_error_context(|| format!("Error resolving artifact: {}", artifact))
+        .with_buck_error_context(|| format!("Error resolving artifact: {artifact}"))
     }
 
     /// Resolves the OutputArtifact to a 'CommandLineLocation' relative to the directory this command will run in.
@@ -472,12 +472,12 @@ pub trait CommandLineContext {
             self.fs().fs(),
             Some(&ContentBasedPathHash::for_output_artifact()),
         )?)
-        .with_buck_error_context(|| format!("Error resolving output artifact: {}", artifact))
+        .with_buck_error_context(|| format!("Error resolving output artifact: {artifact}"))
     }
 
     fn resolve_cell_path(&self, path: CellPathRef) -> buck2_error::Result<CommandLineLocation> {
         self.resolve_project_path(self.fs().fs().resolve_cell_path(path)?)
-            .with_buck_error_context(|| format!("Error resolving cell path: {}", path))
+            .with_buck_error_context(|| format!("Error resolving cell path: {path}"))
     }
 
     /// Result is 'RelativePathBuf' relative to the directory this command will run in. The path points to the file containing expanded macro.

@@ -82,7 +82,7 @@ async fn lint_file(
     let content = io
         .read_file_if_exists(proj_path)
         .await?
-        .with_buck_error_context(|| format!("File not found: `{}`", path_str))?;
+        .with_buck_error_context(|| format!("File not found: `{path_str}`"))?;
     match AstModule::parse(&path_str, content.clone(), &dialect) {
         Ok(ast) => Ok(ast.lint(Some(&*cache.get_names(path).await?))),
         Err(err) => {
@@ -126,7 +126,7 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
                     let lints = lint_file(&file.borrow(), cell_resolver, &**io, &mut cache).await?;
                     lint_count += lints.len();
                     for lint in lints {
-                        writeln!(stdout, "{}", lint)?;
+                        writeln!(stdout, "{lint}")?;
                     }
                 }
                 if lint_count > 0 {

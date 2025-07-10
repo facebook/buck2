@@ -18,7 +18,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 fn get_env(key: &str) -> Option<OsString> {
-    println!("cargo:rerun-if-env-changed={}", key);
+    println!("cargo:rerun-if-env-changed={key}");
     env::var_os(key)
 }
 
@@ -29,7 +29,7 @@ unsafe fn set_var(
     path: Result<PathBuf, protoc_bin_vendored::Error>,
 ) {
     let path = if let Some(override_var_value) = env::var_os(override_var) {
-        eprintln!("INFO: Variable ${} is overridden by ${}", var, override_var);
+        eprintln!("INFO: Variable ${var} is overridden by ${override_var}");
         PathBuf::from(override_var_value)
     } else {
         match path {
@@ -44,7 +44,7 @@ unsafe fn set_var(
     };
 
     let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
-    eprintln!("INFO: Variable ${} set to {:?}", var, path);
+    eprintln!("INFO: Variable ${var} set to {path:?}");
     unsafe { env::set_var(var, path) };
 }
 

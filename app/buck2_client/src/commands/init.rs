@@ -60,7 +60,7 @@ impl InitCommand {
             Err(e) => {
                 // include the backtrace with the error output
                 // (same behaviour as returning the Error from main)
-                console.print_error(&format!("{:?}", e))?;
+                console.print_error(&format!("{e:?}"))?;
                 ExitResult::status(ExitCode::UnknownFailure)
             }
         }

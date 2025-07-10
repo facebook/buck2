@@ -205,7 +205,7 @@ pub trait UnconfiguredMacroExt {
             "query_targets" => QueryExpansion::Target,
             "query_outputs" => QueryExpansion::Output,
             "query_targets_and_outputs" => QueryExpansion::TargetAndOutput(separator),
-            _ => panic!("invalid expansion type {}", expansion_type),
+            _ => panic!("invalid expansion type {expansion_type}"),
         };
 
         // TODO(cjhopman): errors when args aren't the right size (too many, or separator for non-separator query)

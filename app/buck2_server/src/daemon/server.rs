@@ -578,7 +578,7 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
     if proto_duration.seconds < 0 || proto_duration.nanos < 0 {
         return Err(Status::new(
             Code::Unknown,
-            format!("received invalid timeout: `{:?}`", proto_duration),
+            format!("received invalid timeout: `{proto_duration:?}`"),
         ));
     }
     Ok(Duration::from_secs(proto_duration.seconds as u64)
@@ -1203,7 +1203,7 @@ impl DaemonApi for BuckdServer {
         let req = req.into_inner();
 
         memory::write_heap_to_file(&req.destination_path)
-            .map_err(|e| Status::invalid_argument(format!("failed to perform heap dump: {}", e)))?;
+            .map_err(|e| Status::invalid_argument(format!("failed to perform heap dump: {e}")))?;
         if let Some(test_executor_destination_path) = req.test_executor_destination_path {
             let test_executors = get_all_test_executors();
             tracing::debug!(
@@ -1217,7 +1217,7 @@ impl DaemonApi for BuckdServer {
                     .unstable_heap_dump(&test_executor_destination_path)
                     .await
                     .map_err(|e| {
-                        Status::invalid_argument(format!("failed to perform heap dump: {}", e))
+                        Status::invalid_argument(format!("failed to perform heap dump: {e}"))
                     })?;
             }
         }
@@ -1235,7 +1235,7 @@ impl DaemonApi for BuckdServer {
 
         match response {
             Ok(response) => Ok(Response::new(UnstableAllocatorStatsResponse { response })),
-            Err(e) => Err(Status::invalid_argument(format!("{:#}", e))),
+            Err(e) => Err(Status::invalid_argument(format!("{e:#}"))),
         }
     }
 
@@ -1266,7 +1266,7 @@ impl DaemonApi for BuckdServer {
         };
 
         res.map(Response::new)
-            .map_err(|e| Status::internal(format!("{:#}", e)))
+            .map_err(|e| Status::internal(format!("{e:#}")))
     }
 
     type AllocativeStream = ResponseStream;
@@ -1462,7 +1462,7 @@ impl DaemonApi for BuckdServer {
                 .log_reload_handle
                 .update_log_filter(&req.log_filter)
                 .buck_error_context("Error updating daemon log filter")
-                .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
+                .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
         }
 
         if req.forkserver {
@@ -1472,7 +1472,7 @@ impl DaemonApi for BuckdServer {
                     .set_log_filter(req.log_filter)
                     .await
                     .buck_error_context("Error forwarding daemon log filter to forkserver")
-                    .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
+                    .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
             }
         }
 

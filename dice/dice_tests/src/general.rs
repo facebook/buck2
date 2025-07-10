@@ -117,7 +117,7 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
 
     let res = ctx1.compute(&Fib(10)).await;
 
-    assert!(res.is_err(), "Expected `Err(_)`, got `{:?}`", res);
+    assert!(res.is_err(), "Expected `Err(_)`, got `{res:?}`");
 
     Ok(())
 }

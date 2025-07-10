@@ -70,7 +70,7 @@ pub fn derive_hash(input: TokenStream) -> TokenStream {
                                 .iter()
                                 .enumerate()
                                 .map(|(index, field)| {
-                                    Ident::new(&format!("x{}", index), field.span())
+                                    Ident::new(&format!("x{index}"), field.span())
                                 })
                                 .collect();
                             quote! {

@@ -30,17 +30,17 @@ pub fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), Stri
 
     impl DiffPrinter {
         fn print_diff_line(&mut self, sign: char, line: &str) {
-            writeln!(self.s, "{} {}", sign, line).unwrap();
+            writeln!(self.s, "{sign} {line}").unwrap();
         }
 
         fn print_label_line(&mut self, sign: char, label: &str) {
-            self.print_diff_line(sign, &format!("label: {}", label));
+            self.print_diff_line(sign, &format!("label: {label}"));
         }
 
         fn print_label_result_line(&mut self, sign: char, label: buck2_error::Result<&str>) {
             match label {
                 Ok(label) => self.print_label_line(sign, label),
-                Err(e) => self.print_diff_line(sign, &format!("label error: {}", e)),
+                Err(e) => self.print_diff_line(sign, &format!("label error: {e}")),
             }
         }
 
@@ -51,7 +51,7 @@ pub fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), Stri
         ) {
             match data {
                 Ok(_) => self.print_diff_line(sign, "data"),
-                Err(e) => self.print_diff_line(sign, &format!("data error: {}", e)),
+                Err(e) => self.print_diff_line(sign, &format!("data error: {e}")),
             }
         }
 
@@ -121,7 +121,7 @@ pub fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), Stri
             a: &BTreeMap<ConstraintKey, ConstraintValue>,
             b: &BTreeMap<ConstraintKey, ConstraintValue>,
         ) {
-            self.diff_btree_map(a, b, |k, v| format!("constraint: {} -> {}", k, v))
+            self.diff_btree_map(a, b, |k, v| format!("constraint: {k} -> {v}"))
         }
 
         fn diff_cfg_data(&mut self, a: &ConfigurationDataData, b: &ConfigurationDataData) {

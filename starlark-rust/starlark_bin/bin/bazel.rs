@@ -326,7 +326,7 @@ impl BazelContext {
             eval.eval_module(ast, &self.globals)
                 .map(|v| {
                     if self.print_non_none && !v.is_none() {
-                        println!("{}", v);
+                        println!("{v}");
                     }
                     EvalResult {
                         messages: iter::empty(),
@@ -798,7 +798,7 @@ impl LspContext for BazelContext {
             self.get_repository_names()
                 .into_iter()
                 .map(|name| {
-                    let name_with_at = format!("@{}", name);
+                    let name_with_at = format!("@{name}");
                     let insert_text = format!("{}//", &name_with_at);
 
                     StringCompletionResult {

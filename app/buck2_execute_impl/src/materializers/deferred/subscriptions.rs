@@ -187,7 +187,7 @@ where
                     .subscriptions
                     .active
                     .get_mut(&index)
-                    .with_buck_error_context(|| format!("Invalid subscription: {}", index))
+                    .with_buck_error_context(|| format!("Invalid subscription: {index}"))
                     .unwrap();
 
                 for path in paths_to_report {
@@ -203,7 +203,7 @@ where
                     .subscriptions
                     .active
                     .get_mut(&index)
-                    .with_buck_error_context(|| format!("Invalid subscription: {}", index))
+                    .with_buck_error_context(|| format!("Invalid subscription: {index}"))
                     .unwrap();
 
                 for path in &paths {

@@ -175,7 +175,7 @@ mod tests {
         let expect_import = |cell, path| {
             let package = PackageLabel::testing_new(cell, path);
             match imports.get(package.dupe()) {
-                None => panic!("Should've had implicit import for {}", package),
+                None => panic!("Should've had implicit import for {package}"),
                 Some(v) => v,
             }
         };

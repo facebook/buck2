@@ -71,7 +71,7 @@ fn error_with_starlark_context(
 
                 // We want to keep the metadata but want to change the error message
                 let mut err = crate::Error::new(
-                    format!("{}", starlark_context),
+                    format!("{starlark_context}"),
                     root.error_tag(),
                     source_location,
                     action_error,
@@ -162,7 +162,7 @@ fn from_starlark_impl(
     let description = if skip_stacktrace {
         format!("{}", e.without_diagnostic())
     } else {
-        format!("{}", e)
+        format!("{e}")
     };
 
     match e.into_kind() {
@@ -284,7 +284,7 @@ mod tests {
         let e: crate::Error = e.into();
 
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-        assert!(format!("{:?}", e).contains("test context 123"));
+        assert!(format!("{e:?}").contains("test context 123"));
         assert_eq!(
             e.source_location().to_string(),
             "buck2_error/src/starlark_error.rs::FullMetadataError",
@@ -361,7 +361,7 @@ mod tests {
         };
 
         let starlark_err = error_with_starlark_context(&e, starlark_context);
-        let starlark_err_string = format!("{:#}", starlark_err);
+        let starlark_err_string = format!("{starlark_err:#}");
 
         assert!(starlark_err_string.contains(starlark_call_stack));
         assert!(starlark_err_string.contains(starlark_error_msg));

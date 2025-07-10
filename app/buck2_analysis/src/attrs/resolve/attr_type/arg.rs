@@ -87,7 +87,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
                             resolved_parts.push(ResolvedStringWithMacrosPart::Macro(
                                 *write_to_file,
                                 resolve_configured_macro(m, ctx, pkg).with_buck_error_context(
-                                    || format!("Error resolving `{}`.", part),
+                                    || format!("Error resolving `{part}`."),
                                 )?,
                             ));
                         }

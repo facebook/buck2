@@ -45,7 +45,7 @@ pub(crate) async fn upload_thread_dump(
         .await?;
 
     if command.status.success() {
-        let manifold_filename = format!("flat/{}_thread_dump", manifold_id);
+        let manifold_filename = format!("flat/{manifold_id}_thread_dump");
         buf_to_manifold(manifold, &command.stdout, manifold_filename).await
     } else {
         let stderr = &command.stderr;

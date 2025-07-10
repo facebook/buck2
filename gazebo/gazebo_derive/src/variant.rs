@@ -78,7 +78,7 @@ pub(crate) fn derive_unpack_variants(input: DeriveInput) -> syn::Result<proc_mac
             for field in variant.fields.iter() {
                 patterns.push(field.ident.clone().map_or_else(
                     || {
-                        let id = Ident::new(&format!("_v{}", count), Span::call_site());
+                        let id = Ident::new(&format!("_v{count}"), Span::call_site());
                         count += 1;
                         id
                     },

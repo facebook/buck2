@@ -312,7 +312,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         let mut entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
             .await
-            .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
+            .with_buck_error_context(|| format!("Error listing dir `{path}`"))?;
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -330,7 +330,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         let Some(metadata) = (&self.io as &dyn IoProvider)
             .read_path_metadata_if_exists(project_path)
             .await
-            .with_buck_error_context(|| format!("Error accessing metadata for path `{}`", path))?
+            .with_buck_error_context(|| format!("Error accessing metadata for path `{path}`"))?
         else {
             return Ok(None);
         };

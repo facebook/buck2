@@ -83,12 +83,11 @@ impl FileStatusResult<'_> {
         if fs != dice {
             writeln!(
                 self.stdout,
-                "MISMATCH: {} at {}: fs = {}, dice = {}",
-                kind, path, fs, dice,
+                "MISMATCH: {kind} at {path}: fs = {fs}, dice = {dice}",
             )?;
             self.bad += 1;
         } else if self.show_matches {
-            writeln!(self.stdout, "Match: {} at {}: {}", kind, path, fs)?;
+            writeln!(self.stdout, "Match: {kind} at {path}: {fs}")?;
         }
 
         Ok(())
@@ -103,7 +102,7 @@ impl fmt::Display for DirList {
         let mut comma = commas();
         for path in &self.0 {
             comma(f)?;
-            write!(f, "{}", path)?;
+            write!(f, "{path}")?;
         }
         Ok(())
     }
@@ -140,7 +139,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
 
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
-            writeln!(&mut stderr, "Check file status: {}", path)?;
+            writeln!(&mut stderr, "Check file status: {path}")?;
             check_file_status(&mut ctx, cell_resolver, io, &path, &mut result).await?;
         }
         if result.bad != 0 {

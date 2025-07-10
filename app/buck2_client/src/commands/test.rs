@@ -62,7 +62,7 @@ fn print_error_counter(
     if counter.count > 0 {
         console.print_error(&format!("{} {}", counter.count, error_type))?;
         for test_name in &counter.example_tests {
-            console.print_error(&format!("  {} {}", symbol, test_name))?;
+            console.print_error(&format!("  {symbol} {test_name}"))?;
         }
         if counter.count > counter.max {
             console.print_error(&format!(

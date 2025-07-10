@@ -211,9 +211,9 @@ impl BuildTargetResultBuilder {
             ConfiguredBuildEventVariant::Execution(execution_variant) => {
                 let is_err = {
                     let results = self.res.get_mut(label.as_ref())
-                        .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                        .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {label}"))?
                         .as_mut()
-                        .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?;
+                        .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{label}`"))?;
                     match execution_variant {
                         ConfiguredBuildEventExecutionVariant::Validation { result } => {
                             if let Err(e) = result {
@@ -237,16 +237,16 @@ impl BuildTargetResultBuilder {
             }
             ConfiguredBuildEventVariant::GraphProperties { graph_properties } => {
                 self.res.get_mut(label.as_ref())
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{}`", label))?
+                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{label}`"))?
                      .graph_properties = Some(graph_properties);
             }
             ConfiguredBuildEventVariant::Timeout => {
                 self.res.get_mut(label.as_ref())
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{}`", label))?
+                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?
                      .errors.push(buck2_error::Error::from(BuildDeadlineExpired));
                 // TODO(cjhopman): Why don't we break here?
                 self.build_failed = true;

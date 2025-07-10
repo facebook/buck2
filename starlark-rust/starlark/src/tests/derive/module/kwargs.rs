@@ -29,7 +29,7 @@ fn test_kwargs_module(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] b: bool,
         #[starlark(kwargs)] kwargs: SmallMap<String, u64>,
     ) -> anyhow::Result<String> {
-        Ok(format!("a={} b={} kwargs={:?}", a, b, kwargs))
+        Ok(format!("a={a} b={b} kwargs={kwargs:?}"))
     }
 
     fn pos_named_kwargs(
@@ -37,7 +37,7 @@ fn test_kwargs_module(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] b: bool,
         #[starlark(kwargs)] kwargs: SmallMap<String, u64>,
     ) -> anyhow::Result<String> {
-        Ok(format!("a={} b={} kwargs={:?}", a, b, kwargs))
+        Ok(format!("a={a} b={b} kwargs={kwargs:?}"))
     }
 }
 

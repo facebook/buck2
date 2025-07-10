@@ -52,7 +52,7 @@ impl BreakpointConsole for RealBreakpointConsole {
     }
 
     fn println(&mut self, line: &str) {
-        eprintln!("{}", line);
+        eprintln!("{line}");
     }
 }
 
@@ -182,7 +182,7 @@ fn breakpoint_loop(
                     let res = ast.and_then(|ast| eval.eval_statements(ast));
                     match res {
                         Err(e) => {
-                            rl.println(&format!("{:#}", e));
+                            rl.println(&format!("{e:#}"));
                         }
                         Ok(v) => {
                             if !v.is_none() {

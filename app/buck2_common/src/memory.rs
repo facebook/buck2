@@ -51,7 +51,7 @@ mod imp {
             ));
         }
 
-        eprintln!("dumping heap to: {:?}", filename);
+        eprintln!("dumping heap to: {filename:?}");
         memory::mallctl_write("prof.dump", filename)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         Ok(())

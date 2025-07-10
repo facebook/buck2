@@ -69,7 +69,7 @@ fn format_directory_entry_leaves(
         if count > MAX_COUNT {
             continue;
         }
-        result.push_str(&format!("{}{}: {}\n", TABULATION, path, digest));
+        result.push_str(&format!("{TABULATION}{path}: {digest}\n"));
     }
     if count > MAX_COUNT {
         result.push_str(&format!(

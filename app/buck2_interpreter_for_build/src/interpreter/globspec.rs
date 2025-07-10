@@ -54,7 +54,7 @@ impl GlobPattern {
     fn new(pattern: &str) -> buck2_error::Result<GlobPattern> {
         let parsed_pattern = glob::Pattern::new(pattern)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))
-            .with_buck_error_context(|| format!("Error creating globspec for `{}`", pattern))?;
+            .with_buck_error_context(|| format!("Error creating globspec for `{pattern}`"))?;
         if pattern.contains("//") {
             return Err(GlobError::DoubleSlash(pattern.to_owned()).into());
         }

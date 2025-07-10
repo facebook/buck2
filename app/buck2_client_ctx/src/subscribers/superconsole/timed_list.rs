@@ -94,7 +94,7 @@ impl TimedListBody<'_> {
         }
 
         if remaining_children > 0 {
-            write!(event_string, " + {}", remaining_children)
+            write!(event_string, " + {remaining_children}")
                 .expect("Write to String is not fallible");
         }
 
@@ -180,7 +180,7 @@ impl Component for TimedListBody<'_> {
         let more = roots.len() as u64 + first_not_rendered.map_or(0, |_| 1);
 
         if more > 0 {
-            let remaining = format!("... and {} more currently executing", more);
+            let remaining = format!("... and {more} more currently executing");
             builder.rows.push(
                 std::iter::once(Span::new_styled(remaining.italic())?)
                     .collect::<Line>()
@@ -377,7 +377,7 @@ mod tests {
             "----------------------------------------",
             "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
             "foo -- speak of the devil           1.0s",
-        ].iter().map(|l| format!("{}\n", l)).join("");
+        ].iter().map(|l| format!("{l}\n")).join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
@@ -465,7 +465,7 @@ mod tests {
             "<span italic>... and 2 more currently executing</span>",
         ]
         .iter()
-        .map(|l| format!("{}\n", l))
+        .map(|l| format!("{l}\n"))
         .join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -518,7 +518,7 @@ mod tests {
             let expected = [
                 "------------------------------------------------------------",
                 "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
-            ].iter().map(|l| format!("{}\n", l)).join("");
+            ].iter().map(|l| format!("{l}\n")).join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
         }
@@ -541,7 +541,7 @@ mod tests {
                 "<span italic>... and 1 more currently executing</span>",
             ]
             .iter()
-            .map(|l| format!("{}\n", l))
+            .map(|l| format!("{l}\n"))
             .join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -615,7 +615,7 @@ mod tests {
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
-        ].iter().map(|l| format!("{}\n", l)).join("");
+        ].iter().map(|l| format!("{l}\n")).join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
@@ -660,7 +660,7 @@ mod tests {
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
-        ].iter().map(|l| format!("{}\n", l)).join("");
+        ].iter().map(|l| format!("{l}\n")).join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 

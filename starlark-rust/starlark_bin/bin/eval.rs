@@ -264,7 +264,7 @@ impl Context {
             eval.eval_module(ast, &self.globals)
                 .map(|v| {
                     if self.print_non_none && !v.is_none() {
-                        println!("{}", v);
+                        println!("{v}");
                     }
                     EvalResult {
                         messages: iter::empty(),

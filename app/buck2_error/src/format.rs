@@ -64,16 +64,16 @@ pub(crate) fn into_anyhow_for_format(
             continue;
         }
         if let Some(ctx) = starlark_error {
-            out = out.context(format!("{}", ctx));
+            out = out.context(format!("{ctx}"));
             starlark_error = None;
         }
         if context.should_display() {
-            out = out.context(format!("{}", context));
+            out = out.context(format!("{context}"));
         }
     }
 
     if let Some(ctx) = starlark_error {
-        out = out.context(format!("{}", ctx));
+        out = out.context(format!("{ctx}"));
     }
     (out, was_late_formatted)
 }

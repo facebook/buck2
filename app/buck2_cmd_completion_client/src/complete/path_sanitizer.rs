@@ -113,9 +113,9 @@ impl PathSanitizer {
 
         if cell_name != cwd_cell_name || !self.is_normalized_path_and_in_cell(given, &cell_path) {
             let fixed_given = if given.ends_with('/') && cell_path.as_str() != "" {
-                format!("{}//{}/", cell_name, cell_path)
+                format!("{cell_name}//{cell_path}/")
             } else {
-                format!("{}//{}", cell_name, cell_path)
+                format!("{cell_name}//{cell_path}")
             };
             Ok(SanitizedPath {
                 given: fixed_given,
@@ -157,7 +157,7 @@ impl PathSanitizer {
             let corrected_cell_root = self.cell_abs_path(actual_cell)?;
             let corrected_cell_path = abs_path.strip_prefix(corrected_cell_root)?;
             Ok(SanitizedPath {
-                given: format!("{}//{}", actual_cell, corrected_cell_path),
+                given: format!("{actual_cell}//{corrected_cell_path}"),
                 abs_path,
                 cell_name: actual_cell,
             })

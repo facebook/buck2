@@ -545,7 +545,7 @@ pub fn insert_entry(
         let fixed_source_path = s
             .fix_source_path(path.as_ref())
             .with_buck_error_context(|| {
-                format!("Error locating source path for symlink at {}: {}", path, s)
+                format!("Error locating source path for symlink at {path}: {s}")
             })?;
         let path = ProjectRelativePath::unchecked_new(fixed_source_path.as_str());
         let entry = DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(
@@ -791,10 +791,10 @@ mod tests {
             let ((p1, e1), (p2, e2)) = match (n1, n2) {
                 (Some(n1), Some(n2)) => (n1, n2),
                 (Some((p1, _)), None) => {
-                    panic!("Walks differ, first difference at: {}", p1);
+                    panic!("Walks differ, first difference at: {p1}");
                 }
                 (None, Some((p2, _))) => {
-                    panic!("Walks differ, first difference at: {}", p2);
+                    panic!("Walks differ, first difference at: {p2}");
                 }
                 (None, None) => break,
             };
@@ -806,8 +806,7 @@ mod tests {
             assert_eq!(
                 e1.map_dir(|_| ()),
                 e2.map_dir(|_| ()),
-                "Walks differ at path {}",
-                p1
+                "Walks differ at path {p1}"
             );
         }
     }
@@ -936,7 +935,7 @@ mod tests {
             for p in &["d6/s4", "d6/f4", "d1/d2/d4", "f1"] {
                 let path = path(p);
                 let entry = find(root.as_ref(), path.as_forward_relative_path())?
-                    .with_buck_error_context(|| format!("Missing {}", path))?
+                    .with_buck_error_context(|| format!("Missing {path}"))?
                     .map_dir(|d| d.to_builder())
                     .map_leaf(|l| l.dupe());
                 insert_entry(&mut builder, path, entry)?;

@@ -168,7 +168,7 @@ pub(super) fn render_members<'a>(
     render_config: &TypeRenderConfig,
 ) -> String {
     let summary = render_doc_string(DSOpts::Combined, docs)
-        .map(|s| format!("\n\n{}", s))
+        .map(|s| format!("\n\n{s}"))
         .unwrap_or_default();
 
     let member_details = members
@@ -275,15 +275,15 @@ fn render_function_prototype(
     render_config: &TypeRenderConfig,
 ) -> String {
     let ret_type = raw_type_prefix(" -> ", &f.ret.typ, render_config);
-    let prefix = format!("def {}", function_name);
+    let prefix = format!("def {function_name}");
     let one_line_params = f.params.render_code(None, render_config);
-    let single_line_result = format!("{}({}){}", prefix, one_line_params, ret_type);
+    let single_line_result = format!("{prefix}({one_line_params}){ret_type}");
 
     if f.params.doc_params().count() > MAX_ARGS_BEFORE_MULTILINE
         || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
     {
         let chunked_params = f.params.render_code(Some("    "), render_config);
-        format!("{}(\n{}){}", prefix, chunked_params, ret_type)
+        format!("{prefix}(\n{chunked_params}){ret_type}")
     } else {
         single_line_result
     }

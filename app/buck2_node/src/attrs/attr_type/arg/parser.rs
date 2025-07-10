@@ -104,8 +104,7 @@ pub fn parse_macros(input: &str) -> buck2_error::Result<ParsedArg> {
         Ok((value, remaining)) => {
             assert!(
                 remaining.is_empty(),
-                "somehow had remaining stuff after a successful macro parse. Had `{}` remaining.",
-                remaining
+                "somehow had remaining stuff after a successful macro parse. Had `{remaining}` remaining."
             );
 
             Ok(value)
@@ -304,8 +303,7 @@ fn read_macro(input: &str) -> Result<ParsedMacro> {
     // We only take the leading `$(` so that error message point to that instead of the beginning of the type.
     let working = input.strip_prefix("$(").unwrap_or_else(|| {
         panic!(
-            "the caller should've ensure that we're actually at the start of a macro. Got `{}`",
-            input,
+            "the caller should've ensure that we're actually at the start of a macro. Got `{input}`",
         )
     });
     let (write_to_file, working) = match working.strip_prefix('@') {

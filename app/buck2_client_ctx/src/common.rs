@@ -240,8 +240,7 @@ impl CommonBuildConfigurationOptions {
             assert_eq!(
                 indices.len(),
                 collection.len(),
-                "indices len is not equal to collection len for flag `{}`",
-                name
+                "indices len is not equal to collection len for flag `{name}`"
             );
             indices.into_iter().zip(collection)
         }
@@ -450,14 +449,14 @@ impl<'a> BuckArgMatches<'a> {
     pub fn get_representative_config_flags(&self) -> Vec<String> {
         self.get_representative_config_flags_by_source()
             .map(|flags| match &flags.source {
-                Some(RepresentativeConfigFlagSource::ConfigFlag(v)) => format!("-c {}", v),
+                Some(RepresentativeConfigFlagSource::ConfigFlag(v)) => format!("-c {v}"),
                 Some(RepresentativeConfigFlagSource::ConfigFile(v)) => {
-                    format!("--config-file {}", v)
+                    format!("--config-file {v}")
                 }
                 Some(RepresentativeConfigFlagSource::ModeFile(v)) => v.clone(),
-                Some(RepresentativeConfigFlagSource::Modifier(v)) => format!("-m {}", v),
+                Some(RepresentativeConfigFlagSource::Modifier(v)) => format!("-m {v}"),
                 Some(RepresentativeConfigFlagSource::TargetPlatforms(v)) => {
-                    format!("--target-platforms {}", v)
+                    format!("--target-platforms {v}")
                 }
                 None => unreachable!("impossible flag"),
             })

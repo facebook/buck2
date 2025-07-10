@@ -39,7 +39,7 @@ fn print_location_string(
     location: &LegacyBuckConfigLocation,
     keyword: &str,
 ) -> buck2_error::Result<()> {
-    writeln!(writer, "  ({} {})", keyword, location)?;
+    writeln!(writer, "  ({keyword} {location})")?;
     Ok(())
 }
 

@@ -130,7 +130,7 @@ impl Display for TyStruct {
             "struct(",
             ")",
             display_container::iter_display_chain(
-                fields.iter().map(|(k, v)| format!("{} = {}", k, v)),
+                fields.iter().map(|(k, v)| format!("{k} = {v}")),
                 extra.then_some(".."),
             ),
         )

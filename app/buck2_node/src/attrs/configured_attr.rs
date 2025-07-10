@@ -111,7 +111,7 @@ impl AttrSerializeWithContext for ConfiguredAttr {
     {
         // TODO this is inefficient. We should impl Serialize and derive value from this instead.
         self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
             .serialize(s)
     }
 }
@@ -120,10 +120,10 @@ impl AttrDisplayWithContext for ConfiguredAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ConfiguredAttr::Bool(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             ConfiguredAttr::Int(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => {
                 AttrDisplayWithContext::fmt(v, ctx, f)
@@ -138,16 +138,16 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             ConfiguredAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             ConfiguredAttr::TransitionDep(e) => Display::fmt(e, f),
-            ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
-            ConfiguredAttr::PluginDep(e, _) => write!(f, "\"{}\"", e),
-            ConfiguredAttr::Dep(e) => write!(f, "\"{}\"", e),
-            ConfiguredAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
-            ConfiguredAttr::Label(e) => write!(f, "\"{}\"", e),
-            ConfiguredAttr::Arg(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{e}\""),
+            ConfiguredAttr::PluginDep(e, _) => write!(f, "\"{e}\""),
+            ConfiguredAttr::Dep(e) => write!(f, "\"{e}\""),
+            ConfiguredAttr::SourceLabel(e) => write!(f, "\"{e}\""),
+            ConfiguredAttr::Label(e) => write!(f, "\"{e}\""),
+            ConfiguredAttr::Arg(e) => write!(f, "\"{e}\""),
             ConfiguredAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
             ConfiguredAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
-            ConfiguredAttr::Metadata(m) => write!(f, "{}", m),
-            ConfiguredAttr::TargetModifiers(m) => write!(f, "{}", m),
+            ConfiguredAttr::Metadata(m) => write!(f, "{m}"),
+            ConfiguredAttr::TargetModifiers(m) => write!(f, "{m}"),
         }
     }
 }

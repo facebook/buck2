@@ -57,7 +57,7 @@ impl<'a> CompletionResults<'a> {
         } else if nickname.ends_with('/') {
             self.insert(nickname);
         } else {
-            self.insert(&format!("{}/", nickname));
+            self.insert(&format!("{nickname}/"));
             self.insert_package_colon_if_buildfile_exists(abs_dir, nickname)
                 .await;
         }
@@ -71,7 +71,7 @@ impl<'a> CompletionResults<'a> {
     ) -> &mut Self {
         for f in self.buildfile_names(abs_dir).await.unwrap() {
             if let Ok(true) = fs_util::try_exists(abs_dir.join(f)) {
-                self.insert(&format!("{}:", nickname));
+                self.insert(&format!("{nickname}:"));
                 break;
             }
         }

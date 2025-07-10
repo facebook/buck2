@@ -55,7 +55,7 @@ impl Display for CallStack {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.frames.is_empty() {
             // Match Python output.
-            writeln!(f, "{}", CALL_STACK_TRACEBACK_PREFIX)?;
+            writeln!(f, "{CALL_STACK_TRACEBACK_PREFIX}")?;
             // TODO(nga): use real module name.
             let mut prev = "<module>";
             for x in &self.frames {

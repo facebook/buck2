@@ -42,7 +42,7 @@ impl Display for ConfiguredTargetLabel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", self.target, self.cfg())?;
         if let Some(exec_cfg) = self.exec_cfg() {
-            write!(f, " ({})", exec_cfg)?;
+            write!(f, " ({exec_cfg})")?;
         }
         Ok(())
     }

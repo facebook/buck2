@@ -512,7 +512,7 @@ pub struct CasDigest<Kind: CasDigestKind> {
 
 impl<Kind: CasDigestKind> fmt::Debug for CasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 

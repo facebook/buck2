@@ -208,9 +208,7 @@ impl LocalExecutor {
 
                     gather_output(cmd, cancellation).await
                 }
-                .with_buck_error_context(|| {
-                    format!("Failed to gather output from command: {}", exe)
-                }),
+                .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
             }
         }
     }
@@ -608,7 +606,7 @@ impl LocalExecutor {
                 self.artifact_fs.fs().root(),
             )
             .await
-            .with_buck_error_context(|| format!("collecting output {:?}", path))?;
+            .with_buck_error_context(|| format!("collecting output {path:?}"))?;
             total_hashing_time += hashing_info.hashing_duration;
             total_hashed_outputs += hashing_info.hashed_artifacts_count;
             if let Some(entry) = entry {
@@ -1326,12 +1324,12 @@ mod tests {
 
         if cfg!(windows) {
             let lines: Vec<&str> = stdout.split("\r\n").collect();
-            let expected_path = format!("{}", root);
+            let expected_path = format!("{root}");
 
             assert_eq!(lines[3], expected_path);
             assert_eq!(lines[4], expected_path);
         } else {
-            assert_eq!(stdout, format!("{}\n{}\n", root, root));
+            assert_eq!(stdout, format!("{root}\n{root}\n"));
         }
 
         Ok(())

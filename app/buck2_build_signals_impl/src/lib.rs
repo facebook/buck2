@@ -139,17 +139,17 @@ impl NodeKey {
 impl fmt::Display for NodeKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::BuildKey(k) => write!(f, "BuildKey({})", k),
-            Self::AnalysisKey(k) => write!(f, "AnalysisKey({})", k),
-            Self::EnsureProjectedArtifactKey(k) => write!(f, "EnsureProjectedArtifactKey({})", k),
+            Self::BuildKey(k) => write!(f, "BuildKey({k})"),
+            Self::AnalysisKey(k) => write!(f, "AnalysisKey({k})"),
+            Self::EnsureProjectedArtifactKey(k) => write!(f, "EnsureProjectedArtifactKey({k})"),
             Self::EnsureTransitiveSetProjectionKey(k) => {
-                write!(f, "EnsureTransitiveSetProjectionKey({})", k)
+                write!(f, "EnsureTransitiveSetProjectionKey({k})")
             }
-            Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
-            Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
-            Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({})", k),
-            Self::TestExecution(k) => write!(f, "TestExecution({:?})", k),
-            Self::TestListing(k) => write!(f, "TestListing({:?})", k),
+            Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({k})"),
+            Self::PackageListingKey(k) => write!(f, "PackageListingKey({k})"),
+            Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({k})"),
+            Self::TestExecution(k) => write!(f, "TestExecution({k:?})"),
+            Self::TestListing(k) => write!(f, "TestListing({k:?})"),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
         }
     }

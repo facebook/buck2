@@ -39,7 +39,7 @@ impl Html {
 
             let html_out = output_format(graph)?;
             let mut cursor = &mut Cursor::new(html_out.as_bytes());
-            let manifold_path = format!("flat/{}-graph.html", trace_id);
+            let manifold_path = format!("flat/{trace_id}-graph.html");
             let manifold = ManifoldClient::new().await?;
 
             manifold
@@ -51,8 +51,7 @@ impl Html {
                 )
                 .await?;
             res = format!(
-                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{} (requires VPN/lighthouse)\n",
-                manifold_path
+                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{manifold_path} (requires VPN/lighthouse)\n"
             );
         }
         #[cfg(not(fbcode_build))]
@@ -61,7 +60,7 @@ impl Html {
             res = "Not implemented".to_owned();
         }
 
-        writeln!(w, "{}", res)?;
+        writeln!(w, "{res}")?;
         Ok(())
     }
 }

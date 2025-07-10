@@ -85,7 +85,7 @@ fn truncate_invocation_record(invocation_record: &mut buck2_data::InvocationReco
             invocation_record.cli_args.truncate(index);
             invocation_record
                 .cli_args
-                .push(format!("<<Truncated (reported {} / {})>>", index, orig_len));
+                .push(format!("<<Truncated (reported {index} / {orig_len})>>"));
             break;
         }
     }
@@ -160,8 +160,7 @@ fn truncate_file_watcher_stats(file_watcher_stats: &mut buck2_data::FileWatcherS
         if bytes > MAX_FILE_CHANGE_BYTES {
             file_watcher_stats.events.truncate(index);
             file_watcher_stats.incomplete_events_reason = Some(format!(
-                "Too long file change records ({} bytes, max {} bytes)",
-                bytes, MAX_FILE_CHANGE_BYTES
+                "Too long file change records ({bytes} bytes, max {MAX_FILE_CHANGE_BYTES} bytes)"
             ));
             break;
         }
@@ -177,7 +176,7 @@ fn truncate_test_end(test_end: &mut buck2_data::TestRunEnd) {
             bytes += test_name.len();
             if bytes > MAX_TEST_NAMES_BYTES {
                 suite.test_names.truncate(index);
-                let warn = format!("<<Truncated (reported {} / {})>>", index, orig_len);
+                let warn = format!("<<Truncated (reported {index} / {orig_len})>>");
                 suite.test_names.push(warn);
                 break;
             }
@@ -219,7 +218,7 @@ fn truncate_target_patterns(target_patterns: &mut Vec<buck2_data::TargetPattern>
         bytes += target.value.len();
         if bytes > MAX_TARGET_PATTERNS_BYTES {
             target_patterns.truncate(index);
-            let warn = format!("<<Truncated (reported {} / {})>>", index, orig_len);
+            let warn = format!("<<Truncated (reported {index} / {orig_len})>>");
             target_patterns.push(buck2_data::TargetPattern { value: warn });
             break;
         }

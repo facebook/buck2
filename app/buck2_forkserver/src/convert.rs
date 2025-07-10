@@ -57,7 +57,7 @@ where
     }
 
     fn convert_err(e: buck2_error::Error) -> tonic::Status {
-        tonic::Status::unknown(format!("{:#}", e))
+        tonic::Status::unknown(format!("{e:#}"))
     }
 
     s.map(|r| r.map(convert_event).map_err(convert_err))

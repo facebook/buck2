@@ -160,7 +160,7 @@ fn resolve_and_expand_argfile(
     cwd: &AbsWorkingDir,
 ) -> buck2_error::Result<()> {
     let flagfile = resolve_flagfile(path, context, cwd)
-        .with_buck_error_context(|| format!("Error resolving flagfile `{}`", path))?;
+        .with_buck_error_context(|| format!("Error resolving flagfile `{path}`"))?;
     let flagfile_lines = expand_argfile_contents(context, &flagfile)?;
     expanded.argfile_scope(flagfile, |expanded| {
         expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
@@ -352,8 +352,7 @@ mod tests {
             context.resolve_argfile_kind(fs_util::canonicalize(external_mode_file)?, None)?;
         assert!(
             matches!(kind, ArgFileKind::Path(ArgFilePath::External(_))),
-            "{:?}",
-            kind
+            "{kind:?}"
         );
 
         let kind = context.resolve_argfile_kind(
@@ -362,8 +361,7 @@ mod tests {
         )?;
         assert!(
             matches!(kind, ArgFileKind::Path(ArgFilePath::Project(_))),
-            "{:?}",
-            kind
+            "{kind:?}"
         );
 
         let kind = context.resolve_argfile_kind(
@@ -374,8 +372,7 @@ mod tests {
         )?;
         assert!(
             matches!(kind, ArgFileKind::Path(ArgFilePath::Project(_))),
-            "{:?}",
-            kind
+            "{kind:?}"
         );
 
         Ok(())

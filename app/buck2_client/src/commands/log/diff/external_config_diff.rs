@@ -36,7 +36,7 @@ fn insert_config_value(dict: &mut BTreeMap<String, String>, config: &buck2_data:
     let config_cell = config
         .cell
         .clone()
-        .map_or(PROJECT_ROOT.to_owned(), |cell| format!("({})", cell));
+        .map_or(PROJECT_ROOT.to_owned(), |cell| format!("({cell})"));
     dict.insert(
         format!(
             "{}{}.{}",
@@ -137,9 +137,9 @@ impl Display for DiffType<'_> {
                 key,
                 old_value,
                 new_value,
-            } => write!(f, "{}: {} | {}", key, old_value, new_value),
-            DiffType::FirstOnly { key, value } => write!(f, "{}: {} | _", key, value),
-            DiffType::SecondOnly { key, value } => write!(f, "{}: _ | {}", key, value),
+            } => write!(f, "{key}: {old_value} | {new_value}"),
+            DiffType::FirstOnly { key, value } => write!(f, "{key}: {value} | _"),
+            DiffType::SecondOnly { key, value } => write!(f, "{key}: _ | {value}"),
         }
     }
 }

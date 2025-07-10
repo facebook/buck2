@@ -39,7 +39,7 @@ impl FromStr for TDigest {
 
         let matches = DIGEST_RE
             .captures(digest)
-            .with_context(|| format!("Digest format not valid: {}", digest))?;
+            .with_context(|| format!("Digest format not valid: {digest}"))?;
         Ok(TDigest {
             hash: matches[1].to_string(),
             size_in_bytes: matches[2].parse::<i64>().with_context(|| {

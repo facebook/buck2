@@ -440,7 +440,7 @@ where
     S: Serializer,
 {
     match v {
-        Some((v, u)) => s.serialize_some(&(format!("{}", v), u)),
+        Some((v, u)) => s.serialize_some(&(format!("{v}"), u)),
         None => s.serialize_none(),
     }
 }
@@ -739,10 +739,8 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             .internal_error("origin::resolve")?;
         for _ in 0..parent {
             if !relative_path.pop() {
-                return Err(CommandLineArgError::TooManyParentCalls).buck_error_context(format!(
-                    "Error accessing {}-th parent of {}",
-                    parent, origin
-                ));
+                return Err(CommandLineArgError::TooManyParentCalls)
+                    .buck_error_context(format!("Error accessing {parent}-th parent of {origin}"));
             }
         }
 

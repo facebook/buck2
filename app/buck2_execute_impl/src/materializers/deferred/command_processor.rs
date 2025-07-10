@@ -181,13 +181,12 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MaterializerCommand::GetMaterializedFilePaths(paths, _) => {
-                write!(f, "GetMaterializedFilePaths({:?}, _)", paths,)
+                write!(f, "GetMaterializedFilePaths({paths:?}, _)",)
             }
             MaterializerCommand::DeclareExisting(paths, current_span, trace_id) => {
                 write!(
                     f,
-                    "DeclareExisting({:?}, {:?}, {:?})",
-                    paths, current_span, trace_id
+                    "DeclareExisting({paths:?}, {current_span:?}, {trace_id:?})"
                 )
             }
             MaterializerCommand::Declare(
@@ -195,20 +194,20 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 method,
                 _dispatcher,
             ) => {
-                write!(f, "Declare({:?}, {:?}, {:?})", path, artifact, method,)
+                write!(f, "Declare({path:?}, {artifact:?}, {method:?})",)
             }
             MaterializerCommand::MatchArtifacts(paths, _) => {
-                write!(f, "MatchArtifacts({:?})", paths)
+                write!(f, "MatchArtifacts({paths:?})")
             }
             MaterializerCommand::HasArtifact(path, _) => {
-                write!(f, "HasArtifact({:?})", path)
+                write!(f, "HasArtifact({path:?})")
             }
             MaterializerCommand::InvalidateFilePaths(paths, ..) => {
-                write!(f, "InvalidateFilePaths({:?})", paths)
+                write!(f, "InvalidateFilePaths({paths:?})")
             }
-            MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
-            MaterializerCommand::Subscription(op) => write!(f, "Subscription({:?})", op,),
-            MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
+            MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({paths:?}, _)",),
+            MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
+            MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
         }
     }
@@ -459,13 +458,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         while let Some(op) = stream.next().await {
             match op {
                 Op::Command(command) => {
-                    self.log_buffer.push(format!("{:?}", command));
+                    self.log_buffer.push(format!("{command:?}"));
                     self.process_one_command(command);
                     counters.ack_received();
                     self.flush_access_times(access_time_update_max_buffer_size);
                 }
                 Op::LowPriorityCommand(command) => {
-                    self.log_buffer.push(format!("{:?}", command));
+                    self.log_buffer.push(format!("{command:?}"));
                     self.process_one_low_priority_command(command);
                     counters.ack_received();
                 }
@@ -1013,7 +1012,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Ok(res) => res,
             Err(e) => Some(
                 future::err(SharedMaterializingError::Error(
-                    e.context(format!("materializing {}", stack)).into(),
+                    e.context(format!("materializing {stack}")).into(),
                 ))
                 .boxed()
                 .shared(),
@@ -1382,7 +1381,7 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            soft_error!(error_name, e.context(format!("{}", log_buffer)).into(), quiet: true)
+            soft_error!(error_name, e.context(format!("{log_buffer}")).into(), quiet: true)
                 .unwrap();
         }
     }

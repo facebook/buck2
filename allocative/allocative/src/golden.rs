@@ -53,7 +53,7 @@ fn make_golden<T: Allocative>(value: &T) -> (String, String) {
         header = golden_header()
             .lines()
             .fold(String::new(), |mut output, line| {
-                let _ = writeln!(output, "# {}", line);
+                let _ = writeln!(output, "# {line}");
                 output
             })
     );

@@ -232,7 +232,7 @@ fn read_config_and_report_deprecated(
         let prop = transform_logview_category(key.property);
 
         soft_error!(
-            format!("deprecated_config_{}_{}", section, prop).as_str(),
+            format!("deprecated_config_{section}_{prop}").as_str(),
             DeprecatedConfigError(property, msg).into(),
             quiet: true
         )?;

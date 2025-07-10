@@ -80,7 +80,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
             Captured::Yes => "&",
             Captured::No => "",
         };
-        write!(r, "{}:{}{}{}", i, slot, assign_count, captured).unwrap();
+        write!(r, "{i}:{slot}{assign_count}{captured}").unwrap();
     }
 
     write!(r, " |").unwrap();

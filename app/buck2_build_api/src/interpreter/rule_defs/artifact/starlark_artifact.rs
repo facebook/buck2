@@ -96,10 +96,10 @@ impl Display for StarlarkArtifact {
         // Historically this has used the full path whereas everything uses the short path.
         self.artifact
             .get_path()
-            .with_full_path(|p| write!(f, "{}", p))?;
+            .with_full_path(|p| write!(f, "{p}"))?;
 
         if let Some(owner) = self.artifact.owner() {
-            write!(f, " bound to {}", owner)?;
+            write!(f, " bound to {owner}")?;
         }
 
         write!(f, ">")?;

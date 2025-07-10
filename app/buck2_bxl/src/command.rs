@@ -634,7 +634,7 @@ mod tests {
     use super::*;
 
     fn new_test_artifact_group(id: u32) -> ArtifactGroup {
-        let path = format!("a{}", id);
+        let path = format!("a{id}");
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let build_artifact = BuildArtifact::testing_new(target.dupe(), &path, ActionIndex::new(id));

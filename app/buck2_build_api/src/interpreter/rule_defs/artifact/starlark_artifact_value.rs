@@ -109,11 +109,11 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
 
     fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let path = this.fs.resolve(&this.path);
-        let file = File::open(&path)
-            .with_buck_error_context(|| format!("Error opening file `{}`", path))?;
+        let file =
+            File::open(&path).with_buck_error_context(|| format!("Error opening file `{path}`"))?;
         let reader = BufReader::new(file);
         let value: serde_json::Value = serde_json::from_reader(reader)
-            .with_buck_error_context(|| format!("Error parsing JSON file `{}`", path))?;
+            .with_buck_error_context(|| format!("Error parsing JSON file `{path}`"))?;
         json_convert(value, heap)
     }
 }

@@ -74,7 +74,7 @@ impl VersionedGraphNode {
                 }
             }
             VersionedGraphNode::Injected(e) => {
-                panic!("injected keys don't get invalidated (`{:?}`)", e)
+                panic!("injected keys don't get invalidated (`{e:?}`)")
             }
         }
     }
@@ -93,10 +93,10 @@ impl VersionedGraphNode {
                 }
             }
             VersionedGraphNode::Vacant(e) => {
-                panic!("vacant nodes shouldn't get invalidated (`{:?}`)", e)
+                panic!("vacant nodes shouldn't get invalidated (`{e:?}`)")
             }
             VersionedGraphNode::Injected(e) => {
-                panic!("injected keys don't get invalidated (`{:?}`)", e)
+                panic!("injected keys don't get invalidated (`{e:?}`)")
             }
         }
     }

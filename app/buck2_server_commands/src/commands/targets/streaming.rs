@@ -348,7 +348,7 @@ fn stream_packages<T: PatternType>(
 enum TargetsError {
     #[error(
         "Unknown targets {} from package `{0}`.",
-        _1.iter().map(|x| format!("`{}`", x)).join(", ")
+        _1.iter().map(|x| format!("`{x}`")).join(", ")
     )]
     MissingTargets(PackageLabel, Vec<TargetName>),
 }

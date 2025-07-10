@@ -434,7 +434,7 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
         s => {
             return Err(syn::Error::new(
                 arg.span,
-                format!("Unexpected source {:?} (internal error)", s),
+                format!("Unexpected source {s:?} (internal error)"),
             ));
         }
     };

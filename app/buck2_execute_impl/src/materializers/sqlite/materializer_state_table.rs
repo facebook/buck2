@@ -441,7 +441,7 @@ fn digest(
     let entry_hash_kind = entry_hash_kind
         .try_into()
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-        .with_buck_error_context(|| format!("Invalid entry_hash_kind: `{}`", entry_hash_kind))?;
+        .with_buck_error_context(|| format!("Invalid entry_hash_kind: `{entry_hash_kind}`"))?;
 
     let file_digest = FileDigest::from_digest_bytes(entry_hash_kind, &entry_hash, size)?;
     Ok(TrackedFileDigest::new(
@@ -514,9 +514,9 @@ impl MaterializerStateSqliteTable {
 
     pub(crate) fn create_table(&self) -> buck2_error::Result<()> {
         let sql = format!(
-            "CREATE TABLE {table_name} (
+            "CREATE TABLE {STATE_TABLE_NAME} (
                 path                    TEXT NOT NULL PRIMARY KEY,
-                artifact_type           TEXT CHECK(artifact_type IN ('{artifact_type_directory}','{artifact_type_file}','{artifact_type_symlink}','{artifact_type_external_symlink}')) NOT NULL,
+                artifact_type           TEXT CHECK(artifact_type IN ('{ARTIFACT_TYPE_DIRECTORY}','{ARTIFACT_TYPE_FILE}','{ARTIFACT_TYPE_SYMLINK}','{ARTIFACT_TYPE_EXTERNAL_SYMLINK}')) NOT NULL,
                 digest_size             INTEGER NULL DEFAULT NULL,
                 entry_hash              BLOB NULL DEFAULT NULL,
                 entry_hash_kind         INTEGER NULL DEFAULT NULL,
@@ -526,17 +526,12 @@ impl MaterializerStateSqliteTable {
                 directory_size          INTEGER NULL DEFAULT NULL,
                 parent_path             TEXT NULL DEFAULT NULL
             )",
-            table_name = STATE_TABLE_NAME,
-            artifact_type_directory = ARTIFACT_TYPE_DIRECTORY,
-            artifact_type_file = ARTIFACT_TYPE_FILE,
-            artifact_type_symlink = ARTIFACT_TYPE_SYMLINK,
-            artifact_type_external_symlink = ARTIFACT_TYPE_EXTERNAL_SYMLINK,
         );
         tracing::trace!(sql = %*sql, "creating table");
         self.connection
             .lock()
             .execute(&sql, [])
-            .with_buck_error_context(|| format!("creating sqlite table {}", STATE_TABLE_NAME))?;
+            .with_buck_error_context(|| format!("creating sqlite table {STATE_TABLE_NAME}"))?;
         self.create_parent_path_index()?;
         Ok(())
     }
@@ -544,16 +539,15 @@ impl MaterializerStateSqliteTable {
     // Index is useful for faster removals
     fn create_parent_path_index(&self) -> buck2_error::Result<()> {
         let sql = format!(
-            "CREATE INDEX {table_name}_index ON {table_name} (
+            "CREATE INDEX {STATE_TABLE_NAME}_index ON {STATE_TABLE_NAME} (
                 parent_path
             )",
-            table_name = STATE_TABLE_NAME,
         );
         tracing::trace!(sql = %*sql, "creating index");
         self.connection
             .lock()
             .execute(&sql, [])
-            .with_buck_error_context(|| format!("creating index on {}", STATE_TABLE_NAME))?;
+            .with_buck_error_context(|| format!("creating index on {STATE_TABLE_NAME}"))?;
         Ok(())
     }
 
@@ -566,8 +560,7 @@ impl MaterializerStateSqliteTable {
         let entries = convert_artifact_metadata_to_sqlite_entries(path, metadata, &timestamp);
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
-                "INSERT INTO {} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                STATE_TABLE_NAME
+                "INSERT INTO {STATE_TABLE_NAME} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
             )
         });
         let mut conn = self.connection.lock();
@@ -590,10 +583,7 @@ impl MaterializerStateSqliteTable {
                 ],
             )
             .with_buck_error_context(|| {
-                format!(
-                    "inserting `{}` into sqlite table {}",
-                    path, STATE_TABLE_NAME
-                )
+                format!("inserting `{path}` into sqlite table {STATE_TABLE_NAME}")
             })?;
         }
         tx.commit()?;
@@ -615,9 +605,7 @@ impl MaterializerStateSqliteTable {
             );
             tracing::trace!(sql = %sql, chunk = ?chunk, "updating last_access_times");
             tx.execute(&sql, rusqlite::params_from_iter(chunk.map(|p| p.as_str())))
-                .with_buck_error_context(|| {
-                    format!("updating sqlite table {}", STATE_TABLE_NAME)
-                })?;
+                .with_buck_error_context(|| format!("updating sqlite table {STATE_TABLE_NAME}"))?;
         }
         tx.commit()?;
         Ok(())
@@ -628,7 +616,7 @@ impl MaterializerStateSqliteTable {
         digest_config: DigestConfig,
     ) -> buck2_error::Result<MaterializerState> {
         let entries = self.read_all_entries().with_buck_error_context(|| {
-            format!("error reading row of sqlite table {}", STATE_TABLE_NAME)
+            format!("error reading row of sqlite table {STATE_TABLE_NAME}")
         })?;
         convert_sqlite_entries_to_materializer_state(entries, digest_config)
     }
@@ -636,8 +624,7 @@ impl MaterializerStateSqliteTable {
     fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry>> {
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
-                "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path FROM {}",
-                STATE_TABLE_NAME,
+                "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path FROM {STATE_TABLE_NAME}",
             )
         });
         tracing::trace!(sql = %*SQL, "reading all from table");
@@ -658,7 +645,7 @@ impl MaterializerStateSqliteTable {
             ))
         })?
         .collect::<Result<Vec<_>, _>>()
-        .with_buck_error_context(|| format!("reading from sqlite table {}", STATE_TABLE_NAME))
+        .with_buck_error_context(|| format!("reading from sqlite table {STATE_TABLE_NAME}"))
     }
 
     pub(crate) fn delete(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<usize> {
@@ -689,10 +676,7 @@ impl MaterializerStateSqliteTable {
                     rusqlite::params_from_iter(paths.iter().map(|p| p.as_str())),
                 )
                 .with_buck_error_context(|| {
-                    format!(
-                        "deleting artifact rows from sqlite table {}",
-                        STATE_TABLE_NAME
-                    )
+                    format!("deleting artifact rows from sqlite table {STATE_TABLE_NAME}")
                 })
         }
 
@@ -718,8 +702,7 @@ impl MaterializerStateSqliteTable {
                 )
                 .with_buck_error_context(|| {
                     format!(
-                        "deleting directory artifact members from sqlite table {}",
-                        STATE_TABLE_NAME
+                        "deleting directory artifact members from sqlite table {STATE_TABLE_NAME}"
                     )
                 })
         }
@@ -963,7 +946,7 @@ mod tests {
         // Sqlite has limits on how many variables you can use at once. Check we don't run into
         // those.
         let paths = (0..50000)
-            .map(|i| ProjectRelativePathBuf::unchecked_new(format!("foo/{}", i)))
+            .map(|i| ProjectRelativePathBuf::unchecked_new(format!("foo/{i}")))
             .collect();
 
         table.delete(paths)?;

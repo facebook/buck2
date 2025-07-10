@@ -34,7 +34,7 @@ fn expected_version() -> String {
             return version.to_owned();
         }
     }
-    panic!("could not find rust-toolchain version in `{}`", path);
+    panic!("could not find rust-toolchain version in `{path}`");
 }
 
 fn check_rustc_version() {
@@ -42,9 +42,9 @@ fn check_rustc_version() {
     let actual = rustc_version();
     if actual != expected {
         panic!(
-            "buck2 only works with version `{}` of rustc, but you are using `{}`. \
-            Correct version is installed automatically when `rustup` is used",
-            expected, actual
+            "buck2 only works with version `{expected}` of rustc, but you are \
+            using `{actual}`. Correct version is installed automatically when \
+            `rustup` is used",
         );
     }
 }

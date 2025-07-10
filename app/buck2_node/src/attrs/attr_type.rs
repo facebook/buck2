@@ -126,12 +126,12 @@ impl AttrType {
         default: Option<&str>,
     ) -> fmt::Result {
         let mut attr = |s| match default {
-            None => write!(f, "attrs.{}()", s),
-            Some(default) => write!(f, "attrs.{}(default={})", s, default),
+            None => write!(f, "attrs.{s}()"),
+            Some(default) => write!(f, "attrs.{s}(default={default})"),
         };
         let arg = || match default {
             None => String::new(),
-            Some(x) => format!(", default={}", x),
+            Some(x) => format!(", default={x}"),
         };
 
         match &self.0.inner {

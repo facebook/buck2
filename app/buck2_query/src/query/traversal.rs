@@ -187,7 +187,7 @@ pub async fn async_depth_limited_traversal<
         if let Err(mut e) = result {
             let mut target = target;
             while let Some(Some(parent)) = visited.get(&target) {
-                e = e.context(format!("Error traversing children of {}", parent));
+                e = e.context(format!("Error traversing children of {parent}"));
                 target = parent.clone();
             }
             return Err(e);

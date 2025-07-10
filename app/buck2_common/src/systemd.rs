@@ -115,7 +115,7 @@ impl SystemdRunner {
         ];
 
         if let Some(memory_max) = &config.memory_max {
-            args.push(format!("--property=MemoryMax={}", memory_max));
+            args.push(format!("--property=MemoryMax={memory_max}"));
             // Without setting `MemorySwapMax`, the process starts using swap until it's
             // filled when the total memory usage reaches to `MemoryMax`. This may seem
             // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
@@ -133,11 +133,11 @@ impl SystemdRunner {
 
         match &config.parent_slice {
             ParentSlice::Inherit(slice) => {
-                args.push(format!("--slice={}", slice));
+                args.push(format!("--slice={slice}"));
                 args.push("--slice-inherit".to_owned());
             }
             ParentSlice::Root(slice) => {
-                args.push(format!("--slice={}", slice));
+                args.push(format!("--slice={slice}"));
             }
         }
         Self {
@@ -192,8 +192,8 @@ impl SystemdRunner {
     ) -> std::process::Command {
         let mut cmd = process::background_command("systemd-run");
         cmd.args(&self.fixed_systemd_args);
-        cmd.arg(format!("--working-directory={}", working_directory))
-            .arg(format!("--unit={}", unit_name));
+        cmd.arg(format!("--working-directory={working_directory}"))
+            .arg(format!("--unit={unit_name}"));
         cmd.arg(program);
         cmd
     }
@@ -206,7 +206,7 @@ impl SystemdRunner {
         cmd.arg("--user");
         cmd.arg("set-property");
         cmd.arg(slice);
-        cmd.arg(format!("MemoryMax={}", memory_limit));
+        cmd.arg(format!("MemoryMax={memory_limit}"));
         cmd.arg("MemorySwapMax=0");
         cmd.arg("ManagedOOMMemoryPressure=kill");
         let result = cmd.output().await?;

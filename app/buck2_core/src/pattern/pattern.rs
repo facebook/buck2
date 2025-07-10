@@ -310,10 +310,7 @@ impl<T: PatternType> ParsedPattern<T> {
             pattern,
         )
         .with_buck_error_context(|| {
-            format!(
-                "Invalid absolute target pattern `{}` is not allowed",
-                pattern
-            )
+            format!("Invalid absolute target pattern `{pattern}` is not allowed")
         })?;
 
         Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
@@ -335,9 +332,7 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| {
-            format!("Invalid target pattern `{}` is not allowed", pattern)
-        })?;
+        .with_buck_error_context(|| format!("Invalid target pattern `{pattern}` is not allowed"))?;
 
         Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
@@ -371,7 +366,7 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))?;
+        .with_buck_error_context(|| format!("Parsing target pattern `{pattern}`"))?;
 
         Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
@@ -423,9 +418,9 @@ impl<T: PatternType> Display for ParsedPattern<T> {
             }
             ParsedPattern::Recursive(path) => {
                 if path.path().is_empty() {
-                    write!(f, "{}...", path)
+                    write!(f, "{path}...")
                 } else {
-                    write!(f, "{}/...", path)
+                    write!(f, "{path}/...")
                 }
             }
         }
@@ -455,10 +450,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             pattern,
         )
         .with_buck_error_context(|| {
-            format!(
-                "Invalid absolute target pattern `{}` is not allowed",
-                pattern
-            )
+            format!("Invalid absolute target pattern `{pattern}` is not allowed")
         })
     }
 
@@ -484,7 +476,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))
+        .with_buck_error_context(|| format!("Parsing target pattern `{pattern}`"))
     }
 
     pub fn parse_not_relaxed(
@@ -503,7 +495,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| format!("Invalid target pattern `{}` is not allowed", pattern))
+        .with_buck_error_context(|| format!("Invalid target pattern `{pattern}` is not allowed"))
     }
 }
 
@@ -1364,10 +1356,10 @@ mod tests {
     fn fails<R>(x: buck2_error::Result<R>, msgs: &[&str]) {
         match x {
             Err(e) => {
-                let s = format!("{:#}", e);
+                let s = format!("{e:#}");
                 for msg in msgs {
                     if !s.contains(msg) {
-                        panic!("Expected `{}` but missing from error `{:#}`", msg, e)
+                        panic!("Expected `{msg}` but missing from error `{e:#}`")
                     }
                 }
             }
@@ -1482,7 +1474,7 @@ mod tests {
             &alias_resolver(),),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
                 );
             }
         );
@@ -1596,7 +1588,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::UnexpectedFormat))
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::UnexpectedFormat))
                 );
             }
         );
@@ -1700,7 +1692,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::PackageIsEmpty))
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::PackageIsEmpty))
                 );
             }
         );
@@ -1766,7 +1758,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::UnexpectedFormat))
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::UnexpectedFormat))
                 );
             }
         );
@@ -1780,7 +1772,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
                 );
             }
         );
@@ -1793,7 +1785,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
                 );
             }
         );
@@ -1835,7 +1827,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains("Invalid alias")
+                    format!("{e:?}").contains("Invalid alias")
                 );
             }
         );
@@ -1850,7 +1842,7 @@ mod tests {
             ),
             Err(e) => {
                 assert!(
-                    format!("{:?}", e).contains("is not a target")
+                    format!("{e:?}").contains("is not a target")
                 );
             }
         );
@@ -2302,11 +2294,10 @@ mod tests {
             &alias_resolver(),
         )
         .unwrap_err();
-        let err = format!("{:?}", err);
+        let err = format!("{err:?}");
         assert!(
              err.contains("Pattern `root//cell1/xx/cell2/yy/...` is parsed as `root//cell1/xx/cell2/yy/...` which crosses cell boundaries. Try `cell2//yy/...`"),
-             "Error is: {}",
-             err);
+             "Error is: {err}");
     }
 
     #[test]

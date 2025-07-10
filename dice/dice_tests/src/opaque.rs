@@ -78,7 +78,7 @@ impl Key for IsOpaque {
 
         let number = ctx.per_transaction_data().data.get::<i32>().unwrap();
 
-        Arc::new(format!("{}", number))
+        Arc::new(format!("{number}"))
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

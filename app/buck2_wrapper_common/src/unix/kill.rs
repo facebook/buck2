@@ -40,7 +40,7 @@ pub(crate) fn kill(pid: Pid) -> buck2_error::Result<Option<KilledProcessHandleIm
     match nix::sys::signal::kill(pid_nix, Signal::SIGKILL) {
         Ok(()) => Ok(Some(KilledProcessHandleImpl { pid })),
         Err(nix::errno::Errno::ESRCH) => Ok(None),
-        Err(e) => Err(e).with_buck_error_context(|| format!("Failed to kill pid {}", pid)),
+        Err(e) => Err(e).with_buck_error_context(|| format!("Failed to kill pid {pid}")),
     }
 }
 

@@ -317,11 +317,7 @@ mod tests {
             );
 
             let extra_keys: Vec<_> = actual_keys.difference(&expected_keys).collect();
-            assert!(
-                extra_keys.is_empty(),
-                "Got unexpected keys {:?}",
-                extra_keys
-            );
+            assert!(extra_keys.is_empty(), "Got unexpected keys {extra_keys:?}");
 
             for (k, v) in expected {
                 assert_eq!(v, self.specs.get(&k).unwrap());

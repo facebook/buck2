@@ -27,7 +27,7 @@ fn indented_within_view(spec: &WithinViewSpecification) -> String {
         VisibilityPatternList::List(items) => {
             let mut s = String::new();
             for item in items {
-                s.push_str(&format!("  {}\n", item));
+                s.push_str(&format!("  {item}\n"));
             }
             s
         }

@@ -293,8 +293,8 @@ impl Span {
                         | Color::DarkCyan => {
                             write!(f, "{}", to_snake_case(&format!("{:?}", self.0)))
                         }
-                        Color::Rgb { r, g, b } => write!(f, "rgb({}, {}, {})", r, g, b),
-                        Color::AnsiValue(v) => write!(f, "ansi({})", v),
+                        Color::Rgb { r, g, b } => write!(f, "rgb({r}, {g}, {b})"),
+                        Color::AnsiValue(v) => write!(f, "ansi({v})"),
                     }
                 }
             }
@@ -321,12 +321,12 @@ impl Span {
                         let mut a = self.0.style.attributes;
                         for known in Attribute::iterator() {
                             if a.has(known) {
-                                write!(f, " {}", to_snake_case(&format!("{:?}", known)))?;
+                                write!(f, " {}", to_snake_case(&format!("{known:?}")))?;
                                 a.unset(known);
                             }
                         }
                         if !a.is_empty() {
-                            write!(f, " unknown_attributes={:?}", a)?;
+                            write!(f, " unknown_attributes={a:?}")?;
                         }
                     }
                     write!(f, ">")?;

@@ -182,7 +182,7 @@ impl DownloadFileAction {
                             .buck_error_context("Header is not valid utf-8")?;
                         let content_length_number =
                             content_length.parse().with_buck_error_context(|| {
-                                format!("Header is not a number: `{}`", content_length)
+                                format!("Header is not a number: `{content_length}`")
                             })?;
                         buck2_error::Ok(content_length_number)
                     })

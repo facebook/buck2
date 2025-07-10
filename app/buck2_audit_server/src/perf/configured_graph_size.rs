@@ -78,7 +78,7 @@ pub(crate) async fn server_execute(
                 writeln!(stdout, "{}", serde_json::to_string_pretty(&results)?)?;
             } else {
                 for (target, res) in results {
-                    writeln!(stdout, "{}", target)?;
+                    writeln!(stdout, "{target}")?;
                     writeln!(
                         stdout,
                         "  Configured graph size: {}",

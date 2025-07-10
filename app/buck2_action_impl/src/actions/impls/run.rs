@@ -137,7 +137,7 @@ impl Display for MetadataParameter {
             "env_var": self.env_var,
             "path": self.path,
         });
-        write!(f, "{}", json)
+        write!(f, "{json}")
     }
 }
 

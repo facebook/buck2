@@ -543,7 +543,7 @@ mod tests {
     fn test_retain() {
         let mut map = UnorderedMap::new();
         for i in 0..1000 {
-            map.insert(format!("key{}", i), format!("value{}", i));
+            map.insert(format!("key{i}"), format!("value{i}"));
         }
 
         map.retain(|k, v| {
@@ -554,9 +554,9 @@ mod tests {
         assert_eq!(100, map.len());
         for i in 0..1000 {
             if i % 10 == 0 {
-                assert_eq!(format!("value{}x", i), map[&format!("key{}", i)]);
+                assert_eq!(format!("value{i}x"), map[&format!("key{i}")]);
             } else {
-                assert!(!map.contains_key(&format!("key{}", i)));
+                assert!(!map.contains_key(&format!("key{i}")));
             }
         }
     }

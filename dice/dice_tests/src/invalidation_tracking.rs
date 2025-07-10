@@ -243,7 +243,7 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
                         ctx.compute(&Top(n - 1)).await.unwrap();
                     }
                     k => {
-                        panic!("don't request such a big key {}", k)
+                        panic!("don't request such a big key {k}")
                     }
                 }
 

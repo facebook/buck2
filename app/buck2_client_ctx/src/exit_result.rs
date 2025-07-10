@@ -391,7 +391,7 @@ impl ExitResultVariant {
                         // No logging for those.
                     }
                     _ => {
-                        let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
+                        let _ignored = writeln!(io::stderr().lock(), "Command failed: {e:?}");
                     }
                 }
 

@@ -519,7 +519,7 @@ mod introspection {
                 fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                     match &self.0 {
                         DiceKeyErased::Key(k) => {
-                            write!(f, "{}", k)
+                            write!(f, "{k}")
                         }
                         DiceKeyErased::Projection(p) => {
                             write!(f, "{}", p.proj)

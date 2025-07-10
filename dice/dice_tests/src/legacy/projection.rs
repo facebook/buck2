@@ -91,7 +91,7 @@ impl Key for FileKey {
             .lock()
             .computations
             .push(Computation::File);
-        Ok(Arc::new(format!("<{}>", value)))
+        Ok(Arc::new(format!("<{value}>")))
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {

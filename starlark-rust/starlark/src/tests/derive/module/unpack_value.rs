@@ -58,7 +58,7 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .map(|l| {
                 l.entries
                     .iter()
-                    .map(|(k, v)| format!("{}: {}", k, v))
+                    .map(|(k, v)| format!("{k}: {v}"))
                     .join(", ")
             })
             .join(" + ");
@@ -71,7 +71,7 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .typed
             .entries
             .iter()
-            .map(|(k, v)| format!("{}: {}", k, v))
+            .map(|(k, v)| format!("{k}: {v}"))
             .join(" + ");
         Ok((v.value, repr))
     }
@@ -97,9 +97,9 @@ fn validate_module(builder: &mut GlobalsBuilder) {
                 let inner_repr = v
                     .entries
                     .iter()
-                    .map(|(k2, v2)| format!("{}:{}", k2, v2))
+                    .map(|(k2, v2)| format!("{k2}:{v2}"))
                     .join(", ");
-                format!("{}: {}", k, inner_repr)
+                format!("{k}: {inner_repr}")
             })
             .join(" + ");
         Ok((v.value, repr))

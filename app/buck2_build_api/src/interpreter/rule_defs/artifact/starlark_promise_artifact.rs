@@ -107,13 +107,13 @@ impl Display for StarlarkPromiseArtifact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<promise artifact")?;
         if let Some(location) = &self.declaration_location {
-            write!(f, " declared at {}", location)?;
+            write!(f, " declared at {location}")?;
         }
         if let Some(short_path) = &self.short_path {
-            write!(f, " with short_path `{}`", short_path)?;
+            write!(f, " with short_path `{short_path}`")?;
         }
         if let Some(v) = self.artifact.get() {
-            write!(f, " resolved to {}", v)?;
+            write!(f, " resolved to {v}")?;
         }
         write!(f, ">")?;
         Ok(())

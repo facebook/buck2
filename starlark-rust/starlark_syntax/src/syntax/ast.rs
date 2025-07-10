@@ -592,22 +592,22 @@ impl Display for Expr {
             }
             Expr::ListComprehension(e, for_, c) => {
                 write!(f, "[{}", e.node)?;
-                write!(f, "{}", for_)?;
+                write!(f, "{for_}")?;
                 for x in c {
-                    write!(f, "{}", x)?;
+                    write!(f, "{x}")?;
                 }
                 f.write_str("]")
             }
             Expr::DictComprehension(k_v, for_, c) => {
                 let (k, v) = &**k_v;
                 write!(f, "{{{}: {}", k.node, v.node)?;
-                write!(f, "{}", for_)?;
+                write!(f, "{for_}")?;
                 for x in c {
-                    write!(f, "{}", x)?;
+                    write!(f, "{x}")?;
                 }
                 f.write_str("}")
             }
-            Expr::Literal(x) => write!(f, "{}", x),
+            Expr::Literal(x) => write!(f, "{x}"),
             Expr::FString(x) => {
                 // Write out the desugared form.
                 write!(f, "{}.format(", x.format.node)?;
@@ -694,7 +694,7 @@ impl Display for ForClause {
 impl Display for Clause {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Clause::For(x) => write!(f, "{}", x),
+            Clause::For(x) => write!(f, "{x}"),
             Clause::If(x) => write!(f, " if {}", x.node),
         }
     }
@@ -703,11 +703,11 @@ impl Display for Clause {
 impl Stmt {
     fn fmt_with_tab(&self, f: &mut Formatter<'_>, tab: String) -> fmt::Result {
         match self {
-            Stmt::Break => writeln!(f, "{}break", tab),
-            Stmt::Continue => writeln!(f, "{}continue", tab),
-            Stmt::Pass => writeln!(f, "{}pass", tab),
+            Stmt::Break => writeln!(f, "{tab}break"),
+            Stmt::Continue => writeln!(f, "{tab}continue"),
+            Stmt::Pass => writeln!(f, "{tab}pass"),
             Stmt::Return(Some(e)) => writeln!(f, "{}return {}", tab, e.node),
-            Stmt::Return(None) => writeln!(f, "{}return", tab),
+            Stmt::Return(None) => writeln!(f, "{tab}return"),
             Stmt::Expression(e) => writeln!(f, "{}{}", tab, e.node),
             Stmt::Assign(AssignP { lhs, ty, rhs }) => {
                 write!(f, "{}{} ", tab, lhs.node)?;
@@ -731,7 +731,7 @@ impl Stmt {
                 let (suite1, suite2) = &**suite_1_2;
                 writeln!(f, "{}if {}:", tab, cond.node)?;
                 suite1.node.fmt_with_tab(f, tab.clone() + "  ")?;
-                writeln!(f, "{}else:", tab)?;
+                writeln!(f, "{tab}else:")?;
                 suite2.node.fmt_with_tab(f, tab + "  ")
             }
             Stmt::For(ForP { var, over, body }) => {
@@ -755,7 +755,7 @@ impl Stmt {
                 body.node.fmt_with_tab(f, tab + "  ")
             }
             Stmt::Load(load) => {
-                write!(f, "{}load(", tab)?;
+                write!(f, "{tab}load(")?;
                 fmt_string_literal(f, &load.module.node)?;
                 f.write_str(", ")?;
                 comma_separated_fmt(

@@ -625,7 +625,7 @@ mod tests {
                 .await
                 .unwrap_err()
         );
-        assert!(err.contains("invalid auth token"), "Error is: {}", err);
+        assert!(err.contains("invalid auth token"), "Error is: {err}");
 
         client.ping(PingRequest::default()).await.unwrap();
 
@@ -638,7 +638,7 @@ mod tests {
                     ..PingRequest::default()
                 })
                 .await
-                .buck_error_context(format!("req_size={}", req_size))
+                .buck_error_context(format!("req_size={req_size}"))
                 .unwrap();
         }
 
@@ -649,7 +649,7 @@ mod tests {
                     ..PingRequest::default()
                 })
                 .await
-                .buck_error_context(format!("resp_size={}", resp_size))
+                .buck_error_context(format!("resp_size={resp_size}"))
                 .unwrap();
         }
 

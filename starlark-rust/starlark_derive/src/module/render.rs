@@ -106,7 +106,7 @@ fn render_attr(x: StarAttr, generics: &StarGenerics) -> syn::Stmt {
         docstring,
     } = x;
     let name_str = ident_string(&name);
-    let name_inner = syn::Ident::new(&format!("{}__inner", name_str), name.span());
+    let name_inner = syn::Ident::new(&format!("{name_str}__inner"), name.span());
     let docstring: syn::Expr = match docstring {
         Some(d) => render_some(syn::parse_quote! { #d.to_owned() }),
         None => render_none(),

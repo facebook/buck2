@@ -132,7 +132,7 @@ impl RageCommand {
         let manifold = ManifoldClient::new().await?;
 
         let rage_id = TraceId::new();
-        let mut manifold_id = format!("{}", rage_id);
+        let mut manifold_id = format!("{rage_id}");
         let sink = create_scribe_sink(&ctx)?;
 
         buck2_client_ctx::eprintln!(
@@ -159,7 +159,7 @@ impl RageCommand {
         let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
         let invocation_id = get_trace_id(&selected_invocation).await?;
         if let Some(ref invocation_id) = invocation_id {
-            manifold_id = format!("{}_{}", invocation_id, manifold_id);
+            manifold_id = format!("{invocation_id}_{manifold_id}");
         }
 
         buck2_client_ctx::eprintln!("Collecting debug info...")?;
@@ -448,7 +448,7 @@ where
                 Err(_) => CommandStatus::Timeout,
                 Ok(Ok(output)) => CommandStatus::Success { output },
                 Ok(Err(e)) => CommandStatus::Failure {
-                    error: format!("Error: {:?}", e),
+                    error: format!("Error: {e:?}"),
                 },
             };
             RageSection { title, status }
@@ -523,7 +523,7 @@ async fn upload_daemon_stderr(
     manifold: &ManifoldClient,
     manifold_id: &str,
 ) -> buck2_error::Result<String> {
-    file_to_manifold(manifold, &path, format!("flat/{}.stderr", manifold_id)).await
+    file_to_manifold(manifold, &path, format!("flat/{manifold_id}.stderr")).await
 }
 
 async fn upload_event_logs(

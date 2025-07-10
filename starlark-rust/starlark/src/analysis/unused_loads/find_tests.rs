@@ -28,7 +28,7 @@ fn test_unused_loads(name: &str, program: &str) {
     let program = program.trim();
     let mut out = String::new();
     writeln!(out, "Program:").unwrap();
-    writeln!(out, "{}", program).unwrap();
+    writeln!(out, "{program}").unwrap();
     writeln!(out).unwrap();
 
     let (codemap, unused_loads) = find_unused_loads(name, program).unwrap();
@@ -47,7 +47,7 @@ fn test_unused_loads(name: &str, program: &str) {
 
                 let span = codemap.file_span(span);
                 let display = span_display(Some(span.as_ref()), "Unused load", false);
-                write!(out, "{}", display).unwrap();
+                write!(out, "{display}").unwrap();
             }
         }
     }

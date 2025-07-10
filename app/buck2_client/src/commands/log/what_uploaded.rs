@@ -113,7 +113,7 @@ fn print_uploads(
     record: &ActionRecord,
 ) -> Result<(), ClientIoError> {
     match output {
-        LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
+        LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{record}")?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
         LogCommandOutputFormatWithWriter::Json(w) => {
             serde_json::to_writer(w.by_ref(), &record)?;
@@ -139,7 +139,7 @@ fn print_extension_stats(
     for record in records {
         match output {
             LogCommandOutputFormatWithWriter::Tabulated(w) => {
-                writeln!(w, "{}", record)?;
+                writeln!(w, "{record}")?;
             }
             LogCommandOutputFormatWithWriter::Csv(writer) => writer.serialize(record)?,
             LogCommandOutputFormatWithWriter::Json(w) => {

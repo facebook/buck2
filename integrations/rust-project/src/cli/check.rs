@@ -73,7 +73,7 @@ impl Check {
 
         for diagnostic in diagnostics {
             let out = serde_json::to_string(&diagnostic)?;
-            println!("{}", out);
+            println!("{out}");
         }
 
         crate::scuba::log_check(start.elapsed(), &self.saved_file, self.use_clippy);

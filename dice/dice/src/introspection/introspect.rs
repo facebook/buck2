@@ -34,7 +34,7 @@ pub fn serialize_graph(
             for v in vs.into_iter() {
                 let v = reg.map(v);
                 edges
-                    .write_all(format!("{}\t{}\n", k, v).as_bytes())
+                    .write_all(format!("{k}\t{v}\n").as_bytes())
                     .context("Failed to write edge")?;
             }
         }

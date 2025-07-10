@@ -68,9 +68,8 @@ mod tests {
             // Make test compatible with Windows.
             err.replace('\\', "/")
                 .contains("src/eval/runtime/rust_loc.rs"),
-            "output: {:?}",
-            err
+            "output: {err:?}"
         );
-        assert!(err.contains("<native>"), "output: {:?}", err);
+        assert!(err.contains("<native>"), "output: {err:?}");
     }
 }

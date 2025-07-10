@@ -527,9 +527,7 @@ mod tests {
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
-            "{}.is_match({})",
-            expected_gen_path,
-            resolved_gen_path
+            "{expected_gen_path}.is_match({resolved_gen_path})"
         );
 
         let resolved_gen_content_based_path = path_resolver.resolve_gen(
@@ -546,9 +544,7 @@ mod tests {
         )?;
         assert!(
             expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
-            "{}.is_match({})",
-            expected_gen_content_based_path,
-            resolved_gen_content_based_path
+            "{expected_gen_content_based_path}.is_match({resolved_gen_content_based_path})"
         );
 
         let resolved_scratch_path = path_resolver.resolve_scratch(
@@ -566,9 +562,7 @@ mod tests {
             Regex::new("base/buck-out/v2/tmp/foo/[0-9a-f]{16}/category/blah.file")?;
         assert!(
             expected_scratch_path.is_match(resolved_scratch_path.as_str()),
-            "{}.is_match({})",
-            expected_scratch_path,
-            resolved_scratch_path
+            "{expected_scratch_path}.is_match({resolved_scratch_path})"
         );
         Ok(())
     }
@@ -599,9 +593,7 @@ mod tests {
             Regex::new("buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
-            "{}.is_match({})",
-            expected_gen_path,
-            resolved_gen_path
+            "{expected_gen_path}.is_match({resolved_gen_path})"
         );
 
         let path = BuildArtifactPath::with_dynamic_actions_action_key(
@@ -619,9 +611,7 @@ mod tests {
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
-            "{}.is_match({})",
-            expected_gen_path,
-            resolved_gen_path
+            "{expected_gen_path}.is_match({resolved_gen_path})"
         );
 
         let content_based_path = BuildArtifactPath::with_dynamic_actions_action_key(
@@ -642,9 +632,7 @@ mod tests {
         )?;
         assert!(
             expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
-            "{}.is_match({})",
-            expected_gen_content_based_path,
-            resolved_gen_content_based_path
+            "{expected_gen_content_based_path}.is_match({resolved_gen_content_based_path})"
         );
 
         let resolved_scratch_path = path_resolver.resolve_scratch(
@@ -667,9 +655,7 @@ mod tests {
             Regex::new("buck-out/tmp/foo/[0-9a-f]{16}/category/_buck_[0-9a-f]{16}")?;
         assert!(
             expected_scratch_path.is_match(resolved_scratch_path.as_str()),
-            "{}.is_match({})",
-            expected_scratch_path,
-            resolved_scratch_path
+            "{expected_scratch_path}.is_match({resolved_scratch_path})"
         );
 
         Ok(())

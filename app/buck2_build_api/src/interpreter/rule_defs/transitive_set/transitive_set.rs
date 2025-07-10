@@ -458,31 +458,31 @@ impl<'v> TransitiveSet<'v> {
             buck2_error::Ok(NodeGen { value, projections })
         })?;
 
-        let reductions = def
-            .operations()
-            .reductions
-            .iter()
-            .enumerate()
-            .map(|(idx, (name, reduce))| {
-                let children_values = children_sets.try_map(|c| {
-                    c.reductions.get(idx).copied().with_buck_error_context(|| {
-                        format!("Child {} is missing reduction {}", c, idx)
-                    })
-                })?;
-                let children_values = eval.heap().alloc(AllocList(children_values));
-
-                let value = value.unwrap_or_else(Value::new_none);
-
-                let reduced = eval
-                    .eval_function(reduce.get(), &[children_values, value], &[])
-                    .map_err(|error| TransitiveSetError::ReductionError {
-                        error: error.into(),
-                        name: name.clone(),
+        let reductions =
+            def.operations()
+                .reductions
+                .iter()
+                .enumerate()
+                .map(|(idx, (name, reduce))| {
+                    let children_values = children_sets.try_map(|c| {
+                        c.reductions.get(idx).copied().with_buck_error_context(|| {
+                            format!("Child {c} is missing reduction {idx}")
+                        })
                     })?;
+                    let children_values = eval.heap().alloc(AllocList(children_values));
 
-                buck2_error::Ok(reduced)
-            })
-            .collect::<Result<Box<[_]>, _>>()?;
+                    let value = value.unwrap_or_else(Value::new_none);
+
+                    let reduced = eval
+                        .eval_function(reduce.get(), &[children_values, value], &[])
+                        .map_err(|error| TransitiveSetError::ReductionError {
+                            error: error.into(),
+                            name: name.clone(),
+                        })?;
+
+                    buck2_error::Ok(reduced)
+                })
+                .collect::<Result<Box<[_]>, _>>()?;
 
         struct HasContentBasedInputVisitor {
             has_content_based_input: bool,
@@ -669,7 +669,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .reductions
             .get(index)
             .copied()
-            .with_buck_error_context(|| format!("Missing reduction {}", index))?)
+            .with_buck_error_context(|| format!("Missing reduction {index}"))?)
     }
 
     fn traverse<'v>(

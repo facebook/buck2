@@ -333,7 +333,7 @@ async fn test(
     let (test_executor, test_executor_args) = match test_executor_config {
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
-                .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))
+                .with_context(|| format!("Invalid `test.v2_test_executor`: {config}"))
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
             let mut test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
@@ -349,7 +349,7 @@ async fn test(
                 _ => "",
             };
             test_executor_args.push("--config-entry".to_owned());
-            test_executor_args.push(format!("host={}", platform));
+            test_executor_args.push(format!("host={platform}"));
 
             generate_config_entry_args(
                 &mut test_executor_args,
@@ -1418,23 +1418,23 @@ fn generate_config_entry_args(
 
     if !config_flags.is_empty() {
         test_executor_args.push("--config-entry".to_owned());
-        test_executor_args.push(format!("config={}", config_flags));
+        test_executor_args.push(format!("config={config_flags}"));
     }
     if !config_files.is_empty() {
         test_executor_args.push("--config-entry".to_owned());
-        test_executor_args.push(format!("config_file={}", config_files));
+        test_executor_args.push(format!("config_file={config_files}"));
     }
     if !flagfiles.is_empty() {
         test_executor_args.push("--config-entry".to_owned());
-        test_executor_args.push(format!("mode={}", flagfiles));
+        test_executor_args.push(format!("mode={flagfiles}"));
     }
     if !modifiers.is_empty() {
         test_executor_args.push("--config-entry".to_owned());
-        test_executor_args.push(format!("modifier={}", modifiers));
+        test_executor_args.push(format!("modifier={modifiers}"));
     }
     if !target_platforms.is_empty() {
         test_executor_args.push("--config-entry".to_owned());
-        test_executor_args.push(format!("target_platforms={}", target_platforms));
+        test_executor_args.push(format!("target_platforms={target_platforms}"));
     }
 }
 

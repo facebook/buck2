@@ -197,7 +197,7 @@ fn inner_object_functions_have_docs() {
         DocItem::Member(DocMember::Function(item)) => {
             assert_eq!(item.docs.unwrap().summary, "Docs for func1");
         }
-        _ => panic!("Expected function: {:#?}", item),
+        _ => panic!("Expected function: {item:#?}"),
     }
 }
 
@@ -231,6 +231,6 @@ fn inner_module_functions_have_docs() {
         DocItem::Member(DocMember::Function(item)) => {
             assert_eq!(item.docs.unwrap().summary, "Docs for func1");
         }
-        _ => panic!("Expected function: {:#?}", item),
+        _ => panic!("Expected function: {item:#?}"),
     }
 }

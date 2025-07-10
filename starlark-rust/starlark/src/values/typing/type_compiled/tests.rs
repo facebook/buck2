@@ -175,7 +175,7 @@ fn test_type_compiled_display() {
         let heap = Heap::new();
         let ty = unsafe { ty.unchecked_frozen_value() }.to_value();
         let ty = TypeCompiled::new(ty, &heap).unwrap();
-        assert_eq!(expected, ty.to_string(), "for `{}`", ty0);
+        assert_eq!(expected, ty.to_string(), "for `{ty0}`");
     }
 
     t("typing.Any", "typing.Any");

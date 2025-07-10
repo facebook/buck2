@@ -29,14 +29,14 @@ fn test_shows_context() {
         .context("context 1")
         .context("context 2");
     assert_eq_no_backtrace(
-        format!("{:?}", e),
+        format!("{e:?}"),
         r#"context 2
 
 Caused by:
     0: context 1
     1: test error"#,
     );
-    assert_eq_no_backtrace(format!("{:#}", e), r#"context 2: context 1: test error"#);
+    assert_eq_no_backtrace(format!("{e:#}"), r#"context 2: context 1: test error"#);
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn test_shows_anyhow_context() {
     let e = anyhow::Error::from(AnyhowError).context("context 1");
     let e = from_any_with_tag(e, buck2_error::ErrorTag::Input).context("context 2");
     assert_eq_no_backtrace(
-        format!("{:?}", e),
+        format!("{e:?}"),
         r#"context 2
 
 Caused by:
@@ -65,12 +65,12 @@ fn test_after_anyhow_conversion() {
     // of context (Tag in this case) gets converted to Dyn, causing the same context to be printed n times.
     // This should be fine as the conversion back to buck2_error is good as shown by the asserts below
     // and we probably should be avoiding anyhow error printing wherever possible
-    assert_eq_no_backtrace(format!("{}", e), format!("{}", e2));
+    assert_eq_no_backtrace(format!("{e}"), format!("{e2}"));
 
     let e3 = from_any_with_tag(e2, buck2_error::ErrorTag::Input);
-    assert_eq_no_backtrace(format!("{}", e), format!("{}", e3));
-    assert_eq_no_backtrace(format!("{:?}", e), format!("{:?}", e3));
-    assert_eq_no_backtrace(format!("{:#}", e), format!("{:#}", e3));
+    assert_eq_no_backtrace(format!("{e}"), format!("{e3}"));
+    assert_eq_no_backtrace(format!("{e:?}"), format!("{e3:?}"));
+    assert_eq_no_backtrace(format!("{e:#}"), format!("{e3:#}"));
 }
 
 #[test]
@@ -83,13 +83,13 @@ fn test_with_context_from_source() {
     let e = buck2_error::Error::from(E(TestError)).context("context");
 
     assert_eq_no_backtrace(
-        format!("{:?}", e),
+        format!("{e:?}"),
         r#"context
 
 Caused by:
     0: with source
     1: test error"#,
     );
-    assert_eq_no_backtrace(format!("{:#}", e), r#"context: with source: test error"#);
-    assert_eq_no_backtrace(format!("{}", e), r#"context"#);
+    assert_eq_no_backtrace(format!("{e:#}"), r#"context: with source: test error"#);
+    assert_eq_no_backtrace(format!("{e}"), r#"context"#);
 }

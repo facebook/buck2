@@ -105,7 +105,7 @@ impl AttrDisplayWithContext for CoercedSelector {
             self.all_entries().map(|(k, v)| {
                 (
                     match k {
-                        CoercedSelectorKeyRef::Target(k) => format!("\"{}\"", k),
+                        CoercedSelectorKeyRef::Target(k) => format!("\"{k}\""),
                         CoercedSelectorKeyRef::Default => "\"DEFAULT\"".to_owned(),
                     },
                     v.as_display(ctx),
@@ -123,7 +123,7 @@ impl AttrSerializeWithContext for CoercedSelector {
         S: Serializer,
     {
         self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
             .serialize(s)
     }
 }
@@ -257,7 +257,7 @@ impl AttrSerializeWithContext for CoercedConcat {
         S: Serializer,
     {
         self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
             .serialize(s)
     }
 }
@@ -335,10 +335,10 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::Selector(s) => s.fmt(ctx, f),
             CoercedAttr::Concat(c) => c.fmt(ctx, f),
             CoercedAttr::Bool(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             CoercedAttr::Int(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => {
                 AttrDisplayWithContext::fmt(v, ctx, f)
@@ -353,17 +353,17 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             CoercedAttr::TransitionDep(e) => Display::fmt(e, f),
-            CoercedAttr::ConfiguredDepForForwardNode(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::PluginDep(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::Dep(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::Label(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::Arg(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::ConfiguredDepForForwardNode(e) => write!(f, "\"{e}\""),
+            CoercedAttr::ConfigurationDep(e) => write!(f, "\"{e}\""),
+            CoercedAttr::PluginDep(e) => write!(f, "\"{e}\""),
+            CoercedAttr::Dep(e) => write!(f, "\"{e}\""),
+            CoercedAttr::SourceLabel(e) => write!(f, "\"{e}\""),
+            CoercedAttr::Label(e) => write!(f, "\"{e}\""),
+            CoercedAttr::Arg(e) => write!(f, "\"{e}\""),
             CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
             CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
-            CoercedAttr::Metadata(m) => write!(f, "{}", m),
-            CoercedAttr::TargetModifiers(m) => write!(f, "{}", m),
+            CoercedAttr::Metadata(m) => write!(f, "{m}"),
+            CoercedAttr::TargetModifiers(m) => write!(f, "{m}"),
         }
     }
 }
@@ -375,7 +375,7 @@ impl AttrSerializeWithContext for CoercedAttr {
     {
         // TODO this is inefficient. We should impl Serialize and derive value from this instead.
         self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
             .serialize(s)
     }
 }
@@ -625,7 +625,7 @@ impl CoercedAttr {
                     "None of {} conditions matched configuration `{}` and no default was set:\n{}",
                     entries.len(),
                     ctx.cfg().cfg(),
-                    entries.iter().map(|(s, _)| format!("  {}", s)).join("\n"),
+                    entries.iter().map(|(s, _)| format!("  {s}")).join("\n"),
                 )
             })
         }
@@ -832,7 +832,7 @@ mod tests {
         let mut long = (0..100)
             .map(|i| {
                 (
-                    ConfigurationSettingKey::testing_parse(&format!("foo//:{}", i)),
+                    ConfigurationSettingKey::testing_parse(&format!("foo//:{i}")),
                     attr.clone(),
                 )
             })

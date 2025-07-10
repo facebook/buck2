@@ -362,7 +362,7 @@ mod tests {
         assert_eq!(naive, critical_path_cost);
 
         eprintln!();
-        eprintln!("critical path = {:?}", naive);
+        eprintln!("critical path = {naive:?}");
 
         let slow = Instant::now();
         for (idx, replacement) in critical_path.values().zip(replacement_costs.values()) {

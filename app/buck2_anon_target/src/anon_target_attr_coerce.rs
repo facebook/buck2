@@ -187,10 +187,10 @@ pub(crate) enum AnonTargetCoercionError {
     #[error("Used one_of with an empty list.")]
     #[buck2(tag = Input)]
     OneOfEmpty,
-    #[error("one_of fails, the errors against each alternative in turn were:\n{}", .0.map(|x| format!("{:#}", x)).join("\n"))]
+    #[error("one_of fails, the errors against each alternative in turn were:\n{}", .0.map(|x| format!("{x:#}")).join("\n"))]
     #[buck2(tag = Input)]
     OneOfMany(Vec<buck2_error::Error>),
-    #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{}`", x)).join(", "))]
+    #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{x}`")).join(", "))]
     #[buck2(tag = Input)]
     InvalidEnumVariant(String, Vec<String>),
     #[error("Cannot coerce value of type `{0}` to any: `{1}`")]

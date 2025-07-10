@@ -490,8 +490,8 @@ impl CacheUploadOutcome {
     fn error(&self) -> String {
         match self {
             CacheUploadOutcome::Success(_) => String::new(),
-            CacheUploadOutcome::Rejected(reason) => format!("Rejected: {}", reason),
-            CacheUploadOutcome::Failed(e) => format!("{:#}", e),
+            CacheUploadOutcome::Rejected(reason) => format!("Rejected: {reason}"),
+            CacheUploadOutcome::Failed(e) => format!("{e:#}"),
         }
     }
 

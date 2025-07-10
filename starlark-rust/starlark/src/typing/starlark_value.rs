@@ -345,7 +345,7 @@ impl TyStarlarkValue {
             name => name,
         };
         match config {
-            TypeRenderConfig::Default => write!(f, "{}", type_name),
+            TypeRenderConfig::Default => write!(f, "{type_name}"),
             TypeRenderConfig::LinkedType {
                 render_linked_ty_starlark_value,
             } => {

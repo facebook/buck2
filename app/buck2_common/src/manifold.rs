@@ -163,7 +163,7 @@ impl Bucket {
 
 fn manifold_url(bucket: &Bucket, filename: String) -> String {
     let full_path = format!("{}/{}", bucket.name, filename);
-    format!("https://www.internalfb.com/manifold/explorer/{}", full_path)
+    format!("https://www.internalfb.com/manifold/explorer/{full_path}")
 }
 
 /// Return the place to upload logs, or None to not upload logs at all

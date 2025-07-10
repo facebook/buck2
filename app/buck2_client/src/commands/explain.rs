@@ -125,7 +125,7 @@ impl StreamingCommand for ExplainCommand {
         let target_cfg = build_args.target_cfg();
 
         // TODO iguridi: add option to turn manifold upload off for OSS
-        let manifold_path = Some(format!("flat/{}-explain.html", uuid));
+        let manifold_path = Some(format!("flat/{uuid}-explain.html"));
 
         let mut context = ctx.empty_client_context("explain")?;
         context.target_call_stacks = self.stack;

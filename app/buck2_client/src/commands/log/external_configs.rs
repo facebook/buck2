@@ -122,7 +122,7 @@ fn write_config_value<'a>(
                 external_config.value,
                 external_config
                     .cell
-                    .map_or("".to_owned(), |cell| format!("({})", cell)),
+                    .map_or("".to_owned(), |cell| format!("({cell})")),
                 external_config.origin.unwrap_or_default(),
             )?;
         }
@@ -163,7 +163,7 @@ fn write_config_file(
     let config_file = ExternalConfigFileEntry { path, origin };
     match &mut log_writer {
         LogCommandOutputFormatWithWriter::Tabulated(writer) => {
-            writeln!(writer, "{}\t\t{}", path, origin)?;
+            writeln!(writer, "{path}\t\t{origin}")?;
         }
         LogCommandOutputFormatWithWriter::Json(writer) => {
             serde_json::to_writer(&mut **writer, &config_file)?;

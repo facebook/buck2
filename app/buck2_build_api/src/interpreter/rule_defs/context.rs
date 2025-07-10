@@ -177,7 +177,7 @@ impl<'v> Display for AnalysisContext<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "<ctx")?;
         if let Some(label) = &self.label {
-            write!(f, " label=\"{}\"", label)?;
+            write!(f, " label=\"{label}\"")?;
         }
         write!(f, " attrs=...")?;
         write!(f, " actions=...")?;

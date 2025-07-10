@@ -73,7 +73,7 @@ impl<'v> Display for ResolvedMacro<'v> {
                 // Unfortunately we don't keep the location here, which makes it harder to show
                 write!(f, "$(location ...)")
             }
-            ResolvedMacro::Source(a) => write!(f, "$(source {})", a),
+            ResolvedMacro::Source(a) => write!(f, "$(source {a})"),
             ResolvedMacro::ArgLike(x) => Display::fmt(x, f),
             ResolvedMacro::Query(x) => Display::fmt(x, f),
         }

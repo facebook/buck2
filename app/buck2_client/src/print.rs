@@ -60,10 +60,10 @@ impl<W: Write> PrintOutputs<W> {
 
         match self.format {
             PrintOutputsFormat::Plain => {
-                writeln!(self.out, "{} {}", target, path)?;
+                writeln!(self.out, "{target} {path}")?;
             }
             PrintOutputsFormat::Simple => {
-                writeln!(self.out, "{}", path)?;
+                writeln!(self.out, "{path}")?;
             }
             PrintOutputsFormat::Json => {
                 if !self.empty {

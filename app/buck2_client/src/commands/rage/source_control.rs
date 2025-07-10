@@ -58,7 +58,7 @@ async fn get_hg_info() -> buck2_error::Result<CommandResult> {
     };
     let snapshot = {
         let output = from_utf8(result.stdout, "hg snapshot stdout")?;
-        format!("hg snapshot update {}", output)
+        format!("hg snapshot update {output}")
     };
 
     let result = async_background_command("hg")
@@ -73,10 +73,10 @@ async fn get_hg_info() -> buck2_error::Result<CommandResult> {
     };
     let revision = {
         let output = from_utf8(result.stdout, "hg whereami stdout")?;
-        format!("hg revision: {}", output)
+        format!("hg revision: {output}")
     };
 
-    Ok(CommandResult::Ok(format!("{}{}", revision, snapshot)))
+    Ok(CommandResult::Ok(format!("{revision}{snapshot}")))
 }
 
 async fn get_git_info() -> buck2_error::Result<CommandResult> {

@@ -494,7 +494,7 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
-            Err(e) if format!("{:#}", e).contains("Invalid symlink")
+            Err(e) if format!("{e:#}").contains("Invalid symlink")
         );
 
         Ok(())

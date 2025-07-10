@@ -49,9 +49,9 @@ impl From<ErrorReport> for crate::Error {
 impl From<&crate::Error> for ErrorReport {
     fn from(err: &crate::Error) -> Self {
         let (message, telemetry_message) = if let Some(f) = err.is_emitted() {
-            (format!("{:?}", f), Some(format!("{:?}", err)))
+            (format!("{f:?}"), Some(format!("{err:?}")))
         } else {
-            (format!("{:?}", err), None)
+            (format!("{err:?}"), None)
         };
 
         let category_key = err.category_key();

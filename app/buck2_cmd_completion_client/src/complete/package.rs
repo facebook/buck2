@@ -94,7 +94,7 @@ impl<'a> PackageCompleter<'a> {
             .get_cell_alias_resolver_for_cwd_fast(&self.roots.project_root, &self.roots.cwd)
             .await?;
         for (cell_alias, cell_name) in alias_resolver.mappings() {
-            let canonical_cell_root = format!("{}//", cell_alias);
+            let canonical_cell_root = format!("{cell_alias}//");
             if canonical_cell_root.starts_with(given_path) {
                 let cell = cell_resolver.get(cell_name)?;
                 let cell_abs_path = self

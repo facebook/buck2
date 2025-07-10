@@ -145,8 +145,7 @@ fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
     assert!(
         err.to_string()
             .contains("Cannot concatenate values coerced/configured to different oneof variants: `attrs.list(attrs.bool())` and `attrs.list(attrs.string())`"),
-        "err: {}",
-        err
+        "err: {err}"
     );
     Ok(())
 }
@@ -451,12 +450,10 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let configured_exec = coerced_exec.configure(&attr_exec, &configuration_ctx())?;
     let mut info = ConfiguredAttrInfoForTests::new();
     configured_exec.traverse(PackageLabel::testing(), &mut info)?;
-    eprintln!("{:?}", info);
+    eprintln!("{info:?}");
     let exec_cfg = configuration_ctx().exec_cfg()?;
     assert_eq!(
-        expected_deps
-            .to_vec()
-            .map(|s| format!("{} ({})", s, exec_cfg)),
+        expected_deps.to_vec().map(|s| format!("{s} ({exec_cfg})")),
         info.execution_deps
             .iter()
             .map(ToString::to_string)
@@ -557,11 +554,10 @@ fn test_source_missing() {
     match attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value) {
         Ok(_) => eprintln!("Todo, turn this into an error once T85510500 is fixed"),
         Err(e) => {
-            let s = format!("{:#}", e);
+            let s = format!("{e:#}");
             assert!(
                 s.contains("Source file `foo/bar.cpp` does not exist"),
-                "Got error {}",
-                s
+                "Got error {s}"
             )
         }
     }
@@ -948,30 +944,26 @@ fn test_user_placeholders() -> anyhow::Result<()> {
 
     let value = r#""$(CXXabcdef)""#;
     match resolve(value) {
-        Ok(..) => panic!("expected error resolving {}", value),
+        Ok(..) => panic!("expected error resolving {value}"),
         Err(e) => {
             let expected = "no mapping for CXXabcdef";
-            let message = format!("{:?}", e);
+            let message = format!("{e:?}");
             assert!(
                 message.contains(expected),
-                "expected `{}` to contain `{}`",
-                message,
-                expected
+                "expected `{message}` to contain `{expected}`"
             );
         }
     }
 
     let value = r#""$(missing_user_key //sub/dir:keyed_placeholder)""#;
     match resolve(value) {
-        Ok(..) => panic!("expected error resolving {}", value),
+        Ok(..) => panic!("expected error resolving {value}"),
         Err(e) => {
             let expected = "no mapping for missing_user_key";
-            let message = format!("{:?}", e);
+            let message = format!("{e:?}");
             assert!(
                 message.contains(expected),
-                "expected `{}` to contain `{}`",
-                message,
-                expected
+                "expected `{message}` to contain `{expected}`"
             );
         }
     }

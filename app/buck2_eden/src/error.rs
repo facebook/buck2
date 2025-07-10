@@ -225,7 +225,7 @@ impl From<edenfs::EdenError> for EdenError {
             // TODO(minglunli): Hacky solution to check if Eden errors are cert related
             if let Err(e) = futures::executor::block_on(validate_certs()) {
                 let eden_err = edenfs::EdenError {
-                    message: format!("{}", e),
+                    message: format!("{e}"),
                     ..error
                 };
 

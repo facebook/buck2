@@ -1260,8 +1260,8 @@ mod tests {
             .err()
             .unwrap();
 
-        let e = format!("{:?}", e);
-        assert!(e.contains("No bundled cell"), "error: {}", e);
+        let e = format!("{e:?}");
+        assert!(e.contains("No bundled cell"), "error: {e}");
 
         Ok(())
     }
@@ -1328,8 +1328,8 @@ mod tests {
             .err()
             .unwrap();
 
-        let e = format!("{:?}", e);
-        assert!(e.contains("not a valid SHA1 digest"), "error: {}", e);
+        let e = format!("{e:?}");
+        assert!(e.contains("not a valid SHA1 digest"), "error: {e}");
 
         Ok(())
     }

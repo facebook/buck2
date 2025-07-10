@@ -210,7 +210,7 @@ impl Action for WriteJsonAction {
         indexmap! {
             "contents".to_owned() => match res {
                 Ok(v) => v,
-                Err(e) => format!("ERROR: constructing contents ({})", e)
+                Err(e) => format!("ERROR: constructing contents ({e})")
             },
             "absolute".to_owned() => self.inner.absolute.to_string(),
         }

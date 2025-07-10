@@ -171,7 +171,7 @@ mod tests {
         let frozen_heap = FrozenHeap::new();
 
         fn make_span(heap: &FrozenHeap, text: &str) -> FrameSpan {
-            let codemap = CodeMap::new(format!("{}.bzl", text), text.to_owned());
+            let codemap = CodeMap::new(format!("{text}.bzl"), text.to_owned());
             let codemap = heap.alloc_any(codemap);
             FrameSpan {
                 span: FrozenFileSpan::new(codemap, codemap.full_span()),
@@ -187,7 +187,7 @@ mod tests {
             let frames = frames.map(|f| {
                 let span = f.location.as_ref().unwrap().source_span();
                 let f = f.name.trim_matches('"');
-                format!("{} in {}", span, f)
+                format!("{span} in {f}")
             });
             assert_eq!(expected, &frames);
         }

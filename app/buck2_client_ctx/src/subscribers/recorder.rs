@@ -556,7 +556,7 @@ impl InvocationRecorder {
                     // - truncate even if total message is not large enough
                     // - truncate stderr, but keep the error message
                     let server_stderr = truncate_stderr(&self.server_stderr);
-                    error.context(format!("buckd stderr:\n{}", server_stderr))
+                    error.context(format!("buckd stderr:\n{server_stderr}"))
                 };
                 (&error).into()
             } else {

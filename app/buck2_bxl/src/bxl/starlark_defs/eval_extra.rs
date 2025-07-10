@@ -100,7 +100,7 @@ impl<'e> BxlEvalExtra<'e> {
 impl<'e> ErrorPrinter for BxlEvalExtra<'e> {
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.eval_extra_type {
-            BxlEvalExtraType::Root { stream_state } => writeln!(stream_state.error(), "{}", msg)?,
+            BxlEvalExtraType::Root { stream_state } => writeln!(stream_state.error(), "{msg}")?,
             BxlEvalExtraType::Dynamic => console_message(msg),
             BxlEvalExtraType::AnonTarget => console_message(msg),
         }

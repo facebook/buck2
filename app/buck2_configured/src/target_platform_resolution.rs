@@ -152,7 +152,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     node.rule_type(),
                 )
                 .await
-                .with_buck_error_context(|| format!("Resolving modifiers for target `{}`", target))
+                .with_buck_error_context(|| format!("Resolving modifiers for target `{target}`"))
         }
 
         match node.rule_kind() {

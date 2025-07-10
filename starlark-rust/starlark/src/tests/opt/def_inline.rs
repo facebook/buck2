@@ -97,8 +97,7 @@ fn test_dict_inlined_call_stack() {
         assert_eq!(
             BcOpcode::ListNew,
             f.bc().instrs.opcodes().as_slice()[0],
-            "in `{}`",
-            f,
+            "in `{f}`",
         );
     }
 
@@ -126,7 +125,7 @@ error: Value of type `list` is not hashable
   |                  ^^
   |
 ",
-        &format!("\n{:#}", error)
+        &format!("\n{error:#}")
     );
 }
 

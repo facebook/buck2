@@ -45,7 +45,7 @@ impl ArtifactPath<'_> {
             },
         }
         .file_name()
-        .with_buck_error_context(|| format!("Artifact has no file name: `{}`", self));
+        .with_buck_error_context(|| format!("Artifact has no file name: `{self}`"));
 
         f(file_name)
     }
@@ -121,6 +121,6 @@ impl fmt::Display for ArtifactPath<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // NOTE: This produces a representation we tend to use in Starlark for those, which isn't
         // really consistent with what we use when *not* in Starlark.
-        self.with_short_path(|p| write!(fmt, "{}", p))
+        self.with_short_path(|p| write!(fmt, "{p}"))
     }
 }

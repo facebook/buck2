@@ -74,7 +74,7 @@ mod unix_impl {
                 OFlag::O_RDONLY | OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
                 Mode::empty(),
             )
-            .with_buck_error_context(|| format!("Failed to open: `{}`", path))?;
+            .with_buck_error_context(|| format!("Failed to open: `{path}`"))?;
 
             Ok(Self { fd })
         }
@@ -87,7 +87,7 @@ mod unix_impl {
         fn is_stale(&self, path: &AbsNormPath) -> buck2_error::Result<bool> {
             let cwd = nix::sys::stat::fstat(self.fd).buck_error_context("Failed to stat cwd")?;
             let path = nix::sys::stat::stat(path.as_path())
-                .with_buck_error_context(|| format!("Failed to stat `{}`", path))?;
+                .with_buck_error_context(|| format!("Failed to stat `{path}`"))?;
             Ok(cwd.st_dev != path.st_dev || cwd.st_ino != path.st_ino)
         }
     }

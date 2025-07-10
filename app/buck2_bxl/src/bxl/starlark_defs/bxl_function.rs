@@ -245,7 +245,7 @@ impl FrozenBxlFunction {
                 cli.parse_clap(ArgAccessor::Clap { clap: &clap, arg }, ctx)
                     .await
                     .with_buck_error_context(|| {
-                        format!("Error parsing cli flag `{}` for bxl function", arg)
+                        format!("Error parsing cli flag `{arg}` for bxl function")
                     })?,
             );
         }

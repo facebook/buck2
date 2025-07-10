@@ -85,10 +85,10 @@ impl Display for StarlarkDeclaredArtifact<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<build artifact {}", self.artifact)?;
         if let Some(location) = &self.declaration_location {
-            write!(f, " declared at {}", location)?;
+            write!(f, " declared at {location}")?;
         }
         if let Some(label) = self.artifact.owner() {
-            write!(f, " bound to {}", label)?;
+            write!(f, " bound to {label}")?;
         }
         write!(f, ">")
     }

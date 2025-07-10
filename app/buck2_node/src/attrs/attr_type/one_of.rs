@@ -33,7 +33,7 @@ impl OneOfAttrType {
             }
             write!(f, "{x}")?;
         }
-        write!(f, "{})", arg)
+        write!(f, "{arg})")
     }
 
     pub(crate) fn any_supports_concat(&self) -> bool {

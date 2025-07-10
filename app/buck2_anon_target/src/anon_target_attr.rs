@@ -78,7 +78,7 @@ impl AttrSerializeWithContext for AnonTargetAttr {
     {
         // TODO this is inefficient. We should impl Serialize and derive value from this instead.
         self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
             .serialize(s)
     }
 }
@@ -87,10 +87,10 @@ impl AttrDisplayWithContext for AnonTargetAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AnonTargetAttr::Bool(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             AnonTargetAttr::Int(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             AnonTargetAttr::String(v) | AnonTargetAttr::EnumVariant(v) => {
                 AttrDisplayWithContext::fmt(v, ctx, f)
@@ -100,11 +100,11 @@ impl AttrDisplayWithContext for AnonTargetAttr {
             AnonTargetAttr::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             AnonTargetAttr::None => write!(f, "None"),
             AnonTargetAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
-            AnonTargetAttr::Dep(e) => write!(f, "\"{}\"", e),
-            AnonTargetAttr::Artifact(e) => write!(f, "\"{}\"", e),
-            AnonTargetAttr::Arg(e) => write!(f, "\"{}\"", e),
-            AnonTargetAttr::PromiseArtifact(e) => write!(f, "\"{}\"", e),
-            AnonTargetAttr::Label(e) => write!(f, "\"{}\"", e),
+            AnonTargetAttr::Dep(e) => write!(f, "\"{e}\""),
+            AnonTargetAttr::Artifact(e) => write!(f, "\"{e}\""),
+            AnonTargetAttr::Arg(e) => write!(f, "\"{e}\""),
+            AnonTargetAttr::PromiseArtifact(e) => write!(f, "\"{e}\""),
+            AnonTargetAttr::Label(e) => write!(f, "\"{e}\""),
         }
     }
 }

@@ -50,14 +50,14 @@ impl ServerAuditSubcommand for AuditCellCommand {
                         writeln!(stdout, "{}", serde_json::to_string_pretty(&paths)?)?;
                     } else {
                         for v in mappings.values() {
-                            writeln!(stdout, "{}", v)?;
+                            writeln!(stdout, "{v}")?;
                         }
                     }
                 } else if self.json {
                     writeln!(stdout, "{}", serde_json::to_string_pretty(&mappings)?)?;
                 } else {
                     for (k, v) in mappings {
-                        writeln!(stdout, "{}: {}", k, v)?;
+                        writeln!(stdout, "{k}: {v}")?;
                     }
                 }
 

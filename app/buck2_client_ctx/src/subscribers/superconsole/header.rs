@@ -214,22 +214,17 @@ impl Style {
                 num_width = *num_width
             ),
             Style::ExtraCompact => {
-                format!(
-                    "{header} Remaining {pending}/{total}",
-                    header = header,
-                    pending = pending,
-                    total = total,
-                )
+                format!("{header} Remaining {pending}/{total}",)
             }
         };
 
         if let DrawMode::Normal = mode {
             line += &match self {
                 Style::Normal(_) | Style::Compact(_) => {
-                    format!(" (running: {running_str})", running_str = running_str,)
+                    format!(" (running: {running_str})",)
                 }
                 Style::ExtraCompact => {
-                    format!(" ({running_num})", running_num = running_num,)
+                    format!(" ({running_num})",)
                 }
             };
         }
@@ -239,9 +234,9 @@ impl Style {
     fn display_num(&self, num: u64) -> String {
         match self {
             Style::Normal(num_width) | Style::Compact(num_width) => {
-                format!("{:num_width$}", num, num_width = num_width)
+                format!("{num:num_width$}")
             }
-            Style::ExtraCompact => format!("{}", num),
+            Style::ExtraCompact => format!("{num}"),
         }
     }
 }
@@ -754,9 +749,7 @@ mod tests {
         // don't use pretty_assertions here because we mostly just want to copy-paste the golden
         assert!(
             all_output == expected,
-            "GOLDEN:\n{}\nEND_GOLDEN\nEXPECTED:\n{}\nEND_EXPECTED",
-            all_output,
-            expected
+            "GOLDEN:\n{all_output}\nEND_GOLDEN\nEXPECTED:\n{expected}\nEND_EXPECTED"
         );
 
         Ok(())

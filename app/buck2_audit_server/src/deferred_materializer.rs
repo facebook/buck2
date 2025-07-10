@@ -62,7 +62,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     .buck_error_context("Failed to start listing subscriptions")?;
 
                 while let Some(path) = stream.next().await {
-                    writeln!(stdout, "{}", path)?;
+                    writeln!(stdout, "{path}")?;
                 }
             }
             DeferredMaterializerSubcommand::Fsck => {
@@ -74,11 +74,11 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
 
                 while let Some((path, error)) = stream.next().await {
                     n += 1;
-                    writeln!(stdout, "{}\t{:#}", path, error)?;
+                    writeln!(stdout, "{path}\t{error:#}")?;
                 }
 
                 let mut stderr = server_ctx.stderr()?;
-                writeln!(&mut stderr, "total errors: {}", n)?;
+                writeln!(&mut stderr, "total errors: {n}")?;
             }
             DeferredMaterializerSubcommand::Refresh { min_ttl } => {
                 deferred_materializer
@@ -92,7 +92,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     .await
                     .buck_error_context("Failed to get_ttl_refresh_log")?;
 
-                write!(stdout, "{}", text)?;
+                write!(stdout, "{text}")?;
             }
             DeferredMaterializerSubcommand::TestIter { count } => {
                 let text = deferred_materializer
@@ -100,7 +100,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     .await
                     .buck_error_context("Failed to test_iter")?;
 
-                write!(stdout, "{}", text)?;
+                write!(stdout, "{text}")?;
             }
             DeferredMaterializerSubcommand::FlushAccessTimes => {
                 let text = deferred_materializer
@@ -108,7 +108,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     .await
                     .buck_error_context("Failed to flush all access times")?;
 
-                write!(stdout, "{}", text)?;
+                write!(stdout, "{text}")?;
             }
         }
 

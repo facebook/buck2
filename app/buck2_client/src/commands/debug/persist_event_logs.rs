@@ -174,7 +174,7 @@ async fn upload_task(
     }
 
     let manifold_client = ManifoldClient::new().await?;
-    let manifold_path = format!("flat/{}", manifold_name);
+    let manifold_path = format!("flat/{manifold_name}");
     let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;
 
     loop {
@@ -312,7 +312,7 @@ fn categorize_error(err: &buck2_error::Error) -> &'static str {
     // Each category should point to 1 root cause
     // In case any of this is to be changed, just give a heads up
     // to anybody who may be actively tracking these errors
-    let err_msg = format!("{:#}", err);
+    let err_msg = format!("{err:#}");
     if err_msg.contains("CertificateRequired") {
         "persist_log_certificate_required"
     } else if err_msg.contains("No space left on device") {

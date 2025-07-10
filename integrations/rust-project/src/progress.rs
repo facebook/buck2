@@ -91,7 +91,7 @@ where
         };
         let out = serde_json::to_string(&out).unwrap();
         let mut writer = self.writer.make_writer();
-        writeln!(writer, "{}", out).expect("unable to write");
+        writeln!(writer, "{out}").expect("unable to write");
     }
 }
 
@@ -111,7 +111,7 @@ impl tracing::field::Visit for JsonVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.0.insert(
             field.name().to_owned(),
-            serde_json::Value::from(format!("{:?}", value)),
+            serde_json::Value::from(format!("{value:?}")),
         );
     }
 }

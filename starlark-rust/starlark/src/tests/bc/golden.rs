@@ -37,7 +37,7 @@ fn test_function_bytecode(program: &str) -> String {
         .unwrap();
 
     let mut golden = String::new();
-    writeln!(golden, "{}", program).unwrap();
+    writeln!(golden, "{program}").unwrap();
     writeln!(golden).unwrap();
     writeln!(golden, "# Bytecode:").unwrap();
     writeln!(golden).unwrap();

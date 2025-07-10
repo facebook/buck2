@@ -92,7 +92,7 @@ impl Backend {
         thread::spawn(move || {
             let res = go();
             let output = match &res {
-                Err(e) => format!("{:#}", e),
+                Err(e) => format!("{e:#}"),
                 Ok(v) => v.to_owned(),
             };
             client2.event_output(OutputEventBody {

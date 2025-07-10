@@ -36,8 +36,7 @@ fn lex_tokens(program: &str) -> Vec<(usize, Token, usize)> {
             .collect::<Result<Vec<_>, _>>()
             .unwrap_or_else(|e|
                 panic!(
-                    "starlark::assert::lex_tokens, expected lex success but failed\nCode: {}\nError: {}",
-                    program, e
+                    "starlark::assert::lex_tokens, expected lex success but failed\nCode: {program}\nError: {e}"
                 )
             )
     }
@@ -46,9 +45,9 @@ fn lex_tokens(program: &str) -> Vec<(usize, Token, usize)> {
     fn check_spans(tokens: &[(usize, Token, usize)]) {
         let mut pos = 0;
         for (i, t, j) in tokens {
-            let span_incorrect = format!("Span of {:?} incorrect", t);
-            assert!(pos <= *i, "{}: {} > {}", span_incorrect, pos, i);
-            assert!(i <= j, "{}: {} > {}", span_incorrect, i, j);
+            let span_incorrect = format!("Span of {t:?} incorrect");
+            assert!(pos <= *i, "{span_incorrect}: {pos} > {i}");
+            assert!(i <= j, "{span_incorrect}: {i} > {j}");
             pos = *j;
         }
     }
@@ -66,8 +65,7 @@ fn lex_tokens(program: &str) -> Vec<(usize, Token, usize)> {
     assert_eq!(
         orig.map(|x| &x.1),
         with_r.map(|x| &x.1),
-        "starlark::assert::lex_tokens, difference using CRLF newlines\nCode: {}",
-        program,
+        "starlark::assert::lex_tokens, difference using CRLF newlines\nCode: {program}",
     );
 
     orig
@@ -83,7 +81,7 @@ fn lexer_golden_test(name: &str, program: &str) {
     let mut out = String::new();
 
     writeln!(out, "Program:").unwrap();
-    writeln!(out, "{}", program).unwrap();
+    writeln!(out, "{program}").unwrap();
     writeln!(out).unwrap();
     writeln!(out, "Tokens:").unwrap();
 
@@ -98,7 +96,7 @@ fn lexer_golden_test(name: &str, program: &str) {
         writeln!(out, "{token:<max_width$}  # {source}").unwrap();
     }
 
-    golden_test_template(&format!("src/lexer_tests/{}.golden", name), &out);
+    golden_test_template(&format!("src/lexer_tests/{name}.golden"), &out);
 }
 
 fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
@@ -120,13 +118,13 @@ fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
         .unwrap_err();
 
         writeln!(out, "Program:").unwrap();
-        writeln!(out, "{}", program).unwrap();
+        writeln!(out, "{program}").unwrap();
         writeln!(out).unwrap();
         writeln!(out, "Error:").unwrap();
-        writeln!(out, "{}", e).unwrap();
+        writeln!(out, "{e}").unwrap();
     }
 
-    golden_test_template(&format!("src/lexer_tests/{}.fail.golden", name), &out);
+    golden_test_template(&format!("src/lexer_tests/{name}.fail.golden"), &out);
 }
 
 #[test]

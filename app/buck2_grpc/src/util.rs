@@ -16,6 +16,6 @@ where
 {
     match fut.await {
         Ok(r) => Ok(tonic::Response::new(r)),
-        Err(e) => Err(tonic::Status::unknown(format!("{:#}", e))),
+        Err(e) => Err(tonic::Status::unknown(format!("{e:#}"))),
     }
 }

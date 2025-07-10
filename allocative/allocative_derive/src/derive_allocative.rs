@@ -233,7 +233,7 @@ fn fields_unnamed_names(fields: &FieldsUnnamed) -> syn::Result<Vec<Ident>> {
         .unnamed
         .iter()
         .enumerate()
-        .map(|(i, f)| Ok(Ident::new(&format!("f{}", i), f.span())))
+        .map(|(i, f)| Ok(Ident::new(&format!("f{i}"), f.span())))
         .collect()
 }
 

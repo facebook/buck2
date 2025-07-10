@@ -32,10 +32,10 @@ impl FileIgnoreReason {
     pub fn describe(&self) -> String {
         match self {
             FileIgnoreReason::IgnoredByPattern { pattern, .. } => {
-                format!("config project.ignore contains `{}`", pattern)
+                format!("config project.ignore contains `{pattern}`")
             }
             FileIgnoreReason::IgnoredByCell { cell_name, .. } => {
-                format!("path is contained in cell `{}`", cell_name)
+                format!("path is contained in cell `{cell_name}`")
             }
         }
     }
@@ -57,12 +57,12 @@ impl FileIgnoreResult {
             FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern { path, pattern }) => {
                 Err(FileOpsError::ReadIgnoredDir(
                     path,
-                    format!("file is matched by pattern `{}`", pattern),
+                    format!("file is matched by pattern `{pattern}`"),
                 )
                 .into())
             }
             FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell { path, cell_name }) => Err(
-                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{}`", cell_name))
+                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{cell_name}`"))
                     .into(),
             ),
         }

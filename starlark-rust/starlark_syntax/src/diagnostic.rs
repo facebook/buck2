@@ -166,7 +166,7 @@ pub(crate) fn diagnostic_display<T: fmt::Debug + fmt::Display>(
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).
     let display_list = d.0.diagnostic.get_display_list(&annotation_label, color);
-    writeln!(f, "{}", display_list)?;
+    writeln!(f, "{display_list}")?;
     // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
     // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
     if with_context {

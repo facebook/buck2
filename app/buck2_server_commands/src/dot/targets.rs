@@ -74,7 +74,7 @@ impl<T: QueryCommandTarget> DotNode for DotTargetGraphNode<'_, T> {
                     |attr_name, attr_value| {
                         if attr_regex.is_match(attr_name) {
                             extra.insert(
-                                format!("buck_{}", attr_name),
+                                format!("buck_{attr_name}"),
                                 format!(
                                     "{}",
                                     self.0.attr_display(

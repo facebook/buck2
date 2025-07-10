@@ -58,7 +58,7 @@ pub enum PromiseArtifactResolveError {
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
     match location {
-        Some(v) => format!(" (declared at {})", v),
+        Some(v) => format!(" (declared at {v})"),
         None => String::new(),
     }
 }
@@ -169,7 +169,7 @@ impl PromiseArtifact {
 impl Display for PromiseArtifact {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(artifact) = self.artifact.get() {
-            write!(f, "PromiseArtifact(Resolved({}))", artifact)
+            write!(f, "PromiseArtifact(Resolved({artifact}))")
         } else {
             write!(
                 f,
@@ -210,7 +210,7 @@ impl fmt::Display for PromiseArtifactAttr {
         // it into a downstream target, so then there would be 2 declaration locations.
         write!(f, "<promise artifact attr (id = {})", self.id)?;
         if let Some(short_path) = &self.short_path {
-            write!(f, " with short_path `{}`", short_path)?;
+            write!(f, " with short_path `{short_path}`")?;
         }
         write!(f, ">")?;
         Ok(())

@@ -67,8 +67,7 @@ impl TargetAliasResolver for BuckConfigTargetAliasResolver {
                 e @ AliasResolutionError::AliasChainBroken(..)
                 | e @ AliasResolutionError::AliasCycle(..),
             ) => {
-                Err(buck2_error::Error::from(e)
-                    .context(format!("Error resolving alias `{}`", name)))
+                Err(buck2_error::Error::from(e).context(format!("Error resolving alias `{name}`")))
             }
         }
     }
@@ -216,13 +215,11 @@ mod tests {
         assert_matches!(
             target_alias_resolver.resolve_alias("chain1"),
             Err(e) => {
-                let err = format!("{:#}", e);
+                let err = format!("{e:#}");
                 let expected = "chain1 -> chain2 -> chain3";
                 assert!(
                     err.contains(expected),
-                    "expected error to contain `{}`, got `{}`",
-                    expected,
-                    err
+                    "expected error to contain `{expected}`, got `{err}`"
                 );
             }
         );
@@ -230,13 +227,11 @@ mod tests {
         assert_matches!(
             target_alias_resolver.resolve_alias("cycle1"),
             Err(e) => {
-                let err = format!("{:#}", e);
+                let err = format!("{e:#}");
                 let expected = "cycle1 -> cycle2 -> cycle3 -> cycle1";
                 assert!(
                     err.contains(expected),
-                    "expected error to contain `{}`, got `{}`",
-                    expected,
-                    err
+                    "expected error to contain `{expected}`, got `{err}`"
                 );
             }
         );

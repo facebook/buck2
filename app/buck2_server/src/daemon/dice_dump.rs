@@ -54,12 +54,10 @@ pub(crate) fn tar_dice_dump(dice_dump_folder: &Path) -> buck2_error::Result<()> 
     let mut tar = tar::Builder::new(enc);
     let files = vec!["nodes.gz", "edges.gz", "nodes_currently_running.gz"];
     for file_name in files {
-        let mut file = File::open(dice_dump_folder.join(file_name)).buck_error_context(format!(
-            "Failed to open file `{}` for compressing",
-            file_name
-        ))?;
+        let mut file = File::open(dice_dump_folder.join(file_name))
+            .buck_error_context(format!("Failed to open file `{file_name}` for compressing"))?;
         tar.append_file(file_name, &mut file)
-            .buck_error_context(format!("Failed to write file `{}` to archive", file_name))?;
+            .buck_error_context(format!("Failed to write file `{file_name}` to archive"))?;
     }
 
     tar.finish()

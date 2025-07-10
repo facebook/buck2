@@ -134,9 +134,9 @@ impl Display for TestExpr {
             },
             TestExpr::BinOp(op, x_y) => {
                 let (x, y) = &**x_y;
-                write!(f, "({} {} {})", x, op, y)
+                write!(f, "({x} {op} {y})")
             }
-            TestExpr::Not(x) => write!(f, "(not {})", x),
+            TestExpr::Not(x) => write!(f, "(not {x})"),
         }
     }
 }
@@ -166,13 +166,12 @@ fn eval_program(program: &str) -> (bool, CountCalls) {
 fn eval_if_else_with_starlark(expr: &TestExpr) -> (bool, CountCalls) {
     let program = format!(
         r#"
-if {}:
+if {expr}:
     r = True
 else:
     r = False
 r
-"#,
-        expr
+"#
     );
     eval_program(&program)
 }
@@ -181,11 +180,10 @@ fn eval_if_with_starlark(expr: &TestExpr) -> (bool, CountCalls) {
     let program = format!(
         r#"
 r = False
-if {}:
+if {expr}:
     r = True
 r
-"#,
-        expr
+"#
     );
     eval_program(&program)
 }
@@ -203,19 +201,19 @@ fn eval_manually(expr: &TestExpr) -> (bool, CountCalls) {
 fn test_if_else(expr: &TestExpr) {
     let expected = eval_manually(expr);
     let actual = eval_if_else_with_starlark(expr);
-    assert_eq!(expected, actual, "expression: {}", expr);
+    assert_eq!(expected, actual, "expression: {expr}");
 }
 
 fn test_if(expr: &TestExpr) {
     let expected = eval_manually(expr);
     let actual = eval_if_with_starlark(expr);
-    assert_eq!(expected, actual, "expression: {}", expr);
+    assert_eq!(expected, actual, "expression: {expr}");
 }
 
 fn test_expr_result(expr: &TestExpr) {
     let expected = eval_manually(expr);
     let actual = eval_expr_result(expr);
-    assert_eq!(expected, actual, "expression: {}", expr);
+    assert_eq!(expected, actual, "expression: {expr}");
 }
 
 fn test_ifs(expr: &TestExpr) {

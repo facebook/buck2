@@ -169,8 +169,7 @@ impl<T: LabeledNode> Graph<T> {
                     match graph.nodes.get(*parent_index) {
                         None => {
                             return Err(e.context(format!(
-                                "Node {} has not node assigned (internal error)",
-                                parent_index
+                                "Node {parent_index} has not node assigned (internal error)"
                             )));
                         }
                         Some(parent) => {

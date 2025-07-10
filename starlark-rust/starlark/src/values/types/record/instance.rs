@@ -59,7 +59,7 @@ pub struct RecordGen<V: ValueLifetimeless> {
 impl<'v, V: ValueLike<'v>> Display for RecordGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = self.record_type_name().unwrap_or("anon");
-        fmt_keyed_container(f, &format!("record[{}](", name), ")", "=", self.iter())
+        fmt_keyed_container(f, &format!("record[{name}]("), ")", "=", self.iter())
     }
 }
 

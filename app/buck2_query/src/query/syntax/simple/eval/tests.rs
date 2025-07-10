@@ -212,10 +212,10 @@ pub async fn test_missing_arg() -> buck2_error::Result<()> {
         Ok(_) => panic!(),
         Err(e) => {
             let err = QueryError::convert_error(e, input);
-            let msg = format!("{:#}", err);
+            let msg = format!("{err:#}");
             let expected = "too few args. function `kind` requires at least ";
             if !msg.contains(expected) {
-                return Err(err.context(format!("Expected error to contain `{}`", expected)));
+                return Err(err.context(format!("Expected error to contain `{expected}`")));
             }
         }
     }

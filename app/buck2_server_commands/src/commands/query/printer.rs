@@ -342,7 +342,7 @@ impl<'a> QueryResultPrinter<'a> {
                         printable_targets(&targets, print_providers, &self.attributes, call_stack)
                             .await?
                     {
-                        writeln!(&mut output, "{}", target)?;
+                        writeln!(&mut output, "{target}")?;
                     }
                 }
                 QueryOutputFormatInfo::Starlark => {
@@ -373,10 +373,10 @@ impl<'a> QueryResultPrinter<'a> {
                             buck2_error::Ok(())
                         })?;
                         if let Some(name) = attrs.remove("name") {
-                            writeln!(&mut inner_out, "name = {},", name)?;
+                            writeln!(&mut inner_out, "name = {name},")?;
                         }
                         for (k, v) in attrs {
-                            writeln!(&mut inner_out, "{} = {},", k, v)?;
+                            writeln!(&mut inner_out, "{k} = {v},")?;
                         }
                         writeln!(&mut output, ")")?;
                     }

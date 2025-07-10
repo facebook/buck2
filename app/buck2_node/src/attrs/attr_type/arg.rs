@@ -348,14 +348,14 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
             }
             MacroBase::Query(query) => Display::fmt(query, f),
             MacroBase::Source(path) => write!(f, "src {}", path.path()),
-            MacroBase::UserUnkeyedPlaceholder(var) => write!(f, "{}", var),
+            MacroBase::UserUnkeyedPlaceholder(var) => write!(f, "{var}"),
             MacroBase::UserKeyedPlaceholder(box (macro_type, target, arg)) => write!(
                 f,
                 "{} {}{}",
                 macro_type,
                 target,
                 if let Some(arg) = arg {
-                    format!(" {}", arg)
+                    format!(" {arg}")
                 } else {
                     "".to_owned()
                 }
@@ -370,7 +370,7 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
 impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacrosPart<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StringWithMacrosPart::String(s) => write!(f, "{}", s),
+            StringWithMacrosPart::String(s) => write!(f, "{s}"),
             StringWithMacrosPart::Macro(write_to_file, m) => {
                 write!(f, "$({}{})", if *write_to_file { "@" } else { "" }, m)
             }
@@ -398,11 +398,11 @@ impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacros<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::StringPart(part) => {
-                write!(f, "{}", part)?;
+                write!(f, "{part}")?;
             }
             Self::ManyParts(parts) => {
                 for part in parts.iter() {
-                    write!(f, "{}", part)?;
+                    write!(f, "{part}")?;
                 }
             }
         }
@@ -426,7 +426,7 @@ impl Display for QueryExpansion {
             QueryExpansion::Output => f.write_str("query_outputs ")?,
             QueryExpansion::Target => f.write_str("query_targets ")?,
             QueryExpansion::TargetAndOutput(Some(separator)) => {
-                write!(f, "query_targets_and_outputs '{}' ", separator)?;
+                write!(f, "query_targets_and_outputs '{separator}' ")?;
             }
             QueryExpansion::TargetAndOutput(None) => f.write_str("query_targets_and_outputs ")?,
         };

@@ -302,7 +302,7 @@ mod tests {
                     "]",
                     ": ",
                     // just wrap with `"` to make it clearer in the output
-                    self.0.iter().map(|(k, v)| (k, format!("\"{}\"", v))),
+                    self.0.iter().map(|(k, v)| (k, format!("\"{v}\""))),
                 )
             }
         }

@@ -277,16 +277,16 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                         match includes {
                             Ok(includes) => {
                                 // intentionally add a blank line after the header
-                                writeln!(stdout, "# {}\n", path)?;
+                                writeln!(stdout, "# {path}\n")?;
                                 for include in includes {
                                     // To match buck1, we print absolute paths.
-                                    writeln!(stdout, "{}", include)?;
+                                    writeln!(stdout, "{include}")?;
                                 }
                             }
                             Err(e) => {
                                 // intentionally add a blank line after the header
-                                writeln!(stdout, "! {}\n", path)?;
-                                writeln!(stdout, "{:#}", e)?;
+                                writeln!(stdout, "! {path}\n")?;
+                                writeln!(stdout, "{e:#}")?;
                             }
                         }
                     }

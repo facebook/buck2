@@ -1116,7 +1116,7 @@ mod tests {
 
         fn test(parsed: &FixtureWithRanges, module: &LspModule, name: &str) {
             let expected = Definition::from(IdentifierDefinition::StringLiteral {
-                source: parsed.resolved_span(&format!("{}_click", name)),
+                source: parsed.resolved_span(&format!("{name}_click")),
                 literal: name.to_owned(),
             });
             let actual = module
@@ -1124,8 +1124,7 @@ mod tests {
 
             assert_eq!(
                 expected, actual,
-                "Expected `{:?}` == `{:?}` for test `{}`",
-                expected, actual, name
+                "Expected `{expected:?}` == `{actual:?}` for test `{name}`"
             );
         }
 
@@ -1167,7 +1166,7 @@ mod tests {
 
         let expected = |span_id: &str, segments: &[&str]| -> Definition {
             let root_definition_location = IdentifierDefinition::Unresolved {
-                source: parsed.resolved_span(&format!("{}_root", span_id)),
+                source: parsed.resolved_span(&format!("{span_id}_root")),
                 name: "foo".to_owned(),
             };
             if segments.len() > 1 {
@@ -1222,7 +1221,7 @@ mod tests {
 
         let expected = |span_id: &str, segments: &[&str]| -> Definition {
             let root_definition_location = IdentifierDefinition::LoadedLocation {
-                source: parsed.resolved_span(&format!("{}_root", span_id)),
+                source: parsed.resolved_span(&format!("{span_id}_root")),
                 destination: parsed.resolved_span("root"),
                 path: "defs.bzl".to_owned(),
                 name: "foo".to_owned(),
@@ -1278,7 +1277,7 @@ mod tests {
 
         let expected = |span_id: &str, segments: &[&str]| -> Definition {
             let root_definition_location = IdentifierDefinition::Location {
-                source: parsed.resolved_span(&format!("{}_root", span_id)),
+                source: parsed.resolved_span(&format!("{span_id}_root")),
                 destination: parsed.resolved_span("root"),
                 name: "foo".to_owned(),
             };

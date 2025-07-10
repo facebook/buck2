@@ -40,7 +40,7 @@ impl<'a> ReActionIdentity<'a> {
     ) -> Self {
         let mut action_key = target.re_action_key();
         if let Some(executor_action_key) = executor_action_key {
-            action_key = format!("{} {}", executor_action_key, action_key);
+            action_key = format!("{executor_action_key} {action_key}");
         }
 
         let trace_id = get_dispatcher().trace_id().to_owned();

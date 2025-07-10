@@ -50,7 +50,7 @@ pub struct WhatRanOptionsRegex<'a> {
 impl<'a> WhatRanOptionsRegex<'a> {
     pub fn from_options(options: &'a WhatRanOptions) -> buck2_error::Result<Self> {
         let filter_category_regex = match &options.filter_category {
-            Some(filter_category) => Some(Regex::new(&format!(r"^{}$", filter_category))?),
+            Some(filter_category) => Some(Regex::new(&format!(r"^{filter_category}$"))?),
             None => None,
         };
         Ok(Self {
@@ -454,10 +454,10 @@ fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
         let platform = platform
             .properties
             .iter()
-            .map(|Property { name, value }| format!("{}={}", name, value))
+            .map(|Property { name, value }| format!("{name}={value}"))
             .collect::<Vec<String>>()
             .join(",");
-        format!("re({})", platform)
+        format!("re({platform})")
     } else {
         "re".to_owned()
     }

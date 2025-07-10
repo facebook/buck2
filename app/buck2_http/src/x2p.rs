@@ -40,7 +40,7 @@ mod imp {
     pub(super) fn find_http_proxy() -> buck2_error::Result<Option<Proxy>> {
         if let Some(port) = cpe::x2p::http1_proxy_port() {
             tracing::debug!("Using x2pagent http proxy client on port: {}", port);
-            let uri: Uri = format!("http://localhost:{}", port)
+            let uri: Uri = format!("http://localhost:{port}")
                 .try_into()
                 .buck_error_context("Error converting x2pagent proxy address into URI")?;
             Ok(Some(Proxy::new(Intercept::All, uri)))

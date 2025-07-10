@@ -54,7 +54,7 @@ fn derive_dupe_explicit(
     let check_each_field_dupe = check_each_field_dupe(all_fields);
 
     let check_func_name = Ident::new(
-        &format!("__implicit_dupe_check_for_fields_of_{}", name),
+        &format!("__implicit_dupe_check_for_fields_of_{name}"),
         name.span(),
     );
 

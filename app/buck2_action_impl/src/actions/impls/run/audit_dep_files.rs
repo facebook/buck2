@@ -45,7 +45,7 @@ async fn audit_dep_files(
     let key = DepFilesKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
 
     let state = get_dep_files(&key)
-        .with_buck_error_context(|| format!("Failed to find dep files for key `{}`", key))?;
+        .with_buck_error_context(|| format!("Failed to find dep files for key `{key}`"))?;
 
     let declared_dep_files = match state.declared_dep_files() {
         Some(declared_dep_files) => declared_dep_files,
@@ -86,12 +86,12 @@ async fn audit_dep_files(
     };
 
     for path in dirs.untagged.ordered_walk_leaves().paths() {
-        writeln!(stdout, "untagged\t{}", path)?;
+        writeln!(stdout, "untagged\t{path}")?;
     }
 
     for (tag, dir) in dirs.tagged.iter() {
         for path in dir.ordered_walk_leaves().paths() {
-            writeln!(stdout, "{}\t{}", tag, path)?;
+            writeln!(stdout, "{tag}\t{path}")?;
         }
     }
 

@@ -147,7 +147,7 @@ impl TypeCheck {
                 // Note we are using `:#` here instead of `:?` because
                 // `:?` includes rust backtrace.
                 // The issue: https://github.com/dtolnay/anyhow/issues/300
-                writeln!(output, "{}", format!("{:#}", error).trim_end()).unwrap();
+                writeln!(output, "{}", format!("{error:#}").trim_end()).unwrap();
             }
         }
 
@@ -155,7 +155,7 @@ impl TypeCheck {
             writeln!(output).unwrap();
             writeln!(output, "Approximations:").unwrap();
             for appox in approximations {
-                writeln!(output, "{}", appox).unwrap();
+                writeln!(output, "{appox}").unwrap();
             }
         }
 
@@ -165,9 +165,9 @@ impl TypeCheck {
             for k in &self.expect_types {
                 let types = typemap.find_bindings_by_name(k);
                 match types.as_slice() {
-                    [ty] => writeln!(output, "{}: {}", k, ty).unwrap(),
-                    [] => panic!("Type not found for {}", k),
-                    [_, _, ..] => panic!("Multiple types found for {}", k),
+                    [ty] => writeln!(output, "{k}: {ty}").unwrap(),
+                    [] => panic!("Type not found for {k}"),
+                    [_, _, ..] => panic!("Multiple types found for {k}"),
                 }
             }
         }
@@ -191,7 +191,7 @@ impl TypeCheck {
             // Additional writes must happen above this line otherwise it might be erased by trim_rust_backtrace
             match &eval_result {
                 Ok(_) => writeln!(output, "No errors.").unwrap(),
-                Err(err) => writeln!(output, "{:?}", err).unwrap(),
+                Err(err) => writeln!(output, "{err:?}").unwrap(),
             }
 
             // Help borrow checker.
@@ -201,7 +201,7 @@ impl TypeCheck {
         };
 
         golden_test_template(
-            &format!("src/typing/tests/golden/{}.golden", test_name),
+            &format!("src/typing/tests/golden/{test_name}.golden"),
             trim_rust_backtrace(&output),
         );
 

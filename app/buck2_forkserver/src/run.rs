@@ -465,8 +465,7 @@ mod tests {
         .await?;
         assert!(
             matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0),
-            "status: {:?}",
-            status
+            "status: {status:?}"
         );
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -496,8 +495,7 @@ mod tests {
         .await?;
         assert!(
             matches!(status, GatherOutputStatus::TimedOut(..)),
-            "status: {:?}",
-            status
+            "status: {status:?}"
         );
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         // Do not check stderr because stderr may contain a message like:

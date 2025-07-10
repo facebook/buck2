@@ -97,7 +97,7 @@ impl EvalException {
     pub fn _testing_loc(err: &crate::Error) -> crate::codemap::ResolvedFileSpan {
         match err.span() {
             Some(d) => d.resolve(),
-            None => panic!("Expected error with diagnostic, got {:#?}", err),
+            None => panic!("Expected error with diagnostic, got {err:#?}"),
         }
     }
 }

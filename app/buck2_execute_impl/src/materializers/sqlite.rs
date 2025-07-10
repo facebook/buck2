@@ -94,7 +94,7 @@ impl MaterializerStateSqliteDb {
             .buck_error_context("Error reading creation metadata")?
             .map(MaterializerStateIdentity)
             .with_buck_error_context(|| {
-                format!("Identity key is missing in db: `{}`", IDENTITY_KEY)
+                format!("Identity key is missing in db: `{IDENTITY_KEY}`")
             })?;
 
         Ok(Self { tables, identity })

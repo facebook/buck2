@@ -152,7 +152,7 @@ assert_eq(y, [20, 30])
         // And inside functions
         a.pass(&format!(
             "def local():\n{}\nlocal()",
-            check.lines().map(|x| format!("    {}", x)).join("\n")
+            check.lines().map(|x| format!("    {x}")).join("\n")
         ));
 
         // Check we get the right stack frames

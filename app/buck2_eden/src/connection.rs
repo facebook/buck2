@@ -100,8 +100,7 @@ impl EdenConnectionManager {
             .strip_prefix(&canon_eden_mount)
             .with_buck_error_context(|| {
                 format!(
-                    "Eden root {} was not a prefix of the project root {}",
-                    canon_eden_mount, canon_project_root
+                    "Eden root {canon_eden_mount} was not a prefix of the project root {canon_project_root}"
                 )
             })?;
 
@@ -190,7 +189,7 @@ impl EdenConnectionManager {
             if version.is_empty() || release.is_empty() {
                 return None;
             }
-            Some(format!("{}-{}", version, release))
+            Some(format!("{version}-{release}"))
         }
 
         Ok(join_version(&values))

@@ -102,13 +102,13 @@ impl MissingTargets {
         )
         .unwrap();
         for target in head {
-            writeln!(message, "  {}", target).unwrap();
+            writeln!(message, "  {target}").unwrap();
         }
         if !middle.is_empty() {
-            writeln!(message, "  {}", middle).unwrap();
+            writeln!(message, "  {middle}").unwrap();
         }
         for target in tail {
-            writeln!(message, "  {}", target).unwrap();
+            writeln!(message, "  {target}").unwrap();
         }
         message
     }

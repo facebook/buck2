@@ -143,9 +143,9 @@ impl Error {
         if self.has_diagnostic() {
             let mut stderr = String::new();
             diagnostic_display(&self.0, true, &mut stderr, true).unwrap();
-            eprint!("{}", stderr);
+            eprint!("{stderr}");
         } else {
-            eprintln!("{:#}", self)
+            eprintln!("{self:#}")
         }
     }
 
@@ -250,14 +250,14 @@ impl ErrorKind {
 impl fmt::Debug for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Fail(s) => write!(f, "fail:{}", s),
+            Self::Fail(s) => write!(f, "fail:{s}"),
             Self::Value(e) => fmt::Debug::fmt(e, f),
             Self::StackOverflow(e) => fmt::Debug::fmt(e, f),
             Self::Function(e) => fmt::Debug::fmt(e, f),
             Self::Scope(e) => fmt::Debug::fmt(e, f),
             Self::Freeze(e) => fmt::Debug::fmt(e, f),
             Self::Parser(e) => fmt::Debug::fmt(e, f),
-            Self::Internal(e) => write!(f, "Internal error: {}", e),
+            Self::Internal(e) => write!(f, "Internal error: {e}"),
             Self::Native(e) => fmt::Debug::fmt(e, f),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
@@ -267,14 +267,14 @@ impl fmt::Debug for ErrorKind {
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Fail(s) => write!(f, "fail:{}", s),
+            Self::Fail(s) => write!(f, "fail:{s}"),
             Self::StackOverflow(e) => fmt::Display::fmt(e, f),
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Function(e) => fmt::Display::fmt(e, f),
             Self::Scope(e) => fmt::Display::fmt(e, f),
             Self::Freeze(e) => fmt::Display::fmt(e, f),
             Self::Parser(e) => fmt::Display::fmt(e, f),
-            Self::Internal(e) => write!(f, "Internal error: {}", e),
+            Self::Internal(e) => write!(f, "Internal error: {e}"),
             Self::Native(e) => fmt::Display::fmt(e, f),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }

@@ -52,7 +52,7 @@ impl<'a> Assert<'a> {
         }
 
         if let Some(missed) = except.next() {
-            panic!("Exception given but not used, `{}`", missed);
+            panic!("Exception given but not used, `{missed}`");
         }
     }
 }

@@ -41,9 +41,7 @@ impl CellPathWithAllowedRelativeDir {
         if let Some(ref allowed_relative_dir_value) = allowed_relative_dir {
             assert!(
                 current_dir.starts_with(allowed_relative_dir_value.as_ref()),
-                "current_dir: `{}` must be a subpath of allowed_relative_dir: `{}`",
-                current_dir,
-                allowed_relative_dir_value,
+                "current_dir: `{current_dir}` must be a subpath of allowed_relative_dir: `{allowed_relative_dir_value}`",
             );
         }
 

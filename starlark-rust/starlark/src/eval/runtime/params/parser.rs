@@ -179,7 +179,7 @@ mod tests {
     fn test_can_fill_with_args() {
         fn test(sig: &str, pos: usize, names: &[&str], expected: bool) {
             let a = Assert::new();
-            let module = a.pass_module(&format!("def f({}): pass", sig));
+            let module = a.pass_module(&format!("def f({sig}): pass"));
             let f = module.get("f").unwrap().downcast::<FrozenDef>().unwrap();
             let parameters_spec = &f.parameters;
             assert_eq!(expected, parameters_spec.can_fill_with_args(pos, names));

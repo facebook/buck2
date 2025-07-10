@@ -98,7 +98,7 @@ impl ResolveAliasFormatter for LinesWriter {
     }
 
     fn emit(&self, _alias: &str, label: &TargetLabel, buffer: &mut String) {
-        write!(buffer, "{}", label).unwrap();
+        write!(buffer, "{label}").unwrap();
     }
 }
 
@@ -175,23 +175,20 @@ pub(crate) async fn targets_resolve_aliases(
         // validate it exists.
         let node = packages
             .get(package)
-            .with_buck_error_context(|| format!("Package does not exist: `{}`", package))
+            .with_buck_error_context(|| format!("Package does not exist: `{package}`"))
             .and_then(|package_data| {
                 package_data
                     .as_ref()
                     .map_err(|e| e.dupe())
                     .with_buck_error_context(|| {
-                        format!("Package cannot be evaluated: `{}`", package)
+                        format!("Package cannot be evaluated: `{package}`")
                     })?
                     .resolve_target(target_name)
                     .with_buck_error_context(|| {
-                        format!(
-                            "Target does not exist in package `{}`: `{}`",
-                            package, target_name,
-                        )
+                        format!("Target does not exist in package `{package}`: `{target_name}`",)
                     })
             })
-            .with_buck_error_context(|| format!("Invalid alias: `{}`", alias))?;
+            .with_buck_error_context(|| format!("Invalid alias: `{alias}`"))?;
 
         if needs_separator {
             formatter.separator(&mut buffer);

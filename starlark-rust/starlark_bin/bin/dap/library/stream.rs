@@ -43,12 +43,12 @@ pub(crate) fn log_begin() {
 
 pub(crate) fn log(x: &str) {
     let mut file = OpenOptions::new().append(true).open(log_file()).unwrap();
-    file.write_all(format!("{}\n", x).as_bytes()).unwrap()
+    file.write_all(format!("{x}\n").as_bytes()).unwrap()
 }
 
 pub(crate) fn send(x: Value) {
     let s = x.to_string();
-    log(&format!("SEND: {}", s));
+    log(&format!("SEND: {s}"));
     print!("Content-Length: {}\r\n\r\n{}", s.len(), s);
     io::stdout().flush().unwrap()
 }
@@ -66,6 +66,6 @@ pub(crate) fn read() -> Value {
     let mut res = vec![0u8; len];
     io::stdin().lock().read_exact(&mut res).unwrap();
     let s = String::from_utf8_lossy(&res);
-    log(&format!("RECV: {}", s));
+    log(&format!("RECV: {s}"));
     serde_json::from_str(&s).unwrap()
 }

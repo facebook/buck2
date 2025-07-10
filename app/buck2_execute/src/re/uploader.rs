@@ -242,8 +242,7 @@ impl Uploader {
 
             assert!(
                 missing_digests.is_empty(),
-                "Expected a path to be found for every digest, traversal code is inconsistent. Left with {:?}.",
-                missing_digests
+                "Expected a path to be found for every digest, traversal code is inconsistent. Left with {missing_digests:?}."
             );
 
             // Get the real path of the files we are going to upload.
@@ -470,7 +469,7 @@ fn add_injected_missing_digests<'a>(
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDigest))
-                    .with_buck_error_context(|| format!("Invalid digest: `{}`", digest))?;
+                    .with_buck_error_context(|| format!("Invalid digest: `{digest}`"))?;
                 // This code does not run in a test but it is only used for testing.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;
                 buck2_error::Ok(digest)

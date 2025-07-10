@@ -35,7 +35,7 @@ pub async fn upload_dice_dump(
     let buckd = buckd.to_connector();
     let mut events_ctx = EventsCtx::new(None, Default::default());
     let manifold_bucket = Bucket::RAGE_DUMPS;
-    let manifold_filename = format!("flat/{}_dice-dump.tar", manifold_id);
+    let manifold_filename = format!("flat/{manifold_id}_dice-dump.tar");
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     DiceDump::new(buck_out_dice, &this_dump_folder_name)
         .upload(

@@ -254,7 +254,7 @@ impl fmt::Display for StarlarkReadDirSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.children() {
             Ok(children) => fmt_container(f, "[", "]", children),
-            Err(e) => write!(f, "<Error: {}>", e),
+            Err(e) => write!(f, "<Error: {e}>"),
         }
     }
 }

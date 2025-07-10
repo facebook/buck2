@@ -90,7 +90,7 @@ enum ProviderCallableError {
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]
     ProviderNotAssigned(SmallSet<String>),
-    #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{}`", s)).join(", "))]
+    #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{s}`")).join(", "))]
     NonUniqueFields(Vec<String>),
     #[error("Field default value can be either frozen value or an empty list or dict")]
     InvalidDefaultValue,
@@ -204,7 +204,7 @@ impl Display for UserProviderField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "ProviderField({}, ", self.ty)?;
         if let Some(default) = &self.default {
-            write!(f, "default = {}", default)?;
+            write!(f, "default = {default}")?;
         } else {
             write!(f, "required")?;
         }
@@ -258,7 +258,7 @@ fn user_provider_callable_display(
         }
         write!(f, "\"{}\": provider_field({}", name, ty.ty)?;
         if let Some(default) = ty.default {
-            write!(f, ", default={}", default)?;
+            write!(f, ", default={default}")?;
         }
         write!(f, ")")?;
     }

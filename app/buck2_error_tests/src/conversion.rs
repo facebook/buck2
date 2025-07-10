@@ -70,7 +70,7 @@ fn test_format_starlark_stacktrace_with_later_context() {
         .context("Adding a context after should still keep backtrace on top");
     golden_test_template(
         "src/golden/test_starlark_callstack_context.golden",
-        trim_rust_backtrace(&format!("{:?}", test_context)),
+        trim_rust_backtrace(&format!("{test_context:?}")),
     );
 }
 

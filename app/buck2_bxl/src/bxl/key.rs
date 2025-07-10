@@ -216,7 +216,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
             self.key.bxl_args.hash(&mut hasher);
             self.key.global_cfg_options.hash(&mut hasher);
             let output_hash = hasher.finish();
-            format!("{:x}", output_hash)
+            format!("{output_hash:x}")
         };
 
         let exec_platform = {
@@ -225,7 +225,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
                 .resolved_execution
                 .hash(&mut hasher);
             let output_hash = hasher.finish();
-            format!("{:x}", output_hash)
+            format!("{output_hash:x}")
         };
 
         // It is performance critical that we use slices and allocate via `join` instead of

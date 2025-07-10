@@ -36,7 +36,7 @@ pub struct ConfigurationHash(pub(crate) String);
 
 impl ConfigurationHash {
     pub fn new(value: u64) -> ConfigurationHash {
-        ConfigurationHash(format!("{:0>16x}", value))
+        ConfigurationHash(format!("{value:0>16x}"))
     }
 
     pub(crate) fn from_str(value: &str) -> buck2_error::Result<ConfigurationHash> {

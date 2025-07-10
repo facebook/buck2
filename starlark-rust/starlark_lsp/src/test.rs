@@ -336,7 +336,7 @@ impl Drop for TestServer {
         };
         match self.send_request(req) {
             Err(e) => {
-                eprintln!("Server was already shutdown: {}", e);
+                eprintln!("Server was already shutdown: {e}");
             }
             _ => {
                 let notif = lsp_server::Notification {
@@ -344,14 +344,14 @@ impl Drop for TestServer {
                     params: Default::default(),
                 };
                 if let Err(e) = self.send_notification(notif) {
-                    eprintln!("Could not send Exit notification: {}", e);
+                    eprintln!("Could not send Exit notification: {e}");
                 }
             }
         }
 
         if let Some(server_thread) = self.server_thread.take() {
             if let Err(e) = server_thread.join() {
-                eprintln!("test server did not join when being dropped: {:?}", e);
+                eprintln!("test server did not join when being dropped: {e:?}");
             }
         }
     }
@@ -441,7 +441,7 @@ impl TestServer {
 
         let server_thread = std::thread::spawn(|| {
             if let Err(e) = server_with_connection(server_connection, ctx) {
-                eprintln!("Stopped test server thread with error `{:?}`", e);
+                eprintln!("Stopped test server thread with error `{e:?}`");
             }
         });
 

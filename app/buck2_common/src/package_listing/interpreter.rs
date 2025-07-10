@@ -248,7 +248,7 @@ impl std::fmt::Display for GatherPackageListingError {
                         format!(
                             "    missing `{}` file (also missing alternatives {})",
                             primary_candidate,
-                            candidates.iter().map(|v| format!("`{}`", v)).join(", ")
+                            candidates.iter().map(|v| format!("`{v}`")).join(", ")
                         ),
                     )
                 } else {
@@ -329,7 +329,7 @@ impl std::fmt::Display for GatherPackageListingError {
                             CellPath::new(*cell_name, CellRelativePath::new(fixed).to_owned())
                                 .to_string()
                         }
-                        _ => format!("{}//", cell_name),
+                        _ => format!("{cell_name}//"),
                     }
                 };
                 (
@@ -343,7 +343,7 @@ impl std::fmt::Display for GatherPackageListingError {
             }
         };
 
-        writeln!(f, "{}{}:` does not exist", prefix, package)?;
+        writeln!(f, "{prefix}{package}:` does not exist")?;
         f.write_str(&submessage)?;
         Ok(())
     }

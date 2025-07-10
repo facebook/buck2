@@ -621,7 +621,7 @@ x = f(1)
         let module = module.freeze().unwrap();
         let heap_summary = module.heap_profile().unwrap().gen_csv().unwrap();
         // Smoke test.
-        assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
+        assert!(heap_summary.contains("\"x.star.f\""), "{heap_summary:?}");
     }
 
     #[test]

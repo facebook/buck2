@@ -51,8 +51,8 @@ impl EnumAttrType {
             if i != 0 {
                 write!(f, ",")?;
             }
-            write!(f, "{:?}", x)?;
+            write!(f, "{x:?}")?;
         }
-        write!(f, "]{})", arg)
+        write!(f, "]{arg})")
     }
 }

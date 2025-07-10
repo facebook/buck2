@@ -226,11 +226,11 @@ impl Display for Stats {
             // TODO(ezgi): when there is no CommandEnd, take the timestamp from the last event and calculate the duration
         }
         if let Some(hg_revision) = &self.hg_revision {
-            writeln!(f, "hg revision: {}", hg_revision)?;
+            writeln!(f, "hg revision: {hg_revision}")?;
         }
 
         if let Some(has_local_changes) = self.has_local_changes {
-            writeln!(f, "has local changes: {}", has_local_changes)?;
+            writeln!(f, "has local changes: {has_local_changes}")?;
         } else {
             writeln!(f, "has local changes: unknown")?;
         }

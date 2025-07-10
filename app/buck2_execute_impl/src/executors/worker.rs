@@ -117,7 +117,7 @@ impl WorkerInitError {
                     IndexMap::default(),
                     CommandStdStreams::Local {
                         stdout: Default::default(),
-                        stderr: format!("Error initializing worker: {}", self).into_bytes(),
+                        stderr: format!("Error initializing worker: {self}").into_bytes(),
                     },
                     None,
                     CommandExecutionMetadata::default(),

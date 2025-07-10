@@ -612,7 +612,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
 
         let path_c = CString::new(path.as_os_str().as_bytes())
             .map_err(buck2_error::Error::from)
-            .with_buck_error_context(|| format!("Failed to convert path to CString: {:?}", path))?;
+            .with_buck_error_context(|| format!("Failed to convert path to CString: {path:?}"))?;
         let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
         unsafe {
             let r = libc::statvfs(path_c.as_ptr(), &mut statvfs);

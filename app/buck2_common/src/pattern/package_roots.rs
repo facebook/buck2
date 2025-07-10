@@ -109,7 +109,7 @@ pub async fn collect_package_roots<E>(
                 }
             }
             Err(e) => collector(Err(
-                e.context(format!("Error resolving recursive spec `{}/...`", path))
+                e.context(format!("Error resolving recursive spec `{path}/...`"))
             ))?,
         }
     }
@@ -125,10 +125,9 @@ pub async fn collect_package_roots<E>(
             match r {
                 Ok(r) => r,
                 Err(e) => {
-                    collector(Err(e.context(format!(
-                        "Error resolving recursive spec `{}/...`",
-                        path
-                    ))))?;
+                    collector(Err(
+                        e.context(format!("Error resolving recursive spec `{path}/...`"))
+                    ))?;
                     continue;
                 }
             }

@@ -25,9 +25,9 @@ enum ManifoldError {
 
 pub(crate) fn manifold_leads(bucket: &Bucket, filename: String) -> String {
     let full_path = format!("{}/{}", bucket.name, filename);
-    let command = format!("manifold get {}", full_path);
-    let url = format!("https://interncache-all.fbcdn.net/manifold/{}", full_path);
-    format!("{}\n{}", command, url)
+    let command = format!("manifold get {full_path}");
+    let url = format!("https://interncache-all.fbcdn.net/manifold/{full_path}");
+    format!("{command}\n{url}")
 }
 
 pub(crate) async fn file_to_manifold(

@@ -64,7 +64,7 @@ impl FunctionDescription {
             self.rendered_reference(options),
             &match &self.short_help {
                 None => "".to_owned(),
-                Some(v) => format!(": {}", v),
+                Some(v) => format!(": {v}"),
             }
         )
     }
@@ -85,11 +85,11 @@ impl FunctionDescription {
             anchor,
         );
         if let Some(v) = &self.short_help {
-            writeln!(rendered, "{}\n", v).unwrap();
+            writeln!(rendered, "{v}\n").unwrap();
         }
 
         if let Some(v) = &self.details {
-            writeln!(rendered, "{}\n", v).unwrap();
+            writeln!(rendered, "{v}\n").unwrap();
         }
         rendered
     }
@@ -165,7 +165,7 @@ fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> Strin
         rendered.push_str(short_description.as_ref());
     }
     if let Some(description) = v.description() {
-        rendered.push_str(&format!("\n\n  {}", description));
+        rendered.push_str(&format!("\n\n  {description}"));
     }
     rendered
 }

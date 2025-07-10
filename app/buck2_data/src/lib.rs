@@ -80,7 +80,7 @@ mod serialize_action_kind {
         S: Serializer,
     {
         let k = crate::ActionKind::try_from(*value).map_err(|_| {
-            serde::ser::Error::custom(format!("Invalid ActionKind enum value: {}", value))
+            serde::ser::Error::custom(format!("Invalid ActionKind enum value: {value}"))
         })?;
         k.serialize(serializer)
     }
@@ -128,7 +128,7 @@ impl fmt::Display for DaemonShutdown {
             };
 
             writeln!(f)?;
-            write!(f, "  * {}", short_caller)?;
+            write!(f, "  * {short_caller}")?;
         }
 
         Ok(())

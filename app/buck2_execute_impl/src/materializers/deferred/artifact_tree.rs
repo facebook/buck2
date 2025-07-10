@@ -351,8 +351,7 @@ impl ArtifactTree {
                         // is a bug somewhere else. Panic to prevent the bug from
                         // propagating.
                         Some(part) => panic!(
-                            "While getting materialized path of {:?}: path {:?} is a file, so subpath {:?} doesn't exist within.",
-                            path, src_path, part,
+                            "While getting materialized path of {path:?}: path {src_path:?} is a file, so subpath {part:?} doesn't exist within.",
                         ),
                     },
                 }

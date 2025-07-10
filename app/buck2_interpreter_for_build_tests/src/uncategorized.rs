@@ -31,8 +31,7 @@ fn cannot_register_target_twice() {
     assert!(
         err.to_string()
             .contains("Attempted to register target root//some/package:foo twice"),
-        "got `{}`",
-        err
+        "got `{err}`"
     );
 }
 

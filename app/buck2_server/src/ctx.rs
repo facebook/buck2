@@ -1026,7 +1026,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         providers_patterns: &[ParsedPattern<ConfiguredProvidersPatternExtra>],
     ) {
         let patterns = providers_patterns.map(|pat| buck2_data::TargetPattern {
-            value: format!("{}", pat),
+            value: format!("{pat}"),
         });
 
         self.events()

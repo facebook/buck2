@@ -59,7 +59,7 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
         _args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
+        Err(oracle.msg_error(span, format!("Value of type `{self}` is not callable")))
     }
     /// Must override if implementing `validate_call`.
     fn as_callable(&self) -> Option<TyCallable> {

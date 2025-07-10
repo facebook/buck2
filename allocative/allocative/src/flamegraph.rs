@@ -565,8 +565,7 @@ mod tests {
                 Struct;p;x 13\n\
             ",
             tree.to_flame_graph().0.write(),
-            "{:#?}",
-            tree,
+            "{tree:#?}",
         );
     }
 
@@ -602,8 +601,7 @@ mod tests {
             Struct;p 12\n\
         ",
             tree.to_flame_graph().0.write(),
-            "{:#?}",
-            tree,
+            "{tree:#?}",
         );
     }
 

@@ -110,7 +110,7 @@ impl EventLogOptions {
         let log_path = ctx
             .paths()?
             .log_dir()
-            .join(FileName::new(&format!("dl-{}", log_file_name))?);
+            .join(FileName::new(&format!("dl-{log_file_name}"))?);
 
         if fs_util::try_exists(&log_path)? {
             return Ok(log_path.into_abs_path_buf());
@@ -130,7 +130,7 @@ impl EventLogOptions {
             LogDownloadMethod::Manifold => {
                 let args = [
                     "get",
-                    &format!("buck2_logs/flat/{}", log_file_name),
+                    &format!("buck2_logs/flat/{log_file_name}"),
                     temp_path
                         .path()
                         .as_os_str()
@@ -154,7 +154,7 @@ impl EventLogOptions {
                 let args = [
                     "--fail",
                     "-L",
-                    &format!("{}/v1/logs/get/{}", log_url, trace_id),
+                    &format!("{log_url}/v1/logs/get/{trace_id}"),
                     "-o",
                     temp_path
                         .path()

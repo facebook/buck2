@@ -291,7 +291,7 @@ impl Display for RunActionDepFiles {
             .values()
             .map(|x| x.as_ref())
             .collect::<Vec<&str>>();
-        write!(f, "{:?}", values)
+        write!(f, "{values:?}")
     }
 }
 

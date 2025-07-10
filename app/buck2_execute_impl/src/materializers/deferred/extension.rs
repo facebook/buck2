@@ -82,13 +82,13 @@ impl Display for PathData {
         match &self.stage {
             PathStage::Materialized { ts, size } => {
                 if let Some(size) = size {
-                    write!(f, "materialized (ts={:?}, size={})", ts, size)?;
+                    write!(f, "materialized (ts={ts:?}, size={size})")?;
                 } else {
-                    write!(f, "materialized (ts={:?})", ts)?;
+                    write!(f, "materialized (ts={ts:?})")?;
                 }
             }
             PathStage::Declared(method) => {
-                write!(f, "declared: {}", method)?;
+                write!(f, "declared: {method}")?;
             }
         }
 
@@ -272,7 +272,7 @@ impl<T: IoHandler> ExtensionCommand<T> for GetTtlRefreshLog {
                     writeln!(&mut out, "OK").unwrap();
                 }
                 Some(Err(e)) => {
-                    writeln!(&mut out, "ERR\t{:#}", e).unwrap();
+                    writeln!(&mut out, "ERR\t{e:#}").unwrap();
                 }
             }
         }

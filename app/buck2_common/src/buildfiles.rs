@@ -49,7 +49,7 @@ pub fn parse_buildfile_name(
     })? {
         let mut buildfiles = Vec::new();
         for buildfile in buildfiles_value {
-            buildfiles.push(FileNameBuf::try_from(format!("{}.v2", buildfile))?);
+            buildfiles.push(FileNameBuf::try_from(format!("{buildfile}.v2"))?);
             buildfiles.push(FileNameBuf::try_from(buildfile)?);
         }
         buildfiles

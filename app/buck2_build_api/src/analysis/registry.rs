@@ -237,7 +237,7 @@ impl<'v> AnalysisRegistry<'v> {
             if uses_experimental_content_based_path_hashing != has_content_based_path {
                 return Err(
                     DeclaredArtifactError::AlreadyDeclaredWithDifferentContentBasedPathHashing(
-                        format!("{}", output),
+                        format!("{output}"),
                         has_content_based_path,
                         uses_experimental_content_based_path_hashing,
                     )

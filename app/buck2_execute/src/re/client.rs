@@ -620,8 +620,7 @@ impl RemoteExecutionClientImpl {
                         remote_cache_config
                     };
                     persistent_cache_mode = Some(format!(
-                        "small=>{:?}, large=>{:?}",
-                        small_files_policy, large_files_policy
+                        "small=>{small_files_policy:?}, large=>{large_files_policy:?}"
                     ));
 
                     embedded_cas_daemon_config.remote_cache_config = Some(remote_cache_config);
@@ -1368,7 +1367,7 @@ impl RemoteExecutionClientImpl {
         digest: &TDigest,
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<(Vec<u8>, TLocalCacheStats)> {
-        let re_action = format!("download_blob for digest {}", digest);
+        let re_action = format!("download_blob for digest {digest}");
         let response = with_error_handler(
             re_action.as_str(),
             self.get_session_id(),
@@ -1393,7 +1392,7 @@ impl RemoteExecutionClientImpl {
             .flat_map(|blobs| blobs.into_iter())
             .next()
             .map(|blob| (blob.blob, response.local_cache_stats))
-            .with_buck_error_context(|| format!("No digest was returned in request for {}", digest))
+            .with_buck_error_context(|| format!("No digest was returned in request for {digest}"))
     }
 
     pub async fn upload_blob(

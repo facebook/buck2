@@ -141,7 +141,7 @@ fn write_output<T: Display + Serialize>(
     record: &T,
 ) -> Result<(), ClientIoError> {
     match output {
-        LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
+        LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{record}")?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
         LogCommandOutputFormatWithWriter::Json(w) => {
             serde_json::to_writer(w.by_ref(), &record)?;

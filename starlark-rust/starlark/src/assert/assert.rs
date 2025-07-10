@@ -318,10 +318,9 @@ impl<'a> Assert<'a> {
         gc: GcStrategy,
     ) -> crate::Error {
         match self.execute("assert.bzl", program, module, gc) {
-            Ok(v) => panic!(
-                "starlark::assert::{}, didn't fail!\nCode:\n{}\nResult:\n{}\n",
-                func, program, v
-            ),
+            Ok(v) => {
+                panic!("starlark::assert::{func}, didn't fail!\nCode:\n{program}\nResult:\n{v}\n")
+            }
             Err(e) => e,
         }
     }
@@ -339,8 +338,7 @@ impl<'a> Assert<'a> {
             Err(err) => {
                 err.eprint();
                 panic!(
-                    "starlark::assert::{}, failed to execute!\nCode:\n{}\nGot error: {}",
-                    func, program, err
+                    "starlark::assert::{func}, failed to execute!\nCode:\n{program}\nGot error: {err}"
                 );
             }
         }
@@ -356,11 +354,8 @@ impl<'a> Assert<'a> {
         let v = self.execute_unwrap(func, "assert.bzl", program, module, gc);
         match v.unpack_bool() {
             Some(true) => {}
-            Some(false) => panic!("starlark::assert::{}, got false!\nCode:\n{}", func, program),
-            None => panic!(
-                "starlark::assert::{}, not a bool!\nCode:\n{}\nResult\n{}",
-                func, program, v
-            ),
+            Some(false) => panic!("starlark::assert::{func}, got false!\nCode:\n{program}"),
+            None => panic!("starlark::assert::{func}, not a bool!\nCode:\n{program}\nResult\n{v}"),
         }
     }
 
@@ -374,11 +369,8 @@ impl<'a> Assert<'a> {
         let v = self.execute_unwrap(func, "assert.bzl", program, module, gc);
         match v.unpack_bool() {
             Some(false) => {}
-            Some(true) => panic!("starlark::assert::{}, got true!\nCode:\n{}", func, program),
-            None => panic!(
-                "starlark::assert::{}, not a bool!\nCode:\n{}\nResult\n{}",
-                func, program, v
-            ),
+            Some(true) => panic!("starlark::assert::{func}, got true!\nCode:\n{program}"),
+            None => panic!("starlark::assert::{func}, not a bool!\nCode:\n{program}\nResult\n{v}"),
         }
     }
 
@@ -410,7 +402,7 @@ impl<'a> Assert<'a> {
         let module = self
             .with_gc(|gc| {
                 let module = Module::new();
-                self.execute_unwrap("module", &format!("{}.bzl", name), program, &module, gc);
+                self.execute_unwrap("module", &format!("{name}.bzl"), program, &module, gc);
                 module.freeze()
             })
             .expect("error freezing module");
@@ -439,13 +431,12 @@ impl<'a> Assert<'a> {
             // Then when we print the source code, magic is contained in the error message.
             // Therefore, find the internals.
             let inner = original.without_diagnostic();
-            let err_msg = format!("{:#}", inner);
+            let err_msg = format!("{inner:#}");
             for msg in msgs {
                 if !err_msg.contains(msg) {
                     original.eprint();
                     panic!(
-                    "starlark::assert::{}, failed with the wrong message!\nCode:\n{}\nError:\n{:#}\nMissing:\n{}\nExpected:\n{:?}",
-                    func, program, inner, msg, msgs
+                    "starlark::assert::{func}, failed with the wrong message!\nCode:\n{program}\nError:\n{inner:#}\nMissing:\n{msg}\nExpected:\n{msgs:?}"
                 )
                 }
             }
@@ -577,8 +568,7 @@ impl<'a> Assert<'a> {
             let rhs_v = self.execute_unwrap("eq", "rhs.bzl", rhs, &rhs_m, gc);
             if lhs_v != rhs_v {
                 panic!(
-                "starlark::assert::eq, values differ!\nCode 1:\n{}\nCode 2:\n{}\nValue 1:\n{}\nValue 2\n{}",
-                lhs, rhs, lhs_v, rhs_v
+                "starlark::assert::eq, values differ!\nCode 1:\n{lhs}\nCode 2:\n{rhs}\nValue 1:\n{lhs_v}\nValue 2\n{rhs_v}"
             );
             }
         })

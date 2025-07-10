@@ -129,11 +129,11 @@ impl CommandExecutionKind {
                 details: details.to_proto(omit_details),
                 materialized_inputs_for_failed: materialized_inputs_for_failed
                     .as_ref()
-                    .map(|paths| paths.clone().map(|p| format!("{}", p)))
+                    .map(|paths| paths.clone().map(|p| format!("{p}")))
                     .unwrap_or_default(),
                 materialized_outputs_for_failed_actions: materialized_outputs_for_failed_actions
                     .as_ref()
-                    .map(|paths| paths.clone().map(|p| format!("{}", p)))
+                    .map(|paths| paths.clone().map(|p| format!("{p}")))
                     .unwrap_or_default(),
             }),
 

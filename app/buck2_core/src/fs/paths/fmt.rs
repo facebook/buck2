@@ -19,5 +19,5 @@ pub(crate) fn quoted_display<D>(d: &D, f: &mut Formatter) -> fmt::Result
 where
     D: Display + ?Sized,
 {
-    write!(f, "\"{:}\"", d)
+    write!(f, "\"{d:}\"")
 }

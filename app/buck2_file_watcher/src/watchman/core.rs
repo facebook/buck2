@@ -254,11 +254,10 @@ async fn get_watchman_eden_error_logs() -> Option<String> {
 
     match (watchman_cmd, eden_cmd) {
         (Some(watchman_cmd), Some(eden_cmd)) => Some(format!(
-            "Watchman and Eden rage logs:\n{}\n{}",
-            watchman_cmd, eden_cmd
+            "Watchman and Eden rage logs:\n{watchman_cmd}\n{eden_cmd}"
         )),
-        (Some(watchman_cmd), None) => Some(format!("Watchman rage logs:\n{}", watchman_cmd)),
-        (None, Some(eden_cmd)) => Some(format!("Eden rage logs:\n{}", eden_cmd)),
+        (Some(watchman_cmd), None) => Some(format!("Watchman rage logs:\n{watchman_cmd}")),
+        (None, Some(eden_cmd)) => Some(format!("Eden rage logs:\n{eden_cmd}")),
         (None, None) => None,
     }
 }
@@ -588,10 +587,7 @@ fn unpack_clock(clock: Clock) -> (Option<String>, ClockSpec) {
                     ..
                 }),
         }) => (Some(mergebase), clock_spec),
-        clock => panic!(
-            "requested watchman query, got unexpected clock `{:?}`",
-            clock
-        ),
+        clock => panic!("requested watchman query, got unexpected clock `{clock:?}`"),
     }
 }
 

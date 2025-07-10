@@ -49,7 +49,7 @@ pub(crate) struct OptionalSpanId(pub Option<SpanId>);
 impl fmt::Display for OptionalSpanId {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         if let Some(this) = self.0 {
-            write!(formatter, "{}", this)
+            write!(formatter, "{this}")
         } else {
             write!(formatter, "(none)")
         }

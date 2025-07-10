@@ -64,9 +64,9 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                     let node = node.require_compatible()?;
                                     let query_results =
                                         resolve_queries(&mut ctx, node.as_ref()).await?;
-                                    writeln!(stdout, "{}:", label)?;
+                                    writeln!(stdout, "{label}:")?;
                                     for (query, result) in &query_results {
-                                        writeln!(stdout, "  {}", query)?;
+                                        writeln!(stdout, "  {query}")?;
                                         for (target, providers) in &result.result {
                                             writeln!(stdout, "    {}", target.unconfigured())?;
                                             if self.include_outputs {
@@ -74,7 +74,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                                     .provider_collection()
                                                     .default_info()?
                                                     .default_outputs_raw();
-                                                writeln!(stdout, "        {}", outputs)?;
+                                                writeln!(stdout, "        {outputs}")?;
                                             }
                                         }
                                     }

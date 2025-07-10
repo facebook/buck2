@@ -158,7 +158,7 @@ impl WriteEventLog {
         tokio::fs::create_dir_all(logdir)
             .await
             .with_buck_error_context(|| {
-                format!("Error creating event log directory: `{}`", logdir)
+                format!("Error creating event log directory: `{logdir}`")
             })?;
         remove_old_logs(logdir).await;
 

@@ -18,7 +18,7 @@ pub(crate) fn log_develop(duration: Duration, input: Input, invoked_by_ra: bool)
     if !is_ci() {
         let mut sample = new_sample("develop");
         sample.add("duration_ms", duration.as_millis() as i64);
-        sample.add("input", format!("{:?}", input));
+        sample.add("input", format!("{input:?}"));
         sample.add("revision", get_sl_revision());
         sample.add("invoked_by_ra", invoked_by_ra);
         sample.log();
@@ -33,8 +33,8 @@ pub(crate) fn log_develop(_duration: Duration, _input: Input, _invoked_by_ra: bo
 pub(crate) fn log_develop_error(error: &anyhow::Error, input: Input, invoked_by_ra: bool) {
     if !is_ci() {
         let mut sample = new_sample("develop");
-        sample.add("error", format!("{:#?}", error));
-        sample.add("input", format!("{:?}", input));
+        sample.add("error", format!("{error:#?}"));
+        sample.add("input", format!("{input:?}"));
         sample.add("revision", get_sl_revision());
         sample.add("invoked_by_ra", invoked_by_ra);
         sample.log();
@@ -73,7 +73,7 @@ pub(crate) fn log_check(_duration: Duration, _saved_file: &Path, _use_clippy: bo
 pub(crate) fn log_check_error(error: &anyhow::Error, saved_file: &Path, use_clippy: bool) {
     if !is_ci() {
         let mut sample = new_sample("check");
-        sample.add("error", format!("{:#?}", error));
+        sample.add("error", format!("{error:#?}"));
         sample.add("saved_file", saved_file.display().to_string());
         sample.add("use_clippy", use_clippy.to_string());
         sample.log();

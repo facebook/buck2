@@ -674,9 +674,9 @@ pub(crate) fn utf8_output(
             stderr,
             status,
         }) => Err(cmd_err(command, status, &stderr))
-            .with_context(|| format!("command ended with {}", status)),
+            .with_context(|| format!("command ended with {status}")),
         Err(err) => Err(err)
-            .with_context(|| format!("command `{:?}`", command))
+            .with_context(|| format!("command `{command:?}`"))
             .context("failed to execute command"),
     }
 }
@@ -697,7 +697,7 @@ where
                 .context("failed to deserialize command output")
         }
         Err(err) => Err(err)
-            .with_context(|| format!("command `{:?}`", command))
+            .with_context(|| format!("command `{command:?}`"))
             .context("failed to execute command"),
     }
 }
@@ -721,7 +721,7 @@ where
                 .context("failed to deserialize command output")
         }
         Err(err) => Err(err)
-            .with_context(|| format!("command `{:?}`", command))
+            .with_context(|| format!("command `{command:?}`"))
             .context("failed to execute command"),
     }
 }
@@ -733,7 +733,7 @@ where
     let file_path = std::str::from_utf8(stdout)?;
     let file_path = Path::new(file_path.lines().next().context("no file path in output")?);
     let contents =
-        fs::read_to_string(file_path).with_context(|| format!("failed to read {:?}", file_path))?;
+        fs::read_to_string(file_path).with_context(|| format!("failed to read {file_path:?}"))?;
     serde_json::from_str(&contents).context("failed to deserialize file")
 }
 

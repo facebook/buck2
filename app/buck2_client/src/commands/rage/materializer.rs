@@ -73,7 +73,7 @@ pub async fn upload_materializer_data(
         }
     }
 
-    let manifold_filename = format!("flat/{}_materializer_{}", manifold_id, materializer_data);
+    let manifold_filename = format!("flat/{manifold_id}_materializer_{materializer_data}");
     buf_to_manifold(manifold, &capture.buf, manifold_filename).await
 }
 

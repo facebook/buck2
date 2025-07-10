@@ -127,7 +127,7 @@ impl fmt::Display for ActionStats {
             )
             .as_str();
         }
-        write!(f, "{}", action_stats_message)
+        write!(f, "{action_stats_message}")
     }
 }
 

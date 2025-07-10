@@ -185,7 +185,7 @@ pub(crate) enum JsonCliArgValueData {
     List(Vec<JsonCliArgValueData>),
     #[display(
         "{}",
-        _0.iter().map(|(k, v)| format!("(k={},v={})", k, v)).join(",")
+        _0.iter().map(|(k, v)| format!("(k={k},v={v})")).join(",")
     )]
     Object(OrderedMap<String, JsonCliArgValueData>),
 }
@@ -889,7 +889,7 @@ mod tests {
         ];
 
         let cli_arg = CliArgValue::List(args);
-        let printed = format!("{}", cli_arg);
+        let printed = format!("{cli_arg}");
         assert_eq!(printed, "true,test,1");
 
         Ok(())

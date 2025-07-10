@@ -71,7 +71,7 @@ impl Bc {
                         return next_span;
                     }
                 }
-                panic!("span not found for addr: {}", addr);
+                panic!("span not found for addr: {addr}");
             }
             ptr = ptr.add(opcode.size_of_repr());
         }
@@ -109,7 +109,7 @@ impl Bc {
         self.instrs
             .dump_debug()
             .lines()
-            .for_each(|line| writeln!(w, "  {}", line).unwrap());
+            .for_each(|line| writeln!(w, "  {line}").unwrap());
         w
     }
 }

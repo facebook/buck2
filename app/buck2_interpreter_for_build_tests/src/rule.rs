@@ -211,7 +211,7 @@ fn udr_is_recorded() -> buck2_error::Result<()> {
         Tester::build_file_path().package(),
         AttrInspectOptions::All,
     )?;
-    assert_eq!(expected, actual, "`{:#?}` != `{:#?}`", expected, actual);
+    assert_eq!(expected, actual, "`{expected:#?}` != `{actual:#?}`");
     Ok(())
 }
 
@@ -247,7 +247,7 @@ fn udr_rejects_invalid_parameters() {
 
     let run = |content: &str, msg: &str| {
         let mut tester = rule_tester();
-        tester.run_starlark_test_expecting_error(&format!("{}\n{}", prefix, content), msg);
+        tester.run_starlark_test_expecting_error(&format!("{prefix}\n{content}"), msg);
     };
 
     run(
@@ -340,7 +340,7 @@ fn returns_documentation() -> buck2_error::Result<()> {
     fn arg(name: &str, raw_type: Ty, default: Option<&str>) -> DocParam {
         DocParam {
             name: name.to_owned(),
-            docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
+            docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{name} docs")),
             typ: raw_type,
             default_value: default.map(String::from),
         }

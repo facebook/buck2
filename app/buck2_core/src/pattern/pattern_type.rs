@@ -179,7 +179,7 @@ pub enum ConfigurationPredicate {
     #[display(
         "{}{}",
         _0,
-        _1.as_ref().map_or(String::new(), |h| format!("#{}", h))
+        _1.as_ref().map_or(String::new(), |h| format!("#{h}"))
     )]
     Bound(
         BoundConfigurationLabel,
@@ -219,12 +219,12 @@ impl ConfigurationPredicate {
                 match self.0 {
                     ConfigurationPredicate::Any => Ok(()),
                     ConfigurationPredicate::Builtin(builtin) => {
-                        write!(f, " ({})", builtin)
+                        write!(f, " ({builtin})")
                     }
                     ConfigurationPredicate::Bound(label, hash) => {
-                        write!(f, " ({}", label)?;
+                        write!(f, " ({label}")?;
                         if let Some(hash) = hash {
-                            write!(f, "#{}", hash)?;
+                            write!(f, "#{hash}")?;
                         }
                         write!(f, ")")?;
                         Ok(())

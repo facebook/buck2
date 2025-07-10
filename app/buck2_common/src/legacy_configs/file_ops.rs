@@ -107,7 +107,7 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
     ) -> buck2_error::Result<Option<Vec<String>>> {
         let path = path.resolve_absolute(&self.project_fs);
         let Some(f) = fs_util::open_file_if_exists(&path)
-            .with_buck_error_context(|| format!("Reading file `{:?}`", path))?
+            .with_buck_error_context(|| format!("Reading file `{path:?}`"))?
         else {
             return Ok(None);
         };

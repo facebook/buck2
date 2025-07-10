@@ -522,7 +522,7 @@ mod tests {
 
             let mut command = async_background_command("sh");
             command
-                .args(["-c", &format!("((sleep 10 && echo extra) &) && echo {}", s)])
+                .args(["-c", &format!("((sleep 10 && echo extra) &) && echo {s}")])
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null());
@@ -536,7 +536,7 @@ mod tests {
 
             let mut buff = String::new();
             drainer.read_to_string(&mut buff).await?;
-            assert_eq!(format!("{}\n", s), buff.as_str());
+            assert_eq!(format!("{s}\n"), buff.as_str());
 
             Ok(())
         }

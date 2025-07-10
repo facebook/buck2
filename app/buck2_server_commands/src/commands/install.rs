@@ -226,7 +226,7 @@ struct InstallRequestData<'a> {
 }
 
 fn install_id(installed_target: &ConfiguredTargetLabel) -> String {
-    format!("{}", installed_target)
+    format!("{installed_target}")
 }
 
 async fn install(
@@ -592,7 +592,7 @@ impl<'a> ConnectedInstaller<'a> {
                 d.size(),
                 d.raw_digest().algorithm().to_string(),
             ),
-            Data::Symlink(sym) => (format!("re-symlink:{}", sym), 0, "".to_owned()), // Messy :(
+            Data::Symlink(sym) => (format!("re-symlink:{sym}"), 0, "".to_owned()), // Messy :(
         };
 
         let path = &self.artifact_fs.fs().resolve(&artifact.resolve_path(
@@ -631,7 +631,7 @@ impl<'a> ConnectedInstaller<'a> {
                 }),
                 Err(_elapsed) => Err(InstallError::RequestTimeout {
                     timeout: self.send_timeout,
-                    action: format!("process {}", name),
+                    action: format!("process {name}"),
                 }),
             };
 
@@ -789,14 +789,13 @@ async fn handle_install_request<'a>(
 
     let result = match upload_installer_logs(&log_path).await {
         Ok(url) => {
-            let result =
-                result.map_err(|err| err.context(format!("See installer logs at: {}", url)));
+            let result = result.map_err(|err| err.context(format!("See installer logs at: {url}")));
             log_url = Some(url);
             result
         }
         Err(err) => {
             let _unused = soft_error!("installer_log_upload_failed", err.clone());
-            result.map_err(|err| err.context(format!("See installer logs at: {}", log_path)))
+            result.map_err(|err| err.context(format!("See installer logs at: {log_path}")))
         }
     };
 
@@ -811,7 +810,7 @@ async fn handle_install_request<'a>(
 async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result<String> {
     let manifold = ManifoldClient::new().await?;
     let trace_id: &str = &get_dispatcher().trace_id().to_string();
-    let manifold_filename = format!("flat/{}.log", trace_id);
+    let manifold_filename = format!("flat/{trace_id}.log");
     manifold
         .upload_file(
             log_path,

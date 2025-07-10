@@ -369,7 +369,7 @@ fn eval_bxl<'v>(
     if should_skip_backtrace {
         let dispatcher = get_dispatcher();
         dispatcher.instant_event(StarlarkFailNoStacktrace {
-            trace: format!("{}", e),
+            trace: format!("{e}"),
         });
         dispatcher
             .console_message("Re-run the script with `-v5` to show the full stacktrace".to_owned());

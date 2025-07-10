@@ -107,12 +107,12 @@ impl DocFunction {
             .join("\n");
         if !args_docs.is_empty() {
             let indented = indent_trimmed(&args_docs, "    ");
-            docs.push_str(&format!("\n\nArgs:\n{}", indented));
+            docs.push_str(&format!("\n\nArgs:\n{indented}"));
         }
 
         if let Some(ret_docs) = self.ret.starlark_docstring() {
             let indented = indent_trimmed(&ret_docs, "    ");
-            docs.push_str(&format!("\n\nRet:\n{}", indented));
+            docs.push_str(&format!("\n\nRet:\n{indented}"));
         }
         if docs.is_empty() {
             None
@@ -134,7 +134,7 @@ impl DocFunction {
                     .render_code(Some("    "), &TypeRenderConfig::Default),
             )
         } else {
-            format!("({})", params_one_line)
+            format!("({params_one_line})")
         };
         let docstring = self
             .starlark_docstring()
@@ -145,10 +145,10 @@ impl DocFunction {
             .unwrap_or_default();
         let ret = Some(&self.ret.typ)
             .filter(|t| t != &&Ty::any())
-            .map(|t| format!(" -> {}", t))
+            .map(|t| format!(" -> {t}"))
             .unwrap_or_default();
 
-        format!("def {}{}{}:\n{}    pass", name, params, ret, docstring)
+        format!("def {name}{params}{ret}:\n{docstring}    pass")
     }
 }
 
@@ -157,7 +157,7 @@ impl DocParam {
         let DocParam { name, docs, .. } = self;
         let rendered_docs = docs.as_ref()?.render_as_code();
         let mut indented = indent_trimmed(&rendered_docs, max_indentation);
-        indented.replace_range(..name.len() + 2, &format!("{}: ", name));
+        indented.replace_range(..name.len() + 2, &format!("{name}: "));
         Some(indented)
     }
 
@@ -225,12 +225,12 @@ impl DocProperty {
             //     format!("{}\n_{}: {} = None", ds, name, t.raw_type)
             // }
             // (Some(t), None) => format!(r#"_{}: {} = None"#, name, t.raw_type),
-            (t, Some(ds)) if t.is_any() => format!("{}\n_{} = None", ds, name),
-            (t, None) if t.is_any() => format!("_{} = None", name),
+            (t, Some(ds)) if t.is_any() => format!("{ds}\n_{name} = None"),
+            (t, None) if t.is_any() => format!("_{name} = None"),
             (t, Some(ds)) => {
-                format!("{}\n# type: {}\n_{} = None", ds, t, name)
+                format!("{ds}\n# type: {t}\n_{name} = None")
             }
-            (t, None) => format!("# type: {}\n_{} = None", t, name),
+            (t, None) => format!("# type: {t}\n_{name} = None"),
         }
     }
 }
@@ -252,25 +252,22 @@ impl DocType {
             .iter()
             .map(|(name, member)| match member {
                 DocMember::Property(p) => p.render_as_code(name),
-                DocMember::Function(f) => f.render_as_code(&format!("_{}", name)),
+                DocMember::Function(f) => f.render_as_code(&format!("_{name}")),
             })
             .join("\n\n");
 
         let exported_struct_members = self
             .members
             .iter()
-            .map(|(name, _)| format!("    {} = _{},", name, name))
+            .map(|(name, _)| format!("    {name} = _{name},"))
             .join("\n");
         let exported_struct = if !exported_struct_members.is_empty() {
-            format!(
-                "{}{} = struct(\n{}\n)",
-                summary, name, exported_struct_members
-            )
+            format!("{summary}{name} = struct(\n{exported_struct_members}\n)")
         } else {
             String::new()
         };
 
-        format!("{}\n\n{}", member_docs, exported_struct)
+        format!("{member_docs}\n\n{exported_struct}")
             .trim()
             .to_owned()
     }

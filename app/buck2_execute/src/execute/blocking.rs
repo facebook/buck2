@@ -107,7 +107,7 @@ impl BuckBlockingExecutor {
         for i in 0..io_threads {
             let command_receiver = command_receiver.clone();
             let fs = fs.dupe();
-            thread_spawn(&format!("buck-io-{}", i), move || {
+            thread_spawn(&format!("buck-io-{i}"), move || {
                 for ThreadPoolIoRequest { sender, io } in command_receiver.iter() {
                     let res = io.execute(&fs);
                     let _ignored = sender.send(res);

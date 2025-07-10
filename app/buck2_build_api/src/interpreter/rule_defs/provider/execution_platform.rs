@@ -31,7 +31,7 @@ impl Display for StarlarkExecutionPlatformResolution {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.0.platform() {
             Ok(p) => write!(f, "{}", p.id()),
-            Err(e) => write!(f, "{}", e),
+            Err(e) => write!(f, "{e}"),
         }
     }
 }

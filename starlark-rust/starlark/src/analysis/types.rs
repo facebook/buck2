@@ -138,7 +138,7 @@ impl Display for EvalMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}:", self.severity, self.path)?;
         if let Some(span) = self.span {
-            write!(f, "{}", span)?;
+            write!(f, "{span}")?;
         }
         write!(f, " {}", self.description)
     }
@@ -162,7 +162,7 @@ impl EvalMessage {
             span: None,
             severity: EvalSeverity::Error,
             name: "error".to_owned(),
-            description: format!("{:#}", x),
+            description: format!("{x:#}"),
             full_error_with_span: None,
             original: None,
         }
@@ -180,7 +180,7 @@ impl EvalMessage {
             span: Some(resolved_span),
             severity: EvalSeverity::Error,
             name: "error".to_owned(),
-            description: format!("{:#}", message),
+            description: format!("{message:#}"),
             full_error_with_span: Some(full_error.to_string()),
             original: Some(original),
         }

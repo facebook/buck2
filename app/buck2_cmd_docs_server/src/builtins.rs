@@ -47,7 +47,7 @@ pub(crate) fn write_docs_to_subdir(
         if doc_path.is_empty()
             || docs
                 .first_key_value()
-                .is_some_and(|(k, _)| k.starts_with(&format!("{}/", doc_path)))
+                .is_some_and(|(k, _)| k.starts_with(&format!("{doc_path}/")))
         {
             path.push(
                 ForwardRelativePath::new(&doc_path)

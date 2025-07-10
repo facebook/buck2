@@ -84,7 +84,7 @@ impl StreamingCommand for ExpandExternalCellsCommand {
         let mut lines: Vec<String> = resp
             .paths
             .into_iter()
-            .map(|(cell, path)| format!("Expanded external cell {} to {}.", cell, path))
+            .map(|(cell, path)| format!("Expanded external cell {cell} to {path}."))
             .collect();
         lines.push(String::new());
         lines.push(REMINDER_TEXT.to_owned());

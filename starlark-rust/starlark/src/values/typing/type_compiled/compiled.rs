@@ -305,7 +305,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
                 self.to_string(),
                 match arg_name {
                     None => "return type".to_owned(),
-                    Some(x) => format!("argument `{}`", x),
+                    Some(x) => format!("argument `{x}`"),
                 },
             ),
         ))
