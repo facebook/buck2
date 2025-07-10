@@ -18,35 +18,13 @@ use buck2_wrapper_common::invocation_id::TraceId;
 
 /// State passed down from `main` to this crate.
 pub struct ProcessContext<'a> {
+    pub log_reload_handle: &'a Arc<dyn LogConfigurationReloadHandle>,
+    pub stdin: &'a mut Stdin,
     pub start_time: u64,
+    pub working_dir: &'a AbsWorkingDir,
+    pub args: &'a [String],
+    pub restarter: &'a mut Restarter,
     pub trace_id: TraceId,
     /// An invocation that this invocation is a restart of.
     pub restarted_trace_id: Option<TraceId>,
-    pub shared: &'a mut SharedProcessContext,
-}
-
-// Process context shared with restarted commands.
-pub struct SharedProcessContext {
-    pub log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
-    pub stdin: Stdin,
-    pub working_dir: AbsWorkingDir,
-    pub args: Vec<String>,
-    pub restarter: Restarter,
-    pub force_want_restart: bool,
-}
-
-impl<'a> ProcessContext<'a> {
-    pub fn new(
-        start_time: u64,
-        trace_id: TraceId,
-        restarted_trace_id: Option<TraceId>,
-        shared: &'a mut SharedProcessContext,
-    ) -> Self {
-        Self {
-            start_time,
-            trace_id,
-            restarted_trace_id,
-            shared,
-        }
-    }
 }
