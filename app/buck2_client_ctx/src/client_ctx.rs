@@ -9,8 +9,6 @@
  */
 
 use std::future::Future;
-use std::sync::Arc;
-use std::time::Duration;
 
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
@@ -28,7 +26,6 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
-use tokio::sync::Mutex;
 
 use crate::client_metadata::ClientMetadata;
 use crate::common::BuckArgMatches;
@@ -45,7 +42,6 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
-use crate::subscribers::recorder::InvocationRecorder;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
@@ -62,12 +58,10 @@ pub struct ClientCommandContext<'a> {
     pub trace_id: TraceId,
     stdin: &'a mut Stdin,
     pub(crate) restarter: &'a mut Restarter,
-    pub(crate) restarted_trace_id: Option<TraceId>,
     runtime: &'a Runtime,
     oncall: Option<String>,
     pub(crate) client_metadata: Vec<ClientMetadata>,
     pub(crate) isolation: FileNameBuf,
-    pub(crate) start_time: u64,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -82,12 +76,10 @@ impl<'a> ClientCommandContext<'a> {
         trace_id: TraceId,
         stdin: &'a mut Stdin,
         restarter: &'a mut Restarter,
-        restarted_trace_id: Option<TraceId>,
         runtime: &'a Runtime,
         oncall: Option<String>,
         client_metadata: Vec<ClientMetadata>,
         isolation: FileNameBuf,
-        start_time: u64,
     ) -> Self {
         ClientCommandContext {
             init,
@@ -100,12 +92,10 @@ impl<'a> ClientCommandContext<'a> {
             trace_id,
             stdin,
             restarter,
-            restarted_trace_id,
             runtime,
             oncall,
             client_metadata,
             isolation,
-            start_time,
         }
     }
 
@@ -138,8 +128,13 @@ impl<'a> ClientCommandContext<'a> {
         self.runtime.block_on(func(self))
     }
 
-    pub fn exec<T: BuckSubcommand>(self, cmd: T, matches: BuckArgMatches<'_>) -> ExitResult {
-        self.with_runtime(|ctx| ctx.exec_async(cmd, matches))
+    pub fn exec<T: BuckSubcommand>(
+        self,
+        cmd: T,
+        matches: BuckArgMatches<'_>,
+        events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        self.with_runtime(|ctx| ctx.exec_async(cmd, matches, events_ctx))
     }
 
     // Handles setting up subscribers, executing a command and finalizing logging.
@@ -147,60 +142,21 @@ impl<'a> ClientCommandContext<'a> {
         self,
         cmd: T,
         matches: BuckArgMatches<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let buck_log_dir = self.paths().map(|paths| paths.log_dir()).ok();
-        let command_report_path = cmd
+        cmd.update_events_ctx(matches, &self, events_ctx);
+        events_ctx.buck_log_dir = self.paths().map(|paths| paths.log_dir()).ok();
+        events_ctx.command_report_path = cmd
             .event_log_opts()
             .command_report_path
             .as_ref()
             .map(|path| path.resolve(&self.working_dir));
-        let trace_id = self.trace_id.clone();
-
-        let recorder = InvocationRecorder::new(
-            self.fbinit(),
-            self.trace_id.dupe(),
-            self.restarted_trace_id.dupe(),
-            self.start_time,
-        );
-        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(Some(recorder), vec![])));
-        let exec_events_ctx = events_ctx.dupe();
-
-        let result = async {
-            let mut events_ctx = exec_events_ctx.lock().await;
-            cmd.update_events_ctx(matches, &self, &mut events_ctx);
-            let is_streaming_command = cmd.is_streaming_command();
-            let result = cmd.exec_impl(matches, self, &mut events_ctx).await;
-            events_ctx.handle_exit_result(&result);
-
-            // TODO(ctolliday) always send ExitResult to recorder and remove this check.
-            if !is_streaming_command {
-                events_ctx.handle_instant_command_outcome(result.is_success());
-            }
-            result
+        let is_streaming_command = cmd.is_streaming_command();
+        let result = cmd.exec_impl(matches, self, events_ctx).await;
+        // TODO(ctolliday) always send ExitResult to recorder and remove this check.
+        if !is_streaming_command {
+            events_ctx.handle_instant_command_outcome(result.is_success());
         }
-        .await;
-
-        let finalize_events = async {
-            let mut events_ctx = events_ctx.lock().await;
-            events_ctx.finalize().await
-        };
-
-        let logging_timeout = Duration::from_secs(30);
-        let finalizing_errors = tokio::time::timeout(logging_timeout, finalize_events)
-            .await
-            .unwrap_or_else(|_| {
-                vec![format!(
-                    "Timeout after {:?} waiting for logging cleanup",
-                    logging_timeout
-                )]
-            });
-        // Don't fail the command if command report fails to write. TODO(ctolliday) show a warning?
-        let _unused = result.write_command_report(
-            trace_id,
-            buck_log_dir,
-            command_report_path,
-            finalizing_errors,
-        );
         result
     }
 

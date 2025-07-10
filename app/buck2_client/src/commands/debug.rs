@@ -11,6 +11,7 @@
 use allocator_stats::AllocatorStatsCommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
@@ -104,30 +105,35 @@ pub enum DebugCommand {
 }
 
 impl DebugCommand {
-    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(
+        self,
+        matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let matches = matches.unwrap_subcommand();
         match self {
-            DebugCommand::DiceDump(cmd) => ctx.exec(cmd, matches),
-            DebugCommand::Crash(cmd) => ctx.exec(cmd, matches),
-            DebugCommand::HeapDump(cmd) => ctx.exec(cmd, matches),
-            DebugCommand::AllocatorStats(cmd) => ctx.exec(cmd, matches),
-            DebugCommand::Replay(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::DiceDump(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::Crash(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::HeapDump(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::AllocatorStats(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::Replay(cmd) => cmd.exec(matches, ctx, events_ctx),
             DebugCommand::InternalVersion(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::ChromeTrace(cmd) => ctx.exec(cmd, matches),
-            DebugCommand::FlushDepFiles(cmd) => ctx.exec(cmd, matches),
-            DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Materialize(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::ChromeTrace(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::FlushDepFiles(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx, events_ctx),
+            DebugCommand::Materialize(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::UploadReLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Allocative(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::Allocative(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::SetLogFilter(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::FileStatus(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::FileStatus(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::LogPerf(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::TraceIo(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::TraceIo(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Eval(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
         }
     }
