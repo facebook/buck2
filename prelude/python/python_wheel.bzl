@@ -221,6 +221,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 )
                 for extension, dep in extensions.items()
             },
+            anonymous = True,
         )
 
         # Extract re-linked extensions.
