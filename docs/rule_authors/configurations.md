@@ -180,18 +180,23 @@ other build tool would be an execution dep. This includes all exe macro deps
 
 In addition to `attrs.exec_dep()`, there are `attrs.toolchain_dep()`, which are
 similar but differ in an important way. These nodes don't select their execution
-platform, but instead have it forced on them by whatever includes them; hence,
-it must be recorded in the configured target label. The execution platform
-resolution sees through them.
+platform, but instead inherit the execution platform of whatever target
+references them; hence, it must be recorded in the configured target
+label. In some sense, execution platform resolution sees through
+them.
 
 In other words, `attrs.toolchain_dep()` is like a mix of `attrs.dep()` and
-`attrs.exec_dep()`: it inherits target platform like `attrs.dep()` (so any
-`select()`s on the target of the `attrs.toolchain_dep()` will evaluate as if
-they were on the target containing the `attrs.toolchain_dep()` - the target
-platform gets inherited as normal) and any `attrs.exec_dep()`s of the
-`attrs.toolchain_dep()` target become `attrs.exec_deps()` on the dependent of
-target the `attrs.toolchain_dep()` (they get passed up the dep tree, so
-participate in exec platform resolution).
+`attrs.exec_dep()`:
+- It inherits its target platform from the dependent build target like
+  `attrs.dep()` (so any `select()`s using the target of the
+  `attrs.toolchain_dep()` will evaluate as if they were on the target
+  referencing the `attrs.toolchain_dep()` - the target platform gets
+  inherited as with `attrs.dep()`)
+- Like `attrs.exec_dep()` itself, `attrs.exec_dep()`s of the
+  `attrs.toolchain_dep()` target are inserted
+  into the list of `attrs.exec_dep()` on the dependent target of the
+  `attrs.toolchain_dep()` (they get passed up the dep tree, so
+  participate in exec platform resolution).
 
 This is illustrated in the following example:
 
