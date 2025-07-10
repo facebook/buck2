@@ -210,7 +210,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         omnibus_libs = create_omnibus_libraries(
             ctx,
             omnibus_graph,
-            extra_ldflags = python_toolchain.wheel_linker_flags,
+            extra_ldflags = python_toolchain.wheel_linker_flags + ctx.attrs.linker_flags,
             extra_root_ldflags = {
                 dep.label: (
                     python_toolchain.extension_linker_flags +
@@ -274,6 +274,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                             "-Wl,-rpath,{}".format(_rpath(extension, rpath))
                             for rpath in rpaths
                         ]),
+                        LinkArgs(flags = ctx.attrs.linker_flags),
                         LinkArgs(infos = inputs),
                     ],
                     category_suffix = "native_extension",
@@ -474,6 +475,7 @@ python_wheel = rule(
         lib_dir = attrs.option(attrs.string(), default = None),
         support_future_python_versions = attrs.bool(default = False),
         labels = attrs.list(attrs.string(), default = []),
+        linker_flags = attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         link_execution_preference = link_execution_preference_attr(),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
