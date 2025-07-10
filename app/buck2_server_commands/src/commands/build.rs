@@ -40,6 +40,7 @@ use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -61,6 +62,7 @@ use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::target_resolution_config::ModifiersError;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
@@ -162,6 +164,10 @@ async fn build(
     > = parse_patterns_with_modifiers_from_cli_args(&mut ctx, &request.target_patterns, cwd)
         .await?;
 
+    let has_pattern_modifiers = parsed_patterns_with_modifiers
+        .iter()
+        .any(|p| p.modifiers.is_some());
+
     server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
@@ -178,6 +184,19 @@ async fn build(
         &request.target_universe,
     )
     .await?;
+
+    match &target_resolution_config {
+        TargetResolutionConfig::Default(global_cfg_options) => {
+            if !global_cfg_options.cli_modifiers.is_empty() && has_pattern_modifiers {
+                return Err(ModifiersError::PatternModifiersWithGlobalModifiers().into());
+            }
+        }
+        TargetResolutionConfig::Universe(_) => {
+            if has_pattern_modifiers {
+                return Err(ModifiersError::PatternModifiersWithTargetUniverse().into());
+            }
+        }
+    }
 
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
 
@@ -551,6 +570,7 @@ async fn build_targets_with_global_target_platform<'a>(
 struct TargetBuildSpec {
     target: ProvidersLabel,
     global_cfg_options: GlobalCfgOptions,
+    modifiers: Modifiers,
     // Indicates whether this target was explicitly requested or not. If it's the result
     // of something like `//foo/...` we can skip it (for example if it's incompatible with
     // the target platform).
@@ -646,9 +666,10 @@ async fn build_targets_for_spec(
     let todo_targets: Vec<TargetBuildSpec> = targets
         .into_iter()
         .map(
-            |((_target_name, extra, _modifiers), target)| TargetBuildSpec {
+            |((_target_name, extra, modifiers), target)| TargetBuildSpec {
                 target: ProvidersLabel::new(target.label().dupe(), extra.providers),
                 global_cfg_options: global_cfg_options.dupe(),
+                modifiers: modifiers.dupe(),
                 skippable,
                 graph_properties,
             },
@@ -686,9 +707,16 @@ async fn build_target(
     materialization_and_upload: &MaterializationAndUploadContext,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
+    let local_cfg_options = match spec.modifiers.as_slice() {
+        None => spec.global_cfg_options.dupe(),
+        Some(modifiers) => GlobalCfgOptions {
+            target_platform: spec.global_cfg_options.target_platform.dupe(),
+            cli_modifiers: modifiers.to_vec().into(),
+        },
+    };
     let providers_label = match ctx
         .get()
-        .get_configured_provider_label(&spec.target, &spec.global_cfg_options)
+        .get_configured_provider_label(&spec.target, &local_cfg_options)
         .await
     {
         Ok(l) => l,

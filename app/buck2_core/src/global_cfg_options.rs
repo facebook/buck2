@@ -30,5 +30,6 @@ use crate::target::label::label::TargetLabel;
 )]
 pub struct GlobalCfgOptions {
     pub target_platform: Option<TargetLabel>,
+    // TODO(azhang2542): Replace with `Modifiers` struct
     pub cli_modifiers: Arc<Vec<String>>,
 }
