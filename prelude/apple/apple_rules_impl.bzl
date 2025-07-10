@@ -101,10 +101,6 @@ extra_attributes = {
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
         "_ipa_package": attrs.dep(),
     } | apple_common.apple_tools_arg(),
-    "apple_resource": {
-        "codesign_entitlements": attrs.option(attrs.source(), default = None),
-        "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
-    } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have

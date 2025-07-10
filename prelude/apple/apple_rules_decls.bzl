@@ -818,11 +818,14 @@ apple_resource = prelude_rule(
                 Indicates whether the files specified in the files arg in this resource should be code signed with the identity used to sign the overall bundle. This is useful for e.g.
                  dylibs or other additional binaries copied into the bundle. The caller is responsible to ensure that the file format is valid for codesigning.
             """),
+            "codesign_entitlements": attrs.option(attrs.source(), default = None),
+            "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        apple_common.skip_universal_resource_dedupe_arg()
     ),
     impl = apple_resource_impl,
     cfg = apple_resource_transition,
