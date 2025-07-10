@@ -292,6 +292,15 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             },
         ),
     ]
+    sub_targets["native-libs"] = [
+        DefaultInfo(
+            sub_targets = {
+                shlib.soname.ensure_str(): [DefaultInfo(default_output = shlib.lib.output)]
+                for shlib in shared_libs
+                if shlib.soname.is_str
+            },
+        ),
+    ]
 
     # Add shlibs manifest.
     if shared_libs:
