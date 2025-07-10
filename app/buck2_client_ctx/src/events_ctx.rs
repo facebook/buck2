@@ -18,11 +18,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::command_result;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use futures::Future;
@@ -39,7 +35,6 @@ use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::console_interaction_stream::NoopSuperConsoleInteraction;
 use crate::console_interaction_stream::SuperConsoleInteraction;
 use crate::console_interaction_stream::SuperConsoleToggle;
-use crate::daemon::client::BuckdClient;
 use crate::daemon::client::NoPartialResultHandler;
 use crate::daemon::client::tonic_status_to_error;
 use crate::exit_result::ExitResult;
@@ -116,38 +111,31 @@ impl PartialResultCtx<'_> {
     }
 }
 
+/// Manages incoming event streams from the daemon for the buck2 client and
+/// forwards them to the appropriate subscribers registered on this struct
+pub struct EventsCtx {
+    pub(crate) recorder: Option<Box<InvocationRecorder>>,
+    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
+    ticker: Ticker,
+    client_cpu_tracker: ClientCpuTracker,
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub enum FileTailerEvent {
     Stdout(Vec<u8>),
     Stderr(Vec<u8>),
 }
 
-/// Manages incoming event streams from the daemon for the buck2 client and
-/// forwards them to the appropriate subscribers in EventsCtx
-pub struct DaemonEventsCtx<'a> {
-    pub(crate) inner: &'a mut EventsCtx,
-    tailers: FileTailers,
-    ticker: Ticker,
-}
-
-impl<'a> DaemonEventsCtx<'a> {
-    pub(crate) fn new(
-        client: &mut BuckdClient,
-        events_ctx: &'a mut EventsCtx,
-    ) -> buck2_error::Result<Self> {
-        let tailers = FileTailers::new(&client.daemon_dir)?;
-        Ok(Self {
-            inner: events_ctx,
-            tailers,
-            ticker: Ticker::new(TICKS_PER_SECOND),
-        })
-    }
-
-    pub fn without_tailers(events_ctx: &'a mut EventsCtx) -> Self {
+impl EventsCtx {
+    pub fn new(
+        recorder: Option<InvocationRecorder>,
+        subscribers: Vec<Box<dyn EventSubscriber>>,
+    ) -> Self {
         Self {
-            inner: events_ctx,
-            tailers: FileTailers::empty(),
+            recorder: recorder.map(Box::new),
+            subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
+            client_cpu_tracker: ClientCpuTracker::new(),
         }
     }
 
@@ -166,7 +154,7 @@ impl<'a> DaemonEventsCtx<'a> {
             let next = match next {
                 Ok(next) => next,
                 Err(e) => {
-                    self.inner.handle_events(events, shutdown).await?;
+                    self.handle_events(events, shutdown).await?;
                     return Err(e).buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.");
                 }
             };
@@ -188,17 +176,17 @@ impl<'a> DaemonEventsCtx<'a> {
                             )
                         })?;
                     partial_result_handler
-                        .handle_partial_result(PartialResultCtx { inner: self.inner }, partial_res)
+                        .handle_partial_result(PartialResultCtx { inner: self }, partial_res)
                         .await?;
                 }
                 StreamValue::Result(res) => {
-                    self.inner.handle_events(events, shutdown).await?;
-                    self.inner.handle_command_result(&res).await?;
+                    self.handle_events(events, shutdown).await?;
+                    self.handle_command_result(&res).await?;
                     return Ok(ControlFlow::Break(res));
                 }
             }
         }
-        self.inner.handle_events(events, shutdown).await?;
+        self.handle_events(events, shutdown).await?;
         Ok(ControlFlow::Continue(()))
     }
 
@@ -208,7 +196,7 @@ impl<'a> DaemonEventsCtx<'a> {
                 // Sending daemon stdout to stderr.
                 // Daemon is not supposed to write anything to stdout.
                 // But if daemon does, it should not be used as standard output of buck2.
-                self.inner.handle_tailer_stderr(&out).await
+                self.handle_tailer_stderr(&out).await
             }
         }
     }
@@ -217,6 +205,7 @@ impl<'a> DaemonEventsCtx<'a> {
         &mut self,
         partial_result_handler: &mut Handler,
         stream: S,
+        tailers: Option<FileTailers>,
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> buck2_error::Result<CommandResult>
     where
@@ -228,6 +217,16 @@ impl<'a> DaemonEventsCtx<'a> {
             Some(i) => i as _,
             None => &mut noop_console_interaction as _,
         };
+
+        // TODO(cjhopman): This is fragile. We are handling stdout/stderr here but we also want to stop
+        // the streaming of stdout/stderr on some things we see here but importantly we need to finish
+        // draining stdout/stderr even if we encounter errors. Also, it looks like we probably drop a lot
+        // of events/stdout/stderr if a handle_subscribers() call returns an error.
+
+        // We don't want to return early here without draining stdout/stderr.
+        // TODO(brasselsprouts): simpler logic
+
+        let mut tailers = tailers.unwrap_or_else(FileTailers::empty);
 
         let stream = stream.ready_chunks(1000);
         let mut stream = pin!(stream);
@@ -250,21 +249,21 @@ impl<'a> DaemonEventsCtx<'a> {
                             ControlFlow::Break(res) => break *res,
                         }
                     }
-                    Some(event) = self.tailers.recv() => {
+                    Some(event) = tailers.stream.recv() => {
                         self.dispatch_tailer_event(event).await?;
                     }
                     c = console_interaction.toggle() => {
-                        self.inner.handle_console_interaction(&c?).await?;
+                        self.handle_console_interaction(&c?).await?;
                     }
                     tick = self.ticker.tick() => {
-                        self.inner.tick(&tick).await?;
+                        self.tick(&tick).await?;
                     }
                 }
             }
         };
 
-        let flush_result = self.flush().await;
-        self.inner.handle_stream_end();
+        let flush_result = self.flush(Some(tailers)).await;
+        self.handle_stream_end();
 
         let command_result = match (command_result, shutdown) {
             (Ok(r), _) => r,
@@ -293,6 +292,7 @@ impl<'a> DaemonEventsCtx<'a> {
         &mut self,
         partial_result_handler: &mut Handler,
         stream: S,
+        tailers: Option<FileTailers>,
         console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> buck2_error::Result<CommandOutcome<Res>>
     where
@@ -301,12 +301,10 @@ impl<'a> DaemonEventsCtx<'a> {
         Handler: PartialResultHandler,
     {
         let command_result = self
-            .unpack_stream_inner(partial_result_handler, stream, console_interaction)
+            .unpack_stream_inner(partial_result_handler, stream, tailers, console_interaction)
             .await;
 
-        let result = self.flush().await.and(command_result);
-
-        match result {
+        match command_result {
             Ok(result) => convert_result(result),
             Err(err) => Err(self.handle_error_owned(err).await),
         }
@@ -319,6 +317,7 @@ impl<'a> DaemonEventsCtx<'a> {
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
         &mut self,
+        tailers: Option<FileTailers>,
         f: Fut,
     ) -> buck2_error::Result<CommandOutcome<Res>> {
         let stream = stream::once(f.map(|result| {
@@ -326,14 +325,13 @@ impl<'a> DaemonEventsCtx<'a> {
                 .map(|command_result| StreamValue::Result(Box::new(command_result.into_inner())))
                 .map_err(tonic_status_to_error)
         }));
-        self.unpack_stream(&mut NoPartialResultHandler, stream, None)
+        self.unpack_stream(&mut NoPartialResultHandler, stream, tailers, None)
             .await
     }
 
     async fn handle_error_owned(&mut self, error: buck2_error::Error) -> buck2_error::Error {
         let error: buck2_error::Error = error.into();
-        let result: Result<(), buck2_error::Error> = self
-            .inner
+        let result = self
             .try_for_each_subscriber(|subscriber| subscriber.handle_error(&error))
             .await;
         match result {
@@ -346,43 +344,32 @@ impl<'a> DaemonEventsCtx<'a> {
         }
     }
 
-    pub async fn flush(&mut self) -> buck2_error::Result<()> {
-        let Some(mut stream) = self.tailers.stop_reading() else {
+    pub async fn flush(&mut self, tailers: Option<FileTailers>) -> buck2_error::Result<()> {
+        let Some(tailers) = tailers else {
             return Ok(());
         };
+        let mut streams = tailers.stop_reading();
 
         // We need to loop again to drain stdout/stderr
         let mut complete = false;
         while !complete {
             tokio::select! {
-                event = stream.recv() => {
+                event = streams.recv() => {
                     match event {
                         Some(event) => {self.dispatch_tailer_event(event).await?;}
                         None => {complete = true;}
                     }
                 }
                 tick = self.ticker.tick() => {
-                    self.inner.tick(&tick).await?;
+                    self.tick(&tick).await?;
                 }
             }
         }
 
         let tick = self.ticker.tick_now();
-        self.inner.tick(&tick).await?;
+        self.tick(&tick).await?;
 
         Ok(())
-    }
-}
-
-// Can't flush in drop because it needs to be async, but we can report a soft error if we didn't flush.
-impl<'a> Drop for DaemonEventsCtx<'a> {
-    fn drop(&mut self) {
-        if self.tailers.stream.is_some() {
-            let _unused = soft_error!(
-                "daemon_tailers_not_flushed",
-                internal_error!("DaemonEventsCtx should have been flushed before being dropped")
-            );
-        }
     }
 }
 
@@ -402,29 +389,7 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     }
 }
 
-/// Forwards events to a list of subscribers to record and report build events.
-pub struct EventsCtx {
-    pub(crate) recorder: Option<Box<InvocationRecorder>>,
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
-    client_cpu_tracker: ClientCpuTracker,
-    pub buck_log_dir: Option<AbsNormPathBuf>,
-    pub command_report_path: Option<AbsPathBuf>,
-}
-
 impl EventsCtx {
-    pub fn new(
-        recorder: Option<InvocationRecorder>,
-        subscribers: Vec<Box<dyn EventSubscriber>>,
-    ) -> Self {
-        Self {
-            subscribers,
-            recorder: recorder.map(Box::new),
-            client_cpu_tracker: ClientCpuTracker::new(),
-            buck_log_dir: None,
-            command_report_path: None,
-        }
-    }
-
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> buck2_error::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();

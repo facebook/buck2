@@ -63,7 +63,6 @@ use crate::daemon::client::kill::hard_kill_until;
 use crate::daemon::daemon_windows::spawn_background_process_on_windows;
 use crate::daemon_constraints;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
-use crate::events_ctx::DaemonEventsCtx;
 use crate::events_ctx::EventsCtx;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
@@ -587,6 +586,7 @@ impl BootstrapBuckdClient {
                 daemon_dir: self.daemon_dir,
                 client: self.client,
                 constraints: self.constraints,
+                tailers: None,
             },
         }
     }
@@ -1008,9 +1008,8 @@ async fn get_constraints(
 ) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
     // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
     // otherwise we leave them alone.
-    let mut events_ctx = EventsCtx::new(None, vec![Box::new(StdoutStderrForwarder)]);
-    let status = DaemonEventsCtx::without_tailers(&mut events_ctx)
-        .unpack_oneshot({
+    let status = EventsCtx::new(None, vec![Box::new(StdoutStderrForwarder)])
+        .unpack_oneshot(None, {
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
                 snapshot: false,
             }))
