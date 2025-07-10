@@ -19,7 +19,6 @@ use std::time::UNIX_EPOCH;
 
 use buck2::exec;
 use buck2::panic;
-use buck2::process_context::ClientRuntime;
 use buck2::process_context::ProcessContext;
 use buck2::process_context::SharedProcessContext;
 use buck2_build_info::BUCK2_BUILD_INFO;
@@ -153,7 +152,6 @@ fn main() -> ! {
     fn main_with_result() -> ExitResult {
         let start_time = get_unix_timestamp_millis();
         let first_trace_id = TraceId::from_env_or_new()?;
-        let mut runtime = ClientRuntime::new();
         let mut shared = init_shared_context()?;
 
         let res = exec(ProcessContext::new(
@@ -161,17 +159,15 @@ fn main() -> ! {
             first_trace_id.dupe(),
             None,
             &mut shared,
-            &mut runtime,
         ));
 
-        maybe_restart(first_trace_id, res, shared, &mut runtime)
+        maybe_restart(first_trace_id, res, shared)
     }
 
     fn maybe_restart(
         first_trace_id: TraceId,
         initial_result: ExitResult,
         mut shared: SharedProcessContext,
-        runtime: &mut ClientRuntime,
     ) -> ExitResult {
         let force_want_restart = shared.force_want_restart;
         let restart = |res| {
@@ -197,7 +193,6 @@ fn main() -> ! {
                 TraceId::new(),
                 Some(first_trace_id),
                 &mut shared,
-                runtime,
             ))
         };
 
