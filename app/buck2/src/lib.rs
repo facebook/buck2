@@ -406,7 +406,6 @@ impl CommandKind {
         };
 
         let recorder = InvocationRecorder::new(
-            fb,
             process.trace_id.dupe(),
             process.restarted_trace_id.dupe(),
             process.start_time,
