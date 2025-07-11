@@ -242,4 +242,4 @@ module_modified(Mod, BeamPath) ->
 
 reload_module(Module) ->
     code:purge(Module),
-    code:load_file(Module).
+    {module, Module} = code:load_file(Module).
