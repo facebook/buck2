@@ -128,17 +128,6 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
-    "prebuilt_apple_framework": {
-        "contains_swift": attrs.bool(default = False),
-        "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
-        "framework": attrs.option(attrs.source(allow_directory = True), default = None),
-        "modular": attrs.bool(default = True),
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
-        "sdk_modules": attrs.list(attrs.string(), default = []),
-        "stripped": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_stripped_default": attrs.bool(default = False),
-    } | apple_common.apple_tools_arg(),
     "swift_toolchain": {
         "architecture": attrs.string(),
         "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),

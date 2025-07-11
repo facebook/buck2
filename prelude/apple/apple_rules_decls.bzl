@@ -1118,7 +1118,7 @@ prebuilt_apple_framework = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "preferred_linkage": attrs.enum(Linkage.values(), doc = """
+            "preferred_linkage": attrs.enum(Linkage.values(), default = "any", doc = """
                 How to link to a binary: use `dynamic` for a dynamic
                  framework, and `static` for old universal static
                  frameworks manually lipo-ed together. `dynamic` will
@@ -1128,20 +1128,28 @@ prebuilt_apple_framework = prelude_rule(
                  an Apple bundle.
             """),
             "contacts": attrs.list(attrs.string(), default = []),
+            "contains_swift": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_linker_flags": attrs.list(attrs.string(), default = []),
             "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
-            "framework": attrs.source(),
+            "framework": attrs.option(attrs.source(allow_directory = True), default = None),
             "frameworks": attrs.list(attrs.string(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "modular": attrs.bool(default = True),
+            "sdk_modules": attrs.list(attrs.string(), default = []),
+            "stripped": attrs.option(attrs.bool(), default = None),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "extra_codesign_paths": attrs.list(attrs.string(), default = [], doc = """
                 A list of extra paths, relative to the framework root, that will be codesigned.
                 """),
-        }
+            "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+            "_stripped_default": attrs.bool(default = False),
+        } |
+        apple_common.apple_tools_arg()
     ),
     impl = prebuilt_apple_framework_impl,
 )
