@@ -44,6 +44,7 @@ use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
@@ -54,7 +55,9 @@ use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_data::ErrorReport;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::verbosity::Verbosity;
@@ -204,7 +207,24 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         expanded_argv: expanded_args,
     };
 
-    let mut opt = ParsedArgv::parse(argv)?;
+    let clap = Opt::command();
+    let matches = match clap.try_get_matches_from(argv.expanded_argv.args()) {
+        Ok(matches) => matches,
+        Err(e) => {
+            // Print colorized output, ExitResult::report will not colorize
+            e.print()?;
+            return if e.exit_code() == 0 {
+                ExitResult::success()
+            } else {
+                let e = buck2_error::Error::from(e).tag([ErrorTag::ClapMatch]);
+                ExitResult::status_with_emitted_errors(
+                    ExitCode::UserError,
+                    vec![ErrorReport::from(&e)],
+                )
+            };
+        }
+    };
+    let mut opt = ParsedArgv::parse(argv, matches)?;
 
     let client_metadata = ClientMetadata::from_env()?;
     if !client_metadata.is_empty() {
@@ -225,10 +245,7 @@ struct ParsedArgv {
 }
 
 impl ParsedArgv {
-    fn parse(argv: Argv) -> buck2_error::Result<Self> {
-        let clap = Opt::command();
-        let matches = clap.get_matches_from(argv.expanded_argv.args());
-
+    fn parse(argv: Argv, matches: clap::ArgMatches) -> buck2_error::Result<Self> {
         let opt: Opt = Opt::from_arg_matches(&matches)?;
 
         if opt.common_opts.help_wrapper {

@@ -319,6 +319,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Tier0 => rank!(tier0).hidden(),
 
         // Input errors
+        ErrorTag::ClapMatch => rank!(input),
         ErrorTag::ReFailedPrecondition => rank!(input),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something

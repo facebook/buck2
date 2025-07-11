@@ -348,6 +348,7 @@ enum ErrorTag {
 
   // Misc error conversions
   CLAP = 9001;
+  CLAP_MATCH = 90011;
   HEX = 9002;
   HYPER = 9003;
   NIX = 9004;
