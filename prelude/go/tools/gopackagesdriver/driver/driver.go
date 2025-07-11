@@ -142,7 +142,7 @@ func readDriverRequest() (*packages.DriverRequest, error) {
 func Run(ctx context.Context, telemetry Telemetry) error {
 	defer func() {
 		if r := recover(); r != nil {
-			telemetry.LogEvent(ctx, PanicEvent{
+			telemetry.LogEvent(ctx, &PanicEvent{
 				PanicValue: r,
 				Stack:      debug.Stack(),
 			})
@@ -181,7 +181,7 @@ func Run(ctx context.Context, telemetry Telemetry) error {
 	var resp *packages.DriverResponse
 
 	defer func() {
-		telemetry.LogEvent(ctx, RequestFinishedEvent{
+		telemetry.LogEvent(ctx, &RequestFinishedEvent{
 			Duration: time.Since(start),
 			BuckRoot: platform.ProjectDir(),
 			Request:  req,
