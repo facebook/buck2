@@ -26,9 +26,10 @@ func getGoBinary() (string, func(), error) {
 		return "", func() {}, fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
-	goBinaryPath := filepath.Join(tmpDir, "go")
-	scriptContent := "#!/usr/bin/env bash\nexec buck2 run $GOPACKAGESDRIVER_BUCK_COMMON_FLAGS 'toolchains//:go[go]' -- \"$@\"\n"
+	buckOpts := strings.Fields(os.Getenv("GOPACKAGESDRIVER_BUCK_OPTIONS"))
+	scriptContent := "#!/usr/bin/env bash\nexec buck2 run " + strings.Join(buckOpts, " ") + " 'toolchains//:go[go]' -- \"$@\"\n"
 
+	goBinaryPath := filepath.Join(tmpDir, "go")
 	err = os.WriteFile(goBinaryPath, []byte(scriptContent), 0755)
 	if err != nil {
 		return "", func() {}, fmt.Errorf("failed to write to temp file: %w", err)

@@ -172,7 +172,7 @@ func Run(ctx context.Context, telemetry Telemetry) error {
 	cmder := &shellCommander{}
 	bucker := &buckShell{
 		cmder:       cmder,
-		commonFlags: strings.Fields(os.Getenv("GOPACKAGESDRIVER_BUCK_COMMON_FLAGS")),
+		buckOptions: strings.Fields(os.Getenv("GOPACKAGESDRIVER_BUCK_OPTIONS")),
 	}
 
 	req, err := readDriverRequest()

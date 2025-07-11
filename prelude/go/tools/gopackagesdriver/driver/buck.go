@@ -41,7 +41,7 @@ type Bucker interface {
 
 type buckShell struct {
 	cmder       Commander
-	commonFlags []string // common flags for run/build/test/bxl commands
+	buckOptions []string // common flags for run/build/test/bxl commands
 }
 
 func (s shellCommander) Exec(ctx context.Context, name string, args ...string) ([]byte, error) {
@@ -135,7 +135,7 @@ func (b *buckShell) Root(ctx context.Context) (string, error) {
 }
 
 func (b *buckShell) BXL(ctx context.Context, label string, args []string) ([]byte, error) {
-	data, err := b.run(ctx, slices.Concat([]string{"bxl"}, b.commonFlags, []string{label, "--"}, args))
+	data, err := b.run(ctx, slices.Concat([]string{"bxl"}, b.buckOptions, []string{label, "--"}, args))
 	slog.Debug("running BXL", "label", label, "args", args)
 	if err != nil {
 		return nil, err
