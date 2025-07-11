@@ -52,6 +52,14 @@ BuildEnvironment = record(
     deps_files = field(DepsMapping, {}),
 )
 
+SmallBuildEnvironment = record(
+    includes = field(IncludesMapping, {}),
+    include_dirs = field(PathArtifactMapping, {}),
+    private_includes = field(IncludesMapping, {}),
+    private_include_dirs = field(PathArtifactMapping, {}),
+    beams = field(EbinMapping, {}),
+)
+
 DepInfo = record(
     dep_file = field(Artifact),
     path = field(str),
@@ -192,8 +200,16 @@ def _generate_beam_artifacts(
 
     dep_info_file = ctx.actions.write_json(_dep_info_name(build_dir), build_environment.deps_files, with_inputs = True)
 
+    small_build_environment = SmallBuildEnvironment(
+        includes = build_environment.includes,
+        include_dirs = build_environment.include_dirs,
+        private_includes = build_environment.private_includes,
+        private_include_dirs = build_environment.private_include_dirs,
+        beams = build_environment.beams,
+    )
+
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, build_dir, build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, build_dir, small_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
 
 # updates deps_deps in place
 def _get_deps_files(
@@ -261,7 +277,7 @@ def _build_erl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_dir: str,
-        build_environment: BuildEnvironment,
+        build_environment: SmallBuildEnvironment,
         dep_info_file: WriteJsonCliArgs,
         src: Artifact,
         output: Artifact) -> None:
@@ -307,7 +323,7 @@ def _build_erl(
 def _dependencies_to_args(
         artifacts,
         final_dep_file: Artifact,
-        build_environment: BuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
+        build_environment: SmallBuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
     """
     includes = set()
