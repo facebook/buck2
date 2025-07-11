@@ -1,0 +1,8 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
+# @oss-disable[end= ]: load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "logging_lib",
+    srcs = ["src/lib.rs"],
+    visibility = ["PUBLIC"],
+)
