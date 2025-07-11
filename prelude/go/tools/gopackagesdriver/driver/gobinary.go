@@ -27,7 +27,11 @@ func getGoBinary() (string, func(), error) {
 	}
 
 	buckOpts := strings.Fields(os.Getenv("GOPACKAGESDRIVER_BUCK_OPTIONS"))
-	scriptContent := "#!/usr/bin/env bash\nexec buck2 run " + strings.Join(buckOpts, " ") + " 'toolchains//:go[go]' -- \"$@\"\n"
+	scriptContent := fmt.Sprintf(`#!/usr/bin/env bash
+# remove the current directory from the path to avoid infinite recursion on system_go_toolchain
+export PATH=${PATH//$(dirname "$0"):/}
+exec buck2 run %s 'toolchains//:go[go]' -- "$@"
+`, strings.Join(buckOpts, " "))
 
 	goBinaryPath := filepath.Join(tmpDir, "go")
 	err = os.WriteFile(goBinaryPath, []byte(scriptContent), 0755)
