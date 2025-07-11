@@ -643,7 +643,12 @@ impl Buck {
         command.arg("--max_extra_targets");
         command.arg(max_extra_targets.to_string());
 
-        let out = deserialize_output(command.output(), &command)?;
+        let out: FxHashMap<PathBuf, Vec<Target>> = deserialize_output(command.output(), &command)?;
+
+        for (k, v) in out.iter() {
+            info!("Found {} with {} targets", k.display(), v.len());
+        }
+
         Ok(out)
     }
 }
