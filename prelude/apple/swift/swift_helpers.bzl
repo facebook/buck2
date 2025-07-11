@@ -88,7 +88,7 @@ def compile_with_argsfile(
     ctx.actions.run(
         cmd,
         allow_cache_upload = allow_cache_upload,
-        allow_dep_file_cache_upload = True,
+        allow_dep_file_cache_upload = (len(dep_files) > 0),
         category = category,
         dep_files = dep_files,
         error_handler = swift_error_handler if error_deserializer else apple_build_error_handler,
