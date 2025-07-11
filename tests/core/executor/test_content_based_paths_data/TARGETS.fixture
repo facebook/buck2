@@ -50,6 +50,13 @@ run_with_content_based_path(
     prefer_local = True,
 )
 
+run_with_content_based_path(
+    name = "run_local_with_dep_on_run_remote",
+    data = "hello world",
+    prefer_local = True,
+    depends_on = [":run_remote_with_content_based_path"],
+)
+
 copy(
     name = "copy_with_content_based_path",
     to_copy = ":write_with_content_based_path",

@@ -81,6 +81,7 @@ def _run_with_content_based_path_impl(ctx):
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
     args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
+    args.add(cmd_args(hidden = ctx.attrs.depends_on))
     kwargs = {
         "category": "test_run",
         "no_outputs_cleanup": ctx.attrs.is_incremental,
@@ -99,6 +100,7 @@ run_with_content_based_path = rule(
     impl = _run_with_content_based_path_impl,
     attrs = {
         "data": attrs.string(),
+        "depends_on": attrs.list(attrs.source(), default = []),
         "is_incremental": attrs.bool(default = False),
         "prefer_local": attrs.bool(default = False),
         "_ignored": attrs.string(default = "ignored"),

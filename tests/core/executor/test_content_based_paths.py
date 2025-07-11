@@ -9,7 +9,7 @@
 # pyre-strict
 
 
-import os
+import json
 import subprocess
 from pathlib import Path
 from typing import List
@@ -360,3 +360,24 @@ async def test_sets_inconsistent_params(buck: Buck) -> None:
         ),
         stderr_regex="Artifact `out` was declared with `uses_experimental_content_based_path_hashing = true`, but is now being used with `uses_experimental_content_based_path_hashing = false`",
     )
+
+
+@buck_test()
+async def test_local_action_inputs_have_configuration_path_symlinks(
+    buck: Buck,
+) -> None:
+    await buck.build(
+        "root//:run_local_with_dep_on_run_remote",
+    )
+    materialized_out = await buck.log("what-materialized", "--format", "json")
+    materialized = [
+        json.loads(line) for line in materialized_out.stdout.splitlines() if line
+    ]
+    run_remote_output_materialized = [
+        entry
+        for entry in materialized
+        if "run_remote_with_content_based_path" in entry["path"]
+        and entry["path"].endswith("out")
+    ]
+    # TODO(ianc) This should be 2, but we don't yet materialize a configuration path symlink
+    assert len(run_remote_output_materialized) == 1
