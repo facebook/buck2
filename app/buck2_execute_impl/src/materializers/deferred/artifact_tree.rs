@@ -176,6 +176,7 @@ pub enum ArtifactMaterializationStage {
         /// Taken from `entry` of `ArtifactValue`. Used to materialize the actual artifact.
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         method: Arc<ArtifactMaterializationMethod>,
+        persist_full_directory_structure: bool,
     },
     /// This artifact was materialized
     Materialized {
@@ -295,9 +296,11 @@ impl ArtifactTree {
             ArtifactMaterializationStage::Materialized { .. } => {
                 return Ok(path);
             }
-            ArtifactMaterializationStage::Declared { entry, method } => {
-                (entry.dupe(), method.dupe())
-            }
+            ArtifactMaterializationStage::Declared {
+                entry,
+                method,
+                persist_full_directory_structure: _,
+            } => (entry.dupe(), method.dupe()),
         };
         match method.as_ref() {
             ArtifactMaterializationMethod::CasDownload { info } => {

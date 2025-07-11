@@ -622,7 +622,10 @@ impl LocalExecutor {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
             if let Some(value) = value {
                 match output {
-                    CommandExecutionOutput::BuildArtifact { .. } => {
+                    CommandExecutionOutput::BuildArtifact {
+                        supports_incremental_remote,
+                        ..
+                    } => {
                         if output.as_ref().has_content_based_path() {
                             let hashed_path = output
                                 .as_ref()
@@ -644,12 +647,14 @@ impl LocalExecutor {
                                 to_declare.push(DeclareArtifactPayload {
                                     path: hashed_path,
                                     artifact: value.dupe(),
+                                    persist_full_directory_structure: supports_incremental_remote,
                                 });
                             }
                         } else {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
                                 artifact: value.dupe(),
+                                persist_full_directory_structure: supports_incremental_remote,
                             });
                         }
                     }
@@ -1041,6 +1046,7 @@ pub(crate) async fn materialize_build_outputs(
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
+                supports_incremental_remote: _,
             } => paths.push(artifact_fs.resolve_build(path, None)?),
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }

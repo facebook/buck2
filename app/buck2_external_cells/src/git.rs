@@ -188,6 +188,7 @@ async fn download_impl(
         .declare_existing(vec![DeclareArtifactPayload {
             path: path.to_owned(),
             artifact: ArtifactValue::new(entry, None),
+            persist_full_directory_structure: false,
         }])
         .await?;
 

@@ -672,6 +672,7 @@ pub enum CommandExecutionOutputRef<'a> {
     BuildArtifact {
         path: &'a BuildArtifactPath,
         output_type: OutputType,
+        supports_incremental_remote: bool,
     },
     TestPath {
         path: &'a BuckOutTestPath,
@@ -688,7 +689,11 @@ impl CommandExecutionOutputRef<'_> {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
         match self {
-            Self::BuildArtifact { path, output_type } => Ok(ResolvedCommandExecutionOutput {
+            Self::BuildArtifact {
+                path,
+                output_type,
+                supports_incremental_remote: _,
+            } => Ok(ResolvedCommandExecutionOutput {
                 path: fs.resolve_build(path, content_hash)?,
                 create: OutputCreationBehavior::Parent,
                 output_type: *output_type,
@@ -703,9 +708,14 @@ impl CommandExecutionOutputRef<'_> {
 
     pub fn cloned(&self) -> CommandExecutionOutput {
         match self {
-            Self::BuildArtifact { path, output_type } => CommandExecutionOutput::BuildArtifact {
+            Self::BuildArtifact {
+                path,
+                output_type,
+                supports_incremental_remote,
+            } => CommandExecutionOutput::BuildArtifact {
                 path: (*path).dupe(),
                 output_type: *output_type,
+                supports_incremental_remote: *supports_incremental_remote,
             },
             Self::TestPath { path, create } => CommandExecutionOutput::TestPath {
                 path: (*path).clone(),
@@ -727,6 +737,7 @@ pub enum CommandExecutionOutput {
     BuildArtifact {
         path: BuildArtifactPath,
         output_type: OutputType,
+        supports_incremental_remote: bool,
     },
     TestPath {
         path: BuckOutTestPath,
@@ -737,9 +748,14 @@ pub enum CommandExecutionOutput {
 impl CommandExecutionOutput {
     pub fn as_ref(&self) -> CommandExecutionOutputRef<'_> {
         match self {
-            Self::BuildArtifact { path, output_type } => CommandExecutionOutputRef::BuildArtifact {
+            Self::BuildArtifact {
+                path,
+                output_type,
+                supports_incremental_remote,
+            } => CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: *output_type,
+                supports_incremental_remote: *supports_incremental_remote,
             },
             Self::TestPath { path, create } => CommandExecutionOutputRef::TestPath {
                 path,

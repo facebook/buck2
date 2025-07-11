@@ -927,6 +927,7 @@ mod tests {
                             .map(|b| CommandExecutionOutput::BuildArtifact {
                                 path: b.get_path().dupe(),
                                 output_type: OutputType::FileOrDirectory,
+                                supports_incremental_remote: false,
                             })
                             .collect(),
                         ctx.fs(),

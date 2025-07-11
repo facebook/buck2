@@ -385,6 +385,13 @@ impl CasDownloader<'_> {
         for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
+                let supports_incremental_remote = match requested {
+                    CommandExecutionOutputRef::BuildArtifact {
+                        supports_incremental_remote,
+                        ..
+                    } => supports_incremental_remote,
+                    CommandExecutionOutputRef::TestPath { .. } => false,
+                };
                 to_declare.push(DeclareArtifactPayload {
                     path: requested
                         .resolve(
@@ -399,6 +406,7 @@ impl CasDownloader<'_> {
                         .path
                         .to_owned(),
                     artifact: value.dupe(),
+                    persist_full_directory_structure: supports_incremental_remote,
                 });
                 mapped_outputs.insert(requested.cloned(), value);
             }

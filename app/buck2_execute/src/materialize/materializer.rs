@@ -130,6 +130,8 @@ pub enum MaterializationError {
 pub struct DeclareArtifactPayload {
     pub path: ProjectRelativePathBuf,
     pub artifact: ArtifactValue,
+    /// Whether materializer state should store full information about directory artifact.
+    pub persist_full_directory_structure: bool,
 }
 
 /// A trait providing methods to asynchronously materialize artifacts.

@@ -516,7 +516,11 @@ pub(super) fn create_ttl_refresh(
 
     for data in tree.iter_without_paths() {
         match &data.stage {
-            ArtifactMaterializationStage::Declared { entry, method } => match method.as_ref() {
+            ArtifactMaterializationStage::Declared {
+                entry,
+                method,
+                persist_full_directory_structure: _,
+            } => match method.as_ref() {
                 ArtifactMaterializationMethod::CasDownload { info } => {
                     let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
                     while let Some((_entry_path, entry)) = walk.next() {

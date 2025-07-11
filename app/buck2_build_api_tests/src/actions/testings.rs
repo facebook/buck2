@@ -142,6 +142,7 @@ impl Action for SimpleAction {
                     .map(|b| CommandExecutionOutput::BuildArtifact {
                         path: b.get_path().dupe(),
                         output_type: OutputType::File,
+                        supports_incremental_remote: false,
                     })
                     .collect(),
                 ctx.fs(),
