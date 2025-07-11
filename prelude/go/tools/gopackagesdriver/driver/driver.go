@@ -156,6 +156,17 @@ func Run(ctx context.Context, telemetry Telemetry) error {
 	// because we will call GoListDriver inside.
 	os.Setenv(envVarPkgDriver, "off")
 
+	switch os.Getenv("GOPACKAGESDRIVER_LOG_LEVEL") {
+	case "debug":
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	case "info":
+		slog.SetLogLoggerLevel(slog.LevelInfo)
+	case "warn":
+		slog.SetLogLoggerLevel(slog.LevelWarn)
+	case "error":
+		slog.SetLogLoggerLevel(slog.LevelError)
+	}
+
 	cwd := CWD()
 	targets := os.Args[1:]
 	cmder := &shellCommander{}
