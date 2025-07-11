@@ -130,6 +130,8 @@ impl<'v> StarlarkCQueryCtx<'v> {
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.
 ///
+/// An instance may be obtained with [`bxl.Context.cquery`](../Context/#contextcquery).
+///
 /// Query results are `target_set`s of `target_node`s, which supports iteration,
 /// indexing, `len()`, set addition/subtraction, and `equals()`.
 #[starlark_module]

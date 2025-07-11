@@ -61,6 +61,8 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyUqueryCtx {
 
 /// The context for performing lazy `uquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within uquery command.
+///
+/// An instance may be obtained with [`bxl.LazyContext.uquery()`](../LazyContext#lazycontextuquery).
 #[starlark_module]
 fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// Computes all dependency paths from `from` to `to`, with optional filter.

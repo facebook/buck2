@@ -111,6 +111,8 @@ async fn unpack_targets<'c, 'v>(
 
 /// The context for performing `uquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within uquery command.
+///
+/// An instance may be obtained with [`bxl.Context.uquery()`](../Context/#contextuquery).
 #[starlark_module]
 fn uquery_methods(builder: &mut MethodsBuilder) {
     /// The `allpaths` query for computing all dependency paths.
