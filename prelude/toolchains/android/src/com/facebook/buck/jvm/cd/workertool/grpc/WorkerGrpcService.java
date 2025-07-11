@@ -49,7 +49,7 @@ public class WorkerGrpcService extends WorkerGrpc.WorkerImplBase {
   public void execute(ExecuteCommand request, StreamObserver<ExecuteResponse> responseObserver) {
     try {
       JvmCDCommand command = createCommand(request);
-      StepExecutionResult result = runner.execute(command);
+      StepExecutionResult result = runner.execute(command, true);
       ExecuteResponse response = handleCompletedExecution(command, result);
       responseObserver.onNext(response);
       responseObserver.onCompleted();
