@@ -110,12 +110,12 @@ constraint_setting(
 
 constraint_value(
     name = "dev",
-    constraint_settings = ":mode",
+    constraint_setting = ":mode",
 )
 
 constraint_value(
     name = "opt",
-    constraint_settings = ":mode",
+    constraint_setting = ":mode",
 )
 
 # can use config_setting to group constraint values into larger logical pieces
