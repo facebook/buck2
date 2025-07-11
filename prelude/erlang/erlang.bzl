@@ -46,15 +46,8 @@ def erlang_application(
     if read_root_config("erlang", "application_only_dependencies"):
         kwargs["shell_libs"] = []
 
-    normalized_applications = [
-        normalize_application(app)
-        for app in applications
-    ]
-
-    normalized_included_applications = [
-        normalize_application(app)
-        for app in included_applications
-    ]
+    normalized_applications = select_map(applications, lambda apps: map(normalize_application, apps))
+    normalized_included_applications = select_map(included_applications, lambda apps: map(normalize_application, apps))
 
     if not includes:
         return erlang_app_rule(
@@ -62,10 +55,7 @@ def erlang_application(
             app_name = app_name,
             applications = normalized_applications,
             included_applications = normalized_included_applications,
-            extra_includes = [
-                _extra_include_name(dep)
-                for dep in extra_includes
-            ],
+            extra_includes = select_map(extra_includes, lambda deps: map(_extra_include_name, deps)),
             labels = labels,
             **kwargs
         )
