@@ -110,7 +110,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
     new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
@@ -131,7 +131,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
     new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
@@ -154,7 +154,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getJvmAbiGenWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
     KotlincMode kotlincMode =
@@ -179,7 +179,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(true);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(false);
 
     KotlincMode kotlincMode =
@@ -204,7 +204,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(false);
 
     KotlincMode kotlincMode =
@@ -229,7 +229,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(true);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
     KotlincMode kotlincMode =
@@ -254,7 +254,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
     KotlincMode kotlincMode =
@@ -287,7 +287,7 @@ public class KotlincModeFactoryTest {
             .createNewFile();
     assertTrue(fileCreated);
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
-    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, false))
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(false);
     String[] filesBefore = temporaryPaths.getRoot().resolve("incrementalStateDir").toFile().list();
     assertNotNull(filesBefore);
