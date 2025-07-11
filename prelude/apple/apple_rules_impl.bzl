@@ -21,9 +21,7 @@ load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
-load(":apple_bundle_types.bzl", "AppleBundleInfo", "ApplePackageExtension")
 load(":apple_library.bzl", "AppleSharedLibraryMachOFileType")
-load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
@@ -85,22 +83,6 @@ def _apple_library_extra_attrs():
 extra_attributes = {
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": _apple_library_extra_attrs(),
-    "apple_package": {
-        "bundle": attrs.dep(providers = [AppleBundleInfo]),
-        "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
-        "package_name": attrs.option(attrs.string(), default = None),
-        "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "packager_args": attrs.list(attrs.arg(), default = []),
-        "prepackaged_validators": attrs.list(
-            attrs.one_of(
-                attrs.exec_dep(providers = [RunInfo]),
-                attrs.tuple(attrs.exec_dep(providers = [RunInfo]), attrs.list(attrs.arg())),
-            ),
-            default = [],
-        ),
-        "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
-        "_ipa_package": attrs.dep(),
-    } | apple_common.apple_tools_arg(),
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have
