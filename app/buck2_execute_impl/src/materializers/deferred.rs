@@ -373,7 +373,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<DeclareArtifactPayload>,
-        _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         for a in artifacts {
             let cmd = MaterializerCommand::Declare(
@@ -390,7 +389,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
-        _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         let cmd = MaterializerCommand::Declare(
             DeclareArtifactPayload {

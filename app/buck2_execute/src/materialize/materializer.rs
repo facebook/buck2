@@ -21,7 +21,6 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::ordered_entry_walk;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
@@ -181,14 +180,12 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<DeclareArtifactPayload>,
-        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()>;
 
     async fn declare_http(
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
-        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()>;
 
     /// Write contents to paths. The output is ordered in the same order as the input. Implicitly
@@ -348,7 +345,6 @@ impl dyn Materializer {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<DeclareArtifactPayload>,
-        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         for DeclareArtifactPayload {
             artifact: value, ..
@@ -356,8 +352,7 @@ impl dyn Materializer {
         {
             self.check_declared_external_symlink(value)?;
         }
-        self.declare_cas_many_impl(info, artifacts, cancellations)
-            .await
+        self.declare_cas_many_impl(info, artifacts).await
     }
 
     /// External symlink is a hack used to resolve the symlink to the correct external hack.

@@ -310,7 +310,6 @@ impl Action for CasArtifactAction {
                     artifact: value.dupe(),
                     persist_full_directory_structure: false,
                 }],
-                ctx.cancellation_context(),
             )
             .await?;
 

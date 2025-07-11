@@ -291,9 +291,7 @@ impl CasDownloader<'_> {
                     // Claim the request before starting the download.
                     let manager = manager.claim().await;
 
-                    let outputs = self
-                        .materialize_outputs(artifacts, info, cancellations)
-                        .await;
+                    let outputs = self.materialize_outputs(artifacts, info).await;
 
                     let outputs = match outputs {
                         Ok(outputs) => outputs,
@@ -425,11 +423,10 @@ impl CasDownloader<'_> {
         &self,
         artifacts: ExtractedArtifacts,
         info: CasDownloadInfo,
-        cancellations: &CancellationContext,
     ) -> buck2_error::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer
-            .declare_cas_many(Arc::new(info), artifacts.to_declare, cancellations)
+            .declare_cas_many(Arc::new(info), artifacts.to_declare)
             .boxed()
             .await
             .buck_error_context(DownloadError::Materialization)?;

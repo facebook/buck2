@@ -300,7 +300,6 @@ impl Action for DownloadFileAction {
                                 metadata,
                                 owner: ctx.target().owner().dupe(),
                             },
-                            ctx.cancellation_context(),
                         )
                         .await?;
 

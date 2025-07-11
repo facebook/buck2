@@ -14,7 +14,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::buck2_error;
-use buck2_futures::cancellation::CancellationContext;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -64,7 +63,6 @@ impl Materializer for NoDiskMaterializer {
         &self,
         _info: Arc<CasDownloadInfo>,
         _artifacts: Vec<DeclareArtifactPayload>,
-        _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -73,7 +71,6 @@ impl Materializer for NoDiskMaterializer {
         &self,
         _path: ProjectRelativePathBuf,
         _info: HttpDownloadInfo,
-        _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
