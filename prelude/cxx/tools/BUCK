@@ -13,6 +13,12 @@ cxx_internal_tools(
 )
 
 prelude.python_bootstrap_binary(
+    name = "check_nonempty_output",
+    main = "check_nonempty_output.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "hmap_wrapper.py",
     main = "hmap_wrapper.py",
 )

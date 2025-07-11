@@ -134,9 +134,20 @@ def dist_nvcc(
             key, value = line.split("=", 1)
             subcmd_env[key] = value
 
-        cuda_deps = get_cxx_toolchain_info(ctx).cuda_compiler_info.compiler
+        toolchain = get_cxx_toolchain_info(ctx)
         for cmd_node in plan:
             subcmd = cmd_args()
+            exe = cmd_node["cmd"].pop(0)
+            if "g++" in exe or "clang++" in exe:
+                # Add the original command as a hidden dependency, so that
+                # we have access to the host compiler and header files.
+                subcmd.add(cmd_args(hidden = original_cmd))
+            elif "ptxas" in exe:
+                # Ptxas occasionally produces an empty output. The root cause
+                # is unknown as we're unable to reproduce it locally. Check the
+                # output is not empty
+                subcmd.add(toolchain.internal_tools.check_nonempty_output)
+            subcmd.add(exe)
             for token in cmd_node["cmd"]:
                 # Replace the {input} and {output} placeholders with the actual
                 # artifacts. node["inputs"] and node["outputs"] are used as a
@@ -152,11 +163,6 @@ def dist_nvcc(
                     subcmd.add(
                         cmd_args([left, file2artifact[output].as_output(), right], delimiter = ""),
                     )
-                elif "g++" in token or "clang++" in token:
-                    # Add the original command as a hidden dependency, so that
-                    # we have access to the host compiler and header files.
-                    subcmd.add(cmd_args(hidden = original_cmd))
-                    subcmd.add(token)
                 elif token.startswith("-Wp,@"):
                     subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
                 else:
@@ -169,7 +175,7 @@ def dist_nvcc(
 
             # Add the cuda toolchain deps so that we can find the Nvidia tools
             # and CUDA header files.
-            subcmd.add(cmd_args(hidden = [cuda_deps]))
+            subcmd.add(cmd_args(hidden = [toolchain.cuda_compiler_info.compiler]))
             ctx.actions.run(
                 subcmd,
                 category = cmd_node["category"],

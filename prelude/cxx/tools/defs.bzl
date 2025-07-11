@@ -12,6 +12,7 @@ def _cxx_internal_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         CxxInternalTools(
+            check_nonempty_output = ctx.attrs.check_nonempty_output[RunInfo],
             concatenate_diagnostics = ctx.attrs.concatenate_diagnostics[RunInfo],
             dep_file_processor = ctx.attrs.dep_file_processor[RunInfo],
             dist_lto = ctx.attrs.dist_lto[DistLtoToolsInfo],
@@ -26,6 +27,9 @@ def _cxx_internal_tools_impl(ctx: AnalysisContext) -> list[Provider]:
 cxx_internal_tools = rule(
     impl = _cxx_internal_tools_impl,
     attrs = {
+        "check_nonempty_output": attrs.default_only(
+            attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:check_nonempty_output"),
+        ),
         "concatenate_diagnostics": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:concatenate_diagnostics"),
         "dep_file_processor": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
         "dist_lto": attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools"),
