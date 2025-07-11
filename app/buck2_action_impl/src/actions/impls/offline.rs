@@ -93,7 +93,6 @@ async fn declare_copy_materialization(
             dest.clone(),
             value,
             vec![CopiedArtifact::new(src, dest, immutable_entry, None)],
-            ctx.cancellation_context(),
         )
         .await
 }

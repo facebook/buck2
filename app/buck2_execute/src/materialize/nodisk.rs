@@ -56,7 +56,6 @@ impl Materializer for NoDiskMaterializer {
         _path: ProjectRelativePathBuf,
         _value: ArtifactValue,
         _srcs: Vec<CopiedArtifact>,
-        _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         Ok(())
     }

@@ -225,7 +225,6 @@ impl Action for CopyAction {
                         CopyMode::Symlink => None,
                     },
                 )],
-                ctx.cancellation_context(),
             )
             .await?;
 

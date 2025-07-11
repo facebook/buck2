@@ -175,7 +175,6 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()>;
 
     async fn declare_cas_many_impl<'a, 'b>(
@@ -338,11 +337,9 @@ impl dyn Materializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         self.check_declared_external_symlink(&value)?;
-        self.declare_copy_impl(path, value, srcs, cancellations)
-            .await
+        self.declare_copy_impl(path, value, srcs).await
     }
 
     /// Declares a list of artifacts whose files can be materialized by

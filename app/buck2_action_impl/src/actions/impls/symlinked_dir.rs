@@ -300,12 +300,7 @@ impl Action for SymlinkedDirAction {
             .collect_vec();
 
         ctx.materializer()
-            .declare_copy(
-                actual_output,
-                value.dupe(),
-                srcs,
-                ctx.cancellation_context(),
-            )
+            .declare_copy(actual_output, value.dupe(), srcs)
             .await?;
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),

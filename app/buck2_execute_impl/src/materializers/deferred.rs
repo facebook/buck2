@@ -333,7 +333,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        _cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         // TODO(rafaelc): get rid of this tree; it'd save a lot of memory.
         let mut srcs_tree = FileTree::new();
