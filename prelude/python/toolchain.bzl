@@ -50,7 +50,6 @@ PythonToolchainInfo = provider(
         "compile": provider_field(typing.Any, default = None),
         # The interpreter to use to compile bytecode.
         "host_interpreter": provider_field(typing.Any, default = None),
-        "bundled_interpreter": provider_field(typing.Any, default = None),
         "interpreter": provider_field(typing.Any, default = None),
         "version": provider_field(typing.Any, default = None),
         "native_link_strategy": provider_field(typing.Any, default = None),
@@ -67,7 +66,6 @@ PythonToolchainInfo = provider(
         "native_library_env_var": provider_field(str | None, default = None),
         "make_py_package_live": provider_field(typing.Any, default = None),
         "make_py_package_standalone": provider_field(typing.Any, default = None),
-        "pex_executor": provider_field(typing.Any, default = None),
         "pex_extension": provider_field(typing.Any, default = None),
         "type_checker": provider_field(typing.Any, default = None),
         "typeshed_stubs": provider_field(typing.Any, default = []),
