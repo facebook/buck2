@@ -14,6 +14,7 @@ _cpu = enum(*TargetCpuType)
 _OS_TRIPLES = {
     (Os("linux"), _cpu("arm64")): "aarch64-unknown-linux-gnu",
     (Os("linux"), _cpu("x86_64")): "x86_64-unknown-linux-gnu",
+    (Os("linux"), _cpu("riscv64")): "riscv64gc-unknown-linux-gnu",
     (Os("macos"), _cpu("arm64")): "aarch64-apple-darwin",
     (Os("macos"), _cpu("x86_64")): "x86_64-apple-darwin",
     (Os("windows"), _cpu("arm64")): "aarch64-pc-windows-msvc",
