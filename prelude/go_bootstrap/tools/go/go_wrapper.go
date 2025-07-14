@@ -144,6 +144,7 @@ func main() {
 	var goRoot = flag.String("goroot", "", "go root")
 	var outputFile = flag.String("output", "", "file to redirect stdout to")
 	var workdir = flag.String("workdir", "", "directory to run the command in")
+	var useFakeGoroot = flag.Bool("use-fake-goroot", false, "use a fake GOROOT")
 	flag.Parse()
 	unknownArgs := flag.Args()
 
@@ -181,6 +182,10 @@ func main() {
 			log.Fatal("Failed to resolve BUCK_SCRATCH_PATH: %s", err)
 		}
 		envs["GOCACHE"] = absBuckScratchPath
+
+		if *useFakeGoroot {
+			envs["GOROOT"] = absBuckScratchPath
+		}
 	}
 
 	cwd, err := os.Getwd()

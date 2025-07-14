@@ -32,7 +32,7 @@ GoListOut = record(
 
 def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool, asan: bool) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env = get_toolchain_env_vars(go_toolchain, goroot_required = True)
+    env = get_toolchain_env_vars(go_toolchain, goroot_required = False)
     env["GO111MODULE"] = "off"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
@@ -76,6 +76,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         ["--go", go_toolchain.go],
         ["--workdir", srcs_dir],
         ["--output", go_list_out.as_output()],
+        "--use-fake-goroot",  # HACK: avoid sending unnecessary 200MB+ of data to the RE workers
         "list",
         "-e",
         "-json=" + ",".join(required_felds),
