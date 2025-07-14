@@ -25,11 +25,10 @@ def parse_args() -> argparse.Namespace:
         fromfile_prefix_chars="@",
     )
     parser.add_argument(
-        "--module-manifest",
-        help="A path to a JSON file with modules contained in the PEX.",
-        action="append",
-        dest="module_manifests",
-        default=[],
+        "--module-manifests",
+        help="A path to a list of JSON file with modules contained in the PEX.",
+        type=Path,
+        default=None,
     )
     parser.add_argument(
         "--manifest-entries",
@@ -61,20 +60,23 @@ def main() -> None:
         )
 
     modules: Dict[str, str] = {}
-    for module_manifest_file in args.module_manifests:
-        with open(module_manifest_file) as f:
-            for pkg_path, _, origin_desc in json.load(f):
-                module = path_to_module(pkg_path)
-                if module:
-                    modules[module] = origin_desc
-                # Add artificial __init__.py files like in make_py_package_modules.py
-                for parent in Path(pkg_path).parents:
-                    if parent == Path("") or parent == Path("."):
-                        continue
-                    path = str(parent / "__init__.py")
-                    module = path_to_module(path)
-                    if module and module not in modules:
+
+    with open(args.module_manifests) as me:
+        module_manifests = me.read().splitlines()
+        for module_manifest_file in module_manifests:
+            with open(module_manifest_file) as f:
+                for pkg_path, _, origin_desc in json.load(f):
+                    module = path_to_module(pkg_path)
+                    if module:
                         modules[module] = origin_desc
+                    # Add artificial __init__.py files like in make_py_package_modules.py
+                    for parent in Path(pkg_path).parents:
+                        if parent == Path("") or parent == Path("."):
+                            continue
+                        path = str(parent / "__init__.py")
+                        module = path_to_module(path)
+                        if module and module not in modules:
+                            modules[module] = origin_desc
 
     entries = {}
     if args.manifest_entries:

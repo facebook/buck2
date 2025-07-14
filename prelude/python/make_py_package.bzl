@@ -1231,12 +1231,12 @@ def _generate_manifest_module(
     entries_json = ctx.actions.write_json("manifest/entries.json", manifest_module_entries)
     src_manifests_path = ctx.actions.write(
         "__module_manifests.txt",
-        _srcs(src_manifests, format = "--module-manifest={}"),
+        src_manifests,
     )
     cmd = cmd_args(
         python_internal_tools.make_py_package_manifest_module,
         ["--manifest-entries", entries_json],
-        cmd_args(src_manifests_path, format = "@{}"),
+        ["--module-manifests", src_manifests_path],
         ["--output", module.as_output()],
         hidden = src_manifests,
     )
