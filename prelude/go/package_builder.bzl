@@ -93,7 +93,7 @@ def build_package(
         complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
 
         def build_variant(shared: bool) -> Artifact:
-            suffix = ",shared" if shared else ",non-shared"  # suffix to make artifacts unique
+            suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
             go_files_to_compile = covered_go_files
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
             go_a_file, asmhdr = _compile(
