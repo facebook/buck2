@@ -284,7 +284,7 @@ impl BuildTargetResultBuilder {
     pub fn build(self) -> BuildTargetResult {
         let Self {
             res,
-            configured_to_pattern_modifiers: _,
+            configured_to_pattern_modifiers,
             other_errors,
             build_failed,
             incompatible_targets,
@@ -334,8 +334,17 @@ impl BuildTargetResultBuilder {
             })
             .collect();
 
+        let configured_to_pattern_modifiers = configured_to_pattern_modifiers
+            .into_iter()
+            .map(|(label, mut modifiers)| {
+                modifiers.sort_unstable();
+                (label, modifiers)
+            })
+            .collect();
+
         BuildTargetResult {
             configured: res,
+            configured_to_pattern_modifiers,
             other_errors,
             build_failed,
         }
@@ -344,6 +353,7 @@ impl BuildTargetResultBuilder {
 
 pub struct BuildTargetResult {
     pub configured: BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+    pub configured_to_pattern_modifiers: HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
     /// Errors that could not be associated with a specific configured target. These errors may be
     /// associated with a providers label, or might not be associated with any target at all.
     pub other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
@@ -354,6 +364,7 @@ impl BuildTargetResult {
     pub fn new() -> Self {
         Self {
             configured: BTreeMap::new(),
+            configured_to_pattern_modifiers: HashMap::new(),
             other_errors: BTreeMap::new(),
             build_failed: false,
         }
@@ -361,6 +372,8 @@ impl BuildTargetResult {
 
     pub fn extend(&mut self, other: BuildTargetResult) {
         self.configured.extend(other.configured);
+        self.configured_to_pattern_modifiers
+            .extend(other.configured_to_pattern_modifiers);
         self.other_errors.extend(other.other_errors);
     }
 
