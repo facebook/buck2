@@ -14,10 +14,10 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::ui::get_console_with_root;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::DaemonEventsCtx;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::file_tailers::tailers::FileTailers;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 
@@ -80,11 +80,11 @@ impl BuckSubcommand for ReplayCommand {
                 None,
             );
 
-            let res = EventsCtx::new(None, vec![console])
+            let mut events_ctx = EventsCtx::new(None, vec![console]);
+            let res = DaemonEventsCtx::without_tailers(&mut events_ctx)
                 .unpack_stream::<_, ReplayResult, _>(
                     &mut NoPartialResultHandler,
                     Box::pin(replayer),
-                    &mut FileTailers::empty(),
                     ctx.console_interaction_stream(&console_opts),
                 )
                 .await;
