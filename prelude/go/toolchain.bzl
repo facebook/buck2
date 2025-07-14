@@ -33,7 +33,7 @@ GoToolchainInfo = provider(
     },
 )
 
-def get_toolchain_env_vars(toolchain: GoToolchainInfo, goroot_required: bool = False) -> dict[str, str | cmd_args | Artifact]:
+def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_args | Artifact]:
     env = {
         "GOARCH": toolchain.env_go_arch,
         "GOEXPERIMENT": "",
@@ -42,8 +42,6 @@ def get_toolchain_env_vars(toolchain: GoToolchainInfo, goroot_required: bool = F
 
     if toolchain.env_go_arm != None:
         env["GOARM"] = toolchain.env_go_arm
-    if goroot_required and toolchain.env_go_root != None:
-        env["GOROOT"] = toolchain.env_go_root
     if toolchain.env_go_debug:
         godebug = ",".join(["{}={}".format(k, v) for k, v in toolchain.env_go_debug.items()])
         env["GODEBUG"] = godebug

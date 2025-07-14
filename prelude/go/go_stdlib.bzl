@@ -25,9 +25,12 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags += ["-asan"]
         build_tags += ["asan"]
 
-    env = get_toolchain_env_vars(go_toolchain, goroot_required = True)
+    env = get_toolchain_env_vars(go_toolchain)
     env["GODEBUG"] = "installgoroot=all"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
+
+    if go_toolchain.env_go_root != None:
+        env["GOROOT"] = go_toolchain.env_go_root
 
     if cgo_enabled:
         cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
