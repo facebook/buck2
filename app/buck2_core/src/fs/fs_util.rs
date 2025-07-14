@@ -222,7 +222,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
             let from_common = target_abspath.strip_prefix(&common_path)?;
             let common_canonicalized = common_path
                 .canonicalize()
-                .buck_error_context(format!("Failed to get canonical path of {:?}", common_path))?;
+                .buck_error_context(format!("Failed to get canonical path of {common_path:?}"))?;
             common_canonicalized.join(from_common)
         } else {
             target_abspath

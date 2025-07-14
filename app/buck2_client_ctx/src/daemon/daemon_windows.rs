@@ -124,7 +124,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
             Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
                 "{}",
-                format!("null byte found in provided data: {:?}", s)
+                format!("null byte found in provided data: {s:?}")
             ))
         } else {
             Ok(s)
@@ -149,16 +149,14 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
             for (k, v) in env.into_iter() {
                 blk.extend(
                     ensure_no_nuls(&k)
-                        .with_buck_error_context(|| {
-                            format!("Reading environment variable {:?}", k)
-                        })?
+                        .with_buck_error_context(|| format!("Reading environment variable {k:?}"))?
                         .encode_wide(),
                 );
                 blk.push('=' as u16);
                 blk.extend(
                     ensure_no_nuls(&v)
                         .with_buck_error_context(|| {
-                            format!("Reading value {:?} of environment variable {:?}", v, k)
+                            format!("Reading value {v:?} of environment variable {k:?}")
                         })?
                         .encode_wide(),
                 );

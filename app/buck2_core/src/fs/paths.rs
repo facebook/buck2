@@ -101,11 +101,11 @@ mod tests {
     #[test]
     fn absolute_path_display_is_readable() -> buck2_error::Result<()> {
         let buf = AbsNormPathBuf::from("C:/foo/bar".into())?;
-        assert_eq!("C:/foo/bar", format!("{}", buf));
-        assert_eq!("AbsNormPathBuf(\"C:/foo/bar\")", format!("{:?}", buf));
+        assert_eq!("C:/foo/bar", format!("{buf}"));
+        assert_eq!("AbsNormPathBuf(\"C:/foo/bar\")", format!("{buf:?}"));
         let refpath: &AbsNormPath = &buf;
-        assert_eq!("C:/foo/bar", format!("{}", refpath));
-        assert_eq!("AbsNormPath(\"C:/foo/bar\")", format!("{:?}", refpath));
+        assert_eq!("C:/foo/bar", format!("{refpath}"));
+        assert_eq!("AbsNormPath(\"C:/foo/bar\")", format!("{refpath:?}"));
 
         Ok(())
     }

@@ -92,11 +92,11 @@ mod tests {
         let delta = sum_y.wrapping_sub(sum_x) as i64;
 
         // 10 CPUs for 100 seconds at 100 ticks per second.
-        assert!(delta < 100_000, "{:?} <=> {:?}", x, y);
+        assert!(delta < 100_000, "{x:?} <=> {y:?}");
 
         // This test fails if comparison is `>` instead of `>=`
         // unless sleep time is 1s or more.
         // `host_cpu_load_info` seems to be updated every 1s.
-        assert!(delta >= 0, "{:?} <=> {:?}", x, y);
+        assert!(delta >= 0, "{x:?} <=> {y:?}");
     }
 }

@@ -31,8 +31,8 @@ mod tests {
     #[test]
     fn test_mach_error_string() {
         let success = mach_error_string(libc::KERN_SUCCESS);
-        assert!(success.contains("success"), "{:?}", success);
+        assert!(success.contains("success"), "{success:?}");
         let no_space = mach_error_string(libc::KERN_NO_SPACE);
-        assert!(no_space.contains("no space"), "{:?}", no_space);
+        assert!(no_space.contains("no space"), "{no_space:?}");
     }
 }
