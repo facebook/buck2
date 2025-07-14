@@ -53,9 +53,7 @@ ErlangAppInfo = provider(
             # the use-case for virtual apps are OTP applications that are shipeped
             # with the Erlang distribution
             "virtual",
-            # app folders for all toolchain
-            "app_folders",
-            # app_folder for primary toolchain
+            # app_folder
             "app_folder",
         ],
 )

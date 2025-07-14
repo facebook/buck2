@@ -25,7 +25,6 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # collect all dependencies
     dependencies = flatten_dependencies(ctx, ctx.attrs.deps)
-    toolchain_name = get_primary(ctx)
     artifacts = {}
 
     for dep in dependencies.values():
@@ -36,7 +35,7 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
         if dep_info.virtual:
             # skip virtual apps
             continue
-        app_folder = dep_info.app_folders[toolchain_name]
+        app_folder = dep_info.app_folder
 
         artifacts[_ebin_path(dep_info.name)] = app_folder.project("ebin")
         if ctx.attrs.include_priv:
@@ -122,7 +121,7 @@ def _main_module(ctx: AnalysisContext) -> str:
     else:
         return ctx.attrs.name
 
-def build_escript_unbundled_trampoline(ctx: AnalysisContext, toolchain, config_files: list[Artifact]) -> Artifact:
+def build_escript_unbundled_trampoline(ctx: AnalysisContext, config_files: list[Artifact]) -> Artifact:
     data = cmd_args()
 
     data.add("#!/usr/bin/env escript")
@@ -140,7 +139,7 @@ def build_escript_unbundled_trampoline(ctx: AnalysisContext, toolchain, config_f
     data.add(_parse_bin())
 
     return ctx.actions.write(
-        paths.join(erlang_build.utils.build_dir(toolchain), "run.escript"),
+        paths.join(erlang_build.utils.build_dir(), "run.escript"),
         data,
         is_executable = True,
     )
@@ -158,7 +157,7 @@ EscriptDir = escript:script_name(),""",
     data.add("    {}:main(Args).".format(_main_module(ctx)))
     data.add(_parse_bin())
     escript_trampoline_erl = ctx.actions.write(
-        paths.join(erlang_build.utils.build_dir(toolchain), "erlang_escript_trampoline.erl"),
+        paths.join(erlang_build.utils.build_dir(), "erlang_escript_trampoline.erl"),
         data,
     )
     my_output = ctx.actions.declare_output("erlang_escript_trampoline.beam")
@@ -201,9 +200,9 @@ def _config_files_code_to_erl(config_files: list[Artifact]) -> list[str]:
             cmd.append(",")
     cmd.append(
         """],
-[begin 
+[begin
 {ok, AppConfigBin, _FullName} = erl_prim_loader:get_file(filename:join(EscriptDir, ConfigFile)),
-{ok, AppConfig} = parse_bin(AppConfigBin), 
+{ok, AppConfig} = parse_bin(AppConfigBin),
 ok = application:set_env(AppConfig, [{persistent, true}])
 end || ConfigFile <- ConfigFiles],""",
     )

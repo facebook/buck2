@@ -67,7 +67,6 @@ DepInfo = record(
 
 def _prepare_build_environment(
         ctx: AnalysisContext,
-        toolchain: Toolchain,
         dependencies: ErlAppDependencies,
         includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
     """Prepare build environment and collect the context from all dependencies."""
@@ -78,10 +77,10 @@ def _prepare_build_environment(
     beams = {}
 
     if includes_target:
-        include_dirs[includes_target.name] = includes_target.include_dir[toolchain.name]
-        includes[includes_target.name] = includes_target.includes[toolchain.name]
-        all_deps_files = dict(includes_target.deps_files[toolchain.name])
-        deps_files[includes_target.name] = dict(includes_target.deps_files[toolchain.name])
+        include_dirs[includes_target.name] = includes_target.include_dir
+        includes[includes_target.name] = includes_target.includes
+        all_deps_files = dict(includes_target.deps_files)
+        deps_files[includes_target.name] = dict(includes_target.deps_files)
 
     for name in dependencies:
         dep = dependencies[name]
@@ -95,7 +94,7 @@ def _prepare_build_environment(
                 continue
 
             # collect beams
-            beams[name] = dep_info.beams[toolchain.name]
+            beams[name] = dep_info.beams
 
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
@@ -109,11 +108,11 @@ def _prepare_build_environment(
             fail("invalid dep {}", dep)
 
         # collect includes
-        include_dirs[name] = dep_info.include_dir[toolchain.name]
-        includes[name] = dep_info.includes[toolchain.name]
+        include_dirs[name] = dep_info.include_dir
+        includes[name] = dep_info.includes
 
         # collect deps_files
-        new_deps = dep_info.deps_files[toolchain.name]
+        new_deps = dep_info.deps_files
         for dep_file in new_deps:
             if dep_file in all_deps_files and all_deps_files[dep_file] != new_deps[dep_file]:
                 _fail_dep_conflict(dep_file, all_deps_files[dep_file], new_deps[dep_file])
@@ -137,7 +136,7 @@ def _fail_dep_conflict(artifact_name: str, dep1: Artifact, dep2: Artifact) -> No
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
 
-    build_dir = _build_dir(toolchain)
+    build_dir = _build_dir()
 
     def build(src, custom_include_opt):
         return _build_xyrl(
@@ -160,7 +159,7 @@ def _generate_include_artifacts(
         name: str,
         header_artifacts: list[Artifact],
         is_private: bool = False):
-    build_dir = _build_dir(toolchain)
+    build_dir = _build_dir()
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
     dir_name = "{}_private".format(name) if is_private else name
     include_dir = ctx.actions.symlinked_dir(paths.join(build_dir, dir_name, "include"), include_files)
@@ -185,7 +184,7 @@ def _generate_beam_artifacts(
         build_environment: BuildEnvironment,
         name: str,
         src_artifacts: list[Artifact]):
-    build_dir = _build_dir(toolchain)
+    build_dir = _build_dir()
     ebin = paths.join(build_dir, "ebin")
 
     beam_mapping = {}
@@ -522,8 +521,8 @@ def _dep_info_name(build_dir: str) -> str:
         "app.info.dep",
     )
 
-def _build_dir(toolchain: Toolchain) -> str:
-    return paths.join("__build", toolchain.name)
+def _build_dir() -> str:
+    return "__build"
 
 def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **kwargs):
     """ run interfact that injects env"""
@@ -544,7 +543,6 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **
 # mutates build_environment in place
 def _peek_private_includes(
         ctx: AnalysisContext,
-        toolchain: Toolchain,
         build_environment: BuildEnvironment,
         dependencies: ErlAppDependencies,
         force_peek: bool = False):
@@ -556,8 +554,8 @@ def _peek_private_includes(
         if ErlangAppInfo in dep:
             dep_info = dep[ErlangAppInfo]
             if not dep_info.virtual:
-                build_environment.private_includes[dep_info.name] = dep_info.private_includes[toolchain.name]
-                build_environment.private_include_dirs[dep_info.name] = dep_info.private_include_dir[toolchain.name]
+                build_environment.private_includes[dep_info.name] = dep_info.private_includes
+                build_environment.private_include_dirs[dep_info.name] = dep_info.private_include_dir
 
 # export
 

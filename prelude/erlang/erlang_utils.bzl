@@ -18,14 +18,6 @@ def app_name(ctx: AnalysisContext) -> str:
     else:
         return ctx.attrs.app_name
 
-# `build_environments` is a `dict[str, BuildEnvironment]`.
-def multidict_projection_key(build_environments: dict[str, typing.Any], field_name: str, key: str) -> dict:
-    field = {}
-    for name, env in build_environments.items():
-        dict_val = getattr(env, field_name)
-        field[name] = dict_val[key]
-    return field
-
 def action_identifier(toolchain: Toolchain, name: str) -> str:
     """builds an action identifier parameterized by the toolchain"""
     return "%s(%s)" % (name, toolchain.name)

@@ -26,14 +26,12 @@ load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
-    "get_primary",
     "select_toolchains",
 )
 load(
     ":erlang_utils.bzl",
     "action_identifier",
     "app_name",
-    "multidict_projection_key",
 )
 
 StartDependencySet = transitive_set()
@@ -73,44 +71,36 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     return build_application(ctx, name, toolchains, dependencies)
 
 def build_application(ctx, name, toolchains, dependencies) -> list[Provider]:
-    build_environments = {}
-    app_folders = {}
-    start_dependencies = {}
-    for toolchain in toolchains.values():
-        result = _build_erlang_application(ctx, name, toolchain, dependencies)
-        build_environments[toolchain.name] = result.build_environment
+    # HACK until we remove the multi-toolchain support
+    toolchain = toolchains.values()[0]
 
-        # link final output
-        app_folders[toolchain.name] = link_output(
-            ctx,
-            paths.join(
-                erlang_build.utils.build_dir(toolchain),
-                "linked",
-                name,
-            ),
-            result,
-        )
+    result = _build_erlang_application(ctx, name, toolchain, dependencies)
+    build_environments = result.build_environment
 
-        # build start dependencies in reverse order
-        start_dependencies[toolchain.name] = _build_start_dependencies(ctx, toolchain)
+    # link final output
+    app_folder = link_output(
+        ctx,
+        name,
+        result,
+    )
 
-    primary_app_folder = ctx.actions.symlink_file(name, app_folders[get_primary(ctx)])
+    # build start dependencies in reverse order
+    start_dependencies = _build_start_dependencies(ctx)
 
     app_info = build_app_info(
         ctx,
         dependencies,
         build_environments,
-        app_folders,
-        primary_app_folder,
+        app_folder,
         start_dependencies,
     )
 
     # generate DefaultInfo and RunInfo providers
-    default_info = _build_default_info(dependencies, primary_app_folder)
+    default_info = _build_default_info(dependencies, app_folder)
     run_info = erlang_shell.build_run_info(
         ctx,
         dependencies = dependencies.values(),
-        additional_app_paths = [primary_app_folder],
+        additional_app_paths = [app_folder],
     )
     return [
         default_info,
@@ -126,7 +116,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
             fail("includes of the includes_target and direct includes must be the same, got {} and {}".format(include_info._original_includes, ctx.attrs.includes))
         if include_info.name != name:
             fail("includes_target must have the same name as the application, got {} and {}".format(include_info.name, name))
-    build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies, include_info)
+    build_environment = erlang_build.prepare_build_environment(ctx, dependencies, include_info)
 
     # build generated inputs
     generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain, name)
@@ -166,7 +156,6 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
     # maybe peek private includes
     erlang_build.utils.peek_private_includes(
         ctx,
-        toolchain,
         build_environment,
         dependencies,
     )
@@ -189,10 +178,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
     )
 
     # priv
-    priv_dir = _generate_priv_dir(
-        ctx,
-        toolchain,
-    )
+    priv_dir = _generate_priv_dir(ctx)
 
     return BuiltApplication(
         build_environment = build_environment,
@@ -200,9 +186,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
         priv_dir = priv_dir,
     )
 
-def _generate_priv_dir(
-        ctx: AnalysisContext,
-        toolchain: Toolchain) -> Artifact:
+def _generate_priv_dir(ctx: AnalysisContext) -> Artifact:
     """Generate the application's priv dir."""
     name = app_name(ctx)
 
@@ -217,7 +201,7 @@ def _generate_priv_dir(
 
     return ctx.actions.symlinked_dir(
         paths.join(
-            erlang_build.utils.build_dir(toolchain),
+            erlang_build.utils.build_dir(),
             name,
             "priv",
         ),
@@ -235,7 +219,7 @@ def _generate_app_file(
           beams.
     """
     _check_application_dependencies(ctx)
-    build_dir = erlang_build.utils.build_dir(toolchain)
+    build_dir = erlang_build.utils.build_dir()
 
     app_file_name = name + ".app"
     output = ctx.actions.declare_output(build_dir, app_file_name)
@@ -339,26 +323,24 @@ def _link_srcs_folder(ctx: AnalysisContext) -> dict[str, Artifact]:
         srcs[paths.join("src", ctx.attrs.app_src.basename)] = ctx.attrs.app_src
     return srcs
 
-def _build_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain) -> list[StartDependencySet]:
+def _build_start_dependencies(ctx: AnalysisContext) -> list[StartDependencySet]:
     return build_apps_start_dependencies(
         ctx,
-        toolchain,
         [(app, StartType("permanent")) for app in ctx.attrs.applications],
     ) + build_apps_start_dependencies(
         ctx,
-        toolchain,
         [(app, StartType("load")) for app in ctx.attrs.included_applications],
     )
 
-def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain, apps: list[(Dependency, StartType)]) -> list[StartDependencySet]:
+def build_apps_start_dependencies(ctx: AnalysisContext, apps: list[(Dependency, StartType)]) -> list[StartDependencySet]:
     start_dependencies = []
     for app, start_type in apps[::-1]:
-        app_spec = _build_start_spec(toolchain, app[ErlangAppInfo], start_type)
+        app_spec = _build_start_spec(app[ErlangAppInfo], start_type)
 
         if app[ErlangAppInfo].virtual:
             children = []
         else:
-            children = app[ErlangAppInfo].start_dependencies[toolchain.name]
+            children = app[ErlangAppInfo].start_dependencies
 
         app_set = ctx.actions.tset(
             StartDependencySet,
@@ -370,15 +352,10 @@ def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain, ap
 
     return start_dependencies
 
-def _build_start_spec(toolchain: Toolchain, app_info: Provider, start_type: StartType) -> StartSpec:
-    if app_info.version == "dynamic":
-        version = app_info.version
-    else:
-        version = app_info.version[toolchain.name]
-
+def _build_start_spec(app_info: Provider, start_type: StartType) -> StartSpec:
     return StartSpec(
         name = app_info.name,
-        version = version,
+        version = app_info.version,
         resolved = not app_info.virtual,
         start_type = start_type,
     )
@@ -399,30 +376,23 @@ def _build_default_info(dependencies: ErlAppDependencies, app_dir: Artifact) -> 
 def build_app_info(
         ctx: AnalysisContext,
         dependencies: ErlAppDependencies,
-        build_environments: dict[str, BuildEnvironment],
-        app_folders: dict[str, Artifact],
-        primary_app_folder: Artifact,
-        start_dependencies: dict[str, list[StartDependencySet]]) -> Provider:
+        build_environment: BuildEnvironment,
+        app_folder: Artifact,
+        start_dependencies: list[StartDependencySet]) -> Provider:
     name = app_name(ctx)
-
-    version = {
-        toolchain.name: ctx.attrs.version
-        for toolchain in select_toolchains(ctx).values()
-    }
 
     # build application info
     return ErlangAppInfo(
         name = name,
-        version = version,
-        beams = multidict_projection_key(build_environments, "beams", name),
+        version = ctx.attrs.version,
+        beams = build_environment.beams[name],
         dependencies = dependencies,
         start_dependencies = start_dependencies,
-        includes = multidict_projection_key(build_environments, "includes", name),
-        include_dir = multidict_projection_key(build_environments, "include_dirs", name),
-        private_includes = multidict_projection_key(build_environments, "private_includes", name),
-        private_include_dir = multidict_projection_key(build_environments, "private_include_dirs", name),
-        deps_files = multidict_projection_key(build_environments, "deps_files", name),
+        includes = build_environment.includes[name],
+        include_dir = build_environment.include_dirs[name],
+        private_includes = build_environment.private_includes[name],
+        private_include_dir = build_environment.private_include_dirs[name],
+        deps_files = build_environment.deps_files[name],
         virtual = False,
-        app_folders = app_folders,
-        app_folder = primary_app_folder,
+        app_folder = app_folder,
     )

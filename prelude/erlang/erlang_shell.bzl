@@ -9,7 +9,7 @@
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
-load(":erlang_toolchain.bzl", "get_primary", "get_primary_tools")
+load(":erlang_toolchain.bzl", "get_primary_tools")
 
 def _build_run_info(
         ctx: AnalysisContext,
@@ -19,10 +19,8 @@ def _build_run_info(
         additional_paths: list[Artifact] = [],
         additional_args: [cmd_args, None] = None) -> Provider:
     """Builds an Erlang shell with the dependencies and additional code paths available."""
-    primary_toolchain_name = get_primary(ctx)
-
     app_paths = [
-        dep[ErlangAppInfo].app_folders[primary_toolchain_name]
+        dep[ErlangAppInfo].app_folder
         for dep in dependencies
         if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual
     ]
@@ -32,7 +30,7 @@ def _build_run_info(
     for dep in all_shell_dependencies.values():
         if dep[ErlangAppInfo].virtual:
             continue
-        app_paths.append(dep[ErlangAppInfo].app_folders[primary_toolchain_name])
+        app_paths.append(dep[ErlangAppInfo].app_folder)
 
     tools = get_primary_tools(ctx)
     erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")

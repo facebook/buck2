@@ -49,8 +49,8 @@ def _build_multi_toolchain_releases(
     toolchains = _get_configured_toolchains(all_toolchains, configured_toolchains)
     outputs = {}
     for toolchain in toolchains.values():
-        outputs[toolchain.name] = _build_release(ctx, toolchain, apps)
-    releases_dir = _symlink_multi_toolchain_output(ctx, outputs)
+        outputs = _build_release(ctx, toolchain, apps)
+    releases_dir = _symlink_toolchain_output(ctx, outputs)
     return [DefaultInfo(default_output = releases_dir), ErlangReleaseInfo(name = _relname(ctx))]
 
 def _get_configured_toolchains(
@@ -75,7 +75,7 @@ def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> li
 
 def _build_release(ctx: AnalysisContext, toolchain: Toolchain, apps: ErlAppDependencies) -> dict[str, Artifact]:
     # OTP base structure
-    lib_dir = build_lib_dir(ctx, toolchain, apps)
+    lib_dir = build_lib_dir(ctx, apps)
 
     # erts
     maybe_erts = _build_erts(ctx, toolchain)
@@ -103,20 +103,19 @@ def _build_release(ctx: AnalysisContext, toolchain: Toolchain, apps: ErlAppDepen
 
 def build_lib_dir(
         ctx: AnalysisContext,
-        toolchain: Toolchain,
         all_apps: ErlAppDependencies) -> dict[str, Artifact]:
     """Build lib dir according to OTP specifications.
 
     .. seealso:: `OTP Design Principles Release Structure <https://www.erlang.org/doc/design_principles/release_structure.html>`_
     """
-    build_dir = erlang_build.utils.build_dir(toolchain)
+    build_dir = erlang_build.utils.build_dir()
 
     include_erts = False
     if "include_erts" in dir(ctx.attrs):
         include_erts = ctx.attrs.include_erts
 
     link_spec = {
-        dep[ErlangAppInfo].name: dep[ErlangAppInfo].app_folders[toolchain.name]
+        dep[ErlangAppInfo].name: dep[ErlangAppInfo].app_folder
         for dep in all_apps.values()
         if ErlangAppInfo in dep and
            (include_erts or not dep[ErlangAppInfo].virtual)
@@ -134,7 +133,7 @@ def _build_boot_script(
         lib_dir: Artifact) -> dict[str, Artifact]:
     """Build Name.rel, start.script, and start.boot in the release folder."""
     release_name = _relname(ctx)
-    build_dir = erlang_build.utils.build_dir(toolchain)
+    build_dir = erlang_build.utils.build_dir()
 
     start_type_mapping = _dependencies_with_start_types(ctx)
     root_apps = _dependencies(ctx)
@@ -144,7 +143,7 @@ def _build_boot_script(
         (app, start_type_mapping[_app_name(app)])
         for app in root_apps
     ]
-    start_dependencies = build_apps_start_dependencies(ctx, toolchain, root_apps_with_start_type)
+    start_dependencies = build_apps_start_dependencies(ctx, root_apps_with_start_type)
 
     root_set = ctx.actions.tset(
         StartDependencySet,
@@ -223,7 +222,7 @@ def _build_overlays(ctx: AnalysisContext) -> dict[str, Artifact]:
 
 def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
     release_name = _relname(ctx)
-    build_dir = erlang_build.utils.build_dir(toolchain)
+    build_dir = erlang_build.utils.build_dir()
 
     short_path = "bin/release_variables"
     release_variables = ctx.actions.declare_output(
@@ -258,7 +257,7 @@ def _build_erts(
 
     erts_dir = ctx.actions.symlink_file(
         paths.join(
-            erlang_build.utils.build_dir(toolchain),
+            erlang_build.utils.build_dir(),
             release_name,
             "erts",
         ),
@@ -267,15 +266,14 @@ def _build_erts(
 
     return {"erts": erts_dir}
 
-def _symlink_multi_toolchain_output(ctx: AnalysisContext, toolchain_artifacts: dict[str, dict[str, Artifact]]) -> Artifact:
+def _symlink_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
     link_spec = {}
     relname = _relname(ctx)
 
-    for toolchain_name, artifacts in toolchain_artifacts.items():
-        link_spec.update({
-            paths.join(toolchain_name, relname, path): artifact
-            for path, artifact in artifacts.items()
-        })
+    link_spec.update({
+        paths.join(relname, path): artifact
+        for path, artifact in artifacts.items()
+    })
 
     return ctx.actions.symlinked_dir(
         "releases",

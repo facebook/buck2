@@ -14,7 +14,7 @@ load(
 load(":erlang_info.bzl", "ErlangAppInfo")
 load(
     ":erlang_toolchain.bzl",
-    "select_toolchains",
+    "get_primary_toolchain",
 )
 load(
     ":erlang_utils.bzl",
@@ -84,29 +84,22 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
     """virtual OTP application for referencing only
     """
 
-    # extract the app folder from OTP
-    app_folders = {}
-    toolchains = select_toolchains(ctx)
-    for toolchain in toolchains.values():
-        wildcard = paths.join("lib", ctx.attrs.name + "-*")
+    toolchain = get_primary_toolchain(ctx)
 
-        app_dir = ctx.actions.declare_output(
-            paths.join(
-                erlang_build.utils.build_dir(toolchain),
-                "linked",
-                ctx.attrs.name,
-            ),
-            dir = True,
-        )
+    wildcard = paths.join("lib", ctx.attrs.name + "-*")
 
-        erlang_build.utils.run_with_env(
-            ctx,
-            toolchain,
-            cmd_args(toolchain.extract_from_otp, wildcard, app_dir.as_output()),
-            identifier = action_identifier(toolchain, ctx.attrs.name),
-            category = "extract_otp_app",
-        )
-        app_folders[toolchain.name] = app_dir
+    app_dir = ctx.actions.declare_output(
+        ctx.attrs.name,
+        dir = True,
+    )
+
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
+        cmd_args(toolchain.extract_from_otp, wildcard, app_dir.as_output()),
+        identifier = action_identifier(toolchain, ctx.attrs.name),
+        category = "extract_otp_app",
+    )
 
     return [
         DefaultInfo(),
@@ -119,7 +112,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
             start_dependencies = None,
             include_dir = None,
             virtual = True,
-            app_folders = app_folders,
+            app_folder = app_dir,
         ),
     ]
 

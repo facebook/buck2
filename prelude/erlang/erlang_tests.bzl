@@ -137,11 +137,10 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     dependencies = flatten_dependencies(ctx, deps)
 
     # prepare build environment
-    build_environment = erlang_build.prepare_build_environment(ctx, primary_toolchain, dependencies)
+    build_environment = erlang_build.prepare_build_environment(ctx, dependencies)
 
     erlang_build.utils.peek_private_includes(
         ctx,
-        primary_toolchain,
         build_environment,
         dependencies,
         force_peek = True,
@@ -155,7 +154,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     binary_lib_deps = flatten_dependencies(ctx, [ctx.attrs._test_binary_lib])
     app_folders = [
-        dep[ErlangAppInfo].app_folders[primary_toolchain_name]
+        dep[ErlangAppInfo].app_folder
         for dep in binary_lib_deps.values()
         if not dep[ErlangAppInfo].virtual
     ]
@@ -192,7 +191,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     cmd.add(test_info_file)
 
-    default_info = _build_default_info(ctx, dependencies, output_dir)
+    default_info = _build_default_info(dependencies, output_dir)
 
     # prepare shell dependencies
     additional_shell_paths = [
@@ -245,14 +244,13 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 # Copied from erlang_application.
-def _build_default_info(ctx: AnalysisContext, dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:
+def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:
     """ generate default_outputs and DefaultInfo provider
     """
-    primary_toolchain_name = get_primary(ctx)
     outputs = []
     for dep in dependencies.values():
         if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual:
-            outputs.append(dep[ErlangAppInfo].app_folders[primary_toolchain_name])
+            outputs.append(dep[ErlangAppInfo].app_folder)
         if ErlangTestInfo in dep:
             outputs += dep[DefaultInfo].default_outputs
             outputs += dep[DefaultInfo].other_outputs
@@ -266,7 +264,7 @@ def _write_test_info_file(
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact],
         raw_target: str) -> WriteJsonCliArgs:
-    dependency_paths = _list_code_paths(ctx, dependencies)
+    dependency_paths = _list_code_paths(dependencies)
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
         "common_app_env": ctx.attrs.common_app_env,
@@ -284,16 +282,15 @@ def _write_test_info_file(
     test_info_file = ctx.actions.declare_output("tests_info")
     return ctx.actions.write_json(test_info_file, tests_info, with_inputs = True)
 
-def _list_code_paths(ctx: AnalysisContext, dependencies: ErlAppDependencies) -> cmd_args:
+def _list_code_paths(dependencies: ErlAppDependencies) -> cmd_args:
     """lists all ebin/ dirs from the test targets dependencies"""
-    primary_toolchain_name = get_primary(ctx)
     app_folders = []
     folders = []
     for dependency in dependencies.values():
         if ErlangAppInfo in dependency:
             dep_info = dependency[ErlangAppInfo]
             if not dep_info.virtual:
-                app_folders.append(dep_info.app_folders[primary_toolchain_name])
+                app_folders.append(dep_info.app_folder)
         elif ErlangTestInfo in dependency:
             dep_info = dependency[ErlangTestInfo]
             folders.append(dep_info.output_dir)
