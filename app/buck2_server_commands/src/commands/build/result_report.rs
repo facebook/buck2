@@ -10,6 +10,8 @@
 
 //! Processing and reporting the the results of the build
 
+use std::collections::BTreeSet;
+
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
@@ -22,6 +24,7 @@ use buck2_certs::validate::check_cert_state;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -82,7 +85,7 @@ impl<'a> ResultReporter<'a> {
             non_action_errors.extend(v.errors.iter().cloned());
             action_errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).cloned());
 
-            out.collect_result(k, v);
+            out.collect_result(k, v, build_result.configured_to_pattern_modifiers.get(k));
         }
 
         let mut error_list = if let Some(e) = non_action_errors.pop() {
@@ -110,6 +113,7 @@ impl<'a> ResultReporter<'a> {
         &mut self,
         label: &ConfiguredProvidersLabel,
         result: &ConfiguredBuildTargetResult,
+        pattern_modifiers: Option<&Vec<Modifiers>>,
     ) {
         let outputs = result
             .outputs
@@ -181,7 +185,7 @@ impl<'a> ResultReporter<'a> {
         let artifact_fs = self.artifact_fs;
 
         // Write it this way because `.into_iter()` gets rust-analyzer confused
-        let outputs = IntoIterator::into_iter(artifacts)
+        let outputs: Vec<proto::BuildOutput> = IntoIterator::into_iter(artifacts)
             .map(
                 |((a, content_based_path_hash), providers)| proto::BuildOutput {
                     path: a
@@ -237,13 +241,32 @@ impl<'a> ResultReporter<'a> {
             Vec::new()
         };
 
-        self.results.push(proto::BuildTarget {
-            target,
-            configuration,
-            run_args,
-            target_rule_type_name: result.target_rule_type_name.clone(),
-            outputs,
-            configured_graph_size,
-        })
+        match pattern_modifiers {
+            Some(modifiers) => {
+                for modifier in modifiers.iter() {
+                    let target_with_modifiers = match modifier.as_slice() {
+                        Some(modifiers) => format!("{}?{}", target, modifiers.join("+")),
+                        None => target.clone(),
+                    };
+
+                    self.results.push(proto::BuildTarget {
+                        target: target_with_modifiers,
+                        configuration: configuration.clone(),
+                        run_args: run_args.clone(),
+                        target_rule_type_name: result.target_rule_type_name.clone(),
+                        outputs: outputs.clone(),
+                        configured_graph_size,
+                    });
+                }
+            }
+            None => self.results.push(proto::BuildTarget {
+                target,
+                configuration,
+                run_args,
+                target_rule_type_name: result.target_rule_type_name.clone(),
+                outputs,
+                configured_graph_size,
+            }),
+        }
     }
 }
