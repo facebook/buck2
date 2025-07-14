@@ -131,10 +131,7 @@ ErlangToolchainInfo = provider(
 ErlangMultiVersionToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
-        # toolchains
-        "toolchains": provider_field(dict[str, ErlangToolchainInfo]),
-        # primary toolchain name
-        "primary": provider_field(str),
+        "toolchain": provider_field(ErlangToolchainInfo),
     },
 )
 

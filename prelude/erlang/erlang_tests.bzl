@@ -25,9 +25,8 @@ load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
-    "get_primary",
+    "get_primary_toolchain",
     "get_primary_tools",
-    "select_toolchains",
 )
 load(
     ":erlang_utils.bzl",
@@ -125,9 +124,7 @@ default_test_args = cmd_args(
 )
 
 def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    toolchains = select_toolchains(ctx)
-    primary_toolchain_name = get_primary(ctx)
-    primary_toolchain = toolchains[primary_toolchain_name]
+    primary_toolchain = get_primary_toolchain(ctx)
     tools = get_primary_tools(ctx)
 
     deps = ctx.attrs.deps + [ctx.attrs._test_binary_lib]

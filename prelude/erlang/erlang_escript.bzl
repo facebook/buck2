@@ -14,14 +14,12 @@ load(":erlang_paths.bzl", "has_extension")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
-    "get_primary",
-    "select_toolchains",
+    "get_primary_toolchain",
 )
 load(":erlang_utils.bzl", "action_identifier")
 
 def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
-    # select the correct tools from the toolchain
-    toolchain = select_toolchains(ctx)[get_primary(ctx)]
+    toolchain = get_primary_toolchain(ctx)
 
     # collect all dependencies
     dependencies = flatten_dependencies(ctx, ctx.attrs.deps)

@@ -44,36 +44,24 @@ ToolchainUtillInfo = provider(
     },
 )
 
-def select_toolchains(ctx: AnalysisContext) -> dict[str, Toolchain]:
-    """helper returning toolchains"""
-    return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].toolchains
-
-def get_primary(ctx: AnalysisContext) -> str:
-    return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].primary
-
 def get_primary_tools(ctx: AnalysisContext) -> Tools:
     return (get_primary_toolchain(ctx)).otp_binaries
 
 def get_primary_toolchain(ctx: AnalysisContext) -> Toolchain:
-    return (select_toolchains(ctx)[get_primary(ctx)])
+    return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].toolchain
 
 def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
-    toolchains = {}
-    for toolchain in ctx.attrs.targets:
-        toolchain_info = toolchain[ErlangToolchainInfo]
-        toolchains[toolchain_info.name] = toolchain_info
     return [
         DefaultInfo(),
         ErlangMultiVersionToolchainInfo(
-            toolchains = toolchains,
-            primary = ctx.attrs.targets[0][ErlangToolchainInfo].name,
+            toolchain = ctx.attrs.target[ErlangToolchainInfo],
         ),
     ]
 
 multi_version_toolchain_rule = rule(
     impl = _multi_version_toolchain_impl,
     attrs = {
-        "targets": attrs.list(attrs.dep()),
+        "target": attrs.dep(),
     },
     is_toolchain_rule = True,
 )

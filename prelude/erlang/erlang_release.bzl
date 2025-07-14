@@ -24,8 +24,7 @@ load(
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
-    "get_primary",
-    "select_toolchains",
+    "get_primary_toolchain",
 )
 load(":erlang_utils.bzl", "action_identifier")
 
@@ -37,8 +36,7 @@ def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list[Provider]:
     """build the release only with the primary toolchain with the release folder on the top-level"""
-    toolchains = select_toolchains(ctx)
-    primary_toolchain = toolchains[get_primary(ctx)]
+    primary_toolchain = get_primary_toolchain(ctx)
     all_outputs = _build_release(ctx, primary_toolchain, apps)
     release_dir = _symlink_primary_toolchain_output(ctx, all_outputs)
     return [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]

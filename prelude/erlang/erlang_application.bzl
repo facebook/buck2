@@ -26,7 +26,7 @@ load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
-    "select_toolchains",
+    "get_primary_toolchain",
 )
 load(
     ":erlang_utils.bzl",
@@ -55,7 +55,7 @@ BuiltApplication = record(
 
 def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     # select the correct tools from the toolchain
-    toolchains = select_toolchains(ctx)
+    toolchain = get_primary_toolchain(ctx)
 
     # collect all dependencies
     all_direct_dependencies = []
@@ -68,12 +68,9 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     if name in dependencies and ErlangAppInfo in dependencies[name]:
         fail("cannot depend on an application with the same name: %s" % (dependencies[name].label,))
 
-    return build_application(ctx, name, toolchains, dependencies)
+    return build_application(ctx, name, toolchain, dependencies)
 
-def build_application(ctx, name, toolchains, dependencies) -> list[Provider]:
-    # HACK until we remove the multi-toolchain support
-    toolchain = toolchains.values()[0]
-
+def build_application(ctx, name, toolchain, dependencies) -> list[Provider]:
     result = _build_erlang_application(ctx, name, toolchain, dependencies)
     build_environments = result.build_environment
 
