@@ -33,6 +33,10 @@ GoPkg = record(
     # We have to produce allways shared (PIC) and non-shared (non-PIC) archives
     pkg = field(Artifact),
     pkg_shared = field(Artifact),
+    # The content of export_file and export_file_shared is likely to be the same
+    # but we need to produce both to avoid running compilation twice.
+    export_file = field(Artifact),
+    export_file_shared = field(Artifact),
     coverage_vars = field(cmd_args),
     test_go_files = field(cmd_args),
 )
@@ -77,17 +81,27 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
         for name, pkg in pkgs.items()
     }
 
+def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
+    """
+    Return a map package name to a `shared` or `static` package artifact.
+    """
+    return {
+        name: pkg.export_file_shared if shared else pkg.export_file
+        for name, pkg in pkgs.items()
+    }
+
 def make_importcfg(
         ctx: AnalysisContext,
         prefix_name: str,
         own_pkgs: dict[str, GoPkg],
-        shared: bool) -> cmd_args:
+        shared: bool,
+        link: bool) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     stdlib = ctx.attrs._go_stdlib[GoStdlib]
     suffix = "__shared" if shared else ""  # suffix to make artifacts unique
 
     content = []
-    pkg_artifacts_map = pkg_artifacts(own_pkgs, shared)
+    pkg_artifacts_map = pkg_artifacts(own_pkgs, shared) if link else export_files(own_pkgs, shared)
     for name_, pkg_ in pkg_artifacts_map.items():
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))

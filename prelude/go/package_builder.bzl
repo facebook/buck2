@@ -40,8 +40,11 @@ def build_package(
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
-    out = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.a")
-    out_shared = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.a")
+    out_x = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.x")
+    out_a = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.a")
+
+    out_shared_x = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.x")
+    out_shared_a = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.a")
 
     cgo_gen_dir = ctx.actions.declare_output(cgo_gen_dir_name, dir = True)
 
@@ -53,7 +56,7 @@ def build_package(
 
     test_go_files_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")
-    dynamic_outputs = [out, out_shared, test_go_files_argsfile, coverage_vars_argsfile, cgo_gen_dir]
+    dynamic_outputs = [out_x, out_a, out_shared_x, out_shared_a, test_go_files_argsfile, coverage_vars_argsfile, cgo_gen_dir]
 
     all_pkgs = merge_pkgs([
         pkgs,
@@ -92,11 +95,11 @@ def build_package(
         # Use -complete flag when compiling Go code only
         complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
 
-        def build_variant(shared: bool) -> Artifact:
+        def build_variant(shared: bool) -> (Artifact, Artifact):
             suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
             go_files_to_compile = covered_go_files
-            importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
-            go_a_file, asmhdr = _compile(
+            importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared, link = False)
+            go_x_file, go_a_file, asmhdr = _compile(
                 ctx = ctx,
                 pkg_name = pkg_name,
                 main = main,
@@ -117,20 +120,27 @@ def build_package(
 
             asm_o_files = _asssembly(ctx, pkg_name, main, s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
 
-            return _pack(ctx, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
+            return go_x_file, _pack(ctx, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
 
-        ctx.actions.copy_file(outputs[out], build_variant(shared = False))
-        ctx.actions.copy_file(outputs[out_shared], build_variant(shared = True))
+        non_shared_x, non_shared_a = build_variant(shared = False)
+        ctx.actions.copy_file(outputs[out_x], non_shared_x)
+        ctx.actions.copy_file(outputs[out_a], non_shared_a)
+
+        shared_x, shared_a = build_variant(shared = True)
+        ctx.actions.copy_file(outputs[out_shared_x], shared_x)
+        ctx.actions.copy_file(outputs[out_shared_a], shared_a)
 
     ctx.actions.dynamic_output(dynamic = [go_list_out], inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = f)
 
     return GoPkg(
-        pkg = out,
-        pkg_shared = out_shared,
+        pkg = out_a,
+        pkg_shared = out_shared_a,
+        export_file = out_x,
+        export_file_shared = out_shared_x,
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
         test_go_files = cmd_args(test_go_files_argsfile, format = "@{}", hidden = srcs),
     ), GoPackageInfo(
-        build_out = out,
+        build_out = out_x,
         cgo_gen_dir = cgo_gen_dir,
         package_name = pkg_name,
         package_root = package_root,
@@ -154,15 +164,17 @@ def _compile(
         embedcfg: Artifact | None = None,
         embed_files: list[Artifact] = [],
         symabis: Artifact | None = None,
-        gen_asmhdr: bool = False) -> (Artifact, Artifact | None):
+        gen_asmhdr: bool = False) -> (Artifact, Artifact, Artifact | None):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     env = get_toolchain_env_vars(go_toolchain)
-    out = ctx.actions.declare_output("go_compile_out{}.a".format(suffix))
+    out_a = ctx.actions.declare_output("go_compile_out{}.a".format(suffix))
+    out_x = ctx.actions.declare_output("go_compile_out{}.x".format(suffix))
 
     if len(go_srcs) == 0:
-        ctx.actions.write(out.as_output(), "")
-        return out, None
+        ctx.actions.write(out_a.as_output(), "")
+        ctx.actions.write(out_x.as_output(), "")
+        return out_x, out_a, None
 
     asmhdr = ctx.actions.declare_output("__asmhdr__{}/go_asm.h".format(suffix)) if gen_asmhdr else None
 
@@ -178,10 +190,12 @@ def _compile(
             compiler_flags,
             "-buildid=",
             "-nolocalimports",
+            "-pack",
             ["-trimpath", "%cwd%"],
             ["-p", "main" if main else pkg_name],
             ["-importcfg", importcfg],
-            ["-o", out.as_output()],
+            ["-o", out_x.as_output()],
+            ["-linkobj", out_a.as_output()],
             ["-race"] if race else [],
             ["-asan"] if asan else [],
             ["-shared"] if shared else [],
@@ -198,7 +212,7 @@ def _compile(
     identifier = paths.basename(pkg_name)
     ctx.actions.run(compile_cmd, env = env, category = "go_compile", identifier = identifier + suffix)
 
-    return (out, asmhdr)
+    return (out_x, out_a, asmhdr)
 
 def _symabis(
         ctx: AnalysisContext,

@@ -153,7 +153,7 @@ def link(
 
     identifier_prefix = ctx.label.name + "_" + _build_mode_param(build_mode)
 
-    importcfg = make_importcfg(ctx, identifier_prefix, all_pkgs, use_shared_code)
+    importcfg = make_importcfg(ctx, identifier_prefix, all_pkgs, use_shared_code, link = True)
 
     cmd.add("-importcfg", importcfg)
 
