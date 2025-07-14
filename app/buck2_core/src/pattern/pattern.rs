@@ -148,7 +148,7 @@ pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, Provid
     }
 }
 
-#[derive(Dupe, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Dupe, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Modifiers(Option<Arc<[String]>>);
 
 impl Modifiers {

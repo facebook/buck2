@@ -17,6 +17,7 @@ use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildEventConsumer;
 use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
@@ -719,7 +720,15 @@ async fn build_target(
         .get_configured_provider_label(&spec.target, &local_cfg_options)
         .await
     {
-        Ok(l) => l,
+        Ok(configured_label) => {
+            event_consumer.consume(BuildEvent::new_configured(
+                configured_label.dupe(),
+                ConfiguredBuildEventVariant::MapModifiers {
+                    modifiers: spec.modifiers,
+                },
+            ));
+            configured_label
+        }
         Err(e) => {
             event_consumer.consume(BuildEvent::OtherError {
                 label: Some(spec.target.dupe()),

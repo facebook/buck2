@@ -20,6 +20,7 @@ use allocative::Allocative;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -164,6 +165,7 @@ pub struct BuildTargetResultBuilder {
         ConfiguredProvidersLabel,
         Option<ConfiguredBuildTargetResultGen<(usize, buck2_error::Result<ProviderArtifacts>)>>,
     >,
+    configured_to_pattern_modifiers: HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
     other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     build_failed: bool,
     incompatible_targets: SmallSet<ConfiguredTargetLabel>,
@@ -173,6 +175,7 @@ impl BuildTargetResultBuilder {
     pub fn new() -> Self {
         Self {
             res: HashMap::new(),
+            configured_to_pattern_modifiers: HashMap::new(),
             other_errors: BTreeMap::new(),
             incompatible_targets: SmallSet::new(),
             build_failed: false,
@@ -193,6 +196,12 @@ impl BuildTargetResultBuilder {
             ConfiguredBuildEventVariant::SkippedIncompatible => {
                 self.incompatible_targets.insert(label.target().dupe());
                 self.res.entry((*label).dupe()).or_insert(None);
+            }
+            ConfiguredBuildEventVariant::MapModifiers { modifiers } => {
+                self.configured_to_pattern_modifiers
+                    .entry((*label).dupe())
+                    .or_default()
+                    .push(modifiers);
             }
             ConfiguredBuildEventVariant::Prepared {
                 provider_collection,
@@ -275,6 +284,7 @@ impl BuildTargetResultBuilder {
     pub fn build(self) -> BuildTargetResult {
         let Self {
             res,
+            configured_to_pattern_modifiers: _,
             other_errors,
             build_failed,
             incompatible_targets,
@@ -372,6 +382,9 @@ pub enum ConfiguredBuildEventExecutionVariant {
 
 pub enum ConfiguredBuildEventVariant {
     SkippedIncompatible,
+    MapModifiers {
+        modifiers: Modifiers,
+    },
     Prepared {
         provider_collection: Option<FrozenProviderCollectionValue>,
         target_rule_type_name: String,
