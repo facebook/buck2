@@ -66,7 +66,7 @@ multi_version_toolchain_rule = rule(
     is_toolchain_rule = True,
 )
 
-def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
+def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     """ rule for erlang toolchain
     """
 
@@ -237,8 +237,8 @@ def _gen_toolchain_script(ctx: AnalysisContext, script: Artifact, tools: Tools) 
         default_toolchain_script_args_post,
     )
 
-config_erlang_toolchain_rule = rule(
-    impl = _config_erlang_toolchain_impl,
+erlang_toolchain = rule(
+    impl = _erlang_toolchain_impl,
     attrs = {
         "core_parse_transforms": attrs.list(attrs.dep(), default = ["@prelude//erlang/toolchain:transform_project_root"]),
         "emu_flags": attrs.string(default = ""),
