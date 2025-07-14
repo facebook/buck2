@@ -20,6 +20,8 @@ use futures::stream::StreamExt;
 use gazebo::prelude::*;
 
 use crate::artifact_value::ArtifactValue;
+use crate::directory::ActionDirectoryEntry;
+use crate::directory::ActionSharedDirectory;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::CopiedArtifact;
@@ -125,5 +127,19 @@ impl Materializer for NoDiskMaterializer {
     ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>
     {
         Ok(paths.into_map(Ok))
+    }
+
+    async fn get_artifact_entries_for_materialized_paths(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<
+        Vec<
+            Option<(
+                ProjectRelativePathBuf,
+                ActionDirectoryEntry<ActionSharedDirectory>,
+            )>,
+        >,
+    > {
+        Ok(vec![None; paths.len()])
     }
 }

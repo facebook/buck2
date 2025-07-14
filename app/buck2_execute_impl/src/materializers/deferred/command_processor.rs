@@ -21,6 +21,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
@@ -28,6 +29,7 @@ use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
@@ -82,6 +84,7 @@ use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
+use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -175,6 +178,18 @@ pub(super) enum MaterializerCommand<T: 'static> {
     /// Terminate command processor loop, used by tests
     #[allow(dead_code)]
     Abort,
+
+    GetArtifactEntriesForMaterializedPaths(
+        Vec<ProjectRelativePathBuf>,
+        oneshot::Sender<
+            Vec<
+                Option<(
+                    ProjectRelativePathBuf,
+                    ActionDirectoryEntry<ActionSharedDirectory>,
+                )>,
+            >,
+        >,
+    ),
 }
 
 impl<T> std::fmt::Debug for MaterializerCommand<T> {
@@ -213,6 +228,9 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
+            MaterializerCommand::GetArtifactEntriesForMaterializedPaths(paths, _) => {
+                write!(f, "GetArtifactEntriesForMaterializedPaths({:?}, _)", paths,)
+            }
         }
     }
 }
@@ -637,6 +655,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
             MaterializerCommand::Abort => unreachable!(),
+            MaterializerCommand::GetArtifactEntriesForMaterializedPaths(paths, sender) => {
+                sender
+                    .send(self.get_artifact_entries_for_materialized_paths(paths))
+                    .ok();
+            }
         }
     }
 
@@ -1035,6 +1058,48 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .shared(),
             ),
         }
+    }
+
+    fn get_artifact_entries_for_materialized_paths(
+        &mut self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> Vec<
+        Option<(
+            ProjectRelativePathBuf,
+            ActionDirectoryEntry<ActionSharedDirectory>,
+        )>,
+    > {
+        paths
+            .into_iter()
+            .map(|p| {
+                let Some((root_path, data)) =
+                    Self::find_artifact_containing_path(&mut self.tree, &p)
+                else {
+                    return None;
+                };
+                if root_path != p {
+                    // Artifact is declared above our path or not materialized
+                    return None;
+                }
+                let entry = match &data.stage {
+                    ArtifactMaterializationStage::Materialized { metadata, .. } => {
+                        match &metadata.0 {
+                            DirectoryEntry::Dir(dir) => match dir {
+                                DirectoryMetadata::Compact { .. } => None,
+                                DirectoryMetadata::Full(shared_directory) => {
+                                    Some(ActionDirectoryEntry::Dir(shared_directory.dupe()))
+                                }
+                            },
+                            DirectoryEntry::Leaf(leaf) => {
+                                Some(ActionDirectoryEntry::Leaf(leaf.dupe()))
+                            }
+                        }
+                    }
+                    ArtifactMaterializationStage::Declared { entry, .. } => Some(entry.dupe()),
+                };
+                entry.map(|e| (p, e))
+            })
+            .collect()
     }
 
     /// For a given `path` (which could point inside the artifact) returns the path and data for the artifact which contains it.

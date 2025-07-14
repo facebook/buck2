@@ -52,7 +52,9 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -569,6 +571,31 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         snapshot.deferred_materializer_declares_reused =
             self.stats.declares_reused.load(Ordering::Relaxed);
         snapshot.deferred_materializer_queue_size = self.command_sender.counters.queue_size() as _;
+    }
+
+    async fn get_artifact_entries_for_materialized_paths(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<
+        Vec<
+            Option<(
+                ProjectRelativePathBuf,
+                ActionDirectoryEntry<ActionSharedDirectory>,
+            )>,
+        >,
+    > {
+        let (sender, recv) = oneshot::channel();
+
+        self.command_sender
+            .send(MaterializerCommand::GetArtifactEntriesForMaterializedPaths(
+                paths, sender,
+            ))?;
+
+        let result = recv.await.buck_error_context(
+            "Receiving \"artifact entries for materialized paths\" future from command thread.",
+        )?;
+
+        Ok(result)
     }
 }
 

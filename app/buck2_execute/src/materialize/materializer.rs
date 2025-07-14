@@ -295,6 +295,23 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     /// Inject stats into a snapshot. This is also used only for the deferred materializer at this
     /// time.
     fn add_snapshot_stats(&self, _snapshot: &mut buck2_data::Snapshot) {}
+
+    /// Given a list of `paths`, returns a list of corresponding artifact entries only if all the following conditions are met:
+    ///   - There is an artifact at the given path (either declared or materialized).
+    ///   - The materializer state contains sufficient information about the artifact.
+    ///   - The path refers to the root of the artifact (not a subpath).
+    /// If any of these conditions are not satisfied for a given path, `None` is returned for that path.
+    async fn get_artifact_entries_for_materialized_paths(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<
+        Vec<
+            Option<(
+                ProjectRelativePathBuf,
+                ActionDirectoryEntry<ActionSharedDirectory>,
+            )>,
+        >,
+    >;
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
