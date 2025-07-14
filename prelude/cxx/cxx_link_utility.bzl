@@ -154,8 +154,10 @@ def make_link_args(
         pdb_artifact = pdb_artifact,
     )
 
-def shared_libs_symlink_tree_name(output: Artifact) -> str:
-    return "__{}__shared_libs_symlink_tree".format(output.short_path)
+def shared_libs_symlink_tree_name(output: Artifact | str) -> str:
+    if isinstance(output, Artifact):
+        output = output.short_path
+    return "__{}__shared_libs_symlink_tree".format(output)
 
 def _dwp_symlink_tree_name(output: Artifact) -> str:
     return "__{}__dwp_symlink_tree".format(output.short_path)
