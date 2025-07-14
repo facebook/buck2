@@ -22,7 +22,7 @@ GoToolchainInfo = provider(
         "env_go_arch": provider_field(str),
         "env_go_os": provider_field(str),
         "env_go_arm": provider_field(str | None, default = None),
-        "env_go_root": provider_field(typing.Any, default = None),
+        "env_go_root": provider_field(Artifact | None, default = None),
         "env_go_debug": provider_field(dict[str, str], default = {}),
         "external_linker_flags": provider_field(typing.Any, default = None),
         "go": provider_field(RunInfo),
@@ -33,7 +33,7 @@ GoToolchainInfo = provider(
     },
 )
 
-def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_args]:
+def get_toolchain_env_vars(toolchain: GoToolchainInfo, goroot_required: bool = False) -> dict[str, str | cmd_args | Artifact]:
     env = {
         "GOARCH": toolchain.env_go_arch,
         "GOEXPERIMENT": "",
@@ -42,7 +42,7 @@ def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_ar
 
     if toolchain.env_go_arm != None:
         env["GOARM"] = toolchain.env_go_arm
-    if toolchain.env_go_root != None:
+    if goroot_required and toolchain.env_go_root != None:
         env["GOROOT"] = toolchain.env_go_root
     if toolchain.env_go_debug:
         godebug = ",".join(["{}={}".format(k, v) for k, v in toolchain.env_go_debug.items()])
