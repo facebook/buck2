@@ -309,9 +309,9 @@ def generate_rustdoc_test(
     )
 
     if compile_ctx.exec_is_windows:
-        runtool = ["--runtool=cmd.exe", "--runtool-arg=/V:OFF", "--runtool-arg=/C"]
+        runtool = ["--test-runtool=cmd.exe", "--test-runtool-arg=/V:OFF", "--test-runtool-arg=/C"]
     else:
-        runtool = ["--runtool=/usr/bin/env"]
+        runtool = ["--test-runtool=/usr/bin/env"]
 
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
     doc_plain_env, doc_path_env = process_env(compile_ctx, ctx.attrs.doc_env)
@@ -342,8 +342,8 @@ def generate_rustdoc_test(
         cmd_args(compile_ctx.linker_args, format = "-Clinker={}"),
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
         runtool,
-        cmd_args(internal_tools_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
-        cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
+        cmd_args(internal_tools_info.rustdoc_test_with_resources, format = "--test-runtool-arg={}"),
+        cmd_args("--test-runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", ctx.label.path, compile_ctx.path_sep, delimiter = ""),
