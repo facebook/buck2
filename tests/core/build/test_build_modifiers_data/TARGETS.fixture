@@ -41,8 +41,26 @@ platform(
 
 dummy(
     name = "dummy",
+    os = select({
+        ":linux": "linux",
+        ":macos": "macos",
+        "DEFAULT": "default",
+    }),
+    cpu = select({
+        ":arm": "arm",
+        "DEFAULT": "default",
+    }),
 )
 
 dummy(
     name = "dummy2",
+    os = select({
+        ":linux": "linux",
+        ":macos": "macos",
+        "DEFAULT": "default",
+    }),
+    cpu = select({
+        ":arm": "arm",
+        "DEFAULT": "default",
+    }),
 )

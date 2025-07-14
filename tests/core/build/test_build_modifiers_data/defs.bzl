@@ -6,12 +6,19 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+def _dummy_impl(ctx: AnalysisContext) -> list[Provider]:
+    output = ctx.actions.write("{}.txt".format(ctx.label.name), "{}\n{}".format(ctx.attrs.os, ctx.attrs.cpu))
+    return [DefaultInfo(default_outputs = [output])]
+
 def _impl(_ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo()]
 
 dummy = rule(
-    impl = _impl,
-    attrs = {},
+    impl = _dummy_impl,
+    attrs = {
+        "cpu": attrs.string(),
+        "os": attrs.string(),
+    },
 )
 
 test_universe = rule(

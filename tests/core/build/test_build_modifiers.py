@@ -12,6 +12,7 @@ import json
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden, GOLDEN_DIRECTORY
 
 
 # These test will be updated in the future when the build report is updated to include
@@ -243,4 +244,124 @@ async def test_build_fails_with_pattern_modifier_and_target_universe_modifier(
             "root//:dummy?root//:linux",
         ),
         stderr_regex=r"Cannot use \?modifier syntax in target pattern expression with --target-universe flag",
+    )
+
+
+async def run_all_output_flags(buck: Buck, *argv: str) -> str:
+    flags = [
+        "--show-output",
+        "--show-full-output",
+        "--show-simple-output",
+        "--show-full-simple-output",
+        "--show-json-output",
+        "--show-full-json-output",
+    ]
+
+    results = []
+    for flag in flags:
+        result = await buck.build_without_report(flag, *argv)
+        results.append(f"{flag}\n{result.stdout}")
+
+    output = "\n\n".join(results)
+    output = output.replace("\\\\", "\\")  # Windows path separators in json
+    output = output.replace(str(buck.cwd), "/abs/project/root")
+    output = output.replace("\\", "/")  # Windows path separators not in json
+
+    return output
+
+
+@buck_test()
+async def test_build_modifiers_output_single_modifier(buck: Buck) -> None:
+    result = await run_all_output_flags(
+        buck,
+        "root//:dummy?root//:macos",
+    )
+
+    golden(
+        output=result,
+        rel_path=GOLDEN_DIRECTORY
+        + "test_build_modifiers_output_single_modifier.golden.txt",
+    )
+
+
+@buck_test()
+async def test_build_modifiers_output_multiple_modifiers(buck: Buck) -> None:
+    result = await run_all_output_flags(
+        buck,
+        "root//:dummy?root//:macos+root//:arm",
+    )
+
+    golden(
+        output=result,
+        rel_path=GOLDEN_DIRECTORY
+        + "test_build_modifiers_output_multiple_modifiers.golden.txt",
+    )
+
+
+@buck_test()
+async def test_build_modifiers_output_multiple_patterns(
+    buck: Buck,
+) -> None:
+    result = await run_all_output_flags(
+        buck, "root//:dummy?root//:macos", "root//:dummy?root//:linux"
+    )
+
+    golden(
+        output=result,
+        rel_path=GOLDEN_DIRECTORY
+        + "test_build_modifiers_output_multiple_patterns.golden.txt",
+    )
+
+
+@buck_test()
+async def test_build_modifiers_output_multiple_modifiers_multiple_patterns(
+    buck: Buck,
+) -> None:
+    result = await run_all_output_flags(
+        buck,
+        "root//:dummy?root//:macos+root//:arm",
+        "root//:dummy?root//:linux",
+    )
+
+    golden(
+        output=result,
+        rel_path=GOLDEN_DIRECTORY
+        + "test_build_modifiers_output_multiple_modifiers_multiple_patterns.golden.txt",
+    )
+
+
+@buck_test()
+async def test_build_modifiers_output_duplicate_patterns(
+    buck: Buck,
+) -> None:
+    # Note: switching the order of the modifiers will make it so that both patterns are still in the output
+    result = await run_all_output_flags(
+        buck,
+        "root//:dummy?root//:macos+root//:arm",
+        "root//:dummy?root//:macos+root//:arm",
+    )
+
+    golden(
+        output=result,
+        rel_path=GOLDEN_DIRECTORY
+        + "test_build_modifiers_output_duplicate_patterns.golden.txt",
+    )
+
+
+@buck_test()
+async def test_build_modifiers_output_with_target_universe(
+    buck: Buck,
+) -> None:
+    # Modifiers defined in target universe should not be included in the output
+    result = await run_all_output_flags(
+        buck,
+        "root//:dummy",
+        "--target-universe",
+        "root//:dummy?root//:macos+root//:linux",
+    )
+
+    golden(
+        output=result,
+        rel_path=GOLDEN_DIRECTORY
+        + "test_build_modifiers_output_with_target_universe.golden.txt",
     )

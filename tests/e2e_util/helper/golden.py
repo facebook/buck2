@@ -14,6 +14,8 @@ import typing
 
 from pathlib import Path
 
+GOLDEN_DIRECTORY = "fixtures/"
+
 
 def _prepend_header(content: str) -> str:
     return (
