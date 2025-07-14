@@ -19,10 +19,14 @@ use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::Ab
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
+use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
@@ -92,7 +96,6 @@ enum DynamicActionCallableError {
     NotExported,
 }
 
-/// Result of `dynamic_actions` rule invocation.
 #[derive(
     Debug,
     NoSerialize,
@@ -163,6 +166,12 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
 #[starlark_value(type = "DynamicActionCallable")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
     type Canonical = Self;
+
+    // Used to add type documentation to the generated documentation
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(dynamic_actions_callable_methods)
+    }
 
     fn invoke(
         &self,
@@ -236,3 +245,10 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
         })
     }
 }
+
+/// Result of `dynamic_actions` or `bxl.dynamic_actions` invocation.
+///
+/// When called, becomes a [`DynamicActions`](../DynamicActions) value which can then be passed to
+/// [`AnalysisActions.dynamic_output_new`](../AnalysisActions#analysisactionsdynamic_output_new)
+#[starlark_module]
+fn dynamic_actions_callable_methods(builder: &mut MethodsBuilder) {}
