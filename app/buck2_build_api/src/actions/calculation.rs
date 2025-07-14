@@ -106,9 +106,10 @@ async fn build_action_no_redirect(
     cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
 ) -> buck2_error::Result<ActionOutputs> {
-    let ensured_inputs = {
-        let inputs = action.inputs()?;
-
+    let inputs = action.inputs()?;
+    let ensured_inputs = if inputs.is_empty() {
+        IndexMap::new()
+    } else {
         let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
             ctx,
             inputs.iter(),
