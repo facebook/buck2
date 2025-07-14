@@ -223,10 +223,6 @@ rules_attributes = {
                 This field controls whether OTP applications and the Erlang runtime system should be included as part of the release.
                 Please note, that at the moment the erts folder is just `erts/`.
             """),
-        "multi_toolchain": attrs.option(attrs.list(attrs.dep()), default = None, doc = """
-                This field controls whether the release should be built with a single toolchain, or multiple toolchains. In the
-                latter case, all output paths are prefixed with the toolchain name.
-            """),
         "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), default = {}, doc = """
                 Overlays can be used to add files to the release. They are specified as mapping from path (from the release
                 root) to list of targets. The targets files are places **flat** at the target location with their basename.

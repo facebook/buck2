@@ -20,7 +20,6 @@ load(
     ":erlang_info.bzl",
     "ErlangAppInfo",
     "ErlangReleaseInfo",
-    "ErlangToolchainInfo",
 )
 load(
     ":erlang_toolchain.bzl",
@@ -34,36 +33,7 @@ load(":erlang_utils.bzl", "action_identifier")
 
 def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
     all_apps = flatten_dependencies(ctx, _dependencies(ctx))
-
-    if ctx.attrs.multi_toolchain != None:
-        return _build_multi_toolchain_releases(ctx, all_apps, ctx.attrs.multi_toolchain)
-    else:
-        return _build_primary_release(ctx, all_apps)
-
-def _build_multi_toolchain_releases(
-        ctx: AnalysisContext,
-        apps: ErlAppDependencies,
-        configured_toolchains: list[Dependency]) -> list[Provider]:
-    """build the release for all toolchains with the structure being releases/<toolchain>/<relname>"""
-    all_toolchains = select_toolchains(ctx)
-    toolchains = _get_configured_toolchains(all_toolchains, configured_toolchains)
-    outputs = {}
-    for toolchain in toolchains.values():
-        outputs = _build_release(ctx, toolchain, apps)
-    releases_dir = _symlink_toolchain_output(ctx, outputs)
-    return [DefaultInfo(default_output = releases_dir), ErlangReleaseInfo(name = _relname(ctx))]
-
-def _get_configured_toolchains(
-        toolchains: dict[str, Toolchain],
-        configured_toolchains: list[Dependency]) -> dict[str, Toolchain]:
-    retval = {}
-    for dep in configured_toolchains:
-        if not dep[ErlangToolchainInfo]:
-            fail("{} is not a valid toolchain target".format(dep))
-
-        toolchain_info = dep[ErlangToolchainInfo]
-        retval[toolchain_info.name] = toolchains[toolchain_info.name]
-    return retval
+    return _build_primary_release(ctx, all_apps)
 
 def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list[Provider]:
     """build the release only with the primary toolchain with the release folder on the top-level"""
@@ -265,20 +235,6 @@ def _build_erts(
     )
 
     return {"erts": erts_dir}
-
-def _symlink_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
-    link_spec = {}
-    relname = _relname(ctx)
-
-    link_spec.update({
-        paths.join(relname, path): artifact
-        for path, artifact in artifacts.items()
-    })
-
-    return ctx.actions.symlinked_dir(
-        "releases",
-        link_spec,
-    )
 
 def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
     return ctx.actions.symlinked_dir(
