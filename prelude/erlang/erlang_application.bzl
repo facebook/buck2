@@ -26,7 +26,7 @@ load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
-    "get_primary_toolchain",
+    "get_toolchain",
 )
 load(
     ":erlang_utils.bzl",
@@ -55,7 +55,7 @@ BuiltApplication = record(
 
 def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     # select the correct tools from the toolchain
-    toolchain = get_primary_toolchain(ctx)
+    toolchain = get_toolchain(ctx)
 
     # collect all dependencies
     all_direct_dependencies = []

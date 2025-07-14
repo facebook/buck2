@@ -8,7 +8,7 @@
 
 load(":erlang_build.bzl", "BuildEnvironment", "erlang_build")
 load(":erlang_info.bzl", "ErlangAppIncludeInfo")
-load(":erlang_toolchain.bzl", "get_primary_toolchain")
+load(":erlang_toolchain.bzl", "get_toolchain")
 
 def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     """ rule for application includes target
@@ -17,7 +17,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     # prepare include directory for current app
     name = ctx.attrs.app_name
 
-    toolchain = get_primary_toolchain(ctx)
+    toolchain = get_toolchain(ctx)
     build_environment = BuildEnvironment(
         includes = {},
         include_dirs = {},

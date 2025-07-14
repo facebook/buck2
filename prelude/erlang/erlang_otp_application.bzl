@@ -14,7 +14,7 @@ load(
 load(":erlang_info.bzl", "ErlangAppInfo")
 load(
     ":erlang_toolchain.bzl",
-    "get_primary_toolchain",
+    "get_toolchain",
 )
 load(
     ":erlang_utils.bzl",
@@ -84,7 +84,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
     """virtual OTP application for referencing only
     """
 
-    toolchain = get_primary_toolchain(ctx)
+    toolchain = get_toolchain(ctx)
 
     wildcard = paths.join("lib", ctx.attrs.name + "-*")
 

@@ -12,7 +12,6 @@ load(
 )
 load(
     ":erlang_info.bzl",
-    "ErlangMultiVersionToolchainInfo",
     "ErlangOTPBinariesInfo",
     "ErlangParseTransformInfo",
     "ErlangToolchainInfo",
@@ -44,27 +43,8 @@ ToolchainUtillInfo = provider(
     },
 )
 
-def get_primary_tools(ctx: AnalysisContext) -> Tools:
-    return (get_primary_toolchain(ctx)).otp_binaries
-
-def get_primary_toolchain(ctx: AnalysisContext) -> Toolchain:
-    return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].toolchain
-
-def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
-    return [
-        DefaultInfo(),
-        ErlangMultiVersionToolchainInfo(
-            toolchain = ctx.attrs.target[ErlangToolchainInfo],
-        ),
-    ]
-
-multi_version_toolchain_rule = rule(
-    impl = _multi_version_toolchain_impl,
-    attrs = {
-        "target": attrs.dep(),
-    },
-    is_toolchain_rule = True,
-)
+def get_toolchain(ctx: AnalysisContext) -> Toolchain:
+    return ctx.attrs._toolchain[ErlangToolchainInfo]
 
 def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     """ rule for erlang toolchain
@@ -151,7 +131,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _configured_otp_binaries_impl(ctx: AnalysisContext) -> list[Provider]:
     name = ctx.attrs.name
-    tools = get_primary_tools(ctx)
+    tools = get_toolchain(ctx).otp_binaries
     bin_dir = ctx.actions.symlinked_dir(
         name,
         {
@@ -249,6 +229,7 @@ erlang_toolchain = rule(
         "parse_transforms_filters": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string())),
         "toolchain_utilities": attrs.dep(default = "@prelude//erlang/toolchain:toolchain_utilities"),
     },
+    is_toolchain_rule = True,
 )
 
 def _gen_util_beams(

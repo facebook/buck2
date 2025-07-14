@@ -9,7 +9,7 @@
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
-load(":erlang_toolchain.bzl", "get_primary_tools")
+load(":erlang_toolchain.bzl", "get_toolchain")
 
 def _build_run_info(
         ctx: AnalysisContext,
@@ -32,7 +32,7 @@ def _build_run_info(
             continue
         app_paths.append(dep[ErlangAppInfo].app_folder)
 
-    tools = get_primary_tools(ctx)
+    tools = get_toolchain(ctx).otp_binaries
     erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")
     erl_args = cmd_args("exec", erl, delimiter = " \\\n")
 

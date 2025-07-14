@@ -25,8 +25,7 @@ load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
-    "get_primary_toolchain",
-    "get_primary_tools",
+    "get_toolchain",
 )
 load(
     ":erlang_utils.bzl",
@@ -124,8 +123,8 @@ default_test_args = cmd_args(
 )
 
 def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    primary_toolchain = get_primary_toolchain(ctx)
-    tools = get_primary_tools(ctx)
+    toolchain = get_toolchain(ctx)
+    tools = toolchain.otp_binaries
 
     deps = ctx.attrs.deps + [ctx.attrs._test_binary_lib]
 
@@ -163,7 +162,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     erlang_build.build_steps.generate_beam_artifacts(
         ctx,
-        primary_toolchain,
+        toolchain,
         build_environment,
         "tests",
         [suite],
@@ -183,7 +182,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         dependencies = dependencies,
         test_dir = output_dir,
         config_files = config_files,
-        erl_cmd = primary_toolchain.otp_binaries.erl,
+        erl_cmd = toolchain.otp_binaries.erl,
         raw_target = str(ctx.label.raw_target()) if ctx.label else "",
     )
     cmd.add(test_info_file)
