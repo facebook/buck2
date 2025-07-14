@@ -42,8 +42,10 @@ use starlark_map::sorted_set::SortedSet;
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::digest_config::DigestConfig;
+use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
+use crate::directory::ActionSharedDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::paths_with_digest::PathsWithDigestBlobData;
@@ -82,6 +84,10 @@ pub enum CommandExecutionInput {
     Artifact(Box<dyn ArtifactGroupValuesDyn>),
     ActionMetadata(ActionMetadataBlob),
     ScratchPath(BuckOutScratchPath),
+    IncrementalRemoteOutput(
+        ProjectRelativePathBuf,
+        ActionDirectoryEntry<ActionSharedDirectory>,
+    ),
 }
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Dupe, Hash)]

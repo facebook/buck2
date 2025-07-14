@@ -184,6 +184,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) dep_files: RunActionDepFiles,
     pub(crate) metadata_param: Option<MetadataParameter>,
     pub(crate) no_outputs_cleanup: bool,
+    pub(crate) incremental_remote_outputs: bool,
     pub(crate) allow_cache_upload: bool,
     pub(crate) allow_dep_file_cache_upload: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
@@ -527,7 +528,7 @@ impl RunAction {
         })
     }
 
-    fn prepare<'v>(
+    async fn prepare<'v>(
         &'v self,
         visitor: &mut impl RunActionVisitor<'v>,
         ctx: &mut dyn ActionExecutionCtx,
@@ -548,6 +549,33 @@ impl RunAction {
 
         let mut inputs: Vec<CommandExecutionInput> =
             artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+
+        if self.inner.incremental_remote_outputs {
+            let output_paths = {
+                let executor_fs = ctx.executor_fs();
+                let fs = executor_fs.fs();
+                let mut output_paths = Vec::new();
+                for output in &self.outputs {
+                    // TODO(T219919866): support content based paths
+                    let path = fs.resolve_build(output.get_path(), None)?;
+                    output_paths.push(path);
+                }
+                output_paths
+            };
+            let entries = ctx
+                .materializer()
+                .get_artifact_entries_for_materialized_paths(output_paths)
+                .await?;
+            // Only proceed with incremental outputs if every output is present
+            if let Some(entries) = entries.into_iter().collect::<Option<Vec<_>>>() {
+                inputs.extend(
+                    entries
+                        .into_iter()
+                        .map(|(p, e)| CommandExecutionInput::IncrementalRemoteOutput(p, e)),
+                );
+            };
+        }
+
         let mut extra_env = Vec::new();
 
         let executor_fs = ctx.executor_fs();
@@ -601,7 +629,7 @@ impl RunAction {
                 .map(|b| CommandExecutionOutput::BuildArtifact {
                     path: b.get_path().dupe(),
                     output_type: b.output_type(),
-                    supports_incremental_remote: false,
+                    supports_incremental_remote: self.inner.incremental_remote_outputs,
                 })
                 .collect(),
             ctx.fs(),
@@ -728,7 +756,7 @@ impl RunAction {
     ) -> Result<ExecuteResult, ExecuteError> {
         let mut dep_file_visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
         let (prepared_run_action, cmdline_digest_for_dep_files, host_sharing_requirements) =
-            self.prepare(&mut dep_file_visitor, ctx)?;
+            self.prepare(&mut dep_file_visitor, ctx).await?;
         let input_files_bytes = prepared_run_action.paths.input_files_bytes();
 
         let outputs_for_error_handler = self

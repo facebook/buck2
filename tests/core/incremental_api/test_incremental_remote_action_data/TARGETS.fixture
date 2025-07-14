@@ -1,0 +1,27 @@
+seed_val = read_config("test", "seed", "42")
+
+china(
+    name = "plate",
+    increment = "increment.py",
+    invalidate = seed_val,
+)
+
+china(
+    name = "mate",
+    increment = "increment.py",
+    dir = True,
+    invalidate = seed_val,
+)
+
+whistle(
+    name = "flute",
+    increment = "increment.py",
+    invalidate = seed_val,
+)
+
+whistle(
+    name = "suite",
+    increment = "increment.py",
+    dir = True,
+    invalidate = seed_val,
+)

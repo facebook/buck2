@@ -942,6 +942,9 @@ pub async fn materialize_inputs(
 
                 scratch.0 = Some(path);
             }
+            CommandExecutionInput::IncrementalRemoteOutput(..) => {
+                // Ignore, should be already materialized
+            }
         }
     }
 
@@ -1013,6 +1016,9 @@ async fn check_inputs(
                     }
                     CommandExecutionInput::ScratchPath(..) => {
                         // Nothing to look at
+                    }
+                    CommandExecutionInput::IncrementalRemoteOutput(..) => {
+                        // Ignore
                     }
                 }
             }

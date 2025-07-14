@@ -94,6 +94,10 @@ pub(crate) enum RunActionError {
         "Action is marked with no_outputs_cleanup but output `{}` is content-based, which is not allowed.", .path
     )]
     NoOutputsCleanupWithContentBasedOutputs { path: String },
+    #[error(
+        "Action is marked with `incremental_remote_outputs` but not `no_outputs_cleanup`, which is not allowed."
+    )]
+    IncrementalRemoteOutputsWithoutNoOutputsCleanup,
 }
 
 #[starlark_module]
@@ -204,6 +208,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named)] metadata_path: Option<String>,
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
+        #[starlark(require = named, default = false)] incremental_remote_outputs: bool,
         #[starlark(require = named, default = false)] allow_cache_upload: bool,
         #[starlark(require = named, default = false)] allow_dep_file_cache_upload: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
@@ -224,6 +229,14 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         outputs_for_error_handler: UnpackListOrTuple<&'v StarlarkOutputArtifact<'v>>,
     ) -> starlark::Result<NoneType> {
+        if incremental_remote_outputs && !no_outputs_cleanup {
+            // Precaution to make sure content-based paths are not involved.
+            return Err(buck2_error::Error::from(
+                RunActionError::IncrementalRemoteOutputsWithoutNoOutputsCleanup,
+            )
+            .into());
+        }
+
         struct RunCommandArtifactVisitor<'v> {
             inner: SimpleCommandLineArtifactVisitor<'v>,
             tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact<'v>>>,
@@ -459,6 +472,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             dep_files: dep_files_configuration,
             metadata_param,
             no_outputs_cleanup,
+            incremental_remote_outputs,
             allow_cache_upload,
             allow_dep_file_cache_upload,
             force_full_hybrid_if_capable,

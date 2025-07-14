@@ -201,6 +201,7 @@ impl CommandExecutor {
                     Some((metadata.data.clone(), metadata.digest.dupe()))
                 }
                 CommandExecutionInput::ScratchPath(_) => None,
+                CommandExecutionInput::IncrementalRemoteOutput(..) => None,
             });
             let mut platform = self.0.re_platform.clone();
             let args = if self.0.options.use_bazel_protocol_remote_persistent_workers

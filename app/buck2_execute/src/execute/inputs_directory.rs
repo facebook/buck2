@@ -10,6 +10,7 @@
 
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use dupe::Dupe;
 
@@ -44,6 +45,14 @@ pub fn inputs_directory(
                 let path = fs.buck_out_path_resolver().resolve_scratch(path)?;
                 builder.insert(&path, DirectoryEntry::Dir(ActionDirectoryBuilder::empty()))?;
             }
+            CommandExecutionInput::IncrementalRemoteOutput(path, entry) => match entry {
+                DirectoryEntry::Dir(d) => {
+                    builder.insert(path, DirectoryEntry::Dir(d.to_builder()))?;
+                }
+                DirectoryEntry::Leaf(m) => {
+                    builder.insert(path, DirectoryEntry::Leaf(m.dupe()))?;
+                }
+            },
         };
     }
     Ok(builder)
