@@ -9,4 +9,4 @@
  */
 
 pub(crate) mod tailer;
-pub(crate) mod tailers;
+pub mod tailers;

@@ -205,7 +205,7 @@ impl EventsCtx {
         &mut self,
         partial_result_handler: &mut Handler,
         stream: S,
-        tailers: Option<FileTailers>,
+        tailers: &mut FileTailers,
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> buck2_error::Result<CommandResult>
     where
@@ -225,8 +225,6 @@ impl EventsCtx {
 
         // We don't want to return early here without draining stdout/stderr.
         // TODO(brasselsprouts): simpler logic
-
-        let mut tailers = tailers.unwrap_or_else(FileTailers::empty);
 
         let stream = stream.ready_chunks(1000);
         let mut stream = pin!(stream);
@@ -249,7 +247,7 @@ impl EventsCtx {
                             ControlFlow::Break(res) => break *res,
                         }
                     }
-                    Some(event) = tailers.stream.recv() => {
+                    Some(event) = tailers.recv() => {
                         self.dispatch_tailer_event(event).await?;
                     }
                     c = console_interaction.toggle() => {
@@ -262,7 +260,7 @@ impl EventsCtx {
             }
         };
 
-        let flush_result = self.flush(Some(tailers)).await;
+        let flush_result = self.flush(tailers).await;
         self.handle_stream_end();
 
         let command_result = match (command_result, shutdown) {
@@ -292,7 +290,7 @@ impl EventsCtx {
         &mut self,
         partial_result_handler: &mut Handler,
         stream: S,
-        tailers: Option<FileTailers>,
+        tailers: &mut FileTailers,
         console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> buck2_error::Result<CommandOutcome<Res>>
     where
@@ -317,7 +315,7 @@ impl EventsCtx {
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
         &mut self,
-        tailers: Option<FileTailers>,
+        tailers: &mut FileTailers,
         f: Fut,
     ) -> buck2_error::Result<CommandOutcome<Res>> {
         let stream = stream::once(f.map(|result| {
@@ -344,17 +342,16 @@ impl EventsCtx {
         }
     }
 
-    pub async fn flush(&mut self, tailers: Option<FileTailers>) -> buck2_error::Result<()> {
-        let Some(tailers) = tailers else {
+    pub async fn flush(&mut self, tailers: &mut FileTailers) -> buck2_error::Result<()> {
+        let Some(mut stream) = tailers.stop_reading() else {
             return Ok(());
         };
-        let mut streams = tailers.stop_reading();
 
         // We need to loop again to drain stdout/stderr
         let mut complete = false;
         while !complete {
             tokio::select! {
-                event = streams.recv() => {
+                event = stream.recv() => {
                     match event {
                         Some(event) => {self.dispatch_tailer_event(event).await?;}
                         None => {complete = true;}

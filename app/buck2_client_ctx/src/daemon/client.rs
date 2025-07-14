@@ -10,7 +10,6 @@
 
 use std::fs::File;
 use std::fs::create_dir_all;
-use std::mem;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -165,7 +164,7 @@ pub struct BuckdClient {
     constraints: buck2_cli_proto::DaemonConstraints,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
-    tailers: Option<FileTailers>,
+    tailers: FileTailers,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -235,7 +234,7 @@ fn grpc_to_stream(
 impl BuckdClient {
     fn open_tailers(&mut self) -> buck2_error::Result<()> {
         let tailers = FileTailers::new(&self.daemon_dir)?;
-        self.tailers = Some(tailers);
+        self.tailers = tailers;
 
         Ok(())
     }
@@ -273,7 +272,7 @@ impl BuckdClient {
             .unpack_stream(
                 partial_result_handler,
                 stream,
-                self.tailers.take(),
+                &mut self.tailers,
                 console_interaction,
             )
             .await
@@ -286,7 +285,7 @@ impl BuckdClient {
     ) -> buck2_error::Result<StatusResponse> {
         let outcome = events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
-            .unpack_oneshot(mem::take(&mut self.tailers), {
+            .unpack_oneshot(&mut self.tailers, {
                 self.client.status(Request::new(StatusRequest { snapshot }))
             })
             .await;
@@ -324,7 +323,7 @@ impl FlushingBuckdClient<'_> {
     }
 
     async fn exit(&mut self, events_ctx: &mut EventsCtx) -> buck2_error::Result<()> {
-        events_ctx.flush(mem::take(&mut self.inner.tailers)).await?;
+        events_ctx.flush(&mut self.inner.tailers).await?;
 
         Ok(())
     }
@@ -451,7 +450,7 @@ macro_rules! oneshot_method {
         ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
             let res = events_ctx
-                .unpack_oneshot(mem::take(&mut self.inner.tailers), {
+                .unpack_oneshot(&mut self.inner.tailers, {
                     self.inner.client.$method(Request::new(req))
                 })
                 .await;
