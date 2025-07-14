@@ -74,9 +74,11 @@ def main() -> None:
                         if parent == Path("") or parent == Path("."):
                             continue
                         path = str(parent / "__init__.py")
-                        module = path_to_module(path)
-                        if module and module not in modules:
-                            modules[module] = origin_desc
+                        parent_module = path_to_module(path)
+                        if parent_module and parent_module not in modules:
+                            modules[parent_module] = origin_desc
+                        elif parent_module != module:
+                            break
 
     entries = {}
     if args.manifest_entries:
