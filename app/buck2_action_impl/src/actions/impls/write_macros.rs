@@ -44,7 +44,7 @@ use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
-#[derive(Allocative)]
+#[derive(Debug, Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
     identifier: String,
 }
@@ -65,7 +65,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
 
-        let action = WriteMacrosToFileAction::new(self.identifier, contents, inputs, outputs)?;
+        let action = WriteMacrosToFileAction::new(contents, inputs, outputs, *self)?;
 
         Ok(Box::new(action))
     }
@@ -86,18 +86,18 @@ enum WriteMacrosActionValidationError {
 
 #[derive(Debug, Allocative)]
 struct WriteMacrosToFileAction {
-    identifier: String,
     contents: OwnedFrozenValue, // StarlarkCmdArgs
     inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
+    inner: UnregisteredWriteMacrosToFileAction,
 }
 
 impl WriteMacrosToFileAction {
     fn new(
-        identifier: String,
         contents: OwnedFrozenValue,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
+        inner: UnregisteredWriteMacrosToFileAction,
     ) -> buck2_error::Result<Self> {
         if outputs.is_empty() {
             Err(WriteMacrosActionValidationError::NoOutputsSpecified.into())
@@ -110,10 +110,10 @@ impl WriteMacrosToFileAction {
             )
         } else {
             Ok(Self {
-                identifier,
                 contents,
                 inputs: inputs.into_iter().collect(),
                 outputs: outputs.into_iter().collect(),
+                inner,
             })
         }
     }
@@ -143,7 +143,7 @@ impl Action for WriteMacrosToFileAction {
     }
 
     fn identifier(&self) -> Option<&str> {
-        Some(&self.identifier)
+        Some(&self.inner.identifier)
     }
 
     async fn execute(
