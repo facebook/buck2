@@ -44,9 +44,11 @@ use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
+use buck2_client_ctx::subscribers::recorder::InvocationRecorder;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
@@ -420,6 +422,14 @@ impl CommandKind {
             None
         };
 
+        let recorder = InvocationRecorder::new(
+            fb,
+            process.trace_id.dupe(),
+            process.restarted_trace_id.dupe(),
+            process.start_time,
+        );
+        let mut events_ctx = EventsCtx::new(Some(recorder), vec![]);
+
         let command_ctx = ClientCommandContext::new(
             fb,
             immediate_config,
@@ -431,65 +441,71 @@ impl CommandKind {
             process.trace_id.dupe(),
             process.stdin,
             process.restarter,
-            process.restarted_trace_id.dupe(),
             &runtime,
             common_opts.oncall,
             common_opts.client_metadata,
             common_opts.isolation_dir,
-            process.start_time,
         );
 
-        match self {
+        let events_ctx = &mut events_ctx;
+        let result = match self {
             #[cfg(not(client_only))]
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
             #[cfg(not(client_only))]
             CommandKind::Forkserver(cmd) => cmd
-                .exec(matches, command_ctx, process.log_reload_handle.dupe())
+                .exec(
+                    matches,
+                    command_ctx,
+                    events_ctx,
+                    process.log_reload_handle.dupe(),
+                )
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .into(),
             #[cfg(not(client_only))]
             CommandKind::InternalTestRunner(cmd) => cmd
-                .exec(matches, command_ctx)
+                .exec(matches, command_ctx, events_ctx)
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .into(),
-            CommandKind::Aquery(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Build(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Bxl(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Test(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Cquery(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Aquery(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Build(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Bxl(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Test(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Cquery(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::HelpEnv(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Kill(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Killall(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Kill(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Killall(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
                 buck2_client_ctx::eprintln!(
                     "WARNING: \"buck2 query\" is an alias for \"buck2 uquery\". Consider using \"buck2 cquery\" or \"buck2 uquery\" explicitly."
                 )?;
-                command_ctx.exec(cmd, matches)
+                command_ctx.exec(cmd, matches, events_ctx)
             }
-            CommandKind::Server(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Server(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Status(cmd) => cmd.exec(matches, command_ctx).into(),
-            CommandKind::Targets(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Utargets(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Ctargets(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Audit(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Run(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Uquery(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Complete(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Targets(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Utargets(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Ctargets(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Audit(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx, events_ctx),
+            CommandKind::Run(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Uquery(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx, events_ctx),
+            CommandKind::Complete(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Completion(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
-            CommandKind::Docs(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
-            CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Docs(cmd) => cmd.exec(Opt::command(), matches, command_ctx, events_ctx),
+            CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Init(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Explain(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Install(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Lsp(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::Subscribe(cmd) => command_ctx.exec(cmd, matches),
-            CommandKind::ExpandExternalCell(cmd) => command_ctx.exec(cmd, matches),
-        }
+            CommandKind::Explain(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Install(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Log(cmd) => cmd.exec(matches, command_ctx, events_ctx),
+            CommandKind::Lsp(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::Subscribe(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            CommandKind::ExpandExternalCell(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+        };
+
+        events_ctx.finalize_events(process.trace_id, result, &runtime)
     }
 }

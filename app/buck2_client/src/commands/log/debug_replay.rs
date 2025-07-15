@@ -10,6 +10,7 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::soft_error;
 
@@ -33,12 +34,13 @@ impl DebugReplayCommand {
         self,
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         soft_error!(
             "debug_replay",
             DebugReplayCommandError::Deprecated.into(),
             deprecation: true
         )?;
-        ctx.exec(self.replay, matches)
+        ctx.exec(self.replay, matches, events_ctx)
     }
 }
