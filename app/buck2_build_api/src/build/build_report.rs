@@ -535,15 +535,7 @@ impl<'a> BuildReportCollector<'a> {
                                 .or_default()
                                 .insert({
                                     artifact
-                                        .resolve_path(
-                                            self.artifact_fs,
-                                            if artifact.has_content_based_path() {
-                                                Some(value.content_based_path_hash())
-                                            } else {
-                                                None
-                                            }
-                                            .as_ref(),
-                                        )
+                                        .resolve_configuration_hash_path(self.artifact_fs)
                                         .unwrap()
                                 });
                         }

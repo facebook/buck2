@@ -13,10 +13,21 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
 pub trait ArtifactDyn: Send + Sync + 'static {
+    /// Returns the project relative path of the artifact.
+    /// A build artifact that is declared to be content-based must have a content hash
+    /// provided, otherwise an error is returned.
     fn resolve_path(
         &self,
         fs: &ArtifactFs,
         content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ProjectRelativePathBuf>;
+
+    /// This function will return the same project relative path as `resolve_path` except
+    /// for content-based artifacts, where it will return a path that uses the configuration
+    /// hash instead of the content hash.
+    fn resolve_configuration_hash_path(
+        &self,
+        fs: &ArtifactFs,
     ) -> buck2_error::Result<ProjectRelativePathBuf>;
     /// Build artifacts and source artifacts from external cells require materialization. Other
     /// source artifacts do not.

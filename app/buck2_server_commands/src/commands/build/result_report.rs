@@ -148,21 +148,15 @@ impl<'a> ResultReporter<'a> {
                 }
 
                 if self.options.return_outputs {
-                    let entry = artifacts
-                        .entry((
-                            artifact,
-                            if artifact.has_content_based_path() {
-                                Some(value.content_based_path_hash())
-                            } else {
-                                None
-                            },
-                        ))
-                        .or_insert_with(|| proto::BuildOutputProviders {
-                            default_info: false,
-                            run_info: false,
-                            other: false,
-                            test_info: false,
-                        });
+                    let entry =
+                        artifacts
+                            .entry(artifact)
+                            .or_insert_with(|| proto::BuildOutputProviders {
+                                default_info: false,
+                                run_info: false,
+                                other: false,
+                                test_info: false,
+                            });
 
                     match provider_type {
                         BuildProviderType::Default => {
@@ -186,15 +180,13 @@ impl<'a> ResultReporter<'a> {
 
         // Write it this way because `.into_iter()` gets rust-analyzer confused
         let outputs: Vec<proto::BuildOutput> = IntoIterator::into_iter(artifacts)
-            .map(
-                |((a, content_based_path_hash), providers)| proto::BuildOutput {
-                    path: a
-                        .resolve_path(artifact_fs, content_based_path_hash.as_ref())
-                        .unwrap()
-                        .to_string(),
-                    providers: Some(providers),
-                },
-            )
+            .map(|(a, providers)| proto::BuildOutput {
+                path: a
+                    .resolve_configuration_hash_path(artifact_fs)
+                    .unwrap()
+                    .to_string(),
+                providers: Some(providers),
+            })
             .collect();
 
         let target = label.unconfigured().to_string();

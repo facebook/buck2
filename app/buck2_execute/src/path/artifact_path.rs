@@ -88,6 +88,9 @@ impl ArtifactPath<'_> {
         f(&path)
     }
 
+    /// Returns the project relative path of the artifact.
+    /// A build artifact that is declared to be content-based must have a content hash
+    /// provided, otherwise an error is returned.
     pub fn resolve(
         &self,
         artifact_fs: &ArtifactFs,
@@ -103,6 +106,29 @@ impl ArtifactPath<'_> {
             Either::Left(build) => artifact_fs
                 .buck_out_path_resolver()
                 .resolve_gen(build, content_hash)?,
+            Either::Right(source) => artifact_fs.resolve_source(*source)?,
+        };
+
+        Ok(base_path.join(projected_path))
+    }
+
+    /// This function will return the same project relative path as `resolve_path` except
+    /// for content-based artifacts, where it will return a path that uses the configuration
+    /// hash instead of the content hash.
+    pub fn resolve_configuration_hash_path(
+        &self,
+        artifact_fs: &ArtifactFs,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        let ArtifactPath {
+            base_path,
+            projected_path,
+            hidden_components_count: _,
+        } = self;
+
+        let base_path = match base_path {
+            Either::Left(build) => artifact_fs
+                .buck_out_path_resolver()
+                .resolve_gen_configuration_hash_path(build)?,
             Either::Right(source) => artifact_fs.resolve_source(*source)?,
         };
 

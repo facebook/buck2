@@ -47,7 +47,14 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
 
     assert path1 is not None
     assert "output_artifact" not in path1
-    assert path1 == path2
+    assert path1 != path2
+
+    actual1 = (buck.cwd / path1).resolve()
+    actual2 = (buck.cwd / path2).resolve()
+
+    assert actual1.exists()
+    assert actual2.exists()
+    assert actual1 == actual2
 
 
 @buck_test()
@@ -104,7 +111,15 @@ async def test_run_remote_with_content_based_path(buck: Buck) -> None:
     path2 = result2.get_target_to_build_output().get(target)
 
     assert path1 is not None
-    assert path1 == path2
+    assert "output_artifact" not in path1
+    assert path1 != path2
+
+    actual1 = (buck.cwd / path1).resolve()
+    actual2 = (buck.cwd / path2).resolve()
+
+    assert actual1.exists()
+    assert actual2.exists()
+    assert actual1 == actual2
 
 
 @buck_test()

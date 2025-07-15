@@ -223,6 +223,13 @@ impl ArtifactDyn for Artifact {
         self.get_path().resolve(fs, content_hash)
     }
 
+    fn resolve_configuration_hash_path(
+        &self,
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        self.get_path().resolve_configuration_hash_path(fs)
+    }
+
     fn requires_materialization(&self, fs: &ArtifactFs) -> bool {
         let Some(source_artifact) = self.get_source() else {
             return true;
