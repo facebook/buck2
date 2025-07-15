@@ -154,7 +154,6 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
     erlang_build.utils.peek_private_includes(
         ctx,
         build_environment,
-        dependencies,
     )
 
     # beams

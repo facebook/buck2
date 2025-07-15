@@ -48,6 +48,9 @@ BuildEnvironment = record(
     include_dirs = field(PathArtifactMapping, {}),
     private_includes = field(IncludesMapping, {}),
     private_include_dirs = field(PathArtifactMapping, {}),
+    # private includes that are not "peeked", used for conflict detection
+    hidden_private_includes = field(IncludesMapping, {}),
+    hidden_private_include_dirs = field(PathArtifactMapping, {}),
     beams = field(EbinMapping, {}),
     header_deps_files = field(DepsMapping, {}),
 )
@@ -70,10 +73,12 @@ def _prepare_build_environment(
         dependencies: ErlAppDependencies,
         includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
     """Prepare build environment and collect the context from all dependencies."""
-    include_dirs = {}
-    header_deps_files = {}
-    all_header_deps_files = {}
     includes = {}
+    include_dirs = {}
+    all_includes = {}
+    header_deps_files = {}
+    hidden_private_includes = {}
+    hidden_private_include_dirs = {}
     beams = {}
     all_beams = {}
 
@@ -81,7 +86,8 @@ def _prepare_build_environment(
         include_dirs[includes_target.name] = includes_target.include_dir
         includes[includes_target.name] = includes_target.includes
         header_deps_files[includes_target.name] = dict(includes_target.header_deps_files)
-        all_header_deps_files.update(includes_target.header_deps_files)
+        for hrl in includes_target.includes:
+            all_includes[hrl] = includes_target.name
 
     for name in dependencies:
         dep = dependencies[name]
@@ -98,9 +104,18 @@ def _prepare_build_environment(
             new_beams = dep_info.beams
             for mod in new_beams:
                 if mod in all_beams:
-                    _fail_dep_conflict("module", mod, all_beams[mod], new_beams[mod])
-                all_beams[mod] = new_beams[mod]
+                    _fail_dep_conflict("module", mod, all_beams[mod], name)
+                all_beams[mod] = name
             beams[name] = new_beams
+
+            # collect private includes
+            hidden_private_include_dirs[name] = dep_info.private_include_dir
+            new_includes = dep_info.private_includes
+            for hrl in new_includes:
+                if hrl in all_includes:
+                    _fail_dep_conflict("header", hrl, all_includes[hrl], name)
+                all_includes[hrl] = name
+            hidden_private_includes[name] = new_includes
 
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
@@ -115,31 +130,29 @@ def _prepare_build_environment(
 
         # collect includes
         include_dirs[name] = dep_info.include_dir
-        includes[name] = dep_info.includes
+        new_includes = dep_info.includes
+        for hrl in new_includes:
+            if hrl in all_includes:
+                _fail_dep_conflict("header", hrl, all_includes[hrl], name)
+            all_includes[hrl] = name
+        includes[name] = new_includes
 
         # collect header_deps_files
-        new_deps = dep_info.header_deps_files
-        for dep_file in new_deps:
-            if dep_file in all_header_deps_files and all_header_deps_files[dep_file] != new_deps[dep_file]:
-                _fail_dep_conflict("header", dep_file, all_header_deps_files[dep_file], new_deps[dep_file])
-            all_header_deps_files[dep_file] = new_deps[dep_file]
-        header_deps_files[name] = new_deps
+        header_deps_files[name] = dep_info.header_deps_files
 
     return BuildEnvironment(
         includes = includes,
+        include_dirs = include_dirs,
         private_includes = {},
         private_include_dirs = {},
-        beams = beams,
-        include_dirs = include_dirs,
+        hidden_private_includes = hidden_private_includes,
+        hidden_private_include_dirs = hidden_private_include_dirs,
         header_deps_files = header_deps_files,
+        beams = beams,
     )
 
-def _fail_dep_conflict(kind: str, name: str, dep1: [Artifact, str], dep2: Artifact) -> None:
-    app1_name = dep1
-    if isinstance(dep1, Artifact):
-        app1_name = dep1.owner.name.removesuffix("_includes_only")
-    app2_name = dep2.owner.name.removesuffix("_includes_only")
-    fail("conflicting {} `{}` found, defined in applications '{}' and '{}'".format(kind, name, app1_name, app2_name))
+def _fail_dep_conflict(kind: str, name: str, app1: str, app2: str) -> None:
+    fail("conflicting {} `{}` found, defined in applications '{}' and '{}'".format(kind, name, app1, app2))
 
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
@@ -177,9 +190,15 @@ def _generate_include_artifacts(
 
     # detect conflicts
     for file in deps_files:
-        for app in build_environment.header_deps_files:
-            if file in build_environment.header_deps_files[app]:
-                _fail_dep_conflict("header", file, name, build_environment.header_deps_files[app][file])
+        for app in build_environment.includes:
+            if file in build_environment.includes[app]:
+                _fail_dep_conflict("header", file, name, app)
+        for app in build_environment.private_includes:
+            if file in build_environment.private_includes[app]:
+                _fail_dep_conflict("header", file, name, app)
+        for app in build_environment.hidden_private_includes:
+            if file in build_environment.hidden_private_includes[app]:
+                _fail_dep_conflict("header", file, name, app)
 
     if name in build_environment.header_deps_files:
         build_environment.header_deps_files[name].update(deps_files)
@@ -215,7 +234,7 @@ def _generate_beam_artifacts(
     for key in beam_mapping:
         for app in build_environment.beams:
             if key in build_environment.beams[app]:
-                _fail_dep_conflict("module", key, name, build_environment.beams[app][key])
+                _fail_dep_conflict("module", key, name, app)
 
     build_environment.beams[name] = beam_mapping
 
@@ -551,18 +570,14 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **
 def _peek_private_includes(
         ctx: AnalysisContext,
         build_environment: BuildEnvironment,
-        dependencies: ErlAppDependencies,
         force_peek: bool = False):
     if not (force_peek or ctx.attrs.peek_private_includes):
         return
 
-    # get private deps from dependencies
-    for dep in dependencies.values():
-        if ErlangAppInfo in dep:
-            dep_info = dep[ErlangAppInfo]
-            if not dep_info.virtual:
-                build_environment.private_includes[dep_info.name] = dep_info.private_includes
-                build_environment.private_include_dirs[dep_info.name] = dep_info.private_include_dir
+    build_environment.private_includes.update(build_environment.hidden_private_includes)
+    build_environment.private_include_dirs.update(build_environment.hidden_private_include_dirs)
+    build_environment.hidden_private_includes.clear()
+    build_environment.hidden_private_include_dirs.clear()
 
 # export
 

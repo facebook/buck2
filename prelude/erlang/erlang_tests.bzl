@@ -138,7 +138,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     erlang_build.utils.peek_private_includes(
         ctx,
         build_environment,
-        dependencies,
         force_peek = True,
     )
 
