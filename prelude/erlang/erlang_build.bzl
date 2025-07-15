@@ -225,18 +225,12 @@ def _get_deps_files(
 
     deps = build_environment.deps_files[name]
     for src in srcs:
-        key = _deps_key(src)
+        key = src.basename
         file = _get_deps_file(ctx, toolchain, build_dir, src)
         for app in build_environment.deps_files:
             if key in build_environment.deps_files[app]:
                 _fail_dep_conflict(key, file, build_environment.deps_files[app][key])
         deps[key] = file
-
-def _deps_key(src: Artifact) -> str:
-    if _is_erl(src):
-        return "{}.beam".format(module_name(src))
-    else:
-        return src.basename
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, build_dir: str, src: Artifact) -> Artifact:
     dependency_json = ctx.actions.declare_output(_dep_file_name(build_dir, src))

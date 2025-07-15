@@ -28,19 +28,25 @@ usage() ->
 
 -spec do(file:filename(), file:filename(), {file, file:filename()} | stdout) -> ok.
 do(Source, InFile, OutSpec) ->
-    case read_file(InFile) of
-        {ok, DepFiles} ->
-            FlatDepFiles = lists:foldl(fun maps:merge/2, #{}, maps:values(DepFiles)),
-            Dependencies = build_dep_info(Source, FlatDepFiles),
-            OutData = json:encode(Dependencies),
-            case OutSpec of
-                {file, File} ->
-                    ok = write_file(File, OutData);
-                stdout ->
-                    io:format("~s~n", [OutData])
-            end;
-        Err ->
-            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+    try
+        case read_file(InFile) of
+            {ok, DepFiles} ->
+                FlatDepFiles = lists:foldl(fun maps:merge/2, #{}, maps:values(DepFiles)),
+                Dependencies = build_dep_info(Source, FlatDepFiles),
+                OutData = json:encode(Dependencies),
+                case OutSpec of
+                    {file, File} ->
+                        ok = write_file(File, OutData);
+                    stdout ->
+                        io:format("~s~n", [OutData])
+                end;
+            Err ->
+                io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+                erlang:halt(1)
+        end
+    catch
+        Class:Reason:Stack ->
+            io:format(standard_error, "~ts", [erl_error:format_exception(Class, Reason, Stack)]),
             erlang:halt(1)
     end.
 
@@ -55,7 +61,7 @@ read_file(File) ->
 
 -spec build_dep_info(file:filename(), dep_files_data()) -> list(map()).
 build_dep_info(Source, DepFiles) ->
-    Key = list_to_binary(filename:basename(Source, ".erl") ++ ".beam"),
+    Key = list_to_binary(filename:basename(Source)),
     collect_dependencies([Key], DepFiles, sets:new([{version, 2}]), []).
 
 collect_dependencies([], _, _, Acc) ->
@@ -80,20 +86,15 @@ collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
 
 collect_dependencies_for_key([], _CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
     {KeysAcc, VisitedAcc, DepAcc};
-collect_dependencies_for_key([#{<<"file">> := File} = Dep | Deps], CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
-    NextKey = key(File),
+collect_dependencies_for_key([#{<<"file">> := File, <<"type">> := Type} = Dep | Deps], CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
+    NextKey = File,
     case sets:is_element(NextKey, VisitedAcc) of
         true ->
             collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, VisitedAcc, DepAcc);
+        false when Type =:= <<"include">>; Type =:= <<"include_lib">> ->
+            collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc]);
         false ->
-            collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
-    end.
-
--spec key(string()) -> string().
-key(FileName) ->
-    case filename:extension(FileName) of
-        ".erl" -> filename:basename(FileName, ".erl") ++ ".beam";
-        _ -> FileName
+            collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
     end.
 
 -spec write_file(file:filename(), iolist()) -> string().
