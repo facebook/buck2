@@ -184,6 +184,10 @@ def get_link_whole_args(linker_type: LinkerType, inputs: list[Artifact]) -> list
         for inp in inputs:
             args.append(inp)
             args.append("/WHOLEARCHIVE:" + inp.basename)
+    elif linker_type == LinkerType("wasm"):
+        args.append("--whole-archive")
+        args.extend(inputs)
+        args.append("--no-whole-archive")
     else:
         fail("Linker type {} not supported".format(linker_type))
 
@@ -200,7 +204,7 @@ def get_objects_as_library_args(linker_type: LinkerType, objects: list[Artifact]
         args.append("-Wl,--start-lib")
         args.extend(objects)
         args.append("-Wl,--end-lib")
-    elif linker_type == LinkerType("darwin") or linker_type == LinkerType("windows"):
+    elif linker_type == LinkerType("darwin") or linker_type == LinkerType("windows") or linker_type == LinkerType("wasm"):
         args.extend(objects)
     else:
         fail("Linker type {} not supported".format(linker_type))
@@ -274,7 +278,7 @@ def get_rpath_origin(
     runtime.
     """
 
-    if linker_type == LinkerType("gnu"):
+    if linker_type in (LinkerType("gnu"), LinkerType("wasm")):
         return "$ORIGIN"
     if linker_type == LinkerType("darwin"):
         return "@loader_path"
