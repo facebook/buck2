@@ -19,7 +19,7 @@ ErlangAppCommonFields = [
     # path to include directory
     "include_dir",
     # deps files short_path -> artifact
-    "deps_files",
+    "header_deps_files",
 ]
 
 # target type to break circular dependencies

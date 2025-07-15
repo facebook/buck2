@@ -389,7 +389,7 @@ def build_app_info(
         include_dir = build_environment.include_dirs[name],
         private_includes = build_environment.private_includes[name],
         private_include_dir = build_environment.private_include_dirs[name],
-        deps_files = build_environment.deps_files[name],
+        header_deps_files = build_environment.header_deps_files[name],
         virtual = False,
         app_folder = app_folder,
     )

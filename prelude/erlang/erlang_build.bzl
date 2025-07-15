@@ -49,7 +49,7 @@ BuildEnvironment = record(
     private_includes = field(IncludesMapping, {}),
     private_include_dirs = field(PathArtifactMapping, {}),
     beams = field(EbinMapping, {}),
-    deps_files = field(DepsMapping, {}),
+    header_deps_files = field(DepsMapping, {}),
 )
 
 SmallBuildEnvironment = record(
@@ -71,16 +71,17 @@ def _prepare_build_environment(
         includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
     """Prepare build environment and collect the context from all dependencies."""
     include_dirs = {}
-    deps_files = {}
-    all_deps_files = {}
+    header_deps_files = {}
+    all_header_deps_files = {}
     includes = {}
     beams = {}
+    all_beams = {}
 
     if includes_target:
         include_dirs[includes_target.name] = includes_target.include_dir
         includes[includes_target.name] = includes_target.includes
-        all_deps_files = dict(includes_target.deps_files)
-        deps_files[includes_target.name] = dict(includes_target.deps_files)
+        header_deps_files[includes_target.name] = dict(includes_target.header_deps_files)
+        all_header_deps_files.update(includes_target.header_deps_files)
 
     for name in dependencies:
         dep = dependencies[name]
@@ -94,7 +95,12 @@ def _prepare_build_environment(
                 continue
 
             # collect beams
-            beams[name] = dep_info.beams
+            new_beams = dep_info.beams
+            for mod in new_beams:
+                if mod in all_beams:
+                    _fail_dep_conflict("module", mod, all_beams[mod], new_beams[mod])
+                all_beams[mod] = new_beams[mod]
+            beams[name] = new_beams
 
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
@@ -111,13 +117,13 @@ def _prepare_build_environment(
         include_dirs[name] = dep_info.include_dir
         includes[name] = dep_info.includes
 
-        # collect deps_files
-        new_deps = dep_info.deps_files
+        # collect header_deps_files
+        new_deps = dep_info.header_deps_files
         for dep_file in new_deps:
-            if dep_file in all_deps_files and all_deps_files[dep_file] != new_deps[dep_file]:
-                _fail_dep_conflict(dep_file, all_deps_files[dep_file], new_deps[dep_file])
-            all_deps_files[dep_file] = new_deps[dep_file]
-        deps_files[name] = new_deps
+            if dep_file in all_header_deps_files and all_header_deps_files[dep_file] != new_deps[dep_file]:
+                _fail_dep_conflict("header", dep_file, all_header_deps_files[dep_file], new_deps[dep_file])
+            all_header_deps_files[dep_file] = new_deps[dep_file]
+        header_deps_files[name] = new_deps
 
     return BuildEnvironment(
         includes = includes,
@@ -125,13 +131,15 @@ def _prepare_build_environment(
         private_include_dirs = {},
         beams = beams,
         include_dirs = include_dirs,
-        deps_files = deps_files,
+        header_deps_files = header_deps_files,
     )
 
-def _fail_dep_conflict(artifact_name: str, dep1: Artifact, dep2: Artifact) -> None:
-    app1_name = dep1.owner.name.removesuffix("_includes_only")
+def _fail_dep_conflict(kind: str, name: str, dep1: [Artifact, str], dep2: Artifact) -> None:
+    app1_name = dep1
+    if isinstance(dep1, Artifact):
+        app1_name = dep1.owner.name.removesuffix("_includes_only")
     app2_name = dep2.owner.name.removesuffix("_includes_only")
-    fail("conflicting artifact `{}` found, defined in applications '{}' and '{}'".format(artifact_name, app1_name, app2_name))
+    fail("conflicting {} `{}` found, defined in applications '{}' and '{}'".format(kind, name, app1_name, app2_name))
 
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
@@ -165,7 +173,18 @@ def _generate_include_artifacts(
     include_dir = ctx.actions.symlinked_dir(paths.join(build_dir, dir_name, "include"), include_files)
 
     # dep files
-    _get_deps_files(ctx, toolchain, build_dir, name, header_artifacts, build_environment)
+    deps_files = _get_deps_files(ctx, toolchain, build_dir, header_artifacts)
+
+    # detect conflicts
+    for file in deps_files:
+        for app in build_environment.header_deps_files:
+            if file in build_environment.header_deps_files[app]:
+                _fail_dep_conflict("header", file, name, build_environment.header_deps_files[app][file])
+
+    if name in build_environment.header_deps_files:
+        build_environment.header_deps_files[name].update(deps_files)
+    else:
+        build_environment.header_deps_files[name] = deps_files
 
     # construct updates build environment
     if not is_private:
@@ -192,12 +211,17 @@ def _generate_beam_artifacts(
         module = module_name(erl)
         beam_mapping[module] = ctx.actions.declare_output(ebin, "{}.beam".format(module))
 
-    # dep files
-    _get_deps_files(ctx, toolchain, build_dir, name, src_artifacts, build_environment)
+    # detect conflicts
+    for key in beam_mapping:
+        for app in build_environment.beams:
+            if key in build_environment.beams[app]:
+                _fail_dep_conflict("module", key, name, build_environment.beams[app][key])
 
     build_environment.beams[name] = beam_mapping
 
-    dep_info_file = ctx.actions.write_json(_dep_info_name(build_dir), build_environment.deps_files, with_inputs = True)
+    # dep files
+    deps_files = _get_deps_files(ctx, toolchain, build_dir, src_artifacts)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(build_dir), build_environment.header_deps_files, with_inputs = True)
 
     small_build_environment = SmallBuildEnvironment(
         includes = build_environment.includes,
@@ -208,29 +232,16 @@ def _generate_beam_artifacts(
     )
 
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, build_dir, small_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, build_dir, small_build_environment, deps_files, dep_info_file, erl, beam_mapping[module_name(erl)])
 
-# updates deps_deps in place
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_dir: str,
-        name: str,
-        srcs: list[Artifact],
-        build_environment: BuildEnvironment):
+        srcs: list[Artifact]):
     """Mapping from the output path to the deps file artifact for each srcs artifact and dependencies."""
 
-    if name not in build_environment.deps_files:
-        build_environment.deps_files[name] = {}
-
-    deps = build_environment.deps_files[name]
-    for src in srcs:
-        key = src.basename
-        file = _get_deps_file(ctx, toolchain, build_dir, src)
-        for app in build_environment.deps_files:
-            if key in build_environment.deps_files[app]:
-                _fail_dep_conflict(key, file, build_environment.deps_files[app][key])
-        deps[key] = file
+    return {src.basename: _get_deps_file(ctx, toolchain, build_dir, src) for src in srcs}
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, build_dir: str, src: Artifact) -> Artifact:
     dependency_json = ctx.actions.declare_output(_dep_file_name(build_dir, src))
@@ -271,16 +282,18 @@ def _build_erl(
         toolchain: Toolchain,
         build_dir: str,
         build_environment: SmallBuildEnvironment,
+        beam_deps_files: PathArtifactMapping,
         dep_info_file: WriteJsonCliArgs,
         src: Artifact,
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
     final_dep_file = ctx.actions.declare_output(_dep_final_name(build_dir, src))
+    initial_dep_file = beam_deps_files[src.basename]
     _run_with_env(
         ctx,
         toolchain,
-        cmd_args(toolchain.dependency_finalizer, src, dep_info_file, final_dep_file.as_output()),
+        cmd_args(toolchain.dependency_finalizer, initial_dep_file, dep_info_file, final_dep_file.as_output()),
         category = "dependency_finalizer",
         identifier = action_identifier(toolchain, src.basename),
     )

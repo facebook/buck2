@@ -21,7 +21,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     build_environment = BuildEnvironment(
         includes = {},
         include_dirs = {},
-        deps_files = {},
+        header_deps_files = {},
     )
     erlang_build.build_steps.generate_include_artifacts(
         ctx,
@@ -36,7 +36,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
         name = name,
         includes = build_environment.includes[name],
         include_dir = build_environment.include_dirs[name],
-        deps_files = build_environment.deps_files[name],
+        header_deps_files = build_environment.header_deps_files[name],
         _original_includes = ctx.attrs.includes,
     )
 

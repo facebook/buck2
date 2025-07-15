@@ -24,7 +24,7 @@ main(_) ->
 
 -spec usage() -> ok.
 usage() ->
-    io:format("~s.escript <source> dependency_spec.term [out.json]", [?MODULE]).
+    io:format("~s.escript source_dep_file.dep dependency_spec.term [out.json]", [?MODULE]).
 
 -spec do(file:filename(), file:filename(), {file, file:filename()} | stdout) -> ok.
 do(Source, InFile, OutSpec) ->
@@ -70,8 +70,15 @@ read_file_term(File) ->
 
 -spec build_dep_info(file:filename(), dep_files_data()) -> list(map()).
 build_dep_info(Source, DepFiles) ->
-    Key = list_to_binary(filename:basename(Source)),
-    collect_dependencies([Key], DepFiles, sets:new([{version, 2}]), []).
+    case read_file_term(Source) of
+        {ok, Dependencies} ->
+            Key = list_to_binary(filename:basename(Source, ".dep") ++ ".erl"),
+            {NextKeys, NextVisited, NextAcc} = collect_dependencies_for_key(Dependencies, Key, [], sets:new([{version, 2}]), []),
+            collect_dependencies(NextKeys, DepFiles, NextVisited, NextAcc);
+        Err ->
+            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+            erlang:halt(1)
+    end.
 
 collect_dependencies([], _, _, Acc) ->
     Acc;
