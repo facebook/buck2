@@ -18,6 +18,7 @@ DEFAULT_PLATFORM_TEMPLATES = select({
     "config//os:linux": select({
         "DEFAULT": None,
         "config//cpu:arm64": "linux-arm64",
+        "config//cpu:riscv64": "linux-riscv64",
         "config//cpu:x86_64": "linux-x86_64",
     }),
     "config//os:macos": select({

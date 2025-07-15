@@ -43,3 +43,11 @@ config_setting(
     ],
     visibility = ["PUBLIC"],
 )
+
+config_setting(
+    name = "riscv64",
+    constraint_values = [
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)

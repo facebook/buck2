@@ -11,6 +11,7 @@ load("@prelude//rust:rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 _DEFAULT_TRIPLE = select({
     "config//os:linux": select({
         "config//cpu:arm64": "aarch64-unknown-linux-gnu",
+        "config//cpu:riscv64": "riscv64gc-unknown-linux-gnu",
         "config//cpu:x86_64": "x86_64-unknown-linux-gnu",
     }),
     "config//os:macos": select({

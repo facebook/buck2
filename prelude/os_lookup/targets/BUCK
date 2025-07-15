@@ -10,6 +10,7 @@ os_lookup(
     cpu = select({
         "DEFAULT": None,
         "config//cpu:arm64": "arm64",
+        "config//cpu:riscv64": "riscv64",
         "config//cpu:x86_64": "x86_64",
     }),
     os = select({

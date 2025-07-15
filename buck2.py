@@ -45,6 +45,8 @@ def get_extra_build_params(args: argparse.Namespace) -> List[str]:
         params.extend(["-m", "x86_64"])
     elif arch_platform == "arm64":
         params.extend(["-m", "arm64"])
+    elif arch_platform == "riscv64":
+        params.extend(["-m", "riscv64"])
 
     return params
 
