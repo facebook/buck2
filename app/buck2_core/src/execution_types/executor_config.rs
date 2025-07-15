@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
@@ -145,7 +146,7 @@ impl FromStr for RemoteExecutorUseCase {
 #[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative)]
 pub struct RemoteExecutorOptions {
     pub re_max_input_files_bytes: Option<u64>,
-    pub re_max_queue_time_ms: Option<u64>,
+    pub re_max_queue_time: Option<Duration>,
     pub re_resource_units: Option<i64>,
 }
 

@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
@@ -111,7 +112,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_max_input_files_mebibytes: NoneOr<i32>,
         #[starlark(default = NoneOr::None, require = named)]
-        remote_execution_queue_time_threshold_s: NoneOr<i32>,
+        remote_execution_queue_time_threshold_s: NoneOr<u64>,
         #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
         #[starlark(default = false, require = named)] use_limited_hybrid: bool,
         #[starlark(default = false, require = named)] allow_limited_hybrid_fallbacks: bool,
@@ -211,15 +212,12 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     .buck_error_context("remote_execution_max_input_files_mebibytes is negative")?
                     .map(|b| b * 1024 * 1024);
 
-                let re_max_queue_time_ms = remote_execution_queue_time_threshold_s
-                    .map(u64::try_from)
-                    .transpose()
-                    .buck_error_context("remote_execution_queue_time_threshold_s is negative")?
-                    .map(|t| t * 1000);
+                let re_max_queue_time =
+                    remote_execution_queue_time_threshold_s.map(Duration::from_secs);
 
                 Some(RemoteExecutorOptions {
                     re_max_input_files_bytes,
-                    re_max_queue_time_ms,
+                    re_max_queue_time,
                     re_resource_units,
                 })
             } else {

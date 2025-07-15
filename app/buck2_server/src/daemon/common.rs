@@ -225,7 +225,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     materializer: self.materializer.dupe(),
                     re_client: self.get_prepared_re_client(*re_use_case),
                     re_action_key: re_action_key.clone(),
-                    re_max_queue_time_ms: options.re_max_queue_time_ms,
+                    re_max_queue_time: options.re_max_queue_time,
                     re_resource_units: options.re_resource_units,
                     knobs: self.executor_global_knobs.dupe(),
                     skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
