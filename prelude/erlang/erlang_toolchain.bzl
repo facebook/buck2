@@ -34,6 +34,7 @@ ToolchainUtillInfo = provider(
         "core_parse_transforms": provider_field(list[Dependency]),
         "dependency_analyzer": provider_field(Artifact),
         "dependency_finalizer": provider_field(Artifact),
+        "dependency_merger": provider_field(Artifact),
         "erlc_trampoline": provider_field(Artifact),
         "escript_trampoline": provider_field(Artifact),
         "escript_builder": provider_field(Artifact),
@@ -91,6 +92,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     boot_script_builder = _gen_toolchain_script(ctx, utils.boot_script_builder, otp_binaries)
     dependency_analyzer = _gen_toolchain_script(ctx, utils.dependency_analyzer, otp_binaries)
     dependency_finalizer = _gen_toolchain_script(ctx, utils.dependency_finalizer, otp_binaries)
+    dependency_merger = _gen_toolchain_script(ctx, utils.dependency_merger, otp_binaries)
     escript_builder = _gen_toolchain_script(ctx, utils.escript_builder, otp_binaries)
     release_variables_builder = _gen_toolchain_script(ctx, utils.release_variables_builder, otp_binaries)
     extract_from_otp = _gen_toolchain_script(ctx, utils.extract_from_otp, otp_binaries)
@@ -112,6 +114,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             boot_script_builder = boot_script_builder,
             dependency_analyzer = dependency_analyzer,
             dependency_finalizer = dependency_finalizer,
+            dependency_merger = dependency_merger,
             erl_opts = erl_opts,
             env = ctx.attrs.env,
             emu_flags = emu_flags,
@@ -302,6 +305,7 @@ def _toolchain_utils(ctx: AnalysisContext) -> list[Provider]:
             core_parse_transforms = ctx.attrs.core_parse_transforms,
             dependency_analyzer = ctx.attrs.dependency_analyzer,
             dependency_finalizer = ctx.attrs.dependency_finalizer,
+            dependency_merger = ctx.attrs.dependency_merger,
             erlc_trampoline = ctx.attrs.erlc_trampoline,
             escript_trampoline = ctx.attrs.escript_trampoline,
             escript_builder = ctx.attrs.escript_builder,
@@ -319,6 +323,7 @@ toolchain_utilities = rule(
         "core_parse_transforms": attrs.list(attrs.dep()),
         "dependency_analyzer": attrs.source(),
         "dependency_finalizer": attrs.source(),
+        "dependency_merger": attrs.source(),
         "erlc_trampoline": attrs.source(),
         "escript_builder": attrs.source(),
         "escript_trampoline": attrs.source(),

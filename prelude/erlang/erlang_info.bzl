@@ -19,7 +19,7 @@ ErlangAppCommonFields = [
     # path to include directory
     "include_dir",
     # deps files short_path -> artifact
-    "header_deps_files",
+    "header_deps_file",
 ]
 
 # target type to break circular dependencies
@@ -103,6 +103,7 @@ ErlangToolchainInfo = provider(
         # analyzing .(h|e)rl dependencies
         "dependency_analyzer": provider_field(Tool),
         "dependency_finalizer": provider_field(Tool),
+        "dependency_merger": provider_field(Tool),
         # trampoline rerouting stdout to stderr
         "erlc_trampoline": provider_field(Artifact),
         "escript_trampoline": provider_field(Artifact),

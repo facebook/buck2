@@ -40,8 +40,8 @@ ModuleArtifactMapping = dict[str, Artifact]
 EbinMapping = dict[str, ModuleArtifactMapping]
 
 # mapping
-#   from application to deps files it computed
-DepsMapping = dict[str, PathArtifactMapping]
+#   from application to merged deps files
+DepsMapping = dict[str, Artifact]
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
@@ -85,7 +85,7 @@ def _prepare_build_environment(
     if includes_target:
         include_dirs[includes_target.name] = includes_target.include_dir
         includes[includes_target.name] = includes_target.includes
-        header_deps_files[includes_target.name] = dict(includes_target.header_deps_files)
+        header_deps_files[includes_target.name] = includes_target.header_deps_file
         for hrl in includes_target.includes:
             all_includes[hrl] = includes_target.name
 
@@ -138,7 +138,8 @@ def _prepare_build_environment(
         includes[name] = new_includes
 
         # collect header_deps_files
-        header_deps_files[name] = dep_info.header_deps_files
+        if dep_info.header_deps_file:
+            header_deps_files[name] = dep_info.header_deps_file
 
     return BuildEnvironment(
         includes = includes,
@@ -201,9 +202,11 @@ def _generate_include_artifacts(
                 _fail_dep_conflict("header", file, name, app)
 
     if name in build_environment.header_deps_files:
-        build_environment.header_deps_files[name].update(deps_files)
+        build_environment.header_deps_files[name] = _merged_deps_file(ctx, toolchain, build_dir, name, deps_files, is_private, build_environment.header_deps_files[name])
     else:
-        build_environment.header_deps_files[name] = deps_files
+        file = _merged_deps_file(ctx, toolchain, build_dir, name, deps_files, is_private, None)
+        if file:
+            build_environment.header_deps_files[name] = file
 
     # construct updates build environment
     if not is_private:
@@ -214,6 +217,39 @@ def _generate_include_artifacts(
         # fields for private include directory
         build_environment.private_includes[name] = include_files
         build_environment.private_include_dirs[name] = include_dir
+
+def _merged_deps_file(
+        ctx: AnalysisContext,
+        toolchain: Toolchain,
+        build_dir: str,
+        name: str,
+        deps_files: PathArtifactMapping,
+        is_private: bool,
+        previous_merged_file: [Artifact, None]) -> [Artifact, None]:
+    """Merge the deps files of the headers into a single deps file."""
+
+    if not deps_files:
+        return previous_merged_file
+
+    name = "{}-private".format(name) if is_private else name
+
+    file_name = _dep_merged_name(build_dir, name)
+    merged_file = ctx.actions.declare_output(file_name)
+    deps_files_json = ctx.actions.write_json(file_name + ".json", deps_files, with_inputs = True)
+
+    cmd = cmd_args(toolchain.dependency_merger, merged_file.as_output(), deps_files_json)
+    if previous_merged_file:
+        cmd.add(previous_merged_file)
+
+    _run_with_env(
+        ctx,
+        toolchain,
+        cmd,
+        category = "dependency_merger",
+        identifier = action_identifier(toolchain, name),
+    )
+
+    return merged_file
 
 # mutates build_environment in place
 def _generate_beam_artifacts(
@@ -531,6 +567,13 @@ def _dep_final_name(build_dir: str, src: Artifact) -> str:
         build_dir,
         "__dep_files",
         "{}.final.dep".format(src.short_path),
+    )
+
+def _dep_merged_name(build_dir: str, name: str) -> str:
+    return paths.join(
+        build_dir,
+        "__dep_files",
+        "{}.merged.dep".format(name),
     )
 
 def _dep_mapping_name(build_dir: str, src: Artifact) -> str:

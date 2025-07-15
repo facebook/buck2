@@ -29,6 +29,7 @@ toolchain_utilities(
     core_parse_transforms = [":transform_project_root"],
     dependency_analyzer = "dependency_analyzer.erl",
     dependency_finalizer = "dependency_finalizer.erl",
+    dependency_merger = "dependency_merger.erl",
     erlc_trampoline = "erlc_trampoline.sh",
     escript_builder = "escript_builder.erl",
     escript_trampoline = "escript_trampoline.sh",

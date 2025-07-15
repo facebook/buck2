@@ -36,7 +36,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
         name = name,
         includes = build_environment.includes[name],
         include_dir = build_environment.include_dirs[name],
-        header_deps_files = build_environment.header_deps_files[name],
+        header_deps_file = build_environment.header_deps_files[name],
         _original_includes = ctx.attrs.includes,
     )
 

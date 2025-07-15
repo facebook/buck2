@@ -31,7 +31,7 @@ do(Source, InFile, OutSpec) ->
     try
         case read_file(InFile) of
             {ok, DepFiles} ->
-                FlatDepFiles = lists:foldl(fun maps:merge/2, #{}, maps:values(DepFiles)),
+                FlatDepFiles = lists:foldl(fun merge_deps/2, #{}, maps:values(DepFiles)),
                 Dependencies = build_dep_info(Source, FlatDepFiles),
                 OutData = json:encode(Dependencies),
                 case OutSpec of
@@ -47,6 +47,15 @@ do(Source, InFile, OutSpec) ->
     catch
         Class:Reason:Stack ->
             io:format(standard_error, "~ts", [erl_error:format_exception(Class, Reason, Stack)]),
+            erlang:halt(1)
+    end.
+
+merge_deps(DepFile, Acc) ->
+    case read_file_term(DepFile) of
+        {ok, Dependencies} ->
+            maps:merge(Dependencies, Acc);
+        Err ->
+            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
             erlang:halt(1)
     end.
 
@@ -84,8 +93,8 @@ collect_dependencies([], _, _, Acc) ->
     Acc;
 collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
     case DepFiles of
-        #{Key := DepFile} ->
-            {ok, Dependencies} = read_file_term(DepFile),
+        #{Key := DepBin} ->
+            Dependencies = erlang:binary_to_term(DepBin),
             {NextKeys, NextVisited, NextAcc} =
                 collect_dependencies_for_key(Dependencies, Key, Rest, Visited, Acc),
             collect_dependencies(
