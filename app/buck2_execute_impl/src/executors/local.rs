@@ -574,7 +574,28 @@ impl LocalExecutor {
                 }
             }
             GatherOutputStatus::TimedOut(duration) => {
-                manager.timeout(execution_kind, duration, std_streams, *timing, None)
+                let (outputs, hashing_time) = match self
+                    .calculate_and_declare_output_values(request, digest_config)
+                    .boxed()
+                    .await
+                {
+                    Ok((output_values, hashing_time)) => (output_values, hashing_time),
+                    Err(e) => {
+                        return manager.error("calculate_output_values_failed", e);
+                    }
+                };
+
+                timing.hashing_duration = hashing_time.hashing_duration;
+                timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
+
+                manager.timeout(
+                    execution_kind,
+                    outputs,
+                    duration,
+                    std_streams,
+                    *timing,
+                    None,
+                )
             }
             GatherOutputStatus::Cancelled => manager.cancel_claim(),
         }
@@ -1343,6 +1364,31 @@ mod tests {
         } else {
             assert_eq!(stdout, format!("{root}\n{root}\n"));
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exec_cmd_timeout() -> buck2_error::Result<()> {
+        let (executor, _, _tmpdir) = test_executor()?;
+
+        let interpreter = if cfg!(windows) { "powershell" } else { "sh" };
+        let (status, _, _) = executor
+            .exec(
+                interpreter,
+                ["-c", "sleep 2s"],
+                &HashMap::<String, String>::default(),
+                ProjectRelativePath::empty(),
+                Some(Duration::from_secs(1)),
+                None,
+                NoopLivelinessObserver::create(),
+                false,
+                "",
+            )
+            .await?;
+        assert!(
+            matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1))
+        );
 
         Ok(())
     }

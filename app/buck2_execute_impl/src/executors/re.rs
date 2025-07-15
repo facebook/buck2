@@ -228,6 +228,7 @@ impl ReExecutor {
             } else if is_timeout_error(&response.status) && request.timeout().is_some() {
                 manager.timeout(
                     execution_kind,
+                    IndexMap::new(),
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),

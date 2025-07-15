@@ -262,6 +262,7 @@ pub trait CommandExecutionManagerExt: Sized {
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
+        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
@@ -329,6 +330,7 @@ where
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
+        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
@@ -339,7 +341,7 @@ where
                 duration,
                 execution_kind,
             },
-            IndexMap::new(),
+            outputs,
             std_streams,
             None,
             timing,
