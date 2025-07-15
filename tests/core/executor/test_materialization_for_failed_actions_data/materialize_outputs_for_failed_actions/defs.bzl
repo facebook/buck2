@@ -9,11 +9,23 @@
 def _action_fail(ctx):
     out1 = ctx.actions.declare_output("failed_action.json")
     out2 = ctx.actions.declare_output("failed_action.txt")
+
+    run = ctx.actions.write(
+        "run.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('json')",
+            "with open(sys.argv[2], 'w') as f:",
+            "  f.write('txt')",
+            "sys.exit(1)",
+        ],
+    )
+
     ctx.actions.run(
         cmd_args(
             "python3",
-            "-c",
-            "import sys; sys.exit(1)",
+            run,
             out1.as_output(),
             out2.as_output(),
         ),

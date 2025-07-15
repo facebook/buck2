@@ -94,7 +94,21 @@ async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
         "RemoteCommand",
         "materialized_outputs_for_failed_actions",
     )
+
+    if not materialized:
+        raise AssertionError("No materialization for failed actions!")
+
     assert len(materialized) == 1 and len(materialized[0]) == 2
+
+    out1 = materialized[0][0]
+    with open(Path(buck.cwd / out1), "r") as materialized_input_path:
+        contents = materialized_input_path.read()
+        assert contents == "json"
+
+    out2 = materialized[0][1]
+    with open(Path(buck.cwd / out2), "r") as materialized_input_path:
+        contents = materialized_input_path.read()
+        assert contents == "txt"
 
 
 @buck_test(data_dir="materialize_outputs_for_failed_actions")
@@ -139,4 +153,8 @@ async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
 
     assert len(materialized) == 1
     assert len(materialized[0]) == 1
-    assert materialized[0][0].endswith("failed_action.json")
+
+    out = materialized[0][0]
+    with open(Path(buck.cwd / out), "r") as materialized:
+        contents = materialized.read()
+        assert contents == "json"
