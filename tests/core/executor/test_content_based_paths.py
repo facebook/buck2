@@ -378,6 +378,28 @@ async def test_sets_inconsistent_params(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_local_action_outputs_have_configuration_path_symlinks(
+    buck: Buck,
+) -> None:
+    await buck.build(
+        "root//:run_remote_with_dep_on_run_local",
+    )
+    materialized_out = await buck.log("what-materialized", "--format", "json")
+    materialized = [
+        json.loads(line) for line in materialized_out.stdout.splitlines() if line
+    ]
+    run_local_action_symlink_materialized = [
+        entry
+        for entry in materialized
+        if "run_local_with_content_based_path" in entry["path"]
+        and entry["path"].endswith("out")
+        and entry["method"] == "copy"
+    ]
+    # TODO(ianc) Materialize a symlink from the configuration-based path to the content-based path for outputs that we created locally.
+    assert len(run_local_action_symlink_materialized) == 0
+
+
+@buck_test()
 async def test_local_action_inputs_have_configuration_path_symlinks(
     buck: Buck,
 ) -> None:

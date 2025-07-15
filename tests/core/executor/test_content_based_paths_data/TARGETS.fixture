@@ -51,6 +51,13 @@ run_with_content_based_path(
 )
 
 run_with_content_based_path(
+    name = "run_remote_with_dep_on_run_local",
+    data = "hello world",
+    prefer_local = False,
+    depends_on = [":run_local_with_content_based_path"],
+)
+
+run_with_content_based_path(
     name = "run_local_with_dep_on_run_remote",
     data = "hello world",
     prefer_local = True,
