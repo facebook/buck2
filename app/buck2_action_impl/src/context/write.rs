@@ -341,6 +341,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 output_artifact
                     .get_path()
                     .with_short_path(|p| p.to_string()),
+                use_dep_files_placeholder_for_content_based_paths,
             );
             state.register_action(
                 // We need the same inputs as the write action itself since it is processing the same content

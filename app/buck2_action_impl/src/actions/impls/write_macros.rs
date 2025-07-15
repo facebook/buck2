@@ -44,14 +44,23 @@ use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
+use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
+
 #[derive(Debug, Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
     identifier: String,
+    use_dep_files_placeholder_for_content_based_paths: bool,
 }
 
 impl UnregisteredWriteMacrosToFileAction {
-    pub(crate) fn new(identifier: String) -> Self {
-        Self { identifier }
+    pub(crate) fn new(
+        identifier: String,
+        use_dep_files_placeholder_for_content_based_paths: bool,
+    ) -> Self {
+        Self {
+            identifier,
+            use_dep_files_placeholder_for_content_based_paths,
+        }
     }
 }
 
@@ -162,9 +171,21 @@ impl Action for WriteMacrosToFileAction {
                 let mut output_contents = Vec::with_capacity(self.outputs.len());
                 let mut macro_writer = MacroToFileWriter::new(&fs, &mut output_contents);
 
-                ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
-                    .0
-                    .visit_write_to_file_macros(&mut macro_writer, &ctx.artifact_path_mapping())?;
+                let command_line = ValueAsCommandLineLike::unpack_value(self.contents.value())?
+                    .unwrap()
+                    .0;
+
+                if self.inner.use_dep_files_placeholder_for_content_based_paths {
+                    command_line.visit_write_to_file_macros(
+                        &mut macro_writer,
+                        &DepFilesPlaceholderArtifactPathMapper {},
+                    )?;
+                } else {
+                    command_line.visit_write_to_file_macros(
+                        &mut macro_writer,
+                        &ctx.artifact_path_mapping(),
+                    )?;
+                }
 
                 if self.outputs.len() != output_contents.len() {
                     return Err(buck2_error::Error::from(

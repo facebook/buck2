@@ -18,13 +18,14 @@ def _c_binary_impl(ctx):
     headers_dir = ctx.actions.copied_dir(headers_dir, headers)
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
-    headers_dir_written = ctx.actions.write("headers_dir_written", headers_dir, uses_experimental_content_based_path_hashing = True)
+    headers_dir_written, _ = ctx.actions.write("headers_dir_written", ctx.attrs.headers_dir_written, uses_experimental_content_based_path_hashing = True, allow_args = True)
     headers_dir_written = headers_tag.tag_artifacts(headers_dir_written)
-    headers_dir_written_with_dep_files_placeholder = ctx.actions.write(
+    headers_dir_written_with_dep_files_placeholder, _ = ctx.actions.write(
         "headers_dir_written_with_dep_files_placeholder",
-        headers_dir,
+        ctx.attrs.headers_dir_written,
         use_dep_files_placeholder_for_content_based_paths = True,
         uses_experimental_content_based_path_hashing = True,
+        allow_args = True,
     )
 
     dep_file = ctx.actions.declare_output("depfile", uses_experimental_content_based_path_hashing = True)
@@ -60,6 +61,7 @@ def _c_binary_impl(ctx):
 c_binary = rule(
     attrs = {
         "headers": attrs.list(attrs.source()),
+        "headers_dir_written": attrs.arg(),
         "main": attrs.source(),
         "unused_command_line_param": attrs.string(),
         "_cc": attrs.dep(default = "root//tools:gcc"),
@@ -72,3 +74,25 @@ def _tool_impl(ctx):
     return [DefaultInfo(default_output = ctx.attrs.src), RunInfo(args = cmd_args(ctx.attrs.src))]
 
 tool = rule(attrs = {"src": attrs.source()}, impl = _tool_impl)
+
+def _headers_dir_impl(ctx):
+    headers = {
+        "{}/{}".format(ctx.label.package, h.short_path): h
+        for h in ctx.attrs.headers
+    }
+
+    headers_dir = ctx.actions.declare_output("headers", uses_experimental_content_based_path_hashing = True, dir = True)
+    headers_dir = ctx.actions.copied_dir(headers_dir, headers)
+
+    return [
+        DefaultInfo(
+            default_output = headers_dir,
+        ),
+    ]
+
+headers_dir = rule(
+    attrs = {
+        "headers": attrs.list(attrs.source()),
+    },
+    impl = _headers_dir_impl,
+)
