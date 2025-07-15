@@ -19,7 +19,6 @@
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
-use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -206,8 +205,8 @@ pub(crate) enum Edition {
 /// specified in `include_dirs`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 pub(crate) struct Source {
-    pub(crate) include_dirs: FxHashSet<PathBuf>,
-    pub(crate) exclude_dirs: FxHashSet<PathBuf>,
+    pub(crate) include_dirs: Vec<PathBuf>,
+    pub(crate) exclude_dirs: Vec<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

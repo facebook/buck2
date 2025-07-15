@@ -141,17 +141,17 @@ pub(crate) fn to_project_json(
             );
         }
 
-        let mut include_dirs = FxHashSet::default();
+        let mut include_dirs = vec![];
         if let Some(out_dir) = info.env.get("OUT_DIR") {
             // to ensure that the `OUT_DIR` is included as part of the `PackageRoot` in rust-analyzer,
             // manually insert the parent of the `out_dir` into `include_dirs`.
             if let Some(parent) = Path::new(out_dir).parent() {
-                include_dirs.insert(parent.to_owned());
+                include_dirs.push(parent.to_owned());
             }
         }
 
         if let Some(parent) = root_module.parent() {
-            include_dirs.insert(parent.to_owned());
+            include_dirs.push(parent.to_owned());
         }
 
         let build = if include_all_buildfiles || info.in_workspace {
@@ -173,7 +173,7 @@ pub(crate) fn to_project_json(
             is_workspace_member: info.in_workspace,
             source: Some(Source {
                 include_dirs,
-                exclude_dirs: FxHashSet::default(),
+                exclude_dirs: vec![],
             }),
             cfg: info
                 .cfg()
