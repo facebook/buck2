@@ -229,7 +229,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths(paths, _) => {
-                write!(f, "GetArtifactEntriesForMaterializedPaths({:?}, _)", paths,)
+                write!(f, "GetArtifactEntriesForMaterializedPaths({paths:?}, _)",)
             }
         }
     }
