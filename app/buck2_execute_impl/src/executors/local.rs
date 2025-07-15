@@ -35,6 +35,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -237,8 +238,13 @@ impl LocalExecutor {
 
                 let (r1, r2) = future::join(
                     async {
-                        materialize_inputs(&self.artifact_fs, self.materializer.as_ref(), request)
-                            .await
+                        materialize_inputs(
+                            &self.artifact_fs,
+                            self.materializer.as_ref(),
+                            request,
+                            digest_config,
+                        )
+                        .await
                     },
                     async {
                         // When user requests to not perform a cleanup for a specific action
@@ -921,26 +927,39 @@ pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
+    digest_config: DigestConfig,
 ) -> buck2_error::Result<MaterializedInputPaths> {
     let mut paths = vec![];
     let mut scratch = ScratchPath(None);
+    let mut configuration_path_to_content_based_path_symlinks = vec![];
 
     for input in request.inputs() {
         match input {
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, artifact_value) in group.iter() {
                     if artifact.requires_materialization(artifact_fs) {
-                        paths.push(
-                            artifact.resolve_path(
+                        let configuration_hash_path =
+                            artifact.resolve_configuration_hash_path(artifact_fs)?;
+
+                        if artifact.has_content_based_path() {
+                            let content_based_path = artifact.resolve_path(
                                 artifact_fs,
-                                if artifact.has_content_based_path() {
-                                    Some(artifact_value.content_based_path_hash())
-                                } else {
-                                    None
-                                }
-                                .as_ref(),
-                            )?,
-                        );
+                                Some(&artifact_value.content_based_path_hash()),
+                            )?;
+
+                            let mut builder =
+                                ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
+                            builder.add_symlinked(
+                                artifact_value,
+                                &content_based_path,
+                                &configuration_hash_path,
+                            )?;
+                            let symlink_value = builder.build(&configuration_hash_path)?;
+                            configuration_path_to_content_based_path_symlinks
+                                .push((configuration_hash_path.clone(), symlink_value));
+                        }
+
+                        paths.push(configuration_hash_path);
                     }
                 }
             }
@@ -968,6 +987,13 @@ pub async fn materialize_inputs(
             }
         }
     }
+
+    buck2_util::future::try_join_all(
+        configuration_path_to_content_based_path_symlinks
+            .into_iter()
+            .map(|(path, value)| materializer.declare_copy(path, value, vec![])),
+    )
+    .await?;
 
     let mut stream = materializer.materialize_many(paths.clone()).await?;
     while let Some(res) = stream.next().await {

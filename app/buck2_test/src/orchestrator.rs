@@ -906,7 +906,13 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.get_blocking_executor();
 
-        materialize_inputs(&fs, materializer.as_ref(), &execution_request).await?;
+        materialize_inputs(
+            &fs,
+            materializer.as_ref(),
+            &execution_request,
+            self.dice.global_data().get_digest_config(),
+        )
+        .await?;
 
         create_output_dirs(
             &fs,
@@ -922,6 +928,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
                 &fs,
                 materializer.as_ref(),
                 &local_resource_setup_command.execution_request,
+                self.dice.global_data().get_digest_config(),
             )
             .await?;
             let blocking_executor = self.dice.get_blocking_executor();

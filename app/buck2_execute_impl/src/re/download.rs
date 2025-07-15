@@ -148,7 +148,9 @@ pub async fn download_action_results<'a>(
                         stage: Some(buck2_data::MaterializeFailedInputs {}.into()),
                     },
                     async move {
-                        match materialize_inputs(artifact_fs, materializer, request).await {
+                        match materialize_inputs(artifact_fs, materializer, request, digest_config)
+                            .await
+                        {
                             Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
                             Err(e) => {
                                 // TODO(minglunli): Properly handle this and the error below and add a test for it.

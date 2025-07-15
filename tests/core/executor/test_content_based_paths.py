@@ -394,5 +394,4 @@ async def test_local_action_inputs_have_configuration_path_symlinks(
         if "run_remote_with_content_based_path" in entry["path"]
         and entry["path"].endswith("out")
     ]
-    # TODO(ianc) This should be 2, but we don't yet materialize a configuration path symlink
-    assert len(run_remote_output_materialized) == 1
+    assert len(run_remote_output_materialized) == 2
