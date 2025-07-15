@@ -395,8 +395,7 @@ async def test_local_action_outputs_have_configuration_path_symlinks(
         and entry["path"].endswith("out")
         and entry["method"] == "copy"
     ]
-    # TODO(ianc) Materialize a symlink from the configuration-based path to the content-based path for outputs that we created locally.
-    assert len(run_local_action_symlink_materialized) == 0
+    assert len(run_local_action_symlink_materialized) == 1
 
 
 @buck_test()

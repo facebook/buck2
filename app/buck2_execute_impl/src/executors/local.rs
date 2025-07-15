@@ -644,6 +644,7 @@ impl LocalExecutor {
 
         let mut to_declare = vec![];
         let mut mapped_outputs = IndexMap::with_capacity(entries.len());
+        let mut configuration_path_to_content_based_path_symlinks = vec![];
 
         for (output, output_path) in entries {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
@@ -658,6 +659,22 @@ impl LocalExecutor {
                                 .as_ref()
                                 .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
                                 .into_path();
+
+                            let configuration_hash_path = output
+                                .as_ref()
+                                .resolve_configuration_hash_path(&self.artifact_fs)?
+                                .into_path();
+                            let mut builder =
+                                ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
+                            builder.add_symlinked(
+                                &value,
+                                &hashed_path,
+                                &configuration_hash_path,
+                            )?;
+                            let symlink_value = builder.build(&configuration_hash_path)?;
+                            configuration_path_to_content_based_path_symlinks
+                                .push((configuration_hash_path, symlink_value));
+
                             // If we already have an artifact declared at a content-based path, we don't need to
                             // declare it again.
                             if !self
@@ -697,7 +714,21 @@ impl LocalExecutor {
             }
         }
 
+        let configuration_paths = configuration_path_to_content_based_path_symlinks
+            .iter()
+            .map(|(p, _)| p.clone())
+            .collect();
         self.materializer.declare_existing(to_declare).await?;
+        buck2_util::future::try_join_all(
+            configuration_path_to_content_based_path_symlinks
+                .into_iter()
+                .map(|(path, value)| self.materializer.declare_copy(path, value, vec![])),
+        )
+        .await?;
+
+        self.materializer
+            .ensure_materialized(configuration_paths)
+            .await?;
 
         Ok((
             mapped_outputs,

@@ -712,6 +712,30 @@ impl CommandExecutionOutputRef<'_> {
         }
     }
 
+    /// Same as `resolve`, but the underlying output path that is returned uses the
+    /// configuration hash regardless of whether the output is content-based or not.
+    pub fn resolve_configuration_hash_path(
+        &self,
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
+        match self {
+            Self::BuildArtifact {
+                path,
+                output_type,
+                supports_incremental_remote: _,
+            } => Ok(ResolvedCommandExecutionOutput {
+                path: fs.resolve_build_configuration_hash_path(path)?,
+                create: OutputCreationBehavior::Parent,
+                output_type: *output_type,
+            }),
+            Self::TestPath { path, create } => Ok(ResolvedCommandExecutionOutput {
+                path: fs.buck_out_path_resolver().resolve_test(path),
+                create: *create,
+                output_type: OutputType::FileOrDirectory,
+            }),
+        }
+    }
+
     pub fn cloned(&self) -> CommandExecutionOutput {
         match self {
             Self::BuildArtifact {
