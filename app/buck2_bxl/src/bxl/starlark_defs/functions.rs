@@ -90,8 +90,6 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
 enum GetPathWithMaterializationError {
     #[error("Promise artifacts are not supported in `get_path_without_materialization()`")]
     PromiseArtifactsNotSupported,
-    #[error("Content-based paths are not supported in `{0}`, but {1} has a content-based path")]
-    ContentBasedPathNotSupported(String, String),
 }
 
 /// Global methods on artifacts.
@@ -123,16 +121,6 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         let path = match this {
             ValueAsArtifactLikeUnpack::Artifact(a) => {
                 let artifact = a.artifact();
-                if artifact.has_content_based_path() {
-                    return Err(buck2_error::Error::from(
-                        GetPathWithMaterializationError::ContentBasedPathNotSupported(
-                            "get_path_without_materialization()".to_owned(),
-                            artifact.to_string(),
-                        ),
-                    )
-                    .into());
-                }
-
                 get_artifact_path_display(
                     artifact.get_path(),
                     abs,
@@ -140,23 +128,12 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                     ctx.artifact_fs(),
                 )?
             }
-            ValueAsArtifactLikeUnpack::DeclaredArtifact(a) => {
-                if a.has_content_based_path() {
-                    return Err(buck2_error::Error::from(
-                        GetPathWithMaterializationError::ContentBasedPathNotSupported(
-                            "get_path_without_materialization()".to_owned(),
-                            a.to_string(),
-                        ),
-                    )
-                    .into());
-                }
-                get_artifact_path_display(
-                    a.get_artifact_path(),
-                    abs,
-                    ctx.project_fs(),
-                    ctx.artifact_fs(),
-                )?
-            }
+            ValueAsArtifactLikeUnpack::DeclaredArtifact(a) => get_artifact_path_display(
+                a.get_artifact_path(),
+                abs,
+                ctx.project_fs(),
+                ctx.artifact_fs(),
+            )?,
             _ => {
                 return Err(buck2_error::Error::from(
                     GetPathWithMaterializationError::PromiseArtifactsNotSupported,
@@ -207,15 +184,6 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                     &result,
                     abs,
                     |artifact_path, abs| {
-                        if artifact_path.is_content_based_path() {
-                            return Err(
-                                GetPathWithMaterializationError::ContentBasedPathNotSupported(
-                                    "get_paths_without_materialization()".to_owned(),
-                                    artifact_path.to_string(),
-                                )
-                                .into(),
-                            );
-                        }
                         let path = get_artifact_path_display(
                             artifact_path,
                             abs,
