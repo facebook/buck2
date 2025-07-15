@@ -13,7 +13,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
-use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async_simple;
@@ -21,7 +21,6 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 use dupe::Dupe;
 
-use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::build_signals::HasBuildSignals;
 
 #[async_trait]
@@ -32,7 +31,7 @@ pub trait ArtifactMaterializer {
         &mut self,
         artifact: &BuildArtifact,
         required: bool,
-        content_hash: Option<&ContentBasedPathHash>,
+        path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<()>;
 }
 
@@ -42,12 +41,9 @@ impl ArtifactMaterializer for DiceComputations<'_> {
         &mut self,
         artifact: &BuildArtifact,
         required: bool,
-        content_hash: Option<&ContentBasedPathHash>,
+        path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
-        let artifact_fs = self.get_artifact_fs().await?;
-        let path = artifact_fs.resolve_build(artifact.get_path(), content_hash)?;
-
         let start_event = buck2_data::MaterializeRequestedArtifactStart {
             artifact: Some(artifact.as_proto()),
         };

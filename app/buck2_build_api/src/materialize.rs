@@ -21,6 +21,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::execute::blobs::ActionBlobs;
@@ -77,37 +78,61 @@ async fn materialize_artifact_group(
             .per_transaction_data()
             .get_materialization_queue_tracker();
         let mut artifacts_to_materialize = Vec::new();
+        let mut configuration_path_to_content_based_path_symlinks = Vec::new();
+        let artifact_fs = ctx.get_artifact_fs().await?;
+        let fs = artifact_fs.fs();
+        let digest_config = ctx.global_data().get_digest_config();
         for (artifact, value) in values.iter() {
             if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
                 if !queue_tracker.insert(artifact.dupe()) {
                     // We've already requested this artifact, no use requesting it again.
                     continue;
                 }
-                artifacts_to_materialize.push((
-                    artifact,
-                    if artifact.get_path().is_content_based_path() {
-                        Some(value.content_based_path_hash())
-                    } else {
-                        None
-                    },
-                ));
+
+                let configuration_hash_path =
+                    artifact_fs.resolve_build_configuration_hash_path(&artifact.get_path())?;
+
+                if artifact.get_path().is_content_based_path() {
+                    let content_based_path = artifact_fs.resolve_build(
+                        artifact.get_path(),
+                        Some(&value.content_based_path_hash()),
+                    )?;
+
+                    let mut builder = ArtifactValueBuilder::new(fs, digest_config);
+                    builder.add_symlinked(value, &content_based_path, &configuration_hash_path)?;
+                    let symlink_value = builder.build(&configuration_hash_path)?;
+                    configuration_path_to_content_based_path_symlinks
+                        .push((configuration_hash_path.clone(), symlink_value));
+                }
+
+                artifacts_to_materialize.push((artifact, configuration_hash_path));
             }
         }
 
         ctx.try_compute_join(
-            artifacts_to_materialize,
-            |ctx, (artifact, content_based_path_hash)| {
+            configuration_path_to_content_based_path_symlinks,
+            |ctx, (path, value)| {
                 async move {
-                    ctx.try_materialize_requested_artifact(
-                        artifact,
-                        *force,
-                        content_based_path_hash.as_ref(),
-                    )
-                    .await
+                    ctx.per_transaction_data()
+                        .get_materializer()
+                        .declare_copy(path, value, vec![])
+                        .await
                 }
                 .boxed()
             },
         )
+        .await
+        .buck_error_context(
+            "Failed to declare configuration path to content-based path symlinks",
+        )?;
+
+        ctx.try_compute_join(artifacts_to_materialize, |ctx, (artifact, path)| {
+            async move {
+                ctx.try_materialize_requested_artifact(artifact, *force, path)
+                    .await
+            }
+            .boxed()
+        })
         .await
         .buck_error_context("Failed to materialize artifacts")?;
     }

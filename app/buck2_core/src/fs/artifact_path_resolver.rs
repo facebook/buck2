@@ -55,6 +55,14 @@ impl ArtifactFs {
         self.buck_out_path_resolver.resolve_gen(path, content_hash)
     }
 
+    pub fn resolve_build_configuration_hash_path(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        self.buck_out_path_resolver
+            .resolve_gen_configuration_hash_path(path)
+    }
+
     pub fn resolve_cell_path(
         &self,
         path: CellPathRef,

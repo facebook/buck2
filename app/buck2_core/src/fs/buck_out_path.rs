@@ -282,6 +282,25 @@ impl BuckOutPathResolver {
         )
     }
 
+    /// Same as `resolve_gen`, except it also uses BuckOutPathKind::Configuration
+    /// as the path_resolution_method.
+    pub fn resolve_gen_configuration_hash_path(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        self.prefixed_path_for_owner(
+            ForwardRelativePath::unchecked_new("gen"),
+            path.owner().owner(),
+            path.dynamic_actions_action_key()
+                .as_ref()
+                .map(|x| x.as_str()),
+            path.path(),
+            false,
+            BuckOutPathKind::Configuration,
+            None,
+        )
+    }
+
     pub fn resolve_offline_cache(
         &self,
         path: &BuildArtifactPath,
