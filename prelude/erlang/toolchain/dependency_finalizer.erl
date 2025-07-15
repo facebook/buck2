@@ -59,6 +59,15 @@ read_file(File) ->
             Err
     end.
 
+-spec read_file_term(file:filename()) -> {ok, dep_files_data()} | {error, term()}.
+read_file_term(File) ->
+    case file:read_file(File, [raw]) of
+        {ok, Data} ->
+            {ok, erlang:binary_to_term(Data)};
+        Err ->
+            Err
+    end.
+
 -spec build_dep_info(file:filename(), dep_files_data()) -> list(map()).
 build_dep_info(Source, DepFiles) ->
     Key = list_to_binary(filename:basename(Source)),
@@ -69,7 +78,7 @@ collect_dependencies([], _, _, Acc) ->
 collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
     case DepFiles of
         #{Key := DepFile} ->
-            {ok, Dependencies} = read_file(DepFile),
+            {ok, Dependencies} = read_file_term(DepFile),
             {NextKeys, NextVisited, NextAcc} =
                 collect_dependencies_for_key(Dependencies, Key, Rest, Visited, Acc),
             collect_dependencies(
@@ -86,12 +95,12 @@ collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
 
 collect_dependencies_for_key([], _CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
     {KeysAcc, VisitedAcc, DepAcc};
-collect_dependencies_for_key([#{<<"file">> := File, <<"type">> := Type} = Dep | Deps], CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
+collect_dependencies_for_key([#{file := File, type := Type} = Dep | Deps], CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
     NextKey = File,
     case sets:is_element(NextKey, VisitedAcc) of
         true ->
             collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, VisitedAcc, DepAcc);
-        false when Type =:= <<"include">>; Type =:= <<"include_lib">> ->
+        false when Type =:= include; Type =:= include_lib ->
             collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc]);
         false ->
             collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])

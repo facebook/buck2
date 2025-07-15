@@ -16,15 +16,15 @@
 
  The output of the tool is written either to stdout,
  or a given output file. The format is as follows and intended to
- be consumed by other file:consult/1:
+ be consumed by other binary_to_term/1:
 ```
- [#{<<"type">> := "include"
-            | "include_lib"
-            | "behaviour"
-            | "parse_transform"
-            | "manual_dependency",
-  <<"file">>  := "header_or_source_file.(h|e)rl",
- ["app"   => "application"][only for "include_lib"]
+ [#{type := include
+            | include_lib
+            | behaviour
+            | parse_transform
+            | manual_dependency,
+  file  := <<"header_or_source_file.(h|e)rl">>,
+  app   => application %% only for include_lib
   },
   ...
  ].
@@ -92,45 +92,45 @@ usage() ->
 do(InFile, Outspec) ->
     {ok, Forms} = epp_dodger:parse_file(InFile),
     Dependencies = lists:sort(process_forms(Forms, [])),
-    OutData = json:encode(Dependencies),
     case Outspec of
         {file, File} ->
-            ok = write_file(File, OutData);
+            OutData = erlang:term_to_binary(Dependencies, [deterministic]),
+            ok = file:write_file(File, OutData, [raw]);
         stdout ->
-            io:format("~s~n", [OutData])
+            io:format("~p~n", [Dependencies])
     end.
 
 -spec process_forms(erl_syntax:forms(), [file:filename()]) -> [#{string() => string()}].
 process_forms([], Acc) ->
     Acc;
 process_forms([?MATCH_INCLUDE(Include) | Rest], Acc) ->
-    Dependency = #{<<"file">> => list_to_binary(filename:basename(Include)), <<"type">> => <<"include">>},
+    Dependency = #{file => list_to_binary(filename:basename(Include)), type => include},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_INCLUDE_LIB(IncludeLib) | Rest], Acc) ->
     Dependency =
         case filename:split(IncludeLib) of
             [App, "include", Include] ->
                 #{
-                    <<"app">> => list_to_binary(App),
-                    <<"file">> => list_to_binary(Include),
-                    <<"type">> => <<"include_lib">>
+                    app => list_to_atom(App),
+                    file => list_to_binary(Include),
+                    type => include_lib
                 };
             _ ->
                 error(malformed_header_include_lib)
         end,
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_BEHAVIOR(Module) | Rest], Acc) ->
-    Dependency = #{<<"file">> => module_to_erl(Module), <<"type">> => <<"behaviour">>},
+    Dependency = #{file => module_to_erl(Module), type => behaviour},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_BEHAVIOUR(Module) | Rest], Acc) ->
-    Dependency = #{<<"file">> => module_to_erl(Module), <<"type">> => <<"behaviour">>},
+    Dependency = #{file => module_to_erl(Module), type => behaviour},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_PARSETRANSFORM(Module) | Rest], Acc) ->
-    Dependency = #{<<"file">> => module_to_erl(Module), <<"type">> => <<"parse_transform">>},
+    Dependency = #{file => module_to_erl(Module), type => parse_transform},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_MANUAL_DEPENDENCIES(Modules) | Rest], Acc) ->
     Dependencies = [
-        #{<<"file">> => module_to_erl(Module), <<"type">> => <<"manual_dependency">>}
+        #{file => module_to_erl(Module), type => manual_dependency}
      || {tree, atom, _, Module} <- Modules
     ],
     process_forms(Rest, Dependencies ++ Acc);
@@ -139,26 +139,4 @@ process_forms([_ | Rest], Acc) ->
 
 -spec module_to_erl(module()) -> file:filename().
 module_to_erl(Module) ->
-    unicode:characters_to_binary([atom_to_list(Module), ".erl"]).
-
--spec write_file(file:filename(), iolist()) -> string().
-write_file(File, Data) ->
-    case
-        % We write in raw mode because this is a standalone escript, so we don't
-        % need advanced file server features, and we gain performance by avoiding
-        % calling through the file server
-        file:open(File, [write, binary, raw])
-    of
-        {ok, Handle} ->
-            try
-                % We use file:pwrite instead of file:write_file to work around
-                % the latter needlessly flattening iolists (as returned by
-                % json:encode/1, etc.) to a binary
-                file:pwrite(Handle, 0, Data)
-            after
-                file:close(Handle)
-            end,
-            ok;
-        {error, _} = Error ->
-            Error
-    end.
+    <<(atom_to_binary(Module))/binary, ".erl">>.
