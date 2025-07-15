@@ -10,16 +10,12 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test()
 async def test_targets_show_outputs_with_content_based_path(buck: Buck) -> None:
-    await expect_failure(
-        buck.targets(
-            "root//:write_with_content_based_path",
-            "--show-output",
-        ),
-        stderr_regex="Using `targets --show-output` on output .*out.txt.* which has a content-based path is not allowed! Use `build --show-output` instead.",
+    await buck.targets(
+        "root//:write_with_content_based_path",
+        "--show-output",
     )

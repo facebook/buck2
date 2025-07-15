@@ -45,15 +45,6 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use gazebo::prelude::VecExt;
 
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-enum TargetsShowOutputsError {
-    #[error(
-        "Using `targets --show-output` on output {0} which has a content-based path is not allowed! Use `build --show-output` instead."
-    )]
-    ContentBasedPathWithoutMetadata(Artifact),
-}
-
 struct TargetsArtifacts {
     providers_label: ConfiguredProvidersLabel,
     artifacts: Vec<Artifact>,
@@ -132,12 +123,7 @@ async fn targets_show_outputs(
     {
         let mut paths = Vec::new();
         for artifact in targets_artifacts.artifacts {
-            if artifact.has_content_based_path() {
-                return Err(
-                    TargetsShowOutputsError::ContentBasedPathWithoutMetadata(artifact).into(),
-                );
-            }
-            let path = artifact.resolve_path(&artifact_fs, None)?;
+            let path = artifact.resolve_configuration_hash_path(&artifact_fs)?;
             paths.push(path.to_string());
         }
         targets_paths.push(TargetPaths {
