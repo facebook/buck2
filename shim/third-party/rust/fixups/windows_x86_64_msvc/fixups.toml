@@ -7,8 +7,6 @@
 
 buildscript.run = false
 
-['cfg(all(target_os = "windows", target_env = "msvc"))']
-version = "=0.48.0"
-[['cfg(all(target_os = "windows", target_env = "msvc"))'.prebuilt_cxx_library]]
+[['cfg(all(version = "=0.48.0", target_os = "windows", target_env = "msvc"))'.prebuilt_cxx_library]]
 name = "windows"
 static_libs = ["lib/windows.0.48.0.lib"]

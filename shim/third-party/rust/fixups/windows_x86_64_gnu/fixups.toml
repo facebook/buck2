@@ -7,8 +7,6 @@
 
 buildscript.run = false
 
-['cfg(all(target_os = "windows", target_env = "gnu"))']
-version = "=0.48.0"
-[['cfg(all(target_os = "windows", target_env = "gnu"))'.prebuilt_cxx_library]]
+[['cfg(all(version = "=0.48.0", target_os = "windows", target_env = "gnu"))'.prebuilt_cxx_library]]
 name = "libwindows"
 static_libs = ["lib/libwindows.0.48.0.a"]

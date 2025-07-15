@@ -5,6 +5,5 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-['cfg(any(target_os = "windows", target_os = "linux"))']
-version = ">=0.48.0"
+['cfg(all(version = ">=0.48.0", any(target_os = "windows", target_os = "linux")))']
 cfgs = ["windows_raw_dylib"]
