@@ -15,6 +15,8 @@ starlark_map = { workspace = true }
 buck2_error = { workspace = true }
 
 [dev-dependencies]
-rand = { workspace = true }
-rand_chacha = { workspace = true }
-rand_distr = { workspace = true }
+# Can't use workspace dependencies here because rand = { package = "rand_08", workspace = true } is
+# not valid syntax.
+rand = { package = "rand", version = "0.8.4", features = ["small_rng"] }
+rand_chacha = "0.3"
+rand_distr = { package = "rand_distr", version = "0.4" }

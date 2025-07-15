@@ -24,6 +24,7 @@ parking_lot = { workspace = true }
 relative-path = { workspace = true }
 serde_json = { workspace = true }
 sha1 = { workspace = true }
+smallvec = { workspace = true }
 static_assertions = { workspace = true }
 tracing = { workspace = true }
 
@@ -35,6 +36,7 @@ starlark = { workspace = true }
 starlark_map = { workspace = true }
 
 buck2_action_metadata_proto = { workspace = true }
+buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_build_signals = { workspace = true }
