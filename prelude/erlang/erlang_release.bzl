@@ -77,8 +77,6 @@ def build_lib_dir(
 
     .. seealso:: `OTP Design Principles Release Structure <https://www.erlang.org/doc/design_principles/release_structure.html>`_
     """
-    build_dir = erlang_build.utils.build_dir()
-
     include_erts = False
     if "include_erts" in dir(ctx.attrs):
         include_erts = ctx.attrs.include_erts
@@ -91,7 +89,7 @@ def build_lib_dir(
     }
 
     lib_dir = ctx.actions.symlinked_dir(
-        paths.join(build_dir, "lib"),
+        paths.join(erlang_build.utils.BUILD_DIR, "lib"),
         link_spec,
     )
     return {"lib": lib_dir}
@@ -102,7 +100,6 @@ def _build_boot_script(
         lib_dir: Artifact) -> dict[str, Artifact]:
     """Build Name.rel, start.script, and start.boot in the release folder."""
     release_name = _relname(ctx)
-    build_dir = erlang_build.utils.build_dir()
 
     start_type_mapping = _dependencies_with_start_types(ctx)
     root_apps = _dependencies(ctx)
@@ -157,9 +154,9 @@ def _build_boot_script(
         "version": ctx.attrs.version,
     }
 
-    spec_file = ctx.actions.write_json(paths.join(build_dir, "boot_script_spec.json"), data, with_inputs = True)
+    spec_file = ctx.actions.write_json(paths.join(erlang_build.utils.BUILD_DIR, "boot_script_spec.json"), data, with_inputs = True)
 
-    scripts_dir = ctx.actions.declare_output(build_dir, "scripts", dir = True)
+    scripts_dir = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "scripts", dir = True)
 
     erlang_build.utils.run_with_env(
         ctx,
@@ -191,16 +188,15 @@ def _build_overlays(ctx: AnalysisContext) -> dict[str, Artifact]:
 
 def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
     release_name = _relname(ctx)
-    build_dir = erlang_build.utils.build_dir()
 
     short_path = "bin/release_variables"
     release_variables = ctx.actions.declare_output(
-        build_dir,
+        erlang_build.utils.BUILD_DIR,
         "release_variables",
     )
 
     spec_file = ctx.actions.write_json(
-        paths.join(build_dir, "relvars.json"),
+        paths.join(erlang_build.utils.BUILD_DIR, "relvars.json"),
         {
             "REL_NAME": release_name,
             "REL_VSN": ctx.attrs.version,
@@ -226,7 +222,7 @@ def _build_erts(
 
     erts_dir = ctx.actions.symlink_file(
         paths.join(
-            erlang_build.utils.build_dir(),
+            erlang_build.utils.BUILD_DIR,
             release_name,
             "erts",
         ),

@@ -137,7 +137,7 @@ def build_escript_unbundled_trampoline(ctx: AnalysisContext, config_files: list[
     data.add(_parse_bin())
 
     return ctx.actions.write(
-        paths.join(erlang_build.utils.build_dir(), "run.escript"),
+        paths.join(erlang_build.utils.BUILD_DIR, "run.escript"),
         data,
         is_executable = True,
     )
@@ -155,7 +155,7 @@ EscriptDir = escript:script_name(),""",
     data.add("    {}:main(Args).".format(_main_module(ctx)))
     data.add(_parse_bin())
     escript_trampoline_erl = ctx.actions.write(
-        paths.join(erlang_build.utils.build_dir(), "erlang_escript_trampoline.erl"),
+        paths.join(erlang_build.utils.BUILD_DIR, "erlang_escript_trampoline.erl"),
         data,
     )
     my_output = ctx.actions.declare_output("erlang_escript_trampoline.beam")

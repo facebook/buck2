@@ -21,6 +21,8 @@ load(
 )
 load(":erlang_utils.bzl", "action_identifier")
 
+_BUILD_DIR = "__build"
+
 # mapping
 #   from include base name (e.g. "header.hrl")
 #   to artifact
@@ -158,15 +160,13 @@ def _fail_dep_conflict(kind: str, name: str, app1: str, app2: str) -> None:
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
 
-    build_dir = _build_dir()
-
     def build(src, custom_include_opt):
         return _build_xyrl(
             ctx,
             toolchain,
             src,
             custom_include_opt,
-            ctx.actions.declare_output(generated_erl_path(build_dir, name, src)),
+            ctx.actions.declare_output(generated_erl_path(name, src)),
         )
 
     yrl_outputs = {module_name(src): build(src, "yrl_includefile") for src in ctx.attrs.srcs if _is_yrl(src)}
@@ -181,13 +181,12 @@ def _generate_include_artifacts(
         name: str,
         header_artifacts: list[Artifact],
         is_private: bool = False):
-    build_dir = _build_dir()
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
     dir_name = "{}_private".format(name) if is_private else name
-    include_dir = ctx.actions.symlinked_dir(paths.join(build_dir, dir_name, "include"), include_files)
+    include_dir = ctx.actions.symlinked_dir(paths.join(_BUILD_DIR, dir_name, "include"), include_files)
 
     # dep files
-    deps_files = _get_deps_files(ctx, toolchain, build_dir, header_artifacts)
+    deps_files = _get_deps_files(ctx, toolchain, header_artifacts)
 
     # detect conflicts
     for file in deps_files:
@@ -202,9 +201,9 @@ def _generate_include_artifacts(
                 _fail_dep_conflict("header", file, name, app)
 
     if name in build_environment.header_deps_files:
-        build_environment.header_deps_files[name] = _merged_deps_file(ctx, toolchain, build_dir, name, deps_files, is_private, build_environment.header_deps_files[name])
+        build_environment.header_deps_files[name] = _merged_deps_file(ctx, toolchain, name, deps_files, is_private, build_environment.header_deps_files[name])
     else:
-        file = _merged_deps_file(ctx, toolchain, build_dir, name, deps_files, is_private, None)
+        file = _merged_deps_file(ctx, toolchain, name, deps_files, is_private, None)
         if file:
             build_environment.header_deps_files[name] = file
 
@@ -221,7 +220,6 @@ def _generate_include_artifacts(
 def _merged_deps_file(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        build_dir: str,
         name: str,
         deps_files: PathArtifactMapping,
         is_private: bool,
@@ -233,7 +231,7 @@ def _merged_deps_file(
 
     name = "{}-private".format(name) if is_private else name
 
-    file_name = _dep_merged_name(build_dir, name)
+    file_name = _dep_merged_name(name)
     merged_file = ctx.actions.declare_output(file_name)
     deps_files_json = ctx.actions.write_json(file_name + ".json", deps_files, with_inputs = True)
 
@@ -258,8 +256,7 @@ def _generate_beam_artifacts(
         build_environment: BuildEnvironment,
         name: str,
         src_artifacts: list[Artifact]):
-    build_dir = _build_dir()
-    ebin = paths.join(build_dir, "ebin")
+    ebin = paths.join(_BUILD_DIR, "ebin")
 
     beam_mapping = {}
     for erl in src_artifacts:
@@ -275,8 +272,8 @@ def _generate_beam_artifacts(
     build_environment.beams[name] = beam_mapping
 
     # dep files
-    deps_files = _get_deps_files(ctx, toolchain, build_dir, src_artifacts)
-    dep_info_file = ctx.actions.write_json(_dep_info_name(build_dir), build_environment.header_deps_files, with_inputs = True)
+    deps_files = _get_deps_files(ctx, toolchain, src_artifacts)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(), build_environment.header_deps_files, with_inputs = True)
 
     small_build_environment = SmallBuildEnvironment(
         includes = build_environment.includes,
@@ -287,19 +284,18 @@ def _generate_beam_artifacts(
     )
 
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, build_dir, small_build_environment, deps_files, dep_info_file, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, small_build_environment, deps_files, dep_info_file, erl, beam_mapping[module_name(erl)])
 
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        build_dir: str,
         srcs: list[Artifact]):
     """Mapping from the output path to the deps file artifact for each srcs artifact and dependencies."""
 
-    return {src.basename: _get_deps_file(ctx, toolchain, build_dir, src) for src in srcs}
+    return {src.basename: _get_deps_file(ctx, toolchain, src) for src in srcs}
 
-def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, build_dir: str, src: Artifact) -> Artifact:
-    dependency_json = ctx.actions.declare_output(_dep_file_name(build_dir, src))
+def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
+    dependency_json = ctx.actions.declare_output(_dep_file_name(src))
 
     _run_with_env(
         ctx,
@@ -335,7 +331,6 @@ def _build_xyrl(
 def _build_erl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        build_dir: str,
         build_environment: SmallBuildEnvironment,
         beam_deps_files: PathArtifactMapping,
         dep_info_file: WriteJsonCliArgs,
@@ -343,7 +338,7 @@ def _build_erl(
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
-    final_dep_file = ctx.actions.declare_output(_dep_final_name(build_dir, src))
+    final_dep_file = ctx.actions.declare_output(_dep_final_name(src))
     initial_dep_file = beam_deps_files[src.basename]
     _run_with_env(
         ctx,
@@ -367,7 +362,7 @@ def _build_erl(
             cmd_args(outputs[output].as_output(), parent = 1),
             src,
         )
-        mapping_file = ctx.actions.write_json(_dep_mapping_name(build_dir, src), mapping)
+        mapping_file = ctx.actions.write_json(_dep_mapping_name(src), mapping)
         _run_with_env(
             ctx,
             toolchain,
@@ -518,10 +513,10 @@ def _preserved_opts(opts: list[str]) -> cmd_args:
     joined = cmd_args(preserved, delimiter = ", ")
     return cmd_args(joined, format = "{options, [{}]}")
 
-def generated_erl_path(build_dir: str, appname: str, src: Artifact) -> str:
+def generated_erl_path(appname: str, src: Artifact) -> str:
     """The output path for generated erl files."""
     return paths.join(
-        build_dir,
+        _BUILD_DIR,
         "__generated_%s" % (appname,),
         "%s.erl" % (module_name(src),),
     )
@@ -555,43 +550,40 @@ def _is_ext(in_file: Artifact, extension: str) -> bool:
     """ Returns True if the artifact has an extension listed in extensions """
     return in_file.basename.endswith(extension)
 
-def _dep_file_name(build_dir: str, src: Artifact) -> str:
+def _dep_file_name(src: Artifact) -> str:
     return paths.join(
-        build_dir,
+        _BUILD_DIR,
         "__dep_files",
         "{}.dep".format(src.short_path),
     )
 
-def _dep_final_name(build_dir: str, src: Artifact) -> str:
+def _dep_final_name(src: Artifact) -> str:
     return paths.join(
-        build_dir,
+        _BUILD_DIR,
         "__dep_files",
         "{}.final.dep".format(src.short_path),
     )
 
-def _dep_merged_name(build_dir: str, name: str) -> str:
+def _dep_merged_name(name: str) -> str:
     return paths.join(
-        build_dir,
+        _BUILD_DIR,
         "__dep_files",
         "{}.merged.dep".format(name),
     )
 
-def _dep_mapping_name(build_dir: str, src: Artifact) -> str:
+def _dep_mapping_name(src: Artifact) -> str:
     return paths.join(
-        build_dir,
+        _BUILD_DIR,
         "__dep_files",
         "{}.mapping".format(src.short_path),
     )
 
-def _dep_info_name(build_dir: str) -> str:
+def _dep_info_name() -> str:
     return paths.join(
-        build_dir,
+        _BUILD_DIR,
         "__dep_files",
         "app.info.dep",
     )
-
-def _build_dir() -> str:
-    return "__build"
 
 def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **kwargs):
     """ run interfact that injects env"""
@@ -632,13 +624,13 @@ erlang_build = struct(
         generate_beam_artifacts = _generate_beam_artifacts,
     ),
     utils = struct(
+        BUILD_DIR = _BUILD_DIR,
         is_hrl = _is_hrl,
         is_erl = _is_erl,
         is_yrl = _is_yrl,
         is_xrl = _is_xrl,
         is_config = _is_config,
         module_name = module_name,
-        build_dir = _build_dir,
         run_with_env = _run_with_env,
         peek_private_includes = _peek_private_includes,
     ),

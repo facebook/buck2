@@ -197,7 +197,7 @@ def _generate_priv_dir(ctx: AnalysisContext) -> Artifact:
 
     return ctx.actions.symlinked_dir(
         paths.join(
-            erlang_build.utils.build_dir(),
+            erlang_build.utils.BUILD_DIR,
             name,
             "priv",
         ),
@@ -215,11 +215,10 @@ def _generate_app_file(
           beams.
     """
     _check_application_dependencies(ctx)
-    build_dir = erlang_build.utils.build_dir()
 
     app_file_name = name + ".app"
-    output = ctx.actions.declare_output(build_dir, app_file_name)
-    app_info_file = _app_info_content(ctx, build_dir, name, srcs)
+    output = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, app_file_name)
+    app_info_file = _app_info_content(ctx, name, srcs)
 
     erlang_build.utils.run_with_env(
         ctx,
@@ -248,11 +247,10 @@ def _check_applications_field(field: list[Dependency], tag: str, discovered: dic
 
 def _app_info_content(
         ctx: AnalysisContext,
-        build_dir: str,
         name: str,
         srcs: list[Artifact]) -> Artifact:
     """build an app_info.json file that contains the meta information for building the .app file"""
-    app_info = ctx.actions.declare_output(build_dir, "app_info.json")
+    app_info = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "app_info.json")
 
     data = {
         "applications": [
