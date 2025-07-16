@@ -13,7 +13,41 @@ load("@prelude//:prelude.bzl", "native")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:type_defs.bzl", "is_dict", "is_list")
 
-DEFAULT_PLATFORM_TEMPLATES = select({
+# Call from a PACKAGE or BUCK_TREE file to make the macros in this file
+# recognize your own non-default platforms.
+#
+#     load("@prelude//rust:cargo_package.bzl", "DEFAULT_REINDEER_PLATFORMS", "set_reindeer_platforms")
+#
+#     set_reindeer_platforms(select({
+#         "DEFAULT": DEFAULT_REINDEER_PLATFORMS,  # (optional)
+#         "ovr_config//cpu:arm32-embedded-fpu": "thumbv7em-none-eabihf",
+#     }))
+#
+def set_reindeer_platforms(platforms) -> None:
+    native.write_package_value(
+        "rust.reindeer_platforms",
+        _convert_select_to_dict(platforms),
+        overwrite = True,
+    )
+    native.write_package_value(
+        "rust.reindeer_platform_names",
+        _reindeer_platform_names(platforms),
+        overwrite = True,
+    )
+
+def get_reindeer_platforms():
+    platforms = native.read_package_value("rust.reindeer_platforms")
+    if platforms != None:
+        return _convert_dict_to_select(platforms)
+    return DEFAULT_REINDEER_PLATFORMS
+
+def get_reindeer_platform_names() -> set[str]:
+    platform_names = native.read_package_value("rust.reindeer_platform_names")
+    if platform_names != None:
+        return platform_names
+    return _DEFAULT_REINDEER_PLATFORM_NAMES
+
+DEFAULT_REINDEER_PLATFORMS = select({
     "DEFAULT": None,
     "config//os:linux": select({
         "DEFAULT": None,
@@ -41,59 +75,98 @@ DEFAULT_PLATFORM_TEMPLATES = select({
     }),
 })
 
-def apply_platform_attrs(
-        platform_attrs,
-        universal_attrs = {},
-        templates = DEFAULT_PLATFORM_TEMPLATES):
-    combined_attrs = dict(universal_attrs)
+def _reindeer_platform_names(platform_select) -> set[str]:
+    names = set()
+    selects.apply(
+        platform_select,
+        lambda plat: names.add(plat) if plat != None else None,
+    )
+    return names
 
-    if is_dict(templates):
-        # Deprecated format: {
-        #     "linux-arm64": select({
-        #         "DEFAULT": False,
-        #         "config//os:linux": select({
-        #             "DEFAULT": False,
-        #             "config//cpu:arm64": True,
-        #         }),
-        #     }),
-        #     ...
-        # }
-        for platform, attrs in platform_attrs.items():
-            template = templates.get(platform, None)
-            if template:
-                for attr, value in attrs.items():
-                    default_value = {} if type(value) == type({}) else [] if type(value) == type([]) else None
-                    conditional_value = selects.apply(template, lambda cond: value if cond else default_value)
-                    if attr in combined_attrs:
-                        combined_attrs[attr] = combined_attrs[attr] + conditional_value
-                    else:
-                        combined_attrs[attr] = conditional_value
-    else:
-        # Preferred format: select({
-        #     "config//os:linux": select({
-        #         "config//cpu:arm64": "linux-arm64",
-        #         ...
-        #     }),
-        #     ...
-        # })
-        platform_attr_defaults = {}
-        for attrs in platform_attrs.values():
-            for attr, value in attrs.items():
-                if native.select_test(value, is_list):
-                    platform_attr_defaults[attr] = []
-                elif native.select_test(value, is_dict):
-                    platform_attr_defaults[attr] = {}
-                else:
-                    platform_attr_defaults[attr] = None
-        for attr, default_value in platform_attr_defaults.items():
-            conditional_value = selects.apply(
-                templates,
-                lambda platform: platform_attrs.get(platform, {}).get(attr, default_value),
-            )
-            if attr in combined_attrs:
-                combined_attrs[attr] = combined_attrs[attr] + conditional_value
+_DEFAULT_REINDEER_PLATFORM_NAMES = _reindeer_platform_names(DEFAULT_REINDEER_PLATFORMS)
+
+# Disect the `repr` representation of a `select`, which looks like this:
+#   select({"DEFAULT": None, "config//os:linux": "linux-arm64", ...})
+#
+# [WORKAROUND] This will be unnecessary once `write_package_value` allows
+# selects, which seems to have consensus and just needs to be implemented.
+def _convert_select_to_dict(select_value):
+    string = repr(select_value)
+    result = None
+    key = None
+    stack = []
+
+    for _ in string.elems():
+        # Parse a value (non-key)
+        if string.startswith('"'):
+            value, string = string[1:].split('"', 1)
+        elif string.startswith("None"):
+            value, string = None, string.removeprefix("None")
+        elif string.startswith("select({"):
+            value, string = {}, string.removeprefix("select({")
+        else:
+            fail()
+
+        # Insert the parsed value into the surrounding collection
+        if key == None:
+            result = value
+        else:
+            stack[-1][key] = value
+
+        # Parse a key
+        if value == {}:
+            stack.append(value)
+            if string.startswith('"'):
+                key, string = string.removeprefix('"').split('": ', 1)
+                continue  # Back to parsing a value
+
+        # Pop the stack while there are selects ending
+        for _ in range(len(stack)):
+            if string.startswith("})"):
+                string = string.removeprefix("})")
+                stack.pop()
             else:
-                combined_attrs[attr] = conditional_value
+                break
+
+        # Parse separator and next key
+        if string == "":
+            return result
+        elif string.startswith(', "'):
+            key, string = string.removeprefix(', "').split('": ', 1)
+        else:
+            fail()
+    fail()
+
+def _convert_dict_to_select(value):
+    return value if not is_dict(value) else select({
+        k: _convert_dict_to_select(v)
+        for k, v in value.items()
+    })
+
+def apply_platform_attrs(platform_attrs, universal_attrs, platform_select = None):
+    if platform_select == None:
+        platform_select = get_reindeer_platforms()
+
+    platform_attr_defaults = {}
+    for attrs in platform_attrs.values():
+        for attr, value in attrs.items():
+            if native.select_test(value, is_list):
+                platform_attr_defaults[attr] = []
+            elif native.select_test(value, is_dict):
+                platform_attr_defaults[attr] = {}
+            else:
+                platform_attr_defaults[attr] = None
+
+    combined_attrs = dict(universal_attrs)
+    for attr, default_value in platform_attr_defaults.items():
+        conditional_value = selects.apply(
+            platform_select,
+            lambda platform: platform_attrs.get(platform, {}).get(attr, default_value),
+        )
+        if attr in combined_attrs:
+            combined_attrs[attr] = combined_attrs[attr] + conditional_value
+        else:
+            combined_attrs[attr] = conditional_value
 
     return combined_attrs
 
@@ -122,12 +195,12 @@ def _cargo_rust_library(name, platform = {}, **kwargs):
 def alias(name, actual, platforms = None, visibility = None):
     if platforms == None:
         target_compatible_with = selects.apply(
-            DEFAULT_PLATFORM_TEMPLATES,
+            get_reindeer_platforms(),
             lambda plat: ["prelude//:none"] if plat == None else [],
         )
     else:
         target_compatible_with = selects.apply(
-            DEFAULT_PLATFORM_TEMPLATES,
+            get_reindeer_platforms(),
             lambda plat: [] if plat in platforms else ["prelude//:none"],
         )
 
