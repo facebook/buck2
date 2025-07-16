@@ -1,10 +1,9 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# This source code is dual-licensed under either the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree or the Apache
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree. You may select, at your option, one of the
-# above-listed licenses.
+# of this source tree.
 
 load("@prelude//cxx:comp_db.bzl", "CxxCompilationDbInfo")
 load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
@@ -31,7 +30,12 @@ def _make_entry(ctx: bxl.Context, target: Label, compile_command: CxxSrcCompileC
 
     return result
 
-def generate_impl(ctx: bxl.Context, targets, include_headers: bool, add_target_name: bool):
+
+def _impl(ctx: bxl.Context):
+    targets = ctx.configured_targets(flatten(ctx.cli_args.targets), modifiers = ctx.modifiers)
+    if ctx.cli_args.recursive:
+        targets = ctx.cquery().deps(targets)
+
     actions = ctx.bxl_actions().actions
 
     db = []
@@ -39,17 +43,13 @@ def generate_impl(ctx: bxl.Context, targets, include_headers: bool, add_target_n
         comp_db_info = target.providers().get(CxxCompilationDbInfo)
         if comp_db_info:
             for cc in comp_db_info.info.values():
-                if include_headers or (not cc.is_header):
-                    db.append(_make_entry(ctx, _name, cc, add_target_name))
+                if ctx.cli_args.include_headers or (not cc.is_header):
+                    db.append(_make_entry(ctx, _name, cc, ctx.cli_args.add_target_name))
 
     if db:
         db_file = actions.declare_output("compile_commands.json")
         actions.write_json(db_file.as_output(), db, with_inputs = True, pretty = True)
         ctx.output.print(ctx.output.ensure(db_file))
-
-def _impl(ctx: bxl.Context):
-    targets = ctx.configured_targets(flatten(ctx.cli_args.targets), modifiers = ctx.modifiers)
-    generate_impl(ctx, targets, ctx.cli_args.include_headers, ctx.cli_args.add_target_name)
 
 generate = bxl_main(
     doc = "Generate a compilation database for a set of targets and print its path to stdout",
@@ -66,6 +66,10 @@ generate = bxl_main(
         "add-target-name": cli_args.bool(
             default = False,
             doc = "Include the name of the target in the compilation database entries (non-standard)"
+        ),
+        "recursive": cli_args.bool(
+            default = False,
+            doc = "Automatically include all dependent targets in the generated compilation db"
         )
     },
 )
