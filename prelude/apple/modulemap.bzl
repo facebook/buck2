@@ -97,24 +97,9 @@ def create_modulemap(
 
     return CPreprocessor(
         args = CPreprocessorArgs(
-            args = _exported_preprocessor_args(symlink_tree) + (additional_args.args if additional_args else []),
+            args = [cmd_args(symlink_tree, format = "-I{}")] + (additional_args.args if additional_args else []),
             file_prefix_args = additional_args.file_prefix_args if additional_args else [],
         ),
-        modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
-        modulemap_path = cmd_args(output, hidden = cmd_args(symlink_tree)),
+        modular_args = [cmd_args(output, format = "-fmodule-map-file={}")],
+        modulemap_path = cmd_args(output),
     ), output
-
-def _args_for_modulemap(
-        modulemap: Artifact,
-        symlink_tree: Artifact,
-        swift_header: Artifact | None) -> list[cmd_args]:
-    cmd = cmd_args(
-        modulemap,
-        format = "-fmodule-map-file={}",
-        hidden = [symlink_tree] + ([swift_header] if swift_header else []),
-    )
-
-    return [cmd]
-
-def _exported_preprocessor_args(symlink_tree: Artifact) -> list[cmd_args]:
-    return [cmd_args(symlink_tree, format = "-I{}")]
