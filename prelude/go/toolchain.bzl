@@ -6,6 +6,20 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+GoDistrInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "bin_go": provider_field(RunInfo),
+        "go_root": provider_field(Artifact | None),
+        "tool_asm": provider_field(RunInfo),
+        "tool_compile": provider_field(RunInfo),
+        "tool_cover": provider_field(RunInfo),
+        "tool_cgo": provider_field(RunInfo),
+        "tool_link": provider_field(RunInfo),
+        "tool_pack": provider_field(RunInfo),
+    },
+)
+
 GoToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
