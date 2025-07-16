@@ -165,7 +165,7 @@ impl<V: ValueLifetimeless> TransitiveSetOperationsGen<V> {
             None => {
                 return Err(TransitiveSetError::ProjectionDoesNotExist {
                     projection: proj.to_owned(),
-                    valid_projections: self.valid_projections(TransitiveSetProjectionKind::Args),
+                    valid_projections: self.valid_projections(kind),
                 }
                 .into());
             }
