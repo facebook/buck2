@@ -114,7 +114,7 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
         c_compiler.compiler_flags,
         pre_args,
         pre_include_dirs,
-        go_toolchain.c_compiler_flags,
+        go_toolchain.cxx_compiler_flags,
     )
 
     # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
@@ -178,7 +178,7 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
             rule_type = "cgo_sources",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
-            compiler_flags = go_toolchain.c_compiler_flags + c_flags + ctx.attrs.cxx_compiler_flags + get_target_sdk_version_flags(ctx),
+            compiler_flags = go_toolchain.cxx_compiler_flags + c_flags + ctx.attrs.cxx_compiler_flags + get_target_sdk_version_flags(ctx),
             preprocessor_flags = cpp_flags + ctx.attrs.cxx_preprocessor_flags,
             anon_targets_allowed = anon_targets_allowed,
         ),
