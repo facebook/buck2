@@ -230,6 +230,8 @@ def main() -> None:  # noqa: C901
 
     cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
     cargo_rustc_env_pattern = re.compile("^cargo:rustc-env=(.+?)=(.*)")
+    cargo_rustc_link_lib_pattern = re.compile("^cargo:rustc-link-lib=(.*)")
+    cargo_rustc_link_search_pattern = re.compile("^cargo:rustc-link-search=(?:(\w+)=(.+)|(.+))")
     flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
@@ -246,6 +248,21 @@ def main() -> None:  # noqa: C901
                 flags += f"--env-set={key}=$(abspath {relative_path})\n"
             else:
                 flags += f"--env-set={key}={value}\n"
+            continue
+        cargo_rustc_link_lib_match = cargo_rustc_link_lib_pattern.match(line)
+        if cargo_rustc_link_lib_match:
+            value = cargo_rustc_link_lib_match.group(1)
+            flags += f"-l{value}\n"
+            continue
+        cargo_rustc_link_search_match = cargo_rustc_link_search_pattern.match(line)
+        if cargo_rustc_link_search_match:
+            kind = cargo_rustc_link_search_match.group(1)
+            path = cargo_rustc_link_search_match.group(2) or cargo_rustc_link_search_match.group(3)
+            if kind:
+                kind += "="
+            else:
+                kind = ""
+            flags += f"-L{kind}{path}\n"
             continue
         print(line, end="\n")
     args.outfile.write(flags)
