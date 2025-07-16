@@ -158,7 +158,10 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 materialized_artifacts.append(materialized_artifacts_dir)
         if has_proguard_config:
             additional_proguard_configs = [resources_info.proguard_config_file] if not ctx.attrs.ignore_aapt_proguard_config and resources_info.proguard_config_file else []
-            additional_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1]
+
+            no_dx_for_additional_jars = [no_dx for no_dx in ctx.attrs.no_dx if no_dx not in ctx.attrs.exclude_duplicate_targets_do_not_use]
+            additional_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + [no_dx[DefaultInfo].default_outputs[0] for no_dx in no_dx_for_additional_jars if len(no_dx[DefaultInfo].default_outputs) == 1]
+
             proguard_output = get_proguard_output(
                 ctx,
                 jars_to_owners,
