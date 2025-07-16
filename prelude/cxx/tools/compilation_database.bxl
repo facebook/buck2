@@ -10,7 +10,7 @@ load("@prelude//cxx:comp_db.bzl", "CxxCompilationDbInfo")
 load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
 load("@prelude//utils:utils.bzl", "flatten")
 
-def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict:
+def _make_entry(ctx: bxl.Context, target: Label, compile_command: CxxSrcCompileCommand, add_target_name: bool) -> dict:
     args = compile_command.cxx_compile_cmd.base_compile_cmd.copy()
 
     # This prevents clangd from jumping into `buck-out` when using Go To
@@ -20,25 +20,36 @@ def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict
     args.add(compile_command.args)
     ctx.output.ensure_multiple(args)
 
-    return {
+    result = {
         "arguments": args,
         "directory": ctx.fs.abs_path_unsafe(ctx.root()),
         "file": compile_command.src,
     }
 
-def _impl(ctx: bxl.Context):
+    if add_target_name:
+        result["target"] = target.configured_target().raw_target()
+
+    return result
+
+def generate_impl(ctx: bxl.Context, targets, include_headers: bool, add_target_name: bool):
     actions = ctx.bxl_actions().actions
 
     db = []
-    targets = ctx.configured_targets(flatten(ctx.cli_args.targets), modifiers = ctx.modifiers)
     for _name, target in ctx.analysis(targets).items():
         comp_db_info = target.providers().get(CxxCompilationDbInfo)
         if comp_db_info:
-            db += [_make_entry(ctx, cc) for cc in comp_db_info.info.values()]
+            for cc in comp_db_info.info.values():
+                if include_headers or (not cc.is_header):
+                    db.append(_make_entry(ctx, _name, cc, add_target_name))
 
-    db_file = actions.declare_output("compile_commands.json")
-    actions.write_json(db_file.as_output(), db, with_inputs = True, pretty = True)
-    ctx.output.print(ctx.output.ensure(db_file))
+    if db:
+        db_file = actions.declare_output("compile_commands.json")
+        actions.write_json(db_file.as_output(), db, with_inputs = True, pretty = True)
+        ctx.output.print(ctx.output.ensure(db_file))
+
+def _impl(ctx: bxl.Context):
+    targets = ctx.configured_targets(flatten(ctx.cli_args.targets), modifiers = ctx.modifiers)
+    generate_impl(ctx, targets, ctx.cli_args.include_headers, ctx.cli_args.add_target_name)
 
 generate = bxl_main(
     doc = "Generate a compilation database for a set of targets and print its path to stdout",
@@ -48,5 +59,13 @@ generate = bxl_main(
             cli_args.target_expr(),
             doc = "Targets to generate the database for",
         ),
+        "include-headers": cli_args.bool(
+            default = True,
+            doc = "Include header file compilation db actions"
+        ),
+        "add-target-name": cli_args.bool(
+            default = False,
+            doc = "Include the name of the target in the compilation database entries (non-standard)"
+        )
     },
 )
