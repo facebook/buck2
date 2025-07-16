@@ -505,6 +505,9 @@ impl<'a> BuckArgMatches<'a> {
                             state = State::Matched("-m");
                             None
                         }
+                        v if v.starts_with("-m") => Some(RepresentativeConfigFlagSource::Modifier(
+                            v.split_at("-m".len()).1.trim().to_owned(),
+                        )),
                         "--modifier" => {
                             state = State::Matched("-m");
                             None
@@ -518,6 +521,12 @@ impl<'a> BuckArgMatches<'a> {
                                 v.split_once("=").unwrap().1.to_owned(),
                             ))
                         }
+                        v if v.starts_with("-c") => {
+                            Some(RepresentativeConfigFlagSource::ConfigFlag(
+                                v.split_at("-c".len()).1.trim().to_owned(),
+                            ))
+                        }
+
                         v if v.starts_with("--config-file=") => {
                             Some(RepresentativeConfigFlagSource::ConfigFile(
                                 v.split_at("--config-file=".len()).1.to_owned(),
@@ -605,6 +614,9 @@ mod tests {
         argv.push("-c".to_owned());
         argv.push("section.option=value".to_owned());
 
+        argv.push("-c section1.option=value".to_owned());
+        argv.push("-csection2.option=value".to_owned());
+
         argv.push("--other-flag".to_owned());
         argv.push("value".to_owned());
         argv.push("--other-flag2".to_owned());
@@ -622,6 +634,8 @@ mod tests {
 
         argv.push("-m".to_owned());
         argv.push("//bar:baz".to_owned());
+        argv.push("-m //bar1:baz".to_owned());
+        argv.push("-m//bar2:baz".to_owned());
         argv.push("--modifier=//foo:bar".to_owned());
         argv.push("--modifier".to_owned());
         argv.push("//bar:foo".to_owned());
@@ -639,12 +653,16 @@ mod tests {
             flags,
             vec![
                 "-c section.option=value",
+                "-c section1.option=value",
+                "-c section2.option=value",
                 "-c section.option2=value",
                 "-c section.option3=value",
                 "-c section.option4=value",
                 "--config-file //1.bcfg",
                 "--config-file //2.bcfg",
                 "-m //bar:baz",
+                "-m //bar1:baz",
+                "-m //bar2:baz",
                 "-m //foo:bar",
                 "-m //bar:foo",
                 "--target-platforms ovr_config//platforms/linux:some_linux_platform"
