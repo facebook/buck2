@@ -296,10 +296,11 @@ def _compute_pex_providers(
     if ctx.attrs.runtime_bundle:
         bundle = ctx.attrs.runtime_bundle[PythonRuntimeBundleInfo]
         build_args.append(cmd_args("--passthrough=--python-home=runtime"))
-        build_args.append(cmd_args("--passthrough=--preload=runtime/lib/{}".format(bundle.libpython.basename)))
         extra_artifacts["runtime/bin/{}".format(bundle.py_bin.basename)] = bundle.py_bin
         extra_artifacts["runtime/lib/{}".format(bundle.stdlib.basename)] = bundle.stdlib
-        extra_artifacts["runtime/lib/{}".format(bundle.libpython.basename)] = bundle.libpython
+        if bundle.libpython:
+            build_args.append(cmd_args("--passthrough=--preload=runtime/lib/{}".format(bundle.libpython.basename)))
+            extra_artifacts["runtime/lib/{}".format(bundle.libpython.basename)] = bundle.libpython
         if link_strategy != NativeLinkStrategy("native"):
             entry_point = "runtime/bin/{}".format(bundle.py_bin.basename)
             build_args.append(cmd_args(["--passthrough=--runtime-binary={}".format(entry_point)]))

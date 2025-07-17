@@ -17,7 +17,7 @@ stdlib - the path to the python standard library
 """
 PythonRuntimeBundleInfo = provider(fields = {
     "include": provider_field(Artifact),
-    "libpython": provider_field(Artifact),
+    "libpython": provider_field(Artifact | None),
     "py_bin": provider_field(Artifact),
     "py_version": provider_field(str),
     "stdlib": provider_field(Artifact),
@@ -29,7 +29,7 @@ def python_runtime_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         py_version = ctx.attrs.py_version,
         py_bin = root.project(ctx.attrs.py_bin),
         stdlib = root.project(ctx.attrs.stdlib),
-        libpython = root.project(ctx.attrs.libpython),
+        libpython = root.project(ctx.attrs.libpython) if ctx.attrs.libpython else None,
         include = root.project(ctx.attrs.include),
     )
     return [DefaultInfo(default_output = root), info]

@@ -257,7 +257,10 @@ def _python_runtime_bundle_attrs():
     return {
         "include": attrs.string(doc = "Header files required for linking python extensions"),
         "install_root": attrs.dep(doc = "The filegroup containing the runtime artifacts, all the paths are relative to this location"),
-        "libpython": attrs.string(doc = "libpyhon.so required at runtime for the python executable and native extensions."),
+        "libpython": attrs.option(
+            attrs.string(doc = "libpyhon.so required at runtime for the python executable and native extensions."),
+            default = None,
+        ),
         "py_bin": attrs.string(doc = "The runtime executable"),
         "py_version": attrs.string(doc = "The version of python this represents"),
         "stdlib": attrs.string(doc = "The python standard library"),
