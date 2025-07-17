@@ -26,7 +26,6 @@ load(
     "Toolchain",  # @unused Used as type
     "get_toolchain",
 )
-load(":erlang_utils.bzl", "action_identifier")
 
 # Erlang Releases according to https://www.erlang.org/doc/design_principles/release_structure.html
 
@@ -163,7 +162,7 @@ def _build_boot_script(
         toolchain,
         cmd_args(toolchain.boot_script_builder, spec_file, scripts_dir.as_output()),
         category = "build_boot_script",
-        identifier = action_identifier(toolchain, release_name),
+        identifier = release_name,
     )
 
     return {
@@ -208,7 +207,7 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict
         toolchain,
         cmd_args(toolchain.release_variables_builder, spec_file, release_variables.as_output()),
         category = "build_release_variables",
-        identifier = action_identifier(toolchain, release_name),
+        identifier = release_name,
     )
     return {short_path: release_variables}
 

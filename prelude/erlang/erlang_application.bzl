@@ -30,7 +30,6 @@ load(
 )
 load(
     ":erlang_utils.bzl",
-    "action_identifier",
     "app_name",
 )
 
@@ -225,7 +224,7 @@ def _generate_app_file(
         toolchain,
         cmd_args(toolchain.app_src_script, app_info_file, output.as_output()),
         category = "app_resource",
-        identifier = action_identifier(toolchain, name),
+        identifier = name,
     )
 
     return output

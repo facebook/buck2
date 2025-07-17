@@ -16,10 +16,6 @@ load(
     ":erlang_toolchain.bzl",
     "get_toolchain",
 )
-load(
-    ":erlang_utils.bzl",
-    "action_identifier",
-)
 
 # This is a superset of all available OTP applications and needs to be manually updated
 # if new applications make it into OTP. New applications will not be available until
@@ -97,7 +93,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         toolchain,
         cmd_args(toolchain.extract_from_otp, wildcard, app_dir.as_output()),
-        identifier = action_identifier(toolchain, ctx.attrs.name),
+        identifier = ctx.attrs.name,
         category = "extract_otp_app",
     )
 

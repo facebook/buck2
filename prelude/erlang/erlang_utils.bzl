@@ -7,20 +7,12 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load(
-    ":erlang_toolchain.bzl",
-    "Toolchain",  # @unused Used as type
-)
 
 def app_name(ctx: AnalysisContext) -> str:
     if ctx.attrs.app_name == None:
         return ctx.attrs.name
     else:
         return ctx.attrs.app_name
-
-def action_identifier(toolchain: Toolchain, name: str) -> str:
-    """builds an action identifier parameterized by the toolchain"""
-    return "%s(%s)" % (name, toolchain.name)
 
 def preserve_structure(path: str) -> dict[str, list[str]]:
     """Return a mapping from a path that preserves the filestructure relative to the path."""

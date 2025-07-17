@@ -19,7 +19,6 @@ load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
 )
-load(":erlang_utils.bzl", "action_identifier")
 
 _BUILD_DIR = "__build"
 
@@ -244,7 +243,7 @@ def _merged_deps_file(
         toolchain,
         cmd,
         category = "dependency_merger",
-        identifier = action_identifier(toolchain, name),
+        identifier = name,
     )
 
     return merged_file
@@ -302,7 +301,7 @@ def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) ->
         toolchain,
         cmd_args(toolchain.dependency_analyzer, src, dependency_json.as_output()),
         category = "dependency_analyzer",
-        identifier = action_identifier(toolchain, src.short_path),
+        identifier = src.short_path,
     )
     return dependency_json
 
@@ -324,7 +323,7 @@ def _build_xyrl(
         toolchain,
         cmd,
         category = "erlc",
-        identifier = action_identifier(toolchain, xyrl.basename),
+        identifier = xyrl.basename,
     )
     return output
 
@@ -345,7 +344,7 @@ def _build_erl(
         toolchain,
         cmd_args(toolchain.dependency_finalizer, initial_dep_file, dep_info_file, final_dep_file.as_output()),
         category = "dependency_finalizer",
-        identifier = action_identifier(toolchain, src.basename),
+        identifier = src.basename,
     )
 
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
@@ -367,7 +366,7 @@ def _build_erl(
             toolchain,
             erlc_cmd,
             category = "erlc",
-            identifier = action_identifier(toolchain, src.basename),
+            identifier = src.basename,
             env = {"BUCK2_FILE_MAPPING": mapping_file},
             always_print_stderr = True,
         )

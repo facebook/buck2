@@ -16,7 +16,6 @@ load(
     "Toolchain",  # @unused Used as type
     "get_toolchain",
 )
-load(":erlang_utils.bzl", "action_identifier")
 
 def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain = get_toolchain(ctx)
@@ -103,7 +102,7 @@ def create_escript(
         toolchain,
         cmd_args(toolchain.escript_builder, spec_file),
         category = "escript",
-        identifier = action_identifier(toolchain, escript_name),
+        identifier = escript_name,
     )
     return None
 
