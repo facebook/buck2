@@ -45,6 +45,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
@@ -130,7 +131,17 @@ def _rust_binary_common(
 
     params = strategy_param[link_strategy]
     name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
-    output = ctx.actions.declare_output(name)
+
+    enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
+    if enable_late_build_info_stamping:
+        allow_cache_upload = True
+        unstamped_name = output_filename(compile_ctx, simple_crate, Emit("link"), params, "-unstamped")
+        predeclared_output = ctx.actions.declare_output(unstamped_name)
+        final_output = ctx.actions.declare_output(name)
+    else:
+        # If not using late build info stamping, then the output will be stamped eagerly in rust_compile
+        predeclared_output = ctx.actions.declare_output(name)
+        final_output = predeclared_output
 
     rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
         ctx,
@@ -180,7 +191,7 @@ def _rust_binary_common(
     executable_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
-        output,
+        final_output,
         shared_libs,
     )
 
@@ -192,18 +203,17 @@ def _rust_binary_common(
         params = params,
         default_roots = default_roots,
         extra_link_args = executable_args.extra_link_args,
-        predeclared_output = output,
+        predeclared_output = predeclared_output,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
         incremental_enabled = ctx.attrs.incremental_enabled,
-        is_executable = True,
     )
 
-    # post link actions might mutate default output path
-    name = link.output.short_path
+    if enable_late_build_info_stamping:
+        stamp_build_info(ctx, link.output, final_output)
 
-    args = cmd_args(link.output, hidden = executable_args.runtime_files)
+    args = cmd_args(final_output, hidden = executable_args.runtime_files)
     external_debug_info = project_artifacts(
         actions = ctx.actions,
         tsets = [inherited_external_debug_info(
@@ -222,7 +232,7 @@ def _rust_binary_common(
         resources_hidden = [create_resource_db(
             ctx = ctx,
             name = name + ".resources.json",
-            binary = output,
+            binary = final_output,
             resources = resources,
         )]
         for resource in resources.values():
@@ -422,11 +432,11 @@ def _rust_binary_common(
         ]
 
     if link.pdb:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = final_output)
 
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:
-        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, link.output, dupmbin_toolchain)
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, final_output, dupmbin_toolchain)
 
     sub_targets.update({
         k: [DefaultInfo(default_output = v)]
@@ -435,7 +445,7 @@ def _rust_binary_common(
 
     providers += [
         DefaultInfo(
-            default_output = link.output,
+            default_output = final_output,
             other_outputs = runtime_files + executable_args.external_debug_info + external_debug_info,
             sub_targets = sub_targets,
         ),
