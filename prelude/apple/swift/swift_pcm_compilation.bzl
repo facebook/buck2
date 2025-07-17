@@ -176,7 +176,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             ),
             WrappedSdkCompiledModuleInfo(
                 clang_deps = sdk_deps_tset,
-                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers, [pcm_info.output_artifact]),
+                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers, [pcm_info.output_artifact] + pcm_info.clang_modulemap_artifacts),
             ),
         ]
 

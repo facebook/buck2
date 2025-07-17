@@ -16,7 +16,7 @@ load(
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
-load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
+load("@prelude//apple:modulemap.bzl", "create_modulemap")
 load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "uses_explicit_modules")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
@@ -414,7 +414,7 @@ def compile_swift(
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
-    modulemap_pp_info = preprocessor_info_for_modulemap(
+    modulemap_pp_info, extended_modulemap = create_modulemap(
         ctx,
         name = "swift-extended",
         module_name = module_name,
@@ -466,8 +466,11 @@ def compile_swift(
                 [
                     exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
                     private_compiled_underlying_pcm.output_artifact if private_compiled_underlying_pcm else None,
+                    extended_modulemap,
                 ],
-            ),
+            ) +
+            (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []) +
+            (private_compiled_underlying_pcm.clang_modulemap_artifacts if private_compiled_underlying_pcm else []),
         ),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,

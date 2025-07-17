@@ -18,6 +18,8 @@ ArtifactInfoTag = enum(
     "swiftmodule",
     # Describes clang pcm module artifact generated and consumed by swift rules.
     "swift_pcm",
+    # Describes clang modulemap artifact required to produce a pcm.
+    "objc_modulemap",
 )
 
 ArtifactInfo = record(
