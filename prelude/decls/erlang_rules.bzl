@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
-load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo")
+load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo", "ErlangAppOrTestInfo")
 load(":common.bzl", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -245,7 +245,7 @@ rules_attributes = {
                 [OTP documentation](https://www.erlang.org/doc/man/config.html). These ones should consist of default_output of
                 some targets. In general, this field is filled with target coming from then `export_file` rule, as in the example below.
             """),
-        "deps": attrs.list(attrs.dep(), default = [], doc = """
+        "deps": attrs.list(attrs.dep(providers = [ErlangAppOrTestInfo]), default = [], doc = """
                 The set of dependencies needed for all suites included in the target
                 to compile and run. They could be either `erlang_app(lication)` or `erlang_test`
                 targets, although the latter is discouraged. If some suites need to access common methods,

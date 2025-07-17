@@ -11,7 +11,7 @@ load(
     ":erlang_build.bzl",
     "erlang_build",
 )
-load(":erlang_info.bzl", "ErlangAppInfo")
+load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo")
 load(
     ":erlang_toolchain.bzl",
     "get_toolchain",
@@ -99,6 +99,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(),
+        ErlangAppOrTestInfo(),
         ErlangAppInfo(
             name = ctx.attrs.name,
             version = ctx.attrs.version,

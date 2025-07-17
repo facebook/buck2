@@ -16,10 +16,9 @@ load(
 load(
     ":erlang_dependencies.bzl",
     "ErlAppDependencies",
-    "check_dependencies",
     "flatten_dependencies",
 )
-load(":erlang_info.bzl", "ErlangAppInfo", "ErlangTestInfo")
+load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangTestInfo")
 load(":erlang_otp_application.bzl", "normalize_application")
 load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
@@ -129,7 +128,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     deps = ctx.attrs.deps + [ctx.attrs._test_binary_lib]
 
     # collect all dependencies
-    check_dependencies(deps, [ErlangAppInfo, ErlangTestInfo])
     dependencies = flatten_dependencies(ctx, deps)
 
     # prepare build environment
@@ -221,6 +219,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         default_info,
         run_info,
+        ErlangAppOrTestInfo(),
         ExternalRunnerTestInfo(
             type = "erlang_test",
             command = [cmd],

@@ -15,17 +15,6 @@ load(
 
 ErlAppDependencies = dict[str, Dependency]
 
-def check_dependencies(in_deps: list[Dependency], allowlist: list):
-    """enforce all dependencies implement one of the expected providers"""
-    for dep in in_deps:
-        passed = False
-        for dep_type in allowlist:
-            if dep_type in dep:
-                passed = True
-                break
-        if not passed:
-            _bad_dependency_error(dep)
-
 def flatten_dependencies(_ctx: AnalysisContext, deps: list[Dependency]) -> ErlAppDependencies:
     """ collect transitive dependencies
 
@@ -69,9 +58,3 @@ def _safe_add_dependency(dependencies: ErlAppDependencies, dep: Dependency) -> E
     elif dep[ErlangAppIncludeInfo].name not in dependencies:
         dependencies[dep[ErlangAppIncludeInfo].name] = dep
     return dependencies
-
-def _bad_dependency_error(dep: Dependency):
-    fail((
-        "unsupported dependency through target `%s`: " +
-        "the target needs to define an Erlang application"
-    ) % (str(dep.label),))

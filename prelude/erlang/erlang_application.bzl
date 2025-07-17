@@ -21,6 +21,7 @@ load(
     ":erlang_info.bzl",
     "ErlangAppIncludeInfo",
     "ErlangAppInfo",
+    "ErlangAppOrTestInfo",
 )
 load(":erlang_shell.bzl", "erlang_shell")
 load(
@@ -100,6 +101,7 @@ def build_application(ctx, name, toolchain, dependencies) -> list[Provider]:
     )
     return [
         default_info,
+        ErlangAppOrTestInfo(),
         run_info,
         app_info,
     ]

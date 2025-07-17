@@ -64,6 +64,9 @@ ErlangReleaseInfo = provider(
     },
 )
 
+# Marker provider to enforce what erlang tests can depend on
+ErlangAppOrTestInfo = provider(fields = {})
+
 # OTP Binaries
 ErlangOTPBinariesInfo = provider(
     fields = {
