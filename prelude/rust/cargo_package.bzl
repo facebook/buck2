@@ -49,29 +49,29 @@ def get_reindeer_platform_names() -> set[str]:
 
 DEFAULT_REINDEER_PLATFORMS = select({
     "DEFAULT": None,
-    "config//os:linux": select({
+    "prelude//os:linux": select({
         "DEFAULT": None,
-        "config//cpu:arm64": "linux-arm64",
-        "config//cpu:riscv64": "linux-riscv64",
-        "config//cpu:x86_64": "linux-x86_64",
+        "prelude//cpu:arm64": "linux-arm64",
+        "prelude//cpu:riscv64": "linux-riscv64",
+        "prelude//cpu:x86_64": "linux-x86_64",
     }),
-    "config//os:macos": select({
+    "prelude//os:macos": select({
         "DEFAULT": None,
-        "config//cpu:arm64": "macos-arm64",
-        "config//cpu:x86_64": "macos-x86_64",
+        "prelude//cpu:arm64": "macos-arm64",
+        "prelude//cpu:x86_64": "macos-x86_64",
     }),
-    "config//os:none": select({
+    "prelude//os:none": select({
         "DEFAULT": None,
-        "config//cpu:wasm32": "wasm32",
+        "prelude//cpu:wasm32": "wasm32",
     }),
-    "config//os:wasi": select({
+    "prelude//os:wasi": select({
         "DEFAULT": None,
-        "config//cpu:wasm32": "wasi",
+        "prelude//cpu:wasm32": "wasi",
     }),
-    "config//os:windows": select({
+    "prelude//os:windows": select({
         "DEFAULT": "windows-msvc",
-        "config//abi:gnu": "windows-gnu",
-        "config//abi:msvc": "windows-msvc",
+        "prelude//abi:gnu": "windows-gnu",
+        "prelude//abi:msvc": "windows-msvc",
     }),
 })
 
