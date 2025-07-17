@@ -212,8 +212,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     .buck_error_context("remote_execution_max_input_files_mebibytes is negative")?
                     .map(|b| b * 1024 * 1024);
 
-                let re_max_queue_time =
-                    remote_execution_queue_time_threshold_s.map(Duration::from_secs);
+                let re_max_queue_time = buck2_common::self_test_timeout::maybe_cap_timeout(
+                    remote_execution_queue_time_threshold_s.map(Duration::from_secs),
+                );
 
                 Some(RemoteExecutorOptions {
                     re_max_input_files_bytes,

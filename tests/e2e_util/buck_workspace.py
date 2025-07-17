@@ -80,8 +80,8 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_TEST_BLOCK_ON_UPLOAD"] = "true"
     # Require the events dispatcher to be set for e2e tests.
     env["ENFORCE_DISPATCHER_SET"] = "true"
-    # Auto-destroy after a while. This should be longer than the test timeout.
-    env["BUCK2_TERMINATE_AFTER"] = "650"
+    # Inform buck of the test timeout
+    env["BUCK2_SELF_TEST_TIMEOUT_S"] = "600"
     # Timeout Watchman requests because we often see it hang and crash.
     env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
     env["BUCK2_RUNTIME_THREADS"] = "8"
