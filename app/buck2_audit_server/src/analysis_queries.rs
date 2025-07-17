@@ -21,7 +21,6 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use dupe::Dupe;
 
 use crate::ServerAuditSubcommand;
 use crate::common::target_resolution_config::audit_command_target_resolution_config;
@@ -50,11 +49,14 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
 
                 let mut stdout = stdout.as_writer();
 
-                for (package, spec) in resolved_pattern.specs {
+                for (package_with_modifiers, spec) in resolved_pattern.specs {
                     match spec {
                         buck2_core::pattern::pattern::PackageSpec::Targets(targets) => {
-                            for (target, TargetPatternExtra, _modifiers) in targets {
-                                let label = TargetLabel::new(package.dupe(), target.as_ref());
+                            for (target, TargetPatternExtra) in targets {
+                                let label = TargetLabel::new(
+                                    package_with_modifiers.package,
+                                    target.as_ref(),
+                                );
                                 for configured_target in target_resolution_config
                                     .get_configured_target(&mut ctx, &label, None)
                                     .await?
@@ -81,7 +83,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                 }
                             }
                         }
-                        buck2_core::pattern::pattern::PackageSpec::All(_modifiers) => {
+                        buck2_core::pattern::pattern::PackageSpec::All() => {
                             return Err(buck2_error::buck2_error!(
                                 buck2_error::ErrorTag::Unimplemented,
                                 "PackageSpec::All not implemented"

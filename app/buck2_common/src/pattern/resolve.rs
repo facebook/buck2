@@ -9,6 +9,8 @@
  */
 
 use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
@@ -37,7 +39,7 @@ enum ResolvedPatternError {
 /// Targets are not validated yet, and `:` is not yet expanded.
 #[derive(Debug)]
 pub struct ResolvedPattern<T: PatternType> {
-    pub specs: IndexMap<PackageLabel, PackageSpec<T>>,
+    pub specs: IndexMap<PackageLabelWithModifiers, PackageSpec<T>>,
 }
 
 impl<T> ResolvedPattern<T>
@@ -51,7 +53,13 @@ where
     }
 
     pub fn add_package(&mut self, package: PackageLabel, modifiers: Option<Vec<String>>) {
-        self.specs.insert(package, PackageSpec::All(modifiers));
+        self.specs.insert(
+            PackageLabelWithModifiers {
+                package,
+                modifiers: Modifiers::new(modifiers),
+            },
+            PackageSpec::All(),
+        );
     }
 
     pub fn add_target(
@@ -61,15 +69,20 @@ where
         extra: T,
         modifiers: Option<Vec<String>>,
     ) {
-        if let Some(s) = self.specs.get_mut(&package) {
+        let package_with_modifiers = PackageLabelWithModifiers {
+            package,
+            modifiers: Modifiers::new(modifiers),
+        };
+
+        if let Some(s) = self.specs.get_mut(&package_with_modifiers) {
             match s {
-                PackageSpec::Targets(t) => t.push((target_name, extra, modifiers)),
-                PackageSpec::All(_modifiers) => {}
+                PackageSpec::Targets(t) => t.push((target_name, extra)),
+                PackageSpec::All() => {}
             }
         } else {
             self.specs.insert(
-                package,
-                PackageSpec::Targets(vec![(target_name, extra, modifiers)]),
+                package_with_modifiers,
+                PackageSpec::Targets(vec![(target_name, extra)]),
             );
         }
     }
@@ -78,22 +91,26 @@ where
 impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
     pub fn convert_pattern<U: PatternType>(self) -> buck2_error::Result<ResolvedPattern<U>> {
         let mut specs = IndexMap::with_capacity(self.specs.len());
-        for (package, spec) in self.specs {
+        for (package_with_modifiers, spec) in self.specs {
             let spec = match spec {
-                PackageSpec::Targets(targets) => PackageSpec::Targets(targets.into_try_map(
-                    |(target_name, extra, modifiers)| {
+                PackageSpec::Targets(targets) => {
+                    PackageSpec::Targets(targets.into_try_map(|(target_name, extra)| {
                         let extra = U::from_configured_providers(extra.clone())
                             .buck_error_context(ResolvedPatternError::InvalidPattern(
                                 U::NAME,
-                                display_precise_pattern(&package, target_name.as_ref(), &extra)
-                                    .to_string(),
+                                display_precise_pattern(
+                                    &package_with_modifiers.package,
+                                    target_name.as_ref(),
+                                    &extra,
+                                )
+                                .to_string(),
                             ))?;
-                        buck2_error::Ok((target_name, extra, modifiers))
-                    },
-                )?),
-                PackageSpec::All(modifiers) => PackageSpec::All(modifiers),
+                        buck2_error::Ok((target_name, extra))
+                    })?)
+                }
+                PackageSpec::All() => PackageSpec::All(),
             };
-            specs.insert(package, spec);
+            specs.insert(package_with_modifiers, spec);
         }
         Ok(ResolvedPattern { specs })
     }
@@ -196,6 +213,8 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::PackageLabel;
+    use buck2_core::package::PackageLabelWithModifiers;
+    use buck2_core::pattern::pattern::Modifiers;
     use buck2_core::pattern::pattern::PackageSpec;
     use buck2_core::pattern::pattern::ParsedPattern;
     use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
@@ -295,14 +314,14 @@ mod tests {
     }
 
     trait ResolvedTargetPatternTestExt<T: PatternType> {
-        fn assert_eq(&self, expected: &[(PackageLabel, PackageSpec<T>)]);
+        fn assert_eq(&self, expected: &[(PackageLabelWithModifiers, PackageSpec<T>)]);
     }
 
     impl<T> ResolvedTargetPatternTestExt<T> for ResolvedPattern<T>
     where
         T: PatternType,
     {
-        fn assert_eq(&self, expected: &[(PackageLabel, PackageSpec<T>)]) {
+        fn assert_eq(&self, expected: &[(PackageLabelWithModifiers, PackageSpec<T>)]) {
             let expected: BTreeMap<_, _> = expected.iter().map(|(p, s)| (p.dupe(), s)).collect();
 
             let expected_keys: BTreeSet<_> = expected.keys().collect();
@@ -341,19 +360,21 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    PackageLabel::testing_parse("root//some"),
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("root//some"),
+                        modifiers: Modifiers::new(None),
+                    },
                     PackageSpec::Targets(vec![
-                        (TargetName::testing_new("target"), TargetPatternExtra, None),
-                        (
-                            TargetName::testing_new("other_target"),
-                            TargetPatternExtra,
-                            None,
-                        ),
+                        (TargetName::testing_new("target"), TargetPatternExtra),
+                        (TargetName::testing_new("other_target"), TargetPatternExtra),
                     ]),
                 ),
                 (
-                    PackageLabel::testing_parse("child//a/package"),
-                    PackageSpec::All(None),
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("child//a/package"),
+                        modifiers: Modifiers::new(None),
+                    },
+                    PackageSpec::All(),
                 ),
             ]);
         Ok(())
@@ -375,14 +396,16 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    PackageLabel::testing_parse("root//some"),
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("root//some"),
+                        modifiers: Modifiers::new(None),
+                    },
                     PackageSpec::Targets(vec![
                         (
                             TargetName::testing_new("target"),
                             ProvidersPatternExtra {
                                 providers: ProvidersName::Default,
                             },
-                            None,
                         ),
                         (
                             TargetName::testing_new("other_target"),
@@ -396,13 +419,15 @@ mod tests {
                                     ),
                                 )),
                             },
-                            None,
                         ),
                     ]),
                 ),
                 (
-                    PackageLabel::testing_parse("child//a/package"),
-                    PackageSpec::All(None),
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("child//a/package"),
+                        modifiers: Modifiers::new(None),
+                    },
+                    PackageSpec::All(),
                 ),
             ]);
         Ok(())
@@ -442,36 +467,62 @@ mod tests {
                 .unwrap()
                 .assert_eq(&[
                     (
-                        PackageLabel::testing_parse("root//other"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//other"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//other/a/bit/deeper"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//other/a/bit/deeper"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//other/a/bit/deeper/and/deeper"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse(
+                                "root//other/a/bit/deeper/and/deeper",
+                            ),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/dir/a"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/dir/a"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/dir/a/b"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/dir/a/b"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/extra"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/extra"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("child//"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("child//"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("child//foo"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("child//foo"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                 ]);
         })
@@ -496,28 +547,44 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    PackageLabel::testing_parse("root//some"),
-                    PackageSpec::Targets(vec![
-                        (
-                            TargetName::testing_new("target"),
-                            TargetPatternExtra,
-                            Some(vec!["modifier1".to_owned()]),
-                        ),
-                        (
-                            TargetName::testing_new("other_target"),
-                            TargetPatternExtra,
-                            Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
-                        ),
-                        (
-                            TargetName::testing_new("third_target"),
-                            TargetPatternExtra,
-                            None,
-                        ),
-                    ]),
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("root//some"),
+                        modifiers: Modifiers::new(Some(vec!["modifier1".to_owned()])),
+                    },
+                    PackageSpec::Targets(vec![(
+                        TargetName::testing_new("target"),
+                        TargetPatternExtra,
+                    )]),
                 ),
                 (
-                    PackageLabel::testing_parse("child//a/package"),
-                    PackageSpec::All(Some(vec!["package_modifier".to_owned()])),
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("root//some"),
+                        modifiers: Modifiers::new(Some(vec![
+                            "modifier1".to_owned(),
+                            "modifier2".to_owned(),
+                        ])),
+                    },
+                    PackageSpec::Targets(vec![(
+                        TargetName::testing_new("other_target"),
+                        TargetPatternExtra,
+                    )]),
+                ),
+                (
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("root//some"),
+                        modifiers: Modifiers::new(None),
+                    },
+                    PackageSpec::Targets(vec![(
+                        TargetName::testing_new("third_target"),
+                        TargetPatternExtra,
+                    )]),
+                ),
+                (
+                    PackageLabelWithModifiers {
+                        package: PackageLabel::testing_parse("child//a/package"),
+                        modifiers: Modifiers::new(Some(vec!["package_modifier".to_owned()])),
+                    },
+                    PackageSpec::All(),
                 ),
             ]);
         Ok(())
@@ -533,7 +600,10 @@ mod tests {
             ])
             .await?
             .assert_eq(&[(
-                PackageLabel::testing_parse("root//some"),
+                PackageLabelWithModifiers {
+                    package: PackageLabel::testing_parse("root//some"),
+                    modifiers: Modifiers::new(Some(vec!["modifier".to_owned()])),
+                },
                 PackageSpec::Targets(vec![(
                     TargetName::testing_new("other_target"),
                     ProvidersPatternExtra {
@@ -543,7 +613,6 @@ mod tests {
                             ])),
                         )),
                     },
-                    Some(vec!["modifier".to_owned()]),
                 )]),
             )]);
         Ok(())
@@ -573,7 +642,7 @@ mod tests {
             tester
                 .resolve_with_modifiers::<T>(&[
                     "//other/...?recursive_mod",
-                    "//other:target_that_doesnt_matter",
+                    "//other:target_that_does_matter?modifier1",
                     "//some/...?modifier1",
                     "//some/thing/extra/...?modifier2",
                     "//some/thing/extra/...",
@@ -583,50 +652,92 @@ mod tests {
                 .unwrap()
                 .assert_eq(&[
                     (
-                        PackageLabel::testing_parse("root//other"),
-                        PackageSpec::All(Some(vec!["recursive_mod".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//other"),
+                            modifiers: Modifiers::new(Some(vec!["recursive_mod".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//other/a/bit/deeper"),
-                        PackageSpec::All(Some(vec!["recursive_mod".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//other/a/bit/deeper"),
+                            modifiers: Modifiers::new(Some(vec!["recursive_mod".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//other/a/bit/deeper/and/deeper"),
-                        PackageSpec::All(Some(vec!["recursive_mod".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse(
+                                "root//other/a/bit/deeper/and/deeper",
+                            ),
+                            modifiers: Modifiers::new(Some(vec!["recursive_mod".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/dir/a"),
-                        PackageSpec::All(Some(vec!["modifier1".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//other"),
+                            modifiers: Modifiers::new(Some(vec!["modifier1".to_owned()])),
+                        },
+                        PackageSpec::Targets(vec![(
+                            TargetName::testing_new("target_that_does_matter"),
+                            T::default(),
+                        )]),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/dir/a/b"),
-                        PackageSpec::All(Some(vec!["modifier1".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/dir/a"),
+                            modifiers: Modifiers::new(Some(vec!["modifier1".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/extra"),
-                        PackageSpec::All(Some(vec!["modifier1".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/dir/a/b"),
+                            modifiers: Modifiers::new(Some(vec!["modifier1".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/extra"),
-                        PackageSpec::All(Some(vec!["modifier2".to_owned()])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/extra"),
+                            modifiers: Modifiers::new(Some(vec!["modifier1".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("root//some/thing/extra"),
-                        PackageSpec::All(None),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/extra"),
+                            modifiers: Modifiers::new(Some(vec!["modifier2".to_owned()])),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("child//"),
-                        PackageSpec::All(Some(vec![
-                            "cell_mod".to_owned(),
-                            "another_mod".to_owned(),
-                        ])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("root//some/thing/extra"),
+                            modifiers: Modifiers::new(None),
+                        },
+                        PackageSpec::All(),
                     ),
                     (
-                        PackageLabel::testing_parse("child//foo"),
-                        PackageSpec::All(Some(vec![
-                            "cell_mod".to_owned(),
-                            "another_mod".to_owned(),
-                        ])),
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("child//"),
+                            modifiers: Modifiers::new(Some(vec![
+                                "cell_mod".to_owned(),
+                                "another_mod".to_owned(),
+                            ])),
+                        },
+                        PackageSpec::All(),
+                    ),
+                    (
+                        PackageLabelWithModifiers {
+                            package: PackageLabel::testing_parse("child//foo"),
+                            modifiers: Modifiers::new(Some(vec![
+                                "cell_mod".to_owned(),
+                                "another_mod".to_owned(),
+                            ])),
+                        },
+                        PackageSpec::All(),
                     ),
                 ]);
         })

@@ -63,6 +63,7 @@ use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+use crate::pattern::pattern::Modifiers;
 
 /// A 'Package' as defined above.
 ///
@@ -90,6 +91,12 @@ impl Serialize for PackageLabel {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.collect_str(&self.to_string())
     }
+}
+
+#[derive(Dupe, Clone, Eq, PartialEq, Hash, Debug, Ord, PartialOrd)]
+pub struct PackageLabelWithModifiers {
+    pub package: PackageLabel,
+    pub modifiers: Modifiers,
 }
 
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]

@@ -40,7 +40,7 @@ use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cl
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
-use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
@@ -547,12 +547,12 @@ async fn build_targets_with_global_target_platform<'a>(
     let build_providers = &build_providers;
     spec.specs
         .into_iter()
-        .map(move |(package, spec)| async move {
+        .map(move |(package_with_modifiers, spec)| async move {
             build_targets_for_spec(
                 event_consumer,
                 ctx,
                 spec,
-                package,
+                package_with_modifiers,
                 global_cfg_options.dupe(),
                 build_providers.dupe(),
                 materialization_and_upload,
@@ -602,7 +602,7 @@ async fn build_targets_for_spec(
     event_consumer: &dyn BuildEventConsumer,
     ctx: &LinearRecomputeDiceComputations<'_>,
     spec: PackageSpec<ProvidersPatternExtra>,
-    package: PackageLabel,
+    package_with_modifiers: PackageLabelWithModifiers,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
     materialization_and_upload: &MaterializationAndUploadContext,
@@ -613,8 +613,10 @@ async fn build_targets_for_spec(
 ) {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
-        PackageSpec::All(_) => true,
+        PackageSpec::All() => true,
     };
+
+    let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 
     let res = match ctx.get().get_interpreter_results(package.dupe()).await {
         Ok(res) => res,
@@ -625,7 +627,7 @@ async fn build_targets_for_spec(
                 PackageSpec::Targets(targets) => Either::Left(
                     targets
                         .into_iter()
-                        .map(move |(t, providers, _modifiers)| {
+                        .map(move |(t, providers)| {
                             ProvidersLabel::new(
                                 TargetLabel::new(package.dupe(), t.as_ref()),
                                 providers.providers,
@@ -633,7 +635,7 @@ async fn build_targets_for_spec(
                         })
                         .map(Some),
                 ),
-                PackageSpec::All(_modifiers) => Either::Right(std::iter::once(None)),
+                PackageSpec::All() => Either::Right(std::iter::once(None)),
             };
             for t in targets {
                 event_consumer.consume(BuildEvent::OtherError {
@@ -644,7 +646,7 @@ async fn build_targets_for_spec(
             return;
         }
     };
-    let (targets, missing) = res.apply_spec(spec);
+    let (targets, missing) = res.apply_spec(spec, modifiers);
     if let Some(missing) = missing {
         match missing_target_behavior {
             MissingTargetBehavior::Fail => {

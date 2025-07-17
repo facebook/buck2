@@ -296,14 +296,13 @@ async fn collect_install_request_data<'a>(
         .buck_error_context("Install with explicit configuration pattern is not supported yet")?;
 
     let mut installer_to_files_map = HashMap::new();
-    for (package, spec) in resolved_pattern.specs {
+    for (package_with_modifiers, spec) in resolved_pattern.specs {
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
-            PackageSpec::Targets(targets) => targets
-                .into_iter()
-                .map(|(name, providers_pattern_extra, _modifiers)| (name, providers_pattern_extra))
-                .collect(),
-            PackageSpec::All(_modifiers) => {
-                let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
+            PackageSpec::Targets(targets) => targets.into_iter().collect(),
+            PackageSpec::All() => {
+                let interpreter_results = ctx
+                    .get_interpreter_results(package_with_modifiers.package.dupe())
+                    .await?;
                 interpreter_results
                     .targets()
                     .keys()
@@ -319,7 +318,8 @@ async fn collect_install_request_data<'a>(
             }
         };
         for (target_name, providers) in targets {
-            let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
+            let label = providers
+                .into_providers_label(package_with_modifiers.package.dupe(), target_name.as_ref());
             let providers_label = ctx
                 .get_configured_provider_label(&label, &global_cfg_options)
                 .await?;
@@ -340,7 +340,7 @@ async fn collect_install_request_data<'a>(
                 None => {
                     return Err(InstallError::NoInstallProvider(
                         label.target().name().to_owned(),
-                        package.dupe(),
+                        package_with_modifiers.package.dupe(),
                     )
                     .into());
                 }

@@ -224,14 +224,15 @@ fn apply_spec<T: PatternType>(
 ) -> buck2_error::Result<LoadedPatterns<T>> {
     let mut all_targets: BTreeMap<_, buck2_error::Result<PackageLoadedPatterns<T>>> =
         BTreeMap::new();
-    for (pkg, pkg_spec) in spec.specs.into_iter() {
-        let result = match load_results.get(&pkg) {
+    for (package_with_modifiers, pkg_spec) in spec.specs.into_iter() {
+        let result = match load_results.get(&package_with_modifiers.package) {
             Some(r) => r,
-            None => return Err(BuildErrors::MissingPackage(pkg).into()),
+            None => return Err(BuildErrors::MissingPackage(package_with_modifiers.package).into()),
         };
         match result {
             Ok(res) => {
-                let (label_to_node, missing) = res.apply_spec(pkg_spec);
+                let (label_to_node, missing) =
+                    res.apply_spec(pkg_spec, package_with_modifiers.modifiers);
                 if let Some(missing) = missing {
                     match skip_missing_targets {
                         MissingTargetBehavior::Fail => {
@@ -244,7 +245,7 @@ fn apply_spec<T: PatternType>(
                 };
 
                 all_targets.insert(
-                    pkg,
+                    package_with_modifiers.package,
                     Ok(PackageLoadedPatterns {
                         targets: label_to_node,
                         super_package: res.super_package().dupe(),
@@ -252,7 +253,7 @@ fn apply_spec<T: PatternType>(
                 );
             }
             Err(e) => {
-                all_targets.insert(pkg, Err(e.dupe()));
+                all_targets.insert(package_with_modifiers.package, Err(e.dupe()));
             }
         }
     }

@@ -54,6 +54,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -850,10 +851,10 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         pattern: ResolvedPattern<ProvidersPatternExtra>,
         skip_incompatible_targets: bool,
     ) {
-        for (package, spec) in pattern.specs.into_iter() {
+        for (package_with_modifiers, spec) in pattern.specs.into_iter() {
             let fut = future::ready(ControlFlow::Continue(vec![
                 TestDriverTask::InterpretTarget {
-                    package,
+                    package: package_with_modifiers.package,
                     spec,
                     skip_incompatible_targets,
                 },
@@ -922,7 +923,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         // Try to associate the error to concrete targets, if possible
                         match spec {
                             PackageSpec::Targets(targets) => {
-                                for (target, providers, _modifiers) in targets {
+                                for (target, providers) in targets {
                                     let label = Some(ProvidersLabel::new(
                                         TargetLabel::new(package.dupe(), target.as_ref()),
                                         providers.providers,
@@ -934,7 +935,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                     });
                                 }
                             }
-                            PackageSpec::All(_modifiers) => events.push(BuildEvent::OtherError {
+                            PackageSpec::All() => events.push(BuildEvent::OtherError {
                                 label: None,
                                 err: e,
                             }),
@@ -950,7 +951,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     PackageSpec::All(..) => true,
                 };
 
-                let (targets, missing) = res.apply_spec(spec);
+                let (targets, missing) = res.apply_spec(spec, Modifiers::new(None));
 
                 if let Some(missing) = missing {
                     match state.missing_target_behavior {

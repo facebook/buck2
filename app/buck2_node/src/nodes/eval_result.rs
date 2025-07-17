@@ -197,14 +197,14 @@ impl EvaluationResult {
     pub fn apply_spec<T: PatternType>(
         &self,
         spec: PackageSpec<T>,
+        modifiers: Modifiers,
     ) -> (
         BTreeMap<(TargetName, T, Modifiers), TargetNode>,
         Option<MissingTargets>,
     ) {
         match spec {
-            PackageSpec::All(modifiers) => {
+            PackageSpec::All() => {
                 let mut label_to_node = BTreeMap::new();
-                let modifiers = Modifiers::new(modifiers);
                 for target_info in self.targets().values() {
                     label_to_node.insert(
                         (
@@ -220,14 +220,12 @@ impl EvaluationResult {
             PackageSpec::Targets(targets) => {
                 let mut label_to_node = BTreeMap::new();
                 let mut missing_targets = Vec::new();
-                for (target_name, extra, modifiers) in targets {
+                for (target_name, extra) in targets {
                     let node = self.get_target(target_name.as_ref());
                     match node {
                         Some(node) => {
-                            label_to_node.insert(
-                                (target_name, extra, Modifiers::new(modifiers)),
-                                node.to_owned(),
-                            );
+                            label_to_node
+                                .insert((target_name, extra, modifiers.dupe()), node.to_owned());
                         }
                         None => missing_targets
                             .push(TargetLabel::new(self.package(), target_name.as_ref())),

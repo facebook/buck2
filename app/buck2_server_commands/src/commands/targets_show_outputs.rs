@@ -151,12 +151,20 @@ async fn retrieve_artifacts_for_targets(
     global_cfg_options: &GlobalCfgOptions,
 ) -> buck2_error::Result<Vec<TargetsArtifacts>> {
     let artifacts_for_specs = ctx
-        .try_compute_join(spec.specs, |ctx, (package, spec)| {
+        .try_compute_join(spec.specs, |ctx, (package_with_modifiers, spec)| {
             async move {
                 {
-                    let res = ctx.get_interpreter_results(package.dupe()).await?;
-                    retrieve_artifacts_for_spec(ctx, package.dupe(), spec, global_cfg_options, res)
-                        .await
+                    let res = ctx
+                        .get_interpreter_results(package_with_modifiers.package.dupe())
+                        .await?;
+                    retrieve_artifacts_for_spec(
+                        ctx,
+                        package_with_modifiers.package.dupe(),
+                        spec,
+                        global_cfg_options,
+                        res,
+                    )
+                    .await
                 }
             }
             .boxed()
@@ -181,7 +189,7 @@ async fn retrieve_artifacts_for_spec(
     let available_targets = res.targets();
 
     let todo_targets: Vec<(ProvidersLabel, &GlobalCfgOptions)> = match spec {
-        PackageSpec::All(_modifiers) => available_targets
+        PackageSpec::All() => available_targets
             .keys()
             .map(|t| {
                 (
@@ -191,10 +199,10 @@ async fn retrieve_artifacts_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            for (target_name, _, _modifiers) in &targets {
+            for (target_name, _) in &targets {
                 res.resolve_target(target_name)?;
             }
-            targets.into_map(|(target_name, providers, _modifiers)| {
+            targets.into_map(|(target_name, providers)| {
                 (
                     providers.into_providers_label(package.dupe(), target_name.as_ref()),
                     global_cfg_options,

@@ -218,11 +218,14 @@ async fn generate_profile(
             let ctx_data = ctx.per_transaction_data();
 
             let profiles = buck2_util::future::try_join_all(resolved.specs.into_iter().map(
-                |(package, _spec)| {
+                |(package_with_modifiers, _spec)| {
                     let ctx = ctx.dupe();
                     spawn_dropcancel(
                         move |_cancel| {
-                            async move { generate_profile_loading(&ctx, package).await }.boxed()
+                            async move {
+                                generate_profile_loading(&ctx, package_with_modifiers.package).await
+                            }
+                            .boxed()
                         },
                         &*ctx_data.spawner,
                         ctx_data,

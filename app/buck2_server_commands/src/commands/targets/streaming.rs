@@ -338,9 +338,14 @@ fn stream_packages<T: PatternType>(
         }
     }
 
-    futures::stream::iter(spec.specs.into_iter().map(Ok)).chain(
-        find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All(None)))),
+    futures::stream::iter(
+        spec.specs
+            .into_iter()
+            .map(|(package_with_modifiers, package_spec)| {
+                Ok((package_with_modifiers.package, package_spec))
+            }),
     )
+    .chain(find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All()))))
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -379,15 +384,15 @@ async fn load_targets(
     match spec {
         PackageSpec::Targets(targets) => {
             if keep_going {
-                let (miss, targets): (Vec<_>, Vec<_>) = targets.into_iter().partition_map(
-                    |(target, TargetPatternExtra, _modifiers)| match result
-                        .targets()
-                        .get(target.as_ref())
-                    {
-                        None => Either::Left(target),
-                        Some(x) => Either::Right(x.to_owned()),
-                    },
-                );
+                let (miss, targets): (Vec<_>, Vec<_>) =
+                    targets
+                        .into_iter()
+                        .partition_map(|(target, TargetPatternExtra)| {
+                            match result.targets().get(target.as_ref()) {
+                                None => Either::Left(target),
+                                Some(x) => Either::Right(x.to_owned()),
+                            }
+                        });
                 let err = if miss.is_empty() {
                     None
                 } else {
@@ -395,14 +400,13 @@ async fn load_targets(
                 };
                 Ok((result, targets, err))
             } else {
-                let targets =
-                    targets.into_try_map(|(target, TargetPatternExtra, _modifiers)| {
-                        buck2_error::Ok(result.resolve_target(target.as_ref())?.to_owned())
-                    })?;
+                let targets = targets.into_try_map(|(target, TargetPatternExtra)| {
+                    buck2_error::Ok(result.resolve_target(target.as_ref())?.to_owned())
+                })?;
                 Ok((result, targets, None))
             }
         }
-        PackageSpec::All(_modifiers) => {
+        PackageSpec::All() => {
             let targets = result.targets().values().map(|t| t.to_owned()).collect();
             Ok((result, targets, None))
         }
