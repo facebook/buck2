@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 def _action_fail(ctx):
-    out1 = ctx.actions.declare_output("failed_action.json")
-    out2 = ctx.actions.declare_output("failed_action.txt")
+    out1 = ctx.actions.declare_output("failed_action.json", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    out2 = ctx.actions.declare_output("failed_action.txt", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
 
     run = ctx.actions.write(
         "run.py",
@@ -37,12 +37,13 @@ def _action_fail(ctx):
 action_fail = rule(
     impl = _action_fail,
     attrs = {
+        "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
     },
 )
 
 def _undeclared_output(ctx):
-    declared = ctx.actions.declare_output("failed_action.json")
-    undeclared = ctx.actions.declare_output("failed_action.txt")
+    declared = ctx.actions.declare_output("failed_action.json", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    undeclared = ctx.actions.declare_output("failed_action.txt", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
     ctx.actions.run(
         cmd_args(
             "python3",
@@ -58,5 +59,6 @@ def _undeclared_output(ctx):
 undeclared_output = rule(
     impl = _undeclared_output,
     attrs = {
+        "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
     },
 )

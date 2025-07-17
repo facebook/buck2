@@ -70,16 +70,7 @@ async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
         raise AssertionError("Did not find relevant MaterializeFailedInputs span")
 
 
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
-async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--materialize-failed-outputs",
-        ),
-    )
-
+async def check_materialized_outputs_for_failed_action(buck: Buck) -> None:
     materialized = await filter_events(
         buck,
         "Event",
@@ -112,6 +103,33 @@ async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
 
 
 @buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--materialize-failed-outputs",
+        ),
+    )
+    await check_materialized_outputs_for_failed_action(buck)
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_materialize_outputs_for_failed_actions_content_hash(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--materialize-failed-outputs",
+            "-c",
+            "test.use_content_based_path=true",
+        ),
+    )
+    # FIXME(minglunli): content-based path hash doesn't work for materializing failed outputs at the moment
+    # await materialize_outputs_for_failed_actions_helper(buck)
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
 async def test_undeclared_outputs_to_materialize_will_fail(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -123,16 +141,7 @@ async def test_undeclared_outputs_to_materialize_will_fail(buck: Buck) -> None:
     )
 
 
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
-async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-        ),
-    )
-
+async def check_materialized_outputs_defined_by_run_action(buck: Buck) -> None:
     materialized = await filter_events(
         buck,
         "Event",
@@ -158,3 +167,33 @@ async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
     with open(Path(buck.cwd / out), "r") as materialized:
         contents = materialized.read()
         assert contents == "json"
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--no-remote-cache",
+        ),
+    )
+    await check_materialized_outputs_defined_by_run_action(buck)
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_materialize_outputs_defined_by_run_action_content_hash(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--no-remote-cache",
+            "-c",
+            "test.use_content_based_path=true",
+        ),
+    )
+
+    # FIXME(minglunli): content-based path hash doesn't work for materializing failed outputs at the moment
+    # await materialize_outputs_defined_by_run_action_helper(buck)
