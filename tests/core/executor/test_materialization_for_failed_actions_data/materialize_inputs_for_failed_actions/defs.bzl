@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _dep_impl(ctx):
-    out = ctx.actions.declare_output("dep")
+    out = ctx.actions.declare_output("dep", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
     ctx.actions.run(
         [
             "python3",
@@ -24,6 +24,7 @@ dep = rule(
     attrs = {
         "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
         "script": attrs.source(),
+        "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
     },
 )
 

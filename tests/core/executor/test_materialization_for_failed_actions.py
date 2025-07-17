@@ -17,19 +17,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events, json_get, random_string
 
 
-@buck_test(data_dir="materialize_inputs_for_failed_actions")
-async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-            "--materialize-failed-inputs",
-            "-c",
-            f"test.cache_buster={random_string()}",
-        ),
-    )
-
+async def check_materialize_inputs_for_failed_actions(buck: Buck) -> None:
     log = (await buck.log("show")).stdout.strip().splitlines()
 
     found_action_error = False
@@ -68,6 +56,37 @@ async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
         raise AssertionError("Did not find relevant ActionError")
     if not found_materialize_failed_inputs_span:
         raise AssertionError("Did not find relevant MaterializeFailedInputs span")
+
+
+@buck_test(data_dir="materialize_inputs_for_failed_actions")
+async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--no-remote-cache",
+            "--materialize-failed-inputs",
+            "-c",
+            f"test.cache_buster={random_string()}",
+        ),
+    )
+    await check_materialize_inputs_for_failed_actions(buck)
+
+
+@buck_test(data_dir="materialize_inputs_for_failed_actions")
+async def test_materialize_inputs_for_failed_actions_content_hash(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--no-remote-cache",
+            "--materialize-failed-inputs",
+            "-c",
+            f"test.cache_buster={random_string()}",
+            "test.use_content_based_path=true",
+        ),
+    )
+    await check_materialize_inputs_for_failed_actions(buck)
 
 
 async def check_materialized_outputs_for_failed_action(buck: Buck) -> None:
