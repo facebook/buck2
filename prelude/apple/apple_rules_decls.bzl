@@ -1188,6 +1188,7 @@ swift_toolchain = prelude_rule(
             "runtime_paths_for_linking": attrs.list(attrs.string(), default = []),
             "sdk_path": attrs.source(),
             "supports_explicit_module_debug_serialization": attrs.bool(default = False),
+            "supports_incremental_file_hashing": attrs.bool(default = False),
             "supports_relative_resource_dir": attrs.bool(default = False),
             "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "swift_stdlib_tool": attrs.option(attrs.source(), default = None),
