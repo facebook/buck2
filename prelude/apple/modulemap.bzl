@@ -102,4 +102,5 @@ def create_modulemap(
         ),
         modular_args = [cmd_args(output, format = "-fmodule-map-file={}")],
         modulemap_path = cmd_args(output),
+        modulemap_artifacts = [output],
     ), output

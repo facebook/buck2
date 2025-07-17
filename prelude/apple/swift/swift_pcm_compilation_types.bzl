@@ -15,6 +15,7 @@ SwiftPCMUncompiledInfo = provider(
         "exported_deps": provider_field(typing.Any, default = None),  # [Dependency]
         "propagated_preprocessor_args_cmd": provider_field(typing.Any, default = None),  # cmd_args
         "uncompiled_sdk_modules": provider_field(typing.Any, default = None),  # [str] a list of required sdk modules
+        "modulemap_artifacts": provider_field(list[Artifact], default = []),
     },
 )
 

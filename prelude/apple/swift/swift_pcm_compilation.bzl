@@ -104,6 +104,7 @@ def _compiled_module_info(
         module_name = module_name,
         output_artifact = pcm_output,
         clang_modulemap_args = pcm_info.exported_preprocessor.modulemap_path,
+        clang_modulemap_artifacts = pcm_info.modulemap_artifacts,
     )
 
 def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:

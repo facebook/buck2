@@ -241,6 +241,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             module_name = module_name,
             output_artifact = pcm_output,
             clang_modulemap_args = expanded_modulemap_path_cmd,
+            clang_modulemap_artifacts = [swift_toolchain.sdk_path] if swift_toolchain.sdk_path else [],
         )
 
         return [

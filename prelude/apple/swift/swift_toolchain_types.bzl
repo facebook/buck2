@@ -90,6 +90,10 @@ SwiftCompiledModuleInfo = provider(fields = {
     "clang_module_file_args": provider_field(cmd_args | None, default = None),
     # Clang modulemap as args which is required for generation of swift_module_map.
     "clang_modulemap_args": provider_field(cmd_args | None, default = None),
+    # Clang modulemap artifact and associated artifacts (e.g., symlink dir
+    # with headers). For SDK modules, the associated artifact would be the
+    # SDK directory itself (which contains modulemaps).
+    "clang_modulemap_artifacts": provider_field(list[Artifact], default = []),
     # If present an artifact for the modules swiftinterface.
     "interface_artifact": provider_field(Artifact | None, default = None),
     "is_framework": provider_field(bool),
