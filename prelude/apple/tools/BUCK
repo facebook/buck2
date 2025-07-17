@@ -92,6 +92,7 @@ python_binary(
     name = "swift_exec",
     main = "swift_exec.py",
     visibility = ["PUBLIC"],
+    deps = ["prelude//apple/tools/re_compatibility_utils:re_compatibility_utils"],
 )
 
 python_binary(

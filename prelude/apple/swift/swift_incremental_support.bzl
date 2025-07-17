@@ -19,6 +19,7 @@ _OutputFileMapData = record(
     outputs = field(list[Artifact]),
     output_file_map = field(dict),
     swiftdeps = field(list[Artifact]),
+    depfiles = field(list[Artifact]),
 )
 
 IncrementalCompilationOutput = record(
@@ -28,6 +29,12 @@ IncrementalCompilationOutput = record(
     output_file_map = field(dict),
     skip_incremental_outputs = field(bool),
     swiftdeps = field(list[Artifact]),
+    depfiles = field(list[Artifact]),
+)
+
+IncrementalCompilationInput = record(
+    swiftdeps = field(list[Artifact]),
+    depfiles = field(list[Artifact]),
 )
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
@@ -122,6 +129,7 @@ def _get_incremental_compilation_flags_and_objects(
         output_file_map = output_file_map_data.output_file_map,
         skip_incremental_outputs = skip_incremental_outputs,
         swiftdeps = output_file_map_data.swiftdeps,
+        depfiles = output_file_map_data.depfiles,
     )
 
 def _get_output_file_map(
@@ -131,6 +139,7 @@ def _get_output_file_map(
         all_outputs = []
         swiftdeps = []
         artifacts = []
+        depfiles = []
         output_file_map = {}
 
         for src in srcs:
@@ -149,6 +158,8 @@ def _get_output_file_map(
         all_outputs = [module_swiftdeps]
         swiftdeps = [module_swiftdeps]
         artifacts = []
+        depfiles = []
+        toolchain = get_swift_toolchain_info(ctx)
 
         for src in srcs:
             file_name = src.file.basename
@@ -162,10 +173,15 @@ def _get_output_file_map(
             }
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
+            if toolchain.use_depsfiles:
+                deps_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".d")
+                depfiles.append(deps_artifact)
+                all_outputs.append(deps_artifact)
 
     return _OutputFileMapData(
         artifacts = artifacts,
         outputs = all_outputs,
         output_file_map = output_file_map,
         swiftdeps = swiftdeps,
+        depfiles = depfiles,
     )

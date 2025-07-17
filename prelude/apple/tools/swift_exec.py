@@ -15,6 +15,8 @@ import shlex
 import subprocess
 import sys
 
+from apple.tools.re_compatibility_utils.writable import make_path_user_writable
+
 _RE_TMPDIR_ENV_VAR = "TMPDIR"
 _FILE_WRITE_FAILURE_MARKER = "could not write"
 
@@ -84,6 +86,15 @@ def _remove_swiftinterface_module_prefixes(command):
         f.truncate()
 
 
+def _make_path_user_writable(path: str) -> None:
+    # Ensure the path is writable by the user. This is required for Swift
+    # Incremental Remote Actions, where this path may or may not be
+    # pre-populated from a previous action. We need to check because we won't
+    # know if we have these paths populated until runtime.
+    if os.path.exists(path):
+        make_path_user_writable(path)
+
+
 def _rewrite_dependency_file(command, out_path):
     if not out_path:
         raise RuntimeError("-emit-dependencies requires -dependencies-file-output")
@@ -123,6 +134,7 @@ def _rewrite_dependency_file(command, out_path):
         else:
             relative_paths.append(path)
 
+    _make_path_user_writable(out_path)
     with open(out_path, "w") as f:
         f.write("\n".join(sorted(relative_paths)))
         f.write("\n")
@@ -207,6 +219,11 @@ def _parse_wrapper_args(
         action="store_true",
         help="Hack to skip writing incremental outputs to avoid cache invalidation",
     )
+    parser.add_argument(
+        "--writable-incremental-paths",
+        nargs="*",
+        help="Paths that should be made writable for incremental compilation",
+    )
     parsed_args = parser.parse_args(wrapper_args)
 
     if (
@@ -267,6 +284,32 @@ def main():
     if wrapper_args.skip_incremental_outputs:
         command = _process_skip_incremental_outputs(command)
 
+    writable_args = ["-emit-objc-header-path", "-emit-module-path"]
+
+    for arg in writable_args:
+        if arg in command:
+            idx = command.index(arg)
+            file_path = command[idx + 1]
+            _make_path_user_writable(file_path)
+
+    if wrapper_args.writable_incremental_paths:
+        for file_path in wrapper_args.writable_incremental_paths:
+            _make_path_user_writable(file_path)
+        output_file_map_path = command[command.index("-output-file-map") + 1]
+        with open(output_file_map_path) as f:
+            output_file_map = json.load(f)
+            for value in output_file_map.values():
+                for subkey in [
+                    "swift-dependencies",
+                    "dependencies",
+                    "emit-module-dependencies",
+                    "diagnostics",
+                    "object",
+                ]:
+                    maybe_path = value.get(subkey, None)
+                    if maybe_path:
+                        _make_path_user_writable(maybe_path)
+
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,
@@ -279,6 +322,7 @@ def main():
     print(result.stderr, file=sys.stderr, end="")
 
     if wrapper_args.json_error_output_path:
+        _make_path_user_writable(wrapper_args.json_error_output_path)
         with open(wrapper_args.json_error_output_path, "w") as json_out:
             # Don't bother running the diagnostics deserializer if compilation
             # succeeded as the output will never be used.

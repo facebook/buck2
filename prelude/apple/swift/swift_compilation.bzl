@@ -55,6 +55,7 @@ load(
 )
 load(
     ":swift_incremental_support.bzl",
+    "IncrementalCompilationInput",
     "get_incremental_object_compilation_flags",
     "should_build_swift_incrementally",
 )
@@ -660,9 +661,11 @@ def _compile_object(
         output_file_map = incremental_compilation_output.output_file_map
         skip_incremental_outputs = incremental_compilation_output.skip_incremental_outputs
         swiftdeps = incremental_compilation_output.swiftdeps
+        depfiles = incremental_compilation_output.depfiles
     else:
         num_threads = 1
         swiftdeps = []
+        depfiles = []
         output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o")
         objects = [output_object]
         object_format = toolchain.object_format.value
@@ -700,6 +703,8 @@ def _compile_object(
         dep_files = dep_files,
         output_file_map = output_file_map,
         skip_incremental_outputs = skip_incremental_outputs,
+        objects = objects,
+        incremental_artifacts = IncrementalCompilationInput(depfiles = depfiles, swiftdeps = swiftdeps),
     )
 
     return SwiftObjectOutput(
@@ -773,7 +778,9 @@ def _compile_with_argsfile(
         dep_files: dict[str, ArtifactTag] = {},
         output_file_map: dict = {},
         cacheable = True,
-        skip_incremental_outputs = False) -> (CompileArgsfiles | None, Artifact | None):
+        skip_incremental_outputs = False,
+        objects = [],
+        incremental_artifacts: IncrementalCompilationInput | None = None) -> (CompileArgsfiles | None, Artifact | None):
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
@@ -824,6 +831,9 @@ def _compile_with_argsfile(
         # Skip incremental outputs requires an empty output file map, so is not
         # compatible with serialized diagnostics.
         supports_serialized_errors = not skip_incremental_outputs,
+        skip_incremental_outputs = skip_incremental_outputs,
+        objects = objects,
+        incremental_artifacts = incremental_artifacts,
     )
 
     if extension:

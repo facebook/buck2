@@ -6,10 +6,16 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "swift_error_deserializer", "swift_error_handler")
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
+load(
+    ":swift_incremental_support.bzl",
+    "IncrementalCompilationInput",  # @unused Used as a type
+    "should_build_swift_incrementally",
+)
 load(":swift_output_file_map.bzl", "add_output_file_map_flags", "add_serialized_diagnostics_output")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(":swift_toolchain_types.bzl", "SwiftToolchainInfo")
@@ -29,7 +35,15 @@ def compile_with_argsfile(
         prefer_local = False,
         no_outputs_cleanup = False,
         supports_output_file_map = True,
-        supports_serialized_errors = True) -> (CompileArgsfile, Artifact | None):
+        supports_serialized_errors = True,
+        skip_incremental_outputs = False,
+        incremental_remote_outputs = False,
+        objects = [],
+        incremental_artifacts: IncrementalCompilationInput | None = None) -> (CompileArgsfile, Artifact | None):
+    writable_incremental_args = [obj.as_output() for obj in objects]
+    if incremental_artifacts:
+        writable_incremental_args = [swiftdep.as_output() for swiftdep in incremental_artifacts.swiftdeps] + [depfile.as_output() for depfile in incremental_artifacts.depfiles]
+
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -62,6 +76,7 @@ def compile_with_argsfile(
     # otherwise will pass frontend flags.
     error_deserializer = swift_error_deserializer(ctx)
     error_outputs = []
+
     if supports_serialized_errors and error_deserializer:
         json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category)).as_output()
         error_outputs.append(json_error_output)
@@ -76,6 +91,14 @@ def compile_with_argsfile(
             "-Xwrapper",
             cmd_args(json_error_output, format = "-json-error-output-path={}"),
         )
+        if incremental_remote_outputs and should_build_swift_incrementally(ctx) and not skip_incremental_outputs:
+            # Serialized diagnostics in Swift incremental mode will produce a
+            # .dia output for each .o output. These need to be made writable.
+            for obj in objects:
+                name_without_extension, _ = paths.split_extension(obj.short_path())
+                diag_output = ctx.actions.declare_output("{}.dia".format(name_without_extension))
+                cmd.add(cmd_args(hidden = diag_output.as_output()))
+                writable_incremental_args.append(diag_output.as_output())
 
     # If an output file map is provided, serialize it and add to the command.
     if output_file_map:
@@ -84,6 +107,11 @@ def compile_with_argsfile(
         output_file_map_artifact = add_output_file_map_flags(ctx, output_file_map, cmd, category)
     else:
         output_file_map_artifact = None
+
+    if writable_incremental_args and incremental_remote_outputs:
+        cmd.add(["-Xwrapper", "--writable-incremental-paths"])
+        for flag in writable_incremental_args:
+            cmd.add(["-Xwrapper", flag])
 
     ctx.actions.run(
         cmd,
