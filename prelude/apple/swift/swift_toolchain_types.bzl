@@ -72,15 +72,15 @@ SdkSwiftOverlayInfo = provider(fields = {
 })
 
 SwiftCompiledModuleInfo = provider(fields = {
-    "clang_importer_args": provider_field(typing.Any, default = None),  # cmd_args of additional flags for the clang importer.
-    "clang_module_file_args": provider_field(typing.Any, default = None),  # cmd_args of include flags for the clang importer.
-    "clang_modulemap": provider_field(typing.Any, default = None),  # Clang modulemap file which is required for generation of swift_module_map.
+    "clang_importer_args": provider_field(cmd_args | None, default = None),  # Additional flags for the clang importer.
+    "clang_module_file_args": provider_field(cmd_args | None, default = None),  # Include flags for the clang importer.
+    "clang_modulemap": provider_field(cmd_args | None, default = None),  # Clang modulemap as args which is required for generation of swift_module_map.
     "interface_artifact": provider_field(Artifact | None, default = None),  # If present an artifact for the modules swiftinterface.
-    "is_framework": provider_field(typing.Any, default = None),
-    "is_sdk_module": provider_field(bool, default = False),
-    "is_swiftmodule": provider_field(typing.Any, default = None),  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
-    "module_name": provider_field(typing.Any, default = None),  # A real name of a module, without distinguishing suffixes.
-    "output_artifact": provider_field(typing.Any, default = None),  # Compiled artifact either swiftmodule or pcm.
+    "is_framework": provider_field(bool),
+    "is_sdk_module": provider_field(bool),
+    "is_swiftmodule": provider_field(bool),  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
+    "module_name": provider_field(str),  # A real name of a module, without distinguishing suffixes.
+    "output_artifact": provider_field(Artifact),  # Compiled artifact either swiftmodule or pcm.
 })
 
 def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
