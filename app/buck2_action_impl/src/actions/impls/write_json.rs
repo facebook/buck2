@@ -177,6 +177,10 @@ impl Action for WriteJsonAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
+        if self.inner.use_dep_files_placeholder_for_content_based_paths {
+            return Ok(Cow::Borrowed(&[]));
+        }
+
         let mut visitor = CommandLineContentBasedInputVisitor::new();
         json::visit_json_artifacts(self.contents.value(), &mut visitor)?;
         Ok(Cow::Owned(

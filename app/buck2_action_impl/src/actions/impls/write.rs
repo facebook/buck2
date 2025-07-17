@@ -208,6 +208,10 @@ impl Action for WriteAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
+        if self.inner.use_dep_files_placeholder_for_content_based_paths {
+            return Ok(Cow::Borrowed(&[]));
+        }
+
         let mut visitor = CommandLineContentBasedInputVisitor::new();
         ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
             .0
