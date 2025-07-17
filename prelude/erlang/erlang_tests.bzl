@@ -292,12 +292,15 @@ def _list_code_paths(dependencies: ErlAppDependencies) -> cmd_args:
     args.add(cmd_args(app_folders, format = "{}/ebin"))
     return args
 
-def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) -> Artifact:
+def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) -> [Artifact, None]:
     """ build mapping for suite data directory
 
     generating the necessary mapping information for the suite data directory
     the resulting mapping can be used directly to symlink
     """
+    if not resources:
+        return None
+
     include_symlinks = {}
     for resource in resources:
         files = resource[DefaultInfo].default_outputs
@@ -314,14 +317,17 @@ def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) 
 def link_output(
         ctx: AnalysisContext,
         beam: Artifact,
-        data_dir: Artifact,
-        property_dir: Artifact) -> Artifact:
+        data_dir: [Artifact, None],
+        property_dir: [Artifact, None]) -> Artifact:
     """Link the data_dirs and the test_suite beam in a single output folder."""
-    link_spec = {}
-    link_spec[beam.basename] = beam
-    link_spec[data_dir.basename] = data_dir
-    link_spec[property_dir.basename] = property_dir
-    link_spec[ctx.attrs.suite.basename] = ctx.attrs.suite
+    link_spec = {
+        beam.basename: beam,
+        ctx.attrs.suite.basename: ctx.attrs.suite,
+    }
+    if data_dir:
+        link_spec[data_dir.basename] = data_dir
+    if property_dir:
+        link_spec[property_dir.basename] = property_dir
     return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
 
 def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str:
