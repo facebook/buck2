@@ -265,15 +265,17 @@ def encode_base_jar_command(
         compiling_classpath_snapshot = {}
     else:
         expect(len(source_only_abi_compiling_deps) == 0)
-        compiling_deps_list = filter(None, list(compiling_deps_tset.traverse(ordering = "topological"))) if compiling_deps_tset else []
-        compiling_classpath = classpath_jars_tag.tag_artifacts(
-            [dep.abi for dep in compiling_deps_list],
-        )
 
         # The snapshot inputs are tagged for association with dep_files, but they are not marked as used,
         # as they serve the incremental compiler's internal needs,
         # which are utilized after the build system has determined whether a rebuild is necessary.
-        compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts({dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list}) if provide_classpath_snapshot else {}
+        if provide_classpath_snapshot:
+            compiling_deps_list = filter(None, list(compiling_deps_tset.traverse(ordering = "topological"))) if compiling_deps_tset else []
+            compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in compiling_deps_list])
+            compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts({dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list})
+        else:
+            compiling_classpath = classpath_jars_tag.tag_artifacts(compiling_deps_tset.project_as_json("javacd_json", ordering = "topological") if compiling_deps_tset else [])
+            compiling_classpath_snapshot = {}
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
