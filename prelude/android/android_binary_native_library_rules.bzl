@@ -1260,11 +1260,8 @@ def _get_merged_linkables_for_platform(
         group_data = link_groups[group]
         is_actually_merged = len(group_data.constituents) > 1
 
-        can_be_asset = True
-        for target in group_data.constituents:
-            if not linkable_nodes[target].can_be_asset:
-                can_be_asset = False
-                break
+        non_asset_constituents = [target for target in group_data.constituents if not linkable_nodes[target].can_be_asset]
+        can_be_asset = len(non_asset_constituents) == 0
 
         if not is_actually_merged:
             target = group_data.constituents[0]
@@ -1420,6 +1417,7 @@ def _get_merged_linkables_for_platform(
                 shlib_deps = shlib_deps,
                 exported_linker_flags = exported_linker_flags,
                 exported_linker_post_flags = exported_linker_post_flags,
+                non_asset_constituents = non_asset_constituents,
             ),
         )
 
