@@ -150,9 +150,28 @@ pub(crate) fn to_project_json(
             }
         }
 
+        // We want to include all the directories from srcs, because sometimes the source files on
+        // disk aren't in the same layout as buck-out. In this situation, the root_module directory
+        // isn't sufficient to find all files in the module tree.
+        //
+        // You could construct a pathological case using mapped_srcs that means we miss
+        // directories here, but this covers all the cases I've tested.
+        let mut src_dirs: Vec<PathBuf> = info
+            .srcs
+            .iter()
+            .filter_map(|p| p.parent())
+            .map(|p| p.to_owned())
+            .collect();
+        src_dirs.sort();
+        include_dirs.extend(src_dirs.into_iter());
+
+        // We want to include the directory that contains the root module. Typically this file
+        // will be listed the srcs declaration, but it may be a generated file listed in mapped_srcs.
         if let Some(parent) = root_module.parent() {
             include_dirs.push(parent.to_owned());
         }
+
+        include_dirs = remove_duplicates_preserve_order(include_dirs);
 
         let build = if include_all_buildfiles || info.in_workspace {
             let build = Build {
@@ -771,6 +790,19 @@ pub(crate) fn select_mode(mode: Option<&str>) -> Option<String> {
         // `rust-project check` will work.
         None
     }
+}
+
+fn remove_duplicates_preserve_order(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut uniq_paths = Vec::with_capacity(paths.len());
+    let mut seen = FxHashSet::default();
+
+    for path in paths {
+        if seen.insert(path.clone()) {
+            uniq_paths.push(path);
+        }
+    }
+
+    uniq_paths
 }
 
 /// When we merge targets with their tests, we shouldn't end up
