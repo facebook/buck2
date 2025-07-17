@@ -30,7 +30,6 @@ use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use either::Either;
 use indexmap::IndexMap;
-use indexmap::IndexSet;
 use indexmap::indexset;
 use relative_path::RelativePathBuf;
 use sha1::Digest;
@@ -63,61 +62,6 @@ enum WriteActionError {
 enum WriteContentArg<'v> {
     CommandLineArg(CommandLineArg<'v>),
     StarlarkCommandLineValueUnpack(StarlarkCommandLineValueUnpack<'v>),
-}
-
-struct CommandLineInputVisitor {
-    associated_artifacts: SmallSet<ArtifactGroup>,
-    with_associated_artifacts: bool,
-    content_based_inputs: IndexSet<ArtifactGroup>,
-}
-
-impl CommandLineInputVisitor {
-    fn new(with_associated_artifacts: bool) -> Self {
-        Self {
-            associated_artifacts: Default::default(),
-            with_associated_artifacts,
-            content_based_inputs: Default::default(),
-        }
-    }
-}
-
-impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
-        if self.with_associated_artifacts {
-            self.associated_artifacts.insert(input.dupe());
-        }
-
-        let is_content_based_input = match input {
-            ArtifactGroup::Artifact(ref artifact) => artifact.has_content_based_path(),
-            // Promised artifacts are not allowed to use content-based paths
-            ArtifactGroup::Promise(_) => false,
-            ArtifactGroup::TransitiveSetProjection(ref transitive_set_projection_key) => {
-                transitive_set_projection_key.uses_content_based_paths
-            }
-        };
-
-        if is_content_based_input {
-            self.content_based_inputs.insert(input);
-        }
-    }
-
-    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
-    }
-
-    fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
-
-    fn visit_declared_artifact(
-        &mut self,
-        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
-        tag: Option<&ArtifactTag>,
-    ) -> buck2_error::Result<()> {
-        if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
-            let artifact = declared_artifact.ensure_bound()?.into_artifact();
-            self.visit_input(ArtifactGroup::Artifact(artifact), tag);
-        }
-
-        Ok(())
-    }
 }
 
 #[starlark_module]
@@ -160,13 +104,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         )?;
 
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
-        let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
-
-        let mut visitor = CommandLineInputVisitor::new(false);
-        cli.visit_contents(&mut visitor)?;
 
         this.register_action(
-            visitor.content_based_inputs,
+            indexset![],
             indexset![output_artifact],
             UnregisteredWriteJsonAction::new(
                 pretty,
@@ -274,10 +214,35 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> buck2_error::Result<(SmallSet<ArtifactGroup>, IndexSet<ArtifactGroup>)> {
-            let mut visitor = CommandLineInputVisitor::new(with_inputs);
+        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
+            if !with_inputs {
+                return Ok(Default::default());
+            }
+
+            #[derive(Default)]
+            struct CommandLineInputVisitor {
+                associated_artifacts: SmallSet<ArtifactGroup>,
+            }
+
+            impl CommandLineArtifactVisitor<'_> for CommandLineInputVisitor {
+                fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+                    self.associated_artifacts.insert(input);
+                }
+
+                fn visit_declared_output(
+                    &mut self,
+                    _artifact: OutputArtifact,
+                    _tag: Option<&ArtifactTag>,
+                ) {
+                }
+
+                fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {
+                }
+            }
+
+            let mut visitor = CommandLineInputVisitor::default();
             cli.visit_artifacts(&mut visitor)?;
-            Ok((visitor.associated_artifacts, visitor.content_based_inputs))
+            Ok(visitor.associated_artifacts)
         }
 
         let mut this = this.state()?;
@@ -288,28 +253,24 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             uses_experimental_content_based_path_hashing.into_option(),
         )?;
 
-        let (content_cli, written_macro_count, mut associated_artifacts, mut content_based_inputs) =
-            match content {
-                WriteContentArg::CommandLineArg(content) => {
-                    let content_arg = content.as_command_line_arg();
-                    let count = count_write_to_file_macros(allow_args, content_arg)?;
-                    let (associated_artifacts, content_based_inputs) =
-                        get_cli_inputs(with_inputs, content_arg)?;
-                    (content, count, associated_artifacts, content_based_inputs)
-                }
-                WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
-                    let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
-                    let count = count_write_to_file_macros(allow_args, &cli)?;
-                    let (associated_artifacts, content_based_inputs) =
-                        get_cli_inputs(with_inputs, &cli)?;
-                    (
-                        CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
-                        count,
-                        associated_artifacts,
-                        content_based_inputs,
-                    )
-                }
-            };
+        let (content_cli, written_macro_count, mut associated_artifacts) = match content {
+            WriteContentArg::CommandLineArg(content) => {
+                let content_arg = content.as_command_line_arg();
+                let count = count_write_to_file_macros(allow_args, content_arg)?;
+                let associated_artifacts = get_cli_inputs(with_inputs, content_arg)?;
+                (content, count, associated_artifacts)
+            }
+            WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
+                let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
+                let count = count_write_to_file_macros(allow_args, &cli)?;
+                let associated_artifacts = get_cli_inputs(with_inputs, &cli)?;
+                (
+                    CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
+                    count,
+                    associated_artifacts,
+                )
+            }
+        };
 
         let path_resolution_method = output_artifact.path_resolution_method();
 
@@ -344,9 +305,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 use_dep_files_placeholder_for_content_based_paths,
             );
             state.register_action(
-                // We need the same inputs as the write action itself since it is processing the same content
-                // and may need to resolve any of the paths in the content.
-                content_based_inputs.iter().map(|a| a.dupe()).collect(),
+                indexset![],
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
                 Some(content_cli.to_value()),
@@ -364,7 +323,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 for a in &written_macro_files {
                     let artifact = a.dupe().ensure_bound()?.into_artifact();
                     macro_files.insert(artifact.dupe());
-                    content_based_inputs.insert(ArtifactGroup::Artifact(artifact));
                 }
                 Some(macro_files)
             } else {
@@ -378,7 +336,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
         };
         this.register_action(
-            content_based_inputs,
+            indexset![],
             indexset![output_artifact],
             action,
             Some(content_cli.to_value()),
