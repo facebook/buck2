@@ -12,7 +12,8 @@ configuration to set the target platform for the project:
 ```
 [parser]
 target_platform_detector_spec = target:root//...->prelude//platforms:default \
-  target:prelude//...->prelude//platforms:default
+  target:prelude//...->prelude//platforms:default \
+  target:toolchains//...->prelude//platforms:default
 ```
 
 ## Setup

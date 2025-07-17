@@ -155,7 +155,9 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> buck2
         writeln!(buckconfig, "[parser]")?;
         writeln!(
             buckconfig,
-            "  target_platform_detector_spec = target:root//...->prelude//platforms:default \\\n    target:prelude//...->prelude//platforms:default"
+            "  target_platform_detector_spec = target:root//...->prelude//platforms:default \\
+    target:prelude//...->prelude//platforms:default \\
+    target:toolchains//...->prelude//platforms:default"
         )?;
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[build]")?;
@@ -350,7 +352,8 @@ mod tests {
 
 [parser]
   target_platform_detector_spec = target:root//...->prelude//platforms:default \\
-    target:prelude//...->prelude//platforms:default
+    target:prelude//...->prelude//platforms:default \\
+    target:toolchains//...->prelude//platforms:default
 
 [build]
   execution_platforms = prelude//platforms:default
