@@ -67,6 +67,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
+use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -108,13 +109,13 @@ impl UnregisteredWriteJsonAction {
 impl UnregisteredAction for UnregisteredWriteJsonAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
+        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
-        let action = WriteJsonAction::new(contents, inputs, outputs, *self)?;
+        let action = WriteJsonAction::new(contents, outputs, *self)?;
         Ok(Box::new(action))
     }
 }
@@ -122,7 +123,6 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 #[derive(Debug, Allocative)]
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
-    inputs: Box<[ArtifactGroup]>,
     output: BuildArtifact,
     inner: UnregisteredWriteJsonAction,
 }
@@ -130,13 +130,11 @@ struct WriteJsonAction {
 impl WriteJsonAction {
     fn new(
         contents: OwnedFrozenValue,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
     ) -> buck2_error::Result<Self> {
         validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
 
-        let inputs = inputs.into_iter().collect();
         let mut outputs = outputs.into_iter();
 
         let output = match (outputs.next(), outputs.next()) {
@@ -149,7 +147,6 @@ impl WriteJsonAction {
 
         Ok(WriteJsonAction {
             contents,
-            inputs,
             output,
             inner,
         })
@@ -180,7 +177,11 @@ impl Action for WriteJsonAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        let mut visitor = CommandLineContentBasedInputVisitor::new();
+        json::visit_json_artifacts(self.contents.value(), &mut visitor)?;
+        Ok(Cow::Owned(
+            visitor.content_based_inputs.into_iter().collect(),
+        ))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {

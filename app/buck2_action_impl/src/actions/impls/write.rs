@@ -15,6 +15,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -24,8 +25,10 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
@@ -55,6 +58,53 @@ enum WriteActionValidationError {
     ContentsNotCommandLineValue(String),
 }
 
+pub(crate) struct CommandLineContentBasedInputVisitor {
+    pub(crate) content_based_inputs: IndexSet<ArtifactGroup>,
+}
+
+impl CommandLineContentBasedInputVisitor {
+    pub(crate) fn new() -> Self {
+        Self {
+            content_based_inputs: Default::default(),
+        }
+    }
+}
+
+impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor {
+    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+        let is_content_based_input = match input {
+            ArtifactGroup::Artifact(ref artifact) => artifact.has_content_based_path(),
+            // Promised artifacts are not allowed to use content-based paths
+            ArtifactGroup::Promise(_) => false,
+            ArtifactGroup::TransitiveSetProjection(ref transitive_set_projection_key) => {
+                transitive_set_projection_key.uses_content_based_paths
+            }
+        };
+
+        if is_content_based_input {
+            self.content_based_inputs.insert(input);
+        }
+    }
+
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+    }
+
+    fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
+
+    fn visit_declared_artifact(
+        &mut self,
+        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        tag: Option<&ArtifactTag>,
+    ) -> buck2_error::Result<()> {
+        if declared_artifact.has_content_based_path() {
+            let artifact = declared_artifact.ensure_bound()?.into_artifact();
+            self.visit_input(ArtifactGroup::Artifact(artifact), tag);
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Allocative, Debug)]
 pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
@@ -66,14 +116,14 @@ pub(crate) struct UnregisteredWriteAction {
 impl UnregisteredAction for UnregisteredWriteAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
+        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
 
-        let write_action = WriteAction::new(contents, inputs, outputs, *self)?;
+        let write_action = WriteAction::new(contents, outputs, *self)?;
         Ok(Box::new(write_action))
     }
 }
@@ -81,7 +131,6 @@ impl UnregisteredAction for UnregisteredWriteAction {
 #[derive(Debug, Allocative)]
 struct WriteAction {
     contents: OwnedFrozenValue, // StarlarkCmdArgs
-    inputs: Box<[ArtifactGroup]>,
     output: BuildArtifact,
     inner: UnregisteredWriteAction,
 }
@@ -89,11 +138,9 @@ struct WriteAction {
 impl WriteAction {
     fn new(
         contents: OwnedFrozenValue,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteAction,
     ) -> buck2_error::Result<Self> {
-        let inputs = inputs.into_iter().collect();
         let mut outputs = outputs.into_iter();
 
         let output = match (outputs.next(), outputs.next()) {
@@ -111,7 +158,6 @@ impl WriteAction {
 
         Ok(WriteAction {
             contents,
-            inputs,
             output,
             inner,
         })
@@ -162,7 +208,19 @@ impl Action for WriteAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        let mut visitor = CommandLineContentBasedInputVisitor::new();
+        ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
+            .0
+            .visit_artifacts(&mut visitor)?;
+        let mut content_based_inputs = visitor.content_based_inputs;
+        if let Some(macro_files) = &self.inner.macro_files {
+            for artifact in macro_files {
+                if artifact.has_content_based_path() {
+                    content_based_inputs.insert(ArtifactGroup::Artifact(artifact.dupe()));
+                }
+            }
+        }
+        Ok(Cow::Owned(content_based_inputs.into_iter().collect()))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {

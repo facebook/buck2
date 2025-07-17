@@ -45,6 +45,7 @@ use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
+use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
 
 #[derive(Debug, Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
@@ -67,14 +68,14 @@ impl UnregisteredWriteMacrosToFileAction {
 impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
+        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
 
-        let action = WriteMacrosToFileAction::new(contents, inputs, outputs, *self)?;
+        let action = WriteMacrosToFileAction::new(contents, outputs, *self)?;
 
         Ok(Box::new(action))
     }
@@ -96,7 +97,6 @@ enum WriteMacrosActionValidationError {
 #[derive(Debug, Allocative)]
 struct WriteMacrosToFileAction {
     contents: OwnedFrozenValue, // StarlarkCmdArgs
-    inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
     inner: UnregisteredWriteMacrosToFileAction,
 }
@@ -104,7 +104,6 @@ struct WriteMacrosToFileAction {
 impl WriteMacrosToFileAction {
     fn new(
         contents: OwnedFrozenValue,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteMacrosToFileAction,
     ) -> buck2_error::Result<Self> {
@@ -120,7 +119,6 @@ impl WriteMacrosToFileAction {
         } else {
             Ok(Self {
                 contents,
-                inputs: inputs.into_iter().collect(),
                 outputs: outputs.into_iter().collect(),
                 inner,
             })
@@ -135,7 +133,14 @@ impl Action for WriteMacrosToFileAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        let mut visitor = CommandLineContentBasedInputVisitor::new();
+        ValueAsCommandLineLike::unpack_value(self.contents.value())?
+            .unwrap()
+            .0
+            .visit_artifacts(&mut visitor)?;
+        Ok(Cow::Owned(
+            visitor.content_based_inputs.into_iter().collect(),
+        ))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
