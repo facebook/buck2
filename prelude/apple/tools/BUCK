@@ -88,7 +88,7 @@ python_binary(
     visibility = ["PUBLIC"],
 )
 
-python_bootstrap_binary(
+python_binary(
     name = "swift_exec",
     main = "swift_exec.py",
     visibility = ["PUBLIC"],
