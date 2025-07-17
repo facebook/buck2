@@ -109,8 +109,8 @@ ErlangToolchainInfo = provider(
         "escript_trampoline": provider_field(Artifact),
         # name to parse_transform artifacts mapping for core parse_transforms (that are always used) and
         # user defines ones
-        "core_parse_transforms": provider_field(dict[str, (Artifact, Artifact)]),
-        "parse_transforms": provider_field(dict[str, (Artifact, Artifact)]),
+        "core_parse_transforms": provider_field(dict[str, cmd_args]),
+        "parse_transforms": provider_field(dict[str, cmd_args]),
         # filter spec for parse transforms
         "parse_transforms_filters": provider_field(dict[str, list[str]]),
         # release boot script builder

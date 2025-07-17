@@ -358,8 +358,7 @@ def _build_erl(
             erlc,
             erl_opts,
             deps_args,
-            "-o",
-            cmd_args(outputs[output].as_output(), parent = 1),
+            cmd_args(outputs[output].as_output(), parent = 1, format = "-o{}"),
             src,
         )
         mapping_file = ctx.actions.write_json(_dep_mapping_name(src), mapping)
@@ -483,14 +482,7 @@ def _get_erl_opts(
                 module_name(src) in toolchain.parse_transforms_filters[parse_transform]
             ):
                 parse_transforms[parse_transform] = toolchain.parse_transforms[parse_transform]
-
-    for parse_transform in parse_transforms:
-        (beam, resource_folder) = parse_transforms[parse_transform]
-        args.add(
-            "+{parse_transform, %s}" % (parse_transform,),
-            cmd_args(beam, format = "-pa{}", parent = 1),
-        )
-        args.add(cmd_args(hidden = resource_folder))
+    args.add(parse_transforms.values())
 
     source = cmd_args(src, format = "{source, \"{}\"}")
     path_type = "{path_type, relative}"

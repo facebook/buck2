@@ -161,7 +161,7 @@ configured_otp_binaries = rule(
     },
 )
 
-def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict[str, (Artifact, Artifact)]:
+def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict[str, cmd_args]:
     transforms = {}
     for dep in parse_transforms:
         src = dep[ErlangParseTransformInfo].source
@@ -169,21 +169,28 @@ def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: li
         module_name = basename_without_extension(src.basename)
         if module_name in transforms:
             fail("ambiguous global parse_transforms defined: %s", (module_name,))
-        transforms[module_name] = _gen_parse_transform_beam(ctx, src, extra, erlc)
+        (beam, resource_dir) = _gen_parse_transform_beam(ctx, src, extra, erlc)
+        transform_arg = "+{parse_transform, %s}" % (module_name,)
+        if resource_dir:
+            transforms[module_name] = cmd_args(transform_arg, cmd_args(beam, format = "-pa{}", parent = 1, hidden = resource_dir))
+        else:
+            transforms[module_name] = cmd_args(transform_arg, cmd_args(beam, format = "-pa{}", parent = 1))
     return transforms
 
 def _gen_parse_transform_beam(
         ctx: AnalysisContext,
         src: Artifact,
         extra: list[Artifact],
-        erlc: Tool) -> (Artifact, Artifact):
+        erlc: Tool) -> (Artifact, [Artifact, None]):
     name = strip_extension(src.basename)
 
     # install resources
-    resource_dir = ctx.actions.symlinked_dir(
-        paths.join(name, "resources"),
-        {infile.basename: infile for infile in extra},
-    )
+    resource_dir = None
+    if extra:
+        resource_dir = ctx.actions.symlinked_dir(
+            paths.join(name, "resources"),
+            {infile.basename: infile for infile in extra},
+        )
 
     # build beam
     output = ctx.actions.declare_output(name, name + ".beam")
