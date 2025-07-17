@@ -65,6 +65,11 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+constraint_setting(
+    name = "buildscript_for_platform",
+    visibility = ["PUBLIC"],
+)
+
 prelude.python_bootstrap_binary(
     name = "rustdoc_coverage",
     main = "rustdoc_coverage.py",

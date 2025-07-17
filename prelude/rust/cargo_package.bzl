@@ -10,6 +10,7 @@
 # These are not used anywhere else in prelude and are not exported as prelude globals.
 
 load("@prelude//:prelude.bzl", "native")
+load("@prelude//rust/tools:buildscript_platform.bzl", "buildscript_platform_constraints")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:type_defs.bzl", "is_dict", "is_list")
 
@@ -170,13 +171,42 @@ def apply_platform_attrs(platform_attrs, universal_attrs, platform_select = None
 
     return combined_attrs
 
-def _cargo_rust_binary(name, platform = {}, **kwargs):
-    kwargs = apply_platform_attrs(platform, kwargs)
+# Build scripts need to evaluate `platform` according to the target platform of
+# the corresponding build-script-run target, not the current platform they are
+# configured for (which is the execution platform of the build-script-run
+# target).
+def apply_platform_attrs_for_buildscript_build(platform_attrs, universal_attrs):
+    if not rule_exists("buildscript_for_platform="):
+        buildscript_platform_constraints(
+            name = "buildscript_for_platform=",
+            reindeer_platforms = get_reindeer_platform_names(),
+        )
+
+    return apply_platform_attrs(
+        platform_attrs,
+        universal_attrs,
+        select({
+            "DEFAULT": get_reindeer_platforms(),
+        } | {
+            ":buildscript_for_platform=[{}]".format(plat): plat
+            for plat in get_reindeer_platform_names()
+        }),
+    )
+
+def _cargo_rust_binary(name, crate = None, platform = {}, **kwargs):
+    if crate == "build_script_build":
+        kwargs = apply_platform_attrs_for_buildscript_build(platform, kwargs)
+    else:
+        kwargs = apply_platform_attrs(platform, kwargs)
 
     rustc_flags = kwargs.get("rustc_flags", [])
     kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
 
-    native.rust_binary(name = name, **kwargs)
+    native.rust_binary(
+        name = name,
+        crate = crate,
+        **kwargs
+    )
 
 def _cargo_rust_library(name, platform = {}, **kwargs):
     kwargs = apply_platform_attrs(platform, kwargs)

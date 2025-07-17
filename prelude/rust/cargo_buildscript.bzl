@@ -24,10 +24,21 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
+load(
+    "@prelude//rust/tools:buildscript_platform.bzl",
+    "buildscript_platform_constraints",
+    "transition_alias",
+)
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
+load("@prelude//utils:selects.bzl", "selects")
 load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "MetadataKind")
-load(":cargo_package.bzl", "apply_platform_attrs")
+load(
+    ":cargo_package.bzl",
+    "apply_platform_attrs",
+    "get_reindeer_platform_names",
+    "get_reindeer_platforms",
+)
 load(":context.bzl", "DepCollectionContext")
 load(
     ":link_info.bzl",
@@ -181,6 +192,7 @@ def buildscript_run(
         local_manifest_dir = None,
         # target or subtarget containing crate, e.g. ":serde.git[serde]"
         manifest_dir = None,
+        buildscript_compatible_with = None,
         **kwargs):
     kwargs = apply_platform_attrs(platform, kwargs)
 
@@ -198,6 +210,37 @@ def buildscript_run(
             path.removeprefix(prefix_with_trailing_slash): path
             for path in glob(["{}/**".format(local_manifest_dir)])
         }
+
+    def platform_buildscript_build_name(plat):
+        if name.endswith("-build-script-run"):
+            # This is the expected case for Reindeer-generated targets, which
+            # come in pairs build-script-run and build-script-build.
+            return "{}-build-script-build-{}".format(
+                name.removesuffix("-build-script-run"),
+                plat,
+            )
+        else:
+            return "{}-{}".format(name, plat)
+
+    if not rule_exists("buildscript_for_platform="):
+        buildscript_platform_constraints(
+            name = "buildscript_for_platform=",
+            reindeer_platforms = get_reindeer_platform_names(),
+        )
+
+    for plat in get_reindeer_platform_names():
+        transition_alias(
+            name = platform_buildscript_build_name(plat),
+            actual = buildscript_rule,
+            incoming_transition = ":buildscript_for_platform=[{}]".format(plat),
+            target_compatible_with = buildscript_compatible_with,
+            visibility = [],
+        )
+
+    buildscript_rule = selects.apply(
+        get_reindeer_platforms(),
+        lambda plat: buildscript_rule if plat == None else ":{}".format(platform_buildscript_build_name(plat)),
+    )
 
     _cargo_buildscript_rule(
         name = name,
