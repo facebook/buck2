@@ -168,20 +168,26 @@ def _append_javac_params(
         custom_jdk_info: CustomJdkInfo | None,
         generated_sources_dir: Artifact) -> cmd_args:
     cmd = cmd_args()
-    javac_args = cmd_args(
+    shared_javac_args = cmd_args(
         "-encoding",
         "utf-8",
         # Set the sourcepath to stop us reading source files out of jars by mistake.
         "-sourcepath",
         '""',
     )
-    javac_args.add(extra_arguments)
+
+    min_release_version = ctx.attrs.min_release_version if hasattr(ctx.attrs, "min_release_version") else None
+    multi_release_srcs = ctx.attrs.multi_release_srcs if hasattr(ctx.attrs, "multi_release_srcs") else {}
+
+    shared_javac_args.add(extra_arguments)
 
     additional_classpath_entries_list = []
-    if target_level >= 9:
+
+    # min_release_version will use latest JDK for compilation, so we need to add JDK8 bootclasspath
+    if target_level >= 9 or min_release_version:
         if custom_jdk_info:
             additional_classpath_entries_list = custom_jdk_info.bootclasspath
-            javac_args.add("--system", custom_jdk_info.system_image)
+            shared_javac_args.add("--system", custom_jdk_info.system_image)
     else:
         custom_bootclasspath = custom_jdk_info.bootclasspath if custom_jdk_info else []
         bootclasspath_list = build_bootclasspath(custom_bootclasspath, source_level, java_toolchain)
@@ -202,25 +208,27 @@ def _append_javac_params(
             "--javac_classpath_file",
         ))
     else:
-        javac_args.add("-classpath ''")
-
-    javac_args.add("-source")
-    javac_args.add(str(source_level))
-    javac_args.add("-target")
-    javac_args.add(str(target_level))
+        shared_javac_args.add("-classpath ''")
 
     cmd.add(_process_plugins(
         ctx,
         actions_identifier,
         annotation_processor_properties,
         javac_plugin_params,
-        javac_args,
+        shared_javac_args,
     ))
 
     cmd.add("--generated_sources_dir", generated_sources_dir.as_output())
 
     zipped_sources, plain_sources = split_on_archives_and_plain_files(srcs, _JAVA_FILE_EXTENSION)
 
+    # copy of javac_args to be used by multi_release_args_file before release is added and before srcs is added
+    javac_args = shared_javac_args.copy()
+    if min_release_version:
+        javac_args.add("--release", min_release_version)
+    else:
+        javac_args.add("-source", str(source_level))
+        javac_args.add("-target", str(target_level))
     javac_args.add(*plain_sources)
     args_file, _ = ctx.actions.write(
         declare_prefixed_name("javac_args", actions_identifier),
@@ -233,6 +241,19 @@ def _append_javac_params(
     cmd.add(cmd_args(hidden = plain_sources))
 
     cmd.add("--javac_args_file", args_file)
+
+    if min_release_version and multi_release_srcs:
+        for min_release_version, release_srcs in multi_release_srcs.items():
+            release_args = shared_javac_args.copy()
+            release_args.add("--release", min_release_version)
+            release_args.add(*release_srcs)
+            release_args_file, _ = ctx.actions.write(
+                declare_prefixed_name("multi_release_args.java{}".format(min_release_version), actions_identifier),
+                release_args,
+                allow_args = True,
+            )
+            cmd.add("--multi_release_args_file", release_args_file)
+            cmd.add(cmd_args(hidden = release_srcs))
 
     if zipped_sources:
         cmd.add("--zipped_sources_file", ctx.actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources))

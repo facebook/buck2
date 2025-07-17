@@ -8,9 +8,11 @@
 
 
 import argparse
-import os
 import pathlib
+import re
+import shutil
 from tempfile import TemporaryDirectory
+from typing import List
 
 import utils
 
@@ -47,6 +49,14 @@ def _parse_args():
         required=False,
         metavar="javac_args_file",
         help="path to file with stored args that need to be passed to java compiler",
+    )
+    parser.add_argument(
+        "--multi_release_args_file",
+        action="append",
+        type=pathlib.Path,
+        required=False,
+        metavar="multi_release_args_file",
+        help="path to file with stored args that need to be passed to java compiler for multi-release build",
     )
     parser.add_argument(
         "--zipped_sources_file",
@@ -119,25 +129,64 @@ def _parse_args():
     return parser.parse_args()
 
 
+def _get_multi_release_version(args_file: pathlib.Path) -> str:
+    """
+    Extracts the Java version from a filename ending with '.java<version>'.
+    """
+    version_match = re.search(r".java(\d+)$", str(args_file))
+    return version_match.group(1) if version_match else None
+
+
+def _get_multi_release_classpath(
+    temp_build_dir: pathlib.Path,
+    javac_classpath: pathlib.Path,
+    javac_output: pathlib.Path,
+) -> pathlib.Path:
+    """
+    Creates a copy of javac classpath at temp_build_dir/multi_release_classpath containing
+    javac_classpath and javac_output, joined by the platform path separator.
+    Returns the path to the created classpath file.
+    """
+    multi_release_classpath = temp_build_dir / "multi_release_classpath"
+    if javac_classpath:
+        shutil.copyfile(javac_classpath, multi_release_classpath)
+        with multi_release_classpath.open("a", encoding="utf-8") as f:
+            f.write(f":{javac_output}")
+    else:
+        multi_release_classpath.write_text(f"{javac_output}")
+    return multi_release_classpath
+
+
+def _get_multi_release_manifest(temp_build_dir: pathlib.Path) -> pathlib.Path:
+    """
+    Creates a Multi-Release manifest file at temp_build_dir/MANIFEST.MF
+    Returns the path to the created manifest file.
+    """
+    multi_release_manifest = temp_build_dir / "MANIFEST.MF"
+    multi_release_manifest.write_text("Manifest-Version: 1.0\nMulti-Release: true\n")
+    return multi_release_manifest
+
+
 def _run_javac(
     javac_tool: pathlib.Path,
     javac_args_file: pathlib.Path,
+    javac_output: pathlib.Path,
     zipped_sources_file: pathlib.Path,
     javac_classpath_file: pathlib.Path,
     javac_processor_classpath_file: pathlib.Path,
     javac_bootclasspath_file: pathlib.Path,
     generated_sources_dir: pathlib.Path,
-    temp_dir: TemporaryDirectory,
+    temp_build_dir: pathlib.Path,
 ) -> pathlib.Path:
-    javac_output = os.path.join(temp_dir, "classes")
-    os.mkdir(javac_output)
+    # make sure output folder exists
+    javac_output.mkdir(parents=True, exist_ok=True)
 
     javac_cmd = [javac_tool]
 
     args_file = javac_args_file
     if zipped_sources_file:
         args_file = utils.extract_source_files(
-            zipped_sources_file, javac_args_file, _JAVA_FILE_EXTENSION, temp_dir
+            zipped_sources_file, javac_args_file, _JAVA_FILE_EXTENSION, temp_build_dir
         )
 
     if utils.sources_are_present(args_file, _JAVA_FILE_EXTENSION):
@@ -166,18 +215,18 @@ def _run_javac(
         javac_cmd += ["-d", javac_output]
         utils.execute_command(javac_cmd)
 
-    return pathlib.Path(javac_output)
+    return javac_output
 
 
 def _run_jar(
     jar_builder_tool: str,
     output_path: pathlib.Path,
-    manifest: pathlib.Path,
+    manifest_files: List[pathlib.Path],
     javac_output: pathlib.Path,
     resources_dir: pathlib.Path,
     additional_compiled_srcs: pathlib.Path,
     remove_classes_file: pathlib.Path,
-    temp_dir: TemporaryDirectory,
+    temp_build_dir: pathlib.Path,
     concat_resources: bool = False,
 ):
     jar_cmd = []
@@ -191,14 +240,17 @@ def _run_jar(
     if additional_compiled_srcs:
         content_to_pack_dirs.append(additional_compiled_srcs)
 
-    entries_to_jar_file = pathlib.Path(temp_dir) / "entries_to_jar.txt"
-    with open(entries_to_jar_file, "w") as f:
-        f.write("\n".join([str(path) for path in content_to_pack_dirs]))
+    entries_to_jar_file = temp_build_dir / "entries_to_jar.txt"
+    entries_to_jar_file.write_text(
+        "\n".join(str(path) for path in content_to_pack_dirs)
+    )
 
     jar_cmd.extend(["--entries-to-jar", entries_to_jar_file])
 
-    if manifest:
-        jar_cmd.extend(["--manifest-file", manifest])
+    if manifest_files:
+        jar_cmd.append("--merge-manifests")
+        for manifest_file in manifest_files:
+            jar_cmd.extend(["--manifest-file", manifest_file])
     if concat_resources:
         jar_cmd.extend(["--concat-jars"])
 
@@ -222,6 +274,7 @@ def main():
     jar_builder_tool = args.jar_builder_tool
     output_path = args.output
     javac_args = args.javac_args_file
+    multi_release_args_file = args.multi_release_args_file
     zipped_sources_file = args.zipped_sources_file
     javac_classpath = args.javac_classpath_file
     javac_processor_classpath = args.javac_processors_classpath_file
@@ -232,6 +285,7 @@ def main():
     remove_classes_file = args.remove_classes
     additional_compiled_srcs = args.additional_compiled_srcs
     concat_resources = args.concat_resources
+    manifest_files = [manifest] if manifest else []
 
     utils.log_message("javac_tool: {}".format(javac_tool))
     utils.log_message("jar_builder_tool: {}".format(jar_builder_tool))
@@ -240,6 +294,9 @@ def main():
         utils.log_message("skip_javac_run: {}".format(skip_javac_run))
     if javac_args:
         utils.log_message("javac_args: {}".format(javac_args))
+    if multi_release_args_file:
+        for multi_release_args in multi_release_args_file:
+            utils.log_message("multi_release_args: {}".format(multi_release_args))
     if zipped_sources_file:
         utils.log_message("zipped_sources_file: {}".format(zipped_sources_file))
     if javac_classpath:
@@ -270,28 +327,73 @@ def main():
         )
 
     with TemporaryDirectory() as temp_dir:
-        javac_output = None
+        temp_build_dir = pathlib.Path(temp_dir)
+        javac_output = temp_build_dir / "classes"
+        javac_output.mkdir(parents=True, exist_ok=True)
+
         if not skip_javac_run:
-            javac_output = _run_javac(
+            _run_javac(
                 javac_tool,
                 javac_args,
+                javac_output,
                 zipped_sources_file,
                 javac_classpath,
                 javac_processor_classpath,
                 javac_bootclasspath_file,
                 generated_sources_dir,
-                temp_dir,
+                temp_build_dir,
             )
+            if multi_release_args_file:
+                # add javac_output as classpath for the multi-release build
+                multi_release_classpath = _get_multi_release_classpath(
+                    temp_build_dir, javac_classpath, javac_output
+                )
+                multi_release_manifest = _get_multi_release_manifest(temp_build_dir)
+                manifest_files.append(multi_release_manifest)
+
+                utils.log_message(f"multi_release_manifest: {multi_release_manifest}")
+                utils.log_message(f"multi_release_classpath: {multi_release_classpath}")
+
+                for multi_release_args in multi_release_args_file:
+                    # The release file should be named as args.java<release_version>
+                    multi_release_version = _get_multi_release_version(
+                        multi_release_args
+                    )
+                    if not multi_release_version:
+                        raise Exception(
+                            f"Invalid release args file: {multi_release_args}"
+                        )
+
+                    # Multi-release classes are located in META-INF/versions/<multi_release_version>
+                    multi_release_output = (
+                        javac_output / f"META-INF/versions/{multi_release_version}"
+                    )
+
+                    utils.log_message(
+                        f"javac multi_release {multi_release_version} at {multi_release_output}"
+                    )
+
+                    _run_javac(
+                        javac_tool,
+                        multi_release_args,
+                        multi_release_output,
+                        None,
+                        multi_release_classpath,
+                        javac_processor_classpath,
+                        javac_bootclasspath_file,
+                        generated_sources_dir,
+                        temp_build_dir,
+                    )
 
         _run_jar(
             jar_builder_tool,
             output_path,
-            manifest,
+            manifest_files,
             javac_output,
             resources_dir,
             additional_compiled_srcs,
             remove_classes_file,
-            temp_dir,
+            temp_build_dir,
             concat_resources,
         )
 

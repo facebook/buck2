@@ -50,14 +50,18 @@ def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo,
 
 def get_java_version_attributes(ctx: AnalysisContext) -> (int, int):
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+
+    # used for multi-release jars
+    # the attribute might not exist if function is being used in other macros, such as kotlin_library
+    min_release_version = ctx.attrs.min_release_version if hasattr(ctx.attrs, "min_release_version") else None
     java_version = ctx.attrs.java_version
     java_source = ctx.attrs.source
     java_target = ctx.attrs.target
 
-    if java_version:
+    if java_version or min_release_version:
         if java_source or java_target:
-            fail("No need to set 'source' and/or 'target' attributes when 'java_version' is present")
-        java_version = to_java_version(java_version)
+            fail("No need to set 'source' and/or 'target' attributes when 'java_version' or 'min_release_version' are present")
+        java_version = to_java_version(min_release_version) if min_release_version else to_java_version(java_version)
         return (java_version, java_version)
 
     source = java_source or java_toolchain.source_level

@@ -292,6 +292,7 @@ java_library = prelude_rule(
         jvm_common.required_for_source_only_abi() |
         jvm_common.on_unused_dependencies() |
         jvm_common.plugins() |
+        jvm_common.multi_release_jar() |
         jvm_common.javac() |
         {
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),

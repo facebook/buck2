@@ -77,6 +77,19 @@ def _exported_deps():
 """),
     }
 
+def _multi_release_jar():
+    return {
+        "min_release_version": attrs.option(attrs.string(), default = None, doc = """
+                Minimal java version that the library should be compatible with.
+                This ensures that both the language features and the bytecode generated are
+                compatible with the specified Java version, and only APIs available in that version are accessible.
+            """),
+        "multi_release_srcs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.source(), default = []), default = {}, doc = """
+                The set of `.java` files to compile for the mapped java version.
+                Each version will be packed under META-INF/versions/java_version.
+            """),
+    }
+
 def _exported_provided_deps():
     return {
         "exported_provided_deps": attrs.list(attrs.dep(), default = [], doc = """
@@ -270,4 +283,5 @@ jvm_common = struct(
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
     javac = _javac,
     enable_used_classes = _enable_used_classes,
+    multi_release_jar = _multi_release_jar,
 )
