@@ -626,6 +626,14 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///     - a single provider label, configured or unconfigured
     ///     - a list of the two options above.
     ///
+    /// materializations can be one of:
+    ///    - "default"   
+    ///        - defer to the configuration settings to decide whether to materialize or not
+    ///    - "materialize"  
+    ///        - force materialization of build results at the end of the build.
+    ///    - "skip"  
+    ///        - skip materialization of the build results
+    ///
     /// This returns a dict keyed by sub target labels mapped to `bxl_build_result`s if the
     /// given `labels` argument is list-like.
     ///
