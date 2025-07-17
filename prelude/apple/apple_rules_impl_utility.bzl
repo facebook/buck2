@@ -104,6 +104,11 @@ def get_skip_swift_incremental_outputs_attrs():
         "_skip_swift_incremental_outputs": attrs.bool(default = read_bool("apple", "skip_swift_incremental_outputs", False, False, True)),
     }
 
+def get_swift_incremental_file_hashing_attrs():
+    return {
+        "swift_incremental_file_hashing": attrs.bool(default = read_bool("apple", "swift_incremental_file_hashing", False, False, True)),
+    }
+
 def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {
@@ -183,6 +188,7 @@ def apple_test_extra_attrs():
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
     } | validation_common.attrs_validators_arg()
     attribs.update(_apple_bundle_like_common_attrs())
+    attribs.update(get_swift_incremental_file_hashing_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 

@@ -28,6 +28,7 @@ IncrementalCompilationOutput = record(
     num_threads = field(int),
     output_file_map = field(dict),
     skip_incremental_outputs = field(bool),
+    incremental_remote_outputs = field(bool),
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
 )
@@ -81,6 +82,10 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
 def _get_skip_swift_incremental_outputs(ctx: AnalysisContext):
     return getattr(ctx.attrs, "skip_swift_incremental_outputs", False)
 
+def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
+    toolchain = get_swift_toolchain_info(ctx)
+    return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False)
+
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
         output_file_map_data: _OutputFileMapData,
@@ -110,6 +115,8 @@ def _get_incremental_compilation_flags_and_objects(
     )
 
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
+    incremental_remote_outputs = False
+
     if skip_incremental_outputs:
         # When skipping incremental outputs, we write the contents of the
         # output_file_map in the swift wrapper and need to ensure this is
@@ -121,6 +128,11 @@ def _get_incremental_compilation_flags_and_objects(
             "-output-file-map",
             output_map_artifact.as_output(),
         )
+    elif get_incremental_file_hashing_enabled(ctx):
+        incremental_remote_outputs = True
+        cmd.add(
+            "-enable-incremental-file-hashing",
+        )
 
     return IncrementalCompilationOutput(
         artifacts = output_file_map_data.artifacts,
@@ -130,6 +142,7 @@ def _get_incremental_compilation_flags_and_objects(
         skip_incremental_outputs = skip_incremental_outputs,
         swiftdeps = output_file_map_data.swiftdeps,
         depfiles = output_file_map_data.depfiles,
+        incremental_remote_outputs = incremental_remote_outputs,
     )
 
 def _get_output_file_map(

@@ -56,6 +56,7 @@ load(
 load(
     ":swift_incremental_support.bzl",
     "IncrementalCompilationInput",
+    "get_incremental_file_hashing_enabled",
     "get_incremental_object_compilation_flags",
     "should_build_swift_incrementally",
 )
@@ -807,7 +808,7 @@ def _compile_with_argsfile(
         allow_cache_upload = False
         local_only = True
         prefer_local = False
-    elif build_swift_incrementally and _IS_USER_BUILD:
+    elif build_swift_incrementally and not get_incremental_file_hashing_enabled(ctx) and _IS_USER_BUILD:
         # Swift incremental compilation requires the swiftdep files which are
         # only present when compiling locally. Prefer local unless otherwise
         # overridden.

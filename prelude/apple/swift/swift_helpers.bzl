@@ -122,6 +122,7 @@ def compile_with_argsfile(
         error_handler = swift_error_handler if error_deserializer else apple_build_error_handler,
         local_only = local_only,
         no_outputs_cleanup = no_outputs_cleanup,
+        incremental_remote_outputs = incremental_remote_outputs,
         outputs_for_error_handler = error_outputs,
         prefer_local = prefer_local,
         unique_input_inodes = True,

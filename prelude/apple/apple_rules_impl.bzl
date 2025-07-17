@@ -32,6 +32,7 @@ load(
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
     "get_skip_swift_incremental_outputs_attrs",
+    "get_swift_incremental_file_hashing_attrs",
 )
 
 implemented_rules = {
@@ -77,6 +78,7 @@ def _apple_library_extra_attrs():
     } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
+    attribs.update(get_swift_incremental_file_hashing_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 
