@@ -43,9 +43,6 @@ def erlang_application(
         labels = [],
         includes = [],
         **kwargs):
-    if read_root_config("erlang", "application_only_dependencies"):
-        kwargs["shell_libs"] = []
-
     normalized_applications = select_map(applications, lambda apps: map(normalize_application, apps))
     normalized_included_applications = select_map(included_applications, lambda apps: map(normalize_application, apps))
 
