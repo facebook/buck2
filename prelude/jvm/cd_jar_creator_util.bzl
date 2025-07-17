@@ -335,7 +335,7 @@ def setup_dep_files(
         used_classes_json_outputs: list[cmd_args],
         used_jars_json_output: Artifact,
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
-        hidden = ["artifact"]) -> cmd_args:
+        hidden: list[Artifact] = []) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
     new_cmd_args = []
