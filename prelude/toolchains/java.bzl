@@ -171,7 +171,7 @@ _java_toolchain = rule(
             providers = [RunInfo],
         ),
         "gen_class_to_source_map_include_sourceless_compiled_packages": attrs.list(attrs.string(), default = [
-            "androidx.databinding",
+            r"^androidx\.databinding",
         ]),
         "is_bootstrap_toolchain": attrs.bool(default = False),
         "jar": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
