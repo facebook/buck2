@@ -12,6 +12,7 @@ use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::chunk_reader::ChunkReader;
 use buck2_common::manifold;
@@ -69,8 +70,14 @@ pub struct PersistEventLogsCommand {
 }
 
 impl PersistEventLogsCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         buck2_core::facebook_only();
+        events_ctx.log_invocation_record = false;
         let sink = create_scribe_sink(&ctx)?;
         let trace_id = self.trace_id.clone();
         ctx.with_runtime(|mut ctx| async move {

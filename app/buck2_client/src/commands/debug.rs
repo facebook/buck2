@@ -131,7 +131,7 @@ impl DebugCommand {
             DebugCommand::FileStatus(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::LogPerf(cmd) => cmd.exec(matches, ctx),
             DebugCommand::TraceIo(cmd) => ctx.exec(cmd, matches, events_ctx),
-            DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx, events_ctx),
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
