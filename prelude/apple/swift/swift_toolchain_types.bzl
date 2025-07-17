@@ -50,21 +50,33 @@ SwiftToolchainInfo = provider(
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
 # and doesn't contain any artifacts because Swift toolchain isn't resolved yet.
 SdkUncompiledModuleInfo = provider(fields = {
-    "cxx_deps": provider_field(typing.Any, default = None),  # [Dependency]
-    "deps": provider_field(typing.Any, default = None),  # [Dependency]
-    "input_relative_path": provider_field(typing.Any, default = None),  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
-    "is_framework": provider_field(typing.Any, default = None),  # This is mostly needed for the generated Swift module map file.
-    "is_swiftmodule": provider_field(typing.Any, default = None),  # If True then represents a swiftinterface, otherwise Clang's modulemap.
-    "module_name": provider_field(typing.Any, default = None),  # A real name of a module, without distinguishing suffixes.
-    "partial_cmd": provider_field(typing.Any, default = None),  # Partial arguments, required to compile a particular SDK module.
-    "target": provider_field(typing.Any, default = None),  # A string of the compiler target triple to use for clang module deps, eg arm64-apple-ios16.4
+    # [Dependency]
+    "cxx_deps": provider_field(typing.Any, default = None),
+    # [Dependency]
+    "deps": provider_field(typing.Any, default = None),
+    # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
+    "input_relative_path": provider_field(typing.Any, default = None),
+    # This is mostly needed for the generated Swift module map file.
+    "is_framework": provider_field(typing.Any, default = None),
+    # If True then represents a swiftinterface, otherwise Clang's modulemap.
+    "is_swiftmodule": provider_field(typing.Any, default = None),
+    # A real name of a module, without distinguishing suffixes.
+    "module_name": provider_field(typing.Any, default = None),
+    # Partial arguments, required to compile a particular SDK module.
+    "partial_cmd": provider_field(typing.Any, default = None),
+    # A string of the compiler target triple to use for clang module deps, eg arm64-apple-ios16.4
+    "target": provider_field(typing.Any, default = None),
 })
 
 WrappedSdkCompiledModuleInfo = provider(fields = {
-    "clang_debug_info": provider_field(typing.Any, default = None),  # A tset of PCM artifacts
-    "clang_deps": provider_field(typing.Any, default = None),  # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive clang deps
-    "swift_debug_info": provider_field(typing.Any, default = None),  # A tset of swiftmodule artifacts
-    "swift_deps": provider_field(typing.Any, default = None),  # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive swift deps
+    # A tset of PCM artifacts
+    "clang_debug_info": provider_field(typing.Any, default = None),
+    # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive clang deps
+    "clang_deps": provider_field(typing.Any, default = None),
+    # A tset of swiftmodule artifacts
+    "swift_debug_info": provider_field(typing.Any, default = None),
+    # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive swift deps
+    "swift_deps": provider_field(typing.Any, default = None),
 })
 
 SdkSwiftOverlayInfo = provider(fields = {
@@ -72,15 +84,22 @@ SdkSwiftOverlayInfo = provider(fields = {
 })
 
 SwiftCompiledModuleInfo = provider(fields = {
-    "clang_importer_args": provider_field(cmd_args | None, default = None),  # Additional flags for the clang importer.
-    "clang_module_file_args": provider_field(cmd_args | None, default = None),  # Include flags for the clang importer.
-    "clang_modulemap": provider_field(cmd_args | None, default = None),  # Clang modulemap as args which is required for generation of swift_module_map.
-    "interface_artifact": provider_field(Artifact | None, default = None),  # If present an artifact for the modules swiftinterface.
+    # Additional flags for the clang importer.
+    "clang_importer_args": provider_field(cmd_args | None, default = None),
+    # Include flags for the clang importer.
+    "clang_module_file_args": provider_field(cmd_args | None, default = None),
+    # Clang modulemap as args which is required for generation of swift_module_map.
+    "clang_modulemap": provider_field(cmd_args | None, default = None),
+    # If present an artifact for the modules swiftinterface.
+    "interface_artifact": provider_field(Artifact | None, default = None),
     "is_framework": provider_field(bool),
     "is_sdk_module": provider_field(bool),
-    "is_swiftmodule": provider_field(bool),  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
-    "module_name": provider_field(str),  # A real name of a module, without distinguishing suffixes.
-    "output_artifact": provider_field(Artifact),  # Compiled artifact either swiftmodule or pcm.
+    # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
+    "is_swiftmodule": provider_field(bool),
+    # A real name of a module, without distinguishing suffixes.
+    "module_name": provider_field(str),
+    # Compiled artifact either swiftmodule or pcm.
+    "output_artifact": provider_field(Artifact),
 })
 
 def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
