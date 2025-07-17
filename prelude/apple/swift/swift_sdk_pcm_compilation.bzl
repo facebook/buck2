@@ -240,7 +240,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             is_swiftmodule = False,
             module_name = module_name,
             output_artifact = pcm_output,
-            clang_modulemap = expanded_modulemap_path_cmd,
+            clang_modulemap_args = expanded_modulemap_path_cmd,
         )
 
         return [

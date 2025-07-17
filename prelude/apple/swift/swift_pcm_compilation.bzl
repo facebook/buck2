@@ -103,7 +103,7 @@ def _compiled_module_info(
         is_swiftmodule = False,
         module_name = module_name,
         output_artifact = pcm_output,
-        clang_modulemap = pcm_info.exported_preprocessor.modulemap_path,
+        clang_modulemap_args = pcm_info.exported_preprocessor.modulemap_path,
     )
 
 def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:

@@ -89,7 +89,7 @@ SwiftCompiledModuleInfo = provider(fields = {
     # Include flags for the clang importer.
     "clang_module_file_args": provider_field(cmd_args | None, default = None),
     # Clang modulemap as args which is required for generation of swift_module_map.
-    "clang_modulemap": provider_field(cmd_args | None, default = None),
+    "clang_modulemap_args": provider_field(cmd_args | None, default = None),
     # If present an artifact for the modules swiftinterface.
     "interface_artifact": provider_field(Artifact | None, default = None),
     "is_framework": provider_field(bool),
@@ -143,7 +143,7 @@ def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo):
             isFramework = module_info.is_framework,
             moduleName = module_info.module_name,
             clangModulePath = module_info.output_artifact,
-            clangModuleMapPath = cmd_args([module_info.clang_modulemap], delimiter = ""),
+            clangModuleMapPath = cmd_args([module_info.clang_modulemap_args], delimiter = ""),
         )
 
 SwiftCompiledModuleTset = transitive_set(
