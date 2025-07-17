@@ -163,22 +163,39 @@ impl ReExecutor {
             action_digest,
         );
 
-        let execute_response = self
-            .re_client
-            .execute(
-                action_digest.dupe(),
-                platform,
-                dependencies,
-                &identity,
-                &mut manager,
-                self.skip_cache_read,
-                self.skip_cache_write,
-                self.re_max_queue_time,
-                self.re_resource_units,
-                &self.knobs,
-                meta_internal_extra_params,
-            )
-            .await;
+        let execute_response_fut = self.re_client.execute(
+            action_digest.dupe(),
+            platform,
+            dependencies,
+            &identity,
+            &mut manager,
+            self.skip_cache_read,
+            self.skip_cache_write,
+            self.re_max_queue_time,
+            self.re_resource_units,
+            &self.knobs,
+            meta_internal_extra_params,
+        );
+
+        let execute_response =
+            if let Some(timeout) = buck2_common::self_test_timeout::maybe_cap_timeout(None) {
+                match tokio::time::timeout(timeout, execute_response_fut).await {
+                    Ok(resp) => resp,
+                    Err(_) => {
+                        return ControlFlow::Break(manager.error(
+                            "re_timeout_exceeded",
+                            buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Tier0,
+                                "Command {} exceeded its timeout (timeout was {}s)",
+                                &identity.action_key,
+                                timeout.as_secs(),
+                            ),
+                        ));
+                    }
+                }
+            } else {
+                execute_response_fut.await
+            };
 
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
