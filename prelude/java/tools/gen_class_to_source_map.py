@@ -9,7 +9,6 @@
 import argparse
 import json
 import os
-import re
 import sys
 import zipfile
 
@@ -25,7 +24,7 @@ def _base_class_name_matches_base_source_path(
 def main(argv):
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument(
-        "--include_classes",
+        "--include_classes_prefixes",
         "-i",
         default=[],
         nargs="*",
@@ -91,8 +90,8 @@ def main(argv):
                 # If the class is not present in the sources, we still want to
                 # include it if it has a prefix that we are interested in.
                 # certain classes in "androidx.databinding.*" are generated and it's useful to know their presence in jars
-                for re_class in args.include_classes:
-                    if re.search(re_class, classname):
+                for prefix in args.include_classes_prefixes:
+                    if classname.startswith(prefix):
                         classes.append(
                             {
                                 "className": classname,
