@@ -72,9 +72,9 @@ fn copy_file_impl<'v>(
     )?;
 
     this.register_action(
-        indexset![artifact],
+        indexset![],
         indexset![output_artifact],
-        UnregisteredCopyAction::new(copy),
+        UnregisteredCopyAction::new(artifact, copy),
         None,
         None,
     )?;

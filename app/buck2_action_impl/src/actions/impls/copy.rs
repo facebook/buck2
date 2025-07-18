@@ -32,13 +32,12 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use indexmap::indexset;
 use starlark::values::OwnedFrozenValue;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum CopyActionValidationError {
-    #[error("Exactly one input file must be specified for a copy action, got {0}")]
-    WrongNumberOfInputs(usize),
     #[error("Exactly one output file must be specified for a copy action, got {0}")]
     WrongNumberOfOutputs(usize),
     #[error("Only artifact inputs are supported in copy actions, got {0}")]
@@ -56,24 +55,25 @@ pub(crate) enum CopyMode {
 
 #[derive(Allocative)]
 pub(crate) struct UnregisteredCopyAction {
+    src: ArtifactGroup,
     copy: CopyMode,
 }
 
 impl UnregisteredCopyAction {
-    pub(crate) fn new(copy: CopyMode) -> Self {
-        Self { copy }
+    pub(crate) fn new(src: ArtifactGroup, copy: CopyMode) -> Self {
+        Self { src, copy }
     }
 }
 
 impl UnregisteredAction for UnregisteredCopyAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
+        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
-        Ok(Box::new(CopyAction::new(self.copy, inputs, outputs)?))
+        Ok(Box::new(CopyAction::new(self.copy, self.src, outputs)?))
     }
 }
 
@@ -87,16 +87,15 @@ struct CopyAction {
 impl CopyAction {
     fn new(
         copy: CopyMode,
-        inputs: IndexSet<ArtifactGroup>,
+        src: ArtifactGroup,
         outputs: IndexSet<BuildArtifact>,
     ) -> buck2_error::Result<Self> {
         // TODO: Exclude other variants once they become available here. For now, this is a noop.
-        match inputs.iter().into_singleton() {
-            Some(ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..)) => {}
-            Some(other) => {
-                return Err(CopyActionValidationError::UnsupportedInput(other.dupe()).into());
+        match src {
+            ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..) => {}
+            ArtifactGroup::TransitiveSetProjection(..) => {
+                return Err(CopyActionValidationError::UnsupportedInput(src.dupe()).into());
             }
-            None => return Err(CopyActionValidationError::WrongNumberOfInputs(inputs.len()).into()),
         };
 
         if outputs.len() != 1 {
@@ -104,7 +103,7 @@ impl CopyAction {
         } else {
             Ok(CopyAction {
                 copy,
-                inputs: BoxSliceSet::from(inputs),
+                inputs: BoxSliceSet::from(indexset![src]),
                 outputs: BoxSliceSet::from(outputs),
             })
         }
