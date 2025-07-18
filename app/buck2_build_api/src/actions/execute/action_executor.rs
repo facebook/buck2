@@ -486,19 +486,20 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             eligible_for_full_hybrid,
             ..
         } = result;
+
+        // TODO(T156483516): We should also validate that the outputs match the expected outputs
+        let action_outputs = ActionOutputs::new(
+            outputs
+                .into_iter()
+                .filter_map(|(output, value)| Some((output.into_build_artifact()?.0, value)))
+                .collect(),
+        );
+
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
         let res = match &report.status {
             CommandExecutionStatus::Success { execution_kind } => {
                 let result = (
-                    // TODO(T156483516): We should also validate that the outputs match the expected outputs
-                    ActionOutputs::new(
-                        outputs
-                            .into_iter()
-                            .filter_map(|(output, value)| {
-                                Some((output.into_build_artifact()?.0, value))
-                            })
-                            .collect(),
-                    ),
+                    action_outputs,
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Command {
                             kind: Box::new(execution_kind.clone()),
@@ -519,10 +520,14 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             }
             CommandExecutionStatus::Error { error, .. } => {
                 Err(ExecuteError::CommandExecutionError {
+                    action_outputs,
                     error: Some(error.clone()),
                 })
             }
-            _ => Err(ExecuteError::CommandExecutionError { error: None }),
+            _ => Err(ExecuteError::CommandExecutionError {
+                action_outputs,
+                error: None,
+            }),
         };
         self.command_reports.extend(rejected_execution);
         self.command_reports.push(report);

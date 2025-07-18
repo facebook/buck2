@@ -40,7 +40,7 @@ impl std::error::Error for ActionError {
         let mut string_tags = vec![];
         let mut source_location = SourceLocation::new(std::file!()).with_type_name("ActionError");
         match &self.execute_error {
-            ExecuteError::CommandExecutionError { error } => {
+            ExecuteError::CommandExecutionError { error, .. } => {
                 if let Some(err) = error {
                     tags.extend(err.tags());
                     string_tags.extend(err.string_tags());
