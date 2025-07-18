@@ -9,12 +9,15 @@
 # pyre-strict
 
 
+import re
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events, json_get, random_string
+
+HASH = r"[0-9a-fA-F]{16}"
 
 
 async def check_materialize_inputs_for_failed_actions(buck: Buck) -> None:
@@ -120,8 +123,11 @@ async def check_materialized_outputs_for_failed_action(buck: Buck) -> None:
         contents = materialized_input_path.read()
         assert contents == "txt"
 
+    assert re.search(HASH, out1), "Expected hash in output path"
+    assert re.search(HASH, out2), "Expected hash in output path"
 
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
+
+@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
 async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -133,7 +139,7 @@ async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
     await check_materialized_outputs_for_failed_action(buck)
 
 
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
+@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
 async def test_materialize_outputs_for_failed_actions_content_hash(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -144,8 +150,7 @@ async def test_materialize_outputs_for_failed_actions_content_hash(buck: Buck) -
             "test.use_content_based_path=true",
         ),
     )
-    # FIXME(minglunli): content-based path hash doesn't work for materializing failed outputs at the moment
-    # await materialize_outputs_for_failed_actions_helper(buck)
+    await check_materialized_outputs_for_failed_action(buck)
 
 
 @buck_test(data_dir="materialize_outputs_for_failed_actions")
@@ -188,7 +193,7 @@ async def check_materialized_outputs_defined_by_run_action(buck: Buck) -> None:
         assert contents == "json"
 
 
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
+@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
 async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -200,7 +205,7 @@ async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
     await check_materialized_outputs_defined_by_run_action(buck)
 
 
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
+@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
 async def test_materialize_outputs_defined_by_run_action_content_hash(
     buck: Buck,
 ) -> None:

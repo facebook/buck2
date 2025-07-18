@@ -168,7 +168,9 @@ pub async fn download_action_results<'a>(
             };
 
             let materialized_outputs = if materialize_failed_re_action_outputs {
-                match materialize_build_outputs(artifact_fs, materializer, request).await {
+                match materialize_build_outputs(artifact_fs, materializer, request, Some(&outputs))
+                    .await
+                {
                     Ok(materialized_paths) => Some(materialized_paths.clone()),
                     Err(e) => {
                         console_message(format!(
