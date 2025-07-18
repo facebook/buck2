@@ -101,7 +101,6 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
 
 #[derive(Debug, Allocative)]
 struct DownloadFileAction {
-    inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
     inner: UnregisteredDownloadFileAction,
 }
@@ -118,7 +117,6 @@ impl DownloadFileAction {
             Err(DownloadFileActionError::WrongNumberOfOutputs(outputs.len()).into())
         } else {
             Ok(Self {
-                inputs: inputs.into_iter().collect(),
                 outputs: outputs.into_iter().collect(),
                 inner,
             })
@@ -237,7 +235,7 @@ impl Action for DownloadFileAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        Ok(Cow::Borrowed(&[]))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
