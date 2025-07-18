@@ -668,7 +668,7 @@ async fn build_configured_label_inner<'a>(
             opts.graph_properties
                 .should_compute_configured_graph_sketch(),
             opts.graph_properties
-                .should_compute_configured_graph_unconfigured_sketch(),
+                .should_compute_per_configuration_sketch(),
         )
         .await
         .map_err(|e| e.into());

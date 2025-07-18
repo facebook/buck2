@@ -564,21 +564,38 @@ impl<'a> BuildReportCollector<'a> {
                         sketcher.merge(configured_graph_sketch)?;
                     }
                 }
-                if let Some(configured_graph_unconfigured_sketch) = graph_properties
-                    .configured_graph_unconfigured_sketch
-                    .as_ref()
+
+                if let Some(per_configuration_sketch) =
+                    graph_properties.per_configuration_sketch.as_ref()
                 {
                     if self
                         .graph_properties_opts
                         .configured_graph_unconfigured_sketch
+                        || self
+                            .graph_properties_opts
+                            .total_configured_graph_unconfigured_sketch
                     {
-                        configured_report.configured_graph_unconfigured_sketch =
-                            Some(configured_graph_unconfigured_sketch.serialize());
-                    }
+                        let mut configured_graph_unconfigured_sketcher =
+                            DEFAULT_SKETCH_VERSION.create_sketcher();
+                        for sketch in per_configuration_sketch.values() {
+                            configured_graph_unconfigured_sketcher.merge(sketch)?;
+                        }
+                        let configured_graph_unconfigured_sketch =
+                            configured_graph_unconfigured_sketcher.into_mergeable_graph_sketch();
 
-                    if let Some(sketcher) = self.total_configured_graph_unconfigured_sketch.as_mut()
-                    {
-                        sketcher.merge(configured_graph_unconfigured_sketch)?;
+                        if self
+                            .graph_properties_opts
+                            .configured_graph_unconfigured_sketch
+                        {
+                            configured_report.configured_graph_unconfigured_sketch =
+                                Some(configured_graph_unconfigured_sketch.serialize());
+                        }
+
+                        if let Some(sketcher) =
+                            self.total_configured_graph_unconfigured_sketch.as_mut()
+                        {
+                            sketcher.merge(&configured_graph_unconfigured_sketch)?;
+                        }
                     }
                 }
             }
