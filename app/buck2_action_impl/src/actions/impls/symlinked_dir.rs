@@ -155,10 +155,6 @@ impl UnregisteredSymlinkedDirAction {
         })
     }
 
-    pub(crate) fn inputs(&self) -> IndexSet<ArtifactGroup> {
-        self.args.iter().map(|x| x.0.dupe()).collect()
-    }
-
     pub(crate) fn unioned_associated_artifacts(&self) -> AssociatedArtifacts {
         self.unioned_associated_artifacts.dupe()
     }
@@ -167,7 +163,7 @@ impl UnregisteredSymlinkedDirAction {
 impl UnregisteredAction for UnregisteredSymlinkedDirAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
+        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
@@ -175,7 +171,6 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
         Ok(Box::new(SymlinkedDirAction {
             copy: self.copy,
             args: self.args,
-            inputs: BoxSliceSet::from(inputs),
             outputs: BoxSliceSet::from(outputs),
         }))
     }
@@ -185,7 +180,6 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
 struct SymlinkedDirAction {
     copy: CopyMode,
     args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
-    inputs: BoxSliceSet<ArtifactGroup>,
     outputs: BoxSliceSet<BuildArtifact>,
 }
 
@@ -205,7 +199,7 @@ impl Action for SymlinkedDirAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(self.inputs.as_slice()))
+        Ok(Cow::Owned(self.args.iter().map(|x| x.0.dupe()).collect()))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {

@@ -35,9 +35,7 @@ fn create_dir_tree<'v>(
     copy: CopyMode,
     uses_experimental_content_based_path_hashing: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
-    // validate that the moves are valid, and move them into inputs
     let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
-    let inputs = action.inputs();
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state()?;
@@ -47,7 +45,7 @@ fn create_dir_tree<'v>(
         OutputType::Directory,
         uses_experimental_content_based_path_hashing,
     )?;
-    this.register_action(inputs, indexset![output_artifact], action, None, None)?;
+    this.register_action(indexset![], indexset![output_artifact], action, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
