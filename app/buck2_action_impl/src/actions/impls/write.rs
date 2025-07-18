@@ -116,7 +116,6 @@ pub(crate) struct UnregisteredWriteAction {
 impl UnregisteredAction for UnregisteredWriteAction {
     fn register(
         self: Box<Self>,
-        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,

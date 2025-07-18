@@ -38,7 +38,6 @@ use either::Either;
 use gazebo::prelude::SliceClonedExt;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
-use indexmap::indexset;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -483,7 +482,6 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             meta_internal_extra_params: extra_params,
         };
         this.state()?.register_action(
-            indexset![],
             artifacts.declared_outputs,
             action,
             Some(starlark_values),

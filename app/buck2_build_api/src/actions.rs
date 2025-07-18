@@ -100,7 +100,6 @@ pub trait UnregisteredAction: Allocative {
     /// and no longer bindable to any other 'Artifact's.
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
@@ -398,7 +397,6 @@ impl Deref for RegisteredAction {
 #[derive(Allocative)]
 struct ActionToBeRegistered {
     key: ActionKey,
-    inputs: IndexSet<ArtifactGroup>,
     outputs: IndexSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
 }
@@ -406,13 +404,11 @@ struct ActionToBeRegistered {
 impl ActionToBeRegistered {
     fn new<A: UnregisteredAction + 'static>(
         key: ActionKey,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         a: A,
     ) -> Self {
         Self {
             key,
-            inputs,
             outputs,
             action: Box::new(a),
         }
@@ -428,6 +424,6 @@ impl ActionToBeRegistered {
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         self.action
-            .register(self.inputs, self.outputs, starlark_data, error_handler)
+            .register(self.outputs, starlark_data, error_handler)
     }
 }

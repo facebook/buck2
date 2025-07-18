@@ -68,7 +68,6 @@ impl UnregisteredCopyAction {
 impl UnregisteredAction for UnregisteredCopyAction {
     fn register(
         self: Box<Self>,
-        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,

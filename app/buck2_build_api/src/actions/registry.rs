@@ -50,7 +50,6 @@ use crate::actions::ActionToBeRegistered;
 use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
-use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
 
 /// The actions registry for a particular analysis of a rule, dynamic actions, anon target, BXL.
@@ -197,7 +196,6 @@ impl<'v> ActionsRegistry<'v> {
     pub fn register<A: UnregisteredAction + 'static>(
         &mut self,
         self_key: &DeferredHolderKey,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
     ) -> buck2_error::Result<ActionKey> {
@@ -215,12 +213,8 @@ impl<'v> ActionsRegistry<'v> {
             let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
             bound_outputs.insert(bound);
         }
-        self.pending.push(ActionToBeRegistered::new(
-            key.dupe(),
-            inputs,
-            bound_outputs,
-            action,
-        ));
+        self.pending
+            .push(ActionToBeRegistered::new(key.dupe(), bound_outputs, action));
 
         Ok(key)
     }

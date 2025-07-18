@@ -51,7 +51,6 @@ use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use indexmap::IndexMap;
-use indexmap::IndexSet;
 use indexmap::indexset;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -149,9 +148,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let outputs = indexset![artifact.as_output()];
         registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
-            IndexSet::new(),
             outputs,
             SimpleUnregisteredAction::new(
+                indexset![],
                 vec![],
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,
@@ -217,9 +216,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
 
         actions_registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
-            IndexSet::new(),
             indexset![output_artifact],
             SimpleUnregisteredAction::new(
+                indexset![],
                 vec![],
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,

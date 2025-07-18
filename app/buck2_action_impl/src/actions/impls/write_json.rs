@@ -109,7 +109,6 @@ impl UnregisteredWriteJsonAction {
 impl UnregisteredAction for UnregisteredWriteJsonAction {
     fn register(
         self: Box<Self>,
-        _inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,

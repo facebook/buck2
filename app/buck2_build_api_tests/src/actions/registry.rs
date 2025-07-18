@@ -175,6 +175,7 @@ fn register_actions() -> anyhow::Result<()> {
     let outputs = indexset![declared.as_output()];
 
     let unregistered_action = SimpleUnregisteredAction::new(
+        inputs,
         vec![],
         CategoryRef::new("fake_action").unwrap().to_owned(),
         None,
@@ -182,7 +183,6 @@ fn register_actions() -> anyhow::Result<()> {
 
     let key = actions.register(
         &DeferredHolderKey::Base(base.dupe()),
-        inputs,
         outputs,
         unregistered_action.clone(),
     )?;
@@ -231,12 +231,13 @@ fn finalizing_actions() -> anyhow::Result<()> {
     let outputs = indexset![declared.as_output()];
 
     let unregistered_action = SimpleUnregisteredAction::new(
+        inputs,
         vec![],
         CategoryRef::new("fake_action").unwrap().to_owned(),
         None,
     );
     let holder_key = DeferredHolderKey::Base(base.dupe());
-    actions.register(&holder_key, inputs, outputs, unregistered_action)?;
+    actions.register(&holder_key, outputs, unregistered_action)?;
 
     let result = (actions.finalize()?)(&AnalysisValueFetcher::testing_new(holder_key))?;
 
@@ -297,12 +298,13 @@ fn category_identifier_test(
     );
     for (category, identifier) in action_names {
         let unregistered_action = SimpleUnregisteredAction::new(
+            indexset![],
             vec![],
             Category::new((*category).to_owned()).unwrap(),
             identifier.map(|i| i.to_owned()),
         );
 
-        actions.register(&base, indexset![], indexset![], unregistered_action)?;
+        actions.register(&base, indexset![], unregistered_action)?;
     }
 
     (actions.finalize()?)(&AnalysisValueFetcher::testing_new(base))?;

@@ -40,14 +40,21 @@ use starlark::values::OwnedFrozenValue;
 /// modules
 #[derive(Allocative, Clone, PartialEq)]
 pub(crate) struct SimpleUnregisteredAction {
+    inputs: IndexSet<ArtifactGroup>,
     cmd: Vec<String>,
     category: Category,
     identifier: Option<String>,
 }
 
 impl SimpleUnregisteredAction {
-    pub(crate) fn new(cmd: Vec<String>, category: Category, identifier: Option<String>) -> Self {
+    pub(crate) fn new(
+        inputs: IndexSet<ArtifactGroup>,
+        cmd: Vec<String>,
+        category: Category,
+        identifier: Option<String>,
+    ) -> Self {
         Self {
+            inputs,
             cmd,
             category,
             identifier,
@@ -87,13 +94,12 @@ impl SimpleAction {
 impl UnregisteredAction for SimpleUnregisteredAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(SimpleAction {
-            inputs: BoxSliceSet::from(inputs),
+            inputs: BoxSliceSet::from(self.inputs),
             outputs: BoxSliceSet::from(outputs),
             cmd: self.cmd,
             category: self.category,

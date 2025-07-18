@@ -45,7 +45,7 @@ fn create_dir_tree<'v>(
         OutputType::Directory,
         uses_experimental_content_based_path_hashing,
     )?;
-    this.register_action(indexset![], indexset![output_artifact], action, None, None)?;
+    this.register_action(indexset![output_artifact], action, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
@@ -72,7 +72,6 @@ fn copy_file_impl<'v>(
     )?;
 
     this.register_action(
-        indexset![],
         indexset![output_artifact],
         UnregisteredCopyAction::new(artifact, copy),
         None,

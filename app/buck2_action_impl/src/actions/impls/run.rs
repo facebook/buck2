@@ -200,7 +200,6 @@ pub(crate) struct UnregisteredRunAction {
 impl UnregisteredAction for UnregisteredRunAction {
     fn register(
         self: Box<Self>,
-        _: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,

@@ -51,9 +51,6 @@ use crate::actions::impls::offline;
 
 #[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionDeclarationError {
-    #[error("CAS artifact action should not have inputs, got {0}")]
-    #[buck2(tag = ReCasArtifactWrongNumberOfInputs)]
-    WrongNumberOfInputs(usize),
     #[error("CAS artifact action should have exactly 1 output, got {0}")]
     #[buck2(tag = ReCasArtifactWrongNumberOfOutputs)]
     WrongNumberOfOutputs(usize),
@@ -108,12 +105,11 @@ pub(crate) struct UnregisteredCasArtifactAction {
 impl UnregisteredAction for UnregisteredCasArtifactAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
-        Ok(Box::new(CasArtifactAction::new(inputs, outputs, *self)?))
+        Ok(Box::new(CasArtifactAction::new(outputs, *self)?))
     }
 }
 
@@ -125,16 +121,9 @@ struct CasArtifactAction {
 
 impl CasArtifactAction {
     fn new(
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredCasArtifactAction,
     ) -> buck2_error::Result<Self> {
-        if !inputs.is_empty() {
-            return Err(
-                CasArtifactActionDeclarationError::WrongNumberOfInputs(inputs.len()).into(),
-            );
-        }
-
         let outputs_len = outputs.len();
         let mut outputs = outputs.into_iter();
 

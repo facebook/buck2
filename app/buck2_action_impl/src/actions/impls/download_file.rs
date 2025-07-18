@@ -50,8 +50,6 @@ use crate::actions::impls::offline;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum DownloadFileActionError {
-    #[error("download file action should not have inputs, got {0}")]
-    WrongNumberOfInputs(usize),
     #[error("Exactly one output file must be specified for a download file action, got {0}")]
     WrongNumberOfOutputs(usize),
     #[error(
@@ -90,12 +88,11 @@ impl UnregisteredDownloadFileAction {
 impl UnregisteredAction for UnregisteredDownloadFileAction {
     fn register(
         self: Box<Self>,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
-        Ok(Box::new(DownloadFileAction::new(inputs, outputs, *self)?))
+        Ok(Box::new(DownloadFileAction::new(outputs, *self)?))
     }
 }
 
@@ -107,13 +104,10 @@ struct DownloadFileAction {
 
 impl DownloadFileAction {
     fn new(
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredDownloadFileAction,
     ) -> buck2_error::Result<Self> {
-        if !inputs.is_empty() {
-            Err(DownloadFileActionError::WrongNumberOfInputs(inputs.len()).into())
-        } else if outputs.len() != 1 {
+        if outputs.len() != 1 {
             Err(DownloadFileActionError::WrongNumberOfOutputs(outputs.len()).into())
         } else {
             Ok(Self {

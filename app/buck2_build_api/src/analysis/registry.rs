@@ -69,7 +69,6 @@ use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::extra_v::AnalysisExtraValue;
 use crate::analysis::extra_v::FrozenAnalysisExtraValue;
-use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::deferred::TransitiveSetIndex;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
@@ -257,18 +256,14 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn register_action<A: UnregisteredAction + 'static>(
         &mut self,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
         associated_value: Option<Value<'v>>,
         error_handler: Option<StarlarkCallable<'v>>,
     ) -> buck2_error::Result<()> {
-        let id = self.actions.register(
-            &self.analysis_value_storage.self_key,
-            inputs,
-            outputs,
-            action,
-        )?;
+        let id = self
+            .actions
+            .register(&self.analysis_value_storage.self_key, outputs, action)?;
         self.analysis_value_storage
             .set_action_data(id, (associated_value, error_handler))?;
         Ok(())

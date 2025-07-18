@@ -106,7 +106,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
 
         this.register_action(
-            indexset![],
             indexset![output_artifact],
             UnregisteredWriteJsonAction::new(
                 pretty,
@@ -305,7 +304,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 use_dep_files_placeholder_for_content_based_paths,
             );
             state.register_action(
-                indexset![],
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
                 Some(content_cli.to_value()),
@@ -336,7 +334,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
         };
         this.register_action(
-            indexset![],
             indexset![output_artifact],
             action,
             Some(content_cli.to_value()),
