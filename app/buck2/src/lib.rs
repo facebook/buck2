@@ -194,18 +194,19 @@ impl Opt {
 }
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
-    let mut immediate_config = ImmediateConfigContext::new(process.working_dir);
+    let cwd = process.shared.working_dir.clone();
+    let mut immediate_config = ImmediateConfigContext::new(&cwd);
     let arg0_override = buck2_env!("BUCK2_ARG0")?;
     let expanded_args = expand_argv(
         arg0_override,
-        process.args.to_vec(),
+        process.shared.args.to_vec(),
         &mut immediate_config,
-        process.working_dir,
+        &cwd,
     )
     .buck_error_context("Error expanding argsfiles")?;
 
     let argv = Argv {
-        argv: process.args.to_vec(),
+        argv: process.shared.args.to_vec(),
         expanded_argv: expanded_args,
     };
 
@@ -350,8 +351,10 @@ impl CommandKind {
         argv: Argv,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
-        let paths_result =
-            get_invocation_paths_result(process.working_dir, common_opts.isolation_dir.clone());
+        let paths_result = get_invocation_paths_result(
+            &process.shared.working_dir,
+            common_opts.isolation_dir.clone(),
+        );
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
@@ -359,7 +362,7 @@ impl CommandKind {
         if let CommandKind::Daemon(cmd) = self {
             return cmd
                 .exec(
-                    process.log_reload_handle.dupe(),
+                    process.shared.log_reload_handle.dupe(),
                     paths_result.get_result()?,
                     false,
                     || {},
@@ -406,6 +409,12 @@ impl CommandKind {
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
         let runtime = client_tokio_runtime()?;
+        let ProcessContext {
+            trace_id,
+            restarted_trace_id,
+            start_time,
+            shared,
+        } = process;
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
@@ -422,24 +431,21 @@ impl CommandKind {
             None
         };
 
-        let recorder = InvocationRecorder::new(
-            process.trace_id.dupe(),
-            process.restarted_trace_id.dupe(),
-            process.start_time,
-        );
+        let recorder =
+            InvocationRecorder::new(trace_id.dupe(), restarted_trace_id.dupe(), start_time);
         let mut events_ctx = EventsCtx::new(Some(recorder), vec![]);
 
         let command_ctx = ClientCommandContext::new(
             fb,
             immediate_config,
             paths,
-            process.working_dir.clone(),
+            shared.working_dir.clone(),
             common_opts.verbosity,
             start_in_process_daemon,
             argv,
-            process.trace_id.dupe(),
-            process.stdin,
-            process.restarter,
+            trace_id.dupe(),
+            &mut shared.stdin,
+            &mut shared.restarter,
             &runtime,
             common_opts.oncall,
             common_opts.client_metadata,
@@ -456,7 +462,7 @@ impl CommandKind {
                     matches,
                     command_ctx,
                     events_ctx,
-                    process.log_reload_handle.dupe(),
+                    shared.log_reload_handle.dupe(),
                 )
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .into(),
@@ -505,6 +511,6 @@ impl CommandKind {
             CommandKind::ExpandExternalCell(cmd) => command_ctx.exec(cmd, matches, events_ctx),
         };
 
-        events_ctx.finalize_events(process.trace_id, result, &runtime)
+        events_ctx.finalize_events(trace_id, result, &runtime)
     }
 }

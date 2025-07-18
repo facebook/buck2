@@ -20,6 +20,7 @@ use std::time::UNIX_EPOCH;
 use buck2::exec;
 use buck2::panic;
 use buck2::process_context::ProcessContext;
+use buck2::process_context::SharedProcessContext;
 use buck2_build_info::BUCK2_BUILD_INFO;
 use buck2_build_info::Buck2BuildInfo;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -130,42 +131,49 @@ fn main() -> ! {
         release_timestamp: std::option_env!("BUCK2_RELEASE_TIMESTAMP"),
     });
 
-    fn main_with_result() -> ExitResult {
-        let start_time = get_unix_timestamp_millis();
-
+    fn init_shared_context() -> buck2_error::Result<SharedProcessContext> {
         panic::initialize().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         check_cargo();
-
-        let force_want_restart = buck2_env!("FORCE_WANT_RESTART", bool)?;
-
-        let log_reload_handle =
-            init_logging().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         // Log the start timestamp
         tracing::debug!("Client initialized logging");
 
-        let args = std::env::args().collect::<Vec<String>>();
-        let cwd = AbsWorkingDir::current_dir()?;
-        let mut stdin = Stdin::new()?;
-        let mut restarter = Restarter::new();
+        Ok(SharedProcessContext {
+            log_reload_handle: init_logging()
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+            stdin: Stdin::new()?,
+            working_dir: AbsWorkingDir::current_dir()?,
+            args: std::env::args().collect::<Vec<String>>(),
+            restarter: Restarter::new(),
+            force_want_restart: buck2_env!("FORCE_WANT_RESTART", bool)?,
+        })
+    }
 
+    fn main_with_result() -> ExitResult {
+        let start_time = get_unix_timestamp_millis();
         let first_trace_id = TraceId::from_env_or_new()?;
+        let mut shared = init_shared_context()?;
 
-        let res = exec(ProcessContext {
-            log_reload_handle: &log_reload_handle,
-            stdin: &mut stdin,
-            working_dir: &cwd,
+        let res = exec(ProcessContext::new(
             start_time,
-            args: &args,
-            restarter: &mut restarter,
-            trace_id: first_trace_id.dupe(),
-            restarted_trace_id: None,
-        });
+            first_trace_id.dupe(),
+            None,
+            &mut shared,
+        ));
 
+        maybe_restart(first_trace_id, res, shared)
+    }
+
+    fn maybe_restart(
+        first_trace_id: TraceId,
+        initial_result: ExitResult,
+        mut shared: SharedProcessContext,
+    ) -> ExitResult {
+        let force_want_restart = shared.force_want_restart;
         let restart = |res| {
             let restart_start_time = get_unix_timestamp_millis();
 
-            if !force_want_restart && !restarter.should_restart() {
+            if !force_want_restart && !shared.restarter.should_restart() {
                 tracing::debug!("No restart was requested");
                 return res;
             }
@@ -180,22 +188,18 @@ fn main() -> ! {
                 return res;
             }
 
-            exec(ProcessContext {
-                log_reload_handle: &log_reload_handle,
-                stdin: &mut stdin,
-                start_time: restart_start_time,
-                working_dir: &cwd,
-                args: &args,
-                restarter: &mut restarter,
-                trace_id: TraceId::new(),
-                restarted_trace_id: Some(first_trace_id),
-            })
+            exec(ProcessContext::new(
+                restart_start_time,
+                TraceId::new(),
+                Some(first_trace_id),
+                &mut shared,
+            ))
         };
 
         if force_want_restart {
-            restart(res)
+            restart(initial_result)
         } else {
-            res.or_else(restart)
+            initial_result.or_else(restart)
         }
     }
 
