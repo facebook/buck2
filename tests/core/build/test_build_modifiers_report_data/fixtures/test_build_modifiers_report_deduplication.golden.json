@@ -1,0 +1,138 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {},
+  "results": {
+    "root//:arm?root//:macos": {
+      "configured": {
+        "<unbound>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:cpu?root//:macos": {
+      "configured": {
+        "<unbound>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:linux?root//:macos": {
+      "configured": {
+        "<unbound>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:macos?root//:macos": {
+      "configured": {
+        "<unbound>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:os?root//:macos": {
+      "configured": {
+        "<unbound>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:target2?root//:linux": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:target2?root//:macos": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:target?root//:macos": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    }
+  },
+  "strings": {},
+  "success": true,
+  "truncated": false
+}
