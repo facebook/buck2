@@ -64,6 +64,7 @@ use crate::actions::error_handler::StarlarkActionErrorContext;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::BuckActionExecutor;
 use crate::actions::execute::action_executor::HasActionExecutor;
+use crate::actions::execute::error::ExecuteError;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
@@ -293,10 +294,16 @@ async fn build_action_inner(
 
             let last_command = commands.last().cloned();
 
+            let outputs = match &e {
+                ExecuteError::CommandExecutionError { action_outputs, .. } => Some(action_outputs),
+                _ => None,
+            };
+
             let error_diagnostics = try_run_error_handler(
                 action.dupe(),
                 last_command.as_ref(),
                 ctx.get_artifact_fs().await,
+                outputs,
             );
 
             let e = ActionError::new(
@@ -419,6 +426,7 @@ fn try_run_error_handler(
     action: Arc<RegisteredAction>,
     last_command: Option<&buck2_data::CommandExecution>,
     artifact_fs: buck2_error::Result<ArtifactFs>,
+    outputs: Option<&ActionOutputs>,
 ) -> Option<ActionErrorDiagnostics> {
     use buck2_data::action_error_diagnostics::Data;
 
@@ -455,10 +463,11 @@ fn try_run_error_handler(
                         Err(e) => return create_error(e),
                     };
 
-                    let outputs_artifacts = match action
-                        .action
-                        .failed_action_output_artifacts(&artifact_fs, &heap)
-                    {
+                    let outputs_artifacts = match action.action.failed_action_output_artifacts(
+                        &artifact_fs,
+                        &heap,
+                        outputs,
+                    ) {
                         Ok(v) => v,
                         Err(e) => return create_error(e),
                     };

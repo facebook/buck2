@@ -1024,6 +1024,7 @@ impl Action for RunAction {
         &self,
         artifact_fs: &ArtifactFs,
         heap: &'v Heap,
+        outputs: Option<&ActionOutputs>,
     ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
     {
         let mut artifact_value_dict =
@@ -1031,15 +1032,31 @@ impl Action for RunAction {
 
         for x in self.starlark_values.outputs_for_error_handler.iter() {
             let artifact = x.inner().artifact();
-            let path = artifact.get_path().resolve(
-                artifact_fs,
-                if artifact.has_content_based_path() {
-                    Some(ContentBasedPathHash::for_output_artifact())
-                } else {
-                    None
-                }
-                .as_ref(),
-            )?;
+
+            let content_based_path_hash = if artifact.has_content_based_path() {
+                let outputs = outputs.ok_or_else(|| {
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Action failed with no outputs available"
+                    )
+                })?;
+                let artifact_value = outputs
+                    .get_from_artifact_path(&artifact.get_path())
+                    .ok_or_else(|| {
+                        buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "ArtifactValue for artifact `{}` was not found in action outputs",
+                            artifact.get_path()
+                        )
+                    })?;
+                Some(artifact_value.content_based_path_hash())
+            } else {
+                None
+            };
+
+            let path = artifact
+                .get_path()
+                .resolve(artifact_fs, content_based_path_hash.as_ref())?;
 
             let abs = artifact_fs.fs().resolve(&path);
             // Check if the output file specified exists. We will return an error if it doesn't

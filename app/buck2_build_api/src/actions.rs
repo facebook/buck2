@@ -173,7 +173,6 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         indexmap! {}
     }
 
-    /// error handler
     fn error_handler(&self) -> Option<OwnedFrozenValue> {
         None
     }
@@ -182,6 +181,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         &self,
         _artifact_fs: &ArtifactFs,
         _heap: &'v Heap,
+        _outputs: Option<&ActionOutputs>,
     ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
     {
         Ok(ValueOfUnchecked::new(starlark::values::Value::new_none()))
