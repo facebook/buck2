@@ -20,9 +20,7 @@ use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::command_result;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -376,18 +374,20 @@ impl<'a> DaemonEventsCtx<'a> {
     }
 }
 
+// TODO(ctolliday) disabled because quiet: true appears broken for client side soft_errors.
+// This also fires for cancelled commands, we should check for that if enabling this, if possible.
 // Can't flush in drop because it needs to be async, but we can report a soft error if we didn't flush.
-impl<'a> Drop for DaemonEventsCtx<'a> {
-    fn drop(&mut self) {
-        if self.tailers.stream.is_some() {
-            let _unused = soft_error!(
-                "daemon_tailers_not_flushed",
-                internal_error!("DaemonEventsCtx should have been flushed before being dropped"),
-                quiet: true,
-            );
-        }
-    }
-}
+// impl<'a> Drop for DaemonEventsCtx<'a> {
+//     fn drop(&mut self) {
+//         if self.tailers.stream.is_some() {
+//             let _unused = soft_error!(
+//                 "daemon_tailers_not_flushed",
+//                 internal_error!("DaemonEventsCtx should have been flushed before being dropped"),
+//                 quiet: true,
+//             );
+//         }
+//     }
+// }
 
 /// Convert a CommandResult into a CommandOutcome after the CommandResult has been printed by `handle_command_result`.
 fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Result>>(
