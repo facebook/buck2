@@ -172,6 +172,26 @@ if not running_on_windows() and not running_on_mac():
     )
 
     build_report_test(
+        "test_action_fail_error_handler_with_output_content_based_path_remote_only",
+        [
+            "//fail_action:fail_error_handler_with_output",
+            "--remote-only",
+            "-c",
+            "test.use_content_based_path=true",
+        ],
+    )
+
+    build_report_test(
+        "test_action_fail_error_handler_with_output_content_based_path_local_only",
+        [
+            "//fail_action:fail_error_handler_with_output",
+            "--local-only",
+            "-c",
+            "test.use_content_based_path=true",
+        ],
+    )
+
+    build_report_test(
         "test_action_fail_error_handler_output_not_written_remote_only",
         ["//fail_action:fail_error_handler_output_not_written", "--remote-only"],
     )
