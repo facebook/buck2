@@ -1,0 +1,11 @@
+# @lint-ignore BUCKLINT missing-oncall-call-severe This file is unowned and will be deleted without notice (due to not having an owner to contact).  Do not depend on this file
+# @oss-disable[end= ]: load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+rust_binary(
+    name = "main",
+    srcs = ["src/main.rs"],
+    deps = [
+        "fbcode//buck2/docs/buck2_lab/greeter_lib:library",
+        "fbcode//buck2/docs/buck2_lab/logging_lib:logging_lib",
+    ],
+)
