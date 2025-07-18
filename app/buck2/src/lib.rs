@@ -44,11 +44,9 @@ use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
-use buck2_client_ctx::subscribers::recorder::InvocationRecorder;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
@@ -359,6 +357,7 @@ impl CommandKind {
         // want to create threads.
         #[cfg(not(client_only))]
         if let CommandKind::Daemon(cmd) = self {
+            process.events_ctx.log_invocation_record = false;
             return cmd
                 .exec(
                     process.shared.log_reload_handle.dupe(),
@@ -409,8 +408,7 @@ impl CommandKind {
 
         let ProcessContext {
             trace_id,
-            restarted_trace_id,
-            start_time,
+            events_ctx,
             shared,
             runtime,
         } = process;
@@ -432,10 +430,6 @@ impl CommandKind {
             None
         };
 
-        let recorder =
-            InvocationRecorder::new(trace_id.dupe(), restarted_trace_id.dupe(), start_time);
-        let mut events_ctx = EventsCtx::new(Some(recorder), vec![]);
-
         let command_ctx = ClientCommandContext::new(
             fb,
             immediate_config,
@@ -453,8 +447,7 @@ impl CommandKind {
             common_opts.isolation_dir,
         );
 
-        let events_ctx = &mut events_ctx;
-        let result = match self {
+        match self {
             #[cfg(not(client_only))]
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
             #[cfg(not(client_only))]
@@ -510,8 +503,6 @@ impl CommandKind {
             CommandKind::Lsp(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Subscribe(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::ExpandExternalCell(cmd) => command_ctx.exec(cmd, matches, events_ctx),
-        };
-
-        events_ctx.finalize_events(trace_id, result, &runtime)
+        }
     }
 }

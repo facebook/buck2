@@ -11,6 +11,7 @@
 use std::sync::Arc;
 use std::sync::OnceLock;
 
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
@@ -21,10 +22,8 @@ use tokio::runtime::Runtime;
 
 /// State passed down from `main` to this crate.
 pub struct ProcessContext<'a> {
-    pub start_time: u64,
     pub trace_id: TraceId,
-    /// An invocation that this invocation is a restart of.
-    pub restarted_trace_id: Option<TraceId>,
+    pub events_ctx: &'a mut EventsCtx,
     pub shared: &'a mut SharedProcessContext,
     pub runtime: &'a mut ClientRuntime,
 }
@@ -41,16 +40,14 @@ pub struct SharedProcessContext {
 
 impl<'a> ProcessContext<'a> {
     pub fn new(
-        start_time: u64,
         trace_id: TraceId,
-        restarted_trace_id: Option<TraceId>,
+        events_ctx: &'a mut EventsCtx,
         shared: &'a mut SharedProcessContext,
         runtime: &'a mut ClientRuntime,
     ) -> Self {
         Self {
-            start_time,
             trace_id,
-            restarted_trace_id,
+            events_ctx,
             shared,
             runtime,
         }

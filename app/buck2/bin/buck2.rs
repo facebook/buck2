@@ -24,10 +24,12 @@ use buck2::process_context::ProcessContext;
 use buck2::process_context::SharedProcessContext;
 use buck2_build_info::BUCK2_BUILD_INFO;
 use buck2_build_info::Buck2BuildInfo;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
+use buck2_client_ctx::subscribers::recorder::InvocationRecorder;
 use buck2_core::buck2_env;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -99,6 +101,35 @@ fn print_retry() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn exec_with_logging(
+    trace_id: TraceId,
+    start_time: u64,
+    restarted_trace_id: Option<TraceId>,
+    shared: buck2_error::Result<SharedProcessContext>,
+    runtime: &mut ClientRuntime,
+) -> (Option<SharedProcessContext>, ExitResult) {
+    let args = std::env::args().collect::<Vec<String>>();
+    let recorder = InvocationRecorder::new(trace_id.dupe(), restarted_trace_id, start_time, args);
+    let mut events_ctx = EventsCtx::new(Some(recorder), vec![]);
+    let (shared, res) = match shared {
+        Ok(mut shared) => {
+            let res = exec(ProcessContext::new(
+                trace_id.dupe(),
+                &mut events_ctx,
+                &mut shared,
+                runtime,
+            ));
+            (Some(shared), res)
+        }
+        Err(e) => (None, e.into()),
+    };
+    let res = match runtime.get_or_init() {
+        Ok(runtime) => events_ctx.finalize_events(trace_id, res, &runtime),
+        Err(e) => e.into(),
+    };
+    (shared, res)
+}
+
 // As this main() is used as the entry point for the `buck daemon` command,
 // it must be single-threaded. Commands that want to be multi-threaded/async
 // will start up their own tokio runtime.
@@ -154,23 +185,26 @@ fn main() -> ! {
         let start_time = get_unix_timestamp_millis();
         let first_trace_id = TraceId::from_env_or_new()?;
         let mut runtime = ClientRuntime::new();
-        let mut shared = init_shared_context()?;
-
-        let res = exec(ProcessContext::new(
-            start_time,
+        let shared = init_shared_context();
+        let (shared, res) = exec_with_logging(
             first_trace_id.dupe(),
+            start_time,
             None,
-            &mut shared,
+            shared,
             &mut runtime,
-        ));
+        );
 
-        maybe_restart(first_trace_id, res, shared, &mut runtime)
+        if let Some(shared) = shared {
+            maybe_restart(first_trace_id, res, shared, &mut runtime)
+        } else {
+            res
+        }
     }
 
     fn maybe_restart(
         first_trace_id: TraceId,
         initial_result: ExitResult,
-        mut shared: SharedProcessContext,
+        shared: SharedProcessContext,
         runtime: &mut ClientRuntime,
     ) -> ExitResult {
         let force_want_restart = shared.force_want_restart;
@@ -192,13 +226,14 @@ fn main() -> ! {
                 return res;
             }
 
-            exec(ProcessContext::new(
-                restart_start_time,
+            let (_, res) = exec_with_logging(
                 TraceId::new(),
+                restart_start_time,
                 Some(first_trace_id),
-                &mut shared,
+                Ok(shared),
                 runtime,
-            ))
+            );
+            res
         };
 
         if force_want_restart {

@@ -237,11 +237,16 @@ pub struct InvocationRecorder {
 }
 
 impl InvocationRecorder {
-    pub fn new(trace_id: TraceId, restarted_trace_id: Option<TraceId>, start_time: u64) -> Self {
+    pub fn new(
+        trace_id: TraceId,
+        restarted_trace_id: Option<TraceId>,
+        start_time: u64,
+        args: Vec<String>,
+    ) -> Self {
         Self {
             write_to_path: None,
             command_name: None,
-            cli_args: Vec::new(),
+            cli_args: args,
             representative_config_flags: Vec::new(),
             isolation_dir: None,
             start_time,
