@@ -84,10 +84,8 @@ public class CompilerDaemonRunner implements Closeable {
   }
 
   /** Execute a single build command */
-  public StepExecutionResult execute(JvmCDCommand command, boolean isUsingPersistentWorkers)
-      throws IOException {
+  public StepExecutionResult execute(JvmCDCommand command) throws IOException {
     try (CommandExecutionContext context = new CommandExecutionContext(command)) {
-      classLoaderCache.setSkipCleanup(!isUsingPersistentWorkers);
       ImmutableList<IsolatedStep> steps = command.getBuildCommand().getSteps();
       return IsolatedStepsRunner.executeWithDefaultExceptionHandling(
           steps, context.executionContext);
@@ -95,8 +93,7 @@ public class CompilerDaemonRunner implements Closeable {
   }
 
   /** Create a new runner, execute a single build command, close it and return */
-  public static void run(JvmCDCommand command, boolean isUsingPersistentWorkers)
-      throws IOException {
+  public static void run(JvmCDCommand command) throws IOException {
     Verbosity verbosity = getVerbosityForLevel(command.getLoggingLevel());
     Console console = new Console(verbosity, System.out, System.err, Ansi.withoutTty());
 
@@ -109,7 +106,7 @@ public class CompilerDaemonRunner implements Closeable {
     }
     try (CompilerDaemonRunner runner =
         new CompilerDaemonRunner(OutputStream.nullOutputStream(), console)) {
-      StepExecutionResult stepExecutionResult = runner.execute(command, isUsingPersistentWorkers);
+      StepExecutionResult stepExecutionResult = runner.execute(command);
 
       if (!stepExecutionResult.isSuccess()) {
         String errorMessage = stepExecutionResult.getErrorMessage();

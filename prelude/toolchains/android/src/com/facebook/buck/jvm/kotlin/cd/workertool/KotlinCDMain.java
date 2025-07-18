@@ -42,7 +42,7 @@ public class KotlinCDMain {
                     System.err.flush();
                     // Your shutdown logic here...
                   }));
-      CompilerDaemonRunner.run(command, false);
+      CompilerDaemonRunner.run(command);
       command.postExecute();
       System.err.println("KotlinCDWorkerTool succeeded!");
       System.exit(0);

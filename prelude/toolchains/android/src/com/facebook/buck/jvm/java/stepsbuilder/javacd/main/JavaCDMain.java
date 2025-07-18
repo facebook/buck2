@@ -39,7 +39,7 @@ public class JavaCDMain {
                     System.out.flush();
                     System.err.flush();
                   }));
-      CompilerDaemonRunner.run(command, false);
+      CompilerDaemonRunner.run(command);
       logger.info(String.format("Starting JavaCDWorkerTool %s", command));
       command.maybeWriteClassAbi();
       command.maybeWriteAbiDir();

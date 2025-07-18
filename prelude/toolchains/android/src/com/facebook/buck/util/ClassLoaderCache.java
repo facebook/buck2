@@ -31,7 +31,6 @@ public final class ClassLoaderCache implements AutoCloseable {
   private final Map<ClassLoader, Map<ImmutableList<URL>, ClassLoader>> cache = new HashMap<>();
 
   private int referenceCount = 1;
-  private boolean skipCleanup = false;
 
   private synchronized Map<ImmutableList<URL>, ClassLoader> getCacheForParent(
       @Nullable ClassLoader parentClassLoader) {
@@ -77,27 +76,10 @@ public final class ClassLoaderCache implements AutoCloseable {
     return this;
   }
 
-  public synchronized void setSkipCleanup(boolean skipCleanup) {
-    this.skipCleanup = skipCleanup;
-  }
-
   @Override
   public synchronized void close() throws IOException {
     if (referenceCount > 1) {
       referenceCount -= 1;
-      return;
-    }
-    // Since kotlin 2.1, the Kotlin analysis API standalone mode can outlive the compiler itself, as
-    // per https://youtrack.jetbrains.com/issue/KT-73753/, we need skip unloading the caffeine
-    // library otherwise analysis API would crash. s512268
-    // The error only happens in non-persistent worker mode, as in persistent worker mode, buck
-    // shutdown the workers and ignores any error afterwards.
-    // Without persistent workers, we can safely skip cleaning all cloassloaders as they are removed
-    // altogether when the process exits.
-    // After Kotlin 2.2.0 upgrade, we can test if the new
-    // disposeGlobalStandaloneApplicationServices() API could properly terminate the
-    // analysis API.
-    if (skipCleanup) {
       return;
     }
 
