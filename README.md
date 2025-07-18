@@ -102,7 +102,8 @@ Buck2 currently **does not have a stable release tag at this time**. Pre-release
 tags/binaries, and stable tags/binaries, will come at later dates. Despite that,
 it is used extensively inside of Meta on vast amounts of code every day, and
 [buck2-prelude](/prelude/) is the same code used internally for all these
-builds, as well.
+builds, as well. (However, Meta retains large amounts of Starlark code which
+builds on top of the prelude.)
 
 Meta just uses the latest committed `HEAD` version of Buck2 at all times. Your
 mileage may vary &mdash; but at the moment, tracking `HEAD` is ideal for
