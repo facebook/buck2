@@ -41,7 +41,7 @@ The string 'func1'
     a: int,
     /,
     b: int,
-    *,
+    \*,
     c: int,
 ) -> <a to="/path/to/Magic">magic</a></code></pre>
 

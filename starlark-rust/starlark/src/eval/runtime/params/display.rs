@@ -84,7 +84,9 @@ pub(crate) fn fmt_param_spec<'n, T: Display, D: Display>(
     named_only: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
     kwargs: Option<ParamFmt<'n, T, D>>,
 ) -> fmt::Result {
-    fmt_param_spec_maybe_multiline(f, None, pos_only, pos_named, args, named_only, kwargs)
+    fmt_param_spec_maybe_multiline(
+        f, None, pos_only, pos_named, args, named_only, kwargs, false,
+    )
 }
 
 #[allow(clippy::write_with_newline)]
@@ -97,9 +99,12 @@ pub(crate) fn fmt_param_spec_maybe_multiline<'n, T: Display, D: Display>(
     args: Option<ParamFmt<'n, T, D>>,
     named_only: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
     kwargs: Option<ParamFmt<'n, T, D>>,
+    // If `true`, escape `*` to `\\*` to avoid rendering in Markdown as bold or italic.
+    escape_stars: bool,
 ) -> fmt::Result {
     struct Printer<'w> {
         f: &'w mut dyn fmt::Write,
+        escape_stars: bool,
     }
 
     impl<'w> Printer<'w> {
@@ -120,7 +125,7 @@ pub(crate) fn fmt_param_spec_maybe_multiline<'n, T: Display, D: Display>(
         }
     }
 
-    let mut printer = Printer { f };
+    let mut printer = Printer { f, escape_stars };
 
     let mut iter = iter_fmt_param_spec(pos_only, pos_named, args, named_only, kwargs).peekable();
 
@@ -138,21 +143,22 @@ pub(crate) fn fmt_param_spec_maybe_multiline<'n, T: Display, D: Display>(
                 write!(printer.f, ", ")?;
             }
         }
+        let star = if printer.escape_stars { "\\*" } else { "*" };
         match param {
             FmtParam::Regular(p) => {
                 printer.write_param(p.name, p.ty, p.default)?;
             }
             FmtParam::Args(p) => {
-                printer.write_param(format_args!("*{}", p.name), p.ty, p.default)?;
+                printer.write_param(format_args!("{}{}", star, p.name), p.ty, p.default)?;
             }
             FmtParam::Kwargs(p) => {
-                printer.write_param(format_args!("**{}", p.name), p.ty, p.default)?;
+                printer.write_param(format_args!("{}{}{}", star, star, p.name), p.ty, p.default)?;
             }
             FmtParam::Slash => {
                 write!(printer.f, "/")?;
             }
             FmtParam::Star => {
-                write!(printer.f, "*")?;
+                write!(printer.f, "{star}")?;
             }
         }
     }

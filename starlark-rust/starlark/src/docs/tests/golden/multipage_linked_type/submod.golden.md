@@ -20,10 +20,10 @@
 
 ## starlark\_args
 
-<pre class="language-python"><code>def starlark_args(*args: str) -> None</code></pre>
+<pre class="language-python"><code>def starlark_args(\*args: str) -> None</code></pre>
 
 ---
 
 ## starlark\_kwargs
 
-<pre class="language-python"><code>def starlark_kwargs(**kwargs: int) -> None</code></pre>
+<pre class="language-python"><code>def starlark_kwargs(\*\*kwargs: int) -> None</code></pre>

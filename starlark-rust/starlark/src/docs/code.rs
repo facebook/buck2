@@ -192,6 +192,10 @@ impl DocParams {
         render_config: &TypeRenderConfig,
     ) -> String {
         let mut s = String::new();
+
+        // when render the linked type, we need escape the star, but when default, we just render the signature in the markdown code block, so we don't need escape the star.
+        let escape_star = !matches!(render_config, TypeRenderConfig::Default);
+
         fmt_param_spec_maybe_multiline(
             &mut s,
             indent,
@@ -200,6 +204,7 @@ impl DocParams {
             self.args.as_ref().map(|p| p.fmt_param(render_config)),
             self.named_only.iter().map(|p| p.fmt_param(render_config)),
             self.kwargs.as_ref().map(|p| p.fmt_param(render_config)),
+            escape_star,
         )
         .unwrap();
         s
