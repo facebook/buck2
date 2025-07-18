@@ -56,6 +56,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use itertools::Either;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
@@ -144,7 +145,7 @@ pub(crate) struct ConfiguredBuildReportEntry {
     configured_graph_sketch: Option<String>,
     /// Build metrics for this target.
     #[serde(skip_serializing_if = "Option::is_none")]
-    build_metrics: Option<TargetBuildMetrics>,
+    build_metrics: Option<Arc<TargetBuildMetrics>>,
     // The serialized graph sketch based on unconfigured target labels, if it was produced.
     #[serde(skip_serializing_if = "Option::is_none")]
     configured_graph_unconfigured_sketch: Option<String>,
@@ -317,7 +318,7 @@ impl<'a> BuildReportCollector<'a> {
             for top_level_metrics in &detailed_metrics.top_level_target_metrics {
                 metrics_by_configured.insert(
                     &*top_level_metrics.target,
-                    Self::convert_per_target_metrics(top_level_metrics),
+                    Self::convert_per_target_metrics(top_level_metrics).into(),
                 );
             }
         }
@@ -437,7 +438,7 @@ impl<'a> BuildReportCollector<'a> {
             ),
         >,
         errors: &[buck2_error::Error],
-        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, TargetBuildMetrics>,
+        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
     ) -> buck2_error::Result<BuildReportEntry> {
         // NOTE: if we're actually building a thing, then the package path must exist, but be
         // conservative and don't crash the overall processing if that happens.
@@ -518,7 +519,7 @@ impl<'a> BuildReportCollector<'a> {
                 &'b ConfiguredBuildTargetResult,
             ),
         >,
-        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, TargetBuildMetrics>,
+        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
     ) -> buck2_error::Result<ConfiguredBuildReportEntry> {
         let mut configured_report = ConfiguredBuildReportEntry::default();
         let mut errors = Vec::new();
@@ -608,7 +609,7 @@ impl<'a> BuildReportCollector<'a> {
                 }
             }
 
-            configured_report.build_metrics = metrics.remove(label);
+            configured_report.build_metrics = metrics.get(label).duped();
         }
         configured_report.errors = self.convert_error_list(&errors, target);
         if !configured_report.errors.is_empty() {
