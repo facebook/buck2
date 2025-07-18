@@ -162,7 +162,11 @@ def python_executable(
 
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
-        bytecode_manifest = compile_manifests(ctx, [src_manifest])
+
+        # TODO(T230857912) enable pyc compilation for 3.14
+        py_version = ctx.attrs._python_toolchain[PythonToolchainInfo].version
+        if py_version == None or "3.14" not in py_version:
+            bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     all_default_resources = {}
     all_standalone_resources = {}
