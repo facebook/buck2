@@ -8,7 +8,7 @@
 
 load("flags_parser_utils.bxl", "flatten_flag_lists", "get_compiler_settings_from_flags")
 load("get_attrs.bxl", "get_attrs")
-load("utils.bxl", "basename", "dedupe_by_value", "dirname", "escape_xml", "get_argsfiles_output_path", "get_project_file_path", "h", "normcase", "normpath")
+load("utils.bxl", "basename", "dedupe_by_value", "dirname", "escape_xml", "extract_path_up_to_dir", "get_argsfiles_output_path", "get_project_file_path", "h", "normcase", "normpath")
 
 def _get_additional_include_directories(target: bxl.ConfiguredTargetNode, attrs: dict) -> list:
     dirs = attrs["include_directories"]
@@ -48,7 +48,7 @@ def _get_exported_additional_include_directories(target: bxl.ConfiguredTargetNod
             include_dir = path.removesuffix(name)
             if include_dir:
                 dirs.append(include_dir)
-        else:
+        elif len(attrs["srcs"]) > 0:
             # Header tree created by buck. This is the most correct form but depends on previous local build to materialize.
             # e.g.,
             # header: xplat/third-party/yajl:yajl  https://fburl.com/code/xqzlvuot
@@ -56,6 +56,13 @@ def _get_exported_additional_include_directories(target: bxl.ConfiguredTargetNod
             argsfiles_output_path = get_argsfiles_output_path(target, bxl_ctx)
             if argsfiles_output_path:
                 dirs.append(dirname(argsfiles_output_path) + "/buck-headers")
+        else:
+            # If there is no sources, buck-headers is not generated.
+            # e.g.,
+            # //third-party/embree/4.1.0:rtcore_config.h just exports
+            # { "rtcore_config.h": "fbsource//third-party/embree/4.1.0:rtcore_config.h-rtcore_config.h" }
+            out_dir = extract_path_up_to_dir(path, "out", separator = "\\")
+            dirs.append(out_dir)
 
     dirs = [normpath(d) for d in dirs]
     dirs = dedupe_by_value(dirs)
