@@ -115,13 +115,13 @@ def genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     # Buck2 clears the output directory before execution, and thus src/sh too.
     return process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs)
 
-def _declare_output(ctx: AnalysisContext, path: str) -> Artifact:
+def _declare_output(ctx: AnalysisContext, path: str, content_based: bool) -> Artifact:
     if path == ".":
-        return ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True, uses_experimental_content_based_path_hashing = content_based)
     elif path.endswith("/"):
-        return ctx.actions.declare_output(GENRULE_OUT_DIR, path[:-1], dir = True)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, path[:-1], dir = True, uses_experimental_content_based_path_hashing = content_based)
     else:
-        return ctx.actions.declare_output(GENRULE_OUT_DIR, path)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, path, uses_experimental_content_based_path_hashing = content_based)
 
 def _project_output(out: Artifact, path: str) -> Artifact:
     if path == ".":
@@ -152,14 +152,16 @@ def process_genrule(
 
     executable_outs = getattr(ctx.attrs, "executable_outs", None)
 
+    content_based = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
-        out_artifact = _declare_output(ctx, out_attr)
+        out_artifact = _declare_output(ctx, out_attr, content_based)
         named_outputs = {}
         default_outputs = [out_artifact]
         expect(executable_outs == None, "`executable_outs` should not be set when `out` is set")
     elif outs_attr != None:
-        out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True)
+        out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True, uses_experimental_content_based_path_hashing = content_based)
 
         named_outputs = {
             name: [_project_output(out_artifact, path) for path in outputs]
@@ -222,7 +224,11 @@ def process_genrule(
                     fail(msg)
     else:
         symlinks = ctx.attrs.srcs
-    srcs_artifact = ctx.actions.symlinked_dir("srcs" if not identifier else "{}-srcs".format(identifier), symlinks)
+    srcs_artifact = ctx.actions.symlinked_dir(
+        "srcs" if not identifier else "{}-srcs".format(identifier),
+        symlinks,
+        uses_experimental_content_based_path_hashing = content_based,
+    )
 
     if ctx.attrs.environment_expansion_separator:
         delimiter = ctx.attrs.environment_expansion_separator
@@ -266,15 +272,20 @@ def process_genrule(
 
     # Create required directories.
     if is_windows:
+        out = ".\\{}\\..\\..\\output_artifact\\out" if content_based else ".\\{}\\..\\out"
         script = [
-            cmd_args(srcs_artifact, format = "if not exist .\\{}\\..\\out mkdir .\\{}\\..\\out"),
+            cmd_args(
+                srcs_artifact,
+                format = "if not exist {0} mkdir {0}".format(out),
+            ),
             cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\""),
         ]
         script_extension = "bat"
     else:
+        out = "./{}/../../output_artifact/out" if content_based else "./{}/../out"
         script = [
             # Use a somewhat unique exit code so this can get retried on RE (T99656531).
-            cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out || exit 99"),
+            cmd_args(srcs_artifact, format = "mkdir -p {} || exit 99".format(out)),
             cmd_args("export TMP=${TMPDIR:-/tmp}"),
         ]
         script_extension = "sh"
@@ -348,6 +359,7 @@ def process_genrule(
         script,
         is_executable = True,
         allow_args = True,
+        uses_experimental_content_based_path_hashing = content_based,
     )
     if is_windows:
         script_args = ["cmd.exe", "/v:off", "/c", sh_script]
