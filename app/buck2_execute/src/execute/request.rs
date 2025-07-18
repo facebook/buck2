@@ -345,7 +345,7 @@ pub struct CommandExecutionRequest {
     /// RE execution policy.
     meta_internal_extra_params: MetaInternalExtraParams,
     // Failed action outputs to materialize
-    outputs_for_error_handler: Vec<ProjectRelativePathBuf>,
+    outputs_for_error_handler: Vec<BuildArtifactPath>,
 }
 
 impl CommandExecutionRequest {
@@ -573,13 +573,13 @@ impl CommandExecutionRequest {
 
     pub fn with_outputs_for_error_handler(
         mut self,
-        outputs_for_error_handler: Vec<ProjectRelativePathBuf>,
+        outputs_for_error_handler: Vec<BuildArtifactPath>,
     ) -> Self {
         self.outputs_for_error_handler = outputs_for_error_handler;
         self
     }
 
-    pub fn outputs_for_error_handler(&self) -> &Vec<ProjectRelativePathBuf> {
+    pub fn outputs_for_error_handler(&self) -> &Vec<BuildArtifactPath> {
         &self.outputs_for_error_handler
     }
 

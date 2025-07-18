@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::HashSet;
 use std::convert::Infallible;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
@@ -19,8 +20,10 @@ use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::Symlink;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
@@ -61,7 +64,6 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
-use crate::executors::local::materialize_build_outputs;
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
@@ -167,30 +169,22 @@ pub async fn download_action_results<'a>(
                 None
             };
 
-            let materialized_outputs = if materialize_failed_re_action_outputs {
-                match materialize_build_outputs(artifact_fs, materializer, request, Some(&outputs))
-                    .await
-                {
-                    Ok(materialized_paths) => Some(materialized_paths.clone()),
-                    Err(e) => {
-                        console_message(format!(
-                            "Failed to materialize outputs for failed action: {e}"
-                        ));
-                        None
-                    }
+            let materialized_outputs = match materialize_failed_build_outputs(
+                artifact_fs,
+                materializer,
+                request,
+                &outputs,
+                materialize_failed_re_action_outputs,
+            )
+            .await
+            {
+                Ok(materialized_paths) => Some(materialized_paths.clone()),
+                Err(e) => {
+                    console_message(format!(
+                        "Failed to materialize outputs for failed action: {e}"
+                    ));
+                    None
                 }
-            } else if !request.outputs_for_error_handler().is_empty() {
-                match materializer
-                    .ensure_materialized(request.outputs_for_error_handler().to_vec())
-                    .await
-                {
-                    Ok(()) => Some(request.outputs_for_error_handler().to_vec()),
-                    // Do nothing here, handle file not materialized/doesn't exit case in the error handler.
-                    // This way local/remote behavior would be consistent and errors are handled at the same place
-                    Err(_) => None,
-                }
-            } else {
-                None
             };
 
             manager.failure(
@@ -209,6 +203,53 @@ pub async fn download_action_results<'a>(
     };
 
     DownloadResult::Result(res)
+}
+
+async fn materialize_failed_build_outputs(
+    artifact_fs: &ArtifactFs,
+    materializer: &dyn Materializer,
+    request: &CommandExecutionRequest,
+    available_outputs: &IndexMap<CommandExecutionOutput, ArtifactValue>,
+    materialize_failed_re_action_outputs: bool,
+) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
+    let mut paths = vec![];
+    if !materialize_failed_re_action_outputs && request.outputs_for_error_handler().is_empty() {
+        // Nothing to materialize
+        return Ok(paths);
+    }
+
+    let materialize_select_outputs: HashSet<&BuildArtifactPath> =
+        request.outputs_for_error_handler().iter().collect();
+
+    for output in request.outputs() {
+        match output {
+            CommandExecutionOutputRef::BuildArtifact { path, .. } => {
+                // If materialize_failed_re_action_outputs is not set and materialize_select_outputs is not empty,
+                // only materialize outputs in the set. Otherwise, materialize all outputs.
+                if !materialize_failed_re_action_outputs
+                    && !materialize_select_outputs.is_empty()
+                    && !materialize_select_outputs.contains(path)
+                {
+                    continue;
+                }
+
+                let content_hash = available_outputs.get(&output.cloned()).and_then(|value| {
+                    if path.is_content_based_path() {
+                        Some(value.content_based_path_hash())
+                    } else {
+                        None
+                    }
+                });
+
+                paths.push(artifact_fs.resolve_build(path, content_hash.as_ref())?);
+            }
+            _ => {}
+        }
+    }
+
+    materializer.ensure_materialized(paths.clone()).await?;
+
+    Ok(paths)
 }
 
 pub struct CasDownloader<'a> {

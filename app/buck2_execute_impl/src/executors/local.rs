@@ -255,8 +255,6 @@ impl LocalExecutor {
                                 &self.artifact_fs,
                                 self.materializer.as_ref(),
                                 request,
-                                // TODO(T219919866) Add support for experimental content-based path hashing
-                                None,
                             )
                             .await?;
                             buck2_error::Ok(())
@@ -1119,33 +1117,21 @@ async fn check_inputs(
 /// The above is useful when executing incremental actions first remotely and then locally.
 /// In that case output from remote execution which is incremental state should be materialized prior to local execution.
 /// Such incremental state in fact serves as the input while being output as well.
-pub(crate) async fn materialize_build_outputs(
+async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-    outputs: Option<&IndexMap<CommandExecutionOutput, ArtifactValue>>,
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
 
     for output in request.outputs() {
         match output {
+            // TODO(T219919866) Add support for experimental content-based path hashing
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
                 supports_incremental_remote: _,
-            } => {
-                let content_hash = outputs
-                    .and_then(|output_map| output_map.get(&output.cloned()))
-                    .and_then(|value| {
-                        if path.is_content_based_path() {
-                            Some(value.content_based_path_hash())
-                        } else {
-                            None
-                        }
-                    });
-
-                paths.push(artifact_fs.resolve_build(path, content_hash.as_ref())?)
-            }
+            } => paths.push(artifact_fs.resolve_build(path, None)?),
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }

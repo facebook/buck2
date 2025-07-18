@@ -14,6 +14,7 @@ use std::ops::ControlFlow;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -765,17 +766,15 @@ impl RunAction {
             .iter()
             .map(|artifact| {
                 let a = artifact.inner().artifact();
-                a.get_path().resolve(
-                    ctx.fs(),
-                    // FIXME(JakobDegen): Is this correct? Are the outputs moved before or after the
-                    // error handler runs? Either way, this needs an explanatory comment
-                    if a.has_content_based_path() {
-                        Some(ContentBasedPathHash::for_output_artifact())
-                    } else {
-                        None
-                    }
-                    .as_ref(),
-                )
+
+                match a.as_parts().0 {
+                    BaseArtifactKind::Source(s) => Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Cannot use source artifact `{}` as output for error handler",
+                        s.get_path()
+                    )),
+                    BaseArtifactKind::Build(b) => Ok(b.get_path().dupe()),
+                }
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 

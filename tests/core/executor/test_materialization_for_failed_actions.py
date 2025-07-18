@@ -192,6 +192,8 @@ async def check_materialized_outputs_defined_by_run_action(buck: Buck) -> None:
         contents = materialized.read()
         assert contents == "json"
 
+    assert re.search(HASH, out), "Expected hash in output path"
+
 
 @buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
 async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
@@ -218,6 +220,4 @@ async def test_materialize_outputs_defined_by_run_action_content_hash(
             "test.use_content_based_path=true",
         ),
     )
-
-    # FIXME(minglunli): content-based path hash doesn't work for materializing failed outputs at the moment
-    # await materialize_outputs_defined_by_run_action_helper(buck)
+    await check_materialized_outputs_defined_by_run_action(buck)
