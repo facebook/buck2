@@ -1,0 +1,101 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+# Analyse some python files/targets and produce data for the Pyrefly IDE.
+# See <https://github.com/facebook/pyrefly>.
+
+# Produce a list of all the targets that I care about.
+# This should be everything reachable from the command line arguments.
+def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
+    cquery = ctx.cquery()
+    uquery = ctx.uquery()
+    files = cquery.deps(uquery.owner(ctx.cli_args.file), 0)  # deps(0) to convert to configured
+    targets = cquery.eval("%s", ctx.cli_args.target)
+    res = files
+    for target in targets.values():
+        res += target
+    return cquery.deps(res, filter = "kind('python_library', first_order_deps())")
+
+def _clean_module(module: str) -> str:
+    return module.replace("/", ".").removesuffix(".py")
+
+def _main(ctx: bxl.Context) -> None:
+    targets = _list_targets(ctx)
+    fs = ctx.fs
+
+    to_build = []  # List of targets I need to build
+    to_insert = []  # Triples of (module, key, target) to insert after building
+    json = {}
+
+    # We only want to add `deps` to targets that are in the output.
+    known_targets = {x.label.raw_target(): None for x in targets}
+
+    for x in targets:
+        if x.rule_type == "forward":
+            continue
+
+        attrs = x.attrs_lazy()
+        srcs = {}
+        deps = []
+        json[str(x.label.raw_target())] = {"deps": deps, "srcs": srcs}
+
+        base_module = attrs.get("base_module")
+        if base_module != None:
+            base_module = x.label.package.replace("/", ".")
+
+        if attrs.get("deps") == None:
+            fail(x.rule_type)
+        attr_deps = attrs.get("deps").value()
+        for dep in attr_deps:
+            dep = dep.raw_target()
+            if dep in known_targets:
+                deps.append(str(dep))
+
+        # python_binary might be the root target, which doesn't have `srcs`.
+        attr_srcs = attrs.get("srcs")
+        attr_srcs = {} if attr_srcs == None else attr_srcs.value()
+        if type(attr_srcs) == type([]):
+            for v in attr_srcs:
+                if getattr(v, "is_source", False):
+                    srcs[base_module + "." + _clean_module(v.short_path)] = fs.project_rel_path(v)
+                else:
+                    to_build.append(v)
+                    to_insert.append((srcs, base_module + "." + _clean_module(v.short_path), v))
+        elif type(attr_srcs) == type({}):
+            for k, v in attr_srcs.items():
+                if getattr(v, "is_source", False):
+                    srcs[base_module + "." + _clean_module(k)] = fs.project_rel_path(v)
+                else:
+                    to_build.append(v)
+                    to_insert.append((srcs, base_module + "." + _clean_module(k), v))
+
+    if to_build:
+        built = ctx.build(to_build)
+        ensured = ctx.output.ensure_multiple(built)
+        for srcs, key, target in to_insert:
+            srcs[key] = ensured[target][0].rel_path()
+
+    ctx.output.print_json(json)
+
+main = bxl_main(
+    doc = """Produce data required for the Pyrefly IDE.
+
+    Takes a list of target patterns and build the right data to check each.
+    """,
+    impl = _main,
+    cli_args = {
+        "file": cli_args.list(
+            cli_args.string(doc = "File to analyse"),
+            default = [],
+        ),
+        "target": cli_args.list(
+            cli_args.string(doc = "Target pattern to analyse"),
+            default = [],
+        ),
+    },
+)
