@@ -275,6 +275,7 @@ impl<'a> BuildReportCollector<'a> {
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+        configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         graph_properties_opts: GraphPropertiesOptions,
@@ -345,19 +346,55 @@ impl<'a> BuildReportCollector<'a> {
                     (label, Either::Right(std::iter::empty()), &**errors)
                 }
             };
-            let entry = this.collect_results_for_unconfigured(
-                label.dupe(),
-                results,
-                errors,
-                &mut metrics_by_configured,
-            )?;
-            entries.insert(
-                EntryLabel::Target(TargetLabelWithModifiers {
-                    target_label: label,
-                    modifiers: Modifiers::new(None),
-                }),
-                entry,
-            );
+
+            // Group results by Modifiers
+            let mut results_by_modifiers: BTreeMap<
+                Modifiers,
+                Vec<(
+                    &ConfiguredProvidersLabel,
+                    &Option<ConfiguredBuildTargetResult>,
+                )>,
+            > = BTreeMap::new();
+
+            for (configured_label, result) in results {
+                let modifiers_vec = configured_to_pattern_modifiers.get(configured_label);
+
+                if let Some(modifiers_vec) = modifiers_vec {
+                    for modifier in modifiers_vec {
+                        results_by_modifiers
+                            .entry(modifier.dupe())
+                            .or_default()
+                            .push((configured_label, result));
+                    }
+                } else {
+                    results_by_modifiers
+                        .entry(Modifiers::new(None))
+                        .or_default()
+                        .push((configured_label, result));
+                }
+            }
+
+            // If the mapping is empty, results were empty, indicating the EitherOrBoth::Right case.
+            // We still need to create an entry for the error.
+            if results_by_modifiers.is_empty() {
+                results_by_modifiers.insert(Modifiers::new(None), Vec::new());
+            }
+
+            for (modifiers, modifiers_results) in results_by_modifiers {
+                let target_with_modifiers = TargetLabelWithModifiers {
+                    target_label: label.dupe(),
+                    modifiers,
+                };
+
+                let entry = this.collect_results_for_unconfigured(
+                    target_with_modifiers.dupe(),
+                    modifiers_results,
+                    errors,
+                    &mut metrics_by_configured,
+                )?;
+
+                entries.insert(EntryLabel::Target(target_with_modifiers), entry);
+            }
         }
         let total_configured_graph_sketch = this
             .total_configured_graph_sketch
@@ -430,7 +467,7 @@ impl<'a> BuildReportCollector<'a> {
     /// Always called for one unconfigured target at a time
     fn collect_results_for_unconfigured<'b>(
         &mut self,
-        target: TargetLabel,
+        target_with_modifiers: TargetLabelWithModifiers,
         results: impl IntoIterator<
             Item = (
                 &'b ConfiguredProvidersLabel,
@@ -444,7 +481,7 @@ impl<'a> BuildReportCollector<'a> {
         // conservative and don't crash the overall processing if that happens.
         let package_project_relative_path = if self.include_package_project_relative_paths {
             self.cell_resolver
-                .resolve_path(target.pkg().as_cell_path())
+                .resolve_path(target_with_modifiers.target_label.pkg().as_cell_path())
                 .ok()
         } else {
             None
@@ -463,8 +500,11 @@ impl<'a> BuildReportCollector<'a> {
             .filter_map(|(label, result)| Some((label, result.as_ref()?)))
             .chunk_by(|x| x.0.target().dupe())
         {
-            let configured_report =
-                self.collect_results_for_configured(target.dupe(), results, metrics)?;
+            let configured_report = self.collect_results_for_configured(
+                target_with_modifiers.dupe(),
+                results,
+                metrics,
+            )?;
 
             if let Some(report) = unconfigured_report.as_mut() {
                 if !configured_report.errors.is_empty() {
@@ -495,7 +535,7 @@ impl<'a> BuildReportCollector<'a> {
             configured_reports.insert(label.cfg().dupe(), configured_report);
         }
 
-        let errors = self.convert_error_list(errors, target);
+        let errors = self.convert_error_list(errors, target_with_modifiers);
         if !errors.is_empty() {
             if let Some(report) = unconfigured_report.as_mut() {
                 report.success = BuildOutcome::FAIL;
@@ -512,7 +552,7 @@ impl<'a> BuildReportCollector<'a> {
 
     fn collect_results_for_configured<'b>(
         &mut self,
-        target: TargetLabel,
+        target_with_modifiers: TargetLabelWithModifiers,
         results: impl IntoIterator<
             Item = (
                 &'b ConfiguredProvidersLabel,
@@ -611,7 +651,7 @@ impl<'a> BuildReportCollector<'a> {
 
             configured_report.build_metrics = metrics.get(label).duped();
         }
-        configured_report.errors = self.convert_error_list(&errors, target);
+        configured_report.errors = self.convert_error_list(&errors, target_with_modifiers);
         if !configured_report.errors.is_empty() {
             configured_report.inner.success = BuildOutcome::FAIL;
         }
@@ -624,7 +664,7 @@ impl<'a> BuildReportCollector<'a> {
     fn convert_error_list(
         &mut self,
         errors: &[buck2_error::Error],
-        target: TargetLabel,
+        target_with_modifiers: TargetLabelWithModifiers,
     ) -> Vec<BuildReportError> {
         if errors.is_empty() {
             return Vec::new();
@@ -722,10 +762,7 @@ impl<'a> BuildReportCollector<'a> {
             // This both omits errors and overwrites previous ones. That's the price you pay for
             // using buck1
             self.failures.insert(
-                EntryLabel::Target(TargetLabelWithModifiers {
-                    target_label: target,
-                    modifiers: Modifiers::new(None),
-                }),
+                EntryLabel::Target(target_with_modifiers),
                 self.strings
                     .get(&out.last().unwrap().message_content)
                     .unwrap()
@@ -835,6 +872,7 @@ pub fn generate_build_report(
     cwd: &ProjectRelativePath,
     trace_id: &TraceId,
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+    configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
 ) -> Result<Option<String>, buck2_error::Error> {
@@ -848,6 +886,7 @@ pub fn generate_build_report(
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
         configured,
+        configured_to_pattern_modifiers,
         other_errors,
         detailed_metrics,
         opts.graph_properties_opts,

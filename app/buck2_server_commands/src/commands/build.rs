@@ -379,6 +379,7 @@ async fn process_build_result(
             cwd,
             server_ctx.events().trace_id(),
             &build_result.configured,
+            &build_result.configured_to_pattern_modifiers,
             &build_result.other_errors,
             detailed_metrics,
         )?

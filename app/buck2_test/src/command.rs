@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::path::PathBuf;
@@ -512,6 +513,7 @@ async fn test(
             cwd,
             server_ctx.events().trace_id(),
             &test_outcome.build_target_result.configured,
+            &HashMap::new(),
             &test_outcome.build_target_result.other_errors,
             None,
         )?

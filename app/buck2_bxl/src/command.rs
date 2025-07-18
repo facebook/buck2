@@ -473,6 +473,7 @@ impl BxlServerCommand {
                 ctx.cwd,
                 server_ctx.events().trace_id(),
                 &BTreeMap::default(),
+                &HashMap::default(),
                 &BTreeMap::default(),
                 None,
             )?

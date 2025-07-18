@@ -15,17 +15,15 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden, GOLDEN_DIRECTORY
 
 
-# These test will be updated in the future when the build report is updated to include
-# the modifier syntax.
-
-
 @buck_test()
 async def test_build_with_single_modifier(buck: Buck) -> None:
-    result = await buck.build("root//:dummy?root//:macos")
+    target_with_modifiers = "root//:dummy?root//:macos"
+
+    result = await buck.build(target_with_modifiers)
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"][target_with_modifiers]["configured"].keys()
 
     cfg = await buck.audit_configurations(configuration)
 
@@ -34,11 +32,12 @@ async def test_build_with_single_modifier(buck: Buck) -> None:
 
 @buck_test()
 async def test_build_with_multiple_modifiers(buck: Buck) -> None:
-    result = await buck.build("root//:dummy?root//:macos+root//:arm")
+    target_with_modifiers = "root//:dummy?root//:macos+root//:arm"
+    result = await buck.build(target_with_modifiers)
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"][target_with_modifiers]["configured"].keys()
 
     cfg = await buck.audit_configurations(configuration)
 
@@ -50,11 +49,12 @@ async def test_build_with_multiple_modifiers(buck: Buck) -> None:
 async def test_build_order_of_modifiers(buck: Buck) -> None:
     # if passing in modifiers of the same constraint setting,
     # the last one should be the one that applies
-    result = await buck.build("root//:dummy?root//:linux+root//:macos")
+    target_with_modifiers = "root//:dummy?root//:linux+root//:macos"
+    result = await buck.build(target_with_modifiers)
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"][target_with_modifiers]["configured"].keys()
 
     cfg = await buck.audit_configurations(configuration)
 
@@ -64,51 +64,48 @@ async def test_build_order_of_modifiers(buck: Buck) -> None:
 
 @buck_test()
 async def test_build_with_different_targets_and_modifiers(buck: Buck) -> None:
-    result = await buck.build("root//:dummy?root//:macos", "root//:dummy2?root//:linux")
+    mac_target = "root//:dummy?root//:macos"
+    linux_target = "root//:dummy2?root//:linux"
+
+    result = await buck.build(mac_target, linux_target)
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"][mac_target]["configured"].keys()
     cfg = await buck.audit_configurations(configuration)
     assert "root//:macos" in cfg.stdout
 
-    [configuration] = output["results"]["root//:dummy2"]["configured"].keys()
+    [configuration] = output["results"][linux_target]["configured"].keys()
     cfg = await buck.audit_configurations(configuration)
     assert "root//:linux" in cfg.stdout
 
 
 @buck_test()
 async def test_build_with_same_target_different_modifiers(buck: Buck) -> None:
-    result = await buck.build("root//:dummy?root//:macos", "root//:dummy?root//:linux")
+    mac_target = "root//:dummy?root//:macos"
+    linux_target = "root//:dummy?root//:linux"
+
+    result = await buck.build(mac_target, linux_target)
 
     output = json.loads(result.stdout)
 
-    configurations = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"][mac_target]["configured"].keys()
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:macos" in cfg.stdout
 
-    assert len(configurations) == 2
-
-    # Need to do this as the order of the configurations is not guranteedd
-    # due to random hashes. This should change once build report is updated.
-    macos_found = False
-    linux_found = False
-    for configuration in configurations:
-        cfg = await buck.audit_configurations(configuration)
-        if "root//:macos" in cfg.stdout:
-            macos_found = True
-        if "root//:linux" in cfg.stdout:
-            linux_found = True
-
-    assert macos_found
-    assert linux_found
+    [configuration] = output["results"][linux_target]["configured"].keys()
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:linux" in cfg.stdout
 
 
 @buck_test()
 async def test_build_with_same_target_and_modifiers(buck: Buck) -> None:
-    result = await buck.build("root//:dummy?root//:macos", "root//:dummy?root//:macos")
+    target_with_modifier = "root//:dummy?root//:macos"
+    result = await buck.build(target_with_modifier, target_with_modifier)
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"][target_with_modifier]["configured"].keys()
 
     cfg = await buck.audit_configurations(configuration)
     assert "root//:macos" in cfg.stdout
@@ -163,8 +160,6 @@ async def test_build_with_mutliple_target_universes(buck: Buck) -> None:
 
     assert len(configurations) == 2
 
-    # Need to do this as the order of the configurations is not guranteedd
-    # due to random hashes. This should change once build report is updated.
     linux_found = False
     macos_found = False
     for configuration in configurations:
@@ -184,11 +179,15 @@ async def test_build_with_package_pattern(buck: Buck) -> None:
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
+    [configuration] = output["results"]["root//:dummy?root//:macos"][
+        "configured"
+    ].keys()
     cfg = await buck.audit_configurations(configuration)
     assert "root//:macos" in cfg.stdout
 
-    [configuration] = output["results"]["root//:dummy2"]["configured"].keys()
+    [configuration] = output["results"]["root//:dummy2?root//:macos"][
+        "configured"
+    ].keys()
     cfg = await buck.audit_configurations(configuration)
     assert "root//:macos" in cfg.stdout
 
@@ -199,17 +198,21 @@ async def test_build_with_recursive_pattern(buck: Buck) -> None:
 
     output = json.loads(result.stdout)
 
-    [configuration] = output["results"]["root//:dummy"]["configured"].keys()
-    cfg = await buck.audit_configurations(configuration)
-    assert "root//:macos" in cfg.stdout
-
-    [configuration] = output["results"]["root//:dummy2"]["configured"].keys()
-    cfg = await buck.audit_configurations(configuration)
-    assert "root//:macos" in cfg.stdout
-
-    [configuration] = output["results"]["root//recursive_pattern:recursive_target"][
+    [configuration] = output["results"]["root//:dummy?root//:macos"][
         "configured"
     ].keys()
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:macos" in cfg.stdout
+
+    [configuration] = output["results"]["root//:dummy2?root//:macos"][
+        "configured"
+    ].keys()
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:macos" in cfg.stdout
+
+    [configuration] = output["results"][
+        "root//recursive_pattern:recursive_target?root//:macos"
+    ]["configured"].keys()
     cfg = await buck.audit_configurations(configuration)
     assert "root//:macos" in cfg.stdout
 

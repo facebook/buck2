@@ -167,7 +167,7 @@ pub struct ProvidersLabelWithModifiers {
     pub modifiers: Modifiers,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Dupe, Clone)]
 pub struct TargetLabelWithModifiers {
     pub target_label: TargetLabel,
     pub modifiers: Modifiers,
