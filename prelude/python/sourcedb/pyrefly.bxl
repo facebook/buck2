@@ -9,6 +9,14 @@
 # Analyse some python files/targets and produce data for the Pyrefly IDE.
 # See <https://github.com/facebook/pyrefly>.
 
+# Missing features:
+#
+# * Manifests for prebuilt library (i.e. 3p python libraries). I think getting those would actually require some extracting and reading from disk (https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/prebuilt_python_library.bzl#L56)
+# * Anything logic that tries to inject / alter srcs or deps within the python rule need to be replicated, e.g.
+#   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L188-L192
+#   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L339-L341
+#   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L290-L306
+
 # Produce a list of all the targets that I care about.
 # This should be everything reachable from the command line arguments.
 def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
