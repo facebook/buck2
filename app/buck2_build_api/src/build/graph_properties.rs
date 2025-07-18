@@ -11,6 +11,7 @@
 use std::collections::HashSet;
 use std::fmt;
 use std::hash::BuildHasherDefault;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -288,6 +289,49 @@ impl<T: StrongHash> VersionedSketcher<T> {
     }
 }
 
+pub(crate) struct VersionedSketcherMap<K: Dupe + Hash + Eq, T: StrongHash> {
+    map: OrderedMap<K, VersionedSketcher<T>>,
+    version: SketchVersion,
+}
+
+impl<K: Dupe + Hash + Eq, T: StrongHash> VersionedSketcherMap<K, T> {
+    pub(crate) fn new(version: SketchVersion) -> Self {
+        Self {
+            map: OrderedMap::new(),
+            version,
+        }
+    }
+
+    pub(crate) fn entry_or_insert(&mut self, key: K) -> &mut VersionedSketcher<T> {
+        self.map
+            .entry(key)
+            .or_insert_with(|| self.version.create_sketcher())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn merge<'a>(
+        &mut self,
+        other: impl Iterator<Item = (&'a K, &'a MergeableGraphSketch<T>)>,
+    ) -> buck2_error::Result<()>
+    where
+        K: 'a,
+        T: 'a,
+    {
+        for (k, other_sketch) in other {
+            let sketcher = self.entry_or_insert(k.dupe());
+            sketcher.merge(other_sketch)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn into_mergeable_graph_sketch_map(self) -> OrderedMap<K, MergeableGraphSketch<T>> {
+        self.map
+            .into_iter()
+            .map(|(k, v)| (k, v.into_mergeable_graph_sketch()))
+            .collect()
+    }
+}
+
 /// Returns the total graph size for all dependencies of a target.
 pub async fn get_configured_graph_properties(
     ctx: &mut DiceComputations<'_>,
@@ -320,11 +364,12 @@ pub fn debug_compute_configured_graph_properties_uncached(
     } else {
         None
     };
-    let mut per_configuration_sketch = if per_configuration_sketch {
-        Some(OrderedMap::new())
-    } else {
-        None
-    };
+    let mut per_configuration_sketch: Option<VersionedSketcherMap<ConfigurationData, TargetLabel>> =
+        if per_configuration_sketch {
+            Some(VersionedSketcherMap::new(DEFAULT_SKETCH_VERSION))
+        } else {
+            None
+        };
 
     while let Some(item) = queue.pop() {
         for d in item.deps() {
@@ -337,9 +382,7 @@ pub fn debug_compute_configured_graph_properties_uncached(
             sketch.sketch(item.label())?;
         }
         if let Some(per_configuration_sketch) = per_configuration_sketch.as_mut() {
-            let sketch = per_configuration_sketch
-                .entry(item.label().cfg().dupe())
-                .or_insert_with(|| DEFAULT_SKETCH_VERSION.create_sketcher());
+            let sketch = per_configuration_sketch.entry_or_insert(item.label().cfg().dupe());
             // Note this may sketch same unconfigured target label multiple times.
             // This is fine because merge(sketch(A), sketch(B)) = sketch(A+B), and it's probably cheaper memory-wise
             // than keeping a set of unconfigured target labels.
@@ -352,12 +395,7 @@ pub fn debug_compute_configured_graph_properties_uncached(
         configured_graph_sketch: configured_graph_sketch
             .map(|sketch| sketch.into_mergeable_graph_sketch()),
         per_configuration_sketch: per_configuration_sketch.map(|per_configuration_sketch| {
-            Arc::new(
-                per_configuration_sketch
-                    .into_iter()
-                    .map(|(k, v)| (k, v.into_mergeable_graph_sketch()))
-                    .collect(),
-            )
+            Arc::new(per_configuration_sketch.into_mergeable_graph_sketch_map())
         }),
     })
 }
