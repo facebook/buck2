@@ -36,6 +36,8 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::pattern::pattern::Modifiers;
+use buck2_core::pattern::pattern::TargetLabelWithModifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
@@ -232,7 +234,7 @@ struct BuildReportError {
 #[serde(untagged)]
 enum EntryLabel {
     #[derivative(Debug = "transparent")]
-    Target(TargetLabel),
+    Target(TargetLabelWithModifiers),
 }
 
 pub struct BuildReportOpts {
@@ -348,7 +350,13 @@ impl<'a> BuildReportCollector<'a> {
                 errors,
                 &mut metrics_by_configured,
             )?;
-            entries.insert(EntryLabel::Target(label), entry);
+            entries.insert(
+                EntryLabel::Target(TargetLabelWithModifiers {
+                    target_label: label,
+                    modifiers: Modifiers::new(None),
+                }),
+                entry,
+            );
         }
         let total_configured_graph_sketch = this
             .total_configured_graph_sketch
@@ -713,7 +721,10 @@ impl<'a> BuildReportCollector<'a> {
             // This both omits errors and overwrites previous ones. That's the price you pay for
             // using buck1
             self.failures.insert(
-                EntryLabel::Target(target),
+                EntryLabel::Target(TargetLabelWithModifiers {
+                    target_label: target,
+                    modifiers: Modifiers::new(None),
+                }),
                 self.strings
                     .get(&out.last().unwrap().message_content)
                     .unwrap()

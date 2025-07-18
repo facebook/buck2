@@ -19,6 +19,7 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use relative_path::RelativePath;
+use serde::Serialize;
 
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
@@ -164,6 +165,31 @@ impl Modifiers {
 pub struct ProvidersLabelWithModifiers {
     pub providers_label: ProvidersLabel,
     pub modifiers: Modifiers,
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct TargetLabelWithModifiers {
+    pub target_label: TargetLabel,
+    pub modifiers: Modifiers,
+}
+
+impl Display for TargetLabelWithModifiers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(modifiers) = self.modifiers.as_slice() {
+            write!(f, "{}?{}", self.target_label, modifiers.join("+"))
+        } else {
+            write!(f, "{}", self.target_label)
+        }
+    }
+}
+
+impl Serialize for TargetLabelWithModifiers {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 /// All possible labels.

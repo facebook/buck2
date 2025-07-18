@@ -32,8 +32,9 @@ BuildReport {
     # The absolute path to the project root
     project_root: Path,
 
-    # The results of the build, categorized by unconfigured target
-    results: dict[TargetLabel, BuildReportEntry],
+    # The results of the build, categorized by unconfigured target along with
+    # any potential modifiers from the `?modifier` syntax
+    results: dict[TargetLabelWithModifiers, BuildReportEntry],
 
     # A cache for error message lookup. This is meant for deduplicating strings
     # that might otherwise appear many times in the build report and cause an
@@ -45,9 +46,9 @@ BuildReport {
     #
     # Currently always empty. Will be filled in if a flag is passed in the future.
     #
-    # A map from targets that failed to build to error messages describing the
+    # A map from targets with potential `?modifier` modifiers that failed to build to error messages describing the
     # failure.
-    failures: dict[TargetLabel, str],
+    failures: dict[TargetLabelWithModifiers, str],
 
     # Build metrics aggregated across all targets.
     build_metrics: AllTargetsBuildMetrics,
