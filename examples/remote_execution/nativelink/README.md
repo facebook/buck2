@@ -19,23 +19,23 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 2. Install NativeLink with Cargo.
 
 ```bash
-cargo install --git https://github.com/TraceMachina/nativelink --tag v0.4.0
+cargo install --locked --git https://github.com/TraceMachina/nativelink --tag v0.6.0
 ```
 
 ### ⚙️ Configure and 🦾 Start NativeLink
 
 The `nativelink` executable reads a JSON file as it's only parameter,
 `--config`. See
-[`nativelink-config`](https://github.com/TraceMachina/nativelink/tree/main/nativelink-config/examples/basic_cas.json)
+[`nativelink-config`](https://github.com/TraceMachina/nativelink/tree/v0.6.0/nativelink-config/examples/basic_cas.json5)
 for more details and examples.
 
 To grab the example in your current working directory, run:
 
 ```bash
-curl -O https://raw.githubusercontent.com/TraceMachina/nativelink/main/nativelink-config/examples/basic_cas.json
+curl -O https://raw.githubusercontent.com/TraceMachina/nativelink/v0.6.0/nativelink-config/examples/basic_cas.json5
 
 ### you can modify the example above to replace the filesystem store with the memory store if you favor speed over data durability.
-nativelink basic_cas.json
+nativelink basic_cas.json5
 ```
 
 More information is available in the
