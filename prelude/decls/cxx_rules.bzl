@@ -74,7 +74,7 @@ CxxTestType = ["gtest", "boost"]
 
 CxxToolProviderType = ["clang", "clang_cl", "clang_windows", "gcc", "windows", "windows_ml64"]
 
-LinkerProviderType = ["darwin", "gnu", "windows", "unknown"]
+LinkerProviderType = ["darwin", "gnu", "windows", "unknown", "wasm"]
 
 PicType = ["pic", "pdc"]
 
