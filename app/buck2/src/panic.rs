@@ -186,7 +186,7 @@ mod imp {
             }
             None => {
                 #[cfg(client_only)]
-                let warn = true;
+                let warn = !options.quiet;
                 #[cfg(not(client_only))]
                 let warn = !buck2_server::active_commands::broadcast_instant_event(&event)
                     && !options.quiet;
