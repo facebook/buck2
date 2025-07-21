@@ -283,6 +283,7 @@ java_library = prelude_rule(
                 Use parallel compression and concatenation of intermediary jars to speed up jar time generation.
             """),
         } |
+        jvm_common.annotation_processors() |
         jvm_common.remove_classes_arg() |
         jvm_common.exported_deps() |
         jvm_common.provided_deps() |
@@ -295,9 +296,6 @@ java_library = prelude_rule(
         jvm_common.multi_release_jar() |
         jvm_common.javac() |
         {
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
@@ -410,9 +408,6 @@ java_test = prelude_rule(
         jvm_common.test_env() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -442,7 +437,7 @@ java_test = prelude_rule(
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         }
-    ) | jvm_common.plugins() | jvm_common.javac() | test_common.attributes(),
+    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes(),
 )
 
 java_test_runner = prelude_rule(
@@ -454,9 +449,6 @@ java_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
@@ -483,7 +475,7 @@ java_test_runner = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
-        } | jvm_common.plugins() | jvm_common.javac()
+        } | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac()
     ),
 )
 

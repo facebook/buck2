@@ -108,6 +108,7 @@ kotlin_library = prelude_rule(
                  classes at compile time.
             """),
         } |
+        jvm_common.annotation_processors() |
         jvm_common.remove_classes_arg() |
         jvm_common.exported_deps() |
         jvm_common.provided_deps() |
@@ -121,9 +122,6 @@ kotlin_library = prelude_rule(
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
@@ -204,6 +202,7 @@ kotlin_test = prelude_rule(
                 Runtime arguments to the JVM running the tests.
             """),
         } |
+        jvm_common.annotation_processors() |
         jvm_common.enable_used_classes() |
         jvm_common.incremental() |
         jvm_common.javac() |
@@ -214,9 +213,6 @@ kotlin_test = prelude_rule(
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.

@@ -114,9 +114,6 @@ android_aar = prelude_rule(
             """),
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -161,7 +158,7 @@ android_aar = prelude_rule(
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         }
-    ) | jvm_common.plugins() | jvm_common.javac(),
+    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac(),
 )
 
 android_app_modularity = prelude_rule(
@@ -770,6 +767,7 @@ android_library = prelude_rule(
                  classes at compile time.
             """),
         } |
+        jvm_common.annotation_processors() |
         jvm_common.exported_deps() |
         jvm_common.provided_deps() |
         jvm_common.exported_provided_deps() |
@@ -787,9 +785,6 @@ android_library = prelude_rule(
                 List of classes to remove from the output jar. It only removes classes from the target's own
                  sources, not from any of its dependencies.
             """),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "friend_paths": attrs.list(attrs.dep(), default = []),
@@ -1445,9 +1440,6 @@ robolectric_test = prelude_rule(
             """),
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
-            "annotation_processor_params": attrs.list(attrs.string(), default = []),
-            "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
@@ -1505,6 +1497,7 @@ robolectric_test = prelude_rule(
             "vm_args": attrs.list(attrs.arg(), default = []),
         } |
         android_common.manifest_arg() |
+        jvm_common.annotation_processors() |
         jvm_common.k2() |
         jvm_common.incremental() |
         jvm_common.plugins() |

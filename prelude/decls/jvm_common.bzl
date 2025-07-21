@@ -256,6 +256,13 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
             """),
     }
 
+def _annotation_processors():
+    return {
+        "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
+        "annotation_processor_params": attrs.list(attrs.string(), default = []),
+        "annotation_processors": attrs.list(attrs.string(), default = []),
+    }
+
 def _javac():
     return {
         "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None, doc = """
@@ -281,6 +288,7 @@ jvm_common = struct(
     incremental = _incremental,
     plugins = _plugins,
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
+    annotation_processors = _annotation_processors,
     javac = _javac,
     enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
