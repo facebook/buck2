@@ -289,6 +289,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoEdenJournalTruncated => rank!(tier0),
         ErrorTag::IoEdenOutOfDateParent => rank!(tier0),
         ErrorTag::IoEdenListMounts => rank!(tier0),
+        ErrorTag::IoEdenUncategorized => rank!(tier0),
         ErrorTag::IoBlockingExecutor => rank!(tier0),
         ErrorTag::WatchmanClient => rank!(tier0),
         ErrorTag::WatchmanTimeout => rank!(tier0),

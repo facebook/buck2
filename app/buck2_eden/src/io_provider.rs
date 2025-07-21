@@ -374,7 +374,7 @@ impl EdenIoProvider {
                     }
                 }
                 ScmBlobOrError::UnknownField(code) => Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::IoEden,
+                    buck2_error::ErrorTag::IoEdenUnknownField,
                     "Eden getFileContent thrift call failed with unknown field code: {}",
                     code
                 )),

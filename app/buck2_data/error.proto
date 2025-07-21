@@ -192,6 +192,8 @@ enum ErrorTag {
   // Eden IO Section
   // Indicates that the IO operation went through Eden
   IO_EDEN = 1100;
+  // IO Error encountered in Eden that we do not correspond to a specific error
+  IO_EDEN_UNCATEGORIZED = 1101;
   // Failures indicating that Eden Failed to Connect or Mount
   IO_EDEN_CONNECTION_ERROR = 1110;
   IO_EDEN_REQUEST_ERROR = 1111;

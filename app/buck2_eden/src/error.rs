@@ -178,7 +178,7 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
         libc::ENOSPC => ErrorTag::IoStorageFull,
         libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
         libc::ENOTCONN => ErrorTag::IoNotConnected,
-        _ => ErrorTag::IoEden,
+        _ => ErrorTag::IoEdenUncategorized,
     }
 }
 
@@ -192,7 +192,7 @@ fn eden_service_error_tag(error: &edenfs::EdenError) -> ErrorTag {
         EdenErrorType::JOURNAL_TRUNCATED => ErrorTag::IoEdenJournalTruncated,
         EdenErrorType::CHECKOUT_IN_PROGRESS => ErrorTag::IoEdenCheckoutInProgress,
         EdenErrorType::OUT_OF_DATE_PARENT => ErrorTag::IoEdenOutOfDateParent,
-        _ => ErrorTag::IoEden,
+        _ => ErrorTag::IoEdenUncategorized,
     }
 }
 

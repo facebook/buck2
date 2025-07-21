@@ -74,11 +74,12 @@ impl IoError {
 fn io_error_tags(e: &io::Error, is_eden: bool) -> Vec<ErrorTag> {
     let mut tags = vec![ErrorTag::IoSystem];
     if is_eden {
-        tags.push(ErrorTag::IoEden);
-        // Eden timeouts are most likely caused by network issues.
-        // TODO check network health to be sure.
-        if e.kind() == io::ErrorKind::TimedOut {
-            tags.push(ErrorTag::Environment);
+        match e.kind() {
+            io::ErrorKind::NotFound => tags.push(ErrorTag::IoEdenFileNotFound),
+            // Eden timeouts are most likely caused by network issues.
+            // TODO check network health to be sure.
+            io::ErrorKind::TimedOut => tags.push(ErrorTag::Environment),
+            _ => tags.push(ErrorTag::IoEden),
         }
     }
     tags
