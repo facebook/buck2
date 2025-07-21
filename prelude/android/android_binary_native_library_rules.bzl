@@ -89,9 +89,9 @@ load("@prelude//utils:utils.bzl", "dedupe_by_value")
 #    `assets/libs/metadata.txt` that has a single line entry for each packaged asset consisting of
 #    '<ABI/library_name> <file_size> <sha256>'.
 #
-#    Any native library that is not part of the root module (i.e. it is part of some other Voltron
-#    module) is automatically packaged as an asset. Similarly, the metadata for each module is stored
-#    at `assets/<module_name>/libs.txt`.
+#    Native libraries that are not part of the root module (i.e. it is part of some other Voltron
+#    module) are controlled by `package_voltron_asset_libraries` and `can_be_asset` flags.
+#    Similarly, the metadata for each module is stored at `assets/<module_name>/libs.txt`.
 
 def get_android_binary_native_library_info(
         enhance_ctx: EnhancementContext,
@@ -652,6 +652,7 @@ def _get_native_libs_and_assets(
         all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
         platform_to_native_linkables: dict[str, dict[str, SharedLibrary]]) -> _NativeLibsAndAssetsInfo:
     is_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_asset_libraries", False)
+    is_voltron_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_voltron_asset_libraries", False)
 
     prebuilt_native_library_dirs = []
     prebuilt_native_library_dirs_always_in_primary_apk = []
@@ -670,7 +671,7 @@ def _get_native_libs_and_assets(
             "{} which is marked as needing to be in the primary APK cannot be an asset".format(native_lib_target),
         )
         if not is_root_module(module):
-            if native_lib.is_asset:
+            if native_lib.is_asset and is_voltron_packaging_native_libs_as_assets_supported:
                 prebuilt_native_library_dir_module_assets_map.setdefault(module, []).append(native_lib)
             else:
                 prebuilt_native_library_dir_module_libs_map.setdefault(module, []).append(native_lib)
@@ -717,7 +718,7 @@ def _get_native_libs_and_assets(
             module = module,
         ))
 
-    stripped_linkables = _get_native_linkables(ctx, platform_to_native_linkables, get_module_from_target, is_packaging_native_libs_as_assets_supported)
+    stripped_linkables = _get_native_linkables(ctx, platform_to_native_linkables, get_module_from_target, is_packaging_native_libs_as_assets_supported, is_voltron_packaging_native_libs_as_assets_supported)
     for module, native_linkable_assets in stripped_linkables.linkable_module_assets_map.items():
         native_lib_module_assets_map.setdefault(module, []).append(native_linkable_assets)
 
@@ -821,7 +822,8 @@ def _get_native_linkables(
         ctx: AnalysisContext,
         platform_to_native_linkables: dict[str, dict[str, SharedLibrary]],
         get_module_from_target: typing.Callable,
-        package_native_libs_as_assets_enabled: bool) -> _StrippedNativeLinkables:
+        package_native_libs_as_assets_enabled: bool,
+        package_voltron_native_libs_as_assets_enabled: bool) -> _StrippedNativeLinkables:
     stripped_native_linkables_srcs = {}
     stripped_native_linkables_always_in_primary_apk_srcs = {}
     stripped_native_linkable_assets_for_primary_apk_srcs = {}
@@ -860,7 +862,7 @@ def _get_native_linkables(
                     else:
                         stripped_native_linkables_srcs[so_name_path] = lib
             else:
-                module_dir = "assets" if native_linkable.can_be_asset else "lib"
+                module_dir = "assets" if native_linkable.can_be_asset and package_voltron_native_libs_as_assets_enabled else "lib"
                 so_name_path = paths.join(_get_native_libs_as_assets_dir(module), module_dir, abi_directory, so_name)
                 stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = lib
 
