@@ -20,6 +20,7 @@ use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::PatternType;
@@ -327,10 +328,10 @@ fn stream_packages<T: PatternType>(
     for pattern in patterns {
         match pattern {
             ParsedPattern::Target(package, target_name, extra) => {
-                spec.add_target(package.dupe(), target_name, extra, None);
+                spec.add_target(package.dupe(), target_name, extra, Modifiers::new(None));
             }
             ParsedPattern::Package(package) => {
-                spec.add_package(package.dupe(), None);
+                spec.add_package(package.dupe(), Modifiers::new(None));
             }
             ParsedPattern::Recursive(package) => {
                 recursive_paths.push(package);

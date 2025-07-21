@@ -52,12 +52,9 @@ where
         }
     }
 
-    pub fn add_package(&mut self, package: PackageLabel, modifiers: Option<Vec<String>>) {
+    pub fn add_package(&mut self, package: PackageLabel, modifiers: Modifiers) {
         self.specs.insert(
-            PackageLabelWithModifiers {
-                package,
-                modifiers: Modifiers::new(modifiers),
-            },
+            PackageLabelWithModifiers { package, modifiers },
             PackageSpec::All(),
         );
     }
@@ -67,12 +64,9 @@ where
         package: PackageLabel,
         target_name: TargetName,
         extra: T,
-        modifiers: Option<Vec<String>>,
+        modifiers: Modifiers,
     ) {
-        let package_with_modifiers = PackageLabelWithModifiers {
-            package,
-            modifiers: Modifiers::new(modifiers),
-        };
+        let package_with_modifiers = PackageLabelWithModifiers { package, modifiers };
 
         if let Some(s) = self.specs.get_mut(&package_with_modifiers) {
             match s {
@@ -150,17 +144,22 @@ async fn resolve_target_patterns_impl<P: PatternType>(
     for pattern in patterns {
         match pattern {
             ParsedPattern::Target(package, target_name, extra) => {
-                resolved.add_target(package.dupe(), target_name.clone(), extra.clone(), None);
+                resolved.add_target(
+                    package.dupe(),
+                    target_name.clone(),
+                    extra.clone(),
+                    Modifiers::new(None),
+                );
             }
             ParsedPattern::Package(package) => {
-                resolved.add_package(package.dupe(), None);
+                resolved.add_package(package.dupe(), Modifiers::new(None));
             }
             ParsedPattern::Recursive(cell_path) => {
                 let roots = find_package_roots(cell_path.clone(), file_ops)
                     .await
                     .buck_error_context("Error resolving recursive target pattern.")?;
                 for package in roots {
-                    resolved.add_package(package, None);
+                    resolved.add_package(package, Modifiers::new(None));
                 }
             }
         }

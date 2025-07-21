@@ -167,7 +167,7 @@ async fn build(
 
     let has_pattern_modifiers = parsed_patterns_with_modifiers
         .iter()
-        .any(|p| p.modifiers.is_some());
+        .any(|p| p.modifiers.as_slice().is_some());
 
     server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
 

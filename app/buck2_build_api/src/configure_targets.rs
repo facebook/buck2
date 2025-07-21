@@ -145,7 +145,7 @@ pub async fn load_compatible_patterns_with_modifiers(
     if !global_cfg_options.cli_modifiers.is_empty() {
         if parsed_patterns_with_modifiers
             .iter()
-            .any(|p| p.modifiers.is_some())
+            .any(|p| p.modifiers.as_slice().is_some())
         {
             return Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -162,10 +162,10 @@ pub async fn load_compatible_patterns_with_modifiers(
                 modifiers,
             } = pattern_with_modifiers;
 
-            let local_cfg_options = match modifiers {
+            let local_cfg_options = match modifiers.as_slice() {
                 Some(modifiers) => GlobalCfgOptions {
                     target_platform: global_cfg_options.target_platform.clone(),
-                    cli_modifiers: modifiers.into(),
+                    cli_modifiers: modifiers.to_vec().into(),
                 },
                 None => global_cfg_options.clone(),
             };

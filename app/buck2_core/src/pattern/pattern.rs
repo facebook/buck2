@@ -157,6 +157,10 @@ impl Modifiers {
         Self(modifiers.map(|m| m.into()))
     }
 
+    pub fn parse(string: &str) -> Self {
+        Self::new(Some(string.split("+").map(String::from).collect()))
+    }
+
     pub fn as_slice(&self) -> Option<&[String]> {
         self.0.as_deref()
     }
@@ -405,7 +409,7 @@ impl<T: PatternType> ParsedPattern<T> {
             modifiers,
         } = pattern_with_modifiers;
 
-        match modifiers {
+        match modifiers.as_slice() {
             None => Ok(parsed_pattern),
             Some(_) => Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -455,8 +459,7 @@ impl<T: PatternType> Display for ParsedPattern<T> {
 
 pub struct ParsedPatternWithModifiers<T: PatternType> {
     pub parsed_pattern: ParsedPattern<T>,
-    // TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
-    pub modifiers: Option<Vec<String>>,
+    pub modifiers: Modifiers,
 }
 
 impl<T: PatternType> ParsedPatternWithModifiers<T> {
@@ -580,8 +583,7 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
         /// (rather than throwing an error).
         strip_package_trailing_slash: bool,
         extra: T,
-        // TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
-        modifiers: Option<Vec<String>>,
+        modifiers: Modifiers,
     },
 }
 
@@ -608,10 +610,10 @@ impl<'a, T: PatternType> PatternDataOrAmbiguous<'a, T> {
         }
     }
 
-    pub fn modifiers(&self) -> &Option<Vec<String>> {
+    pub fn modifiers(&self) -> Modifiers {
         match self {
             PatternDataOrAmbiguous::PatternData(d) => d.modifiers(),
-            PatternDataOrAmbiguous::Ambiguous { modifiers, .. } => modifiers,
+            PatternDataOrAmbiguous::Ambiguous { modifiers, .. } => modifiers.dupe(),
         }
     }
 }
@@ -668,20 +670,19 @@ where
     }
 }
 
-// TODO(azhang2542): Replace `Option<Vec<String>>` with `Modifiers` struct
 /// The pattern data we extracted.
 #[derive(Debug)]
 pub enum PatternData<'a, T: PatternType> {
     /// A pattern like `foo/bar/...`.
     Recursive {
         package: &'a RelativePath,
-        modifiers: Option<Vec<String>>,
+        modifiers: Modifiers,
     },
 
     /// A pattern like `foo/bar:`, or `:`
     AllTargetsInPackage {
         package: &'a RelativePath,
-        modifiers: Option<Vec<String>>,
+        modifiers: Modifiers,
     },
 
     /// A pattern like `foo/bar:qux`, or `:qux`. The target will never be empty.
@@ -689,7 +690,7 @@ pub enum PatternData<'a, T: PatternType> {
         package: &'a RelativePath,
         target_name: TargetName,
         extra: T,
-        modifiers: Option<Vec<String>>,
+        modifiers: Modifiers,
     },
 }
 
@@ -737,11 +738,11 @@ impl<'a, T: PatternType> PatternData<'a, T> {
         }
     }
 
-    pub fn modifiers(&self) -> &Option<Vec<String>> {
+    pub fn modifiers(&self) -> Modifiers {
         match self {
-            Self::Recursive { modifiers, .. } => modifiers,
-            Self::AllTargetsInPackage { modifiers, .. } => modifiers,
-            Self::TargetInPackage { modifiers, .. } => modifiers,
+            Self::Recursive { modifiers, .. } => modifiers.dupe(),
+            Self::AllTargetsInPackage { modifiers, .. } => modifiers.dupe(),
+            Self::TargetInPackage { modifiers, .. } => modifiers.dupe(),
         }
     }
 
@@ -781,16 +782,8 @@ fn lex_provider_pattern(
     }
 
     let (pattern, modifiers) = match split1_opt_ascii(pattern, AsciiChar::new('?')) {
-        Some((pattern, modifiers)) => (
-            pattern,
-            Some(
-                modifiers
-                    .split("+")
-                    .map(|s| s.to_owned())
-                    .collect::<Vec<String>>(),
-            ),
-        ),
-        None => (pattern, None),
+        Some((pattern, modifiers)) => (pattern, Modifiers::parse(modifiers)),
+        None => (pattern, Modifiers::new(None)),
     };
 
     let pattern = match split1_opt_ascii(pattern, AsciiChar::new(':')) {
@@ -912,8 +905,8 @@ pub fn lex_configured_providers_pattern(
     };
 
     let has_modifiers = match &provider_pattern.pattern {
-        PatternDataOrAmbiguous::PatternData(d) => d.modifiers().is_some(),
-        PatternDataOrAmbiguous::Ambiguous { modifiers, .. } => modifiers.is_some(),
+        PatternDataOrAmbiguous::PatternData(d) => d.modifiers().as_slice().is_some(),
+        PatternDataOrAmbiguous::Ambiguous { modifiers, .. } => modifiers.as_slice().is_some(),
     };
 
     if has_modifiers {
@@ -1308,6 +1301,7 @@ mod tests {
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::hash::ConfigurationHash;
     use crate::package::PackageLabel;
+    use crate::pattern::pattern::Modifiers;
     use crate::pattern::pattern::ParsedPattern;
     use crate::pattern::pattern::ParsedPatternWithModifiers;
     use crate::pattern::pattern::TargetParsingRel;
@@ -2421,7 +2415,7 @@ mod tests {
         );
         assert_eq!(
             pattern_parts.modifiers,
-            Some(vec!["modifier1".to_owned(), "modifier2".to_owned()])
+            Modifiers::new(Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]))
         );
 
         // Test package pattern with modifiers
@@ -2437,7 +2431,10 @@ mod tests {
             pattern_parts.parsed_pattern,
             mk_package("root", "package/path")
         );
-        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["modifier".to_owned()]))
+        );
 
         // Test recursive pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
@@ -2454,11 +2451,11 @@ mod tests {
         );
         assert_eq!(
             pattern_parts.modifiers,
-            Some(vec![
+            Modifiers::new(Some(vec![
                 "modifier1".to_owned(),
                 "modifier2".to_owned(),
                 "modifier3".to_owned()
-            ])
+            ]))
         );
 
         // Test relative pattern with modifiers
@@ -2474,7 +2471,10 @@ mod tests {
             pattern_parts.parsed_pattern,
             mk_target("root", "package/path", "target")
         );
-        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["modifier".to_owned()]))
+        );
 
         // Test ambiguous pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
@@ -2489,7 +2489,10 @@ mod tests {
             pattern_parts.parsed_pattern,
             mk_target("root", "package/path", "path")
         );
-        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["modifier".to_owned()]))
+        );
 
         // Test pattern with trailing slash and modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
@@ -2504,7 +2507,10 @@ mod tests {
             pattern_parts.parsed_pattern,
             mk_target("root", "package/path", "path")
         );
-        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["modifier".to_owned()]))
+        );
 
         // Test alias
         let alias_config = aliases(&[("foo_target", "cell1//foo/bar:target")]);
@@ -2523,7 +2529,7 @@ mod tests {
         );
         assert_eq!(
             pattern_parts.modifiers,
-            Some(vec!["modifier1".to_owned(), "modifier2".to_owned()])
+            Modifiers::new(Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]))
         );
 
         Ok(())
@@ -2598,7 +2604,10 @@ mod tests {
                 &alias_resolver,
             )?;
 
-        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["modifier".to_owned()]))
+        );
 
         // Test that it works with Builtin configuration predicate
         let pattern_parts =
@@ -2610,7 +2619,10 @@ mod tests {
                 &alias_resolver,
             )?;
 
-        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["modifier".to_owned()]))
+        );
 
         Ok(())
     }
