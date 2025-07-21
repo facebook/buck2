@@ -42,12 +42,13 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
                 continue
 
             # collect beams
-            new_beams = dep_info.beams
-            for mod in new_beams:
-                if mod in all_beams:
-                    fail_dep_conflict("module", mod, all_beams[mod], name)
-                all_beams[mod] = name
-            beams[name] = new_beams
+            if dep_info.beams:
+                new_beams = dep_info.beams
+                for mod in new_beams:
+                    if mod in all_beams:
+                        fail_dep_conflict("module", mod, all_beams[mod], name)
+                    all_beams[mod] = name
+                beams[name] = new_beams
 
             # collect private includes
             if dep_info.private_include_dir:

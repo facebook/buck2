@@ -186,6 +186,9 @@ def _generate_beam_artifacts(
         build_environment: BuildEnvironment,
         name: str,
         src_artifacts: list[Artifact]):
+    if not src_artifacts:
+        return
+
     ebin = paths.join(_BUILD_DIR, "ebin")
 
     beam_mapping = {}

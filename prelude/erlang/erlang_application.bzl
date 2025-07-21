@@ -285,7 +285,7 @@ def link_output(
     name = app_name(ctx)
 
     build_environment = built.build_environment
-    ebin = build_environment.beams[name].values() + [built.app_file]
+    ebin = build_environment.beams.get(name, {}).values() + [built.app_file]
     ebin = {
         paths.join("ebin", ebin_file.basename): ebin_file
         for ebin_file in ebin
@@ -376,7 +376,7 @@ def build_app_info(
     return ErlangAppInfo(
         name = name,
         version = ctx.attrs.version,
-        beams = build_environment.beams[name],
+        beams = build_environment.beams.get(name),
         dependencies = dependencies,
         start_dependencies = start_dependencies,
         includes = build_environment.includes.get(name),
