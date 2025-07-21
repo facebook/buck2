@@ -551,12 +551,6 @@ impl EventsCtx {
         self.for_each_subscriber(|subscriber| subscriber.handle_should_restart());
     }
 
-    pub(crate) fn handle_instant_command_outcome(&mut self, is_success: bool) {
-        self.for_each_subscriber(|subscriber| {
-            subscriber.handle_instant_command_outcome(is_success)
-        });
-    }
-
     pub fn handle_exit_result(&mut self, exit_result: &ExitResult) {
         self.for_each_subscriber(|subscriber| subscriber.handle_exit_result(exit_result));
     }

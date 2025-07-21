@@ -171,7 +171,6 @@ pub struct InvocationRecorder {
     has_end_of_stream: bool,
     compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
     critical_path_backend: Option<String>,
-    instant_command_is_success: Option<bool>,
     bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
     install_duration: Option<prost_types::Duration>,
     install_device_metadata: Vec<buck2_data::DeviceMetadata>,
@@ -318,7 +317,6 @@ impl InvocationRecorder {
             has_end_of_stream: false,
             compressed_event_log_size_bytes: None,
             critical_path_backend: None,
-            instant_command_is_success: None,
             bxl_ensure_artifacts_duration: None,
             install_duration: None,
             install_device_metadata: Vec::new(),
@@ -876,7 +874,7 @@ impl InvocationRecorder {
                     .unwrap_or_default(),
             ),
             critical_path_backend: self.critical_path_backend.take(),
-            instant_command_is_success: self.instant_command_is_success.take(),
+            instant_command_is_success: None,
             bxl_ensure_artifacts_duration: self.bxl_ensure_artifacts_duration.take(),
             re_upload_bytes,
             re_download_bytes,
@@ -1918,10 +1916,6 @@ impl EventSubscriber for InvocationRecorder {
             _ => {}
         }
         Ok(())
-    }
-
-    fn handle_instant_command_outcome(&mut self, is_success: bool) {
-        self.instant_command_is_success = Some(is_success);
     }
 
     fn handle_exit_result(&mut self, exit_result: &ExitResult) {

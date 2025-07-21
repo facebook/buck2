@@ -151,13 +151,7 @@ impl<'a> ClientCommandContext<'a> {
             .command_report_path
             .as_ref()
             .map(|path| path.resolve(&self.working_dir));
-        let is_streaming_command = cmd.is_streaming_command();
-        let result = cmd.exec_impl(matches, self, events_ctx).await;
-        // TODO(ctolliday) always send ExitResult to recorder and remove this check.
-        if !is_streaming_command {
-            events_ctx.handle_instant_command_outcome(result.is_success());
-        }
-        result
+        cmd.exec_impl(matches, self, events_ctx).await
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {
@@ -323,12 +317,5 @@ pub trait BuckSubcommand {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         CommonEventLogOptions::no_event_log_ref()
-    }
-
-    // The outcome of a streaming command is based on the CommandEnd event.
-    // If a command is not a streaming command it should send instant_command_success.
-    // TODO(ctolliday): send ExitResult and clean this up.
-    fn is_streaming_command(&self) -> bool {
-        false
     }
 }

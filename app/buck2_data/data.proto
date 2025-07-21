@@ -2237,6 +2237,8 @@ message InvocationRecord {
   optional uint64 compressed_event_log_size_bytes = 65;
   optional bool has_end_of_stream = 67;
   optional string critical_path_backend = 68;
+  // Retained so that ingress can populate outcome for old buck versions.
+  // Delete later.
   optional bool instant_command_is_success = 69;
   // Optional - total time for final artifact materializations.
   google.protobuf.Duration bxl_ensure_artifacts_duration = 70;
