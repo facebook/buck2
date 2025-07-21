@@ -89,10 +89,6 @@ impl ServerCommandTemplate for AqueryServerCommand {
         )
         .await
     }
-
-    fn is_success(&self, _: &Self::Response) -> bool {
-        true
-    }
 }
 
 async fn aquery(

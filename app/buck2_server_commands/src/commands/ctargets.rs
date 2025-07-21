@@ -52,14 +52,6 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
     type Response = ConfiguredTargetsResponse;
     type PartialResult = NoPartialResult;
 
-    fn is_success(&self, response: &ConfiguredTargetsResponse) -> bool {
-        let ConfiguredTargetsResponse {
-            serialized_targets_output,
-        } = response;
-        let _ignore = serialized_targets_output;
-        true
-    }
-
     async fn command(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

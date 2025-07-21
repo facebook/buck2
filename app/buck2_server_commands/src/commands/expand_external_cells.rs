@@ -108,10 +108,6 @@ impl ServerCommandTemplate for ExpandExternalCellsServerCommand {
         })
     }
 
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        true
-    }
-
     fn exclusive_command_name(&self) -> Option<String> {
         Some("expand-external-cell".to_owned())
     }

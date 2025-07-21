@@ -1081,7 +1081,10 @@ message CommandEnd {
     CompleteCommandEnd complete = 42;
   }
 
+  // This should eventually be deleted. Retaining only so that ingress
+  // can process invocation records from old buck versions.
   bool is_success = 2;
+
   optional BuildResult build_result = 5;
 }
 

@@ -45,11 +45,6 @@ pub trait ServerCommandTemplate: Send + Sync {
         Self::EndEvent::default()
     }
 
-    /// Set `buck2_data::CommandEnd::is_success` to
-    /// * `command` returns `Ok`
-    /// * and this function returns `true`
-    fn is_success(&self, response: &Self::Response) -> bool;
-
     /// Used to report (successful) builds since rebase, only for commands that return a `BuildResult` (build, install, test).
     /// If the command succeeded in building the target specified, `BuildResult.build_completed` should be true,
     /// even if the command failed for another reason.
@@ -101,12 +96,9 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
             )
             .await
             .map_err(Into::into);
-        let end_event = command_end_ext(
-            &result,
-            command.end_event(&result),
-            |result| command.is_success(result),
-            |result| command.build_result(result),
-        );
+        let end_event = command_end_ext(&result, command.end_event(&result), |result| {
+            command.build_result(result)
+        });
         (result.map_err(Into::into), end_event)
     })
     .await

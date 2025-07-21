@@ -123,10 +123,6 @@ impl ServerCommandTemplate for BuildServerCommand {
         build(server_ctx, ctx, &self.req).await
     }
 
-    fn is_success(&self, response: &Self::Response) -> bool {
-        response.errors.is_empty()
-    }
-
     fn build_result(&self, response: &Self::Response) -> Option<BuildResult> {
         Some(BuildResult {
             build_completed: response.errors.is_empty(),

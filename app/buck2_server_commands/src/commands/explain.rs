@@ -59,11 +59,6 @@ impl ServerCommandTemplate for ExplainServerCommand {
         Ok(ExplainResponse {})
     }
 
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
-
     fn exclusive_command_name(&self) -> Option<String> {
         Some("explain".to_owned())
     }

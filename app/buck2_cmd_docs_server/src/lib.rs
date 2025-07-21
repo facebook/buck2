@@ -66,11 +66,6 @@ impl ServerCommandTemplate for DocsServerCmd {
     ) -> buck2_error::Result<Self::Response> {
         Ok(docs(server_ctx, ctx, &self.req).await?)
     }
-
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
 }
 
 async fn docs(

@@ -104,10 +104,6 @@ impl ServerCommandTemplate for CompleteServerCommand {
         .unwrap()
     }
 
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        true
-    }
-
     fn exclusive_command_name(&self) -> Option<String> {
         Some("complete".to_owned())
     }

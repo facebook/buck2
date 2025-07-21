@@ -73,11 +73,6 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
             .await
     }
 
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
-
     fn end_event(&self, response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
         let clean_stale_stats = if let Ok(res) = response {
             res.stats.clone()

@@ -113,10 +113,6 @@ impl ServerCommandTemplate for BxlServerCommand {
         self.execute(server_ctx, partial_result_dispatcher.as_writer(), ctx)
             .await
     }
-
-    fn is_success(&self, response: &Self::Response) -> bool {
-        response.errors.is_empty()
-    }
 }
 
 impl BxlServerCommand {

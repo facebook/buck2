@@ -157,11 +157,6 @@ impl ServerCommandTemplate for FileStatusServerCommand {
             Ok(buck2_cli_proto::GenericResponse {})
         }
     }
-
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
 }
 
 #[async_recursion]

@@ -175,11 +175,6 @@ impl ServerCommandTemplate for ProfileServerCommand {
             }
         }
     }
-
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
 }
 
 async fn generate_profile(

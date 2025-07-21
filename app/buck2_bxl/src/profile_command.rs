@@ -145,9 +145,4 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             output,
         )?)
     }
-
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
 }

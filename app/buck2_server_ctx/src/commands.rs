@@ -18,24 +18,22 @@ pub fn command_end<R, D>(result: &buck2_error::Result<R>, data: D) -> buck2_data
 where
     D: Into<buck2_data::command_end::Data>,
 {
-    command_end_ext(result, data.into(), |_| true, |_| None)
+    command_end_ext(result, data.into(), |_| None)
 }
 
-pub fn command_end_ext<R, D, F, G>(
+pub fn command_end_ext<R, D, F>(
     result: &buck2_error::Result<R>,
     data: D,
-    is_success: F,
-    build_result: G,
+    build_result: F,
 ) -> buck2_data::CommandEnd
 where
-    F: FnOnce(&R) -> bool,
-    G: FnOnce(&R) -> Option<buck2_data::BuildResult>,
+    F: FnOnce(&R) -> Option<buck2_data::BuildResult>,
     D: Into<buck2_data::command_end::Data>,
 {
     buck2_data::CommandEnd {
-        is_success: result.as_ref().is_ok_and(is_success),
         data: Some(data.into()),
         build_result: result.as_ref().ok().and_then(build_result),
+        ..Default::default()
     }
 }
 

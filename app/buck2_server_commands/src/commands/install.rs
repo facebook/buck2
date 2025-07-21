@@ -207,11 +207,6 @@ impl ServerCommandTemplate for InstallServerCommand {
         install(server_ctx, ctx, &self.req).await
     }
 
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
-
     fn build_result(&self, _response: &Self::Response) -> Option<BuildResult> {
         // TODO report this correctly
         Some(BuildResult {

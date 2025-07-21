@@ -259,10 +259,6 @@ impl ServerCommandTemplate for TestServerCommand {
     type Response = buck2_cli_proto::TestResponse;
     type PartialResult = NoPartialResult;
 
-    fn is_success(&self, response: &Self::Response) -> bool {
-        matches!(response.exit_code, Some(0)) && response.errors.is_empty()
-    }
-
     fn build_result(&self, response: &Self::Response) -> Option<BuildResult> {
         let build_completed =
             if let Some(buck2_cli_proto::test_response::TestStatuses { build_errors, .. }) =

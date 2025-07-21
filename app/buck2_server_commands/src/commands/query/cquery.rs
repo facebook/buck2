@@ -133,10 +133,6 @@ impl ServerCommandTemplate for CqueryServerCommand {
         )
         .await
     }
-
-    fn is_success(&self, _: &Self::Response) -> bool {
-        true
-    }
 }
 
 async fn cquery(

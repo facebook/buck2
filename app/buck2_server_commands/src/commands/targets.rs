@@ -151,11 +151,6 @@ impl ServerCommandTemplate for TargetsServerCommand {
         .await
     }
 
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
-
     fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
         buck2_data::TargetsCommandEnd {
             unresolved_target_patterns: self

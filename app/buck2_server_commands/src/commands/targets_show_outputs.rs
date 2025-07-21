@@ -82,11 +82,6 @@ impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
     ) -> buck2_error::Result<Self::Response> {
         targets_show_outputs(server_ctx, ctx, &self.req).await
     }
-
-    fn is_success(&self, _response: &Self::Response) -> bool {
-        // No response if we failed.
-        true
-    }
 }
 
 async fn targets_show_outputs(
