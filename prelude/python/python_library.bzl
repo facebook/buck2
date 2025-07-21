@@ -275,7 +275,7 @@ def py_resources(
                 o.basename == (
                     shared_libs_symlink_tree_name(
                         resource.default_output.short_path
-                            .removesuffix("-prebolt")
+                            .removesuffix("-wrapper")
                             .removesuffix("-stamped"),
                     )
                 )):
