@@ -108,6 +108,9 @@ def _generate_include_artifacts(
         name: str,
         header_artifacts: list[Artifact],
         is_private: bool = False):
+    if not header_artifacts:
+        return
+
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
     dir_name = "{}_private".format(name) if is_private else name
     include_dir = ctx.actions.symlinked_dir(paths.join(_BUILD_DIR, dir_name, "include"), include_files)

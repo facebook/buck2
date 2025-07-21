@@ -50,13 +50,14 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
             beams[name] = new_beams
 
             # collect private includes
-            private_include_dirs[name] = dep_info.private_include_dir
-            new_includes = dep_info.private_includes
-            for hrl in new_includes:
-                if hrl in all_includes:
-                    fail_dep_conflict("header", hrl, all_includes[hrl], name)
-                all_includes[hrl] = name
-            private_includes[name] = new_includes
+            if dep_info.private_include_dir:
+                private_include_dirs[name] = dep_info.private_include_dir
+                new_includes = dep_info.private_includes
+                for hrl in new_includes:
+                    if hrl in all_includes:
+                        fail_dep_conflict("header", hrl, all_includes[hrl], name)
+                    all_includes[hrl] = name
+                private_includes[name] = new_includes
 
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
@@ -68,13 +69,14 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
             fail("invalid dep {}", dep)
 
         # collect includes
-        include_dirs[name] = dep_info.include_dir
-        new_includes = dep_info.includes
-        for hrl in new_includes:
-            if hrl in all_includes:
-                fail_dep_conflict("header", hrl, all_includes[hrl], name)
-            all_includes[hrl] = name
-        includes[name] = new_includes
+        if dep_info.include_dir:
+            include_dirs[name] = dep_info.include_dir
+            new_includes = dep_info.includes
+            for hrl in new_includes:
+                if hrl in all_includes:
+                    fail_dep_conflict("header", hrl, all_includes[hrl], name)
+                all_includes[hrl] = name
+            includes[name] = new_includes
 
         # collect header_deps_files
         if dep_info.header_deps_file:

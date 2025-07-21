@@ -286,8 +286,6 @@ def link_output(
 
     build_environment = built.build_environment
     ebin = build_environment.beams[name].values() + [built.app_file]
-    include = build_environment.include_dirs[name]
-
     ebin = {
         paths.join("ebin", ebin_file.basename): ebin_file
         for ebin_file in ebin
@@ -298,8 +296,9 @@ def link_output(
     link_spec = {}
     link_spec.update(ebin)
     link_spec.update(srcs)
-    link_spec["include"] = include
     link_spec["priv"] = built.priv_dir
+    if name in build_environment.include_dirs:
+        link_spec["include"] = build_environment.include_dirs[name]
 
     return ctx.actions.symlinked_dir(link_path, link_spec)
 
@@ -380,10 +379,10 @@ def build_app_info(
         beams = build_environment.beams[name],
         dependencies = dependencies,
         start_dependencies = start_dependencies,
-        includes = build_environment.includes[name],
-        include_dir = build_environment.include_dirs[name],
-        private_includes = build_environment.private_includes[name],
-        private_include_dir = build_environment.private_include_dirs[name],
+        includes = build_environment.includes.get(name),
+        include_dir = build_environment.include_dirs.get(name),
+        private_includes = build_environment.private_includes.get(name),
+        private_include_dir = build_environment.private_include_dirs.get(name),
         header_deps_file = build_environment.header_deps_files.get(name),
         virtual = False,
         app_folder = app_folder,
