@@ -13,7 +13,11 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
+from buck2.tests.e2e_util.helper.golden import (
+    golden,
+    sanitize_stacktrace,
+    sanitize_stderr,
+)
 
 from buck2.tests.e2e_util.helper.utils import (
     is_running_on_linux,
@@ -239,7 +243,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
 
     if not is_running_on_windows():
         golden(
-            output=sanitize_stderr(res.stderr),
+            output=sanitize_stacktrace(res.stderr),
             rel_path="fixtures/test_daemon_crash.golden.txt",
         )
 

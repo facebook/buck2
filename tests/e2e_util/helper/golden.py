@@ -189,6 +189,16 @@ def sanitize_stderr(s: str) -> str:
     return sanitize_hashes(s)
 
 
+def sanitize_stacktrace(s: str) -> str:
+    s = sanitize_stderr(s)
+    return "\n".join(
+        filter(
+            lambda x: re.match(r"\[<TIMESTAMP>\]((\s+\d+:)|(\s+at )).*", x) is None,
+            s.splitlines(),
+        )
+    )
+
+
 def sanitize_python(s: str, project_dir: Path) -> str:
     # Strip absolute project dir prefix
     s = s.replace(f"{project_dir}/", "")
