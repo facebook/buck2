@@ -1,3 +1,33 @@
+load(":defs.bzl", "deeply_nested_subtargets", "nested_subtargets", "no_subtargets", "subtargets")
+
+constraint_setting(
+    name = "os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "macos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "cpu",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "arm",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
+
 no_subtargets(
     name = "no_subtargets",
 )
