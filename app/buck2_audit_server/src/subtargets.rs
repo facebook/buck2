@@ -22,7 +22,7 @@ use buck2_error::buck2_error;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labels_from_cli_args;
+use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labels_with_modifiers_from_cli_args;
 use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use buck2_util::indent::indent;
 use dice::DiceTransaction;
@@ -58,7 +58,7 @@ async fn server_execute_with_dice(
     let target_resolution_config =
         audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
 
-    let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
+    let provider_labels = parse_and_resolve_provider_labels_with_modifiers_from_cli_args(
         &mut ctx,
         &command.patterns,
         server_ctx.working_dir(),
@@ -67,9 +67,9 @@ async fn server_execute_with_dice(
 
     let mut futs = FuturesOrdered::new();
 
-    for label in provider_labels {
+    for label_with_modifiers in provider_labels {
         for providers_label in target_resolution_config
-            .get_configured_provider_label(&mut ctx, &label)
+            .get_configured_provider_label_with_modifiers(&mut ctx, &label_with_modifiers)
             .await?
         {
             // `.push` is deprecated in newer `futures`,
