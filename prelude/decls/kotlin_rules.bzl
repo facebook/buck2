@@ -204,12 +204,13 @@ kotlin_test = prelude_rule(
                 Runtime arguments to the JVM running the tests.
             """),
         } |
+        jvm_common.enable_used_classes() |
+        jvm_common.incremental() |
+        jvm_common.javac() |
         jvm_common.k2() |
         jvm_common.kotlin_compiler_plugins() |
-        jvm_common.incremental() |
+        jvm_common.plugins() |
         jvm_common.test_env() |
-        jvm_common.javac() |
-        jvm_common.enable_used_classes() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
@@ -236,7 +237,6 @@ kotlin_test = prelude_rule(
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
             "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
-            "plugins": attrs.list(attrs.dep(), default = []),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "provided_deps": attrs.list(attrs.dep(), default = []),
             "remove_classes": attrs.list(attrs.regex(), default = []),
