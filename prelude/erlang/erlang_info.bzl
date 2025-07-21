@@ -58,6 +58,40 @@ ErlangAppInfo = provider(
         ],
 )
 
+# mapping
+#   from include base name (e.g. "header.hrl")
+#   to artifact
+PathArtifactMapping = dict[str, Artifact]
+
+# mapping
+#   from application to includes in that application
+#   the artifacts are source .hrl files
+IncludesMapping = dict[str, PathArtifactMapping]
+
+# mapping
+#   from module name to beam file location
+ModuleArtifactMapping = dict[str, Artifact]
+
+# mapping
+#   from application to beam files it defines
+EbinMapping = dict[str, ModuleArtifactMapping]
+
+# mapping
+#   from application to merged deps files
+DepsMapping = dict[str, Artifact]
+
+ErlangDependencyInfo = provider(
+    fields = {
+        "beams": provider_field(EbinMapping, default = {}),
+        "dependencies": provider_field(dict[str, Dependency], default = {}),
+        "header_deps_files": provider_field(DepsMapping, default = {}),
+        "include_dirs": provider_field(PathArtifactMapping, default = {}),
+        "includes": provider_field(IncludesMapping, default = {}),
+        "private_include_dirs": provider_field(PathArtifactMapping, default = {}),
+        "private_includes": provider_field(IncludesMapping, default = {}),
+    },
+)
+
 ErlangReleaseInfo = provider(
     fields = {
         "name": provider_field(typing.Any, default = None),

@@ -30,11 +30,8 @@ load(
 # Erlang Releases according to https://www.erlang.org/doc/design_principles/release_structure.html
 
 def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
-    all_apps = flatten_dependencies(ctx, _dependencies(ctx))
-    return _build_primary_release(ctx, all_apps)
+    apps = flatten_dependencies(_dependencies(ctx))
 
-def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list[Provider]:
-    """build the release only with the primary toolchain with the release folder on the top-level"""
     all_outputs = _build_release(ctx, apps)
     release_dir = _symlink_primary_toolchain_output(ctx, all_outputs)
     return [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]

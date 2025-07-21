@@ -13,12 +13,8 @@ load(
     "erlang_build",
     "module_name",
 )
-load(
-    ":erlang_dependencies.bzl",
-    "ErlAppDependencies",
-    "flatten_dependencies",
-)
-load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangTestInfo")
+load(":erlang_dependencies.bzl", "ErlAppDependencies", "erlang_deps_rule")
+load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangDependencyInfo", "ErlangTestInfo")
 load(":erlang_otp_application.bzl", "normalize_application")
 load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
@@ -121,17 +117,31 @@ default_test_args = cmd_args(
     "main",
 )
 
-def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
+def erlang_test_impl(ctx: AnalysisContext) -> Promise:
+    # collect all dependencies
+    dep_info_rule = (erlang_deps_rule, {"deps": ctx.attrs.deps + [ctx.attrs._test_binary_lib]})
+    binary_lib_dep_info_rule = (erlang_deps_rule, {"deps": [ctx.attrs._test_binary_lib]})
+    cli_lib_info_rule = (erlang_deps_rule, {"deps": [ctx.attrs._cli_lib]})
+
+    dep_infos = ctx.actions.anon_targets([dep_info_rule, binary_lib_dep_info_rule, cli_lib_info_rule])
+
+    return dep_infos.promise.map(lambda dep_infos: _build_erlang_test(
+        ctx,
+        dep_infos[0][ErlangDependencyInfo],
+        dep_infos[1][ErlangDependencyInfo],
+        dep_infos[2][ErlangDependencyInfo],
+    ))
+
+def _build_erlang_test(
+        ctx: AnalysisContext,
+        dep_info: ErlangDependencyInfo,
+        binary_lib_dep_info: ErlangDependencyInfo,
+        cli_lib_dep_info: ErlangDependencyInfo) -> Promise:
     toolchain = get_toolchain(ctx)
     tools = toolchain.otp_binaries
 
-    deps = ctx.attrs.deps + [ctx.attrs._test_binary_lib]
-
-    # collect all dependencies
-    dependencies = flatten_dependencies(ctx, deps)
-
     # prepare build environment
-    build_environment = erlang_build.prepare_build_environment(ctx, dependencies)
+    build_environment = erlang_build.prepare_build_environment(dep_info)
 
     erlang_build.utils.peek_private_includes(
         ctx,
@@ -145,10 +155,9 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd = cmd_args([trampoline[RunInfo] for trampoline in ctx.attrs._trampolines])
     cmd.add(tools.erl, default_test_args)
 
-    binary_lib_deps = flatten_dependencies(ctx, [ctx.attrs._test_binary_lib])
     app_folders = [
         dep[ErlangAppInfo].app_folder
-        for dep in binary_lib_deps.values()
+        for dep in binary_lib_dep_info.dependencies.values()
         if not dep[ErlangAppInfo].virtual
     ]
     cmd.add(cmd_args(app_folders, format = "{}/ebin", prepend = "-pa"))
@@ -176,7 +185,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     test_info_file = _write_test_info_file(
         ctx = ctx,
         test_suite = suite_name,
-        dependencies = dependencies,
+        dependencies = dep_info.dependencies,
         test_dir = output_dir,
         config_files = config_files,
         erl_cmd = toolchain.otp_binaries.erl,
@@ -184,12 +193,12 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     cmd.add(test_info_file)
 
-    default_info = _build_default_info(dependencies, output_dir)
+    default_info = _build_default_info(dep_info.dependencies, output_dir)
 
     # prepare shell dependencies
     additional_shell_paths = [
         dep[ErlangTestInfo].output_dir
-        for dep in dependencies.values()
+        for dep in dep_info.dependencies.values()
         if ErlangTestInfo in dep
     ] + [output_dir]
 
@@ -203,9 +212,8 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         "-noshell",
     )
 
-    cli_lib_deps = flatten_dependencies(ctx, [ctx.attrs._cli_lib])
-    shell_deps = dict(dependencies)
-    shell_deps.update(cli_lib_deps)
+    shell_deps = dict(dep_info.dependencies)
+    shell_deps.update(cli_lib_dep_info.dependencies)
 
     run_info = erlang_shell.build_run_info(
         ctx,
@@ -215,27 +223,29 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     re_executor = get_re_executor_from_props(ctx)
+    external_runner_info = ExternalRunnerTestInfo(
+        type = "erlang_test",
+        command = [cmd],
+        env = ctx.attrs.env,
+        labels = ctx.attrs.labels,
+        contacts = ctx.attrs.contacts,
+        run_from_project_root = True,
+        use_project_relative_paths = True,
+        default_executor = re_executor,
+    )
+    test_info = ErlangTestInfo(
+        name = suite_name,
+        dependencies = dep_info.dependencies,
+        output_dir = output_dir,
+    )
 
-    return [
+    return run_info.map(lambda run_info: [
         default_info,
         run_info,
         ErlangAppOrTestInfo(),
-        ExternalRunnerTestInfo(
-            type = "erlang_test",
-            command = [cmd],
-            env = ctx.attrs.env,
-            labels = ctx.attrs.labels,
-            contacts = ctx.attrs.contacts,
-            run_from_project_root = True,
-            use_project_relative_paths = True,
-            default_executor = re_executor,
-        ),
-        ErlangTestInfo(
-            name = suite_name,
-            dependencies = dependencies,
-            output_dir = output_dir,
-        ),
-    ]
+        external_runner_info,
+        test_info,
+    ])
 
 # Copied from erlang_application.
 def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:

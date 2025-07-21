@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 load(":erlang_build.bzl", "erlang_build")
-load(":erlang_dependencies.bzl", "flatten_dependencies")
-load(":erlang_info.bzl", "ErlangAppInfo")
+load(":erlang_dependencies.bzl", "erlang_deps_rule")
+load(":erlang_info.bzl", "ErlangAppInfo", "ErlangDependencyInfo")
 load(":erlang_toolchain.bzl", "get_toolchain")
 
 def _build_run_info(
@@ -17,7 +17,7 @@ def _build_run_info(
         dependencies: list[Dependency],
         additional_app_paths: list[Artifact] = [],
         additional_paths: list[Artifact] = [],
-        additional_args: [cmd_args, None] = None) -> Provider:
+        additional_args: [cmd_args, None] = None) -> Promise:
     """Builds an Erlang shell with the dependencies and additional code paths available."""
     app_paths = [
         dep[ErlangAppInfo].app_folder
@@ -26,8 +26,23 @@ def _build_run_info(
     ]
     app_paths.extend(additional_app_paths)
 
-    all_shell_dependencies = flatten_dependencies(ctx, ctx.attrs.shell_libs)
-    for dep in all_shell_dependencies.values():
+    dep_info = ctx.actions.anon_target(erlang_deps_rule, {"deps": ctx.attrs.shell_libs})
+
+    return dep_info.promise.map(lambda dep_info: _do_build_run_info(
+        ctx,
+        app_paths,
+        additional_paths,
+        additional_args,
+        dep_info[ErlangDependencyInfo],
+    ))
+
+def _do_build_run_info(
+        ctx: AnalysisContext,
+        app_paths: list[Artifact],
+        additional_paths: list[Artifact],
+        additional_args: [cmd_args, None],
+        shell_dep_info: ErlangDependencyInfo) -> RunInfo:
+    for dep in shell_dep_info.dependencies.values():
         if dep[ErlangAppInfo].virtual:
             continue
         app_paths.append(dep[ErlangAppInfo].app_folder)

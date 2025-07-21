@@ -21,7 +21,7 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain = get_toolchain(ctx)
 
     # collect all dependencies
-    dependencies = flatten_dependencies(ctx, ctx.attrs.deps)
+    dependencies = flatten_dependencies(ctx.attrs.deps)
     artifacts = {}
 
     for dep in dependencies.values():

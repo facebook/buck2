@@ -15,13 +15,14 @@ load(
 load(
     ":erlang_dependencies.bzl",
     "ErlAppDependencies",
-    "flatten_dependencies",
+    "erlang_deps_rule",
 )
 load(
     ":erlang_info.bzl",
     "ErlangAppIncludeInfo",
     "ErlangAppInfo",
     "ErlangAppOrTestInfo",
+    "ErlangDependencyInfo",
 )
 load(":erlang_shell.bzl", "erlang_shell")
 load(
@@ -53,26 +54,27 @@ BuiltApplication = record(
     priv_dir = field(Artifact),
 )
 
-def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
+def erlang_application_impl(ctx: AnalysisContext) -> Promise:
     # select the correct tools from the toolchain
     toolchain = get_toolchain(ctx)
 
     # collect all dependencies
-    all_direct_dependencies = []
-    all_direct_dependencies += ctx.attrs.applications
-    all_direct_dependencies += ctx.attrs.included_applications
-    all_direct_dependencies += ctx.attrs.extra_includes
-    dependencies = flatten_dependencies(ctx, all_direct_dependencies)
+    dep_info = ctx.actions.anon_target(erlang_deps_rule, {
+        "applications": ctx.attrs.applications,
+        "extra_includes": ctx.attrs.extra_includes,
+        "included_applications": ctx.attrs.included_applications,
+    })
 
     name = app_name(ctx)
-    if name in dependencies and ErlangAppInfo in dependencies[name]:
-        fail("cannot depend on an application with the same name: %s" % (dependencies[name].label,))
 
-    return build_application(ctx, name, toolchain, dependencies)
+    return dep_info.promise.map(lambda dep_info: build_application(ctx, name, toolchain, dep_info[ErlangDependencyInfo]))
 
-def build_application(ctx, name, toolchain, dependencies) -> list[Provider]:
-    result = _build_erlang_application(ctx, name, toolchain, dependencies)
-    build_environments = result.build_environment
+def build_application(ctx: AnalysisContext, name: str, toolchain: Toolchain, dep_info: ErlangDependencyInfo) -> Promise:
+    if name in dep_info.dependencies and ErlangAppInfo in dep_info.dependencies[name]:
+        fail("cannot depend on an application with the same name: %s" % (dep_info.dependencies[name].label,))
+
+    result = _build_erlang_application(ctx, name, toolchain, dep_info)
+    build_environment = result.build_environment
 
     # link final output
     app_folder = link_output(
@@ -86,27 +88,22 @@ def build_application(ctx, name, toolchain, dependencies) -> list[Provider]:
 
     app_info = build_app_info(
         ctx,
-        dependencies,
-        build_environments,
+        dep_info.dependencies,
+        build_environment,
         app_folder,
         start_dependencies,
     )
 
     # generate DefaultInfo and RunInfo providers
-    default_info = _build_default_info(dependencies, app_folder)
+    default_info = _build_default_info(dep_info.dependencies, app_folder)
     run_info = erlang_shell.build_run_info(
         ctx,
-        dependencies = dependencies.values(),
+        dependencies = dep_info.dependencies.values(),
         additional_app_paths = [app_folder],
     )
-    return [
-        default_info,
-        ErlangAppOrTestInfo(),
-        run_info,
-        app_info,
-    ]
+    return run_info.map(lambda run_info: [default_info, run_info, app_info, ErlangAppOrTestInfo()])
 
-def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuiltApplication:
+def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolchain, dep_info: ErlangDependencyInfo) -> BuiltApplication:
     include_info = None
     if ctx.attrs._includes_target:
         include_info = ctx.attrs._includes_target[ErlangAppIncludeInfo]
@@ -114,7 +111,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
             fail("includes of the includes_target and direct includes must be the same, got {} and {}".format(include_info._original_includes, ctx.attrs.includes))
         if include_info.name != name:
             fail("includes_target must have the same name as the application, got {} and {}".format(include_info.name, name))
-    build_environment = erlang_build.prepare_build_environment(ctx, dependencies, include_info)
+    build_environment = erlang_build.prepare_build_environment(dep_info, include_info)
 
     # build generated inputs
     generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain, name)
