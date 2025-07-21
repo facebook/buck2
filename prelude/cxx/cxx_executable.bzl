@@ -91,7 +91,6 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(
     "@prelude//utils:utils.bzl",
@@ -924,9 +923,4 @@ def _link_into_executable(
     )
 
 def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
-    name = ctx.label.name
-    if cxx_use_bolt(ctx):
-        name += "-wrapper"
-    if cxx_stamp_build_info(ctx):
-        name += PRE_STAMPED_SUFFIX
-    return name
+    return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")
