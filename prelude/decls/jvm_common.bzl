@@ -258,7 +258,7 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
 
 def _annotation_processors():
     return {
-        "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
+        "annotation_processor_deps": attrs.list(attrs.exec_dep(), default = []),
         "annotation_processor_params": attrs.list(attrs.string(), default = []),
         "annotation_processors": attrs.list(attrs.string(), default = []),
     }
