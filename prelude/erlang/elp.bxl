@@ -63,6 +63,13 @@ def _get_absolute_path(ctx, src, build_results, allow_multiple = True) -> list[d
     else:
         return [_as_path(get_path_without_materialization(src, ctx, abs = True))]
 
+def _strip_includes_only(inc):
+    str_inc = str(inc)
+    suffix = "_includes_only"
+    if str_inc.endswith(suffix):
+        str_inc = str_inc[:-len(suffix)]
+    return str_inc
+
 def _elp_config(ctx):
     included_targets = ctx.cli_args.included_targets
 
@@ -89,6 +96,12 @@ def _elp_config(ctx):
         else:
             includes = _get_includes(ctx, includes, build_results)
         includes_map = _add_includes_to_map(includes_map, includes)
+
+        extra_includes = attrs.get("extra_includes")
+        if not extra_includes:
+            extra_includes_list = []
+        else:
+            extra_includes_list = [_strip_includes_only(tgt.raw_target()) for tgt in extra_includes.value()]
 
         deps_list = []
         apps_list = []
@@ -135,6 +148,7 @@ def _elp_config(ctx):
             deps = deps_list,
             apps = apps_list,
             included_apps = included_apps_list,
+            extra_includes = extra_includes_list,
             origin = typ,
         )
 
