@@ -2,7 +2,7 @@
 
 {
   "failures": {
-    "root//fail_action:fail_error_handler_with_output": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nLocal command returned non-zero exit code 1\nLocal command: env -- 'BUCK_SCRATCH_PATH=buck-out/v2/tmp/root/<HASH>/fail_error_handler_with_output' python3 fail_action/fail_with_output.py buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_with_output__/output\nStdout: <empty>\nStderr: <empty>\n\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n"
+    "root//fail_action:fail_error_handler_with_output": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nLocal command returned non-zero exit code 1\nLocal command: env -- 'BUCK_SCRATCH_PATH=buck-out/v2/tmp/root/<HASH>/fail_error_handler_with_output' python3 fail_action/fail_with_output.py buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_with_output__/output\nStdout: <empty>\nStderr: <empty>\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n"
   },
   "results": {
     "root//fail_action:fail_error_handler_with_output": {
@@ -60,7 +60,7 @@
   },
   "strings": {
     "<STRING_HASH>": "",
-    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nLocal command returned non-zero exit code 1\nLocal command: env -- 'BUCK_SCRATCH_PATH=buck-out/v2/tmp/root/<HASH>/fail_error_handler_with_output' python3 fail_action/fail_with_output.py buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_with_output__/output\nStdout: <empty>\nStderr: <empty>\n\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n",
+    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nLocal command returned non-zero exit code 1\nLocal command: env -- 'BUCK_SCRATCH_PATH=buck-out/v2/tmp/root/<HASH>/fail_error_handler_with_output' python3 fail_action/fail_with_output.py buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_with_output__/output\nStdout: <empty>\nStderr: <empty>\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n",
     "<STRING_HASH>": "Local command returned non-zero exit code 1",
     "<STRING_HASH>": "Try doing xyz"
   },

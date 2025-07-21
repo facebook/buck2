@@ -187,3 +187,19 @@ def sanitize_stderr(s: str) -> str:
     # Remove path from "panicked at" line
     s = re.sub(r"panicked at .+", "panicked at <PATH>", s)
     return sanitize_hashes(s)
+
+
+def sanitize_python(s: str, project_dir: Path) -> str:
+    # Strip absolute project dir prefix
+    s = s.replace(f"{project_dir}/", "")
+    # Match python38 error formatting (can be removed when python38 is removed everywhere)
+    s = re.sub(r" *\^+", "", s)
+    s = s.replace("SyntaxError: invalid syntax", "IndentationError: unexpected indent")
+    s = s.replace("[syntax] Syntax error!", "[indentation] Indentation error!")
+    s = re.sub(r"(\\n)+", r"\\n", s)
+    return s
+
+
+def strip_waiting_on(s: str) -> str:
+    # Strip "Waiting on" lines
+    return "\n".join(filter(lambda x: "Waiting on" not in x, s.splitlines()))

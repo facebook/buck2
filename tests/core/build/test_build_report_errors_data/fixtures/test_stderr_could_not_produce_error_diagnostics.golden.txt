@@ -19,7 +19,7 @@ error: fail: something went wrong
   --> fail_action/fail_action_with_error_handler.bzl:72:9
    |
 72 |         fail("something went wrong")
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
    |
 
 [<TIMESTAMP>] Cache hits: <CACHE_STATS>
@@ -43,7 +43,7 @@ error: fail: something went wrong
   --> fail_action/fail_action_with_error_handler.bzl:72:9
    |
 72 |         fail("something went wrong")
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
    |
 
 [<TIMESTAMP>]

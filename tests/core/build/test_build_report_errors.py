@@ -17,7 +17,13 @@ from typing import List
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes, sanitize_stderr
+from buck2.tests.e2e_util.helper.golden import (
+    golden,
+    sanitize_hashes,
+    sanitize_python,
+    sanitize_stderr,
+    strip_waiting_on,
+)
 
 
 def build_report_test(name: str, command: List[str]) -> None:
@@ -46,7 +52,7 @@ def build_report_test(name: str, command: List[str]) -> None:
         strings = dict(
             sorted(
                 report["strings"].items(),
-                key=lambda item: sanitize_hashes(item[1]),
+                key=lambda item: sanitize_hashes(sanitize_python(item[1], buck.cwd)),
             )
         )
         updated_strings = {}
@@ -57,7 +63,9 @@ def build_report_test(name: str, command: List[str]) -> None:
         report["strings"] = updated_strings
 
         golden(
-            output=sanitize_hashes(json.dumps(report, indent=2, sort_keys=True)),
+            output=sanitize_hashes(
+                sanitize_python(json.dumps(report, indent=2, sort_keys=True), buck.cwd)
+            ),
             rel_path="fixtures/" + name + ".golden.json",
         )
         pass
@@ -96,10 +104,7 @@ def running_on_mac() -> bool:
     return sys.platform == "darwin"
 
 
-# TODO(@wendyy) - windows adds some extra characters to stdout/stderr.
-# Python reports compile errors with the full path on mac as well, which
-# breaks golden tests.
-# Fix for both os types later.
+# TODO fix on windows and mac
 if not running_on_windows() and not running_on_mac():
     build_report_test(
         "test_action_fail_with_stdout_stderr",
@@ -121,6 +126,9 @@ if not running_on_windows() and not running_on_mac():
         ["//fail_action:fail_one_with_error_handler_no_op"],
     )
 
+    def sanitize_error_stderr(stderr: str, buck: Buck) -> str:
+        return strip_waiting_on(sanitize_stderr(sanitize_python(stderr, buck.cwd)))
+
     @buck_test()
     async def test_stderr_with_empty_error_diagnostics(buck: Buck) -> None:
         result = await expect_failure(
@@ -128,7 +136,7 @@ if not running_on_windows() and not running_on_mac():
         )
 
         golden(
-            output=sanitize_stderr(result.stderr),
+            output=sanitize_error_stderr(result.stderr, buck.cwd),
             rel_path="fixtures/test_stderr_with_empty_error_diagnostics.golden.txt",
         )
 
@@ -139,7 +147,7 @@ if not running_on_windows() and not running_on_mac():
         )
 
         golden(
-            output=sanitize_stderr(result.stderr),
+            output=sanitize_error_stderr(result.stderr, buck.cwd),
             rel_path="fixtures/test_stderr_with_error_diagnostics.golden.txt",
         )
 
@@ -148,7 +156,7 @@ if not running_on_windows() and not running_on_mac():
         result = await expect_failure(buck.build("//fail_action:fail_script"))
 
         golden(
-            output=sanitize_stderr(result.stderr),
+            output=sanitize_error_stderr(result.stderr, buck.cwd),
             rel_path="fixtures/test_stderr_with_no_error_diagnostics.golden.txt",
         )
 
@@ -157,7 +165,7 @@ if not running_on_windows() and not running_on_mac():
         result = await expect_failure(buck.build("//fail_action:error_handler_failed"))
 
         golden(
-            output=sanitize_stderr(result.stderr),
+            output=sanitize_error_stderr(result.stderr, buck.cwd),
             rel_path="fixtures/test_stderr_could_not_produce_error_diagnostics.golden.txt",
         )
 
