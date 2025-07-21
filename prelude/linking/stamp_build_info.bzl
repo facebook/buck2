@@ -9,6 +9,8 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
+PRE_STAMPED_SUFFIX = "-pre_stamped"
+
 def cxx_stamp_build_info(ctx: AnalysisContext) -> bool:
     return hasattr(ctx.attrs, "_build_info") and bool(ctx.attrs._build_info)
 
@@ -21,7 +23,8 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifa
         build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", ctx.attrs._build_info)
         stem, ext = paths.split_extension(obj.short_path)
         if not stamped_output:
-            stamped_output = ctx.actions.declare_output(stem + "-stamped" + ext)
+            name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
+            stamped_output = ctx.actions.declare_output(name + ext)
 
         ctx.actions.run(
             cmd_args([
