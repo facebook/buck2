@@ -38,7 +38,6 @@ use crate::environment::MethodsStatic;
 use crate::starlark_complex_value;
 use crate::starlark_complex_values;
 use crate::typing::Ty;
-use crate::values::FreezeResult;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;

@@ -18,7 +18,6 @@ use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
-use starlark::values::FreezeResult;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;

@@ -140,7 +140,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         impl #impl_params starlark::values::Freeze for #name #input_params #bounds_body {
             type Frozen = #name #output_params;
             #[allow(unused_variables)]
-            fn freeze(self, freezer: &starlark::values::Freezer) -> FreezeResult<Self::Frozen> {
+            fn freeze(self, freezer: &starlark::values::Freezer) -> starlark::values::FreezeResult<Self::Frozen> {
                 let frozen = #body;
                 #validate_body
                 std::result::Result::Ok(frozen)

@@ -27,7 +27,6 @@ use starlark_derive::starlark_value;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;

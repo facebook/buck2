@@ -28,7 +28,6 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
-use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;

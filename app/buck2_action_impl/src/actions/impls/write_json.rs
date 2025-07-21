@@ -53,7 +53,6 @@ use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Demand;
 use starlark::values::Freeze;
-use starlark::values::FreezeResult;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkValue;

@@ -23,7 +23,6 @@ use starlark_derive::VisitSpanMut;
 use crate as starlark;
 use crate::eval::bc::stack_ptr::BcSlot;
 use crate::values::Freeze;
-use crate::values::FreezeResult;
 
 /// Not captured.
 #[derive(

@@ -31,7 +31,6 @@ use starlark::eval::ParametersParser;
 use starlark::typing::Ty;
 use starlark::values::Demand;
 use starlark::values::Freeze;
-use starlark::values::FreezeResult;
 use starlark::values::FrozenRef;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;

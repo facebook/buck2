@@ -20,7 +20,6 @@
 use starlark::values::Freeze;
 
 use crate as starlark;
-use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 

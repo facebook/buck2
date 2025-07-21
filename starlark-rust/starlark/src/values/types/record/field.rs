@@ -32,7 +32,6 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::starlark_complex_value;
 use crate::typing::Ty;
-use crate::values::FreezeResult;
 use crate::values::StarlarkValue;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;

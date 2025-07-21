@@ -25,7 +25,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
-use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;

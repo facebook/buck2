@@ -42,7 +42,6 @@ use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::typing::TyStruct;
 use crate::util::arc_str::ArcStr;
-use crate::values::FreezeResult;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;

@@ -45,7 +45,6 @@ use crate::typing::tuple::TyTuple;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
-use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;

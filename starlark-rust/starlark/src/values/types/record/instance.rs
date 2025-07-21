@@ -34,7 +34,6 @@ use crate::collections::StarlarkHasher;
 use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::values::Freeze;
-use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;

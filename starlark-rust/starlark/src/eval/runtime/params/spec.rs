@@ -50,7 +50,6 @@ use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::hint::unlikely;
 use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
-use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;

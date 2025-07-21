@@ -23,7 +23,6 @@ use dupe::Dupe;
 use starlark_derive::Freeze;
 
 use crate as starlark;
-use crate::values::FreezeResult;
 
 /// Globally unique identifier for a type, like record type or enum type.
 #[derive(

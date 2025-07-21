@@ -30,7 +30,6 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::AllocValue;
 use crate::values::Freeze;
-use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;

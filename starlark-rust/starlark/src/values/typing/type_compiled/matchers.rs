@@ -22,7 +22,6 @@ use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::typing::starlark_value::TyStarlarkValue;
-use crate::values::FreezeResult;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::dict::DictRef;

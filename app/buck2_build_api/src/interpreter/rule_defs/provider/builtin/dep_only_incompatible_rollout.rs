@@ -14,7 +14,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
-use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
