@@ -72,16 +72,23 @@ class WheelBuilder(contextlib.AbstractContextManager):
         return os.path.join(f"{self._normalized_name}-{self._version}.data", *path)
 
     def write(self, dst: str, src: str) -> None:
-        self._record.append(dst)
-        zinfo = zipfile.ZipInfo.from_file(
-            filename=src,
-            arcname=dst,
-            # Allow older timestamps, as we're gonna overwrite them below anyway.
-            strict_timestamps=False,
-        )
-        zinfo.date_time = (1980, 1, 1, 0, 0, 0)
-        with open(src, "rb") as fsrc, self._outf.open(zinfo, "w") as fdst:
-            shutil.copyfileobj(fsrc, fdst, 1024 * 8)
+        if os.path.isdir(src):
+            for root, _, files in os.walk(src):
+                for file in files:
+                    file_src = os.path.join(root, file)
+                    file_dst = os.path.join(dst, os.path.relpath(file_src, src))
+                    self.write(file_dst, file_src)
+        else:
+            self._record.append(dst)
+            zinfo = zipfile.ZipInfo.from_file(
+                filename=src,
+                arcname=dst,
+                # Allow older timestamps, as we're gonna overwrite them below anyway.
+                strict_timestamps=False,
+            )
+            zinfo.date_time = (1980, 1, 1, 0, 0, 0)
+            with open(src, "rb") as fsrc, self._outf.open(zinfo, "w") as fdst:
+                shutil.copyfileobj(fsrc, fdst, 1024 * 8)
 
     def write_data(self, dst: str, src: str) -> None:
         self.write(self._data(dst), src)
