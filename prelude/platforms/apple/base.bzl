@@ -10,8 +10,7 @@ load("@prelude//:is_buck2.bzl", "is_buck2") # @oss-enable
 load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
-    "CONSTRAINT_PACKAGE",
-    "REMAPPED_BUILD_MODES",
+      "CONSTRAINT_PACKAGE", # @oss-enable
     "get_build_mode",
 )
 load(
@@ -21,14 +20,10 @@ load(
     "mac_platforms",
     "watch_platforms",
 )
-# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", "BUILD_MODE_CONSTRAINTS")
+# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _BUILD_MODE_TO_CONSTRAINTS_MAP = "BUILD_MODE_TO_CONSTRAINTS_MAP")
 
-BUILD_MODE_TO_CONSTRAINTS_MAP = {
-    build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] +
-                # @oss-disable[end= ]: BUILD_MODE_CONSTRAINTS[build_mode]
-    [] # @oss-enable
-    for build_mode in APPLE_BUILD_MODES + REMAPPED_BUILD_MODES.keys()
-}
+BUILD_MODE_TO_CONSTRAINTS_MAP = {build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] for build_mode in APPLE_BUILD_MODES} # @oss-enable
+# @oss-disable[end= ]: BUILD_MODE_TO_CONSTRAINTS_MAP = _BUILD_MODE_TO_CONSTRAINTS_MAP
 
 _MOBILE_PLATFORMS = [
     ios_platforms.IPHONEOS_ARM64,
