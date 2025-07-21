@@ -43,7 +43,7 @@ def _go_toolchain_impl(ctx):
             env_go_debug = ctx.attrs.env_go_debug,
             linker = go_distr.tool_link,
             linker_flags = ctx.attrs.linker_flags,
-            packer = go_distr.tool_pack,
+            packer = ctx.attrs.tool_pack[RunInfo],
             build_tags = ctx.attrs.build_tags,
         ),
     ]
@@ -66,6 +66,7 @@ go_toolchain = rule(
         "go_distr": attrs.exec_dep(providers = [GoDistrInfo]),
         "go_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_go_wrapper"),
         "linker_flags": attrs.list(attrs.arg(), default = []),
+        "tool_pack": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:tool_pack"),
     },
 )
 
@@ -83,7 +84,6 @@ def _go_distr_impl(ctx):
             tool_cover = RunInfo(go_root.project(tool_prefix + "/cover" + suffix)),
             tool_cgo = RunInfo(go_root.project(tool_prefix + "/cgo" + suffix)),
             tool_link = RunInfo(go_root.project(tool_prefix + "/link" + suffix)),
-            tool_pack = RunInfo(go_root.project(tool_prefix + "/pack" + suffix)),
         ),
     ]
 

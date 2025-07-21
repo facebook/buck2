@@ -16,7 +16,6 @@ GoDistrInfo = provider(
         "tool_cover": provider_field(RunInfo),
         "tool_cgo": provider_field(RunInfo),
         "tool_link": provider_field(RunInfo),
-        "tool_pack": provider_field(RunInfo),
     },
 )
 

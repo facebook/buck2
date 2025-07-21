@@ -22,3 +22,11 @@ prelude.go_stdlib(
     name = "stdlib",
     visibility = ["PUBLIC"],
 )
+
+prelude.go_bootstrap_binary(
+    name = "tool_pack",
+    build_args = [
+        "cmd/pack",
+    ],
+    visibility = ["PUBLIC"],
+)
