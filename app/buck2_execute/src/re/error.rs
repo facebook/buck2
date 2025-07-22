@@ -37,6 +37,14 @@ pub fn get_re_error_tag(tcode: &TCode) -> ErrorTag {
     }
 }
 
+pub fn get_re_group_tag(group: &TCodeReasonGroup) -> Option<ErrorTag> {
+    match *group {
+        TCodeReasonGroup::RE_CONNECTION => Some(ErrorTag::ReConnection),
+        TCodeReasonGroup::USER_QUOTA => Some(ErrorTag::ReUserQuota),
+        _ => None,
+    }
+}
+
 #[derive(Allocative, Debug, Clone, buck2_error::Error)]
 #[error("Remote Execution Error on {} for ReSession {}\nError: ({})", .re_action, .re_session_id, .message)]
 #[buck2(tag = get_re_error_tag(code))]
@@ -78,8 +86,8 @@ fn re_error(
         group,
     };
     let error = buck2_error::Error::from(re_error.clone()).context(re_error);
-    if group == TCodeReasonGroup::RE_CONNECTION {
-        error.tag([ErrorTag::ReConnection])
+    if let Some(tag) = get_re_group_tag(&group) {
+        error.tag([tag])
     } else {
         error.string_tag(&group.to_string())
     }

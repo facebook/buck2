@@ -360,6 +360,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::InstallerInput => rank!(input).hidden(),
         ErrorTag::BuildDeadlineExpired => rank!(input),
         ErrorTag::EventLogIndexOutOfBounds => rank!(input),
+        ErrorTag::ReUserQuota => rank!(input),
 
         ErrorTag::Input => rank!(input).hidden(),
 

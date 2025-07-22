@@ -72,12 +72,14 @@ pub struct TCodeReasonGroup(pub i32);
 impl TCodeReasonGroup {
     pub const UNKNOWN: Self = TCodeReasonGroup(0i32);
     pub const RE_CONNECTION: Self = TCodeReasonGroup(1i32);
+    pub const USER_QUOTA: Self = TCodeReasonGroup(2i32);
 }
 
 impl Display for TCodeReasonGroup {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             TCodeReasonGroup::RE_CONNECTION => write!(f, "RE_CONNECTION"),
+            TCodeReasonGroup::USER_QUOTA => write!(f, "USER_QUOTA"),
             _ => write!(f, "UNKNOWN"),
         }
     }

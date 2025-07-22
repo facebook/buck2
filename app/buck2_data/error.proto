@@ -254,6 +254,7 @@ enum ErrorTag {
 
   // TCodeReasonGroup values: https://fburl.com/code/pvsy2jgv
   RE_CONNECTION = 1340;
+  RE_USER_QUOTA = 1341;
 
   // Dice Errors
   // Value: https://fburl.com/code/5dxzaw41
