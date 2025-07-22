@@ -2394,6 +2394,19 @@ message InvocationRecord {
   // Overall cache lookup attempts and total latency of cache lookups
   optional int64 local_cache_lookups = 255;
   optional double re_average_local_cache_lookup_microseconds = 256;
+
+  // Time elapsed from a build's start until first pass test results.
+  optional uint64 time_to_first_pass_test_result_ms = 257;
+  // Time elapsed from a build's start until first fail test result.
+  optional uint64 time_to_first_fail_test_result_ms = 258;
+  // Time elapsed from a build's start until first fatal test result.
+  optional uint64 time_to_first_fatal_test_result_ms = 259;
+  // Time elapsed from a build's start until first timeout test result.
+  optional uint64 time_to_first_timeout_test_result_ms = 300;
+  // Time elapsed from a build's start until first skip test result.
+  optional uint64 time_to_first_skip_test_result_ms = 301;
+  // Time elapsed from a build's start until first unknown test result.
+  optional uint64 time_to_first_unknown_test_result_ms = 302;
 }
 
 enum InvocationOutcome {

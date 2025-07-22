@@ -148,6 +148,15 @@ pub struct InvocationRecorder {
     time_to_first_command_execution_start: Option<Duration>,
     time_to_first_test_discovery: Option<Duration>,
     time_to_first_test_run: Option<Duration>,
+    // We want to track the time to first arrival of each test result type
+    // to better understand the user-experience around test execution
+    time_to_first_pass_test_result: Option<Duration>,
+    time_to_first_fail_test_result: Option<Duration>,
+    time_to_first_skip_test_result: Option<Duration>,
+    time_to_first_timeout_test_result: Option<Duration>,
+    time_to_first_fatal_test_result: Option<Duration>,
+    time_to_first_unknown_test_result: Option<Duration>,
+
     system_info: SystemInfo,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
     file_watcher_duration: Option<Duration>,
@@ -294,6 +303,12 @@ impl InvocationRecorder {
             time_to_first_command_execution_start: None,
             time_to_first_test_discovery: None,
             time_to_first_test_run: None,
+            time_to_first_pass_test_result: None,
+            time_to_first_fail_test_result: None,
+            time_to_first_fatal_test_result: None,
+            time_to_first_timeout_test_result: None,
+            time_to_first_skip_test_result: None,
+            time_to_first_unknown_test_result: None,
             system_info: SystemInfo::default(),
             file_watcher_stats: None,
             file_watcher_duration: None,
@@ -841,6 +856,24 @@ impl InvocationRecorder {
             time_to_first_test_run_ms: self
                 .time_to_first_test_run
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_pass_test_result_ms: self
+                .time_to_first_pass_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_fail_test_result_ms: self
+                .time_to_first_fail_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_fatal_test_result_ms: self
+                .time_to_first_fatal_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_skip_test_result_ms: self
+                .time_to_first_skip_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_timeout_test_result_ms: self
+                .time_to_first_timeout_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_unknown_test_result_ms: self
+                .time_to_first_unknown_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
             system_total_memory_bytes: self.system_info.system_total_memory_bytes,
             file_watcher_stats: self.file_watcher_stats.take(),
             file_watcher_duration_ms: self
@@ -1317,6 +1350,42 @@ impl InvocationRecorder {
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_run
             .get_or_insert_with(|| elapsed_since(self.start_time));
+        Ok(())
+    }
+
+    fn handle_test_result(
+        &mut self,
+        test_result: &buck2_data::TestResult,
+    ) -> buck2_error::Result<()> {
+        let duration = elapsed_since(self.start_time);
+        match test_result.status() {
+            buck2_data::TestStatus::Pass => {
+                self.time_to_first_pass_test_result.get_or_insert(duration);
+            }
+            buck2_data::TestStatus::Fail => {
+                self.time_to_first_fail_test_result.get_or_insert(duration);
+            }
+            buck2_data::TestStatus::Fatal => {
+                self.time_to_first_fatal_test_result.get_or_insert(duration);
+            }
+            buck2_data::TestStatus::Skip => {
+                self.time_to_first_skip_test_result.get_or_insert(duration);
+            }
+            buck2_data::TestStatus::Timeout => {
+                self.time_to_first_timeout_test_result
+                    .get_or_insert(duration);
+            }
+            buck2_data::TestStatus::Unknown => {
+                self.time_to_first_unknown_test_result
+                    .get_or_insert(duration);
+            }
+            // Listing results, omit and rerun are not actual test results. Do nothing
+            buck2_data::TestStatus::ListingFailed
+            | buck2_data::TestStatus::ListingSuccess
+            | buck2_data::TestStatus::Omitted
+            | buck2_data::TestStatus::Rerun
+            | buck2_data::TestStatus::NotSetTestStatus => (),
+        };
         Ok(())
     }
 
@@ -1802,6 +1871,9 @@ impl InvocationRecorder {
                     ) => {
                         self.previous_uuid_with_mismatched_config = Some(command.trace_id.clone());
                         Ok(())
+                    }
+                    buck2_data::instant_event::Data::TestResult(result) => {
+                        self.handle_test_result(result)
                     }
                     _ => Ok(()),
                 }
