@@ -15,7 +15,6 @@ load(
 load("@prelude//apple:apple_common.bzl", "apple_common")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
-load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
@@ -129,30 +128,6 @@ extra_attributes = {
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-    },
-    "swift_toolchain": {
-        "architecture": attrs.string(),
-        "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
-        "make_swift_interface": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
-        "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
-        # A placeholder tool that can be used to set up toolchain constraints.
-        # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
-        # which requires setting up separate platform-specific aliases with the correct constraints.
-        "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "platform_path": attrs.option(attrs.source(), default = None),
-        "provide_swift_debug_info": attrs.bool(default = True),
-        "sdk_module_path_prefixes": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
-        "sdk_modules": attrs.list(attrs.exec_dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
-        "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
-        "serialized_diags_to_json": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "swift_ide_test_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
-        "swiftc": attrs.exec_dep(providers = [RunInfo]),
-        "use_depsfiles": attrs.bool(default = False),
-        # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
-        #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-        "_swiftc_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
     },
 # @oss-disable[end= ]: } | meta_only_apple_rule_attributes()
 } # @oss-enable

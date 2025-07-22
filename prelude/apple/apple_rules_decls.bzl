@@ -28,6 +28,7 @@ load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", "mockingbird_mock_attrs", "mockingbird_mock_impl")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
@@ -1179,27 +1180,46 @@ swift_toolchain = prelude_rule(
     further = None,
     attrs = (
         {
+            "architecture": attrs.string(),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
+            "make_swift_interface": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
+            "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
+            # A placeholder tool that can be used to set up toolchain constraints.
+            # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
+            # which requires setting up separate platform-specific aliases with the correct constraints.
+            "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "platform_path": attrs.option(attrs.source(), default = None),
+            "provide_swift_debug_info": attrs.bool(default = True),
             "resource_dir": attrs.option(attrs.source(), default = None),
             "runtime_paths_for_bundling": attrs.list(attrs.string(), default = []),
             "runtime_paths_for_linking": attrs.list(attrs.string(), default = []),
-            "sdk_path": attrs.source(),
+            "sdk_module_path_prefixes": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
+            "sdk_modules": attrs.list(attrs.exec_dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
+            "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
+            "serialized_diags_to_json": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "supports_explicit_module_debug_serialization": attrs.bool(default = False),
             "supports_incremental_file_hashing": attrs.bool(default = False),
             "supports_relative_resource_dir": attrs.bool(default = False),
             "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
-            "swift_stdlib_tool": attrs.option(attrs.source(), default = None),
+            "swift_ide_test_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
             "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
-            "swiftc": attrs.source(),
+            "swiftc": attrs.exec_dep(providers = [RunInfo]),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
+            "use_depsfiles": attrs.bool(default = False),
+            # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
+            #                   pass abs paths during development and using the currently selected Xcode.
+            "_internal_sdk_path": attrs.option(attrs.string(), default = None),
             "_library_interface_uses_swiftinterface": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
             })),
+            "_swiftc_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
         }
     ),
     impl = swift_toolchain_impl,
