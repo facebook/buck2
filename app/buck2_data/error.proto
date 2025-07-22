@@ -252,6 +252,9 @@ enum ErrorTag {
   RE_CAS_ARTIFACT_EXPIRED = 1325;
   RE_INVALID_GET_CAS_RESPONSE = 1326;
 
+  // TCodeReasonGroup values: https://fburl.com/code/pvsy2jgv
+  RE_CONNECTION = 1340;
+
   // Dice Errors
   // Value: https://fburl.com/code/5dxzaw41
   DICE_DUPLICATED_CHANGE = 1400;

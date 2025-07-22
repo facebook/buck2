@@ -148,6 +148,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
         // Typically due to poor network performance and large artifacts.
         ErrorTag::ReDeadlineExceeded => rank!(environment),
+        // Typically due to network configuration/x2p
+        ErrorTag::ReConnection => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),

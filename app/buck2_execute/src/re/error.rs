@@ -70,16 +70,19 @@ fn re_error(
     code: TCode,
     group: TCodeReasonGroup,
 ) -> buck2_error::Error {
-    let err = RemoteExecutionError {
+    let re_error = RemoteExecutionError {
         re_action: re_action.to_owned(),
         re_session_id: re_session_id.to_owned(),
         message,
         code,
         group,
     };
-    let buck2_error: buck2_error::Error = err.clone().into();
-
-    buck2_error.context(err).string_tag(&group.to_string())
+    let error = buck2_error::Error::from(re_error.clone()).context(re_error);
+    if group == TCodeReasonGroup::RE_CONNECTION {
+        error.tag([ErrorTag::ReConnection])
+    } else {
+        error.string_tag(&group.to_string())
+    }
 }
 
 pub(crate) async fn with_error_handler<T>(
