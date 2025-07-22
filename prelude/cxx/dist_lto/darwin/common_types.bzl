@@ -49,7 +49,3 @@ DThinLTOLinkData = record(
     data_type = LinkDataType,
     link_data = field([LazyBitcodeLinkData, EagerBitcodeLinkData, DynamicLibraryLinkData]),
 )
-
-# TODO(nuriamari) Delete once link actions over RE measured
-def execute_link_actions_locally() -> bool:
-    return read_root_config("user", "dthin_lto_link_actions_locally", "false") in ("True", "true")

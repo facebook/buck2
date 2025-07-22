@@ -10,7 +10,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "append_linkable_args",
 )
-load(":common_types.bzl", "DThinLTOLinkData", "LinkDataType", "execute_link_actions_locally")
+load(":common_types.bzl", "DThinLTOLinkData", "LinkDataType")
 
 def thin_link(
         ctx: AnalysisContext,
@@ -99,4 +99,4 @@ def thin_link(
     plan_cmd.add(cmd_args(hidden = [
         index_args,
     ]))
-    ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = execute_link_actions_locally())
+    ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier)

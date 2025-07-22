@@ -38,7 +38,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
-load(":common_types.bzl", "DThinLTOLinkData", "DynamicLibraryLinkData", "EagerBitcodeLinkData", "LazyBitcodeLinkData", "LinkDataType", "execute_link_actions_locally")
+load(":common_types.bzl", "DThinLTOLinkData", "DynamicLibraryLinkData", "EagerBitcodeLinkData", "LazyBitcodeLinkData", "LinkDataType")
 load(":thin_link.bzl", "thin_link")
 load(":thin_link_record_defs.bzl", "BitcodeMergeState", "ObjectFileOptimizationPlan")
 
@@ -535,7 +535,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
         link_cmd.add(link_cmd_parts.post_linker_flags)
         link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
-        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = link_options.identifier, local_only = execute_link_actions_locally())
+        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = link_options.identifier)
 
     final_link_outputs = [outputs[final_binary_out].as_output(), outputs[linker_argsfile_out].as_output()]
     if linker_map_out:
