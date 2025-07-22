@@ -31,17 +31,76 @@ async def test_no_args(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
-async def test_dev_mode(buck: Buck) -> None:
-    buck_config = await execute_test_with_args(buck, ["@fbcode//mode/dev"])
+async def test_mode_file(buck: Buck) -> None:
+    all_configs_to_test = [
+        ["@fbcode//mode/dev"],
+        ["--flagfile", "fbcode//mode/dev"],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "@fbcode//mode/dev",
+                "config": "",
+                "host": "linux",
+            },
+        )
 
+
+@buck_test(inplace=True)
+async def test_config(buck: Buck) -> None:
+    # certain config makes it to the buck config
+    all_configs_to_test = [
+        ["--config", "fbcode.use_link_groups_in_dev=True"],
+        ["--config=fbcode.use_link_groups_in_dev=True"],
+        ["-cfbcode.use_link_groups_in_dev=True"],
+        ["-c", "fbcode.use_link_groups_in_dev=True"],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "",
+                "config": "fbcode.use_link_groups_in_dev=True",
+                "host": "linux",
+            },
+        )
+
+    # some configs are dropped
+    buck_config = await execute_test_with_args(
+        buck, ["-c", "buck2.log_configured_graph_size=true"]
+    )
     assert_buck_args_config_equal(
         buck_config,
         {
-            "mode": "@fbcode//mode/dev",
+            "mode": "",
             "config": "",
             "host": "linux",
         },
     )
+
+
+@buck_test(inplace=True)
+async def test_modifier(buck: Buck) -> None:
+    all_configs_to_test = [
+        ["--modifier", "dev"],
+        ["--modifier=dev"],
+        ["-m", "dev"],
+        ["-mdev"],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "",
+                "config": "",
+                "host": "linux",
+                "modifier": "dev",
+            },
+        )
 
 
 #########
