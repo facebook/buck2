@@ -255,12 +255,17 @@ impl Error {
     }
 
     pub fn string_tags(&self) -> Vec<String> {
-        self.iter_context()
+        let mut tags: Vec<String> = self
+            .iter_context()
             .filter_map(|kind| match kind {
                 ContextValue::StringTag(val) => Some(val.tag.clone()),
                 _ => None,
             })
-            .collect()
+            .collect();
+
+        tags.sort_unstable();
+        tags.dedup();
+        tags
     }
 
     /// Get all the tags that have been added to this error
@@ -401,5 +406,15 @@ mod tests {
             crate::ErrorTag::ReInternal,
         ]);
         assert_eq!(err.category_key(), format!("RE_INTERNAL"));
+    }
+
+    #[test]
+    fn test_duplicate_string_tags() {
+        let err: crate::Error = TestError.into();
+
+        let err = err.string_tag("foo");
+        let err = err.string_tag("foo");
+
+        assert_eq!(err.category_key(), "TestError:foo",);
     }
 }
