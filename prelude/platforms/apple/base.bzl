@@ -20,10 +20,11 @@ load(
     "mac_platforms",
     "watch_platforms",
 )
-# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _BUILD_MODE_TO_CONSTRAINTS_MAP = "BUILD_MODE_TO_CONSTRAINTS_MAP")
+# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _get_build_mode_constraints_map = "get_build_mode_constraints_map")
 
-BUILD_MODE_TO_CONSTRAINTS_MAP = {build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] for build_mode in APPLE_BUILD_MODES} # @oss-enable
-# @oss-disable[end= ]: BUILD_MODE_TO_CONSTRAINTS_MAP = _BUILD_MODE_TO_CONSTRAINTS_MAP
+def get_build_mode_constraints_map(use_whatsapp_build_modes):
+    return {build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] for build_mode in APPLE_BUILD_MODES} # @oss-enable
+    # @oss-disable[end= ]: return _get_build_mode_constraints_map(use_whatsapp_build_modes)
 
 _MOBILE_PLATFORMS = [
     ios_platforms.IPHONEOS_ARM64,
@@ -44,15 +45,16 @@ _MAC_PLATFORMS = [
 ]
 
 # TODO: Drop the platform_rule when we're not longer attempting to support buck1.
-def apple_generated_platforms(name, constraint_values, deps, platform_rule, platform = None, supported_build_modes = APPLE_BUILD_MODES):
+def apple_generated_platforms(name, constraint_values, deps, platform_rule, platform = None, supported_build_modes = APPLE_BUILD_MODES, use_whatsapp_build_modes = False):
     # By convention, the cxx.default_platform is typically the same as the platform being defined.
     # This is not the case for all watch platforms, so provide an override.
     platform = platform if platform else name
+    build_mode_constraints_map = get_build_mode_constraints_map(use_whatsapp_build_modes)
     if is_mobile_platform(platform) or is_buck2_mac_platform(platform):
         for build_mode in supported_build_modes:
             platform_rule(
                 name = _get_generated_name(name, platform, build_mode),
-                constraint_values = constraint_values + BUILD_MODE_TO_CONSTRAINTS_MAP.get(build_mode),
+                constraint_values = constraint_values + build_mode_constraints_map[build_mode],
                 visibility = ["PUBLIC"],
                 deps = deps,
             )

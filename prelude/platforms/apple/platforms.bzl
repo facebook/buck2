@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
-load("@prelude//platforms/apple:base.bzl", "BUILD_MODE_TO_CONSTRAINTS_MAP", "apple_build_mode_backed_platform", "is_buck2_mac_platform", "is_mobile_platform")
+load("@prelude//platforms/apple:base.bzl", "apple_build_mode_backed_platform", "get_build_mode_constraints_map", "is_buck2_mac_platform", "is_mobile_platform")
 load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
@@ -56,6 +56,7 @@ def apple_target_platforms(
         deps = None,
         cxx_platforms_constraint_values = None,  # Must be a map of a supported cxx platform to a list of constraint values
         build_mode_constraint_values = None,  # Must be a map of a supported build mode to a list of constraint values
+        use_whatsapp_build_modes = False,
         supported_cxx_platforms = DEFAULT_SUPPORTED_CXX_PLATFORMS,  # Cxx platforms to generate platforms for
         supported_build_modes = APPLE_BUILD_MODES):  # Build modes to generate platforms for
     """ Define architecture and sdk specific platforms alongside the base platform. """
@@ -88,12 +89,13 @@ def apple_target_platforms(
     _validate_build_mode_constraint_values(base_name, build_mode_constraint_values, supported_build_modes)
 
     # Define the generated platforms
+    build_mode_constraints_map = get_build_mode_constraints_map(use_whatsapp_build_modes)
     for platform in supported_cxx_platforms:
         platform_dep = _get_base_target_platform_for_platform(platform)
         cxx_platform_constraints = cxx_platforms_constraint_values.get(platform, [])
         if is_mobile_platform(platform) or is_buck2_mac_platform(platform):
             for build_mode in supported_build_modes:
-                build_mode_constraints = build_mode_constraint_values.get(build_mode, []) + BUILD_MODE_TO_CONSTRAINTS_MAP.get(build_mode)
+                build_mode_constraints = build_mode_constraint_values.get(build_mode, []) + build_mode_constraints_map[build_mode]
                 _define_platform(
                     base_name,
                     platform,
