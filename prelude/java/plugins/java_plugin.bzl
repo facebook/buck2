@@ -16,7 +16,7 @@ load(
 load("@prelude//utils:type_defs.bzl", "is_tuple")
 
 PluginParams = record(
-    processors = field(list[(str, cmd_args)]),
+    processors = field(list[(str, list[str])]),
     deps = field([JavaPackagingDepTSet, None]),
 )
 
@@ -42,7 +42,7 @@ def create_plugin_params(ctx: AnalysisContext, plugins: list[[Dependency, (Depen
             if processors_info.deps:
                 plugin_deps.append(processors_info.deps)
 
-            processors.append((processor, cmd_args(arguments) if arguments != None else cmd_args()))
+            processors.append((processor, arguments or []))
 
     if not processors:
         return None

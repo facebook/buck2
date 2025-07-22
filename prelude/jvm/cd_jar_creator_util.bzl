@@ -224,7 +224,7 @@ def encode_plugin_params(plugin_params: [PluginParams, None]) -> [struct, None]:
         )
     return encoded_plugin_params
 
-def encode_plugin_properties(processor: str, arguments: cmd_args, plugin_params: PluginParams) -> struct:
+def encode_plugin_properties(processor: str, arguments: list[str], plugin_params: PluginParams) -> struct:
     return struct(
         canReuseClassLoader = False,
         doesNotAffectAbi = False,
