@@ -29,6 +29,68 @@ public class ErrorInterceptor extends PrintStream {
   private static final String BOLD = "\033[1m";
   private static final String RESET = "\033[0m";
 
+  // Source: https://docs.oracle.com/javase/tutorial/java/nutsandbolts/_keywords.html
+  private static final String[] JAVA_KEYWORDS = {
+    "abstract",
+    "assert",
+    "boolean",
+    "break",
+    "byte",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extends",
+    "final",
+    "finally",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "implements",
+    "import",
+    "instanceof",
+    "int",
+    "interface",
+    "long",
+    "native",
+    "new",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "return",
+    "short",
+    "static",
+    "strictfp",
+    "super",
+    "switch",
+    "synchronized",
+    "this",
+    "throw",
+    "throws",
+    "transient",
+    "try",
+    "void",
+    "volatile",
+    "while",
+    "null",
+    "true",
+    "false",
+    "record",
+    "sealed",
+    "permits",
+    "non-sealed",
+    "var"
+  };
+
   // Source: https://kotlinlang.org/docs/keyword-reference.html
   private static final String[] KOTLIN_KEYWORDS = {
     "as",
@@ -115,6 +177,8 @@ public class ErrorInterceptor extends PrintStream {
       Pattern.compile("\\berror\\b(:.*?\\n)((?:.*?\\n)+?\\s*)(\\^+)\\n", Pattern.CASE_INSENSITIVE);
   private static final Pattern WARNING_PATTERN =
       Pattern.compile("\\bwarning\\b(:.*?)\\n", Pattern.CASE_INSENSITIVE);
+  private static final Pattern JAVA_FILE_PATTERN =
+      Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.java)\\b:(\\d+):");
   private static final Pattern KOTLIN_FILE_PATTERN =
       Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.kt)\\b:(\\d+):(\\d+):");
 
@@ -138,7 +202,9 @@ public class ErrorInterceptor extends PrintStream {
 
     String fileType = determineFileType(errorMessage);
 
-    if ("kotlin".equals(fileType)) {
+    if ("java".equals(fileType)) {
+      return prettyPrintJavaError(errorMessage);
+    } else if ("kotlin".equals(fileType)) {
       return prettyPrintKotlinError(errorMessage);
     } else {
       return errorMessage;
@@ -146,6 +212,10 @@ public class ErrorInterceptor extends PrintStream {
   }
 
   private static String determineFileType(String errorMessage) {
+    Matcher javaMatcher = JAVA_FILE_PATTERN.matcher(errorMessage);
+    if (javaMatcher.find()) {
+      return "java";
+    }
 
     Matcher kotlinMatcher = KOTLIN_FILE_PATTERN.matcher(errorMessage);
     if (kotlinMatcher.find()) {
@@ -154,6 +224,14 @@ public class ErrorInterceptor extends PrintStream {
 
     // Default to "unknown" if file type cannot be determined
     return "unknown";
+  }
+
+  private static String prettyPrintJavaError(String message) {
+    message =
+        colorizePattern(ERROR_PATTERN, message, match -> highlightError(match, JAVA_KEYWORDS));
+    message = colorizePattern(WARNING_PATTERN, message, ErrorInterceptor::highlightWarning);
+    message = colorizePattern(JAVA_FILE_PATTERN, message, ErrorInterceptor::highlightJavaFile);
+    return message;
   }
 
   private static String prettyPrintKotlinError(String message) {
@@ -200,6 +278,10 @@ public class ErrorInterceptor extends PrintStream {
 
   private static String highlightWarning(Matcher match) {
     return YELLOW + "warning" + RESET + BOLD + match.group(1) + RESET + "\n";
+  }
+
+  private static String highlightJavaFile(Matcher match) {
+    return GREEN + match.group(1) + RESET + ":" + MAGENTA + match.group(2) + RESET + ":";
   }
 
   private static String highlightKotlinFile(Matcher match) {

@@ -13,6 +13,7 @@ package com.facebook.buck.jvm.java.stepsbuilder.javacd.main;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.cd.CompilerDaemonLoggerUtil;
 import com.facebook.buck.jvm.cd.CompilerDaemonRunner;
+import com.facebook.buck.jvm.cd.ErrorInterceptor;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -32,6 +33,7 @@ public class JavaCDMain {
       CompilerDaemonLoggerUtil.setDefaultLogger("javacd_worker", LOG_PATH);
       CompilerDaemonLoggerUtil.setConsoleHandlerLogLevelTo(Level.WARNING);
       Logger logger = Logger.get(JavaCDMain.class.getName());
+      System.setErr(new ErrorInterceptor());
       Runtime.getRuntime()
           .addShutdownHook(
               new Thread(
