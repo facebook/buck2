@@ -521,11 +521,13 @@ def _link_infos(
                 ),
             )
         else:
+            link_whole = ctx.attrs.link_whole or False
             link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
                     linkables = [ArchiveLinkable(
                         archive = Archive(artifact = lib.output),
                         linker_type = linker_type,
+                        link_whole = link_whole,
                     )],
                     external_debug_info = external_debug_info,
                     pre_flags = ctx.attrs.exported_linker_flags,
@@ -535,6 +537,7 @@ def _link_infos(
                     linkables = [ArchiveLinkable(
                         archive = Archive(artifact = lib.stripped_output),
                         linker_type = linker_type,
+                        link_whole = link_whole,
                     )],
                     pre_flags = ctx.attrs.exported_linker_flags,
                     post_flags = ctx.attrs.exported_post_linker_flags,

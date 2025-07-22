@@ -193,6 +193,7 @@ rust_library = prelude_rule(
         native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any")) |
         native_common.soname() |
         native_common.link_style() |
+        native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
         _rust_common_attributes(is_binary = False) |
         {
             "crate_dynamic": attrs.option(attrs.dep(), default = None),
