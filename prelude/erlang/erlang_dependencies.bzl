@@ -29,6 +29,8 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
     private_include_dirs = {}
     beams = {}
     all_beams = {}
+    ebin_code_path = []
+    plain_code_path = []
 
     for name in dependencies:
         dep = dependencies[name]
@@ -60,11 +62,17 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
                     all_includes[hrl] = name
                 private_includes[name] = new_includes
 
+            # collect code path
+            ebin_code_path.append(dep_info.app_folder)
+
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
 
         elif ErlangTestInfo in dep:
-            # we only care about application deps
+            # for test deps we only care about code path
+
+            dep_info = dep[ErlangTestInfo]
+            plain_code_path.append(dep_info.output_dir)
             continue
         else:
             fail("invalid dep {}", dep)
@@ -83,6 +91,8 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
         if dep_info.header_deps_file:
             header_deps_files[name] = dep_info.header_deps_file
 
+    code_path = cmd_args(plain_code_path, cmd_args(ebin_code_path, format = "{}/ebin"))
+
     dependency_info = ErlangDependencyInfo(
         dependencies = dependencies,
         includes = includes,
@@ -91,6 +101,7 @@ def _erlang_deps_impl(ctx: AnalysisContext) -> list[Provider]:
         private_include_dirs = private_include_dirs,
         header_deps_files = header_deps_files,
         beams = beams,
+        code_path = code_path,
     )
 
     return [DefaultInfo(), dependency_info]

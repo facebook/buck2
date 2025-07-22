@@ -83,6 +83,7 @@ DepsMapping = dict[str, Artifact]
 ErlangDependencyInfo = provider(
     fields = {
         "beams": provider_field(EbinMapping, default = {}),
+        "code_path": provider_field(cmd_args),
         "dependencies": provider_field(dict[str, Dependency], default = {}),
         "header_deps_files": provider_field(DepsMapping, default = {}),
         "include_dirs": provider_field(PathArtifactMapping, default = {}),

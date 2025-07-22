@@ -95,11 +95,11 @@ def build_application(ctx: AnalysisContext, name: str, toolchain: Toolchain, dep
     )
 
     # generate DefaultInfo and RunInfo providers
-    default_info = _build_default_info(dep_info.dependencies, app_folder)
+    default_info = _build_default_info(dep_info, app_folder)
     run_info = erlang_shell.build_run_info(
         ctx,
-        dependencies = dep_info.dependencies.values(),
-        additional_app_paths = [app_folder],
+        dep_info = dep_info,
+        additional_code_path = cmd_args(app_folder, format = "{}/ebin"),
     )
     return run_info.map(lambda run_info: [default_info, run_info, app_info, ErlangAppOrTestInfo()])
 
@@ -351,18 +351,13 @@ def _build_start_spec(app_info: Provider, start_type: StartType) -> StartSpec:
         start_type = start_type,
     )
 
-def _build_default_info(dependencies: ErlAppDependencies, app_dir: Artifact) -> Provider:
+def _build_default_info(dep_info: ErlangDependencyInfo, app_dir: Artifact) -> Provider:
     """ generate default_outputs and DefaultInfo provider
     """
 
-    outputs = [
-        dep[ErlangAppInfo].app_folder
-        for dep in dependencies.values()
-        if ErlangAppInfo in dep and
-           not dep[ErlangAppInfo].virtual
-    ]
-
-    return DefaultInfo(default_output = app_dir, other_outputs = outputs)
+    # We depend on the code path of all dependencies to force them to be compiled
+    # and emit errors when users compile just this one application
+    return DefaultInfo(default_output = app_dir, other_outputs = [dep_info.code_path])
 
 def build_app_info(
         ctx: AnalysisContext,

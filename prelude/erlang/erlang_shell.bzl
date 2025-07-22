@@ -8,56 +8,44 @@
 
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "erlang_deps_rule")
-load(":erlang_info.bzl", "ErlangAppInfo", "ErlangDependencyInfo")
+load(":erlang_info.bzl", "ErlangDependencyInfo")
 load(":erlang_toolchain.bzl", "get_toolchain")
 
 def _build_run_info(
         ctx: AnalysisContext,
         *,
-        dependencies: list[Dependency],
-        additional_app_paths: list[Artifact] = [],
-        additional_paths: list[Artifact] = [],
+        dep_info: ErlangDependencyInfo,
+        additional_code_path: cmd_args,
+        additional_shell_deps: list[Dependency] = [],
         additional_args: [cmd_args, None] = None) -> Promise:
     """Builds an Erlang shell with the dependencies and additional code paths available."""
-    app_paths = [
-        dep[ErlangAppInfo].app_folder
-        for dep in dependencies
-        if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual
-    ]
-    app_paths.extend(additional_app_paths)
+    shell_dep_info = ctx.actions.anon_target(erlang_deps_rule, {"deps": additional_shell_deps + ctx.attrs.shell_libs})
 
-    dep_info = ctx.actions.anon_target(erlang_deps_rule, {"deps": ctx.attrs.shell_libs})
-
-    return dep_info.promise.map(lambda dep_info: _do_build_run_info(
+    return shell_dep_info.promise.map(lambda shell_dep_info: _do_build_run_info(
         ctx,
-        app_paths,
-        additional_paths,
+        dep_info,
+        additional_code_path,
         additional_args,
-        dep_info[ErlangDependencyInfo],
+        shell_dep_info[ErlangDependencyInfo],
     ))
 
 def _do_build_run_info(
         ctx: AnalysisContext,
-        app_paths: list[Artifact],
-        additional_paths: list[Artifact],
+        dep_info: ErlangDependencyInfo,
+        additional_code_path: cmd_args,
         additional_args: [cmd_args, None],
         shell_dep_info: ErlangDependencyInfo) -> RunInfo:
-    for dep in shell_dep_info.dependencies.values():
-        if dep[ErlangAppInfo].virtual:
-            continue
-        app_paths.append(dep[ErlangAppInfo].app_folder)
-
     tools = get_toolchain(ctx).otp_binaries
     erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")
     erl_args = cmd_args("exec", erl, delimiter = " \\\n")
 
     # add paths
-    erl_args.add(cmd_args(app_paths, format = "-pa \"${REPO_ROOT}\"/{}/ebin"))
-    erl_args.add(cmd_args(additional_paths, format = "-pa \"${REPO_ROOT}\"/{}"))
+    code_path = cmd_args(dep_info.code_path, additional_code_path, shell_dep_info.code_path, prepend = "-pa", absolute_prefix = "\"${REPO_ROOT}\"/")
+    erl_args.add(code_path)
 
     # add configs
     config_files = _shell_config_files(ctx)
-    erl_args.add(cmd_args(config_files, format = "-config \"${REPO_ROOT}\"/{}"))
+    erl_args.add(cmd_args(config_files, prepend = "-config", absolute_prefix = "\"${REPO_ROOT}\"/"))
 
     # add extra args
     if additional_args:
