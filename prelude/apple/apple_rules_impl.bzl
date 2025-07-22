@@ -84,50 +84,5 @@ def _apple_library_extra_attrs():
 extra_attributes = {
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": _apple_library_extra_attrs(),
-    "apple_toolchain": {
-        # The Buck v1 attribute specs defines those as `attrs.source()` but
-        # we want to properly handle any runnable tools that might have
-        # addition runtime requirements.
-        "actool": attrs.exec_dep(providers = [RunInfo]),
-        "codesign": attrs.exec_dep(providers = [RunInfo]),
-        "codesign_allocate": attrs.exec_dep(providers = [RunInfo]),
-        "codesign_identities_command": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        # Controls invocations of `ibtool`, `actool` `mapc` and `momc`
-        "compile_resources_locally": attrs.bool(default = False),
-        "copy_scene_kit_assets": attrs.exec_dep(providers = [RunInfo]),
-        "cxx_toolchain": attrs.toolchain_dep(),
-        "dsymutil": attrs.exec_dep(providers = [RunInfo]),
-        "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "extra_linker_outputs": attrs.set(attrs.string(), default = []),
-        "ibtool": attrs.exec_dep(providers = [RunInfo]),
-        "installer": attrs.default_only(attrs.label(default = "fbsource//xplat/buck2/platform/apple/installer/src/com/facebook/buck/apple/installer:apple_installer")),
-        "libtool": attrs.exec_dep(providers = [RunInfo]),
-        "lipo": attrs.exec_dep(providers = [RunInfo]),
-        "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "merge_index_store": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools/index:merge_index_store")),
-        "momc": attrs.exec_dep(providers = [RunInfo]),
-        "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        # A placeholder tool that can be used to set up toolchain constraints.
-        # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
-        # which requires setting up separate platform-specific aliases with the correct constraints.
-        "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
-        # Defines whether the Xcode project generator needs to check
-        # that the selected Xcode version matches the one defined
-        # by the `xcode_build_version` fields.
-        "requires_xcode_version_match": attrs.bool(default = False),
-        "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
-        "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
-        "version": attrs.option(attrs.string(), default = None),
-        "xcode_build_version": attrs.option(attrs.string(), default = None),
-        "xcode_version": attrs.string(),
-        "xctest": attrs.exec_dep(providers = [RunInfo]),
-        # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
-        #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_platform_path": attrs.option(attrs.string(), default = None),
-        # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
-        #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-    },
 # @oss-disable[end= ]: } | meta_only_apple_rule_attributes()
 } # @oss-enable

@@ -1023,39 +1023,59 @@ apple_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        # @unsorted-dict-items
         {
-            "actool": attrs.source(),
+            "actool": attrs.exec_dep(providers = [RunInfo]),
             "architecture": attrs.string(default = ""),
             "build_version": attrs.option(attrs.string(), default = None),
-            "codesign": attrs.source(),
-            "codesign_allocate": attrs.source(),
+            "codesign": attrs.exec_dep(providers = [RunInfo]),
+            "codesign_allocate": attrs.exec_dep(providers = [RunInfo]),
+            "codesign_identities_command": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            # Controls invocations of `ibtool`, `actool` `mapc` and `momc`
+            "compile_resources_locally": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
-            "copy_scene_kit_assets": attrs.option(attrs.source(), default = None),
-            "cxx_toolchain": attrs.dep(),
+            "copy_scene_kit_assets": attrs.exec_dep(providers = [RunInfo]),
+            "cxx_toolchain": attrs.toolchain_dep(),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "developer_path": attrs.option(attrs.source(), default = None),
-            "dsymutil": attrs.source(),
-            "dwarfdump": attrs.option(attrs.source(), default = None),
-            "ibtool": attrs.source(),
+            "dsymutil": attrs.exec_dep(providers = [RunInfo]),
+            "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "extra_linker_outputs": attrs.set(attrs.string(), default = []),
+            "ibtool": attrs.exec_dep(providers = [RunInfo]),
+            "installer": attrs.default_only(attrs.label(default = "fbsource//xplat/buck2/platform/apple/installer/src/com/facebook/buck/apple/installer:apple_installer")),
             "labels": attrs.list(attrs.string(), default = []),
-            "libtool": attrs.source(),
+            "libtool": attrs.exec_dep(providers = [RunInfo]),
             "licenses": attrs.list(attrs.source(), default = []),
-            "lipo": attrs.source(),
-            "mapc": attrs.option(attrs.source(), default = None),
+            "lipo": attrs.exec_dep(providers = [RunInfo]),
+            "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "merge_index_store": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools/index:merge_index_store")),
             "min_version": attrs.string(default = ""),
-            "momc": attrs.source(),
-            "platform_path": attrs.source(),
+            "momc": attrs.exec_dep(providers = [RunInfo]),
+            "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            # A placeholder tool that can be used to set up toolchain constraints.
+            # Useful when fat and thin toolchains share the same underlying tools via `command_alias()`,
+            # which requires setting up separate platform-specific aliases with the correct constraints.
+            "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
+            # Defines whether the Xcode project generator needs to check
+            # that the selected Xcode version matches the one defined
+            # by the `xcode_build_version` fields.
+            "requires_xcode_version_match": attrs.bool(default = False),
             "sdk_environment": attrs.option(attrs.string(), default = None),
             "sdk_name": attrs.string(default = ""),
-            "sdk_path": attrs.source(),
-            "swift_toolchain": attrs.option(attrs.dep(), default = None),
-            "version": attrs.string(default = ""),
+            "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
+            "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
+            "version": attrs.option(attrs.string(), default = None),
             "watch_kit_stub_binary": attrs.option(attrs.source(), default = None),
             "work_around_dsymutil_lto_stack_overflow_bug": attrs.option(attrs.bool(), default = None),
-            "xcode_build_version": attrs.string(default = ""),
-            "xcode_version": attrs.string(default = ""),
-            "xctest": attrs.source(),
+            "xcode_build_version": attrs.option(attrs.string(), default = None),
+            "xcode_version": attrs.string(),
+            "xctest": attrs.exec_dep(providers = [RunInfo]),
+            # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
+            #                   pass abs paths during development and using the currently selected Xcode.
+            "_internal_platform_path": attrs.option(attrs.string(), default = None),
+            # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
+            #                   pass abs paths during development and using the currently selected Xcode.
+            "_internal_sdk_path": attrs.option(attrs.string(), default = None),
         }
     ),
     impl = apple_toolchain_impl,
