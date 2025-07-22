@@ -308,7 +308,6 @@ impl<K: Dupe + Hash + Eq, T: StrongHash> VersionedSketcherMap<K, T> {
             .or_insert_with(|| self.version.create_sketcher())
     }
 
-    #[allow(dead_code)]
     pub(crate) fn merge<'a>(
         &mut self,
         other: impl Iterator<Item = (&'a K, &'a MergeableGraphSketch<T>)>,
@@ -329,6 +328,10 @@ impl<K: Dupe + Hash + Eq, T: StrongHash> VersionedSketcherMap<K, T> {
             .into_iter()
             .map(|(k, v)| (k, v.into_mergeable_graph_sketch()))
             .collect()
+    }
+
+    pub(crate) fn into_iter(self) -> impl Iterator<Item = (K, VersionedSketcher<T>)> {
+        self.map.into_iter()
     }
 }
 

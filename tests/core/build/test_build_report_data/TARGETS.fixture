@@ -1,5 +1,19 @@
 load(":rules.bzl", "mkdir", "touch_file")
 
+constraint_setting(
+    name = "constraint",
+)
+
+constraint_value(
+    name = "constraint_value",
+    constraint_setting = ":constraint",
+)
+
+platform(
+    name = "platform",
+    constraint_values = [":constraint_value"],
+)
+
 touch_file(
     name = "rule0",
     out = "out.txt",
@@ -21,4 +35,6 @@ touch_file(
     deps = [":rule0", ":rule1"],
 )
 
-mkdir(name = "dir1")
+mkdir(
+    name = "dir1",
+)
