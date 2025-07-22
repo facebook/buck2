@@ -1342,6 +1342,7 @@ mod tests {
     use std::collections::HashMap;
     use std::str;
 
+    use assert_matches::assert_matches;
     use buck2_common::liveliness_observer::NoopLivelinessObserver;
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -1408,7 +1409,7 @@ mod tests {
                 "",
             )
             .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
+        assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
 
         let stdout = std::str::from_utf8(&stdout).buck_error_context("Invalid stdout")?;
 
@@ -1443,9 +1444,7 @@ mod tests {
                 "",
             )
             .await?;
-        assert!(
-            matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1))
-        );
+        assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
 
         Ok(())
     }
@@ -1470,7 +1469,7 @@ mod tests {
                 "",
             )
             .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
+        assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
         assert_eq!(stdout, b"\n");
 
         Ok(())
