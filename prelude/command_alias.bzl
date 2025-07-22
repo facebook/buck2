@@ -144,9 +144,22 @@ def _command_alias_write_trampoline_unix(
     #
     # Instead, we use `BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/`, verbatim, as an absolute prefix on the
     # cmd_args, and then replace that with the actual path of the script at runtime
+    #
+    # Resolve symlinks first to handle execution via symlinks (e.g., in link-trees)
     trampoline_args.add(
         """
-BASE=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)
+SCRIPT_PATH="$0"
+if [ -L "$SCRIPT_PATH" ]; then
+    TARGET="$(readlink "$SCRIPT_PATH")"
+    SCRIPT_PATH="$(dirname "$SCRIPT_PATH")/$TARGET"
+fi
+""",
+    )
+
+    # Calculate the base path and process arguments with the resolved path
+    trampoline_args.add(
+        """
+BASE=$(cd -- "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 ; pwd -P)
 R_ARGS=()
 for arg in "${ARGS[@]}"; do
     R_ARGS+=("${arg//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}")

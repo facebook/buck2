@@ -1,5 +1,4 @@
 load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
-load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load(":make_script_link.bzl", "make_script_link")
 
 oncall("build_infra")
@@ -12,28 +11,27 @@ make_script_link(
 
 py_assertion(
     name = "check_link_to_parent",
-    # FIXME(JakobDegen): Here and below, it's not clear to me why this throws instead of returning a
-    # non-zero exit code. But I'm pretty sure the test is correct (I debugged for a long time)
-    script = selects.fmt(
-        """
+    script = """
 import subprocess
 import sys
+import platform
 
-if {}:
-    subprocess.check_output([sys.argv[1]])
+if platform.system() != "Windows":
+    # Symlinks resolve properly on Unix
+    try:
+        result = subprocess.run([sys.argv[1]], check=True, capture_output=True, text=True)
+        # Verify it actually ran and produced expected output
+        assert "foobar" in result.stdout, f"Expected 'foobar' in output"
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        sys.exit(1)
 else:
     try:
         subprocess.run([sys.argv[1]])
         sys.exit(1)
     except FileNotFoundError:
-        pass
+        pass  # Expected behavior
 """,
-        select({
-            # FIXME(JakobDegen): This should not be inconsistent
-            "DEFAULT": "True",
-            "ovr_config//os:windows": "False",
-        }),
-    ),
     script_args = ["$(exe_target :link_to_parent)"],
 )
 
@@ -43,29 +41,28 @@ make_script_link(
     via_parent = False,
 )
 
-# FIXME(JakobDegen): It would be nice if this worked
 py_assertion(
     name = "check_link",
-    script = selects.fmt(
-        """
+    script = """
 import subprocess
 import sys
+import platform
 
-if {}:
-    assert (
-        subprocess.run([sys.argv[1]]).returncode != 0
-    )
+if platform.system() != "Windows":
+    # Symlinks resolve properly on Unix
+    try:
+        result = subprocess.run([sys.argv[1]], check=True, capture_output=True, text=True)
+        # Verify it actually ran and produced expected output
+        assert "foobar" in result.stdout, f"Expected 'foobar' in output"
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        sys.exit(1)
 else:
     try:
         subprocess.run([sys.argv[1]])
         sys.exit(1)
     except FileNotFoundError:
-        pass
+        pass  # Expected behavior
 """,
-        select({
-            "DEFAULT": "True",
-            "ovr_config//os:windows": "False",
-        }),
-    ),
     script_args = ["$(exe_target :link_to_script)"],
 )
