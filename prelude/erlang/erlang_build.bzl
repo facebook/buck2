@@ -24,6 +24,8 @@ load(
 )
 
 _BUILD_DIR = "__build"
+_DEP_FILES_DIR = paths.join(_BUILD_DIR, "__dep_files")
+_DEP_INFO_FILE = paths.join(_DEP_FILES_DIR, "app.info.dep")
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
@@ -161,9 +163,8 @@ def _merged_deps_file(
 
     name = "{}-private".format(name) if is_private else name
 
-    file_name = _dep_merged_name(name)
-    merged_file = ctx.actions.declare_output(file_name)
-    deps_files_json = ctx.actions.write_json(file_name + ".json", deps_files, with_inputs = True)
+    merged_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.merged.dep".format(name))
+    deps_files_json = ctx.actions.write_json(merged_file.short_path + ".json", deps_files, with_inputs = True)
 
     cmd = cmd_args(toolchain.dependency_merger, merged_file.as_output(), deps_files_json)
     if previous_merged_file:
@@ -206,7 +207,7 @@ def _generate_beam_artifacts(
 
     # dep files
     deps_files = _get_deps_files(ctx, toolchain, src_artifacts)
-    dep_info_file = ctx.actions.write_json(_dep_info_name(), build_environment.header_deps_files, with_inputs = True)
+    dep_info_file = ctx.actions.write_json(_DEP_INFO_FILE, build_environment.header_deps_files, with_inputs = True)
 
     small_build_environment = SmallBuildEnvironment(
         includes = build_environment.includes,
@@ -228,7 +229,7 @@ def _get_deps_files(
     return {src.basename: _get_deps_file(ctx, toolchain, src) for src in srcs}
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
-    dependency_json = ctx.actions.declare_output(_dep_file_name(src))
+    dependency_json = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.dep".format(src.short_path))
 
     _run_with_env(
         ctx,
@@ -271,7 +272,7 @@ def _build_erl(
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
-    final_dep_file = ctx.actions.declare_output(_dep_final_name(src))
+    final_dep_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.final.dep".format(src.short_path))
     initial_dep_file = beam_deps_files[src.basename]
     _run_with_env(
         ctx,
@@ -475,39 +476,10 @@ def _is_ext(in_file: Artifact, extension: str) -> bool:
     """ Returns True if the artifact has an extension listed in extensions """
     return in_file.basename.endswith(extension)
 
-def _dep_file_name(src: Artifact) -> str:
-    return paths.join(
-        _BUILD_DIR,
-        "__dep_files",
-        "{}.dep".format(src.short_path),
-    )
-
-def _dep_final_name(src: Artifact) -> str:
-    return paths.join(
-        _BUILD_DIR,
-        "__dep_files",
-        "{}.final.dep".format(src.short_path),
-    )
-
-def _dep_merged_name(name: str) -> str:
-    return paths.join(
-        _BUILD_DIR,
-        "__dep_files",
-        "{}.merged.dep".format(name),
-    )
-
 def _dep_mapping_name(src: Artifact) -> str:
     return paths.join(
-        _BUILD_DIR,
-        "__dep_files",
+        _DEP_FILES_DIR,
         "{}.mapping".format(src.short_path),
-    )
-
-def _dep_info_name() -> str:
-    return paths.join(
-        _BUILD_DIR,
-        "__dep_files",
-        "app.info.dep",
     )
 
 def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **kwargs):
