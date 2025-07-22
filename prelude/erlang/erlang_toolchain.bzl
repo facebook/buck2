@@ -57,7 +57,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # get otp binaries
     binaries_info = ctx.attrs.otp_binaries[ErlangOTPBinariesInfo]
-    erl = cmd_args([binaries_info.erl] + emu_flags)
+    erl = cmd_args(binaries_info.erl, emu_flags)
     erlc = cmd_args(binaries_info.erlc, hidden = binaries_info.erl)
     escript = cmd_args(binaries_info.escript, hidden = binaries_info.erl)
     otp_binaries = Tools(
@@ -68,34 +68,40 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         _tools_binaries = binaries_info,
     )
 
+    env = ctx.attrs.env
+    if emu_flags and "ERL_FLAGS" not in env:
+        env["ERL_FLAGS"] = " ".join(emu_flags)
+
     # extract utility artefacts
     utils = ctx.attrs.toolchain_utilities[ToolchainUtillInfo]
 
     core_parse_transforms = _gen_parse_transforms(
         ctx,
         otp_binaries.erlc,
+        env,
         utils.core_parse_transforms,
     )
 
     parse_transforms = _gen_parse_transforms(
         ctx,
         otp_binaries.erlc,
+        env,
         ctx.attrs.parse_transforms,
     )
     intersection = [key for key in parse_transforms if key in core_parse_transforms]
     if len(intersection):
         fail("conflicting parse_transform with core parse_transform found: %s" % (repr(intersection),))
 
-    utility_modules = _gen_util_beams(ctx, utils.utility_modules, otp_binaries.erlc)
+    utility_modules = _gen_util_beams(ctx, env, utils.utility_modules, otp_binaries.erlc)
 
-    app_src_script = _gen_toolchain_script(ctx, utils.app_src_script, otp_binaries)
-    boot_script_builder = _gen_toolchain_script(ctx, utils.boot_script_builder, otp_binaries)
-    dependency_analyzer = _gen_toolchain_script(ctx, utils.dependency_analyzer, otp_binaries)
-    dependency_finalizer = _gen_toolchain_script(ctx, utils.dependency_finalizer, otp_binaries)
-    dependency_merger = _gen_toolchain_script(ctx, utils.dependency_merger, otp_binaries)
-    escript_builder = _gen_toolchain_script(ctx, utils.escript_builder, otp_binaries)
-    release_variables_builder = _gen_toolchain_script(ctx, utils.release_variables_builder, otp_binaries)
-    extract_from_otp = _gen_toolchain_script(ctx, utils.extract_from_otp, otp_binaries)
+    app_src_script = _gen_toolchain_script(ctx, env, utils.app_src_script, otp_binaries)
+    boot_script_builder = _gen_toolchain_script(ctx, env, utils.boot_script_builder, otp_binaries)
+    dependency_analyzer = _gen_toolchain_script(ctx, env, utils.dependency_analyzer, otp_binaries)
+    dependency_finalizer = _gen_toolchain_script(ctx, env, utils.dependency_finalizer, otp_binaries)
+    dependency_merger = _gen_toolchain_script(ctx, env, utils.dependency_merger, otp_binaries)
+    escript_builder = _gen_toolchain_script(ctx, env, utils.escript_builder, otp_binaries)
+    release_variables_builder = _gen_toolchain_script(ctx, env, utils.release_variables_builder, otp_binaries)
+    extract_from_otp = _gen_toolchain_script(ctx, env, utils.extract_from_otp, otp_binaries)
 
     # extract erts for late usage
 
@@ -104,6 +110,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args(extract_from_otp, "erts-*", erts.as_output()),
         identifier = ctx.attrs.name,
         category = "extract_erts",
+        env = env,
     )
 
     return [
@@ -161,7 +168,7 @@ configured_otp_binaries = rule(
     },
 )
 
-def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict[str, cmd_args]:
+def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, env: dict[str, str], parse_transforms: list[Dependency]) -> dict[str, cmd_args]:
     transforms = {}
     for dep in parse_transforms:
         src = dep[ErlangParseTransformInfo].source
@@ -169,7 +176,7 @@ def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: li
         module_name = basename_without_extension(src.basename)
         if module_name in transforms:
             fail("ambiguous global parse_transforms defined: %s", (module_name,))
-        (beam, resource_dir) = _gen_parse_transform_beam(ctx, src, extra, erlc)
+        (beam, resource_dir) = _gen_parse_transform_beam(ctx, env, src, extra, erlc)
         transform_arg = "+{parse_transform, %s}" % (module_name,)
         if resource_dir:
             transforms[module_name] = cmd_args(transform_arg, cmd_args(beam, format = "-pa{}", parent = 1, hidden = resource_dir))
@@ -179,6 +186,7 @@ def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: li
 
 def _gen_parse_transform_beam(
         ctx: AnalysisContext,
+        env: dict[str, str],
         src: Artifact,
         extra: list[Artifact],
         erlc: Tool) -> (Artifact, [Artifact, None]):
@@ -194,7 +202,7 @@ def _gen_parse_transform_beam(
 
     # build beam
     output = ctx.actions.declare_output(name, name + ".beam")
-    _compile_toolchain_module(ctx, src, output.as_output(), erlc)
+    _compile_toolchain_module(ctx, env, src, output.as_output(), erlc)
 
     return output, resource_dir
 
@@ -214,10 +222,10 @@ default_toolchain_script_args_pre = cmd_args(
 )
 default_toolchain_script_args_post = cmd_args("-s", "erlang", "halt", "--")
 
-def _gen_toolchain_script(ctx: AnalysisContext, script: Artifact, tools: Tools) -> Tool:
+def _gen_toolchain_script(ctx: AnalysisContext, env: dict[str, str], script: Artifact, tools: Tools) -> Tool:
     name = strip_extension(script.basename)
     out = ctx.actions.declare_output(name, name + ".beam")
-    _compile_toolchain_module(ctx, script, out.as_output(), tools.erlc)
+    _compile_toolchain_module(ctx, env, script, out.as_output(), tools.erlc)
     eval = cmd_args(name, ":main(init:get_plain_arguments())", delimiter = "")
     return cmd_args(
         tools.erl,
@@ -244,6 +252,7 @@ erlang_toolchain = rule(
 
 def _gen_util_beams(
         ctx: AnalysisContext,
+        env: dict[str, str],
         sources: list[Artifact],
         erlc: Tool) -> Artifact:
     beams = []
@@ -252,7 +261,7 @@ def _gen_util_beams(
             "__build",
             paths.replace_extension(src.basename, ".beam"),
         ))
-        _compile_toolchain_module(ctx, src, output.as_output(), erlc)
+        _compile_toolchain_module(ctx, env, src, output.as_output(), erlc)
         beams.append(output)
 
     beam_dir = ctx.actions.symlinked_dir(
@@ -264,6 +273,7 @@ def _gen_util_beams(
 
 def _compile_toolchain_module(
         ctx: AnalysisContext,
+        env: dict[str, str],
         src: Artifact,
         out: OutputArtifact,
         erlc: Tool):
@@ -272,6 +282,7 @@ def _compile_toolchain_module(
         [erlc, "+deterministic", "-o", cmd_args(out, parent = 1), src],
         category = "erlc",
         identifier = src.short_path,
+        env = env,
     )
 
 # Parse Transform
