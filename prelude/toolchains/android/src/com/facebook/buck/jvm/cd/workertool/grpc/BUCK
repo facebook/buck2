@@ -14,7 +14,6 @@ buck_java_library(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
-        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlin_stderr_interceptor",
         "prelude//toolchains/android/src/com/facebook/buck/step:step",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",

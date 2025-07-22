@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package com.facebook.buck.jvm.kotlin.cd.workertool;
+package com.facebook.buck.jvm.cd;
 
 import java.io.PrintStream;
 import java.util.function.Function;
@@ -17,23 +17,20 @@ import java.util.regex.Pattern;
 
 /**
  * A PrintStream implementation that intercepts stderr output and applies syntax highlighting to
- * Kotlin compiler messages.
+ * compiler messages based on the file type
  */
-public class KotlinStdErrInterceptor extends PrintStream {
-  public KotlinStdErrInterceptor() {
-    super(System.err);
-  }
+public class ErrorInterceptor extends PrintStream {
 
-  static String RED = "\033[91m";
-  static String YELLOW = "\033[93m";
-  static String GREEN = "\033[92m";
-  static String MAGENTA = "\033[95m";
-  static String BLUE = "\033[94m";
-  static String BOLD = "\033[1m";
-  static String RESET = "\033[0m";
+  private static final String RED = "\033[91m";
+  private static final String YELLOW = "\033[93m";
+  private static final String GREEN = "\033[92m";
+  private static final String MAGENTA = "\033[95m";
+  private static final String BLUE = "\033[94m";
+  private static final String BOLD = "\033[1m";
+  private static final String RESET = "\033[0m";
 
   // Source: https://kotlinlang.org/docs/keyword-reference.html
-  static String[] kotlinKeywords = {
+  private static final String[] KOTLIN_KEYWORDS = {
     "as",
     "as?",
     "break",
@@ -111,37 +108,70 @@ public class KotlinStdErrInterceptor extends PrintStream {
     "tailrec",
     "vararg",
     "field",
-    "it",
+    "it"
   };
 
-  private static Pattern errorPattern =
+  private static final Pattern ERROR_PATTERN =
       Pattern.compile("\\berror\\b(:.*?\\n)((?:.*?\\n)+?\\s*)(\\^+)\\n", Pattern.CASE_INSENSITIVE);
+  private static final Pattern WARNING_PATTERN =
+      Pattern.compile("\\bwarning\\b(:.*?)\\n", Pattern.CASE_INSENSITIVE);
+  private static final Pattern KOTLIN_FILE_PATTERN =
+      Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.kt)\\b:(\\d+):(\\d+):");
 
-  private static Pattern warningPattern =
-      Pattern.compile("\\bwarning\\b(:.*?)\\n", java.util.regex.Pattern.CASE_INSENSITIVE);
-
-  private static Pattern filePattern =
-      Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.\\w{2,})\\b:(\\d+):(\\d+):");
+  public ErrorInterceptor() {
+    super(System.err);
+  }
 
   @Override
   public void print(String message) {
     super.print(prettyPrint(message));
   }
 
-  public static String prettyPrint(String message) {
-
-    if (System.getenv("NO_COLOR") != null || System.getenv("NO_KOTLINC_COLOR") != null) {
-      return message;
+  public static String prettyPrint(String errorMessage) {
+    if (errorMessage == null || errorMessage.isEmpty()) {
+      return errorMessage;
     }
 
-    message = colorizePattern(errorPattern, message, KotlinStdErrInterceptor::highlightKotlinError);
-    message =
-        colorizePattern(warningPattern, message, KotlinStdErrInterceptor::highlightKotlinWarning);
-    message = colorizePattern(filePattern, message, KotlinStdErrInterceptor::highlightKotlinFile);
+    if (System.getenv("NO_COLOR") != null) {
+      return errorMessage;
+    }
 
+    String fileType = determineFileType(errorMessage);
+
+    if ("kotlin".equals(fileType)) {
+      return prettyPrintKotlinError(errorMessage);
+    } else {
+      return errorMessage;
+    }
+  }
+
+  private static String determineFileType(String errorMessage) {
+
+    Matcher kotlinMatcher = KOTLIN_FILE_PATTERN.matcher(errorMessage);
+    if (kotlinMatcher.find()) {
+      return "kotlin";
+    }
+
+    // Default to "unknown" if file type cannot be determined
+    return "unknown";
+  }
+
+  private static String prettyPrintKotlinError(String message) {
+    message =
+        colorizePattern(ERROR_PATTERN, message, match -> highlightError(match, KOTLIN_KEYWORDS));
+    message = colorizePattern(WARNING_PATTERN, message, ErrorInterceptor::highlightWarning);
+    message = colorizePattern(KOTLIN_FILE_PATTERN, message, ErrorInterceptor::highlightKotlinFile);
     return message;
   }
 
+  /**
+   * Applies a colorizer function to all matches of a pattern in a string.
+   *
+   * @param pattern The pattern to match
+   * @param message The string to search
+   * @param colorizer The function to apply to each match
+   * @return The colorized string
+   */
   private static String colorizePattern(
       Pattern pattern, String message, Function<Matcher, String> colorizer) {
     Matcher matcher = pattern.matcher(message);
@@ -154,21 +184,21 @@ public class KotlinStdErrInterceptor extends PrintStream {
     return result.toString();
   }
 
-  private static String highlightKotlinError(Matcher match) {
+  private static String highlightError(Matcher match, String[] keywords) {
     return RED
         + "error"
         + RESET
         + BOLD
         + match.group(1)
         + RESET
-        + highlightKotlinCode(match.group(2))
+        + highlightCode(match.group(2), keywords)
         + RED
         + match.group(3)
         + RESET
         + "\n";
   }
 
-  private static String highlightKotlinWarning(Matcher match) {
+  private static String highlightWarning(Matcher match) {
     return YELLOW + "warning" + RESET + BOLD + match.group(1) + RESET + "\n";
   }
 
@@ -187,7 +217,7 @@ public class KotlinStdErrInterceptor extends PrintStream {
         + ":";
   }
 
-  private static String highlightKotlinCode(String s) {
-    return s.replaceAll("\\b(" + String.join("|", kotlinKeywords) + ")\\b", BLUE + "$1" + RESET);
+  private static String highlightCode(String code, String[] keywords) {
+    return code.replaceAll("\\b(" + String.join("|", keywords) + ")\\b", BLUE + "$1" + RESET);
   }
 }

@@ -13,6 +13,7 @@ package com.facebook.buck.jvm.kotlin.cd.workertool;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.cd.CompilerDaemonLoggerUtil;
 import com.facebook.buck.jvm.cd.CompilerDaemonRunner;
+import com.facebook.buck.jvm.cd.ErrorInterceptor;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -33,7 +34,7 @@ public class KotlinCDMain {
       KotlinCDCommand command = new KotlinCDCommand(args, ImmutableMap.copyOf(System.getenv()));
       Logger logger = Logger.get(KotlinCDMain.class.getName());
       logger.info(String.format("Starting KotlinCDWorkerTool %s", command));
-      System.setErr(new KotlinStdErrInterceptor());
+      System.setErr(new ErrorInterceptor());
       Runtime.getRuntime()
           .addShutdownHook(
               new Thread(
