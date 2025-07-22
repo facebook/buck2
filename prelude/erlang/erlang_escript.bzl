@@ -159,7 +159,9 @@ EscriptDir = escript:script_name(),""",
     )
     my_output = ctx.actions.declare_output("erlang_escript_trampoline.beam")
 
-    ctx.actions.run(
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
         cmd_args(
             toolchain.otp_binaries.erlc,
             "-o",
