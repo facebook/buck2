@@ -69,9 +69,13 @@ assert_eq_size!(ResolvedMacro, [usize; 2]);
 impl<'v> Display for ResolvedMacro<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResolvedMacro::Location(_) => {
-                // Unfortunately we don't keep the location here, which makes it harder to show
-                write!(f, "$(location ...)")
+            ResolvedMacro::Location(r) => {
+                let default_outputs = r.default_outputs();
+                if default_outputs.is_empty() {
+                    write!(f, "$(location ...)")
+                } else {
+                    write!(f, "$(location {})", &default_outputs[0])
+                }
             }
             ResolvedMacro::Source(a) => write!(f, "$(source {a})"),
             ResolvedMacro::ArgLike(x) => Display::fmt(x, f),
