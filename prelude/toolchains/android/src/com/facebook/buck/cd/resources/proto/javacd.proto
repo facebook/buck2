@@ -65,7 +65,7 @@ message BaseJarCommand {
   string buildCellRootPath = 16;
   ResolvedJavac resolvedJavac = 17;
   ResolvedJavacOptions resolvedJavacOptions = 18;
-  map<string, string> compileTimeClasspathSnapshotPaths = 19;
+  repeated string compileTimeClasspathSnapshotPaths = 19;
   string pathToClasses = 20;
   string annotationsPath = 23;
 }

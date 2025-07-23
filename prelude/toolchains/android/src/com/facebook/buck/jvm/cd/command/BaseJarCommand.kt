@@ -60,7 +60,8 @@ class BaseJarCommand(
           model.trackClassUsage,
           CompilerOutputPathsValueSerializer.deserialize(model.outputPathsValue, scratchDir),
           RelPathSerializer.toListOfRelPath(model.compileTimeClasspathPathsList),
-          RelPathSerializer.toMap(model.compileTimeClasspathSnapshotPathsMap),
+          RelPathSerializer.spaceSeparatedListEntriestoMap(
+              model.compileTimeClasspathSnapshotPathsList),
           RelPathSerializer.toSortedSetOfRelPath(model.getJavaSrcsList()),
           RelPathSerializer.toResourceMap(model.resourcesMapList),
           if (model.hasJarParameters()) JarParametersSerializer.deserialize(model.jarParameters)

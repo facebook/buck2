@@ -113,6 +113,12 @@ def _args_for_compiling(entry: JavaClasspathEntry):
 def _javacd_json(v):
     return v.abi
 
+def _abi_to_abi_snapshot_json(entry: JavaClasspathEntry):
+    if entry.abi and entry.abi_jar_snapshot:
+        return cmd_args([entry.abi, entry.abi_jar_snapshot], delimiter = " ")
+
+    return None
+
 def _abi_to_abi_dir(entry: JavaClasspathEntry):
     if entry.abi_as_dir:
         return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
@@ -125,6 +131,7 @@ JavaCompilingDepsTSet = transitive_set(
         "args_for_compiling": _args_for_compiling,
     },
     json_projections = {
+        "abi_to_abi_snapshot_json": _abi_to_abi_snapshot_json,
         "javacd_json": _javacd_json,
     },
 )
