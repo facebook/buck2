@@ -596,12 +596,12 @@ def build_java_library(
 
     annotation_processor_properties = create_annotation_processor_properties(
         ctx,
-        ctx.attrs.plugins,
+        ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated,
         ctx.attrs.annotation_processors,
         ctx.attrs.annotation_processor_params,
         ctx.attrs.annotation_processor_deps,
     ) if run_annotation_processors else None
-    plugin_params = create_plugin_params(ctx, ctx.attrs.plugins) if run_annotation_processors else None
+    plugin_params = create_plugin_params(ctx, ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated) if run_annotation_processors else None
     manifest_file = ctx.attrs.manifest_file
     source_level, target_level = get_java_version_attributes(ctx)
 

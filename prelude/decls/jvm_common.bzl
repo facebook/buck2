@@ -184,6 +184,18 @@ def _enable_used_classes():
 
 def _plugins():
     return {
+        "non_exec_dep_plugins_deprecated": attrs.list(
+            attrs.one_of(
+                attrs.dep(),
+                attrs.tuple(attrs.dep(), attrs.list(attrs.string())),
+            ),
+            default = [],
+            doc = """
+                Plugins that do not use the execution platform. This exists for historical reasons,
+                and should not be used. Use `plugins` instead - plugins should be configured for 
+                the execution platform since that is where they are used. 
+                """,
+        ),
         "plugins": attrs.list(
             attrs.one_of(
                 attrs.dep(),

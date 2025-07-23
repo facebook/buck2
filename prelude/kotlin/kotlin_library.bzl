@@ -387,12 +387,12 @@ def build_kotlin_library(
         )
         annotation_processor_properties = create_annotation_processor_properties(
             ctx,
-            ctx.attrs.plugins,
+            ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated,
             ctx.attrs.annotation_processors,
             ctx.attrs.annotation_processor_params,
             ctx.attrs.annotation_processor_deps,
         )
-        ksp_annotation_processor_properties = create_ksp_annotation_processor_properties(ctx.attrs.plugins)
+        ksp_annotation_processor_properties = create_ksp_annotation_processor_properties(ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated)
 
         # -bootclasspath is a javac-only, JDK<9 release concept, but we still use this field
         # to append additional jars to the kotlinc classpath. When we drop Java 8 language
@@ -489,7 +489,7 @@ def build_kotlin_library(
             }
 
             outputs, proto = create_jar_artifact_kotlincd(
-                plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
+                plugin_params = create_plugin_params(ctx, ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
