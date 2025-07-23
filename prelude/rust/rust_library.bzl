@@ -592,7 +592,7 @@ def _handle_rust_artifact(
         return RustLinkStrategyInfo(
             outputs = {m: link_output.output for m in MetadataKind},
             transitive_deps = {m: {} for m in MetadataKind},
-            transitive_proc_macro_deps = {},
+            transitive_proc_macro_deps = set(),
             pdb = link_output.pdb,
             external_debug_info = ArtifactTSet(),
         )
@@ -981,16 +981,16 @@ def _compute_transitive_deps(
         dep_link_strategy: LinkStrategy) -> (
     dict[MetadataKind, dict[Artifact, CrateName]],
     list[ArtifactTSet],
-    dict[RustProcMacroMarker, ()],
+    set[RustProcMacroMarker],
 ):
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
     transitive_deps = {m: {} for m in MetadataKind}
     external_debug_info = []
-    transitive_proc_macro_deps = {}
+    transitive_proc_macro_deps = set()
 
     for dep in resolve_rust_deps(ctx, dep_ctx):
         if dep.proc_macro_marker != None:
-            transitive_proc_macro_deps[dep.proc_macro_marker] = ()
+            transitive_proc_macro_deps.add(dep.proc_macro_marker)
 
             # We don't want to propagate proc macros directly, and they have no transitive deps
             continue

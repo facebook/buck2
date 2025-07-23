@@ -717,7 +717,7 @@ def dependency_args(
         artifact = strategy.outputs[dep_metadata_kind]
         transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
-        for marker in strategy.transitive_proc_macro_deps.keys():
+        for marker in strategy.transitive_proc_macro_deps:
             info = available_proc_macros[marker.label][RustLinkInfo]
             strategy = strategy_info(toolchain_info, info, dep_link_strategy)
             transitive_deps[strategy.outputs[MetadataKind("link")]] = info.crate

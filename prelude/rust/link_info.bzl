@@ -111,7 +111,7 @@ RustLinkStrategyInfo = record(
     # propagate their deps (specifically proc macros), this set is empty
     # This does not include the proc macros, which are passed separately in `RustLinkInfo`
     transitive_deps = field(dict[MetadataKind, dict[Artifact, CrateName]]),
-    transitive_proc_macro_deps = field(dict[RustProcMacroMarker, ()]),
+    transitive_proc_macro_deps = field(set[RustProcMacroMarker]),
 
     # Path to PDB file with Windows debug data.
     pdb = field(Artifact | None),
