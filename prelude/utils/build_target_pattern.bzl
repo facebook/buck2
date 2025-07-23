@@ -12,8 +12,17 @@ _RECURSIVE_SYMBOL = "..."
 _PATH_SYMBOL = "/"
 
 # https://www.internalfb.com/intern/staticdocs/buck2/docs/concepts/build_target/
-_NAME_REGEX_PATTERN = "[A-Za-z0-9_/.=,@~+-]+"
+# Anchors are needed here to ensure every character in "name" is valid
+_NAME_REGEX_PATTERN = "^[A-Za-z0-9_/.=,@~+-]+$"
 _NAME_REGEX = regex(_NAME_REGEX_PATTERN)
+
+# Simple regex heuristic to determine if the pattern should be interpreted as a regex expression.
+# Does not guarantee that the pattern is a valid regex expression, nor does it catch all patterns
+# that look like regex, but should catch the common cases that are guaranteed to be invalid from Buck's perspective
+#
+# Valid characters from the Buck source:
+# https://www.internalfb.com/code/fbsource/[6675c1fc17aa]/fbcode/buck2/app/buck2_core/src/target/name.rs?lines=84
+_LOOKS_LIKE_REGEX_REGEX = regex("[*?^|]")
 
 _BuildTargetPatternKind = enum(
     "single",
@@ -51,6 +60,10 @@ def try_parse_build_target_pattern(pattern: str) -> BuildTargetPatternParseResul
     root_position = pattern.find(ROOT_SYMBOL)
     if not (root_position >= 0):
         err_msg = "Invalid build target pattern, pattern should started with `{}` or a cell name followed by `{}`: ".format(ROOT_SYMBOL, ROOT_SYMBOL, pattern)
+        return BuildTargetPatternParseResult(error = err_msg)
+
+    if _LOOKS_LIKE_REGEX_REGEX.match(pattern):
+        err_msg = "Invalid build target pattern, special regex characters were found that are invalid in build target patterns, this should be parsed as regex instead: {}: ".format(pattern)
         return BuildTargetPatternParseResult(error = err_msg)
 
     cell = None
