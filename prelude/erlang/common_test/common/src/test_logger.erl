@@ -88,8 +88,8 @@ flush() ->
 
 -spec get_std_out(file:filename(), atom()) -> file:filename_all().
 get_std_out(LogDir, AppName) ->
-    filename:join(LogDir, io_lib:format("~p.stdout.txt", [AppName])).
+    filename:join(LogDir, io_lib:format("~tp.stdout.txt", [AppName])).
 
 -spec get_log_file(file:filename(), atom()) -> file:filename_all().
 get_log_file(LogDir, AppName) ->
-    filename:join(LogDir, io_lib:format("~p.log", [AppName])).
+    filename:join(LogDir, io_lib:format("~tp.log", [AppName])).

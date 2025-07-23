@@ -29,12 +29,12 @@ parse_str(StrArgs) ->
         {ok, Term} ->
             Term;
         {error, Reason} ->
-            error(lists:flatten(io_lib:format("Error parsing StrArgs ~p, Reason: ~p", [StrArgs, Reason])))
+            error(lists:flatten(io_lib:format("Error parsing StrArgs ~tp, Reason: ~tp", [StrArgs, Reason])))
     catch
         E:R:S ->
             error(
                 lists:flatten(
-                    io_lib:format("Error parsing StrArgs ~p, error ~ts", [StrArgs, erl_error:format_exception(E, R, S)])
+                    io_lib:format("Error parsing StrArgs ~tp, error ~ts", [StrArgs, erl_error:format_exception(E, R, S)])
                 )
             )
     end.

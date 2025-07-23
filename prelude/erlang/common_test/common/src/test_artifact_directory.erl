@@ -91,7 +91,7 @@ link_to_artifact_dir(File, Root, TestEnv) ->
             RelativePath =
                 case string:prefix(File, Root) of
                     nomatch ->
-                        ?LOG_ERROR("~s should be a prefix of ~s", [Root, File]),
+                        ?LOG_ERROR("~ts should be a prefix of ~ts", [Root, File]),
                         error(unexpected_path);
                     Suffix ->
                         string:strip(unicode_characters_to_list(Suffix), left, $/)

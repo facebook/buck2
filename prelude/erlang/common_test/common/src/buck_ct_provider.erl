@@ -128,7 +128,7 @@ execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
         {error, Reason} ->
             ErrorMsg = unicode:characters_to_list(
                 io_lib:format(
-                    "Method ~p on provider ~p with state ~p ~n returned with error ~p ~n", [
+                    "Method ~tp on provider ~tp with state ~tp ~n returned with error ~tp ~n", [
                         Method, ProviderName, ProviderState, Reason
                     ]
                 )
@@ -141,7 +141,7 @@ execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
                     {ProviderName, ProviderState};
                 _ ->
                     ?LOG_DEBUG(
-                        "Method ~p on provider ~p with state ~p ~n returned with an unexpeced return ~p ~n",
+                        "Method ~tp on provider ~tp with state ~tp ~n returned with an unexpected return ~tp ~n",
                         [
                             Method, ProviderName, ProviderState, OtherReturn
                         ]
@@ -151,7 +151,7 @@ execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
     catch
         Class:Reason:StackTrace ->
             ErrorMsg = unicode:characters_to_list(
-                io_lib:format("Method ~p on provider ~p with state ~p ~n ~s ~n", [
+                io_lib:format("Method ~tp on provider ~tp with state ~tp ~n ~ts ~n", [
                     Method,
                     ProviderName,
                     ProviderState,

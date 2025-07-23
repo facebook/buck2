@@ -44,7 +44,7 @@ format_error(ErrType, Reason, FormatStackTrace) ->
                 {SubReason, StackTrace} ->
                     [erl_error:format_exception(ErrType, SubReason, StackTrace)];
                 _ ->
-                    [io_lib:format("~p", [Reason])]
+                    [io_lib:format("~tp", [Reason])]
             end
     end.
 
@@ -95,10 +95,10 @@ maybe_custom_format({{Type, Props = #{formatter := Formatter}}, _StackTrace}) wh
             {ok, [
                 io_lib:format(
                     "unexpected error when formatting assertion: ~n"
-                    "~s~n",
+                    "~ts~n",
                     [erl_error:format_exception(E, R, ST)]
                 ),
-                io_lib:format("original assertion: ~n" "~p~n", [{Type, Props}])
+                io_lib:format("original assertion: ~n" "~tp~n", [{Type, Props}])
             ]}
     end;
 maybe_custom_format(_Reason) ->
@@ -159,11 +159,11 @@ format_assert0(
             false -> assertNot
         end,
     ?FORMAT_ASSERTION(
-        "~s",
+        "~ts",
         [Expression],
         [
-            io_lib:format("   expected: ~p~n", [Expected]),
-            io_lib:format("        got: ~p~n", [Value])
+            io_lib:format("   expected: ~tp~n", [Expected]),
+            io_lib:format("        got: ~tp~n", [Value])
         ]
     );
 format_assert0(
@@ -177,11 +177,11 @@ format_assert0(
     } = Props
 ) ->
     ?FORMAT_ASSERTION(
-        "~0p, ~s",
+        "~0tp, ~ts",
         [Expected, Expression],
         [
-            io_lib:format("   expected: ~p~n", [Expected]),
-            io_lib:format("        got: ~p~n", [Value])
+            io_lib:format("   expected: ~tp~n", [Expected]),
+            io_lib:format("        got: ~tp~n", [Value])
         ]
     );
 format_assert0(
@@ -192,16 +192,16 @@ format_assert0(
     Type =:= assertMatch orelse Type =:= assertNotMatch
 ->
     ?FORMAT_ASSERTION(
-        "~s, ~s",
+        "~ts, ~ts",
         [Pattern, Expression],
         [
             case Type of
                 assertMatch ->
-                    io_lib:format("     expected: ~s~n", [Pattern]);
+                    io_lib:format("     expected: ~ts~n", [Pattern]);
                 assertNotMatch ->
-                    io_lib:format(" expected not: ~s~n", [Pattern])
+                    io_lib:format(" expected not: ~ts~n", [Pattern])
             end,
-            io_lib:format("          got: ~p~n", [Value])
+            io_lib:format("          got: ~tp~n", [Value])
         ]
     );
 format_assert0(
@@ -209,11 +209,11 @@ format_assert0(
     #{line := Line, module := Module, expression := Expression, value := Value} = Props
 ) ->
     ?FORMAT_ASSERTION(
-        "~p, ~s",
+        "~tp, ~ts",
         [Value, Expression],
         [
-            io_lib:format(" expected not: ~p~n", [Value]),
-            io_lib:format("          got: ~p~n", [Value])
+            io_lib:format(" expected not: ~tp~n", [Value]),
+            io_lib:format("          got: ~tp~n", [Value])
         ]
     );
 format_assert0(
@@ -223,10 +223,10 @@ format_assert0(
     ValueLine =
         case Props of
             #{unexpected_success := Value} ->
-                io_lib:format("          got value: ~p~n", [Value]);
+                io_lib:format("          got value: ~tp~n", [Value]);
             #{unexpected_exception := {Class, Reason, StackTrace} = _Exception} ->
                 io_lib:format(
-                    "      got exception: ~p ~n",
+                    "      got exception: ~tp ~n",
                     [{Class, Reason, StackTrace}]
                 );
             _ ->
@@ -237,10 +237,10 @@ format_assert0(
             ValueLine;
         _ ->
             ?FORMAT_ASSERTION(
-                "~s, ~p",
+                "~ts, ~tp",
                 [Pattern, Expression],
                 [
-                    io_lib:format(" expected exception: ~s~n", [Pattern]),
+                    io_lib:format(" expected exception: ~ts~n", [Pattern]),
                     ValueLine
                 ]
             )
@@ -256,11 +256,11 @@ format_assert0(
     } = Props
 ) ->
     ?FORMAT_ASSERTION(
-        "~p",
+        "~tp",
         [Expression],
         [
-            io_lib:format(" expected no exception: ~p~n", [Pattern]),
-            io_lib:format("         got exception: ~s~n", [
+            io_lib:format(" expected no exception: ~tp~n", [Pattern]),
+            io_lib:format("         got exception: ~ts~n", [
                 erl_error:format_exception(Class, Reason, StackTrace)
             ])
         ]
@@ -270,16 +270,16 @@ format_assert0(_Type, _Props) ->
 
 -spec print_type_expression(atom(), string(), [term()]) -> unicode:chardata().
 print_type_expression(Type, Format, Args) ->
-    FormatStr = unicode:characters_to_list(io_lib:format("Failure ?~p(~s)", [Type, Format])),
+    FormatStr = unicode:characters_to_list(io_lib:format("Failure ?~tp(~ts)", [Type, Format])),
     io_lib:format(FormatStr, Args).
 
 -spec print_location(atom(), integer()) -> unicode:chardata().
 print_location(Module, Line) ->
-    io_lib:format(" in ~p.erl:~p~n", [Module, Line]).
+    io_lib:format(" in ~tp.erl:~tp~n", [Module, Line]).
 
 -spec print_comments(map(), integer()) -> [unicode:chardata()].
 print_comments(#{comment := Comment}, Width) ->
-    [io_lib:format("~*.. s ~p~n", [Width, "comment:", Comment])];
+    [io_lib:format("~*.. s ~tp~n", [Width, "comment:", Comment])];
 print_comments(_Map, _Width) ->
     [].
 
@@ -289,7 +289,7 @@ print_comments(_Map, _Width) ->
 maybe_proper_format({{property_failed, Property, Counterexample}, _ST}) ->
     {ok,
         io_lib:format(
-            "Property ~s failed with Counterexample: ~n~p~n",
+            "Property ~ts failed with Counterexample: ~n~tp~n",
             [Property, Counterexample]
         )};
 maybe_proper_format(_) ->
