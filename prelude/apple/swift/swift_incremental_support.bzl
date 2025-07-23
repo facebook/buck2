@@ -80,7 +80,7 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
     return min(_MAX_NUM_THREADS, src_threads)
 
 def _get_skip_swift_incremental_outputs(ctx: AnalysisContext):
-    return getattr(ctx.attrs, "skip_swift_incremental_outputs", False)
+    return getattr(ctx.attrs, "_skip_swift_incremental_outputs", False)
 
 def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
     toolchain = get_swift_toolchain_info(ctx)
