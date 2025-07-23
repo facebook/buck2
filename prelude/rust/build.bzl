@@ -735,12 +735,12 @@ def dependency_args(
         transitive_deps.update(transitive_artifacts)
 
     dynamic_artifacts = {}
-    simple_artifacts = {}
+    simple_artifacts = set()
     for artifact, crate_name in transitive_deps.items():
         if crate_name.dynamic:
             dynamic_artifacts[artifact] = crate_name
         else:
-            simple_artifacts[artifact] = None
+            simple_artifacts.add(artifact)
 
     prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
     if simple_artifacts:
@@ -753,10 +753,10 @@ def dependency_args(
 def simple_symlinked_dirs(
         ctx: AnalysisContext,
         prefix: str,
-        artifacts: dict[Artifact, None]) -> cmd_args:
+        artifacts: set[Artifact]) -> cmd_args:
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
-    for dep in artifacts.keys():
+    for dep in artifacts:
         name = dep.basename
         if name in deps_dirs[-1]:
             deps_dirs.append({})
