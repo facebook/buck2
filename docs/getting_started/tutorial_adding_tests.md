@@ -6,7 +6,7 @@ title: 'Tutorial: Adding tests'
 import { FbInternalOnly, OssOnly, isInternal } from
 'docusaurus-plugin-internaldocs-fb/internal';
 
-In our previous tutorials, we built a binary `main` taraget and a `library`
+In our previous tutorials, we built a binary `main` target and a `library`
 target that uses it, even incorporating a shared `logging_lib`. Now, let's
 ensure our `library` target works as expected by adding unit tests. Writing
 tests helps us catch bugs early and refactor with confidence.
