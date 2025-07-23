@@ -32,7 +32,6 @@ Here are a few key things to know about Buck2:
 ## Why Use Buck2? Key Advantages
 
 - **Performance:**
-
   - **Faster Parallel Builds:** Buck2 is architected to build different parts of
     your project simultaneously (in parallel) whenever possible, significantly
     speeding up the overall build process.
@@ -41,7 +40,6 @@ Here are a few key things to know about Buck2:
     faster iterations when you're developing and testing.
 
 - **Determinism and Reproducibility:**
-
   - **Hermetic Builds:** Buck2 aims for "hermetic" builds. This means that
     builds are self-contained and don't depend on external factors or
     pre-installed tools on your machine that aren't explicitly declared. This
@@ -49,7 +47,6 @@ Here are a few key things to know about Buck2:
     time, regardless of where or when it's built.
 
 - **Transparency:**
-
   - **Dependency Comprehension:** Buck2 has a clear way of defining and
     understanding the dependencies between different parts of your code. You can
     use queries to explore and understand these relationships, which is

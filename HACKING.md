@@ -151,8 +151,8 @@ have written. Some rules:
 ### Error messages
 
 - Names (of variables, targets, files, etc) should be quoted with backticks,
-  e.g. `` Variable `x` not defined ``.
-- Lists should use square brackets, e.g. `` Available targets: [`aa`, `bb`] ``.
+  e.g. ``Variable `x` not defined``.
+- Lists should use square brackets, e.g. ``Available targets: [`aa`, `bb`]``.
 - Error messages should start with an upper case letter. Error messages should
   not end with a period.
 

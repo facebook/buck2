@@ -44,13 +44,11 @@ outputs and metadata within `$PROJECT_ROOT/buck-out/v2`.
 ### Important Characteristics
 
 1. **Independent Caching**:
-
    - Each isolation directory maintains its own separate cache
    - No cached artifacts or memory cache is shared between different isolation
      directories
 
 2. **Command Execution Isolation**:
-
    - A single Buck2 daemon can generally execute only one command at a time
    - Different daemons with different isolation directories can execute commands
      concurrently

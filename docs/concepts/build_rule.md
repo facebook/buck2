@@ -53,12 +53,10 @@ In Buck2, source files are organized within _packages_:
 Buck2 enforces these rules regarding source file access:
 
 1. **Basic Rule**: A build rule can only use source files from its own package
-
    - A rule in a BUCK file cannot specify source files from outside its package
 
 2. **Header File Exception**: A rule can access header files from another
    package if:
-
    - The other package explicitly _exports_ those header files
    - This is done using the `exported_headers` argument
    - See the [`cxx_library`](../../prelude/rules/cxx/cxx_library) documentation

@@ -68,7 +68,6 @@ following process:
 
 2. **Target Configuration**: With no additional configuration arguments, the
    default target platform is applied. This produces configured targets:
-
    - `A (cfg_b)`
    - `B (cfg_b)`
    - `C (cfg_b)`

@@ -74,7 +74,6 @@ ctx.output.stream("Artifact path:", ensured0, additional_waits=[ensured1])
 ## 4. Implementation Sketch
 
 - Phase 1 (BXL Evaluation)
-
   - When we have **Case 1**, we will output the string to stdout by
     `PartialResultDispatcher` and save the output in the cache file associated
     with the bxl key.
@@ -143,7 +142,6 @@ However:
 ## 6. Potential Future Work
 
 1. Prioritized Materialization:
-
    - A flag or mechanism to ensure certain artifacts are materialized first
      (blocking the remaining artifacts), so streaming prints that depend on them
      can happen sooner.
@@ -154,7 +152,6 @@ However:
   Errors IDEs can easily parsed the compile errors
 
 3. Streaming Output for Other Lazy APIs:
-
    - Extend similar streaming logic to apis like
      `ctx.lazy.unconfigured_target_node(patterns like cell//path/to/...)`,
      queries or other lazy operations, so partial results appear earlier in

@@ -352,14 +352,12 @@ sequenceDiagram
 
 - **Provider**: AndroidApkInfo
 - **Fields**:
-
   - `apk: Artifact` – The final signed APK file
   - `manifest: Artifact` – Processed AndroidManifest.xml
   - `materialized_artifacts: list[Artifact]` – All build artifacts for debugging
   - `unstripped_shared_libraries: Artifact` – Debug symbols for native libraries
 
 - **Relations**:
-
   - Used by installation and testing rules
   - Contains references to all build artifacts
 
@@ -369,7 +367,6 @@ sequenceDiagram
 
 - **Provider**: AndroidResourceInfo
 - **Fields**:
-
   - `raw_target: TargetLabel` – Target that produced this resource
   - `aapt2_compile_output: Artifact` – Compiled resource artifacts from AAPT2
   - `res: Artifact` – Raw resource directory or mapping
@@ -379,7 +376,6 @@ sequenceDiagram
   - `manifest_file: Artifact` – Associated AndroidManifest.xml
 
 - **Relations**:
-
   - Aggregated by AndroidPackageableInfo
   - Used by resource linking process
   - Referenced by APK and AAR generation
@@ -391,7 +387,6 @@ sequenceDiagram
 
 - **Record**: DexFilesInfo
 - **Fields**:
-
   - `primary_dex: Artifact` – Main classes.dex file
   - `primary_dex_class_names: Artifact` – List of classes in primary DEX
   - `root_module_secondary_dex_dirs: list[Artifact]` – Secondary DEX directories
@@ -403,7 +398,6 @@ sequenceDiagram
   - `proguard_text_files_path: Artifact` – ProGuard mapping files
 
 - **Relations**:
-
   - Used by APK building process
   - Contains exopackage information for dynamic loading
   - References ProGuard optimization outputs
@@ -415,7 +409,6 @@ sequenceDiagram
 
 - **Provider**: AndroidPackageableInfo
 - **Fields**:
-
   - `target_label: TargetLabel` – Target producing this info
   - `build_config_infos: AndroidBuildConfigInfoTSet` – Transitive build
     configurations
@@ -426,7 +419,6 @@ sequenceDiagram
     native libraries
 
 - **Relations**:
-
   - Aggregates information from all transitive dependencies
   - Used by binary rules for packaging decisions
   - Contains transitive sets for efficient dependency management
@@ -438,7 +430,6 @@ sequenceDiagram
 
 - **Provider**: AndroidToolchainInfo
 - **Fields**:
-
   - `aapt2: RunInfo` – AAPT2 resource compiler tool
   - `d8_command: RunInfo` – D8 DEX compiler
   - `android_jar: Artifact` – Android SDK JAR file
@@ -449,7 +440,6 @@ sequenceDiagram
   - `installer: RunInfo` – APK installation tool
 
 - **Relations**:
-
   - Used by all Android build rules
   - Provides access to external Android SDK tools
   - Configured by toolchain setup rules

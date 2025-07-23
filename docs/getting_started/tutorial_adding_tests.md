@@ -107,7 +107,6 @@ rust_unittest(
 Key additions and explanations:
 
 - `load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest"):`
-
   - This line imports the `rust_unittest` rule, which knows how to build and run
     Rust tests.
 
