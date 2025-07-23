@@ -806,7 +806,7 @@ def dynamic_symlinked_dirs(
         identifier = str(len(compile_ctx.transitive_dependency_dirs)),
     )
 
-    compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
+    compile_ctx.transitive_dependency_dirs.add(transitive_dependency_dir)
     return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts.keys())
 
 def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:

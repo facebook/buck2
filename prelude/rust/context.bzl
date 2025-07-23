@@ -72,7 +72,7 @@ CompileContext = record(
     # Linker args to pass the linker wrapper to rustc.
     sysroot_args = field(cmd_args),
     toolchain_info = field(RustToolchainInfo),
-    transitive_dependency_dirs = field(dict[Artifact, None]),
+    transitive_dependency_dirs = field(set[Artifact]),
 )
 
 def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
@@ -154,7 +154,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         symlinked_srcs = symlinked_srcs,
         sysroot_args = sysroot_args,
         toolchain_info = toolchain_info,
-        transitive_dependency_dirs = {},
+        transitive_dependency_dirs = set(),
     )
 
 # This is a hack because we need to pass the linker to rustc
