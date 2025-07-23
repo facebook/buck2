@@ -263,11 +263,11 @@ def _add_plugins(
         is_ksp: bool) -> _PluginCmdArgs:
     kotlinc_cmd_args = cmd_args()
     compile_kotlin_cmd = cmd_args()
-    for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins.items():
+    for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins:
         if _is_ksp_plugin(str(plugin)) != is_ksp:
             continue
 
-        kotlinc_cmd_args.add(cmd_args(["-Xplugin", plugin], delimiter = "="))
+        kotlinc_cmd_args.add(cmd_args(["-Xplugin", plugin[DefaultInfo].default_outputs[0]], delimiter = "="))
         options = []
         for option_key, option_val in plugin_options.items():
             # "_codegen_dir_" means buck should provide a dir

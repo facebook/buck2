@@ -212,7 +212,7 @@ def _plugins():
 
 def _kotlin_compiler_plugins():
     return {
-        "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}, doc = """
+        "kotlin_compiler_plugins": attrs.list(attrs.tuple(attrs.dep(), attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)), default = [], doc = """
                 Use this to specify [Kotlin compiler plugins](https://kotlinlang.org/docs/reference/compiler-plugins.html) to use when compiling this library.
                  This takes a map, with each entry specify one plugin. Entry's key is plugin source path,
                  and value is a map of plugin option key value pair. Unlike `extra_kotlinc_arguments`,

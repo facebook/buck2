@@ -76,7 +76,7 @@ def create_jar_artifact_kotlincd(
         custom_jdk_info: CustomJdkInfo | None,
         is_building_android_binary: bool,
         friend_paths: list[Dependency],
-        kotlin_compiler_plugins: dict,
+        kotlin_compiler_plugins: list[(Dependency, dict[str, str])],
         extra_kotlinc_arguments: list,
         incremental: bool,
         incremental_qe_applied: bool,
@@ -274,7 +274,7 @@ def create_jar_artifact_kotlincd(
 
 def _encode_kotlin_extra_params(
         kotlin_toolchain: KotlinToolchainInfo,
-        kotlin_compiler_plugins: dict,
+        kotlin_compiler_plugins: list[(Dependency, dict[str, str])],
         extra_kotlinc_arguments: list,
         bootclasspath_entries: list[Artifact],
         friend_paths: list[Dependency],
@@ -303,7 +303,7 @@ def _encode_kotlin_extra_params(
         standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
         annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
         jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
-        kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
+        kotlinCompilerPlugins = {plugin[DefaultInfo].default_outputs[0]: {"params": plugin_options} for plugin, plugin_options in kotlin_compiler_plugins},
         kosabiPluginOptions = struct(**kosabiPluginOptionsMap),
         friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
         kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,

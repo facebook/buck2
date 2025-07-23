@@ -189,6 +189,47 @@ def _android_aar_macro_stub(
         **kwargs
     )
 
+def _convert_kotlin_compiler_plugins(kotlin_compiler_plugins):
+    if type(kotlin_compiler_plugins) == type({}):
+        return [
+            (key, value)
+            for key, value in kotlin_compiler_plugins.items()
+        ]
+    else:
+        return kotlin_compiler_plugins
+
+def _kotlin_library_macro_stub(
+        kotlin_compiler_plugins = {},
+        **kwargs):
+    __rules__["kotlin_library"](
+        kotlin_compiler_plugins = _convert_kotlin_compiler_plugins(kotlin_compiler_plugins),
+        **kwargs
+    )
+
+def _kotlin_test_macro_stub(
+        kotlin_compiler_plugins = {},
+        **kwargs):
+    __rules__["kotlin_test"](
+        kotlin_compiler_plugins = _convert_kotlin_compiler_plugins(kotlin_compiler_plugins),
+        **kwargs
+    )
+
+def _android_library_macro_stub(
+        kotlin_compiler_plugins = {},
+        **kwargs):
+    __rules__["android_library"](
+        kotlin_compiler_plugins = _convert_kotlin_compiler_plugins(kotlin_compiler_plugins),
+        **kwargs
+    )
+
+def _robolectric_test_macro_stub(
+        kotlin_compiler_plugins = {},
+        **kwargs):
+    __rules__["robolectric_test"](
+        kotlin_compiler_plugins = _convert_kotlin_compiler_plugins(kotlin_compiler_plugins),
+        **kwargs
+    )
+
 def _android_binary_macro_stub(
         allow_r_dot_java_in_secondary_dex = False,
         cpu_filters = None,
@@ -470,6 +511,7 @@ __extra_rules__ = {
     "android_binary": _android_binary_macro_stub,
     "android_bundle": _android_bundle_macro_stub,
     "android_instrumentation_apk": _android_instrumentation_apk_macro_stub,
+    "android_library": _android_library_macro_stub,
     "apple_binary": _apple_binary_macro_stub,
     "apple_bundle": _apple_bundle_macro_stub,
     "apple_library": _apple_library_macro_stub,
@@ -485,9 +527,12 @@ __extra_rules__ = {
     "erlang_application": _erlang_application_macro_stub,
     "erlang_tests": _erlang_tests_macro_stub,
     "export_file": _export_file_macro_stub,
+    "kotlin_library": _kotlin_library_macro_stub,
+    "kotlin_test": _kotlin_test_macro_stub,
     "prebuilt_apple_framework": _prebuilt_apple_framework_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
     "python_library": _python_library_macro_stub,
+    "robolectric_test": _robolectric_test_macro_stub,
     "rust_binary": _rust_binary_macro_stub,
     "rust_library": _rust_library_macro_stub,
     "rust_test": _rust_test_macro_stub,
