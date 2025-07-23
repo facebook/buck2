@@ -255,7 +255,12 @@ _EMIT_PREFIX_SUFFIX = {
 }
 
 # Return the filename for a particular emitted artifact type
-def output_filename(compile_ctx: CompileContext, cratename: str, emit: Emit, buildparams: BuildParams, extra: [str, None] = None) -> str:
+def output_filename(
+        compile_ctx: CompileContext,
+        cratename: str,
+        emit: Emit,
+        buildparams: BuildParams,
+        extra: str | None = None) -> str:
     # Allow for overriding the soname via the `soname` attribute.
     if emit == Emit("link") and buildparams.crate_type in (CrateType("dylib"), CrateType("cdylib")):
         return compile_ctx.soname

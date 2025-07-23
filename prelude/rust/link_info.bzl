@@ -211,7 +211,7 @@ RustDependency = record(
     dep = field(Dependency),
     name = field(None | str | ResolvedStringWithMacros),
     flags = field(list[str]),
-    proc_macro_marker = field([None, RustProcMacroMarker]),
+    proc_macro_marker = field(RustProcMacroMarker | None),
 )
 
 # Information about cxx link groups that rust depends on
@@ -223,9 +223,9 @@ RustCxxLinkGroupInfo = record(
     # targets to link against
     filtered_targets = field(list[TargetLabel]),
     # information about the link groups
-    link_group_info = field([LinkGroupInfo, None]),
+    link_group_info = field(LinkGroupInfo | None),
     # shared libraries created from link groups
-    link_group_libs = field(dict[str, [LinkGroupLib, None]]),
+    link_group_libs = field(dict[str, LinkGroupLib | None]),
     # mapping from target labels to the corresponding link group link_info
     labels_to_links_map = field(dict[Label, LinkGroupLinkInfo]),
     # Target to link group name where it was actually linked into

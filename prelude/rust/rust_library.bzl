@@ -669,7 +669,9 @@ def _default_providers(
 
     return providers
 
-def _rust_metadata_providers(diag_artifacts: dict[bool, RustcOutput], clippy_artifacts: dict[bool, RustcOutput]) -> list[Provider]:
+def _rust_metadata_providers(
+        diag_artifacts: dict[bool, RustcOutput],
+        clippy_artifacts: dict[bool, RustcOutput]) -> list[Provider]:
     return [
         RustcExtraOutputsInfo(
             metadata = diag_artifacts[False],
