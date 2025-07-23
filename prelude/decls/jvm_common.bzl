@@ -198,10 +198,15 @@ def _plugins():
         ),
         "plugins": attrs.list(
             attrs.one_of(
-                attrs.dep(),
-                attrs.tuple(attrs.dep(), attrs.list(attrs.string())),
+                attrs.exec_dep(),
+                attrs.tuple(attrs.exec_dep(), attrs.list(attrs.string())),
             ),
             default = [],
+            doc = """
+                List of plugins that should be run during compilation of the target. A list of 
+                strings may additionally be provided in order to pass additional arguments to 
+                the plugin. 
+                """,
         ),
     }
 
