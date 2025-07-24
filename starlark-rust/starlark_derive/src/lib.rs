@@ -60,7 +60,8 @@ mod vtable;
 /// There are a number of attributes that can be add to each parameter by writing attributes before the
 /// parameter name:
 ///
-/// * `#[starlark(default = "a default")]` - provide a deafult for the parameter if it is omitted.
+/// * `#[starlark(default = "a default")]` - provide a default for the parameter if it is omitted -- the value given here must
+///    be the exact same Rust type as the Rust argument
 /// * `#[starlark(require = pos)]` - require the parameter to be passed by position, not named.
 /// * `#[starlark(require = named)]` - require the parameter to be passed by name, not by position.
 /// * `#[starlark(args)]` - treat the argument as `*args` in Starlark, receiving all additional positional arguments as a tuple.
