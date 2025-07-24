@@ -278,13 +278,31 @@ impl EdenIoProvider {
                 eden.readdir(&params)
             })
             .await?
-            .dirLists;
-
-        let data = res
+            .dirLists
             .into_iter()
             .next()
-            .buck_error_context("Eden did not return a directory result")?
-            .into_result()?;
+            .buck_error_context("Eden did not return a directory result")?;
+
+        let data = match res {
+            edenfs::DirListAttributeDataOrError::dirListAttributeData(data) => data,
+            edenfs::DirListAttributeDataOrError::error(err) => {
+                match err.errorCode {
+                    Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
+                    Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
+                        // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
+                        return self.fs.read_dir_impl(path).await;
+                    }
+                    _ => return Err(EdenError::from(err).into()),
+                }
+            }
+            edenfs::DirListAttributeDataOrError::UnknownField(code) => {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::IoEden,
+                    "Eden ReadDir returned with unknown field code: {}",
+                    code
+                ));
+            }
+        };
 
         tracing::debug!("readdir({}): {} entries", path, data.len());
 
@@ -368,6 +386,12 @@ impl EdenIoProvider {
                             )
                             .ok();
 
+                            return self.fs.read_file_if_exists_impl(path).await;
+                        }
+                        EdenError::PosixError { code, .. }
+                            if code == libc::EINVAL || code == libc::ENOTDIR =>
+                        {
+                            // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
                             return self.fs.read_file_if_exists_impl(path).await;
                         }
                         _ => Err(eden_error.into()),
