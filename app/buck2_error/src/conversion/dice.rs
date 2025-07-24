@@ -16,21 +16,23 @@ impl From<dice_error::DiceError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: dice_error::DiceError) -> Self {
-        let error_tag = match *value.0 {
-            DiceErrorImpl::DuplicateChange(_) => ErrorTag::DiceDuplicatedChange,
-            DiceErrorImpl::ChangedToInvalid(_) => ErrorTag::DiceChangedToInvalid,
+        let (error_tag, reason) = match *value.0 {
+            DiceErrorImpl::DuplicateChange(_) => (ErrorTag::DiceDuplicatedChange, None),
+            DiceErrorImpl::ChangedToInvalid(_) => (ErrorTag::DiceChangedToInvalid, None),
             DiceErrorImpl::InjectedKeyGotInvalidation(_) => {
-                ErrorTag::DiceInjectedKeyGotInvalidation
+                (ErrorTag::DiceInjectedKeyGotInvalidation, None)
             }
-            // TODO(minglunli): Might be worth extracting the CancellationReason and create tags for those too
-            DiceErrorImpl::Cancelled(_) => ErrorTag::DiceCancelled,
-            DiceErrorImpl::UnexpectedCycleGuardType {
-                expected_type_name: _,
-                actual_type_name: _,
-            } => ErrorTag::DiceUnexpectedCycleGuardType,
-            DiceErrorImpl::DuplicateActivationData => ErrorTag::DiceDuplicateActivationData,
+            DiceErrorImpl::Cancelled(reason) => (ErrorTag::DiceCancelled, Some(reason)),
+            DiceErrorImpl::UnexpectedCycleGuardType { .. } => {
+                (ErrorTag::DiceUnexpectedCycleGuardType, None)
+            }
+            DiceErrorImpl::DuplicateActivationData => (ErrorTag::DiceDuplicateActivationData, None),
         };
 
-        crate::conversion::from_any_with_tag(value, error_tag)
+        let mut error = crate::conversion::from_any_with_tag(value, error_tag);
+        if let Some(reason) = reason {
+            error = error.string_tag(&reason.to_string());
+        }
+        error
     }
 }
