@@ -1,0 +1,88 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//:fail_build?root//:macos": "Error running analysis for <IRRELEVANT>"
+  },
+  "results": {
+    "root//:fail?root//:macos": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:fail_build?root//:macos": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [
+            {
+              "action_error": null,
+              "cause_index": 0,
+              "error_tags": [
+                "ANALYSIS",
+                "INPUT"
+              ],
+              "message_content": "<STRING_HASH>"
+            }
+          ],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "FAIL"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    },
+    "root//:ok?root//:linux": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:ok?root//:macos": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    }
+  },
+  "strings": {
+    "<STRING_HASH>": "Error running analysis for <IRRELEVANT>"
+  },
+  "success": false,
+  "truncated": false
+}

@@ -1,0 +1,41 @@
+load(":defs.bzl", "fail_build", "fail_test", "ok_test")
+
+constraint_setting(
+    name = "os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "macos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "cpu",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "arm",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
+
+ok_test(
+    name = "ok",
+)
+
+fail_test(
+    name = "fail",
+)
+
+fail_build(
+    name = "fail_build",
+)

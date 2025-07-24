@@ -1,0 +1,58 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {},
+  "results": {
+    "root//:fail?root//:linux": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:fail?root//:macos": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:fail?root//:macos+root//:arm": {
+      "configured": {
+        "cfg:<empty>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    }
+  },
+  "strings": {},
+  "success": true,
+  "truncated": false
+}

@@ -1,0 +1,5 @@
+load("//:defs.bzl", "ok_test")
+
+ok_test(
+    name = "subdir",
+)
