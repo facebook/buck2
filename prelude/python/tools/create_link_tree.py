@@ -45,7 +45,16 @@ def main() -> None:
                 dst = os.path.join(args.output, dst)
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
                 src = os.path.relpath(src, start=os.path.dirname(dst))
-                os.symlink(src, dst)
+                try:
+                    os.symlink(src, dst)
+                except FileExistsError:
+                    # Only fail is the symlink we're going to create would be
+                    # different.
+                    current_src = os.readlink(dst)
+                    if current_src != src:
+                        raise RuntimeError(
+                            f"conflict for source {dst}: {src} and {current_src}"
+                        )
 
     # Create any missing ones.
     for pkg in pkgs - pkgs_with_init:
