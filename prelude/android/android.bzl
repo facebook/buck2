@@ -201,7 +201,7 @@ extra_attributes = {
     },
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-        "android_optional_jars": attrs.option(attrs.list(attrs.source()), default = None),
+        "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
         "_android_toolchain": toolchains_common.android(),
@@ -257,7 +257,7 @@ extra_attributes = {
     },
     "robolectric_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-        "android_optional_jars": attrs.option(attrs.list(attrs.source()), default = None),
+        "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
         "java_agents": attrs.list(attrs.source(), default = []),
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),

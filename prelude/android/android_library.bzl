@@ -21,6 +21,7 @@ load(
     "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",  # @unused Used as type
     "JavaCompilingDepsTSet",
+    "JavaLibraryInfo",
     "JavaProviders",  # @unused Used as type
     "create_native_providers",
     "single_library_compiling_deps",
@@ -28,9 +29,11 @@ load(
 )
 load("@prelude//java/utils:java_utils.bzl", "CustomJdkInfo")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
+load("@prelude//utils:expect.bzl", "expect")
 
 def get_custom_jdk_info(ctx: AnalysisContext) -> CustomJdkInfo:
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
+
     return CustomJdkInfo(
         bootclasspath = bootclasspath_entries,
         system_image = ctx.attrs._android_toolchain[AndroidToolchainInfo].jdk_system_image,
@@ -74,7 +77,16 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ] + android_providers
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
-    return ctx.attrs.android_optional_jars or []
+    if not ctx.attrs.android_optional_jars:
+        return []
+
+    result = []
+    for dep in ctx.attrs.android_optional_jars:
+        java_library_info = dep.get(JavaLibraryInfo)
+        expect(java_library_info != None and java_library_info.library_output != None, "Only targets producing a Java bytecode output can be added as 'android_optional_jars'!")
+        result.append(java_library_info.library_output.full_library)
+
+    return result
 
 def build_android_library(
         ctx: AnalysisContext,
