@@ -28,6 +28,11 @@ constraint_value(
     visibility = ["PUBLIC"],
 )
 
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
 dummy(name = "t1")
 
 dummy(name = "t2")

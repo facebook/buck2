@@ -496,6 +496,33 @@ async def test_cli_target_fails_with_question_mark_modifier_syntax(buck: Buck) -
     )
 
 
+@buck_test()
+async def test_cli_configured_target_fails_with_global_modifiers(buck: Buck) -> None:
+    await expect_failure(
+        buck.bxl(
+            "--modifier",
+            "root//:macos",
+            "//cli_args.bxl:cli_configured_target",
+            "--",
+            "--configured_target",
+            "root//:t1?root//:macos",
+        ),
+        stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+    )
+
+    await expect_failure(
+        buck.bxl(
+            "--modifier",
+            "root//:macos",
+            "//cli_args.bxl:cli_configured_target",
+            "--",
+            "--configured_target",
+            "root//:?root//:macos",
+        ),
+        stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+    )
+
+
 def _extract_configuration(s: str) -> List[str]:
     return re.findall(r"\((cfg:<empty>#[a-f0-9]+)\)", s)
 
@@ -605,4 +632,93 @@ async def test_cli_configured_target_pattern(buck: Buck) -> None:
         output=sanitize_hashes(result.stdout),
         rel_path=GOLDEN_DIRECTORY
         + "test_cli_configured_target_expr_recursive.golden.txt",
+    )
+
+
+@buck_test()
+async def test_cli_configured_target_modifiers_flag(buck: Buck) -> None:
+    # test single modifier
+    result = await buck.bxl(
+        "--modifier",
+        "root//:macos",
+        "//cli_args.bxl:cli_configured_target",
+        "--",
+        "--configured_target",
+        "root//:t1",
+    )
+
+    [configuration] = _extract_configuration(result.stdout)
+
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:macos" in cfg.stdout
+
+    # test multiple modifiers
+    result = await buck.bxl(
+        "--modifier",
+        "root//:macos",
+        "--modifier",
+        "root//:arm",
+        "//cli_args.bxl:cli_configured_target",
+        "--",
+        "--configured_target",
+        "root//:t1",
+    )
+
+    [configuration] = _extract_configuration(result.stdout)
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:macos" in cfg.stdout
+    assert "root//:arm" in cfg.stdout
+
+    # test expr
+    result = await buck.bxl(
+        "--modifier",
+        "root//:macos",
+        "--modifier",
+        "root//:arm",
+        "//cli_args.bxl:cli_configured_target_expr",
+        "--",
+        "--configured_target_expr",
+        "//:",
+    )
+
+    for configuration in _extract_configuration(result.stdout):
+        cfg = await buck.audit_configurations(configuration)
+        assert "root//:macos" in cfg.stdout
+        assert "root//:arm" in cfg.stdout
+
+    golden(
+        output=sanitize_hashes(result.stdout),
+        rel_path=GOLDEN_DIRECTORY
+        + "test_cli_configured_target_modifiers_flag_expr.golden.txt",
+    )
+
+
+@buck_test()
+async def test_cli_configured_target_platform(buck: Buck) -> None:
+    result = await buck.bxl(
+        "--target-platforms",
+        "root//:p",
+        "//cli_args.bxl:cli_configured_target",
+        "--",
+        "--configured_target",
+        "root//:t1",
+    )
+
+    assert "configured_target: root//:t1 (root//:p#<HASH>)" in sanitize_hashes(
+        result.stdout
+    )
+
+    result = await buck.bxl(
+        "--target-platforms",
+        "root//:p",
+        "//cli_args.bxl:cli_configured_target_expr",
+        "--",
+        "--configured_target_expr",
+        "//:",
+    )
+
+    golden(
+        output=sanitize_hashes(result.stdout),
+        rel_path=GOLDEN_DIRECTORY
+        + "test_cli_configured_target_platform_expr.golden.txt",
     )

@@ -1,0 +1,3 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[root//:arm (<unbound>), root//:cpu (<unbound>), root//:linux (<unbound>), root//:macos (<unbound>), root//:os (<unbound>), root//:p (<unbound>), root//:t1 (root//:p#<HASH>), root//:t2 (root//:p#<HASH>)]
