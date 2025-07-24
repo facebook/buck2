@@ -16,6 +16,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
@@ -315,6 +316,7 @@ pub(crate) enum CliArgType {
     TargetLabel,
     TargetExpr,
     ConfiguredTargetLabel,
+    ConfiguredTargetExpr,
     SubTarget,
     SubTargetExpr,
     Json,
@@ -377,6 +379,10 @@ impl CliArgType {
 
     fn configured_target_label() -> Self {
         CliArgType::ConfiguredTargetLabel
+    }
+
+    fn configured_target_expr() -> Self {
+        CliArgType::ConfiguredTargetExpr
     }
 
     fn sub_target() -> Self {
@@ -496,6 +502,11 @@ impl CliArgType {
             CliArgType::TargetExpr => {
                 return Err(CliArgError::NoDefaultsAllowed(CliArgType::TargetExpr).into());
             }
+            CliArgType::ConfiguredTargetExpr => {
+                return Err(
+                    CliArgError::NoDefaultsAllowed(CliArgType::ConfiguredTargetExpr).into(),
+                );
+            }
             CliArgType::SubTargetExpr => {
                 return Err(CliArgError::NoDefaultsAllowed(CliArgType::SubTargetExpr).into());
             }
@@ -562,6 +573,7 @@ impl CliArgType {
                 )
             }),
             CliArgType::TargetExpr => clap.num_args(1),
+            CliArgType::ConfiguredTargetExpr => clap.num_args(1),
             CliArgType::SubTargetExpr => clap.num_args(1),
             CliArgType::Json => clap.num_args(1),
         }
@@ -709,6 +721,34 @@ impl CliArgType {
                             .iter_loaded_targets()
                             .map_ok(|t| CliArgValue::TargetLabel(t.label().dupe()))
                             .collect::<buck2_error::Result<_>>()?,
+                    ))
+                }
+                CliArgType::ConfiguredTargetExpr => {
+                    let arg = clap.value_of().unwrap_or("");
+                    let pattern_with_modifiers =
+                        ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                            &ctx.target_alias_resolver,
+                            ctx.relative_dir.as_cell_path(),
+                            arg,
+                            &ctx.cell_resolver,
+                            &ctx.cell_alias_resolver,
+                        )?;
+                    let global_cfg_options = GlobalCfgOptions {
+                        target_platform: None,
+                        cli_modifiers: Vec::new().into(),
+                    };
+                    let loaded = load_compatible_patterns_with_modifiers(
+                        &mut ctx.dice.clone(),
+                        vec![pattern_with_modifiers],
+                        &global_cfg_options,
+                        MissingTargetBehavior::Fail,
+                    )
+                    .await?;
+                    Some(CliArgValue::List(
+                        loaded
+                            .iter()
+                            .map(|t| CliArgValue::ConfiguredTargetLabel(t.label().dupe()))
+                            .collect(),
                     ))
                 }
                 CliArgType::SubTargetExpr => {
@@ -889,6 +929,21 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> starlark::Result<CliArgs> {
         Ok(CliArgs::new(None, doc, CliArgType::target_expr(), short)?)
+    }
+
+    /// Takes an arg from the cli, and treats it as a target pattern, e.g. "cell//foo:bar", "cell//foo:", or "cell//foo/..."
+    /// with `?modifier` modifiers.
+    /// We will get a list of `ConfiguredTargetLabel` in bxl.
+    fn configured_target_expr<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(
+            None,
+            doc,
+            CliArgType::configured_target_expr(),
+            short,
+        )?)
     }
 
     /// Takes an arg from cli, and would be treated as a sub target pattern. We will get a list of `ProvidersLabel` in bxl.
