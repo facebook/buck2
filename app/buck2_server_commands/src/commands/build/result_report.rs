@@ -113,7 +113,7 @@ impl<'a> ResultReporter<'a> {
         &mut self,
         label: &ConfiguredProvidersLabel,
         result: &ConfiguredBuildTargetResult,
-        pattern_modifiers: Option<&Vec<Modifiers>>,
+        pattern_modifiers: Option<&BTreeSet<Modifiers>>,
     ) {
         let outputs = result
             .outputs

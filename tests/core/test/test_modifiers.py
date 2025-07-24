@@ -134,16 +134,14 @@ build_report_test(
     True,
 )
 
-# FIXME: Both patterns should be displayed in the build report,
-# however currently we are only displaying one of them non deterministically.
-# build_report_test(
-#     "test_build_report_modifiers_that_result_in_same_configured",
-#     [
-#         "//:ok?root//:linux+root//:arm",
-#         "//:ok?root//:arm+root//:linux",
-#     ],
-#     False,
-# )
+build_report_test(
+    "test_build_report_modifiers_that_result_in_same_configured",
+    [
+        "//:ok?root//:linux+root//:arm",
+        "//:ok?root//:arm+root//:linux",
+    ],
+    False,
+)
 
 
 def modifiers_match_test(
@@ -274,8 +272,17 @@ async def test_modifiers_that_end_up_with_same_configuration(
     with open(report) as file:
         report = json.loads(file.read())
 
-    # incorrect behavior, should have 2 results
-    assert len(report["results"].keys()) == 1
+    assert (
+        report["results"][mac_first]["configured"]
+        == report["results"][arm_first]["configured"]
+    )
+
+    [configuration] = report["results"][mac_first]["configured"].keys()
+
+    cfg = await buck.audit_configurations(configuration)
+
+    assert "root//:macos" in cfg.stdout
+    assert "root//:arm" in cfg.stdout
 
 
 @buck_test()

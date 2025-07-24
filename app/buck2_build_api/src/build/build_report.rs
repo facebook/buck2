@@ -11,6 +11,7 @@
 //! Processing and reporting the the results of the build
 
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
@@ -286,7 +287,7 @@ impl<'a> BuildReportCollector<'a> {
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-        configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
+        configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         graph_properties_opts: GraphPropertiesOptions,
@@ -922,7 +923,7 @@ pub fn generate_build_report(
     cwd: &ProjectRelativePath,
     trace_id: &TraceId,
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-    configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
+    configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
 ) -> Result<Option<String>, buck2_error::Error> {
