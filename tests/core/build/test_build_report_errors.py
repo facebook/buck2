@@ -19,6 +19,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import (
     golden,
+    sanitize_build_report,
     sanitize_hashes,
     sanitize_python,
     sanitize_stderr,
@@ -40,27 +41,8 @@ def build_report_test(name: str, command: List[str]) -> None:
         )
         with open(report) as f:
             report = json.loads(f.read())
-        del report["trace_id"]
-        del report["project_root"]
 
-        # string cache keys can vary due to differences in platform hashes within the message,
-        # so do something dumb here to still be able to use golden tests on all platforms:
-        #
-        # 1. sort by sanitized values
-        # 2. create a new dict where the keys are 1 + a large number so that we can
-        #    sanitize it using the message regex above
-        strings = dict(
-            sorted(
-                report["strings"].items(),
-                key=lambda item: sanitize_hashes(sanitize_python(item[1], buck.cwd)),
-            )
-        )
-        updated_strings = {}
-        start = 10000000000000000
-        for i, v in enumerate(strings.values()):
-            updated_strings[i + start] = v
-
-        report["strings"] = updated_strings
+        sanitize_build_report(report)
 
         golden(
             output=sanitize_hashes(

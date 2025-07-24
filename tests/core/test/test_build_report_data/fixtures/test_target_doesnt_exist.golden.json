@@ -15,7 +15,7 @@
           "error_tags": [
             "MISSING_TARGET"
           ],
-          "message_content": "17742238780201989333"
+          "message_content": "<STRING_HASH>"
         }
       ],
       "other_outputs": {},
@@ -24,7 +24,7 @@
     }
   },
   "strings": {
-    "17742238780201989333": "Unknown target `<TARGET>` from package <IRRELEVANT>"
+    "<STRING_HASH>": "Unknown target `<TARGET>` from package <IRRELEVANT>"
   },
   "success": false,
   "truncated": false

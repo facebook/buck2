@@ -17,7 +17,7 @@
                 "ANALYSIS",
                 "INPUT"
               ],
-              "message_content": "5180491970069453306"
+              "message_content": "<STRING_HASH>"
             }
           ],
           "other_outputs": {},
@@ -33,7 +33,7 @@
     }
   },
   "strings": {
-    "5180491970069453306": "Error running analysis for <IRRELEVANT>"
+    "<STRING_HASH>": "Error running analysis for <IRRELEVANT>"
   },
   "success": false,
   "truncated": false

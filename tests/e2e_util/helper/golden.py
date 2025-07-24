@@ -8,6 +8,7 @@
 
 # pyre-unsafe
 
+import json
 import os
 import re
 import typing
@@ -197,6 +198,48 @@ def sanitize_stacktrace(s: str) -> str:
             s.splitlines(),
         )
     )
+
+
+# Build report errors can change based on minor test changes such as
+# 1. Adding a target in TARGETS.fixture
+# 2. Line number changing due to code moving around
+# Sanitize so that we only check the important bits of the error message
+def sanitize_build_report_error(s: str) -> str:
+    # Simplify analysis error message (Can change due to line number changes)
+    s = re.sub(
+        r"Error running analysis for.*\"", 'Error running analysis for <IRRELEVANT>"', s
+    )
+    # Simplify the Unknown target error (Can change due to number of targets in TARGETS.fixture)
+    s = re.sub(
+        r"Unknown target `.*` from package .*\"",
+        'Unknown target `<TARGET>` from package <IRRELEVANT>"',
+        s,
+    )
+
+    return sanitize_hashes(s)
+
+
+def sanitize_build_report(report: dict) -> None:
+    del report["trace_id"]
+    del report["project_root"]
+
+    # String cache keys can vary due to differences in platform hashes within the message
+    if "strings" in report:
+        # Sort by sanitized values
+        strings = dict(
+            sorted(
+                report["strings"].items(),
+                key=lambda item: sanitize_hashes(item[1]),
+            )
+        )
+        # Create a new dict where the keys are 1 + a large number
+        # in order for it to still be in the format of a string hash
+        updated_strings = {}
+        start = 10000000000000000
+        for i, v in enumerate(strings.values()):
+            updated_strings[i + start] = v
+
+        report["strings"] = updated_strings
 
 
 def sanitize_python(s: str, project_dir: Path) -> str:
