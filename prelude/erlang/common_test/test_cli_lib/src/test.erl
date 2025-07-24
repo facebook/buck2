@@ -39,6 +39,8 @@ User-Facing library for quick-iteration testing of Common Test
     list_impl/1
 ]).
 
+-define(raw_file_access, prim_file).
+
 -type test_id() :: string() | non_neg_integer() | atom().
 -type test_info() :: #{name := string(), suite := atom()}.
 -type run_spec() :: test_id() | [test_info()].
@@ -501,9 +503,9 @@ logs_impl() ->
             {error, not_found};
         PrivDir ->
             PatternLog = filename:join(PrivDir, "*.log"),
-            LogPaths = filelib:wildcard(PatternLog),
+            LogPaths = filelib:wildcard(PatternLog, ".", ?raw_file_access),
             PatternLogJson = filename:join(PrivDir, "*.log.json"),
-            LogJsonPaths = filelib:wildcard(PatternLogJson),
+            LogJsonPaths = filelib:wildcard(PatternLogJson, ".", ?raw_file_access),
             AllLogs = lists:sort(LogPaths ++ LogJsonPaths),
             {ok, AllLogs}
     end.

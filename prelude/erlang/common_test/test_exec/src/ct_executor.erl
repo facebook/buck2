@@ -30,6 +30,7 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
 
 -define(STDOUT_MAX_LINES, 1000).
 -define(STDOUT_MAX_LINE_LENGTH, 10000).
+-define(raw_file_access, prim_file).
 
 -spec run([string()]) -> no_return().
 run(Args) when is_list(Args) ->
@@ -59,7 +60,7 @@ run(Args) when is_list(Args) ->
                     filename:join(Dep, filename:basename(filename:dirname(Dep)) ++ ".app")
                  || Dep <- code:get_path()
                 ],
-                [file:consult(DotApp) || DotApp <- PotentialDotApp, filelib:is_regular(DotApp)],
+                [file:consult(DotApp) || DotApp <- PotentialDotApp, filelib:is_regular(DotApp, ?raw_file_access)],
                 {_, Suite} = lists:keyfind(suite, 1, CtExecutorArgs),
                 {ok, RawTarget} = application:get_env(common, raw_target),
 

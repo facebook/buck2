@@ -10,7 +10,7 @@
 
 -spec load_from_file(file:filename_all()) -> test_info().
 load_from_file(TestInfoFile) ->
-    {ok, Content} = file:read_file(TestInfoFile),
+    {ok, Content} = file:read_file(TestInfoFile, [raw]),
     #{
         <<"dependencies">> := Dependencies,
         <<"test_suite">> := SuiteName,
@@ -73,7 +73,7 @@ write_to_file(FileName, TestInfo) ->
         <<"common_app_env">> => CommonAppEnv,
         <<"raw_target">> => RawTarget
     },
-    file:write_file(FileName, json:encode(Json)).
+    file:write_file(FileName, json:encode(Json), [raw]).
 
 -spec make_path_absolute(file:filename_all()) -> file:filename_all().
 make_path_absolute(Path) ->

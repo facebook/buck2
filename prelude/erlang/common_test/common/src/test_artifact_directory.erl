@@ -18,6 +18,8 @@ Used by TPX to upload diagnostic reports.
 
 -import(common_util, [unicode_characters_to_list/1]).
 
+-define(raw_file_access, prim_file).
+
 %% Public API
 -export([prepare/2, link_to_artifact_dir/3]).
 
@@ -76,8 +78,8 @@ prepare(ExecutionDir, TestInfo) ->
                 LogPrivate ->
                     [
                         link_to_artifact_dir(File, LogPrivate, TestInfo)
-                     || File <- filelib:wildcard(join_paths(LogPrivate, "**/*.log")),
-                        filelib:is_regular(File)
+                     || File <- filelib:wildcard(join_paths(LogPrivate, "**/*.log"), ".", ?raw_file_access),
+                        filelib:is_regular(File, ?raw_file_access)
                     ]
             end,
             ok
@@ -98,7 +100,7 @@ link_to_artifact_dir(File, Root, TestEnv) ->
                 end,
             FullFileName =
                 unicode_characters_to_list(string:replace(RelativePath, "/", ".", all)),
-            case filelib:is_file(File) of
+            case filelib:is_file(File, ?raw_file_access) of
                 true ->
                     file:make_symlink(File, join_paths(ArtifactDir, FullFileName)),
                     Annotation = artifact_annotations:create_artifact_annotation(FullFileName, TestEnv),
@@ -138,9 +140,10 @@ dump_annotation(Annotation, FileName) ->
         fun(ArtifactAnnotationDir) ->
             AnnotationName = FileName ++ ".annotation",
             {ok, AnnotationFile} = file:open(
-                filename:join(ArtifactAnnotationDir, AnnotationName), [write]
+                filename:join(ArtifactAnnotationDir, AnnotationName), [write, raw]
             ),
             file:write(AnnotationFile, artifact_annotations:serialize(Annotation)),
+            file:close(AnnotationFile),
             ok
         end
     ).
@@ -149,7 +152,7 @@ dump_annotation(Annotation, FileName) ->
 find_log_private(LogDir) ->
     Candidates = [
         Folder
-     || Folder <- filelib:wildcard(join_paths(LogDir, "**/log_private")), filelib:is_dir(Folder)
+     || Folder <- filelib:wildcard(join_paths(LogDir, "**/log_private"), ".", ?raw_file_access), filelib:is_dir(Folder, ?raw_file_access)
     ],
     case Candidates of
         [] -> {error, log_private_not_found};

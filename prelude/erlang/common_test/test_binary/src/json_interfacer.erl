@@ -69,7 +69,7 @@ summary(omitted) -> ?OMITTED.
 -spec write_json_output(string(), [case_result()]) -> {ok, file:filename_all()}.
 write_json_output(OutputDir, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
-    file:write_file(OuptputFile, format_json(TpxResults)),
+    file:write_file(OuptputFile, format_json(TpxResults), [raw]),
     {ok, OuptputFile}.
 
 -spec format_json([case_result()]) -> iodata().

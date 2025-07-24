@@ -86,13 +86,13 @@ expand_to_files_list(Artifacts) ->
     maps:fold(
         fun(ArchivePathBin, FSPath, AccOuter) ->
             ArchivePath = binary_to_list(ArchivePathBin),
-            case filelib:is_dir(FSPath) of
+            case filelib:is_dir(FSPath, prim_file) of
                 true ->
-                    Files = filelib:wildcard("**", binary_to_list(FSPath)),
+                    Files = filelib:wildcard("**", binary_to_list(FSPath), prim_file),
                     lists:foldl(
                         fun(FileShortPath, AccInner) ->
                             FileOrDirPath = filename:join(FSPath, FileShortPath),
-                            case filelib:is_dir(FileOrDirPath) of
+                            case filelib:is_dir(FileOrDirPath, prim_file) of
                                 true ->
                                     AccInner;
                                 false ->

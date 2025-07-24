@@ -63,7 +63,7 @@ path_relativize(
 find_in_otp(Path, OTPRoot) ->
     [App, "include", Header] = filename:split(Path),
     Pattern = filename:join(["lib", [App, "-*"], "include", Header]),
-    case filelib:wildcard(Pattern, OTPRoot) of
+    case filelib:wildcard(Pattern, OTPRoot, prim_file) of
         [FoundPath] -> {true, filename:join("/otp", FoundPath)};
         _ -> false
     end.

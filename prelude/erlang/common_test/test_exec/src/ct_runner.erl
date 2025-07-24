@@ -18,6 +18,7 @@ communicates the result to the test runner.
 -export([start_link/1]).
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
+-define(raw_file_access, prim_file).
 
 -export([
     init/1,
@@ -329,7 +330,7 @@ set_home_dir(OutputDir) ->
     HomeDir = filename:join(OutputDir, "HOME"),
     ErlangCookieFile = filename:join(HomeDir, ".erlang.cookie"),
     ok = filelib:ensure_dir(ErlangCookieFile),
-    ok = file:write_file(ErlangCookieFile, atom_to_list(cookie())),
+    ok = file:write_file(ErlangCookieFile, atom_to_list(cookie()), [raw]),
     ok = file:change_mode(ErlangCookieFile, 8#00400),
 
     % In case the system is using dotslash, we leave a symlink to
@@ -344,7 +345,7 @@ try_setup_dotslash_cache(FakeHomeDir) ->
         {ok, [[RealHomeDir]]} ->
             RealDotslashCacheDir = filename:basedir(user_cache, "dotslash"),
 
-            case filelib:is_file(RealDotslashCacheDir) of
+            case filelib:is_file(RealDotslashCacheDir, ?raw_file_access) of
                 false ->
                     ok;
                 true ->
@@ -375,7 +376,7 @@ project_root() ->
     Command = "buck2 root --kind=project",
     Dir = string:trim(os:cmd(Command)),
     ?LOG_INFO(#{command => Command, result => Dir, cwd => CWD}),
-    case filelib:is_dir(Dir) of
+    case filelib:is_dir(Dir, ?raw_file_access) of
         true ->
             Dir;
         false ->

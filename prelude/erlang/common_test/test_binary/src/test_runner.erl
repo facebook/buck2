@@ -66,7 +66,7 @@ execute_test_suite(
     ),
     TestSpecFile = filename:join(OutputDir, "test_spec.spec"),
     FormattedSpec = [io_lib:format("~tp.~n", [Entry]) || Entry <- TestSpec],
-    file:write_file(TestSpecFile, FormattedSpec),
+    file:write_file(TestSpecFile, FormattedSpec, [raw]),
     NewTestEnv = TestEnv#test_env{test_spec_file = TestSpecFile, ct_opts = CtOpts},
     try run_test(NewTestEnv) of
         ok -> ok
@@ -187,7 +187,7 @@ provide_output_file(
                 collect_results_broken_run(Tests, Suite, "", ResultExec, StdOut);
             passed ->
                 % Here we either passed or timeout.
-                case file:read_file(ResultsFile) of
+                case file:read_file(ResultsFile, [raw]) of
                     {ok, JsonFile} ->
                         TreeResults = binary_to_term(JsonFile),
                         case TreeResults of
@@ -221,17 +221,23 @@ trimmed_content_file(File) ->
         {error, Reason} ->
             io_lib:format("No ~p file found, reason ~p ", [filename:basename(File), Reason]);
         {ok, IoDevice} ->
-            case file:pread(IoDevice, {eof, -5000}, 5000) of
-                {error, _} ->
-                    case file:pread(IoDevice, bof, 5000) of
-                        {ok, Data} -> Data;
-                        eof -> io_lib:format("nothing to read from ~s", [File])
-                    end;
-                {ok, EndOfFile} ->
-                    EndOfFile ++
-                        io_lib:format("~nFile truncated, see ~p for full output", [
-                            filename:basename(File)
-                        ])
+            try
+                case file:pread(IoDevice, {eof, -5000}, 5000) of
+                    {error, _} ->
+                        case file:pread(IoDevice, bof, 5000) of
+                            {ok, Data} -> Data;
+                            eof -> io_lib:format("nothing to read from ~s", [File])
+                        end;
+                    {ok, EndOfFile} ->
+                        EndOfFile ++
+                            io_lib:format("~nFile truncated, see ~p for full output", [
+                                filename:basename(File)
+                            ])
+                end
+            of
+                Content -> Content
+            after
+                file:close(IoDevice)
             end
     end.
 

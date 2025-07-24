@@ -26,7 +26,7 @@ main(_) ->
 -spec extract(string(), string()) -> ok.
 extract(Wildcard, Target) ->
     FullWildcard = filename:join(code:root_dir(), Wildcard),
-    case filelib:wildcard(FullWildcard) of
+    case filelib:wildcard(FullWildcard, ".", prim_file) of
         [OneResult] ->
             ok = copy_dir(OneResult, Target);
         Paths ->
@@ -43,7 +43,7 @@ copy_dir(From, To) ->
         io_lib:format("cp -r ~s ~s", [From, To])
     ),
     io:format("cmd: ~s~n~s~n~n", [Cmd, os:cmd(Cmd)]),
-    case filelib:is_dir(To) of
+    case filelib:is_dir(To, prim_file) of
         true -> ok;
         false -> erlang:halt(1)
     end.

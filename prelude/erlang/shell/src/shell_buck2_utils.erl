@@ -42,7 +42,7 @@ root(Type) ->
     case run_command("buck2 root --kind=~s 2>/dev/null", [Type], [{at_root, false}, {replay, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
-            case filelib:is_dir(Dir) of
+            case filelib:is_dir(Dir, prim_file) of
                 true -> Dir;
                 false -> error({project_root_not_found, Dir})
             end;
@@ -148,9 +148,9 @@ get_additional_paths(Path) ->
             ],
             MaybeAllPaths = lists:concat([
                 [OutputPath, filename:join(OutputPath, "ebin")]
-             || OutputPath <- MaybeOutputPaths, filelib:is_dir(OutputPath)
+             || OutputPath <- MaybeOutputPaths, filelib:is_dir(OutputPath, prim_file)
             ]),
-            [MaybePath || MaybePath <- MaybeAllPaths, filelib:is_dir(MaybePath)];
+            [MaybePath || MaybePath <- MaybeAllPaths, filelib:is_dir(MaybePath, prim_file)];
         error ->
             []
     end.

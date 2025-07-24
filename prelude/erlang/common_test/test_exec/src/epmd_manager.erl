@@ -23,6 +23,8 @@ each suite execution.
 
 -behaviour(gen_server).
 
+-define(raw_file_access, prim_file).
+
 -doc """
 Find a new port and starts this epmd daemon on this new port, ensures it is up and working,
 and set up the env variable ERL_EPMD_PORT to the port this daemon is working.
@@ -190,12 +192,13 @@ listen_loop(ProcessPort, LogHandle, Acc) ->
         {failed, timeout}
     end.
 
--spec get_log_handle(file:name_all()) -> pid().
+-spec get_log_handle(file:name_all()) -> file:io_device().
 get_log_handle(EpmdOutPath) ->
-    case filelib:is_file(EpmdOutPath) of
-        true -> ok = file:delete(EpmdOutPath);
+    case filelib:is_file(EpmdOutPath, ?raw_file_access) of
+        true -> ok = file:delete(EpmdOutPath, [raw]);
         false -> ok
     end,
+    % Can't open in raw mode, since we want this handle to be consumable elsewhere
     {ok, LogHandle} = file:open(EpmdOutPath, [write]),
     LogHandle.
 
