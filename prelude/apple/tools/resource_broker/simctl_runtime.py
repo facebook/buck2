@@ -40,13 +40,12 @@ class _XCSimRuntimes:
     runtimes: List[XCSimRuntime]
 
 
-def _list_ios_runtimes_command() -> List[str]:
+def _list_runtimes_command() -> List[str]:
     return [
         "xcrun",
         "simctl",
         "list",
         "runtimes",
-        "iOS",
         "available",
         "--json",
     ]
@@ -60,8 +59,8 @@ def _simctl_runtimes_from_stdout(stdout: Optional[str]) -> List[XCSimRuntime]:
     return _XCSimRuntimes.from_dict(data).runtimes
 
 
-async def list_ios_runtimes() -> List[XCSimRuntime]:
+async def list_runtimes() -> List[XCSimRuntime]:
     stdout = await execute_generic_text_producing_command(
-        name="list iOS runtimes", cmd=_list_ios_runtimes_command()
+        name="list runtimes", cmd=_list_runtimes_command()
     )
     return _simctl_runtimes_from_stdout(stdout)
