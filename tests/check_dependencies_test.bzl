@@ -102,11 +102,11 @@ def check_dependencies_test(
         fail("mode must be one of: allowlist, blocklist")
 
     extra_buck_args_target = "%s_extra_buck_args" % (name)
-    buck_args_str = " ".join(extra_buck_args)
+    buck_args_str = "\n".join(extra_buck_args)
     buck_genrule(
         name = extra_buck_args_target,
         out = "extra_buck_args",
-        bash = "echo %s > $OUT" % (buck_args_str),
+        bash = "echo '%s' > $OUT" % (buck_args_str),
         cmd_exe = powershell_cmd_exe([
             "Set-Content $OUT '%s'" % (buck_args_str),
         ]),
