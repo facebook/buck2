@@ -23,7 +23,8 @@ async def collect_coverage_for(
     folder_filter: List[str],
     file_filter: List[str],
     mode: Optional[str] = None,
-    extra_args: Optional[List[str]] = None,
+    extra_tpx_args: Optional[List[str]] = None,
+    extra_buck_args: Optional[List[str]] = None,
 ) -> List[str]:
     coverage_file = tmp_path / "coverage.txt"
     folder_filter_str = ":".join(folder_filter)
@@ -39,12 +40,17 @@ async def collect_coverage_for(
             f"code_coverage.folder_path_filter={folder_filter_str}",
             "--config",
             f"code_coverage.file_path_filter={file_filter_str}",
-            target,
+        ]
+        + (extra_buck_args or [])
+    )
+    buck_args.append(target)
+    buck_args.extend(
+        [
             "--",
             "--collect-coverage",
             f"--coverage-output={coverage_file}",
         ]
-        + (extra_args or [])
+        + (extra_tpx_args or [])
     )
     await buck.test(*buck_args)
     paths = []
