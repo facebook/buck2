@@ -20,6 +20,8 @@ use crate::configuration::builtin::BuiltinPlatform;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::hash::ConfigurationHash;
 use crate::package::PackageLabel;
+use crate::pattern::pattern::Modifiers;
+use crate::pattern::pattern::ProvidersLabelWithModifiers;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
 use crate::target::label::label::TargetLabel;
@@ -132,6 +134,18 @@ impl ProvidersPatternExtra {
         target_name: &TargetNameRef,
     ) -> ProvidersLabel {
         ProvidersLabel::new(TargetLabel::new(package, target_name), self.providers)
+    }
+
+    pub fn into_providers_label_with_modifiers(
+        self,
+        package: PackageLabel,
+        target_name: &TargetNameRef,
+        modifiers: Modifiers,
+    ) -> ProvidersLabelWithModifiers {
+        ProvidersLabelWithModifiers {
+            providers_label: self.into_providers_label(package, target_name),
+            modifiers,
+        }
     }
 }
 

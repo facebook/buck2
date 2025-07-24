@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::path::PathBuf;
@@ -23,6 +22,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
 use buck2_build_api::build::BuildEvent;
+use buck2_build_api::build::BuildEventConsumer;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::BuildTargetResultBuilder;
 use buck2_build_api::build::ConfiguredBuildEventVariant;
@@ -45,7 +45,7 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
-use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
+use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
@@ -54,9 +54,10 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
-use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
+use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -81,6 +82,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::target_resolution_config::ModifiersError;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::test_command::TEST_COMMAND;
@@ -364,11 +366,21 @@ async fn test(
         }
     };
 
-    let parsed_patterns =
-        parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
-    server_ctx.log_target_pattern(&parsed_patterns);
+    let parsed_patterns_with_modifiers =
+        parse_patterns_with_modifiers_from_cli_args(&mut ctx, &request.target_patterns, cwd)
+            .await?;
+    server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
 
-    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
+    let has_pattern_modifiers = parsed_patterns_with_modifiers
+        .iter()
+        .any(|p| p.modifiers.as_slice().is_some());
+    if !global_cfg_options.cli_modifiers.is_empty() && has_pattern_modifiers {
+        return Err(ModifiersError::PatternModifiersWithGlobalModifiers().into());
+    }
+
+    let resolved_pattern =
+        ResolveTargetPatterns::resolve_with_modifiers(&mut ctx, &parsed_patterns_with_modifiers)
+            .await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,
@@ -509,7 +521,9 @@ async fn test(
             cwd,
             server_ctx.events().trace_id(),
             &test_outcome.build_target_result.configured,
-            &HashMap::new(),
+            &test_outcome
+                .build_target_result
+                .configured_to_pattern_modifiers,
             &test_outcome.build_target_result.other_errors,
             None,
         )?
@@ -790,16 +804,17 @@ async fn test_targets(
 
 enum TestDriverTask {
     InterpretTarget {
-        package: PackageLabel,
+        package_with_modifiers: PackageLabelWithModifiers,
         spec: PackageSpec<ProvidersPatternExtra>,
         skip_incompatible_targets: bool,
     },
     ConfigureTarget {
-        label: ProvidersLabel,
+        label_with_modifiers: ProvidersLabelWithModifiers,
         skippable: bool,
     },
     BuildTarget {
         label: ConfiguredProvidersLabel,
+        modifiers: Modifiers,
     },
     TestTarget {
         label: ConfiguredProvidersLabel,
@@ -825,7 +840,7 @@ struct TestDriverState<'a, 'e> {
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
     work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
-    labels_configured: HashSet<(ProvidersLabel, bool)>,
+    labels_configured: HashSet<(ProvidersLabelWithModifiers, bool)>,
     labels_tested: HashSet<ConfiguredProvidersLabel>,
     error_events: Vec<BuildEvent>,
     build_target_result: BuildTargetResult,
@@ -852,7 +867,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         for (package_with_modifiers, spec) in pattern.specs.into_iter() {
             let fut = future::ready(ControlFlow::Continue(vec![
                 TestDriverTask::InterpretTarget {
-                    package: package_with_modifiers.package,
+                    package_with_modifiers,
                     spec,
                     skip_incompatible_targets,
                 },
@@ -871,17 +886,24 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     for task in tasks {
                         match task {
                             TestDriverTask::InterpretTarget {
-                                package,
+                                package_with_modifiers,
                                 spec,
                                 skip_incompatible_targets,
                             } => {
-                                self.interpret_targets(package, spec, skip_incompatible_targets);
+                                self.interpret_targets(
+                                    package_with_modifiers,
+                                    spec,
+                                    skip_incompatible_targets,
+                                );
                             }
-                            TestDriverTask::ConfigureTarget { label, skippable } => {
-                                self.configure_target(label, skippable);
+                            TestDriverTask::ConfigureTarget {
+                                label_with_modifiers,
+                                skippable,
+                            } => {
+                                self.configure_target(label_with_modifiers, skippable);
                             }
-                            TestDriverTask::BuildTarget { label } => {
-                                self.build_target(label);
+                            TestDriverTask::BuildTarget { label, modifiers } => {
+                                self.build_target(label, modifiers);
                             }
                             TestDriverTask::TestTarget {
                                 label,
@@ -900,11 +922,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
     fn interpret_targets(
         &mut self,
-        package: PackageLabel,
+        package_with_modifiers: PackageLabelWithModifiers,
         spec: PackageSpec<ProvidersPatternExtra>,
         skip_incompatible_targets: bool,
     ) {
         let state = self.state;
+
+        let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 
         self.work.push(
             async move {
@@ -946,10 +970,10 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 // Indicates whether this should be skipped if incompatible.
                 let skippable = match spec {
                     PackageSpec::Targets(..) => skip_incompatible_targets,
-                    PackageSpec::All(..) => true,
+                    PackageSpec::All() => true,
                 };
 
-                let (targets, missing) = res.apply_spec(spec, Modifiers::new(None));
+                let (targets, missing) = res.apply_spec(spec, modifiers);
 
                 if let Some(missing) = missing {
                     match state.missing_target_behavior {
@@ -971,15 +995,23 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
-                let labels = targets
-                    .into_keys()
-                    .map(|(target_name, providers_pattern, _)| {
-                        providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
-                    });
+                let labels =
+                    targets
+                        .into_keys()
+                        .map(|(target_name, providers_pattern, modifiers)| {
+                            providers_pattern.into_providers_label_with_modifiers(
+                                package.dupe(),
+                                target_name.as_ref(),
+                                modifiers,
+                            )
+                        });
 
                 let work = labels
                     .into_iter()
-                    .map(|label| TestDriverTask::ConfigureTarget { label, skippable })
+                    .map(|label_with_modifiers| TestDriverTask::ConfigureTarget {
+                        label_with_modifiers,
+                        skippable,
+                    })
                     .collect();
 
                 ControlFlow::Continue(work)
@@ -988,24 +1020,44 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         );
     }
 
-    fn configure_target(&mut self, label: ProvidersLabel, skippable: bool) {
-        if !self.labels_configured.insert((label.dupe(), skippable)) {
+    fn configure_target(
+        &mut self,
+        label_with_modifiers: ProvidersLabelWithModifiers,
+        skippable: bool,
+    ) {
+        if !self
+            .labels_configured
+            .insert((label_with_modifiers.dupe(), skippable))
+        {
             return;
         }
 
+        let ProvidersLabelWithModifiers {
+            providers_label,
+            modifiers,
+        } = label_with_modifiers;
+
         let state = self.state;
+
+        let local_cfg_options = match modifiers.as_slice() {
+            Some(modifiers) => GlobalCfgOptions {
+                target_platform: state.global_cfg_options.target_platform.dupe(),
+                cli_modifiers: modifiers.to_vec().into(),
+            },
+            None => state.global_cfg_options.dupe(),
+        };
 
         let fut = async move {
             let label = match state
                 .ctx
                 .clone()
-                .get_configured_provider_label(&label, state.global_cfg_options)
+                .get_configured_provider_label(&providers_label, &local_cfg_options)
                 .await
             {
                 Ok(label) => label,
                 Err(e) => {
                     return ControlFlow::Break(vec![BuildEvent::OtherError {
-                        label: Some(label),
+                        label: Some(providers_label),
                         err: e.into(),
                     }]);
                 }
@@ -1045,7 +1097,10 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             };
 
             // Build and then test this: it's compatible.
-            let mut work = vec![TestDriverTask::BuildTarget { label }];
+            let mut work = vec![TestDriverTask::BuildTarget {
+                label,
+                modifiers: modifiers.dupe(),
+            }];
 
             // If this node is a forward, it'll get flattened when we do analysis and run the
             // test later, but its `tests` attribute here will not be, and that means we'll
@@ -1057,7 +1112,10 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             if !state.ignore_tests_attribute {
                 for test in node.tests() {
                     work.push(TestDriverTask::ConfigureTarget {
-                        label: test.unconfigured(),
+                        label_with_modifiers: ProvidersLabelWithModifiers {
+                            providers_label: test.unconfigured(),
+                            modifiers: modifiers.dupe(),
+                        },
                         // Historically `skippable: false` is what we enforced here, perhaps that
                         // should change.
                         skippable: false,
@@ -1072,8 +1130,18 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         self.work.push(fut);
     }
 
-    fn build_target(&mut self, label: ConfiguredProvidersLabel) {
+    fn build_target(&mut self, label: ConfiguredProvidersLabel, modifiers: Modifiers) {
         if !self.labels_tested.insert(label.dupe()) {
+            self.work.push(
+                async move {
+                    ControlFlow::Break(vec![BuildEvent::new_configured(
+                        label,
+                        ConfiguredBuildEventVariant::MapModifiers { modifiers },
+                    )])
+                }
+                .boxed(),
+            );
+
             return;
         }
 
@@ -1084,7 +1152,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
             let result = match ctx
                 .with_linear_recompute(|ctx| async move {
-                    build_target_result(&ctx, &state.label_filtering, build_label).await
+                    build_target_result(&ctx, &state.label_filtering, build_label, modifiers).await
                 })
                 .await
             {
@@ -1157,6 +1225,7 @@ async fn build_target_result(
     ctx: &LinearRecomputeDiceComputations<'_>,
     label_filtering: &TestLabelFiltering,
     label: ConfiguredProvidersLabel,
+    modifiers: Modifiers,
 ) -> anyhow::Result<(BuildTargetResult, FrozenProviderCollectionValue)> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
@@ -1175,6 +1244,10 @@ async fn build_target_result(
             }
             let materialization_and_upload = MaterializationAndUploadContext::skip();
             let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+            consumer.consume(BuildEvent::new_configured(
+                label.dupe(),
+                ConfiguredBuildEventVariant::MapModifiers { modifiers },
+            ));
             result_builder
                 .wait_for(
                     false,

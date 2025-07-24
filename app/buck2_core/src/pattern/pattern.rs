@@ -166,6 +166,7 @@ impl Modifiers {
     }
 }
 
+#[derive(Dupe, Clone, Eq, PartialEq, Hash)]
 pub struct ProvidersLabelWithModifiers {
     pub providers_label: ProvidersLabel,
     pub modifiers: Modifiers,
