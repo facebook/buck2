@@ -21,6 +21,7 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
@@ -397,6 +398,7 @@ pub(crate) struct CliResolutionCtx<'a> {
     pub(crate) cell_alias_resolver: CellAliasResolver,
     pub(crate) relative_dir: PackageLabel,
     pub(crate) dice: &'a DiceTransaction,
+    pub(crate) global_cfg_options: GlobalCfgOptions,
 }
 
 pub(crate) enum BxlResolvedCliArgs {

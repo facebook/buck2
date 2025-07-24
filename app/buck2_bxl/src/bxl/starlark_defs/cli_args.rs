@@ -34,6 +34,7 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::target_resolution_config::ModifiersError;
 use clap::ArgAction;
 use derive_more::Display;
 use dupe::Dupe;
@@ -655,33 +656,39 @@ impl CliArgType {
                 CliArgType::ConfiguredTargetLabel => {
                     let x = clap.value_of().unwrap_or("");
 
-                    let parsed_pattern_with_modifiers =
-                        ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
-                            &ctx.target_alias_resolver,
-                            ctx.relative_dir.as_cell_path(),
-                            x,
-                            &ctx.cell_resolver,
-                            &ctx.cell_alias_resolver,
-                        )?;
+                    let ParsedPatternWithModifiers {
+                        parsed_pattern,
+                        modifiers,
+                    } = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                        &ctx.target_alias_resolver,
+                        ctx.relative_dir.as_cell_path(),
+                        x,
+                        &ctx.cell_resolver,
+                        &ctx.cell_alias_resolver,
+                    )?;
 
-                    let local_cfg_options = GlobalCfgOptions {
-                        target_platform: None,
-                        cli_modifiers: parsed_pattern_with_modifiers
-                            .modifiers
-                            .as_slice()
-                            .map(|m| m.to_vec())
-                            .unwrap_or_default()
-                            .into(),
+                    let global_cfg_options = &ctx.global_cfg_options;
+                    let local_cfg_options = match modifiers.as_slice() {
+                        Some(modifiers) => {
+                            if !ctx.global_cfg_options.cli_modifiers.is_empty() {
+                                return Err(
+                                    ModifiersError::PatternModifiersWithGlobalModifiers().into()
+                                );
+                            }
+                            &GlobalCfgOptions {
+                                target_platform: global_cfg_options.target_platform.dupe(),
+                                cli_modifiers: modifiers.to_vec().into(),
+                            }
+                        }
+                        None => global_cfg_options,
                     };
 
                     Some(CliArgValue::ConfiguredTargetLabel(
                         ctx.dice
                             .clone()
                             .get_configured_target(
-                                &parsed_pattern_with_modifiers
-                                    .parsed_pattern
-                                    .as_target_label(x)?,
-                                &local_cfg_options,
+                                &parsed_pattern.as_target_label(x)?,
+                                local_cfg_options,
                             )
                             .await?,
                     ))
@@ -733,14 +740,10 @@ impl CliArgType {
                             &ctx.cell_resolver,
                             &ctx.cell_alias_resolver,
                         )?;
-                    let global_cfg_options = GlobalCfgOptions {
-                        target_platform: None,
-                        cli_modifiers: Vec::new().into(),
-                    };
                     let loaded = load_compatible_patterns_with_modifiers(
                         &mut ctx.dice.clone(),
                         vec![pattern_with_modifiers],
-                        &global_cfg_options,
+                        &ctx.global_cfg_options,
                         MissingTargetBehavior::Fail,
                     )
                     .await?;

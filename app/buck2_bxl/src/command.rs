@@ -246,6 +246,7 @@ impl BxlServerCommand {
             cell_alias_resolver,
             relative_dir: cur_package,
             dice: dice_ctx,
+            global_cfg_options: ctx.global_cfg_options.dupe(),
         };
 
         resolve_cli_args(
@@ -496,6 +497,7 @@ pub(crate) async fn get_bxl_cli_args(
     bxl_label: &BxlFunctionLabel,
     bxl_args: &Vec<String>,
     cell_resolver: &CellResolver,
+    global_cfg_options: &GlobalCfgOptions,
 ) -> buck2_error::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd).as_ref())?;
     let cell_name = cell_resolver.find(&cwd);
@@ -514,6 +516,7 @@ pub(crate) async fn get_bxl_cli_args(
         cell_alias_resolver,
         relative_dir: cur_package,
         dice: ctx,
+        global_cfg_options: global_cfg_options.dupe(),
     };
 
     resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await

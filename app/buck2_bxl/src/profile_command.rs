@@ -89,16 +89,6 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         let bxl_label =
             parse_bxl_label_from_cli(cwd, &opts.bxl_label, &cell_resolver, &cell_alias_resolver)?;
 
-        let BxlResolvedCliArgs::Resolved(bxl_args) =
-            get_bxl_cli_args(cwd, &mut ctx, &bxl_label, &opts.bxl_args, &cell_resolver).await?
-        else {
-            return Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Help docs were displayed. No profiler data available"
-            ));
-        };
-        let bxl_args = Arc::new(bxl_args);
-
         let global_cfg_options = global_cfg_options_from_client_context(
             opts.target_cfg
                 .as_ref()
@@ -107,6 +97,23 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             &mut ctx,
         )
         .await?;
+
+        let BxlResolvedCliArgs::Resolved(bxl_args) = get_bxl_cli_args(
+            cwd,
+            &mut ctx,
+            &bxl_label,
+            &opts.bxl_args,
+            &cell_resolver,
+            &global_cfg_options,
+        )
+        .await?
+        else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Help docs were displayed. No profiler data available"
+            ));
+        };
+        let bxl_args = Arc::new(bxl_args);
 
         let bxl_key = BxlKey::new(
             bxl_label.clone(),
