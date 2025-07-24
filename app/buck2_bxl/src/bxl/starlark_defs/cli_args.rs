@@ -16,18 +16,23 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use clap::ArgAction;
 use derive_more::Display;
 use dupe::Dupe;
@@ -272,6 +277,7 @@ pub(crate) enum CliArgValue {
     List(Vec<CliArgValue>),
     None,
     TargetLabel(TargetLabel),
+    ConfiguredTargetLabel(ConfiguredTargetLabel),
     ProvidersLabel(ProvidersLabel),
     // For json CLI arg, we do not allow defaults, and we only allow primitives that can be
     // deserialized into a `serde_json::Value`.
@@ -288,6 +294,9 @@ impl CliArgValue {
             CliArgValue::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
             CliArgValue::None => Value::new_none(),
             CliArgValue::TargetLabel(t) => heap.alloc(StarlarkTargetLabel::new(t.dupe())),
+            CliArgValue::ConfiguredTargetLabel(c) => {
+                heap.alloc(StarlarkConfiguredTargetLabel::new(c.dupe()))
+            }
             CliArgValue::ProvidersLabel(p) => heap.alloc(StarlarkProvidersLabel::new(p.clone())),
             CliArgValue::Json(j) => heap.alloc(j.as_starlark(heap)),
         }
@@ -305,6 +314,7 @@ pub(crate) enum CliArgType {
     Option(Arc<CliArgType>),
     TargetLabel,
     TargetExpr,
+    ConfiguredTargetLabel,
     SubTarget,
     SubTargetExpr,
     Json,
@@ -363,6 +373,10 @@ impl CliArgType {
 
     fn target_expr() -> Self {
         CliArgType::TargetExpr
+    }
+
+    fn configured_target_label() -> Self {
+        CliArgType::ConfiguredTargetLabel
     }
 
     fn sub_target() -> Self {
@@ -463,6 +477,14 @@ impl CliArgType {
                 })?;
                 CliArgValue::TargetLabel(label.label().dupe())
             }
+            CliArgType::ConfiguredTargetLabel => {
+                let configured_label = value
+                    .downcast_ref::<StarlarkConfiguredTargetLabel>()
+                    .ok_or_else(|| {
+                        CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
+                    })?;
+                CliArgValue::ConfiguredTargetLabel(configured_label.label().dupe())
+            }
             CliArgType::SubTarget => {
                 let label = value
                     .downcast_ref::<StarlarkProvidersLabel>()
@@ -501,6 +523,19 @@ impl CliArgType {
             CliArgType::List(inner) => inner.to_clap(clap).num_args(0..).action(ArgAction::Append),
             CliArgType::Option(inner) => inner.to_clap(clap).required(false),
             CliArgType::TargetLabel => clap.num_args(1).value_parser(|x: &str| {
+                anyhow::Ok(
+                    lex_target_pattern::<TargetPatternExtra>(x, false)
+                        .and_then(|parsed| parsed.pattern.infer_target())
+                        .map(|parsed| {
+                            parsed
+                                .target()
+                                .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
+                                .map(|_| ())
+                        })
+                        .map(|_| x.to_owned())?,
+                )
+            }),
+            CliArgType::ConfiguredTargetLabel => clap.num_args(1).value_parser(|x: &str| {
                 anyhow::Ok(
                     lex_target_pattern::<TargetPatternExtra>(x, false)
                         .and_then(|parsed| parsed.pattern.infer_target())
@@ -605,6 +640,40 @@ impl CliArgType {
                     };
                     r.map(Some)
                 })?,
+                CliArgType::ConfiguredTargetLabel => {
+                    let x = clap.value_of().unwrap_or("");
+
+                    let parsed_pattern_with_modifiers =
+                        ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                            &ctx.target_alias_resolver,
+                            ctx.relative_dir.as_cell_path(),
+                            x,
+                            &ctx.cell_resolver,
+                            &ctx.cell_alias_resolver,
+                        )?;
+
+                    let local_cfg_options = GlobalCfgOptions {
+                        target_platform: None,
+                        cli_modifiers: parsed_pattern_with_modifiers
+                            .modifiers
+                            .as_slice()
+                            .map(|m| m.to_vec())
+                            .unwrap_or_default()
+                            .into(),
+                    };
+
+                    Some(CliArgValue::ConfiguredTargetLabel(
+                        ctx.dice
+                            .clone()
+                            .get_configured_target(
+                                &parsed_pattern_with_modifiers
+                                    .parsed_pattern
+                                    .as_target_label(x)?,
+                                &local_cfg_options,
+                            )
+                            .await?,
+                    ))
+                }
                 CliArgType::SubTarget => clap.value_of().map_or(Ok(None), |x| {
                     let r: buck2_error::Result<_> = try {
                         CliArgValue::ProvidersLabel(
@@ -787,6 +856,20 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> starlark::Result<CliArgs> {
         Ok(CliArgs::new(None, doc, CliArgType::target_label(), short)?)
+    }
+
+    /// Takes an arg from cli with `?modifier` modifiers,
+    /// and gets a parsed `ConfiguredTargetLabel` in bxl.
+    fn configured_target_label<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(
+            None,
+            doc,
+            CliArgType::configured_target_label(),
+            short,
+        )?)
     }
 
     /// Takes an arg from cli, and gets a parsed `ProvidersLabel` in bxl.
