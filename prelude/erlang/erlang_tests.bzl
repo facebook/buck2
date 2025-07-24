@@ -45,10 +45,10 @@ def erlang_tests_macro(
     The macro also produces and adds
     resource targets for files in the suite associated <suitename>_data folder.
     """
-    deps = [normalize_application(dep) for dep in deps]
-
     if not suites:
         return
+
+    deps = [normalize_application(dep) for dep in deps]
 
     if srcs:
         # There is no "good name" for the application
