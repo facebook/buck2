@@ -33,9 +33,11 @@ load("@prelude//utils:expect.bzl", "expect")
 
 def get_custom_jdk_info(ctx: AnalysisContext) -> CustomJdkInfo:
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
+    bootclasspath_snapshots = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath_snapshots + optional_abi_jar_snapshots(ctx)
 
     return CustomJdkInfo(
         bootclasspath = bootclasspath_entries,
+        bootclasspath_jar_snapshots = bootclasspath_snapshots,
         system_image = ctx.attrs._android_toolchain[AndroidToolchainInfo].jdk_system_image,
     )
 
@@ -85,6 +87,18 @@ def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
         java_library_info = dep.get(JavaLibraryInfo)
         expect(java_library_info != None and java_library_info.library_output != None, "Only targets producing a Java bytecode output can be added as 'android_optional_jars'!")
         result.append(java_library_info.library_output.full_library)
+
+    return result
+
+def optional_abi_jar_snapshots(ctx: AnalysisContext) -> list[Artifact]:
+    if not ctx.attrs.android_optional_jars:
+        return []
+
+    result = []
+    for dep in ctx.attrs.android_optional_jars:
+        java_library_info = dep.get(JavaLibraryInfo)
+        expect(java_library_info != None and java_library_info.library_output != None, "Only targets producing a Java bytecode output can be added as 'android_optional_jars'!")
+        result.append(java_library_info.library_output.abi_jar_snapshot)
 
     return result
 

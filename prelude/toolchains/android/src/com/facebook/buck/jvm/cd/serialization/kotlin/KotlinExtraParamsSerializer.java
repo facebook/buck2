@@ -50,6 +50,10 @@ public class KotlinExtraParamsSerializer {
         .map(AbsPathSerializer::serialize)
         .forEach(builder::addExtraClassPaths);
 
+    kotlinExtraParams.getExtraClassPathSnapshots().stream()
+        .map(AbsPathSerializer::serialize)
+        .forEach(builder::addExtraClassPathSnapshots);
+
     builder.setAnnotationProcessingTool(
         AnnotationProcessingToolSerializer.serialize(
             kotlinExtraParams.getAnnotationProcessingTool()));
@@ -109,6 +113,9 @@ public class KotlinExtraParamsSerializer {
       com.facebook.buck.cd.model.kotlin.KotlinExtraParams kotlinExtraParams) {
     return new KotlinExtraParams(
         kotlinExtraParams.getExtraClassPathsList().stream()
+            .map(AbsPathSerializer::deserialize)
+            .collect(ImmutableList.toImmutableList()),
+        kotlinExtraParams.getExtraClassPathSnapshotsList().stream()
             .map(AbsPathSerializer::deserialize)
             .collect(ImmutableList.toImmutableList()),
         AbsPathSerializer.deserialize(kotlinExtraParams.getStandardLibraryClassPath()),

@@ -20,6 +20,7 @@ import java.util.Optional
 
 data class KotlinExtraParams(
     val extraClassPaths: ImmutableList<AbsPath>,
+    val extraClassPathSnapshots: ImmutableList<AbsPath>,
     val standardLibraryClassPath: AbsPath,
     val annotationProcessingClassPath: AbsPath,
     val annotationProcessingTool: AnnotationProcessingTool,

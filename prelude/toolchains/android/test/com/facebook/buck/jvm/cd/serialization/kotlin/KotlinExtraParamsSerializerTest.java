@@ -54,6 +54,8 @@ public class KotlinExtraParamsSerializerTest {
     KotlinExtraParams expected =
         new KotlinExtraParams(
             ImmutableList.of(fsAbsPath("extraClassPath0"), fsAbsPath("extraClassPath1")),
+            ImmutableList.of(
+                fsAbsPath("extraClassPathSnapshot0"), fsAbsPath("extraClassPathSnapshot1")),
             fsAbsPath("kotlinStdLib"),
             fsAbsPath("annotationProcessingClassPath"),
             AnnotationProcessingTool.JAVAC,

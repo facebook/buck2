@@ -131,7 +131,12 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
       ImmutableList<AbsPath> classpathSnapshots =
           extraParams.getShouldKotlincRunIncrementally()
-              ? getClasspathSnapshots(parameters, steps, buildCellRootPath, allClasspaths)
+              ? getClasspathSnapshots(
+                  parameters,
+                  steps,
+                  buildCellRootPath,
+                  allClasspaths,
+                  extraParams.getExtraClassPathSnapshots())
               : ImmutableList.of();
 
       KosabiPluginOptions kosabiPluginOptions =

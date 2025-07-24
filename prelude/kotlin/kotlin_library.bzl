@@ -399,6 +399,7 @@ def build_kotlin_library(
         # level support someday, we should rework this field and treat it like additional
         # classpath entries.
         bootclasspath_for_kotlinc = custom_jdk_info.bootclasspath if custom_jdk_info else []
+        bootclasspath_jar_snapshots_for_kotlinc = custom_jdk_info.bootclasspath_jar_snapshots if custom_jdk_info and ctx.attrs.incremental else []
 
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
         if kotlin_toolchain.kotlinc_protocol == "classic":
@@ -494,6 +495,7 @@ def build_kotlin_library(
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
                 incremental_qe_applied = "incremental_qe_applied" in ctx.attrs.labels,
+                bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
                 **common_kotlincd_kwargs
             )
 
@@ -530,6 +532,7 @@ def build_kotlin_library(
                         is_creating_subtarget = True,
                         incremental = False,
                         incremental_qe_applied = False,
+                        bootclasspath_snapshot_entries = [],
                         **common_kotlincd_kwargs
                     )
 

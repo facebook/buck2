@@ -26,6 +26,7 @@ CustomJdkInfo = record(
     # Used with -bootclasspath flag for JDK 8 and older release targets
     # This is also added to the normal classpath when used with kotlinc or javac with JDK9+ release
     bootclasspath = list[Artifact],
+    bootclasspath_jar_snapshots = list[Artifact],
     # Used with --system flag for JDK 9+ release targets
     system_image = Artifact,
 )

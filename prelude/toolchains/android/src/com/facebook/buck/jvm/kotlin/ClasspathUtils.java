@@ -15,13 +15,11 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
 import com.facebook.buck.jvm.java.CompilerParameters;
-import com.facebook.buck.jvm.kotlin.buildtools.snapshot.SnapshotGranularity;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.facebook.buck.step.isolatedsteps.common.CopyIsolatedStep;
 import com.facebook.buck.step.isolatedsteps.common.MakeCleanDirectoryIsolatedStep;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
 import java.util.Comparator;
@@ -128,32 +126,30 @@ public class ClasspathUtils {
       CompilerParameters parameters,
       ImmutableList.Builder<IsolatedStep> steps,
       AbsPath rootPath,
-      ImmutableList<AbsPath> allClasspaths) {
-
+      ImmutableList<AbsPath> allClasspaths,
+      ImmutableList<AbsPath> extraClassPathSnapshots) {
     RelPath snapshotDir =
         parameters.getOutputPaths().getWorkingDirectory().resolveRel("__classpath_snapshots__");
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(snapshotDir));
-    ImmutableMap<RelPath, RelPath> providedClasspathSnapshots = parameters.getClasspathSnapshots();
+
     ImmutableList.Builder<AbsPath> classpathSnapshotsBuilder = ImmutableList.builder();
-    providedClasspathSnapshots.values().stream()
+    classpathSnapshotsBuilder.addAll(extraClassPathSnapshots);
+    parameters.getClasspathSnapshots().values().stream()
         .map(rootPath::resolve)
         .map(AbsPath::normalize)
         .forEach(classpathSnapshotsBuilder::add);
-    // TODO logic below could benefit from caching between actions when running on persistent worker
-    allClasspaths.stream()
-        .filter(
-            classpath -> !providedClasspathSnapshots.containsKey(rootPath.relativize(classpath)))
-        .forEach(
-            classpath -> {
-              RelPath snapshotPath =
-                  snapshotDir.resolveRel(classpath.getFileName() + "_snapshot.bin");
-              steps.add(
-                  ClasspathSnapshotGeneratorStep.of(
-                      rootPath.relativize(classpath).getPath(),
-                      snapshotPath.getPath(),
-                      SnapshotGranularity.CLASS_MEMBER_LEVEL));
-              classpathSnapshotsBuilder.add(rootPath.resolve(snapshotPath).normalize());
-            });
+    ImmutableList<AbsPath> classpathSnapshots = classpathSnapshotsBuilder.build();
+
+    if (classpathSnapshots.size() < allClasspaths.size()) {
+      throw new IllegalStateException(
+          String.format(
+              "Classpath snapshots size (%d) does not match classpath size (%d). "
+                  + "When compiling incrementally, there must be a classpath snapshot "
+                  + "for every classpath item. Please ensure all classpath entries have "
+                  + "corresponding snapshots.",
+              classpathSnapshots.size(), allClasspaths.size()));
+    }
+
     return classpathSnapshotsBuilder.build();
   }
 }

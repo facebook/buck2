@@ -18,6 +18,7 @@ AndroidToolchainInfo = provider(
         "adb": provider_field(typing.Any, default = None),
         "aidl": provider_field(typing.Any, default = None),
         "android_bootclasspath": provider_field(typing.Any, default = None),
+        "android_bootclasspath_snapshots": provider_field(typing.Any, default = None),
         "android_error_handler": provider_field(typing.Any, default = None),
         "android_jar": provider_field(typing.Any, default = None),
         "android_optional_jars": provider_field(typing.Any, default = None),
