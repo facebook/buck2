@@ -1,0 +1,42 @@
+load(":defs.bzl", "run_python")
+
+constraint_setting(
+    name = "os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "macos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "cpu",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "arm",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
+
+run_python(
+    name = "run",
+    cpu = select({
+        ":arm": "print('arm')",
+        "DEFAULT": "print('DEFAULT')",
+    }),
+    os = select({
+        ":linux": "print('linux')",
+        ":macos": "print('macos')",
+        "DEFAULT": "print('DEFAULT')",
+    }),
+)
