@@ -1,0 +1,11 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+bool_arg: False
+string_arg: "default"
+int_arg: 1
+float_arg: 4.3
+optional: None
+enum_type: "a"
+target: root//:foo
+list: [1, 2, 3]
+configured_target: root//:t1 (cfg:<empty>#<HASH>)

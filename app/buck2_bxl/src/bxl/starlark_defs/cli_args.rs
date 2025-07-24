@@ -949,10 +949,13 @@ impl<'a> ArgAccessor<'a> {
 mod tests {
     use std::collections::HashSet;
 
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+    use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
     use num_bigint::BigInt;
     use starlark::values::Heap;
@@ -1072,6 +1075,19 @@ mod tests {
                 TargetLabel::testing_parse("root//foo:bar")
             )))?,
             CliArgValue::TargetLabel(TargetLabel::testing_parse("root//foo:bar"))
+        );
+
+        assert_eq!(
+            CliArgType::configured_target_label().coerce_value(heap.alloc(
+                StarlarkConfiguredTargetLabel::new(ConfiguredTargetLabel::testing_parse(
+                    "root//foo:bar",
+                    ConfigurationData::testing_new(),
+                ))
+            ))?,
+            CliArgValue::ConfiguredTargetLabel(ConfiguredTargetLabel::testing_parse(
+                "root//foo:bar",
+                ConfigurationData::testing_new(),
+            ))
         );
 
         assert_eq!(

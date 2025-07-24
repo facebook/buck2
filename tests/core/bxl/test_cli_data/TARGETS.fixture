@@ -1,3 +1,33 @@
-stub(name = "t1")
+load(":defs.bzl", "dummy")
 
-stub(name = "t2")
+constraint_setting(
+    name = "os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "macos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "cpu",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "arm",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
+
+dummy(name = "t1")
+
+dummy(name = "t2")

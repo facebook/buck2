@@ -15,6 +15,7 @@ def _impl(ctx):
     ctx.output.print("optional: " + repr(ctx.cli_args.optional))
     ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
     ctx.output.print("target: " + repr(ctx.cli_args.target))
+    ctx.output.print("configured_target: " + repr(ctx.cli_args.configured_target))
     ctx.output.print("sub_target: " + repr(ctx.cli_args.sub_target))
     ctx.output.print("list: " + repr(ctx.cli_args.list_type))
 
@@ -23,6 +24,7 @@ cli_test = bxl_main(
     cli_args = {
         "bool_arg": cli_args.bool(),
         "bool_arg_with_default": cli_args.bool(True),
+        "configured_target": cli_args.configured_target_label(),
         "enum_type": cli_args.enum(["a", "b"]),
         "float_arg": cli_args.float(),
         "int_arg": cli_args.int(),
@@ -63,11 +65,13 @@ def _impl_cli_test_short(ctx):
     ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
     ctx.output.print("target: " + repr(ctx.cli_args.target))
     ctx.output.print("list: " + repr(ctx.cli_args.list_type))
+    ctx.output.print("configured_target: " + repr(ctx.cli_args.configured_target))
 
 cli_test_short = bxl_main(
     impl = _impl_cli_test_short,
     cli_args = {
         "bool_arg": cli_args.bool(short = "b"),
+        "configured_target": cli_args.configured_target_label(short = "c"),
         "enum_type": cli_args.enum(["a", "b"], short = "e"),
         "float_arg": cli_args.float(short = "f"),
         "int_arg": cli_args.int(short = "i"),
@@ -126,5 +130,15 @@ cli_json_arg = bxl_main(
     impl = _impl_cli_json_arg,
     cli_args = {
         "my-json": cli_args.json(short = "j"),
+    },
+)
+
+def _impl_cli_configured_target(ctx):
+    ctx.output.print("configured_target: " + repr(ctx.cli_args.configured_target))
+
+cli_configured_target = bxl_main(
+    impl = _impl_cli_configured_target,
+    cli_args = {
+        "configured_target": cli_args.configured_target_label(),
     },
 )
