@@ -142,3 +142,13 @@ cli_configured_target = bxl_main(
         "configured_target": cli_args.configured_target_label(),
     },
 )
+
+def _impl_cli_configured_target_expr(ctx):
+    ctx.output.print(repr(ctx.cli_args.configured_target_expr))
+
+cli_configured_target_expr = bxl_main(
+    impl = _impl_cli_configured_target_expr,
+    cli_args = {
+        "configured_target_expr": cli_args.configured_target_expr(),
+    },
+)

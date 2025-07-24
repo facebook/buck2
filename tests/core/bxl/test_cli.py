@@ -497,7 +497,7 @@ async def test_cli_target_fails_with_question_mark_modifier_syntax(buck: Buck) -
 
 
 def _extract_configuration(s: str) -> List[str]:
-    return re.findall(r"\((.*?)\)", s)
+    return re.findall(r"\((cfg:<empty>#[a-f0-9]+)\)", s)
 
 
 @buck_test()
@@ -556,3 +556,53 @@ async def test_cli_configured_target_pattern(buck: Buck) -> None:
     )
 
     assert "configured_target: root//:t1 (<unspecified>)" in result.stdout
+
+    # test expr
+    result = await buck.bxl(
+        "//cli_args.bxl:cli_configured_target_expr",
+        "--",
+        "--configured_target_expr",
+        "//:t1?root//:macos",
+    )
+
+    [configuration] = _extract_configuration(result.stdout)
+    cfg = await buck.audit_configurations(configuration)
+
+    assert "root//:macos" in cfg.stdout
+
+    # test expr with package pattern
+    result = await buck.bxl(
+        "//cli_args.bxl:cli_configured_target_expr",
+        "--",
+        "--configured_target_expr",
+        "root//:?root//:macos",
+    )
+
+    for configuration in _extract_configuration(result.stdout):
+        cfg = await buck.audit_configurations(configuration)
+        assert "root//:macos" in cfg.stdout
+
+    golden(
+        output=sanitize_hashes(result.stdout),
+        rel_path=GOLDEN_DIRECTORY
+        + "test_cli_configured_target_expr_package.golden.txt",
+    )
+
+    # test expr with recursive pattern
+    result = await buck.bxl(
+        "//cli_args.bxl:cli_configured_target_expr",
+        "--",
+        "--configured_target_expr",
+        "root//...?root//:macos+root//:arm",
+    )
+
+    for configuration in _extract_configuration(result.stdout):
+        cfg = await buck.audit_configurations(configuration)
+        assert "root//:macos" in cfg.stdout
+        assert "root//:arm" in cfg.stdout
+
+    golden(
+        output=sanitize_hashes(result.stdout),
+        rel_path=GOLDEN_DIRECTORY
+        + "test_cli_configured_target_expr_recursive.golden.txt",
+    )
