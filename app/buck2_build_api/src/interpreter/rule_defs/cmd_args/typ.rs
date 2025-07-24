@@ -947,7 +947,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// must be baked into the binary. As an example:
     ///
     /// ```python
-    /// resources = cmd_args(resource_file, format = "-DFOO={}").ignore_artifacts()
+    /// resources = cmd_args(resource_file, format = "-DFOO={}", ignore_artifacts=True)
     /// ctx.actions.run(cmd_args("gcc", "-c", source_file, resources))
     /// ```
     ///
