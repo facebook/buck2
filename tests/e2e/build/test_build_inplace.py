@@ -74,6 +74,7 @@ async def test_missing_outputs_error(buck: Buck) -> None:
             # We really should make this an isolated test to avoid having to set this.
             "-c",
             "build.use_limited_hybrid=True",
+            "--remote-only",
         ),
         stderr_regex="(Action failed to produce output.*frecli|frecli.*OUTMISS)",
     )
