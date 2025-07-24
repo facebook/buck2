@@ -818,6 +818,7 @@ enum TestDriverTask {
     },
     TestTarget {
         label: ConfiguredProvidersLabel,
+        modifiers: Modifiers,
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
     },
@@ -907,10 +908,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             }
                             TestDriverTask::TestTarget {
                                 label,
+                                modifiers,
                                 providers,
                                 build_target_result,
                             } => {
-                                self.test_target(label, providers, build_target_result);
+                                self.test_target(label, modifiers, providers, build_target_result);
                             }
                         }
                     }
@@ -1071,10 +1073,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             {
                 Ok(node) => node,
                 Err(e) => {
-                    return ControlFlow::Break(vec![BuildEvent::new_configured(
+                    return ControlFlow::Break(create_and_map_configured_build_error(
                         label,
-                        ConfiguredBuildEventVariant::Error { err: e.into() },
-                    )]);
+                        e.into(),
+                        modifiers,
+                    ));
                 }
             };
 
@@ -1085,12 +1088,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         tracing::debug!("{}", reason.skipping_message(label.target()));
                         return ControlFlow::Continue(vec![]);
                     } else {
-                        return ControlFlow::Break(vec![BuildEvent::new_configured(
+                        return ControlFlow::Break(create_and_map_configured_build_error(
                             label,
-                            ConfiguredBuildEventVariant::Error {
-                                err: reason.to_err().into(),
-                            },
-                        )]);
+                            reason.to_err(),
+                            modifiers,
+                        ));
                     }
                 }
                 MaybeCompatible::Compatible(node) => node,
@@ -1150,20 +1152,22 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         let fut = async move {
             let ctx = &mut state.ctx.clone();
 
+            let modifiers_dupe = modifiers.dupe();
+
             let result = match ctx
                 .with_linear_recompute(|ctx| async move {
-                    build_target_result(&ctx, &state.label_filtering, build_label, modifiers).await
+                    build_target_result(&ctx, &state.label_filtering, build_label, modifiers_dupe)
+                        .await
                 })
                 .await
             {
                 Ok(result) => result,
                 Err(e) => {
-                    return ControlFlow::Break(vec![BuildEvent::new_configured(
+                    return ControlFlow::Break(create_and_map_configured_build_error(
                         label,
-                        ConfiguredBuildEventVariant::Error {
-                            err: from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
-                        },
-                    )]);
+                        from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
+                        modifiers,
+                    ));
                 }
             };
 
@@ -1171,6 +1175,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 label,
                 build_target_result: result.0,
                 providers: result.1,
+                modifiers,
             }])
         }
         .boxed();
@@ -1181,6 +1186,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     fn test_target(
         &mut self,
         label: ConfiguredProvidersLabel,
+        modifiers: Modifiers,
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
     ) {
@@ -1205,12 +1211,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             )
             .await
             {
-                return ControlFlow::Break(vec![BuildEvent::new_configured(
+                return ControlFlow::Break(create_and_map_configured_build_error(
                     label,
-                    ConfiguredBuildEventVariant::Error {
-                        err: from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor),
-                    },
-                )]);
+                    from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor),
+                    modifiers,
+                ));
             }
 
             ControlFlow::Continue(vec![])
@@ -1369,6 +1374,23 @@ fn run_tests<'a, 'b>(
         }
         Err(err) => future::ready(Err(err)).boxed(),
     }
+}
+
+// TODO(azhang2542): Ideally we would only have to map the `Modifier`` to a `ConfiguredProvidersLabel`
+// just once when we first get the `ConfiguredProvidersLabel`. Refactor the code so that we have to do
+// a call to mapping minimally, potentially by adding the mappings to the `TestDriverState`.
+fn create_and_map_configured_build_error(
+    label: ConfiguredProvidersLabel,
+    err: buck2_error::Error,
+    modifiers: Modifiers,
+) -> Vec<BuildEvent> {
+    vec![
+        BuildEvent::new_configured(label.dupe(), ConfiguredBuildEventVariant::Error { err }),
+        BuildEvent::new_configured(
+            label,
+            ConfiguredBuildEventVariant::MapModifiers { modifiers },
+        ),
+    ]
 }
 
 struct TestLabelFiltering {
