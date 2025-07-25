@@ -14,13 +14,12 @@ import com.facebook.buck.cd.model.java.AbiGenerationMode
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.jvm.java.abi.source.api.SourceOnlyAbiRuleInfoFactory
 import com.google.common.collect.ImmutableList
-import com.google.common.collect.ImmutableMap
 import com.google.common.collect.ImmutableSortedSet
 
 data class CompilerParameters(
     val sourceFilePaths: ImmutableSortedSet<RelPath>,
     val classpathEntries: ImmutableList<RelPath>,
-    val classpathSnapshots: ImmutableMap<RelPath, RelPath>,
+    val classpathSnapshots: ImmutableList<RelPath>,
     val outputPaths: CompilerOutputPaths,
     val abiGenerationMode: AbiGenerationMode,
     val abiCompatibilityMode: AbiGenerationMode,

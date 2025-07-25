@@ -56,18 +56,6 @@ public class RelPathSerializer {
                 e -> RelPathSerializer.deserialize(e.getValue())));
   }
 
-  /** Deserializes list of paths into a map of {@link RelPath} to {@link RelPath} */
-  public static ImmutableMap<RelPath, RelPath> spaceSeparatedListEntriestoMap(
-      List<String> spaceSeparatedListEntries) {
-    return spaceSeparatedListEntries.stream()
-        .map(entry -> entry.split(" "))
-        .filter(entry -> entry.length == 2 && !entry[1].isEmpty())
-        .collect(
-            ImmutableMap.toImmutableMap(
-                entry -> RelPathSerializer.deserialize(entry[0]),
-                entry -> RelPathSerializer.deserialize(entry[1])));
-  }
-
   /** Deserializes list of paths into a list of {@link RelPath} */
   public static ImmutableList<RelPath> toListOfRelPath(List<String> list) {
     return list.stream()

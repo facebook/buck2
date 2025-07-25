@@ -134,7 +134,7 @@ public class ClasspathUtils {
 
     ImmutableList.Builder<AbsPath> classpathSnapshotsBuilder = ImmutableList.builder();
     classpathSnapshotsBuilder.addAll(extraClassPathSnapshots);
-    parameters.getClasspathSnapshots().values().stream()
+    parameters.getClasspathSnapshots().stream()
         .map(rootPath::resolve)
         .map(AbsPath::normalize)
         .forEach(classpathSnapshotsBuilder::add);

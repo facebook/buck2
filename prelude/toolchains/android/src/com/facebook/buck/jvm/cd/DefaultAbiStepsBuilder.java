@@ -58,7 +58,7 @@ class DefaultAbiStepsBuilder<T extends CompileToJarStepFactory.ExtraParams>
     CompilerParameters compilerParameters =
         JavaLibraryRules.getCompilerParameters(
             compileTimeClasspathPaths,
-            ImmutableMap.of(),
+            ImmutableList.of(),
             javaSrcs,
             buildTargetValue.getFullyQualifiedName(),
             trackClassUsage,

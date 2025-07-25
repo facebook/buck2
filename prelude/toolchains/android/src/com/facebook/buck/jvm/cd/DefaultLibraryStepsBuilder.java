@@ -50,7 +50,7 @@ class DefaultLibraryStepsBuilder<T extends CompileToJarStepFactory.ExtraParams>
       BuildTargetValue buildTargetValue,
       CompilerOutputPathsValue compilerOutputPathsValue,
       ImmutableList<RelPath> compileTimeClasspathPaths,
-      ImmutableMap<RelPath, RelPath> compileTimeClasspathSnapshotPaths,
+      ImmutableList<RelPath> compileTimeClasspathSnapshotPaths,
       ImmutableSortedSet<RelPath> javaSrcs,
       ImmutableMap<RelPath, RelPath> resourcesMap,
       @Nullable JarParameters libraryJarParameters,

@@ -38,7 +38,7 @@ class BaseJarCommand(
     val trackClassUsage: Boolean,
     val compilerOutputPathsValue: CompilerOutputPathsValue,
     val compileTimeClasspathPaths: ImmutableList<RelPath>,
-    val compileTimeClasspathSnapshotPathsMap: ImmutableMap<RelPath, RelPath>,
+    val compileTimeClasspathSnapshotPathsMap: ImmutableList<RelPath>,
     val javaSrcs: ImmutableSortedSet<RelPath>,
     val resourcesMap: ImmutableMap<RelPath, RelPath>,
     val jarParameters: JarParameters?,
@@ -60,8 +60,7 @@ class BaseJarCommand(
           model.trackClassUsage,
           CompilerOutputPathsValueSerializer.deserialize(model.outputPathsValue, scratchDir),
           RelPathSerializer.toListOfRelPath(model.compileTimeClasspathPathsList),
-          RelPathSerializer.spaceSeparatedListEntriestoMap(
-              model.compileTimeClasspathSnapshotPathsList),
+          RelPathSerializer.toListOfRelPath(model.compileTimeClasspathSnapshotPathsList),
           RelPathSerializer.toSortedSetOfRelPath(model.getJavaSrcsList()),
           RelPathSerializer.toResourceMap(model.resourcesMapList),
           if (model.hasJarParameters()) JarParametersSerializer.deserialize(model.jarParameters)

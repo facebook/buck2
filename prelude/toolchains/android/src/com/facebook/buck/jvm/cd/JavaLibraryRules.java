@@ -16,7 +16,6 @@ import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.java.CompilerParameters;
 import com.facebook.buck.jvm.java.DefaultSourceOnlyAbiRuleInfoFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 
 /** Common utilities. */
@@ -28,7 +27,7 @@ public class JavaLibraryRules {
   /** Creates {@link CompilerParameters} */
   public static CompilerParameters getCompilerParameters(
       ImmutableList<RelPath> compileTimeClasspathPaths,
-      ImmutableMap<RelPath, RelPath> compileTimeClasspathSnapshotPaths,
+      ImmutableList<RelPath> compileTimeClasspathSnapshotPaths,
       ImmutableSortedSet<RelPath> javaSrcs,
       String fullyQualifiedBuildTargetName,
       boolean trackClassUsage,

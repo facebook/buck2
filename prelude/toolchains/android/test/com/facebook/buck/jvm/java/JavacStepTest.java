@@ -30,7 +30,6 @@ import com.facebook.buck.util.FakeProcess;
 import com.facebook.buck.util.FakeProcessExecutor;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.File;
@@ -65,7 +64,7 @@ public class JavacStepTest {
         new CompilerParameters(
             ImmutableSortedSet.of(),
             ImmutableList.of(),
-            ImmutableMap.of(),
+            ImmutableList.of(),
             getCompilerOutputPaths(),
             AbiGenerationMode.CLASS,
             AbiGenerationMode.CLASS,
