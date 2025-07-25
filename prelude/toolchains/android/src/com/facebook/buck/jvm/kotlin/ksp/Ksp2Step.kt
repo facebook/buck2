@@ -49,7 +49,6 @@ class Ksp2Step(
     private val shouldTrackClassUsage: Boolean,
     private val allClasspaths: ImmutableList<AbsPath>,
     private val kotlinPluginGeneratedOutFullPath: String,
-    private val projectBaseDir: RelPath,
     private val annotationProcessorParams: ImmutableSortedSet<String>,
     private val sourceFilePaths: ImmutableSortedSet<RelPath>,
     private val kspDepFilePath: RelPath,
@@ -134,7 +133,7 @@ class Ksp2Step(
         KSPJvmConfig.Builder()
             .apply {
               // All configurations happen here. See [KSPConfig] for all available options.
-              projectBaseDir = rootPath.resolve(this@Ksp2Step.projectBaseDir).toFile()
+              projectBaseDir = rootPath.toFile()
               classOutputDir = rootPath.resolve(kspClassesOutput).toFile()
               kotlinOutputDir = rootPath.resolve(kspKotlinOutput).toFile()
               javaOutputDir = rootPath.resolve(kspJavaOutput).toFile()

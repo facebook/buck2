@@ -158,7 +158,6 @@ public class KspStepsBuilder {
               shouldTrackClassUsage,
               allClassPathsBuilder.build(),
               kotlinPluginGeneratedOutFullPath,
-              projectBaseDir,
               annotationProcessorParams.getParameters(),
               sourceFilePaths,
               CompilerOutputPaths.getKspDepFilePath(reportsOutput),
