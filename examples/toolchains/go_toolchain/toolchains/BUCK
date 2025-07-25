@@ -1,0 +1,91 @@
+load("@prelude//toolchains:no_toolchain.bzl", "no_toolchain")
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
+load(
+    "@prelude//toolchains/go:go_bootstrap_toolchain.bzl",
+    "go_bootstrap_distr",
+    "go_bootstrap_toolchain",
+)
+load("@prelude//toolchains/go:go_toolchain.bzl", "go_distr", "go_toolchain")
+
+oncall("golang")
+
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+no_toolchain(
+    name = "cxx",
+    visibility = ["PUBLIC"],
+)
+
+http_archive(
+    name = "archive_go1.24.4.darwin-arm64",
+    sha256 = "27973684b515eaf461065054e6b572d9390c05e69ba4a423076c160165336470",
+    strip_prefix = "go",
+    urls = ["https://go.dev/dl/go1.24.4.darwin-arm64.tar.gz"],
+)
+
+http_archive(
+    name = "archive_go1.24.4.linux-amd64",
+    sha256 = "77e5da33bb72aeaef1ba4418b6fe511bc4d041873cbf82e5aa6318740df98717",
+    strip_prefix = "go",
+    urls = ["https://go.dev/dl/go1.24.4.linux-amd64.tar.gz"],
+)
+
+go_bootstrap_distr(
+    name = "go_bootstrap_distr",
+    go_os = select({
+        "config//os:linux": "linux",
+        "config//os:macos": "darwin",
+    }),
+    go_root = select({
+        "config//os:linux": select({"config//cpu:x86_64": ":archive_go1.24.4.linux-amd64"}),
+        "config//os:macos": select({"config//cpu:arm64": ":archive_go1.24.4.darwin-arm64"}),
+    }),
+)
+
+go_bootstrap_toolchain(
+    name = "go_bootstrap",
+    env_go_arch = select({
+        "config//cpu:arm64": "arm64",
+        "config//cpu:x86_64": "amd64",
+    }),
+    env_go_os = select({
+        "config//os:linux": "linux",
+        "config//os:macos": "darwin",
+    }),
+    go_bootstrap_distr = ":go_bootstrap_distr",
+    visibility = ["PUBLIC"],
+)
+
+go_distr(
+    name = "go_distr",
+    go_arch = select({
+        "config//cpu:arm64": "arm64",
+        "config//cpu:x86_64": "amd64",
+    }),
+    go_os = select({
+        "config//os:linux": "linux",
+        "config//os:macos": "darwin",
+    }),
+    go_root = select({
+        "config//os:linux": select({"config//cpu:x86_64": ":archive_go1.24.4.linux-amd64"}),
+        "config//os:macos": select({"config//cpu:arm64": ":archive_go1.24.4.darwin-arm64"}),
+    }),
+)
+
+go_toolchain(
+    name = "go",
+    env_go_arch = select({
+        "config//cpu:arm64": "arm64",
+        "config//cpu:x86_64": "amd64",
+    }),
+    env_go_os = select({
+        "config//os:linux": "linux",
+        "config//os:macos": "darwin",
+        "config//os:windows": "windows",
+    }),
+    go_distr = ":go_distr",
+    visibility = ["PUBLIC"],
+)

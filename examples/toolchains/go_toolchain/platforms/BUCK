@@ -1,0 +1,49 @@
+oncall("golang")
+
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "config//cpu/constraints:x86_64",
+        "config//os/constraints:linux",
+    ],
+)
+
+platform(
+    name = "linux_arm64",
+    constraint_values = [
+        "config//cpu/constraints:arm64",
+        "config//os/constraints:linux",
+    ],
+)
+
+platform(
+    name = "macos_x86_64",
+    constraint_values = [
+        "config//cpu/constraints:x86_64",
+        "config//os/constraints:macos",
+    ],
+)
+
+platform(
+    name = "macos_arm64",
+    constraint_values = [
+        "config//cpu/constraints:arm64",
+        "config//os/constraints:macos",
+    ],
+)
+
+platform(
+    name = "windows_x86_64",
+    constraint_values = [
+        "config//cpu/constraints:x86_64",
+        "config//os/constraints:windows",
+    ],
+)
+
+platform(
+    name = "windows_arm64",
+    constraint_values = [
+        "config//cpu/constraints:arm64",
+        "config//os/constraints:windows",
+    ],
+)
