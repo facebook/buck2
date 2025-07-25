@@ -182,6 +182,29 @@ public class ErrorInterceptor extends PrintStream {
   private static final Pattern KOTLIN_FILE_PATTERN =
       Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.kt)\\b:(\\d+):(\\d+):");
 
+  /** Enum representing supported file types with their associated patterns and keywords. */
+  public enum FileType {
+    JAVA(JAVA_FILE_PATTERN, JAVA_KEYWORDS),
+    KOTLIN(KOTLIN_FILE_PATTERN, KOTLIN_KEYWORDS),
+    UNKNOWN(null, new String[0]);
+
+    private final Pattern filePattern;
+    private final String[] keywords;
+
+    FileType(Pattern filePattern, String[] keywords) {
+      this.filePattern = filePattern;
+      this.keywords = keywords;
+    }
+
+    public Pattern getFilePattern() {
+      return filePattern;
+    }
+
+    public String[] getKeywords() {
+      return keywords;
+    }
+  }
+
   public ErrorInterceptor() {
     super(System.err);
   }
@@ -191,55 +214,61 @@ public class ErrorInterceptor extends PrintStream {
     super.print(prettyPrint(message));
   }
 
-  public static String prettyPrint(String errorMessage) {
-    if (errorMessage == null || errorMessage.isEmpty()) {
-      return errorMessage;
+  public static String prettyPrint(String exception) {
+    if (exception == null || exception.isEmpty()) {
+      return exception;
     }
 
     if (System.getenv("NO_COLOR") != null) {
-      return errorMessage;
+      return exception;
     }
 
-    String fileType = determineFileType(errorMessage);
+    FileType fileType = determineFileType(exception);
 
-    if ("java".equals(fileType)) {
-      return prettyPrintJavaError(errorMessage);
-    } else if ("kotlin".equals(fileType)) {
-      return prettyPrintKotlinError(errorMessage);
-    } else {
-      return errorMessage;
+    switch (fileType) {
+      case JAVA:
+        return prettyPrintJavaException(exception);
+      case KOTLIN:
+        return prettyPrintKotlinException(exception);
+      default:
+        return exception;
     }
   }
 
-  private static String determineFileType(String errorMessage) {
-    Matcher javaMatcher = JAVA_FILE_PATTERN.matcher(errorMessage);
-    if (javaMatcher.find()) {
-      return "java";
+  private static FileType determineFileType(String exception) {
+    for (FileType type : FileType.values()) {
+      if (type == FileType.UNKNOWN) continue;
+      if (type.getFilePattern().matcher(exception).find()) {
+        return type;
+      }
     }
 
-    Matcher kotlinMatcher = KOTLIN_FILE_PATTERN.matcher(errorMessage);
-    if (kotlinMatcher.find()) {
-      return "kotlin";
-    }
-
-    // Default to "unknown" if file type cannot be determined
-    return "unknown";
+    // Default to "UNKNOWN" if file type cannot be determined
+    return FileType.UNKNOWN;
   }
 
-  private static String prettyPrintJavaError(String message) {
-    message =
-        colorizePattern(ERROR_PATTERN, message, match -> highlightError(match, JAVA_KEYWORDS));
-    message = colorizePattern(WARNING_PATTERN, message, ErrorInterceptor::highlightWarning);
-    message = colorizePattern(JAVA_FILE_PATTERN, message, ErrorInterceptor::highlightJavaFile);
-    return message;
+  private static String prettyPrintJavaException(String exception) {
+    exception =
+        colorizePattern(
+            ERROR_PATTERN, exception, match -> highlightError(match, FileType.JAVA.getKeywords()));
+    exception = colorizePattern(WARNING_PATTERN, exception, ErrorInterceptor::highlightWarning);
+    exception =
+        colorizePattern(
+            FileType.JAVA.getFilePattern(), exception, ErrorInterceptor::highlightJavaFile);
+    return exception;
   }
 
-  private static String prettyPrintKotlinError(String message) {
-    message =
-        colorizePattern(ERROR_PATTERN, message, match -> highlightError(match, KOTLIN_KEYWORDS));
-    message = colorizePattern(WARNING_PATTERN, message, ErrorInterceptor::highlightWarning);
-    message = colorizePattern(KOTLIN_FILE_PATTERN, message, ErrorInterceptor::highlightKotlinFile);
-    return message;
+  private static String prettyPrintKotlinException(String exception) {
+    exception =
+        colorizePattern(
+            ERROR_PATTERN,
+            exception,
+            match -> highlightError(match, FileType.KOTLIN.getKeywords()));
+    exception = colorizePattern(WARNING_PATTERN, exception, ErrorInterceptor::highlightWarning);
+    exception =
+        colorizePattern(
+            FileType.KOTLIN.getFilePattern(), exception, ErrorInterceptor::highlightKotlinFile);
+    return exception;
   }
 
   /**
