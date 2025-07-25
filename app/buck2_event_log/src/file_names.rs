@@ -45,7 +45,7 @@ pub(crate) fn get_logfile_name(
 }
 
 pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
-    const N_LOGS_RETAINED: usize = 10;
+    const N_LOGS_RETAINED: usize = 12;
 
     if let Ok(logfiles) = get_files_in_log_dir(logdir) {
         futures::stream::iter(logfiles.into_iter().rev().skip(N_LOGS_RETAINED - 1))
