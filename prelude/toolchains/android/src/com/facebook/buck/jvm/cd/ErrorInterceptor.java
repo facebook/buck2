@@ -235,6 +235,21 @@ public class ErrorInterceptor extends PrintStream {
     }
   }
 
+  // Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
+  private static String createHyperlink(String file, int line, String text) {
+    String OSC = "\033]";
+    String ST = "\033\\";
+
+    // Assembles raw url, terminal handles encoding.
+    String uri =
+        "https://www.internalfb.com/intern/nuclide/open/arc/?project=fbsource&paths[0]="
+            + file
+            + "&lines[0]="
+            + line;
+
+    return OSC + "8;;" + uri + ST + text + OSC + "8;;" + ST;
+  }
+
   private static FileType determineFileType(String exception) {
     for (FileType type : FileType.values()) {
       if (type == FileType.UNKNOWN) continue;
@@ -310,13 +325,19 @@ public class ErrorInterceptor extends PrintStream {
   }
 
   private static String highlightJavaFile(Matcher match) {
-    return GREEN + match.group(1) + RESET + ":" + MAGENTA + match.group(2) + RESET + ":";
+    String file = match.group(1);
+    int line = Integer.parseInt(match.group(2));
+    String displayText = GREEN + file + RESET;
+
+    return createHyperlink(file, line, displayText) + ":" + MAGENTA + match.group(2) + RESET + ":";
   }
 
   private static String highlightKotlinFile(Matcher match) {
-    return GREEN
-        + match.group(1)
-        + RESET
+    String file = match.group(1);
+    int line = Integer.parseInt(match.group(2));
+    String displayText = GREEN + file + RESET;
+
+    return createHyperlink(file, line, displayText)
         + ":"
         + MAGENTA
         + match.group(2)

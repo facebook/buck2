@@ -18,6 +18,7 @@ import sys
 import zipfile
 from tempfile import TemporaryDirectory
 from typing import List
+from urllib.parse import urlencode
 
 import utils
 
@@ -49,6 +50,25 @@ _KSP_CACHES_DIR_ARG = _KSP_PLUGIN + "cachesDir"
 _KSP_OUTPUT_ARG = _KSP_PLUGIN + "kspOutputDir"
 _KSP_INCREMENTAL_ARG = _KSP_PLUGIN + "incremental"
 _KSP_WITH_COMPILATION_ARG = _KSP_PLUGIN + "withCompilation"
+
+
+def _hyperlink(file: str, line: int, text: str) -> str:
+    """
+    Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
+
+    Args:
+        file: The file path to link to
+        line: The line number to link to
+        text: The text to display as the hyperlink
+
+    Returns:
+        A string containing the hyperlinked text with terminal escape sequences
+    """
+    OSC = "\033]"
+    ST = "\033\\"
+    params = urlencode({"project": "fbsource", "paths[0]": file, "lines[0]": line})
+    uri = f"https://www.internalfb.com/intern/nuclide/open/arc/?{params}"
+    return f"{OSC}8;;{uri}{ST}{text}{OSC}8;;{ST}"
 
 
 def _parse_args():
@@ -340,10 +360,10 @@ def pretty_exception_k(e) -> str:
         flags=re.IGNORECASE,
     )
 
-    # Process code pointers
+    # Process code pointers and hyperlinks
     e = re.sub(
         r"\b(/?(?:\w+/)*\w+\.\w{2,})\b:(\d+):(\d+):",
-        lambda match: f"{GREEN}{match.group(1)}{RESET}:{MAGENTA}{match.group(2)}{RESET}:{MAGENTA}{match.group(3)}{RESET}:",
+        lambda match: f"{_hyperlink(match.group(1), int(match.group(2)), f'{GREEN}{match.group(1)}{RESET}')}:{MAGENTA}{match.group(3)}{RESET}:",
         e,
     )
 
