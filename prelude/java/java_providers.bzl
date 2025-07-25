@@ -124,11 +124,15 @@ def _abi_to_abi_dir(entry: JavaClasspathEntry):
         return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
     return []
 
+def _full_library_args(entry: JavaClasspathEntry):
+    return entry.full_library
+
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
         "abi_to_abi_dir": _abi_to_abi_dir,
         "args_for_ast_dumper": _args_for_ast_dumper,
         "args_for_compiling": _args_for_compiling,
+        "full_library_args": _full_library_args,
     },
     json_projections = {
         "abi_to_abi_snapshot_json": _abi_to_abi_snapshot_json,
@@ -400,7 +404,7 @@ def create_java_packaging_dep(
         library_jar: Artifact | None = None,
         output_for_classpath_macro: Artifact | None = None,
         needs_desugar: bool = False,
-        desugar_deps: list[Artifact] = [],
+        desugar_deps: [TransitiveSetArgsProjection, None] = None,
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         sources_jar: Artifact | None = None,
@@ -588,7 +592,7 @@ def _create_non_template_providers(
         exported_provided_deps: list[Dependency] = [],
         runtime_deps: list[Dependency] = [],
         needs_desugar: bool = False,
-        desugar_classpath: list[Artifact] = [],
+        desugar_classpath: [TransitiveSetArgsProjection, None] = None,
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         sources_jar: Artifact | None = None,
@@ -695,8 +699,7 @@ def create_java_library_providers(
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
     compiling_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)
-    compiling_classpath = [dep.full_library for dep in (list(compiling_deps.traverse()) if compiling_deps else [])]
-    desugar_classpath = compiling_classpath if needs_desugar else []
+    desugar_classpath = compiling_deps.project_as_args("full_library_args") if needs_desugar and compiling_deps != None else None
 
     library_info, packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph = _create_non_template_providers(
         ctx,
@@ -721,7 +724,7 @@ def create_java_library_providers(
     template_info = create_template_info(ctx, packaging_info, first_order_libs)
 
     intellij_info = JavaLibraryIntellijInfo(
-        compiling_classpath = compiling_classpath,
+        compiling_classpath = [dep.full_library for dep in (list(compiling_deps.traverse()) if compiling_deps else [])],
         generated_sources = generated_sources,
         annotation_jars_dir = annotation_jars_dir,
         lint_jar = lint_jar,

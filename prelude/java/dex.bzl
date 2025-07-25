@@ -32,7 +32,7 @@ def get_dex_produced_from_java_library(
         dex_toolchain: DexToolchainInfo,
         jar_to_dex: Artifact,
         needs_desugar: bool = False,
-        desugar_deps: list[Artifact] = [],
+        desugar_deps: [TransitiveSetArgsProjection, None] = None,
         weight_factor: int = 1) -> DexLibraryInfo:
     # TODO(T102963008) check whether the java_library actually contains any classes
 
@@ -50,9 +50,9 @@ def get_dex_produced_from_java_library(
     if not needs_desugar:
         d8_cmd.add("--no-desugar")
     else:
-        desugar_deps_file = ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps)
+        desugar_deps_file = ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps or [])
         d8_cmd.add(["--classpath-files", desugar_deps_file])
-        d8_cmd.add(cmd_args(hidden = desugar_deps))
+        d8_cmd.add(cmd_args(hidden = desugar_deps or []))
 
     referenced_resources_file = ctx.actions.declare_output(prefix + "_referenced_resources.txt")
     d8_cmd.add(["--referenced-resources-path", referenced_resources_file.as_output()])
