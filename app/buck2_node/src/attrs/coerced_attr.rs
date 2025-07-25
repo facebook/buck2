@@ -600,10 +600,25 @@ impl CoercedAttr {
                 "no entries after slow select the most specific"
             )),
             [(.., x)] => Ok(Some(x)),
-            [(x, ..), (y, ..), ..] => Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Both select keys `{x}` and `{y}` match the configuration, but neither is more specific"
-            )),
+            multiple_entries => {
+                // Check if all entries have the same value
+                let (first_key, _, first_value) = &multiple_entries[0];
+                // Find the first entry with a different value, if any
+                let different_value_entry = multiple_entries
+                    .iter()
+                    .skip(1)
+                    .find(|(_, _, v)| v != first_value);
+                if let Some((different_key, _, _)) = different_value_entry {
+                    // Report the ambiguity error with the specific keys that have different values
+                    Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Both select keys `{first_key}` and `{different_key}` match the configuration, but neither is more specific and they have different values"
+                    ))
+                } else {
+                    // If all values are the same, return that value
+                    Ok(Some(first_value))
+                }
+            }
         }
     }
 

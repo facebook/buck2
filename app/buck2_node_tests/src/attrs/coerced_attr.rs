@@ -127,17 +127,27 @@ fn select_the_most_specific() {
         CoercedAttr::select_the_most_specific(select_entries).unwrap()
     );
 
-    // Conflicting keys.
+    // Conflicting keys with different values.
     let select_entries = [
         (&linux_arm64, &linux_arm64_data, &literal_true),
         (&linux_x86_64, &linux_x86_64_data, &literal_str),
     ];
     assert_eq!(
         "Both select keys `config//:linux-arm64` and `config//:linux-x86_64` \
-            match the configuration, but neither is more specific",
+            match the configuration, but neither is more specific and they have different values",
         CoercedAttr::select_the_most_specific(select_entries)
             .unwrap_err()
             .to_string()
+    );
+
+    // Conflicting keys with same values - should not error.
+    let select_entries = [
+        (&linux_arm64, &linux_arm64_data, &literal_true),
+        (&linux_x86_64, &linux_x86_64_data, &literal_true),
+    ];
+    assert_eq!(
+        Some(&literal_true),
+        CoercedAttr::select_the_most_specific(select_entries).unwrap()
     );
 }
 
