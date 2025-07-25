@@ -98,7 +98,9 @@ def optional_abi_jar_snapshots(ctx: AnalysisContext) -> list[Artifact]:
     for dep in ctx.attrs.android_optional_jars:
         java_library_info = dep.get(JavaLibraryInfo)
         expect(java_library_info != None and java_library_info.library_output != None, "Only targets producing a Java bytecode output can be added as 'android_optional_jars'!")
-        result.append(java_library_info.library_output.abi_jar_snapshot)
+
+        if (java_library_info.library_output.abi_jar_snapshot):
+            result.append(java_library_info.library_output.abi_jar_snapshot)
 
     return result
 
