@@ -22,6 +22,9 @@ load(
 load(":apple_target_sdk_version.bzl", "get_platform_name_for_sdk", "get_platform_version_for_sdk_version")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
+UpdateOperations = enum("set", "insert")
+MergeOperations = enum("merge")
+
 def process_info_plist(ctx: AnalysisContext, override_input: Artifact | None) -> AppleBundlePart:
     input = _preprocess_info_plist(ctx)
     output = ctx.actions.declare_output("Info.plist")
@@ -183,6 +186,16 @@ def apple_info_plist_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs.xml:
         command = cmd_args(command, ["--output-xml"])
+
+    # Add mutations if provided
+    if ctx.attrs.mutations:
+        mutations_file = ctx.actions.write_json("mutations.json", ctx.attrs.mutations)
+        command.add("--mutations")
+        command.add(mutations_file)
+        for mutation in ctx.attrs.mutations:
+            operation, args = mutation
+            if operation in MergeOperations.values():
+                command.add(cmd_args(hidden = args))
 
     ctx.actions.run(
         command,

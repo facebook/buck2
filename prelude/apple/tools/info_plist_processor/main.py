@@ -106,6 +106,12 @@ def _create_process_subparser(
         action="store_true",
         help="Output as XML",
     )
+    parser.add_argument(
+        "--mutations",
+        metavar="<Mutations.json>",
+        type=Path,
+        help="Path to .json file containing mutation operations to apply to the plist",
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -156,6 +162,11 @@ def main() -> None:
                 else None
             )
             output_format = plistlib.FMT_XML if args.output_xml else plistlib.FMT_BINARY
+            mutations_file = (
+                stack.enter_context(args.mutations.open(mode="r"))
+                if args.mutations is not None
+                else None
+            )
             process(
                 input_file=input_file,
                 output_file=output_file,
@@ -163,6 +174,7 @@ def main() -> None:
                 additional_keys_file=additional_keys,
                 override_keys_file=override_keys,
                 output_format=output_format,
+                mutations_file=mutations_file,
             )
 
 
