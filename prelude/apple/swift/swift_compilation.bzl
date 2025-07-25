@@ -722,24 +722,46 @@ def _compile_index_store(
         srcs: list[CxxSrcWithFlags]) -> Artifact:
     module_name = get_module_name(ctx)
 
+    # Create a directory where we can write .o files and ignore them.
+    #
+    # Tn index store directories, the hash used in the unit file name is derived from
+    # the output path. E.g. if the output path is dir1/Foo.o, our unit file is
+    # Foo.swift-ABC123. If the output path changes to dir2/Foo.o, our unit file is now
+    # Foo.swift-DEF456.
+    #
+    # See this part of the index-while-building talk from the 2017 LLVM developer
+    # meeting: https://www.youtube.com/watch?v=jGJhnIT-D2M&t=279s
+    #
+    # swiftc also requires that all output paths are unique, so we can't just use
+    # /dev/null as the output path.
+    #
+    # Buck requires that all declared outputs are created when the rule succeeds, but we
+    # want to create an index store even if there are errors in the source files.
+    #
+    # We solve this by declaring a directory as the buck output, and telling swiftc that
+    # we want all our .o files there. Our target will then succeed whether or not we
+    # create a .o file.
+    objects_dir = ctx.actions.declare_output("__indexstore__/objects", dir = True)
+
+    sh_cmd = cmd_args([
+        "mkdir",
+        "-p",
+        objects_dir.as_output(),
+    ])
+    ctx.actions.run(
+        sh_cmd,
+        category = "swift_compilation_database",
+    )
+
     # We need an output file map with index-unit-output-path entries to be able
     # to index all of the srcs in a single pass.
     output_file_map = {}
-    object_outputs = []
     for src in srcs:
-        # We have to declare outputs for all the srcs as the Swift driver will
-        # not allow us to share the same output path for multiple inputs. We
-        # don't care about the output, but there is no way to get an output
-        # path without declaring one.
-        obj_out = ctx.actions.declare_output("__indexstore__/" + src.file.basename + ".o")
-        object_outputs.append(obj_out.as_output())
         output_file_map[src.file] = {
-            # Not declared as output, we have the path already so this can be
-            # thrown away.
-            "diagnostics": cmd_args(obj_out, format = "{}.dia", delimiter = ""),
+            "diagnostics": cmd_args(objects_dir, format = "{}/" + src.file.basename + ".dia", delimiter = ""),
             # The output here is only used for the identifier of the index unit file
             "index-unit-output-path": src.file,
-            "object": cmd_args(obj_out, delimiter = ""),
+            "object": cmd_args(objects_dir, format = "{}/" + src.file.basename + ".o", delimiter = ""),
         }
 
     index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True)
@@ -751,7 +773,6 @@ def _compile_index_store(
         "-disable-batch-mode",
         "-Xwrapper",
         "-ignore-errors",
-        hidden = object_outputs,
     )
 
     _compile_with_argsfile(

@@ -326,7 +326,7 @@ def main():
         with open(wrapper_args.json_error_output_path, "w") as json_out:
             # Don't bother running the diagnostics deserializer if compilation
             # succeeded as the output will never be used.
-            if result.returncode == 0:
+            if result.returncode == 0 or wrapper_args.ignore_errors:
                 json_out.write("[]")
             else:
                 # Get the serialized diagnostics output from the output file map.
