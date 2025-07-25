@@ -8,15 +8,126 @@
 
 
 import argparse
+import os
 import pathlib
 import re
+import shlex
 import shutil
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from typing import List
 
 import utils
 
 _JAVA_FILE_EXTENSION = [".java"]
+
+
+def pretty_exception_j(e) -> str:
+    if "NO_COLOR" in os.environ or "NO_JAVAC_COLOR" in os.environ:
+        return e
+
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    GREEN = "\033[92m"
+    MAGENTA = "\033[95m"
+    BLUE = "\033[94m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
+    # Source: https://docs.oracle.com/javase/tutorial/java/nutsandbolts/_keywords.html
+    java_keywords = [
+        "abstract",
+        "assert",
+        "boolean",
+        "break",
+        "byte",
+        "case",
+        "catch",
+        "char",
+        "class",
+        "const",
+        "continue",
+        "default",
+        "do",
+        "double",
+        "else",
+        "enum",
+        "extends",
+        "final",
+        "finally",
+        "float",
+        "for",
+        "goto",
+        "if",
+        "implements",
+        "import",
+        "instanceof",
+        "int",
+        "interface",
+        "long",
+        "native",
+        "new",
+        "package",
+        "private",
+        "protected",
+        "public",
+        "return",
+        "short",
+        "static",
+        "strictfp",
+        "super",
+        "switch",
+        "synchronized",
+        "this",
+        "throw",
+        "throws",
+        "transient",
+        "try",
+        "void",
+        "volatile",
+        "while",
+        "null",
+        "true",
+        "false",
+        "record",
+        "sealed",
+        "permits",
+        "non-sealed",
+        "var",
+    ]
+
+    def highlight_java_code(s):
+        return re.sub(
+            rf"\b({'|'.join(java_keywords)})\b",
+            lambda match: f"{BLUE}{match.group(1)}{RESET}",
+            s,
+        )
+
+    # Process error messages
+    e = re.sub(
+        r"\berror\b(:.*?\n)((?:.*?\n)+?\s*)(\^+)\n",
+        lambda match: f"{RED}error{RESET}{BOLD}{match.group(1)}{RESET}{highlight_java_code(match.group(2))}{RED}{match.group(3)}{RESET}\n",
+        e,
+        flags=re.IGNORECASE,
+    )
+
+    # Process warning messages
+    e = re.sub(
+        r"\bwarning\b(:.*?)\n",
+        lambda match: f"{YELLOW}warning{RESET}{BOLD}{match.group(1)}{RESET}\n",
+        e,
+        flags=re.IGNORECASE,
+    )
+
+    # Process code pointers
+    e = re.sub(
+        r"\b(/?(?:\w+/)*\w+\.\w{2,4})\b:(\d+):",
+        lambda match: f"{GREEN}{match.group(1)}{RESET}:{MAGENTA}{match.group(2)}{RESET}:",
+        e,
+    )
+
+    return e
 
 
 def _parse_args():
@@ -213,7 +324,18 @@ def _run_javac(
         javac_cmd += ["-g"]
 
         javac_cmd += ["-d", javac_output]
-        utils.execute_command(javac_cmd)
+        utils.log_message(
+            "executing command = '{}'".format(
+                " ".join([shlex.quote(str(s)) for s in javac_cmd])
+            )
+        )
+
+        p = subprocess.run(javac_cmd, stderr=subprocess.PIPE, text=True)
+        if p.returncode != 0:
+            print(pretty_exception_j(p.stderr), file=sys.stderr)
+            sys.exit(p.returncode)
+
+        return javac_output
 
     return javac_output
 
