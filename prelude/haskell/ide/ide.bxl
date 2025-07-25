@@ -177,6 +177,13 @@ def _solution_for_haskell_lib(ctx, target, exclude):
     haskell_toolchain = ctx.analysis(resolved_attrs._haskell_toolchain.label)
     toolchain = haskell_toolchain.providers().get(HaskellToolchainInfo)
 
+    if "platform010/build/ghc/8.8.3/" in str(toolchain.packager):
+        msg = """ 
+        Haskell IDE cannot process this file. We only supports GHC 9.2.4,
+            but this file seems to have 8.8.3 dependecies. Please migrate your project to GHC 9.2.4.
+        """
+        fail(msg)
+
     binutils_path = paths.join(root, toolchain.ghci_binutils_path)
     cc_path = paths.join(root, toolchain.ghci_cc_path)
     cxx_path = paths.join(root, toolchain.ghci_cxx_path)
