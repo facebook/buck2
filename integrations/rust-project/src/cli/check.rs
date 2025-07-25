@@ -12,6 +12,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use anyhow::Context as _;
+
 use crate::buck;
 use crate::buck::Buck;
 use crate::diagnostics;
@@ -42,7 +44,10 @@ impl Check {
 
         let mut diagnostics = vec![];
         for path in check_output.diagnostic_paths {
-            let contents = std::fs::read_to_string(path)?;
+            let contents = std::fs::read_to_string(&path).context(format!(
+                "Trying to read JSON file of diagnostics: {}",
+                path.display(),
+            ))?;
             for l in contents.lines() {
                 // rustc (and with greater relevance, the underlying build.bxl script) emits diagnostics as newline-delimited JSON.
                 // One complicating factor is that the file paths in the diagnostics are relative to each Buck project, which assumes that
