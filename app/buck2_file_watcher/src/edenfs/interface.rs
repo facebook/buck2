@@ -193,7 +193,7 @@ impl EdenFsFileWatcher {
 
         let mut dice = dice;
         if large_or_unknown_change {
-            (stats, dice) = self
+            (stats, file_change_tracker, dice) = self
                 .on_large_or_unknown_change(dice)
                 .await
                 .buck_error_context("Failed to handle large or unknown change.")?;
@@ -682,7 +682,7 @@ impl EdenFsFileWatcher {
     async fn on_large_or_unknown_change(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(FileWatcherStats, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(FileWatcherStats, FileChangeTracker, DiceTransactionUpdater)> {
         // A large change is one that affects numerous files or is otherwise unbounded in nature.
         // For example:
         // - A commit transition (e.g. a rebase, checkout, etc.).
@@ -735,10 +735,14 @@ impl EdenFsFileWatcher {
                 &mut processed_changes,
             )
             .await?;
-            Ok((stats, dice))
+            Ok((stats, tracker, dice))
         } else {
             base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());
-            Ok((FileWatcherStats::new(base_stats, 0), dice))
+            Ok((
+                FileWatcherStats::new(base_stats, 0),
+                FileChangeTracker::new(),
+                dice,
+            ))
         }
     }
 
