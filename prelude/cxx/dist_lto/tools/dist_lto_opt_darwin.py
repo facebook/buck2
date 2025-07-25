@@ -82,10 +82,18 @@ def main(argv: List[str]) -> int:
         print(" ".join(clang_invocation))
         return EXIT_SUCCESS
 
-    subprocess.check_call(clang_invocation)
+    result = subprocess.run(
+        clang_invocation,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        print(result.stderr, file=sys.stderr)
+        return result.returncode
+
     # Work around Clang bug where it fails silently: T187767815
     if os.stat(args.out).st_size == 0:
-        print("error: opt produced empty file")
+        print("error: clang produced empty file", file=sys.stderr)
         return EXIT_FAILURE
     return EXIT_SUCCESS
 
