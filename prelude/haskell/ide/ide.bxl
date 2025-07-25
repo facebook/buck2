@@ -277,8 +277,10 @@ def _assembleSolution(ctx, linkStyle, result):
                 if result["exclude_packages"].get(item.name) == None:
                     hlis[item.name] = item
     for hli in hlis.values():
-        flags.append("-package")
-        flags.append(hli.name)
+        if not (hli.name.startswith("z-")):
+            flags.append("-package")
+            flags.append(hli.name)
+
         ctx.output.ensure_multiple(hli.stub_dirs)
         ctx.output.ensure_multiple(hli.libs)
         ctx.output.ensure_multiple(hli.import_dirs.values())
