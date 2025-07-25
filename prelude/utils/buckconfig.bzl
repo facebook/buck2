@@ -103,7 +103,7 @@ def _log_read_config(
         read_func,
         section: str,
         key: str,
-        default: str | Select | None = None) -> str | Select | None:
+        default = None):
     value = read_func(section, key, default)
 
     maybe_value_dict = {"value": value} if _BUCKCONFIG_LOG_VALUE else {}
