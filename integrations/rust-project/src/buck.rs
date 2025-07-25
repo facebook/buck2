@@ -715,6 +715,21 @@ where
             stderr,
             status,
         }) => {
+            // If we have a non-zero exit code due to a compiler crash (a rustc
+            // ICE), then we should exit with a non-zero exit code. If the
+            // compiler is crashing, we may not be showing all diagnostics, so
+            // the user should know something is wrong.
+            //
+            // Ignore non-zero exit codes otherwise. It's possible to configure
+            // a build to fail on warnings, such that we get well-formed JSON of
+            // the rustc diagnostics but the exit code is non-zero (D46666035).
+            if !status.success() {
+                let stderr_str = String::from_utf8_lossy(&stderr);
+                if stderr_str.contains("error: the compiler unexpectedly panicked") {
+                    return Err(anyhow::anyhow!("{}", stderr_str));
+                }
+            }
+
             tracing::debug!(?command, "parsing command output");
             serde_json::from_slice(&stdout)
                 .with_context(|| cmd_err(command, status, &stderr))
