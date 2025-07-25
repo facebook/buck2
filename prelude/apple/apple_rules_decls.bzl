@@ -14,6 +14,7 @@
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//apple:apple_info_plist.bzl", "apple_info_plist_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs", "get_apple_toolchain_attr")
@@ -1507,10 +1508,21 @@ apple_xcuitest = prelude_rule(
     attrs = apple_xcuitest_extra_attrs(),
 )
 
+apple_info_plist = prelude_rule(
+    name = "apple_info_plist",
+    impl = apple_info_plist_impl,
+    attrs = {
+        "src": attrs.source(),
+        "xml": attrs.bool(default = False),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    },
+)
+
 apple_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
     apple_bundle = apple_bundle,
+    apple_info_plist = apple_info_plist,
     apple_library = apple_library,
     apple_macos_bundle = apple_macos_bundle,
     apple_package = apple_package,

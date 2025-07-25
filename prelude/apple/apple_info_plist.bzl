@@ -158,3 +158,39 @@ def _info_plist_override_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     elif sdk_name not in [MacOSXCatalystSdkMetadata.name]:
         result["LSRequiresIPhoneOS"] = True
     return result
+
+def apple_info_plist_impl(ctx: AnalysisContext) -> list[Provider]:
+    """
+    Implementation for the apple_info_plist rule.
+
+    This rule takes a source plist file and processes it to create an output plist.
+    """
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+    processor = apple_tools.info_plist_processor
+
+    input_plist = ctx.attrs.src
+    output_plist = ctx.actions.declare_output("Info.plist")
+
+    # Basic plist processing command
+    command = cmd_args([
+        processor,
+        "process",
+        "--input",
+        input_plist,
+        "--output",
+        output_plist.as_output(),
+    ])
+
+    if ctx.attrs.xml:
+        command = cmd_args(command, ["--output-xml"])
+
+    ctx.actions.run(
+        command,
+        category = "apple_info_plist",
+        identifier = input_plist.basename,
+        **_get_plist_run_options()
+    )
+
+    return [
+        DefaultInfo(default_output = output_plist),
+    ]

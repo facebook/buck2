@@ -9,9 +9,13 @@
 # pyre-strict
 
 import argparse
+import io
+import plistlib
 from contextlib import ExitStack
 from enum import Enum
 from pathlib import Path
+
+from apple.tools.plistlib_utils import detect_format_and_load
 
 from .preprocess import preprocess
 from .process import process
@@ -97,6 +101,11 @@ def _create_process_subparser(
         required=True,
         help="Path where processed .plist file should be placed",
     )
+    parser.add_argument(
+        "--output-xml",
+        action="store_true",
+        help="Output as XML",
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -113,7 +122,13 @@ def main() -> None:
     args = _parse_args()
     if args.subcommand_name == _SubcommandName.preprocess:
         with ExitStack() as stack:
-            input_file = stack.enter_context(args.input.open(mode="r"))
+            with args.input.open(mode="rb") as binary_file:
+                plist_data = detect_format_and_load(binary_file)
+                xml_content = plistlib.dumps(plist_data, fmt=plistlib.FMT_XML).decode(
+                    "utf-8"
+                )
+                input_file = io.StringIO(xml_content)
+
             output_file = stack.enter_context(args.output.open(mode="w"))
             substitutions_json = (
                 stack.enter_context(args.substitutions_json.open(mode="r"))
@@ -140,12 +155,14 @@ def main() -> None:
                 if args.override_keys is not None
                 else None
             )
+            output_format = plistlib.FMT_XML if args.output_xml else plistlib.FMT_BINARY
             process(
                 input_file=input_file,
                 output_file=output_file,
                 override_input_file=override_input,
                 additional_keys_file=additional_keys,
                 override_keys_file=override_keys,
+                output_format=output_format,
             )
 
 
