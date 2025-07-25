@@ -64,14 +64,16 @@ class Spec:
             for entry in data["include_build_target_patterns"]
         ]
         self.include_regular_expressions = [
-            re.compile(entry) for entry in data["include_regular_expressions"]
+            re.compile(_sanitize_regex_pattern(entry))
+            for entry in data["include_regular_expressions"]
         ]
         self.exclude_build_target_patterns = [
             BuildTargetPatternOutputPathMatcher(entry)
             for entry in data["exclude_build_target_patterns"]
         ]
         self.exclude_regular_expressions = [
-            re.compile(entry) for entry in data["exclude_regular_expressions"]
+            re.compile(_sanitize_regex_pattern(entry))
+            for entry in data["exclude_regular_expressions"]
         ]
 
     def scrub_debug_file_path(self, debug_file_path: str) -> bool:
@@ -93,6 +95,11 @@ class Spec:
                 self.exclude_regular_expressions,
             )
         )
+
+
+def _sanitize_regex_pattern(pattern: str) -> str:
+    double_slash_index = pattern.find("//")
+    return pattern[double_slash_index + 1 :] if double_slash_index != -1 else pattern
 
 
 def _path_matches_pattern_or_expression(

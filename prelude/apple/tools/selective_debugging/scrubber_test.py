@@ -78,20 +78,9 @@ class Test(unittest.TestCase):
         )
 
     def test_spec_targets(self):
-        results, _ = _get_scrubber_results(spec_json_file_path="focused_spec.json")
-
-        focused_paths = []
-        scrubbed_paths = []
-
-        for orig_path, rewrite_path in results:
-            if rewrite_path.strip() == FAKE_PATH:
-                scrubbed_paths.append(orig_path)
-            elif orig_path == rewrite_path:
-                focused_paths.append(orig_path)
-            else:
-                raise Exception(
-                    f"Rewrite path is neither the fake path nor the original path: {rewrite_path}"
-                )
+        focused_paths, scrubbed_paths = _get_focused_and_scrubbed_paths(
+            spec_json_file_path="focused_spec.json"
+        )
 
         self.assertEqual(
             focused_paths,
@@ -135,6 +124,43 @@ class Test(unittest.TestCase):
 
         self.assertEqual(
             output_paths, {"fbobjc/buck2/samples/focused_debugging/__Foo__"}
+        )
+
+    def test_spec_targets_regex_all(self):
+        focused_paths, scrubbed_paths = _get_focused_and_scrubbed_paths(
+            spec_json_file_path="focused_spec_regex_all.json"
+        )
+        self.assertEqual(
+            focused_paths,
+            [
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__HelloWorld__/__objects__/srcs/AppDelegate.m.o",
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__HelloWorld__/__objects__/srcs/RootViewController.m.o",
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__HelloWorld__/__objects__/srcs/main.m.o",
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__Foo__/libFoo.a(Foo.mm.o)",
+            ],
+        )
+        self.assertEqual(
+            scrubbed_paths,
+            [],
+        )
+
+    def test_spec_targets_regex_none(self):
+        focused_paths, scrubbed_paths = _get_focused_and_scrubbed_paths(
+            spec_json_file_path="focused_spec_regex_none.json"
+        )
+
+        self.assertEqual(
+            focused_paths,
+            [],
+        )
+        self.assertEqual(
+            scrubbed_paths,
+            [
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__HelloWorld__/__objects__/srcs/AppDelegate.m.o",
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__HelloWorld__/__objects__/srcs/RootViewController.m.o",
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__HelloWorld__/__objects__/srcs/main.m.o",
+                "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/buck2/samples/focused_debugging/__Foo__/libFoo.a(Foo.mm.o)",
+            ],
         )
 
     def test_should_scrub_with_focused_targets_output_paths(self):
@@ -198,6 +224,33 @@ class Test(unittest.TestCase):
                 "xplat/some/path/fooo/prebuilt_lib.a(baz.m.o)",
             ),
         )
+
+
+def _get_focused_and_scrubbed_paths(
+    targets_json_file_path: Optional[str] = None,
+    spec_json_file_path: Optional[str] = None,
+    adhoc_codesign_tool: Optional[str] = None,
+) -> (List[str], List[str]):
+    results, _ = _get_scrubber_results(
+        targets_json_file_path=targets_json_file_path,
+        spec_json_file_path=spec_json_file_path,
+        adhoc_codesign_tool=adhoc_codesign_tool,
+    )
+
+    focused_paths = []
+    scrubbed_paths = []
+
+    for orig_path, rewrite_path in results:
+        if rewrite_path.strip() == FAKE_PATH:
+            scrubbed_paths.append(orig_path)
+        elif orig_path == rewrite_path:
+            focused_paths.append(orig_path)
+        else:
+            raise Exception(
+                f"Rewrite path is neither the fake path nor the original path: {rewrite_path}"
+            )
+
+    return (focused_paths, scrubbed_paths)
 
 
 @patch(
