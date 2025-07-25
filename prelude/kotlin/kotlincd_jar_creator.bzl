@@ -431,8 +431,6 @@ def _define_kotlincd_action(
         should_action_run_incrementally: bool = False):
     _unused = source_only_abi_compiling_deps
 
-    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
-
     compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(
         qualified_name,
@@ -487,11 +485,27 @@ def _define_kotlincd_action(
         )
 
         dep_files["classpath_jars"] = classpath_jars_tag
+
     kotlin_build_command = struct(
         buildCommand = encoded_command,
         postBuildParams = post_build_params,
     )
-    proto_with_inputs = actions.write_json(proto, kotlin_build_command, with_inputs = True)
+
+    # This is a little bit convoluted due to the way that content-based paths affect argfiles.
+    # If an unused tagged input changes, we don't want to re-run the action, but if it is a
+    # content-based input that is written to the argfile, then the argfile will also change
+    # and that would cause a re-run.
+    #
+    # We therefore write the argfile twice: the "real" argfile, which is used in the action
+    # and tagged as unused so that it is not used for dep-file comparison, and an argfile
+    # that uses placeholders instead of content-based paths, which is not tagged for dep-files
+    # and therefore causes a dep-file miss if it changes.
+    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
+    proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json")
+
+    proto_with_inputs = classpath_jars_tag.tag_artifacts(actions.write_json(proto, kotlin_build_command))
+    proto_with_inputs_for_dep_files = actions.write_json(proto_dep_files_placeholder, kotlin_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True)
+    args.add(cmd_args(hidden = proto_with_inputs_for_dep_files))
 
     args.add(
         "--action-id",
