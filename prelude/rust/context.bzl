@@ -131,7 +131,12 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     # sysroot to avoid accidentally linking against the prebuilt sysroot libs
     # provided by the toolchain.
     if toolchain_info.explicit_sysroot_deps:
-        empty_sysroot = ctx.actions.copied_dir("empty_dir", {})
+        # Construct an empty sysroot dir with the similar structure as the real one
+        # in order to appease rustc. For instance, even with -Zexternal-clangrt, rustc will emit a
+        # -L{sysroot}/lib/rustlib/{target}/lib on the link line, which will fail if the sysroot dir is empty.
+        empty_sysroot = ctx.actions.copied_dir("empty_dir", {
+            "lib/rustlib/{}/lib".format(toolchain_info.rustc_target_triple): ctx.actions.copied_dir("__empty__", {}),
+        })
         sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
     elif toolchain_info.sysroot_path:
         sysroot_args = cmd_args("--sysroot=", toolchain_info.sysroot_path, delimiter = "")
