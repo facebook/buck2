@@ -24,7 +24,7 @@ def ensure_default_info(ctx: bxl.Context, default_info: DefaultInfo, with_other_
     load("@prelude//bxl:ensure.bxl", "ensure_default_info")
     def _impl(ctx):
         target = ctx.cli_args.target
-        default_info = ctx.analysis(target).providers([DefaultInfo].sub_targets["dwp"][DefaultInfo]
+        default_info = ctx.analysis(target).providers()[DefaultInfo].sub_targets["dwp"][DefaultInfo]
         ensure_default_info(ctx, default_info)
     ```
     """
