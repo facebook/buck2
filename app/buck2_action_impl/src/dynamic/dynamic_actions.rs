@@ -13,6 +13,10 @@ use std::cell::RefCell;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -45,7 +49,13 @@ pub(crate) struct StarlarkDynamicActions<'v> {
 }
 
 #[starlark_value(type = "DynamicAction")]
-impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {}
+impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {
+    // Used to add type documentation to the generated documentation
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(dynamic_actions_methods)
+    }
+}
 
 impl<'v> AllocValue<'v> for StarlarkDynamicActions<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -54,3 +64,23 @@ impl<'v> AllocValue<'v> for StarlarkDynamicActions<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
+
+/// Opaque thunk type returned from calling the returned value of a `dynamic_actions` or
+/// `bxl.dynamic_actions` rule invocation.
+///
+/// Can be passed to
+/// [`AnalysisActions.dynamic_output_new`](../AnalysisActions#analysisactionsdynamic_output_new) to
+/// extract its contents.
+///
+/// It is not possible to extract structured values from inside a `DynamicValue` into anything
+/// but another dynamic action. However, dynamic actions may have *output artifact* arguments of
+/// type [`dynattrs.output()`](../dynattrs/#output) passed into them, which can then be *bound*
+/// by the dynamic actions and referenced from outside as if they are normal artifacts; when those
+/// output artifacts are demanded by the build process, the dynamic action will be executed.
+///
+/// Be aware that the context argument of the called impl function differs between
+/// [`dynamic_actions`](../#dynamic_actions) where it is [`actions: AnalysisActions`](../AnalysisActions)
+/// and [`bxl.dynamic_actions`](../../bxl/#dynamic_actions)
+/// where it is [`bxl_ctx: bxl.Context`](../../bxl/Context).
+#[starlark_module]
+fn dynamic_actions_methods(builder: &mut MethodsBuilder) {}
