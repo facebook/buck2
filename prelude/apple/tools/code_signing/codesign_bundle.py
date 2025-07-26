@@ -549,6 +549,7 @@ class ParallelProcess:
         if self.process.returncode == 0:
             return
         with ExitStack() as stack:
+            command = f"\ncommand:\n{self.process.args}\n"
             stderr = stack.enter_context(open(self.stderr_path, encoding="utf8"))
             stderr_string = f"\nstderr:\n{stderr.read()}\n"
             stdout = (
@@ -557,7 +558,7 @@ class ParallelProcess:
                 else None
             )
             stdout_string = f"\nstdout:\n{stdout.read()}\n" if stdout else ""
-            raise RuntimeError(f"{stdout_string}{stderr_string}")
+            raise RuntimeError(f"{command}{stdout_string}{stderr_string}")
 
 
 def _spawn_process(
