@@ -111,7 +111,11 @@ def _resolve(
     # Resolve constraint value overrides.
     overrides = []
     if hasattr(attrs, "constraint_overrides") and attrs.constraint_overrides != None:
-        overrides = [_check(override) for override in attrs.constraint_overrides]
+        overrides = [
+            _check(override)
+            for override in attrs.constraint_overrides
+            if override != None
+        ]
     args["constraints"] = []
     for override in overrides:
         if not hasattr(refs, override):
@@ -212,7 +216,7 @@ _python_refs = {k: v for k, v in _refs.items()}
 # @oss-disable[end= ]: _python_refs.update(python_transitions.refs())
 
 _attributes = {
-    "constraint_overrides": attrs.list(attrs.string(), default = []),
+    "constraint_overrides": attrs.list(attrs.option(attrs.string()), default = []),
     "platform_override": attrs.option(attrs.string(), default = None),
 }
 
