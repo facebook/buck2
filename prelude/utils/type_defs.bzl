@@ -63,6 +63,19 @@ def is_dict(arg):
     """
     return type(arg) == _DICT_TYPE
 
+_SET_TYPE = type(set())
+
+def is_set(arg):
+    """Checks if provided instance has a set type.
+
+    Args:
+      arg: An instance to check. type: Any
+
+    Returns:
+      True for set instances, False otherwise. rtype: bool
+    """
+    return type(arg) == _SET_TYPE
+
 _TUPLE_TYPE = type(())
 
 def is_tuple(arg):
@@ -145,6 +158,7 @@ type_utils = struct(
     is_unicode = is_unicode,
     is_list = is_list,
     is_dict = is_dict,
+    is_set = is_set,
     is_tuple = is_tuple,
     is_collection = is_collection,
     is_select = is_select,
