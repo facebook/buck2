@@ -564,7 +564,7 @@ apple_bundle = prelude_rule(
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
             "xcode_product_type": attrs.option(attrs.string(), default = None),
-        }
+        } | apple_bundle_extra_attrs()
     ),
     impl = apple_bundle_impl,
     cfg = target_sdk_version_transition,
