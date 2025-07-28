@@ -118,7 +118,7 @@ fn update_events_ctx<T: StreamingCommand>(
     };
 
     if let Some(recorder) = events_ctx.recorder.as_mut() {
-        recorder.update_for_client_ctx(
+        recorder.update_for_command(
             ctx,
             cmd.event_log_opts(),
             cmd.logging_name(),

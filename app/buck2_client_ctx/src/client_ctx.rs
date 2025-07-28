@@ -301,7 +301,7 @@ pub trait BuckSubcommand {
     ) {
         let paths = ctx.paths().ok();
         if let Some(recorder) = events_ctx.recorder.as_mut() {
-            recorder.update_for_client_ctx(
+            recorder.update_for_command(
                 ctx,
                 self.event_log_opts(),
                 self.logging_name(),

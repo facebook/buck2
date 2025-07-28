@@ -407,7 +407,7 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
 
 /// Forwards events to a list of subscribers to record and report build events.
 pub struct EventsCtx {
-    pub(crate) recorder: Option<Box<InvocationRecorder>>,
+    pub recorder: Option<Box<InvocationRecorder>>,
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     client_cpu_tracker: ClientCpuTracker,
     // buck_log_dir and command_report_path are used to write the command report.

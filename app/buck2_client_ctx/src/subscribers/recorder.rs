@@ -403,7 +403,28 @@ impl InvocationRecorder {
         }
     }
 
-    pub(crate) fn update_for_client_ctx(
+    pub fn update_for_client_ctx(&mut self, ctx: &ClientCommandContext<'_>) {
+        self.isolation_dir = Some(ctx.isolation.to_string());
+        self.client_metadata = ctx
+            .client_metadata
+            .iter()
+            .map(ClientMetadata::to_proto)
+            .collect();
+
+        if let Some(client_id_from_client_metadata) = ctx
+            .client_metadata
+            .iter()
+            .find(|m| m.key == "id")
+            .map(|m| m.value.clone())
+        {
+            self.metadata.insert(
+                "client".to_owned(),
+                client_id_from_client_metadata.to_owned(),
+            );
+        }
+    }
+
+    pub(crate) fn update_for_command(
         &mut self,
         ctx: &ClientCommandContext<'_>,
         event_log_opts: &CommonEventLogOptions,
@@ -449,29 +470,11 @@ impl InvocationRecorder {
         self.cli_args = sanitized_argv;
         self.representative_config_flags = representative_config_flags;
         self.write_to_path = write_to_path;
-        self.isolation_dir = Some(ctx.isolation.to_string());
         self.build_count_manager = build_count;
         self.filesystem = Some(filesystem);
         self.compressed_event_log_size_bytes = log_size_counter_bytes;
         self.health_check_tags_receiver = health_check_tags_receiver;
-        self.client_metadata = ctx
-            .client_metadata
-            .iter()
-            .map(ClientMetadata::to_proto)
-            .collect();
         self.preemptible = build_config_opts.and_then(|opts| opts.preemptible);
-
-        if let Some(client_id_from_client_metadata) = ctx
-            .client_metadata
-            .iter()
-            .find(|m| m.key == "id")
-            .map(|m| m.value.clone())
-        {
-            self.metadata.insert(
-                "client".to_owned(),
-                client_id_from_client_metadata.to_owned(),
-            );
-        }
     }
 
     async fn build_count(

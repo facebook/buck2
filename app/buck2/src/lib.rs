@@ -446,6 +446,9 @@ impl CommandKind {
             common_opts.client_metadata,
             common_opts.isolation_dir,
         );
+        if let Some(recorder) = events_ctx.recorder.as_mut() {
+            recorder.update_for_client_ctx(&command_ctx);
+        }
 
         match self {
             #[cfg(not(client_only))]
