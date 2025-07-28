@@ -12,7 +12,7 @@ def _artifacts(ctx):
 
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             "-c",
             "import time, sys; time.sleep(5); open(sys.argv[1], 'w')",
             slow.as_output(),

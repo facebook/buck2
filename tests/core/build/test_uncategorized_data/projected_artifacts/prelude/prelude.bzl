@@ -12,7 +12,7 @@ def _declare_sub_targets(ctx: AnalysisContext) -> list[Provider]:
         name: [DefaultInfo(default_output = out_dir.project(name))]
         for name in ctx.attrs.sub_targets
     }
-    ctx.actions.run(["python3", ctx.attrs.command, out_dir.as_output()], category = "mkdirs")
+    ctx.actions.run(["fbpython", ctx.attrs.command, out_dir.as_output()], category = "mkdirs")
     return [DefaultInfo(default_output = out_dir, sub_targets = sub_targets)]
 
 declare_sub_targets = rule(
@@ -23,7 +23,7 @@ declare_sub_targets = rule(
 def _exists(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("check")
     ctx.actions.run(
-        ["python3", ctx.attrs.command, out.as_output(), ctx.attrs.paths],
+        ["fbpython", ctx.attrs.command, out.as_output(), ctx.attrs.paths],
         category = "check",
         local_only = ctx.attrs.local,
     )

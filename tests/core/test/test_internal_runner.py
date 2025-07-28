@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env fbpython
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is dual-licensed under either the MIT license found in the

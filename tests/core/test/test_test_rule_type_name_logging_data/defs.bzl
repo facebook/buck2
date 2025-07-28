@@ -10,7 +10,7 @@ def _one(ctx):
     return [
         DefaultInfo(default_output = ctx.actions.write("out", "one")),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", "import sys; sys.exit(0)"],
+            command = ["fbpython", "-c", "import sys; sys.exit(0)"],
             type = "custom",
         ),
     ]
@@ -26,7 +26,7 @@ def _two(ctx):
     return [
         DefaultInfo(default_output = ctx.actions.write("out", "two")),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", "import sys; sys.exit(0)"],
+            command = ["fbpython", "-c", "import sys; sys.exit(0)"],
             type = "custom",
         ),
     ]

@@ -11,7 +11,7 @@ def _test_impl(ctx: AnalysisContext) -> list[Provider]:
     for i in range(10):
         o = ctx.actions.declare_output("out/{}".format(i))
         ctx.actions.run(
-            ["python3", "-c", "import time, sys; time.sleep(2); open(sys.argv[1],'w')", o.as_output()],
+            ["fbpython", "-c", "import time, sys; time.sleep(2); open(sys.argv[1],'w')", o.as_output()],
             category = "test",
             identifier = str(i),
             weight_percentage = 20,

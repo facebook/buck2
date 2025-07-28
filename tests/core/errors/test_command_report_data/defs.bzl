@@ -9,7 +9,7 @@
 def _build_fail(ctx):
     out = ctx.actions.declare_output("out.txt")
     ctx.actions.run(
-        cmd_args("python3", "-c", "import sys; sys.exit(1)", hidden = out.as_output()),
+        cmd_args("fbpython", "-c", "import sys; sys.exit(1)", hidden = out.as_output()),
         category = "run",
     )
     return [DefaultInfo(default_output = out)]

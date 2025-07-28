@@ -10,7 +10,7 @@ def _impl_ok(_ctx):
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", "import sys; sys.exit(0)"],
+            command = ["fbpython", "-c", "import sys; sys.exit(0)"],
             type = "custom",
         ),
     ]
@@ -21,7 +21,7 @@ def _impl_fail(_ctx):
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", "import sys; sys.exit(1)"],
+            command = ["fbpython", "-c", "import sys; sys.exit(1)"],
             type = "custom",
         ),
     ]

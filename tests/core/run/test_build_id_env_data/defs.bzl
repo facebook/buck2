@@ -10,7 +10,7 @@ def _check_run_uuid(_ctx):
     return [
         DefaultInfo(),
         RunInfo([
-            "python3",
+            "fbpython",
             "-c",
             'import os; assert "BUCK_RUN_BUILD_ID" in os.environ',
         ]),

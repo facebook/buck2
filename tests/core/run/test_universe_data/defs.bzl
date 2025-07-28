@@ -9,7 +9,7 @@
 def _run_python(ctx):
     return [
         DefaultInfo(),
-        RunInfo(args = cmd_args("python3", "-c", ctx.attrs.script)),
+        RunInfo(args = cmd_args("fbpython", "-c", ctx.attrs.script)),
     ]
 
 run_python = rule(
@@ -31,7 +31,7 @@ transition_to_reindeer = transition(
 def _transitioned_impl(ctx):
     return [
         DefaultInfo(),
-        RunInfo(args = cmd_args("python3", "-c", ctx.attrs.script)),
+        RunInfo(args = cmd_args("fbpython", "-c", ctx.attrs.script)),
     ]
 
 transitioned = rule(

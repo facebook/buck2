@@ -80,7 +80,7 @@ def _run_with_content_based_path_impl(ctx):
     )
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
+    args = cmd_args(["fbpython", script, out.as_output(), ctx.attrs.data])
     args.add(cmd_args(hidden = ctx.attrs.depends_on))
     kwargs = {
         "category": "test_run",
@@ -146,7 +146,7 @@ def _symlink_and_copy_impl(ctx):
     )
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    args = cmd_args(["python3", script, symlink, out.as_output()])
+    args = cmd_args(["fbpython", script, symlink, out.as_output()])
 
     ctx.actions.run(args, category = "test_run")
 
@@ -336,7 +336,7 @@ def _use_projection_with_content_based_path_impl(ctx):
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
     projection1 = out.project("projection1.txt")
     projection2 = out.project("projection2.txt")
-    args = cmd_args(["python3", script, out.as_output(), projection1.as_output(), projection2.as_output()])
+    args = cmd_args(["fbpython", script, out.as_output(), projection1.as_output(), projection2.as_output()])
     ctx.actions.run(args, category = "test_run", prefer_remote = True)
 
     copied_projection = ctx.actions.declare_output("copied_projection.txt", uses_experimental_content_based_path_hashing = True)
@@ -380,7 +380,7 @@ def _slow_running_local_action_with_content_based_path_impl(ctx):
     )
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
+    args = cmd_args(["fbpython", script, out.as_output(), ctx.attrs.data])
 
     ctx.actions.run(args, category = "test_run", local_only = True)
 
@@ -406,7 +406,7 @@ def _writes_input_to_output_impl(ctx):
     )
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.input])
+    args = cmd_args(["fbpython", script, out.as_output(), ctx.attrs.input])
 
     ctx.actions.run(args, category = "test_run", local_only = True)
 

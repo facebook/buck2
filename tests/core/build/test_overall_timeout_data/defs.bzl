@@ -9,7 +9,7 @@
 def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        ["python3", ctx.attrs.src, out.as_output()],
+        ["fbpython", ctx.attrs.src, out.as_output()],
         category = "slow",
     )
     return [DefaultInfo(out)]

@@ -16,7 +16,7 @@ def _test_dynamic_output(ctx):
     def my_deferred(ctx, _artifacts, outputs):
         ctx.bxl_actions().actions.run(
             [
-                "python3",
+                "fbpython",
                 "executor_fallback_tests/local_only.py",
                 outputs[dynamic].as_output(),
             ],

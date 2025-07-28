@@ -84,7 +84,7 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
             "  f.write('Hello\\n')",
         ],
     )
-    ctx.actions.run(cmd_args(["python3", write_hello], hidden = hello.as_output()), category = "test_category")
+    ctx.actions.run(cmd_args(["fbpython", write_hello], hidden = hello.as_output()), category = "test_category")
 
     world = ctx.actions.declare_output("world")
     universe = ctx.actions.declare_output("universe")
@@ -104,7 +104,7 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
         src = artifacts[hello].read_string().strip()
         assert_eq(src, "Hello")
         ctx.actions.run(
-            cmd_args(["python3", script, src, outputs[world].as_output(), outputs[universe].as_output()]),
+            cmd_args(["fbpython", script, src, outputs[world].as_output(), outputs[universe].as_output()]),
             category = "dynamic_check",
         )
 
@@ -192,7 +192,7 @@ def _assert_output_value_impl(ctx: AnalysisContext) -> list[Provider]:
             "  f.write('Success\\n')",
         ],
     )
-    ctx.actions.run(cmd_args(["python3", run, value, produced, output.as_output()]), category = "test_category")
+    ctx.actions.run(cmd_args(["fbpython", run, value, produced, output.as_output()]), category = "test_category")
     return [DefaultInfo(default_output = output)]
 
 assert_output_value = rule(impl = _assert_output_value_impl, attrs = {
@@ -206,7 +206,7 @@ def _proto_genrule_impl(ctx):
         "OUT": cmd_args(out_artifact.as_output()),
     }
     ctx.actions.run(
-        cmd_args(["python3", "-c", ctx.attrs.python]),
+        cmd_args(["fbpython", "-c", ctx.attrs.python]),
         env = env_vars,
         category = "genrule",
     )

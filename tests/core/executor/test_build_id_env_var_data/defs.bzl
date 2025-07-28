@@ -21,7 +21,7 @@ def _top(ctx):
         ],
     )
     ctx.actions.run(
-        cmd_args(["python3", run, output.as_output()]),
+        cmd_args(["fbpython", run, output.as_output()]),
         category = "test_category",
         env = {
             "cache_buster": cache_buster,

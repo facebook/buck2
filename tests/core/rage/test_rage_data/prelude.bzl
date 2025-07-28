@@ -51,7 +51,7 @@ def _write_file_impl(ctx):
         )
 
         # Read output1 and write back into output2. Output1 should be included as an associated artifact here so we do not need to add it as hidden
-        cmd = cmd_args(["python3", script, output2.as_output()])
+        cmd = cmd_args(["fbpython", script, output2.as_output()])
         ctx.actions.run(cmd, category = "test")
         return [DefaultInfo(default_output = output2)]
     elif ctx.attrs.name == "fails_on_invalid_contents":

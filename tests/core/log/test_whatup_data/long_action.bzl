@@ -15,7 +15,7 @@ def _impl(ctx):
     )
 
     ctx.actions.run(
-        cmd_args("python3", "-c", py, out.as_output()),
+        cmd_args("fbpython", "-c", py, out.as_output()),
         category = "run_python",
     )
 

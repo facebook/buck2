@@ -18,7 +18,7 @@ def _gen_files(ctx):
         subouts.append(out.as_output())
         subtargets[f] = [DefaultInfo(default_outputs = [out])]
     args = cmd_args(
-        ["python3", ctx.attrs.script, output.as_output()] + ctx.attrs.files,
+        ["fbpython", ctx.attrs.script, output.as_output()] + ctx.attrs.files,
         hidden = subouts,
     )
     ctx.actions.run(args, category = "gen")

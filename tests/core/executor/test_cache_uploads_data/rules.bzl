@@ -13,7 +13,7 @@ def _write_impl(ctx):
     out = ctx.actions.declare_output("out", dir = ctx.attrs.dir)
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             "-c",
             "import sys, os, shutil; dirname= os.path.dirname(sys.argv[2]);\nif not os.path.exists(dirname): os.makedirs(dirname);\nshutil.copyfile(sys.argv[1],sys.argv[2]);",
             tmp,

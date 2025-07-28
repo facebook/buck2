@@ -13,7 +13,7 @@ def _run_test_with_content_based_path_impl(ctx):
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", "import sys; sys.exit(0)", cmd_args(unused_but_path_needs_resolving)],
+            command = ["fbpython", "-c", "import sys; sys.exit(0)", cmd_args(unused_but_path_needs_resolving)],
             type = "custom",
         ),
     ]

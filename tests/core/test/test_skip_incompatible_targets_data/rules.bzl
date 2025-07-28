@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _impl(_ctx):
-    return [DefaultInfo(), ExternalRunnerTestInfo(type = "custom", command = ["python3", "-c", "import sys; sys.exit(0)"])]
+    return [DefaultInfo(), ExternalRunnerTestInfo(type = "custom", command = ["fbpython", "-c", "import sys; sys.exit(0)"])]
 
 test_rule = rule(
     impl = _impl,

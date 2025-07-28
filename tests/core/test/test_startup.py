@@ -20,6 +20,6 @@ async def test_tcp_startup_fail(buck: Buck) -> None:
     # Python is a binary that will just fail when we give it our executor args
     # but works on any platform. It's a bit dumb but it'll do
     await expect_failure(
-        buck.test("...", test_executor="python3"),
+        buck.test("...", test_executor="fbpython"),
         stderr_regex="Executor exited before connecting",
     )

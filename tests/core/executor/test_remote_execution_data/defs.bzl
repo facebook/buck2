@@ -19,7 +19,7 @@ def _simple(ctx):
         ],
     )
     ctx.actions.run(
-        cmd_args(["python3", run, output.as_output(), ctx.attrs.input]),
+        cmd_args(["fbpython", run, output.as_output(), ctx.attrs.input]),
         category = "test_category",
     )
 

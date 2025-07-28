@@ -22,7 +22,7 @@ def _impl_listing_uncacheable(ctx):
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", script],
+            command = ["fbpython", "-c", script],
             type = "lionhead",
             env = {"seed": ctx.attrs.seed},
             labels = ["tpx:listing_uncacheable"],
@@ -33,7 +33,7 @@ def _impl_ok(ctx):
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", script],
+            command = ["fbpython", "-c", script],
             type = "lionhead",
             env = {"seed": ctx.attrs.seed},
         ),
@@ -43,7 +43,7 @@ def _impl_bad(ctx):
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", bad_script],
+            command = ["fbpython", "-c", bad_script],
             type = "lionhead",
             env = {"seed": ctx.attrs.seed},
         ),
@@ -59,7 +59,7 @@ def _seed_impl(ctx):
     return [
         DefaultInfo(out),
         ExternalRunnerTestInfo(
-            command = ["python3", "-c", script],
+            command = ["fbpython", "-c", script],
             use_project_relative_paths = True,
             type = "lionhead",
             env = {"seed": ctx.attrs.seed},

@@ -40,7 +40,7 @@ china = rule(impl = _impl, attrs = {
 def _installer_impl(ctx) -> list[Provider]:
     return [
         DefaultInfo(),
-        RunInfo(args = ["python3", ctx.attrs.main]),
+        RunInfo(args = ["fbpython", ctx.attrs.main]),
     ]
 
 installer = rule(impl = _installer_impl, attrs = {

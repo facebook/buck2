@@ -42,7 +42,7 @@ subprocess.run([buck_path, "debug", "trace-io", "enable"])
     """)
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             script,
             ctx.attrs.buck2_path,
             trace_out.as_output(),

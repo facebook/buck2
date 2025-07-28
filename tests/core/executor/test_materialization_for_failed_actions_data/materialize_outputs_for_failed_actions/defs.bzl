@@ -24,7 +24,7 @@ def _action_fail(ctx):
 
     ctx.actions.run(
         cmd_args(
-            "python3",
+            "fbpython",
             run,
             out1.as_output(),
             out2.as_output(),
@@ -46,7 +46,7 @@ def _undeclared_output(ctx):
     undeclared = ctx.actions.declare_output("failed_action.txt", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
     ctx.actions.run(
         cmd_args(
-            "python3",
+            "fbpython",
             "-c",
             "import sys; sys.exit(1)",
             declared.as_output(),

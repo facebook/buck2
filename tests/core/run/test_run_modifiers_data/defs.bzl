@@ -9,7 +9,7 @@
 def _run_python(ctx):
     return [
         DefaultInfo(),
-        RunInfo(args = cmd_args("python3", "-c", ctx.attrs.os + "; " + ctx.attrs.cpu)),
+        RunInfo(args = cmd_args("fbpython", "-c", ctx.attrs.os + "; " + ctx.attrs.cpu)),
     ]
 
 run_python = rule(

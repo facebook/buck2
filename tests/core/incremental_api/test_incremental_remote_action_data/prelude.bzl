@@ -9,7 +9,7 @@
 def _china_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        cmd_args(["python3", ctx.attrs.increment] + (["--dir"] if ctx.attrs.dir else []) + ["--out", out.as_output()]),
+        cmd_args(["fbpython", ctx.attrs.increment] + (["--dir"] if ctx.attrs.dir else []) + ["--out", out.as_output()]),
         category = "increment",
         no_outputs_cleanup = True,
         incremental_remote_outputs = True,
@@ -30,7 +30,7 @@ china = rule(impl = _china_impl, attrs = {
 def _whistle_impl(ctx) -> list[Provider]:
     intermediate = ctx.actions.declare_output("intermediate")
     ctx.actions.run(
-        cmd_args(["python3", ctx.attrs.increment] + (["--dir"] if ctx.attrs.dir else []) + ["--out", intermediate.as_output()]),
+        cmd_args(["fbpython", ctx.attrs.increment] + (["--dir"] if ctx.attrs.dir else []) + ["--out", intermediate.as_output()]),
         category = "increment",
         no_outputs_cleanup = True,
         incremental_remote_outputs = True,

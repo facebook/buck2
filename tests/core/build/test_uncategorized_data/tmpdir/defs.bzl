@@ -12,7 +12,7 @@ def _test(ctx: AnalysisContext):
 
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             ctx.attrs.script,
             local.as_output(),
             "local",
@@ -24,7 +24,7 @@ def _test(ctx: AnalysisContext):
 
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             ctx.attrs.script,
             remote.as_output(),
             "remote",

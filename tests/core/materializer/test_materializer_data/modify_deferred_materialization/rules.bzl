@@ -18,7 +18,7 @@ def _proto_genrule_impl(ctx):
         "OUT": cmd_args(out_artifact.as_output()),
     }
     ctx.actions.run(
-        cmd_args(["python3", "-c", ctx.attrs.python]),
+        cmd_args(["fbpython", "-c", ctx.attrs.python]),
         env = env_vars,
         prefer_local = _requires_local(ctx),
         category = "genrule",

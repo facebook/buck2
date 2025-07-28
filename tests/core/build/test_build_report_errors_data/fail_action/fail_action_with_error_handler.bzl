@@ -34,7 +34,7 @@ def _make_failing_action(ctx, src, name):
     out = ctx.actions.declare_output(src.short_path)
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             src,
             out.as_output(),
         ],
@@ -130,7 +130,7 @@ def _fail_error_handler_with_output(ctx):
 
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             ctx.attrs.src,
             out.as_output(),
         ],

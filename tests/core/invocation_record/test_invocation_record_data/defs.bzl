@@ -9,7 +9,7 @@
 def _hang(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        ["python3", "-c", 'import os, time; open(os.environ["TOUCH"], "w"); time.sleep(100)'],
+        ["fbpython", "-c", 'import os, time; open(os.environ["TOUCH"], "w"); time.sleep(100)'],
         env = {"OUT": out.as_output(), "TOUCH": ctx.attrs.touch},
         category = "hang",
     )
@@ -27,7 +27,7 @@ pass_ = rule(attrs = {}, impl = _pass)
 def _kill(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        ["python3", "-c", 'import os, signal; os.kill(int(os.environ["PID"]), signal.SIGKILL)'],
+        ["fbpython", "-c", 'import os, signal; os.kill(int(os.environ["PID"]), signal.SIGKILL)'],
         env = {"OUT": out.as_output(), "PID": ctx.attrs.pid},
         category = "kill",
     )
@@ -70,7 +70,7 @@ def _sleep(ctx):
     # sleep for 5 seconds to ensure all hg commands are finished
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        cmd_args(["python3", "-c", "import sys, time; time.sleep(5); open(sys.argv[1], 'w').write('something')"], out.as_output()),
+        cmd_args(["fbpython", "-c", "import sys, time; time.sleep(5); open(sys.argv[1], 'w').write('something')"], out.as_output()),
         category = "sleep",
     )
     return [DefaultInfo(out)]

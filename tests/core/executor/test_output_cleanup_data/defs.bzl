@@ -11,7 +11,7 @@ def _action_impl(ctx):
 
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             "-c",
             "import sys; open(sys.argv[1], 'w').write(sys.argv[2])",
             out.as_output(),

@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _action(ctx):
-    return [DefaultInfo(), RunInfo(cmd_args("python3", ctx.attrs.src))]
+    return [DefaultInfo(), RunInfo(cmd_args("fbpython", ctx.attrs.src))]
 
 my_rule = rule(
     impl = _action,

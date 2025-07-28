@@ -12,12 +12,12 @@ def _top(ctx):
     out = ctx.actions.declare_output("out")
 
     ctx.actions.run(
-        ["python3", "-c", "import sys; sys.exit(1)", fast.as_output()],
+        ["fbpython", "-c", "import sys; sys.exit(1)", fast.as_output()],
         category = "fast_action",
     )
 
     ctx.actions.run(
-        ["python3", "-c", "import time, sys; time.sleep(10); sys.exit(1)", slow.as_output()],
+        ["fbpython", "-c", "import time, sys; time.sleep(10); sys.exit(1)", slow.as_output()],
         category = "slow_action",
     )
 

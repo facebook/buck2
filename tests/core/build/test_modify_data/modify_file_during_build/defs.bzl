@@ -12,7 +12,7 @@ def _modify_file_impl(ctx):
     out = ctx.actions.declare_output("out")
 
     ctx.actions.run([
-        "python3",
+        "fbpython",
         "-c",
         "import sys; fp=open(sys.argv[1], 'w'); fp.write('REPLACEMENT'); open(sys.argv[2], 'w')",
         text,

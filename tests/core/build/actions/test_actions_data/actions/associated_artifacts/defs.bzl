@@ -46,7 +46,7 @@ def _check_all_exists(ctx: AnalysisContext) -> list[Provider]:
     check = ctx.actions.declare_output("check")
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             "-c",
             ";".join([
                 "import sys, os",
@@ -76,7 +76,7 @@ def _check_dropped_artifacts(ctx: AnalysisContext) -> list[Provider]:
     check = ctx.actions.declare_output("check")
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             "-c",
             ";".join([
                 # Verify the existing behavior where the named file exists,

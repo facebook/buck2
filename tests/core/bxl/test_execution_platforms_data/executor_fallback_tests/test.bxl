@@ -21,7 +21,7 @@ def _test_exec_platforms(ctx):
 
     actions.run(
         [
-            "python3",
+            "fbpython",
             dependency[RunInfo],
             out.as_output(),
         ],
@@ -46,7 +46,7 @@ def _test_exec_compatible_with(ctx):
 
     actions.run(
         [
-            "python3",
+            "fbpython",
             "executor_fallback_tests/local_only.py",
             out.as_output(),
         ],

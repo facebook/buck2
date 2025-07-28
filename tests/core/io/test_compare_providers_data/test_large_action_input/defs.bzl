@@ -10,7 +10,7 @@ def _dep_impl(ctx):
     out = ctx.actions.declare_output("dep")
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             ctx.attrs.script,
             out.as_output(),
         ],
@@ -31,7 +31,7 @@ def _large_action_input(ctx):
     ctx.actions.run(
         cmd_args(
             [
-                "python3",
+                "fbpython",
                 "-c",
                 "import sys, os; file_size = os.path.getsize(sys.argv[2]); open(sys.argv[1], 'w').write(str(file_size))",
             ],

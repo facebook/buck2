@@ -9,7 +9,7 @@
 def _test_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        ["python3", "-c", "import time, sys; time.sleep(999999); open(sys.argv[1],'w')", out.as_output()],
+        ["fbpython", "-c", "import time, sys; time.sleep(999999); open(sys.argv[1],'w')", out.as_output()],
         category = "test",
         identifier = "id",
     )

@@ -30,7 +30,7 @@ def _touch_file_impl(ctx):
 
 def _mkdir_impl(ctx):
     out = ctx.actions.declare_output("out", dir = True)
-    ctx.actions.run(cmd_args("python3", "-c", """
+    ctx.actions.run(cmd_args("fbpython", "-c", """
 import sys
 import os
 

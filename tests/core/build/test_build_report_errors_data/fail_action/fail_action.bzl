@@ -53,7 +53,7 @@ def _fail_script_impl(ctx):
     out = ctx.actions.declare_output("fail_script")
     ctx.actions.run(
         [
-            "python3",
+            "fbpython",
             "-c",
             "import sys; print('Some random stdout', file=sys.stdout); print('Some random stderr', file=sys.stderr); sys.exit(1)",
             out.as_output(),

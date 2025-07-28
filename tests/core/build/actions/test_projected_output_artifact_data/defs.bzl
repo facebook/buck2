@@ -20,7 +20,7 @@ write_rel_action = rule(
 def _run_rel_action(ctx: AnalysisContext) -> list[Provider]:
     a = ctx.actions.declare_output("uuuuuu")
     b = a.project("rel")
-    ctx.actions.run(cmd_args("python3", "-c", """
+    ctx.actions.run(cmd_args("fbpython", "-c", """
 import sys
 import os
 

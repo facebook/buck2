@@ -31,7 +31,7 @@ def _with_two_dep_files_impl(ctx):
     (tag1, tagged_used_files1, tagged_unused_files1, tagged_dep_file1) = _get_tagged_artifacts(ctx, dep_file1, used_files1, unused_files1)
 
     cmd = [
-        "python3",
+        "fbpython",
         ctx.attrs.create_dep_file,
         "--out",
         out.as_output(),
