@@ -45,7 +45,7 @@ load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_impl")
 load("@prelude//apple/user:target_sdk_version_transition.bzl", "apple_test_target_sdk_version_transition", "target_sdk_version_transition")
 load("@prelude//apple/user:watch_transition.bzl", "watch_transition")
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
-load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
+load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
 load("@prelude//decls:cxx_common.bzl", "cxx_common")
@@ -61,17 +61,19 @@ load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "ApplePackageExtension")
 load(":apple_core_data.bzl", "apple_core_data_impl")
-load(":apple_library.bzl", "apple_library_impl")
+load(":apple_library.bzl", "AppleSharedLibraryMachOFileType", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
+    "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_xcuitest_extra_attrs",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
     "get_skip_swift_incremental_outputs_attrs",
+    "get_swift_incremental_file_hashing_attrs",
 )
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
@@ -568,6 +570,45 @@ apple_bundle = prelude_rule(
     cfg = target_sdk_version_transition,
 )
 
+def _apple_library_extra_attrs():
+    attribs = {
+        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
+        "enable_distributed_thinlto": attrs.bool(default = select({
+            "DEFAULT": False,
+            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+        })),
+        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
+        "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
+        "link_execution_preference": link_execution_preference_attr(),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
+        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
+        # Mach-O file type for binary when the target is built as a shared library.
+        "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
+        "stripped": attrs.option(attrs.bool(), default = None),
+        "supports_header_symlink_subtarget": attrs.bool(default = False),
+        "supports_shlib_interfaces": attrs.bool(default = True),
+        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
+        "swift_package_name": attrs.option(attrs.string(), default = None),
+        "use_archive": attrs.option(attrs.bool(), default = None),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_enable_library_evolution": get_enable_library_evolution(),
+        "_stripped_default": attrs.bool(default = False),
+        "_swift_enable_testing": attrs.bool(default = select({
+            "DEFAULT": False,
+            "config//features/apple:swift_enable_testing_enabled": True,
+        })),
+        APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
+    } | validation_common.attrs_validators_arg()
+    attribs.update(apple_common.apple_tools_arg())
+    attribs.update(apple_dsymutil_attrs())
+    attribs.update(get_swift_incremental_file_hashing_attrs())
+    attribs.update(get_skip_swift_incremental_outputs_attrs())
+    return attribs
+
 apple_library = prelude_rule(
     name = "apple_library",
     docs = """
@@ -710,7 +751,8 @@ apple_library = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        _apple_library_extra_attrs()
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
