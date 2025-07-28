@@ -28,7 +28,7 @@ use buck2_util::process::background_command;
 
 /// Initializes a buck2 project at the provided path.
 #[derive(Debug, clap::Parser)]
-#[clap(name = "install", about = "Initialize a buck2 project")]
+#[clap(name = "init", about = "Initialize a buck2 project")]
 pub struct InitCommand {
     /// The path to initialize the project in. The folder does not need to exist.
     #[clap(default_value = ".")]
