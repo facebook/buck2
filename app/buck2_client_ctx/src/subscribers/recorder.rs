@@ -2129,6 +2129,15 @@ fn elapsed_since(start_time: u64) -> Duration {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+
+    use buck2_data::InvocationOutcome;
+    use buck2_error::internal_error;
+    use buck2_wrapper_common::invocation_id::TraceId;
+
+    use crate::exit_result::ExitCode;
+    use crate::exit_result::ExitResult;
+    use crate::subscribers::recorder::InvocationRecorder;
     use crate::subscribers::recorder::truncate_stderr;
 
     #[test]
@@ -2141,5 +2150,30 @@ mod tests {
         }
         let truncated = truncate_stderr(&stderr);
         assert_eq!(truncated.len(), 19_999);
+    }
+
+    #[test]
+    fn test_outcome() {
+        let mut recorder = InvocationRecorder::new(TraceId::new(), None, 0, vec![]);
+        let exit_result = ExitResult::success();
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
+        let err = internal_error!("test");
+        let exit_result = ExitResult::err_with_exit_code(err.clone(), ExitCode::Success);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Unknown);
+
+        let exit_result = ExitResult::err_with_exit_code(err.clone(), ExitCode::SignalInterrupt);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Cancelled);
+
+        let exit_result = ExitResult::err_with_exit_code(err.clone(), ExitCode::InfraError);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Failed);
+        recorder.daemon_connection_failure = true;
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Crashed);
+        recorder.daemon_connection_failure = false;
+
+        let exit_result = ExitResult::status(ExitCode::InfraError);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Unknown);
+
+        let exit_result = ExitResult::exec(OsString::new(), vec![], None, vec![]);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
     }
 }
