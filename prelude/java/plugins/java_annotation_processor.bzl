@@ -160,5 +160,5 @@ def java_annotation_processor_impl(ctx: AnalysisContext) -> list[Provider]:
             runs_on_java_only = ctx.attrs.runs_on_java_only,
             isolate_class_loader = ctx.attrs.isolate_class_loader,
         ),
-        DefaultInfo(default_output = None, other_outputs = [packaging_dep.jar for packaging_dep in transitive_deps.traverse() if packaging_dep.jar]),
+        DefaultInfo(default_output = None, other_outputs = [transitive_deps.project_as_args("full_jar_args")]),
     ]
