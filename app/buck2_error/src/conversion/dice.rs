@@ -9,6 +9,7 @@
  */
 
 use dice_error::DiceErrorImpl;
+use dice_error::result::CancellationReason;
 
 use crate::ErrorTag;
 
@@ -21,6 +22,9 @@ impl From<dice_error::DiceError> for crate::Error {
             DiceErrorImpl::ChangedToInvalid(_) => (ErrorTag::DiceChangedToInvalid, None),
             DiceErrorImpl::InjectedKeyGotInvalidation(_) => {
                 (ErrorTag::DiceInjectedKeyGotInvalidation, None)
+            }
+            DiceErrorImpl::Cancelled(CancellationReason::Rejected) => {
+                (ErrorTag::DiceRejected, None)
             }
             DiceErrorImpl::Cancelled(reason) => (ErrorTag::DiceCancelled, Some(reason)),
             DiceErrorImpl::UnexpectedCycleGuardType { .. } => {

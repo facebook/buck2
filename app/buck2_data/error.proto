@@ -264,6 +264,7 @@ enum ErrorTag {
   DICE_CANCELLED = 1403;
   DICE_UNEXPECTED_CYCLE_GUARD_TYPE = 1404;
   DICE_DUPLICATE_ACTIVATION_DATA = 1405;
+  DICE_REJECTED = 1406;
 
   // Error during attribute configuration during target configuration.
   CONFIGURE_ATTR = 3001;

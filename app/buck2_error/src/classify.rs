@@ -150,6 +150,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReDeadlineExceeded => rank!(environment),
         // Typically due to network configuration/x2p
         ErrorTag::ReConnection => rank!(environment),
+        // Means a new command 'clear'ed the DICE version (e.g. from merge base change) and an old command was rejected.
+        ErrorTag::DiceRejected => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
