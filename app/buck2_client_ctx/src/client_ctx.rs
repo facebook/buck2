@@ -304,7 +304,6 @@ pub trait BuckSubcommand {
             recorder.update_for_command(
                 ctx,
                 self.event_log_opts(),
-                self.logging_name(),
                 ctx.argv.argv.clone(),
                 None,
                 Vec::new(),

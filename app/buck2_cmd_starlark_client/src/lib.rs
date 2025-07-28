@@ -145,4 +145,11 @@ impl StarlarkCommand {
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
         argv.no_need_to_sanitize()
     }
+
+    pub fn command_name(&self) -> &'static str {
+        match self {
+            StarlarkCommand::Opaque(_) => "starlark",
+            StarlarkCommand::DebugAttach(_) => "starlark-debug-attach",
+        }
+    }
 }

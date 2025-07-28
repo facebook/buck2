@@ -28,6 +28,7 @@ mod what_uploaded;
 
 use std::fmt::Debug;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::events_ctx::EventsCtx;
@@ -128,5 +129,24 @@ impl LogCommand {
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
         argv.no_need_to_sanitize()
+    }
+
+    pub fn command_name(&self) -> &'static str {
+        match self {
+            Self::WhatRan(cmd) => cmd.logging_name(),
+            Self::WhatFailed(_) => "log-what-failed",
+            Self::Path(cmd) => cmd.logging_name(),
+            Self::Show(cmd) => cmd.logging_name(),
+            Self::Cmd(cmd) => cmd.logging_name(),
+            Self::WhatUp(cmd) => cmd.logging_name(),
+            Self::WhatMaterialized(cmd) => cmd.logging_name(),
+            Self::WhatUploaded(cmd) => cmd.logging_name(),
+            Self::CriticalPath(cmd) => cmd.logging_name(),
+            Self::Replay(cmd) => cmd.logging_name(),
+            Self::ShowUser(cmd) => cmd.logging_name(),
+            Self::Summary(cmd) => cmd.logging_name(),
+            Self::Diff(_) => "log-diff",
+            Self::ExternalConfigs(cmd) => cmd.logging_name(),
+        }
     }
 }

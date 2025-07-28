@@ -104,6 +104,17 @@ impl CleanCommand {
             )
         }
     }
+
+    pub fn command_name(&self) -> &'static str {
+        if parse_clean_stale_args(self.stale, self.keep_since_time)
+            .ok()
+            .is_some()
+        {
+            "clean-stale"
+        } else {
+            "clean"
+        }
+    }
 }
 
 struct InnerCleanCommand {

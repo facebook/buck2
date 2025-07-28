@@ -403,7 +403,11 @@ impl InvocationRecorder {
         }
     }
 
-    pub fn update_for_client_ctx(&mut self, ctx: &ClientCommandContext<'_>) {
+    pub fn update_for_client_ctx(
+        &mut self,
+        ctx: &ClientCommandContext<'_>,
+        command_name: &'static str,
+    ) {
         self.isolation_dir = Some(ctx.isolation.to_string());
         self.client_metadata = ctx
             .client_metadata
@@ -422,13 +426,13 @@ impl InvocationRecorder {
                 client_id_from_client_metadata.to_owned(),
             );
         }
+        self.command_name = Some(command_name);
     }
 
     pub(crate) fn update_for_command(
         &mut self,
         ctx: &ClientCommandContext<'_>,
         event_log_opts: &CommonEventLogOptions,
-        command_name: &'static str,
         sanitized_argv: Vec<String>,
         build_config_opts: Option<&CommonBuildConfigurationOptions>,
         representative_config_flags: Vec<String>,
@@ -466,7 +470,6 @@ impl InvocationRecorder {
             }
         });
 
-        self.command_name = Some(command_name);
         self.cli_args = sanitized_argv;
         self.representative_config_flags = representative_config_flags;
         self.write_to_path = write_to_path;

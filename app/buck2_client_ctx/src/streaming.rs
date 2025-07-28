@@ -121,7 +121,6 @@ fn update_events_ctx<T: StreamingCommand>(
         recorder.update_for_command(
             ctx,
             cmd.event_log_opts(),
-            cmd.logging_name(),
             cmd.sanitize_argv(ctx.argv.clone()).argv,
             Some(cmd.build_config_opts()),
             representative_config_flags,

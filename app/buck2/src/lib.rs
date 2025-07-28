@@ -41,6 +41,7 @@ use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
 use buck2_client_ctx::argfiles::expand_argv;
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::common::BuckArgMatches;
@@ -447,7 +448,7 @@ impl CommandKind {
             common_opts.isolation_dir,
         );
         if let Some(recorder) = events_ctx.recorder.as_mut() {
-            recorder.update_for_client_ctx(&command_ctx);
+            recorder.update_for_client_ctx(&command_ctx, self.command_name());
         }
 
         match self {
@@ -506,6 +507,50 @@ impl CommandKind {
             CommandKind::Lsp(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Subscribe(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::ExpandExternalCell(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+        }
+    }
+
+    fn command_name(&self) -> &'static str {
+        match self {
+            #[cfg(not(client_only))]
+            CommandKind::Daemon(_) => "daemon",
+            #[cfg(not(client_only))]
+            CommandKind::Forkserver(_) => "forkserver",
+            #[cfg(not(client_only))]
+            CommandKind::InternalTestRunner(_) => "internal-test-runner",
+            CommandKind::Aquery(cmd) => cmd.logging_name(),
+            CommandKind::Build(cmd) => cmd.logging_name(),
+            CommandKind::Bxl(cmd) => cmd.logging_name(),
+            CommandKind::Test(cmd) => cmd.logging_name(),
+            CommandKind::Cquery(cmd) => cmd.logging_name(),
+            CommandKind::HelpEnv(_) => "help-env",
+            CommandKind::Kill(cmd) => cmd.logging_name(),
+            CommandKind::Killall(cmd) => cmd.logging_name(),
+            CommandKind::Clean(cmd) => cmd.command_name(),
+            CommandKind::Root(_) => "root",
+            CommandKind::Query(cmd) => cmd.logging_name(),
+            CommandKind::Server(cmd) => cmd.logging_name(),
+            CommandKind::Status(_) => "status",
+            CommandKind::Targets(cmd) => cmd.logging_name(),
+            CommandKind::Utargets(cmd) => cmd.logging_name(),
+            CommandKind::Ctargets(cmd) => cmd.logging_name(),
+            CommandKind::Audit(cmd) => cmd.logging_name(),
+            CommandKind::Starlark(cmd) => cmd.command_name(),
+            CommandKind::Run(cmd) => cmd.logging_name(),
+            CommandKind::Uquery(cmd) => cmd.logging_name(),
+            CommandKind::Debug(_) => "debug",
+            CommandKind::Complete(_) => "complete",
+            CommandKind::Completion(_) => "completion",
+            CommandKind::Docs(_) => "docs",
+            CommandKind::Profile(_) => "profile",
+            CommandKind::Rage(_) => "rage",
+            CommandKind::Init(_) => "init",
+            CommandKind::Explain(cmd) => cmd.logging_name(),
+            CommandKind::Install(cmd) => cmd.logging_name(),
+            CommandKind::Log(cmd) => cmd.command_name(),
+            CommandKind::Lsp(cmd) => cmd.logging_name(),
+            CommandKind::Subscribe(cmd) => cmd.logging_name(),
+            CommandKind::ExpandExternalCell(cmd) => cmd.logging_name(),
         }
     }
 }
