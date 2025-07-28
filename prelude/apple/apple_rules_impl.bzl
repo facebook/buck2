@@ -15,8 +15,7 @@ load(
 load("@prelude//apple:apple_common.bzl", "apple_common")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
-load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
-load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
@@ -50,9 +49,7 @@ def _apple_library_extra_attrs():
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_execution_preference": link_execution_preference_attr(),
-        "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         # Mach-O file type for binary when the target is built as a shared library.
