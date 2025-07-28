@@ -17,7 +17,7 @@ use thiserror::Error;
 
 pub type CancellableResult<T> = Result<T, CancellationReason>;
 
-#[derive(Clone, Dupe, Copy, Display, Debug, Error, Allocative)]
+#[derive(Clone, Dupe, Copy, Display, Debug, Error, Allocative, PartialEq)]
 #[display("{:?}", self)]
 pub enum CancellationReason {
     OutdatedEpoch,

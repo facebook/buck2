@@ -113,11 +113,9 @@ impl VersionTracker {
     /// check if the given version and epoch are "relevant", that is the current active version's
     /// epoch matches the given epoch
     pub(crate) fn is_relevant(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
-        v >= self.invalid_before
-            && self
-                .active_versions
-                .get(&v)
-                .is_some_and(|active| active.version_epoch == epoch)
+        self.active_versions
+            .get(&v)
+            .is_some_and(|active| active.version_epoch == epoch)
     }
 
     pub(crate) fn should_reject(&self, v: VersionNumber) -> bool {
