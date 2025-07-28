@@ -295,7 +295,17 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             )),
             Data::TestStart(start) => match &start.suite {
                 Some(suite) => {
-                    let tests = suite.test_names.join(" ");
+                    let tests = {
+                        if suite.test_names.len() < 100 {
+                            suite.test_names.join(" ")
+                        } else {
+                            format!(
+                                "{}...({} more)",
+                                suite.test_names.first().unwrap(),
+                                suite.test_names.len() - 1
+                            )
+                        }
+                    };
                     Ok(format!("Test {} -- {}", suite.suite_name, tests))
                 }
                 None => Err(ParseEventError::MissingSuiteName.into()),
