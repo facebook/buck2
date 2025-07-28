@@ -16,4 +16,3 @@ ignore = package_listing/*red/**
 
 [buck2]
 allow_eden_io = false
-time_to_fix_use_better_error = true

@@ -19,8 +19,6 @@
 #![feature(used_with_arg)]
 #![feature(let_chains)]
 
-use std::sync::OnceLock;
-
 pub mod argv;
 pub mod buckd_connection;
 pub mod build_count;
@@ -63,5 +61,3 @@ pub mod starlark_profiler;
 pub mod systemd;
 pub mod target_aliases;
 pub mod temp_path;
-
-pub static TIME_TO_FIX_USE_BETTER_ERROR: OnceLock<bool> = OnceLock::new();

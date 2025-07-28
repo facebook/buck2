@@ -14,7 +14,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 
-use crate::TIME_TO_FIX_USE_BETTER_ERROR;
 use crate::dice::cells::HasCellResolver;
 use crate::file_ops::dice::DiceFileComputations;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -40,15 +39,10 @@ pub enum FileReadError {
 impl FileReadError {
     pub fn with_package_context_information(self, package_path: String) -> buck2_error::Error {
         match self {
-            FileReadError::NotFound(path) => {
-                let err_message = if *TIME_TO_FIX_USE_BETTER_ERROR.get().unwrap() {
-                    format!("`{path}`.\n     Included in `{package_path}` but does not exist")
-                } else {
-                    path
-                };
-
-                FileOpsError::FileNotFound(err_message).into()
-            }
+            FileReadError::NotFound(path) => FileOpsError::FileNotFound(format!(
+                "`{path}`.\n     Included in `{package_path}` but does not exist"
+            ))
+            .into(),
             FileReadError::Buck(err) => err.dupe(),
         }
     }

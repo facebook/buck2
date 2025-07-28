@@ -18,7 +18,6 @@ use std::time::Instant;
 use allocative::Allocative;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use buck2_common::TIME_TO_FIX_USE_BETTER_ERROR;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::ignores::ignore_set::IgnoreSet;
@@ -605,15 +604,6 @@ impl DaemonState {
             })?;
             init_new_platform_hash_rollout_threshold(new_platform_hash_rollout)?;
 
-            let use_better_error = root_config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "time_to_fix_use_better_error",
-                })?
-                .unwrap_or(true);
-
-            TIME_TO_FIX_USE_BETTER_ERROR.set(use_better_error).unwrap();
-
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 format!("which-dice:{}", dice.which_dice().variant_name()),
@@ -635,7 +625,6 @@ impl DaemonState {
                     disable_eager_write_dispatch,
                 ),
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
-                format!("time-to-fix-use-better-error:{}", use_better_error),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
