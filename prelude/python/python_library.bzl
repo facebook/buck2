@@ -34,6 +34,7 @@ load(
     "create_linkable_graph_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
+load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load(
     "@prelude//python/linking:native_python_util.bzl",
@@ -272,12 +273,17 @@ def py_resources(
         for o in resource.nondebug_runtime_files:
             # HACK: this is a heuristic to detect shared libs emitted from cpp_binary rules.
             if (isinstance(o, Artifact) and
-                o.basename == (
-                    shared_libs_symlink_tree_name(
-                        resource.default_output.short_path
-                            .removesuffix("-prebolt")
-                            .removesuffix("-stamped"),
-                    )
+                (
+                    (o.basename == (
+                        shared_libs_symlink_tree_name(
+                            resource.default_output.short_path,
+                        )
+                    )) or
+                    (o.basename == (
+                        shared_libs_symlink_tree_name(
+                            resource.default_output.short_path + PRE_STAMPED_SUFFIX,
+                        )
+                    ))
                 )):
                 # Package the binary's shared libs next to the binary
                 # (the path is stored in RPATH relative to the binary).
