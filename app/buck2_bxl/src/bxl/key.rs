@@ -238,21 +238,19 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
             "-bxl/",
             label.bxl_path.cell().as_str(),
             "/",
-            output_hash.as_str(),
+            exec_platform.as_str(),
             "/",
             cell_relative_path,
             if cell_relative_path.is_empty() {
-                ""
+                "__"
             } else {
-                "/"
+                "/__"
             },
-            "__",
             label.name.as_str(),
-            "__",
+            "__/",
             action_key.unwrap_or_default(),
-            if action_key.is_none() { "" } else { "__" },
-            exec_platform.as_str(),
-            "__",
+            if action_key.is_none() { "" } else { "/" },
+            output_hash.as_str(),
             "/",
             path.as_str(),
         ];
