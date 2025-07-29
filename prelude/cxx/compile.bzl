@@ -310,7 +310,7 @@ def _compile_single_cxx(
     identifier = short_path + (" (pic)" if pic else "")
 
     if optimization_flags:
-        identifier += " (optimized) "
+        identifier += " (optimized)"
 
     if use_header_units:
         identifier += " (modular)"
