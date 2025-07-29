@@ -11,6 +11,7 @@
 #![feature(error_generic_member_access)]
 #![feature(if_let_guard)]
 
+use buck2_error::ErrorTag;
 use hyper::StatusCode;
 
 mod client;
@@ -34,13 +35,20 @@ fn http_error_label(status: StatusCode) -> &'static str {
     }
 }
 
-fn tag_from_status(status: StatusCode) -> buck2_error::ErrorTag {
+fn tag_from_status(status: StatusCode) -> Vec<ErrorTag> {
     if status.is_server_error() {
-        buck2_error::ErrorTag::HttpServer
+        // Server errors are treated as infra errors
+        vec![ErrorTag::HttpServer]
     } else if status.is_client_error() {
-        buck2_error::ErrorTag::HttpClient
+        // By default, client errors are treated as user errors
+        let mut tags = vec![ErrorTag::HttpClient];
+        // FIXME tag other client errors that shouldn't be user errors
+        if status == StatusCode::FORBIDDEN {
+            tags.push(ErrorTag::HttpForbidden);
+        }
+        tags
     } else {
-        buck2_error::ErrorTag::Http
+        vec![buck2_error::ErrorTag::Http]
     }
 }
 
@@ -69,7 +77,7 @@ pub enum HttpError {
         source: hyper::Error,
     },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
-    #[buck2(tag = tag_from_status(status))]
+    #[buck2(tags = tag_from_status(status))]
     Status {
         status: StatusCode,
         uri: String,
