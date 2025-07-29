@@ -724,7 +724,7 @@ def _compile_index_store(
 
     # Create a directory where we can write .o files and ignore them.
     #
-    # Tn index store directories, the hash used in the unit file name is derived from
+    # In index store directories, the hash used in the unit file name is derived from
     # the output path. E.g. if the output path is dir1/Foo.o, our unit file is
     # Foo.swift-ABC123. If the output path changes to dir2/Foo.o, our unit file is now
     # Foo.swift-DEF456.
