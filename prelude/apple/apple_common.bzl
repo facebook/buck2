@@ -247,6 +247,11 @@ def _executable_name_for_universal_arg():
                 """),
     }
 
+def _executable_name_arg():
+    return {
+        "executable_name": attrs.option(attrs.string(), default = None),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -268,4 +273,5 @@ apple_common = struct(
     apple_tools_arg = _apple_tools_arg,
     product_name_from_module_name_arg = _product_name_from_module_name_arg,
     executable_name_for_universal_arg = _executable_name_for_universal_arg,
+    executable_name_arg = _executable_name_arg,
 )

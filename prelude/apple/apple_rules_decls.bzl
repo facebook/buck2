@@ -344,6 +344,7 @@ apple_binary = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.apple_sanitizer_compatibility_arg() |
+        apple_common.executable_name_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -356,7 +357,6 @@ apple_binary = prelude_rule(
             "devirt_enabled": attrs.bool(default = False),
             "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "enable_cxx_interop": attrs.bool(default = False),
-            "executable_name": attrs.option(attrs.string(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
@@ -688,6 +688,7 @@ apple_library = prelude_rule(
         apple_common.uses_explicit_modules_arg() |
         apple_common.meta_apple_library_validation_enabled_arg() |
         apple_common.enable_private_swift_module_arg() |
+        apple_common.executable_name_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -700,7 +701,6 @@ apple_library = prelude_rule(
             "devirt_enabled": attrs.bool(default = False),
             "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "enable_cxx_interop": attrs.bool(default = False),
-            "executable_name": attrs.option(attrs.string(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
@@ -958,6 +958,7 @@ apple_test = prelude_rule(
         apple_common.uses_explicit_modules_arg() |
         apple_common.apple_sanitizer_compatibility_arg() |
         apple_common.enable_private_swift_module_arg() |
+        apple_common.executable_name_arg() |
         {
             "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "bridging_header": attrs.option(attrs.source(), default = None),
@@ -976,7 +977,6 @@ apple_test = prelude_rule(
             "enable_cxx_interop": attrs.bool(default = False),
             "entitlements_file": attrs.option(attrs.source(), default = None),
             "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False), default = None),
-            "executable_name": attrs.option(attrs.string(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
             # Need to keep both `exported_headers` and `headers` for Swift mixed modules
             # to hide C++ code importing.
