@@ -80,7 +80,6 @@ def create_jar_artifact_kotlincd(
         kotlin_compiler_plugins: list[(Dependency, dict[str, str])],
         extra_kotlinc_arguments: list,
         incremental: bool,
-        incremental_qe_applied: bool,
         enable_used_classes: bool,
         language_version: str,
         is_creating_subtarget: bool = False,
@@ -169,7 +168,6 @@ def create_jar_artifact_kotlincd(
         actual_abi_generation_mode = actual_abi_generation_mode,
         should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
         incremental_state_dir = incremental_state_dir,
-        should_incremental_kotlinc_run_qe = incremental_qe_applied,
         language_version = language_version,
     )
 
@@ -225,7 +223,6 @@ def create_jar_artifact_kotlincd(
             actual_abi_generation_mode = actual_abi_generation_mode,
             should_kotlinc_run_incrementally = False,
             incremental_state_dir = None,
-            should_incremental_kotlinc_run_qe = False,
             language_version = language_version,
         )
         abi_command_builder = command_builder(
@@ -289,7 +286,6 @@ def _encode_kotlin_extra_params(
         actual_abi_generation_mode: AbiGenerationMode,
         should_kotlinc_run_incrementally: bool,
         incremental_state_dir: Artifact | None,
-        should_incremental_kotlinc_run_qe: bool,
         language_version: str):
     kosabiPluginOptionsMap = {}
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
@@ -323,7 +319,6 @@ def _encode_kotlin_extra_params(
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
-        shouldIncrementalKotlicRunQe = should_incremental_kotlinc_run_qe,
         shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
         languageVersion = language_version,
     )

@@ -55,8 +55,7 @@ message KotlinExtraParams {
   bool shouldKotlincRunIncrementally = 21;
   string incrementalStateDir = 22;
   string languageVersion = 23;
-  bool shouldIncrementalKotlicRunQe = 24;
-  repeated string extraClassPathSnapshots = 25;
+  repeated string extraClassPathSnapshots = 24;
 }
 
 message PluginParams {

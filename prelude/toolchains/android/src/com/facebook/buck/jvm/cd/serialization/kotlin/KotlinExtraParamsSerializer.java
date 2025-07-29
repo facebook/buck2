@@ -94,7 +94,6 @@ public class KotlinExtraParamsSerializer {
         .map(AbsPathSerializer::serialize)
         .ifPresent(builder::setJvmAbiGenPlugin);
     builder.setShouldKotlincRunIncrementally(kotlinExtraParams.getShouldKotlincRunIncrementally());
-    builder.setShouldIncrementalKotlicRunQe(kotlinExtraParams.getShouldIncrementalKotlicRunQe());
     kotlinExtraParams
         .getIncrementalStateDir()
         .map(AbsPathSerializer::serialize)
@@ -153,7 +152,6 @@ public class KotlinExtraParamsSerializer {
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
         kotlinExtraParams.getShouldKotlincRunIncrementally(),
-        kotlinExtraParams.getShouldIncrementalKotlicRunQe(),
         kotlinExtraParams.getShouldUseStandaloneKosabi(),
         Optional.of(kotlinExtraParams.getIncrementalStateDir())
             .filter(s -> !s.isEmpty())

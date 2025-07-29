@@ -494,7 +494,6 @@ def build_kotlin_library(
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
-                incremental_qe_applied = "incremental_qe_applied" in ctx.attrs.labels,
                 bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
                 **common_kotlincd_kwargs
             )
@@ -531,7 +530,6 @@ def build_kotlin_library(
                         optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
                         incremental = False,
-                        incremental_qe_applied = False,
                         bootclasspath_snapshot_entries = [],
                         **common_kotlincd_kwargs
                     )

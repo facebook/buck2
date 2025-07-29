@@ -79,7 +79,6 @@ public class KotlinExtraParamsSerializerTest {
             Optional.empty(),
             false,
             false,
-            false,
             Optional.empty(),
             KotlinSupportedLanguageVersion.V2_0.getValue());
 

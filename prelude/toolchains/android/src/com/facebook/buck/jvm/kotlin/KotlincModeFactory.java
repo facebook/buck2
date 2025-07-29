@@ -16,8 +16,6 @@ import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.file.MostFiles;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.java.ActionMetadata;
-import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfigService;
-import com.facebook.buck.jvm.kotlin.abtesting.ksic.KsicExperimentConstantsKt;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -28,18 +26,14 @@ import javax.annotation.Nullable;
 public class KotlincModeFactory {
   private static final Logger LOG = Logger.get(KotlincModeFactory.class);
 
-  private ExperimentConfigService experimentConfigService;
   private IncrementalCompilationValidator incrementalCompilationValidator;
 
   public KotlincModeFactory() {
-    this(new IncrementalCompilationValidator(), ExperimentConfigService.loadImplementation());
+    this(new IncrementalCompilationValidator());
   }
 
-  public KotlincModeFactory(
-      IncrementalCompilationValidator incrementalCompilationValidator,
-      ExperimentConfigService experimentConfigService) {
+  public KotlincModeFactory(IncrementalCompilationValidator incrementalCompilationValidator) {
     this.incrementalCompilationValidator = incrementalCompilationValidator;
-    this.experimentConfigService = experimentConfigService;
   }
 
   public KotlincMode create(
@@ -62,19 +56,6 @@ public class KotlincModeFactory {
           extraParams
               .getIncrementalStateDir()
               .orElseThrow(() -> new IllegalStateException("incremental_state_dir is not created"));
-
-      if (extraParams.getShouldIncrementalKotlicRunQe()
-          && !experimentConfigService
-              .loadConfig(KsicExperimentConstantsKt.UNIVERSE_NAME)
-              .getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true)) {
-        LOG.info(
-            "Non-incremental mode applied: experiment parameter "
-                + KsicExperimentConstantsKt.PARAM_KSIC_ENABLED
-                + "=false");
-        createCleanDirectory(incrementalStateDir);
-
-        return KotlincMode.NonIncremental.INSTANCE;
-      }
 
       @Nullable
       AbsPath kotlinClassUsageFileDir =
