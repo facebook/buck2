@@ -1,0 +1,27 @@
+# @oss-disable[end= ]: load("@fbcode_macros//build_defs:go_binary.bzl", "go_binary")
+# @oss-disable[end= ]: load("@fbcode_macros//build_defs:go_test.bzl", "go_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("golang")
+
+source_listing()
+
+prelude = native # @oss-enable
+go_binary = prelude.go_binary # @oss-enable
+go_test = prelude.go_test # @oss-enable
+
+go_binary(
+    name = "gobuckify",
+    srcs = glob(
+        ["*.go"],
+        exclude = ["*_test.go"],
+    ),
+    visibility = ["PUBLIC"],
+)
+
+go_test(
+    name = "gobuckify_test",
+    srcs = glob(["*_test.go"]),
+    target_under_test = ":gobuckify",
+    visibility = ["PUBLIC"],
+)
