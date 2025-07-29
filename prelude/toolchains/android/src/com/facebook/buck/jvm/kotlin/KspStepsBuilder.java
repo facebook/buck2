@@ -106,30 +106,33 @@ public class KspStepsBuilder {
 
     steps.add(new MkdirIsolatedStep(outputDirectory));
     // KSP folders
-    RelPath kspClassesOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_classes__");
+    RelPath kspOutputBaseDir = buildTargetValueExtraParams.getAnnotationOutputBasePath();
+    RelPath kspClassesOutput =
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_ksp_classes__");
     RelPath kspKotlinOutput =
-        buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_generated_kotlin__");
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_ksp_generated_kotlin__");
     RelPath kspJavaOutput =
-        buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_generated_java__");
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_ksp_generated_java__");
+    RelPath kspResOutput =
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_ksp_res_output__");
+    RelPath kspCachesOutput =
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_ksp_cache_output__");
+    RelPath kspMetaOutput =
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_ksp_meta_output__");
+
+    // More KSP folders
     RelPath kspGenOutputFolder = buildTargetValueExtraParams.getGenPath("__%s_ksp_gen_sources__");
     RelPath kspGenOutput =
         buildTargetValueExtraParams.getGenPath("__%s_ksp_gen_sources__/generated" + SRC_ZIP);
-
-    // More KSP folders
-    RelPath kspResOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_res_output__");
-    RelPath kspCachesOutput =
-        buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_cache_output__");
-    RelPath kspOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_meta_output__");
 
     // Creating KSP dirs
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspClassesOutput));
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspKotlinOutput));
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspJavaOutput));
-    steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspGenOutputFolder));
-
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspResOutput));
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspCachesOutput));
-    steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspOutput));
+    steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspMetaOutput));
+    steps.addAll(MakeCleanDirectoryIsolatedStep.of(kspGenOutputFolder));
 
     ImmutableList<String> kspProcessorsClasspathList =
         kspAnnotationProcessors.stream()
@@ -167,7 +170,7 @@ public class KspStepsBuilder {
               kspKotlinOutput,
               kspJavaOutput,
               kspCachesOutput,
-              kspOutput,
+              kspOutputBaseDir,
               jvmTarget,
               languageVersion,
               getJvmDefaultMode(extraKotlincArguments),
@@ -205,7 +208,7 @@ public class KspStepsBuilder {
               kspKotlinOutput,
               kspJavaOutput,
               kspCachesOutput,
-              kspOutput,
+              kspMetaOutput,
               kotlinCDAnalytics));
     }
 

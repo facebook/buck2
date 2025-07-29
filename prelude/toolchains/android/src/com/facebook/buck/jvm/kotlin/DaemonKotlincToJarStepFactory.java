@@ -108,10 +108,10 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(annotationGenFolder));
     // Only invoke kotlinc if we have kotlin or src zip files.
     if (hasKotlinSources) {
-      RelPath reportsOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_reports__");
+      RelPath reportsOutput = buildTargetValueExtraParams.getAnnotationOutputPath("__%s_reports__");
 
       RelPath kotlincPluginGeneratedOutput =
-          buildTargetValueExtraParams.getAnnotationPath("__%s_kotlinc_plugin_generated__");
+          buildTargetValueExtraParams.getAnnotationOutputPath("__%s_kotlinc_plugin_generated__");
 
       // Javac requires that the root directory for generated sources already exist.
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(kotlincPluginGeneratedOutput));

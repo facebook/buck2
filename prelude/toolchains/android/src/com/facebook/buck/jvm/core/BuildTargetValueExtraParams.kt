@@ -39,11 +39,14 @@ data class BuildTargetValueExtraParams(
   val kspAnnotationGenPath: RelPath
     get() = genPath.resolveRel("__ksp_generated__")
 
+  val annotationOutputBasePath: RelPath =
+      scratchDir.resolveRel("annotation").resolve(basePathForBaseName)
+
   /** Returns annotation path for the given `target` and `format` */
-  fun getAnnotationPath(format: String): RelPath {
-    Preconditions.checkArgument(
-        !format.startsWith("/"), "format string should not start with a slash")
-    return getRelativePath(format, scratchDir.resolveRel("annotation"))
+  fun getAnnotationOutputPath(format: String): RelPath {
+    require(!format.startsWith("/")) { "format string should not start with a slash" }
+
+    return annotationOutputBasePath.resolveRel(formatLastSegment(format, shortNameAndFlavorPostfix))
   }
 
   val genPath: RelPath

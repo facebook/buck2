@@ -58,7 +58,7 @@ class Ksp2Step(
     private val kspKotlinOutput: RelPath,
     private val kspJavaOutput: RelPath,
     private val kspCachesOutput: RelPath,
-    private val kspOutput: RelPath,
+    private val kspOutputBaseDir: RelPath,
     private val jvmTarget: Optional<String>,
     private val languageVersion: LanguageVersion,
     private val jvmDefaultMode: String,
@@ -139,7 +139,7 @@ class Ksp2Step(
               javaOutputDir = rootPath.resolve(kspJavaOutput).toFile()
               resourceOutputDir = rootPath.resolve(kspClassesOutput).toFile()
               cachesDir = rootPath.resolve(kspCachesOutput).toFile()
-              outputBaseDir = rootPath.resolve(kspOutput).toFile()
+              outputBaseDir = rootPath.resolve(kspOutputBaseDir).toFile()
               processorOptions = apOptions
               moduleName = this@Ksp2Step.moduleName
               jvmTarget = this@Ksp2Step.jvmTarget.orElse("1.8")

@@ -143,12 +143,12 @@ public class KaptStepsBuilder {
 
     // KAPT folders
     RelPath kaptSourcesOutput =
-        buildTargetValueExtraParams.getAnnotationPath("__%s_kapt_sources__");
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_kapt_sources__");
     RelPath kaptClassesOutput =
-        buildTargetValueExtraParams.getAnnotationPath("__%s_kapt_classes__");
-    RelPath stubsOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_kapt_stubs__");
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_kapt_classes__");
+    RelPath stubsOutput = buildTargetValueExtraParams.getAnnotationOutputPath("__%s_kapt_stubs__");
     RelPath kaptGeneratedOutput =
-        buildTargetValueExtraParams.getAnnotationPath("__%s_kapt_generated__");
+        buildTargetValueExtraParams.getAnnotationOutputPath("__%s_kapt_generated__");
     RelPath kaptGenOutputFolder = buildTargetValueExtraParams.getGenPath("__%s_kapt_gen_sources__");
     RelPath kaptGenOutput =
         buildTargetValueExtraParams.getGenPath("__%s_kapt_gen_sources__/generated" + SRC_ZIP);
