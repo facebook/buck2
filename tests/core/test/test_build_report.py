@@ -86,3 +86,15 @@ build_report_test(
     ["//:fail_build1", "//:fail_build2"],
     True,
 )
+
+build_report_test(
+    "test_build_report_with_build_default_info",
+    ["//...", "--build-default-info"],
+    True,
+)
+
+build_report_test(
+    "test_build_report_with_build_run_info",
+    ["//...", "--build-run-info"],
+    True,
+)

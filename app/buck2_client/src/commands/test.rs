@@ -154,6 +154,24 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(name = "TEST_EXECUTOR_ARGS", raw = true)]
     test_executor_args: Vec<String>,
 
+    /// Also build DefaultInfo provider, which is what `buck2 build` command builds (this is not the default)
+    #[clap(long, group = "default-info")]
+    build_default_info: bool,
+
+    /// Do not build DefaultInfo provider (this is the default)
+    #[allow(unused)]
+    #[clap(long, group = "default-info")]
+    skip_default_info: bool,
+
+    /// Also build RunInfo provider, which builds artifacts needed for `buck2 run` (this is not the default)
+    #[clap(long, group = "run-info")]
+    build_run_info: bool,
+
+    /// Do not build RunInfo provider (this is the default)
+    #[allow(unused)]
+    #[clap(long, group = "run-info")]
+    skip_run_info: bool,
+
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[clap(long = "deep", hide = true)]
     _deep: bool,
@@ -210,6 +228,8 @@ impl StreamingCommand for TestCommand {
                     }),
                     timeout: self.timeout_options.overall_timeout()?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
+                    build_default_info: self.build_default_info,
+                    build_run_info: self.build_run_info,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

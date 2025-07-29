@@ -30,6 +30,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
@@ -434,6 +435,8 @@ async fn test(
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
         timeout,
         request.ignore_tests_attribute,
+        request.build_default_info,
+        request.build_run_info,
         tpx_experiments,
     )
     .await
@@ -606,6 +609,8 @@ async fn test_targets(
     missing_target_behavior: MissingTargetBehavior,
     timeout: Option<Duration>,
     ignore_tests_attribute: bool,
+    build_default_info: bool,
+    build_run_info: bool,
     tpx_experiments: HashSet<String>,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
@@ -693,6 +698,8 @@ async fn test_targets(
                     working_dir_cell,
                     missing_target_behavior,
                     ignore_tests_attribute,
+                    build_default_info,
+                    build_run_info,
                 });
 
                 driver.push_pattern(
@@ -835,6 +842,8 @@ struct TestDriverState<'a, 'e> {
     working_dir_cell: CellName,
     missing_target_behavior: MissingTargetBehavior,
     ignore_tests_attribute: bool,
+    build_default_info: bool,
+    build_run_info: bool,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -1156,8 +1165,15 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
             let result = match ctx
                 .with_linear_recompute(|ctx| async move {
-                    build_target_result(&ctx, &state.label_filtering, build_label, modifiers_dupe)
-                        .await
+                    build_target_result(
+                        &ctx,
+                        &state.label_filtering,
+                        build_label,
+                        modifiers_dupe,
+                        state.build_default_info,
+                        state.build_run_info,
+                    )
+                    .await
                 })
                 .await
             {
@@ -1231,6 +1247,8 @@ async fn build_target_result(
     label_filtering: &TestLabelFiltering,
     label: ConfiguredProvidersLabel,
     modifiers: Modifiers,
+    build_default_info: bool,
+    build_run_info: bool,
 ) -> anyhow::Result<(BuildTargetResult, FrozenProviderCollectionValue)> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
@@ -1242,45 +1260,57 @@ async fn build_target_result(
         .require_compatible()?;
     let collections = providers.provider_collection();
 
-    let build_target_result = match <dyn TestProvider>::from_collection(collections) {
-        Some(test_info) => {
-            if skip_build_based_on_labels(test_info, label_filtering) {
-                return Ok((BuildTargetResult::new(), providers));
-            }
-            let materialization_and_upload = MaterializationAndUploadContext::skip();
-            let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
-            consumer.consume(BuildEvent::new_configured(
-                label.dupe(),
-                ConfiguredBuildEventVariant::MapModifiers { modifiers },
-            ));
-            result_builder
-                .wait_for(
-                    false,
-                    build_configured_label(
-                        &consumer,
-                        &ctx,
-                        &materialization_and_upload,
-                        label,
-                        &ProvidersToBuild {
-                            default: false,
-                            default_other: false,
-                            run: false,
-                            tests: true,
-                        },
-                        BuildConfiguredLabelOptions {
-                            skippable: false,
-                            graph_properties: Default::default(),
-                        },
-                        None, // TODO: is this right?
-                    ),
-                )
-                .await?
+    // We build target if any of the following is true
+    // 1. It's a test (aka it produces a TestInfo provider) and it is not skipped by label filtering
+    // 2. --build-default-info is requested
+    // 3. --build-run-info is requested and the target produces a RunInfo
+    if let Some(test_info) = <dyn TestProvider>::from_collection(collections) {
+        let skip_build_based_on_labels = !label_filtering.build_filtered_targets
+            && label_filtering.is_excluded(test_info.labels());
+        if skip_build_based_on_labels {
+            return Ok((BuildTargetResult::new(), providers));
         }
-        None => {
-            // not a test
-            BuildTargetResult::new()
+    } else {
+        if !(build_default_info
+            || build_run_info
+                && providers
+                    .provider_collection()
+                    .builtin_provider::<FrozenRunInfo>()
+                    .is_some())
+        {
+            return Ok((BuildTargetResult::new(), providers));
         }
-    };
+    }
+
+    let materialization_and_upload = MaterializationAndUploadContext::skip();
+    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    consumer.consume(BuildEvent::new_configured(
+        label.dupe(),
+        ConfiguredBuildEventVariant::MapModifiers { modifiers },
+    ));
+    let build_target_result = result_builder
+        .wait_for(
+            false,
+            build_configured_label(
+                &consumer,
+                &ctx,
+                &materialization_and_upload,
+                label,
+                &ProvidersToBuild {
+                    default: build_default_info,
+                    default_other: build_default_info,
+                    run: build_run_info,
+                    tests: true,
+                },
+                BuildConfiguredLabelOptions {
+                    skippable: false,
+                    graph_properties: Default::default(),
+                },
+                None, // TODO: is this right?
+            ),
+        )
+        .await?;
+
     Ok((build_target_result, providers))
 }
 
@@ -1297,7 +1327,7 @@ async fn test_target(
 
     let fut = match <dyn TestProvider>::from_collection(collection) {
         Some(test_info) => {
-            if skip_run_based_on_labels(test_info, &label_filtering) {
+            if label_filtering.is_excluded(test_info.labels()) {
                 return Ok(None);
             }
             run_tests(
@@ -1333,21 +1363,6 @@ fn convert_error(build_result: &BuildTargetResult) -> Vec<buck2_error::Error> {
     }
 
     errors
-}
-
-fn skip_run_based_on_labels(
-    provider: &dyn TestProvider,
-    label_filtering: &TestLabelFiltering,
-) -> bool {
-    let target_labels = provider.labels();
-    label_filtering.is_excluded(target_labels)
-}
-
-fn skip_build_based_on_labels(
-    provider: &dyn TestProvider,
-    label_filtering: &TestLabelFiltering,
-) -> bool {
-    !label_filtering.build_filtered_targets && skip_run_based_on_labels(provider, label_filtering)
 }
 
 fn run_tests<'a, 'b>(
