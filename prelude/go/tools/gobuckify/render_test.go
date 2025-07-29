@@ -47,6 +47,8 @@ load(":defs.bzl", "go_binary")
 go_binary(
     name = "test_binary",
     package_name = "github.com/example/test_binary",
+    srcs = native.glob(["*.go", "*.s", "*.h", "*.c", "*.cc", "*.cpp", "*.S"]),
+    header_namespace = "",
     go_external_deps = [
         "github.com/example/dep1",
         "github.com/example/dep2",
@@ -98,6 +100,8 @@ load(":defs.bzl", "go_library")
 go_library(
     name = "test_lib",
     package_name = "github.com/example/test_lib",
+    srcs = native.glob(["*.go", "*.s", "*.h", "*.c", "*.cc", "*.cpp", "*.S"]),
+    header_namespace = "",
     deps = [
         "//third-party/go/github.com/example/common_dep:common_dep",
     ] + select({
@@ -134,6 +138,8 @@ load(":defs.bzl", "go_library")
 go_library(
     name = "simple_lib",
     package_name = "github.com/example/simple_lib",
+    srcs = native.glob(["*.go", "*.s", "*.h", "*.c", "*.cc", "*.cpp", "*.S"]),
+    header_namespace = "",
 )`,
 			notExpected: []string{
 				"deps =",
@@ -202,6 +208,8 @@ load(":defs.bzl", "go_library")
 go_library(
     name = "platform_lib",
     package_name = "github.com/example/platform_lib",
+    srcs = native.glob(["*.go", "*.s", "*.h", "*.c", "*.cc", "*.cpp", "*.S"]),
+    header_namespace = "",
     deps = [
     ] + select({
         "DEFAULT": [],

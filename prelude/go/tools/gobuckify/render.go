@@ -28,6 +28,8 @@ var targetTempate = `
 {{- if .Target.IsBinary }}{{ .Config.GoBinaryRule}}{{ else }}{{ .Config.GoLibraryRule}}{{ end }}(
     name = "{{.Target.Name}}",
     package_name = "{{.Target.ImportPath}}",
+    srcs = native.glob(["*.go", "*.s", "*.h", "*.c", "*.cc", "*.cpp", "*.S"]),
+    header_namespace = "",
     {{- if or .Target.CommonDeps .Target.PlatformDeps }}
     {{.Config.DepsAttr}} = [
         {{- range .Target.CommonDeps }}
