@@ -34,11 +34,20 @@ def filegroup_impl(ctx):
 
     # It seems that buck1 always copies, and that's important for Python rules
     if ctx.attrs.copy:
-        output = ctx.actions.copied_dir(output_name, srcs, executable_bit_override = ctx.attrs.executable_bit_override)
+        output = ctx.actions.copied_dir(
+            output_name,
+            srcs,
+            executable_bit_override = ctx.attrs.executable_bit_override,
+            uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing,
+        )
     elif ctx.attrs.executable_bit_override != None:
         fail("filegroup does not allow specifying `executable_bit_override` with `copy = False`")
     else:
-        output = ctx.actions.symlinked_dir(output_name, srcs)
+        output = ctx.actions.symlinked_dir(
+            output_name,
+            srcs,
+            uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing,
+        )
 
     if type(ctx.attrs.srcs) == type([]):
         artifacts = ctx.attrs.srcs

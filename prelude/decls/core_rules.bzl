@@ -486,6 +486,7 @@ filegroup = prelude_rule(
             "out": attrs.option(attrs.string(), default = None, doc = """
                 The name of the output directory. Defaults to the rule's name.
             """),
+            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         }
     ),
 )
