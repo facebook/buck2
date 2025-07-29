@@ -91,7 +91,7 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = build_bootclasspath(custom_bootclasspath, source_level, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
-    # TODO(ianc) remove this once we support content-based paths for anon targets
+    # TODO(T219919866) remove this once we support content-based paths for anon targets
     uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", True) and java_toolchain.uses_experimental_content_based_path_hashing
 
     should_create_class_abi = (
