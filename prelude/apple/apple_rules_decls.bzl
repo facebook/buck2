@@ -1289,32 +1289,32 @@ swift_toolchain = prelude_rule(
 )
 
 def _apple_universal_executable_attrs():
-    attribs = {
-        "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
-                A build target identifying the binary which will be built for multiple architectures.
-                The target will be transitioned into different configurations, with distinct architectures.
+    attribs = (
+        {
+            "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
+                    A build target identifying the binary which will be built for multiple architectures.
+                    The target will be transitioned into different configurations, with distinct architectures.
 
-                The target can be one of:
-                - `apple_binary()` and `cxx_binary()`
-                - `[shared]` subtarget of `apple_library()` and `cxx_library()`
-                - `apple_library()` and `cxx_library()` which have `preferred_linkage = shared` attribute
-            """),
-        "executable_name": attrs.option(attrs.string(), default = None, doc = """
-                By default, the name of the universal executable is same as the name of the binary
-                from the `binary` target attribute. Set `executable_name` to override the default.
-            """),
-        "labels": attrs.list(attrs.string(), default = []),
-        "split_arch_dsym": attrs.bool(default = False, doc = """
-                If enabled, each architecture gets its own dSYM binary. Use this if the combined
-                universal dSYM binary exceeds 4GiB.
-            """),
-        "universal": attrs.option(attrs.bool(), default = None, doc = """
-                Controls whether the output is universal binary. Any value overrides the presence
-                of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
-                for more information on resolution.
-            """),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-    }
+                    The target can be one of:
+                    - `apple_binary()` and `cxx_binary()`
+                    - `[shared]` subtarget of `apple_library()` and `cxx_library()`
+                    - `apple_library()` and `cxx_library()` which have `preferred_linkage = shared` attribute
+                """),
+            "labels": attrs.list(attrs.string(), default = []),
+            "split_arch_dsym": attrs.bool(default = False, doc = """
+                    If enabled, each architecture gets its own dSYM binary. Use this if the combined
+                    universal dSYM binary exceeds 4GiB.
+                """),
+            "universal": attrs.option(attrs.bool(), default = None, doc = """
+                    Controls whether the output is universal binary. Any value overrides the presence
+                    of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                    for more information on resolution.
+                """),
+            "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        } |
+        apple_common.executable_name_for_universal_arg()
+    )
+
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     return attribs
@@ -1390,28 +1390,27 @@ apple_tools = prelude_rule(
 )
 
 def _cxx_universal_executable_attrs():
-    return {
-        "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
-                A build target identifying the binary which will be built for multiple architectures.
-                The target will be transitioned into different configurations, with distinct architectures.
+    return (
+        {
+            "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
+                    A build target identifying the binary which will be built for multiple architectures.
+                    The target will be transitioned into different configurations, with distinct architectures.
 
-                The target can be one of:
-                - `cxx_binary()`
-                - `[shared]` subtarget `cxx_library()`
-                - `cxx_library()` which have `preferred_linkage = shared` attribute
-            """),
-        "executable_name": attrs.option(attrs.string(), default = None, doc = """
-                By default, the name of the universal executable is same as the name of the binary
-                from the `binary` target attribute. Set `executable_name` to override the default.
-            """),
-        "labels": attrs.list(attrs.string(), default = []),
-        "universal": attrs.option(attrs.bool(), default = None, doc = """
-                Controls whether the output is universal binary. Any value overrides the presence
-                of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
-                for more information on resolution.
-            """),
-        "_cxx_toolchain": toolchains_common.cxx(),
-    }
+                    The target can be one of:
+                    - `cxx_binary()`
+                    - `[shared]` subtarget `cxx_library()`
+                    - `cxx_library()` which have `preferred_linkage = shared` attribute
+                """),
+            "labels": attrs.list(attrs.string(), default = []),
+            "universal": attrs.option(attrs.bool(), default = None, doc = """
+                    Controls whether the output is universal binary. Any value overrides the presence
+                    of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                    for more information on resolution.
+                """),
+            "_cxx_toolchain": toolchains_common.cxx(),
+        } |
+        apple_common.executable_name_for_universal_arg()
+    )
 
 cxx_universal_executable = prelude_rule(
     name = "cxx_universal_executable",

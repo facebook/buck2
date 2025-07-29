@@ -239,6 +239,14 @@ def _product_name_from_module_name_arg():
         "product_name_from_module_name": attrs.bool(default = False),
     }
 
+def _executable_name_for_universal_arg():
+    return {
+        "executable_name": attrs.option(attrs.string(), default = None, doc = """
+                    By default, the name of the universal executable is same as the name of the binary
+                    from the `binary` target attribute. Set `executable_name` to override the default.
+                """),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -259,4 +267,5 @@ apple_common = struct(
     enable_private_swift_module_arg = _enable_private_swift_module_arg,
     apple_tools_arg = _apple_tools_arg,
     product_name_from_module_name_arg = _product_name_from_module_name_arg,
+    executable_name_for_universal_arg = _executable_name_for_universal_arg,
 )
