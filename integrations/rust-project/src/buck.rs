@@ -796,8 +796,6 @@ pub(crate) fn truncate_line_ending(s: &mut String) {
 pub(crate) fn select_mode(mode: Option<&str>) -> Option<String> {
     if let Some(mode) = mode {
         Some(mode.to_owned())
-    } else if cfg!(all(fbcode_build, target_os = "macos")) {
-        Some("@fbcode//mode/mac".to_owned())
     } else if cfg!(all(fbcode_build, target_os = "windows")) {
         Some("@fbcode//mode/win".to_owned())
     } else {
@@ -1172,15 +1170,6 @@ fn test_select_mode() {
         );
     }
 
-    // Test behavior with the fbcode_build cfg enabled
-    if cfg!(all(fbcode_build, target_os = "macos")) {
-        assert_eq!(select_mode(None), Some("@fbcode//mode/mac".to_owned()));
-        assert_eq!(
-            select_mode(Some("custom-mode")),
-            Some("custom-mode".to_owned())
-        );
-    }
-
     if cfg!(all(fbcode_build, target_os = "windows")) {
         assert_eq!(select_mode(None), Some("@fbcode//mode/win".to_owned()));
         assert_eq!(
@@ -1189,10 +1178,7 @@ fn test_select_mode() {
         );
     }
 
-    if cfg!(all(
-        fbcode_build,
-        not(any(target_os = "macos", target_os = "windows"))
-    )) {
+    if cfg!(all(fbcode_build, not(target_os = "windows"))) {
         assert_eq!(select_mode(None), None);
         assert_eq!(
             select_mode(Some("custom-mode")),
