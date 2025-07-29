@@ -20,6 +20,7 @@ load(
     "ios_platforms",
     "mac_catalyst_platforms",
     "mac_platforms",
+    "watch_platforms",
 )
 load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_PLATFORMS_MAP")
 load("@prelude//utils:buckconfig.bzl", "read")
@@ -40,9 +41,17 @@ _SUPPORTED_MAC_CATALYST_PLATFORMS = [
     mac_catalyst_platforms.MACCATALYST_X86_64,
 ]
 
+_SUPPORTED_WATCHOS_PLATFORMS = [
+    watch_platforms.WATCHOS_ARM64,
+    watch_platforms.WATCHOS_ARM64_32,
+    watch_platforms.WATCHSIMULATOR_ARM64,
+    watch_platforms.WATCHSIMULATOR_X86_64,
+]
+
 _ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode"]
 _DEFAULT_ANALYSIS_IOS_PLATFORM = ios_platforms.IPHONEOS_ARM64
 _DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_X86_64
+_DEFAULT_ANALYSIS_WATCHOS_PLATFORM = watch_platforms.WATCHOS_ARM64
 
 DEFAULT_SUPPORTED_CXX_PLATFORMS = _SUPPORTED_IOS_PLATFORMS
 
@@ -164,6 +173,8 @@ def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, su
             return _SUPPORTED_MACOS_PLATFORMS
         elif platform in _SUPPORTED_MAC_CATALYST_PLATFORMS:
             return _SUPPORTED_MAC_CATALYST_PLATFORMS
+        elif platform in _SUPPORTED_WATCHOS_PLATFORMS:
+            return _SUPPORTED_WATCHOS_PLATFORMS
         else:
             return None
 
@@ -227,6 +238,10 @@ def _get_analysis_platform_for_supported_platforms(supported_cxx_platforms):
     for platform in _SUPPORTED_MACOS_PLATFORMS:
         if platform in supported_cxx_platforms:
             return _DEFAULT_ANALYSIS_MACOS_PLATFORM
+
+    for platform in _SUPPORTED_WATCHOS_PLATFORMS:
+        if platform in supported_cxx_platforms:
+            return _DEFAULT_ANALYSIS_WATCHOS_PLATFORM
 
     return _DEFAULT_ANALYSIS_IOS_PLATFORM
 
