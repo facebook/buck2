@@ -154,6 +154,7 @@ CxxCompileOutput = record(
     nvcc_dag = field(Artifact | None, None),
     # Environment variables for the NVCC sub-commands.
     nvcc_env = field(Artifact | None, None),
+    pch_object_output = field(Artifact | None, None),
 )
 
 CxxCompileFlavor = enum(

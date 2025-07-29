@@ -198,6 +198,9 @@ def _get_shared_link_style_sub_targets_and_providers(
     return (sub_targets, providers)
 
 def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    return cxx_library_generate(ctx, "cxx_library")
+
+def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]:
     if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
         fail("Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule")
 
@@ -210,7 +213,7 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
     params = CxxRuleConstructorParams(
-        rule_type = "cxx_library",
+        rule_type = rule_type,
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         output_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
@@ -788,13 +791,17 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return providers
 
 def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
+    if ctx.attrs.compile_pch_file:
+        ctx.attrs.srcs.append(ctx.attrs.src)
+        return cxx_library_generate(ctx, "cxx_precompiled_header")
+
     inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     inherited_link = cxx_inherited_link_info(ctx.attrs.deps)
     return [
         DefaultInfo(default_output = ctx.attrs.src),
         cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
         create_merged_link_info_for_propagation(ctx, inherited_link),
-        CPrecompiledHeaderInfo(header = ctx.attrs.src),
+        CPrecompiledHeaderInfo(header = ctx.attrs.src, compiled = False),
     ]
 
 def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:

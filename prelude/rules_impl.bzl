@@ -277,51 +277,54 @@ _dotnet_extra_attributes = {
     },
 }
 
+_cxx_extra_library_attrs = (
+    {
+        "auto_link_groups": attrs.bool(default = False),
+        # These flags will only be used to instrument a target
+        # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
+        # or by any of the target's dependencies.
+        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
+        "deps_query": attrs.option(attrs.query(), default = None),
+        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
+        "extra_dwp_flags": attrs.list(attrs.string(), default = []),
+        "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
+        "link_deps_query_whole": attrs.bool(default = False),
+        "link_execution_preference": link_execution_preference_attr(),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "prefer_stripped_objects": attrs.bool(default = False),
+        "preferred_linkage": attrs.enum(
+            Linkage.values(),
+            default = "any",
+            doc = """
+Determines what linkage is used when the library is depended on by another target. To
+control how the dependencies of this library are linked, use `link_style` instead.
+""",
+        ),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "separate_debug_info": attrs.bool(default = False),
+        "stub": attrs.bool(default = False),
+        "supports_header_symlink_subtarget": attrs.bool(default = False),
+        "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
+        "supports_shlib_interfaces": attrs.bool(default = True),
+        "third_party_project": attrs.option(attrs.string(), default = None),
+        "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_is_building_android_binary": is_building_android_binary_attr(),
+    } |
+    apple_common.extra_xcode_sources() |
+    third_party_common.create_third_party_build_root_attrs()
+)
+
 cxx_extra_attributes = {
     "cxx_genrule": genrule_attributes() | {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
     },
-    "cxx_library": (
-        {
-            "auto_link_groups": attrs.bool(default = False),
-            # These flags will only be used to instrument a target
-            # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
-            # or by any of the target's dependencies.
-            "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
-            "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
-            "deps_query": attrs.option(attrs.query(), default = None),
-            "exported_needs_coverage_instrumentation": attrs.bool(default = False),
-            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
-            "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
-            "link_deps_query_whole": attrs.bool(default = False),
-            "link_execution_preference": link_execution_preference_attr(),
-            "link_group_map": LINK_GROUP_MAP_ATTR,
-            "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-            "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-            "prefer_stripped_objects": attrs.bool(default = False),
-            "preferred_linkage": attrs.enum(
-                Linkage.values(),
-                default = "any",
-                doc = """
-Determines what linkage is used when the library is depended on by another target. To
-control how the dependencies of this library are linked, use `link_style` instead.
-""",
-            ),
-            "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-            "separate_debug_info": attrs.bool(default = False),
-            "stub": attrs.bool(default = False),
-            "supports_header_symlink_subtarget": attrs.bool(default = False),
-            "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
-            "supports_shlib_interfaces": attrs.bool(default = True),
-            "third_party_project": attrs.option(attrs.string(), default = None),
-            "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
-            "_cxx_toolchain": toolchains_common.cxx(),
-            "_is_building_android_binary": is_building_android_binary_attr(),
-        } |
-        apple_common.extra_xcode_sources() |
-        third_party_common.create_third_party_build_root_attrs()
-    ),
+    "cxx_library": _cxx_extra_library_attrs,
+    "cxx_precompiled_header": _cxx_extra_library_attrs,
     "cxx_test": _merge_dictionaries(
         [
             re_test_common.test_args(),
