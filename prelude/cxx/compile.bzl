@@ -52,6 +52,7 @@ load(
     ":headers.bzl",
     "CHeader",
     "CPrecompiledHeaderInfo",
+    "CxxPrecompiledHeader",
     "add_headers_dep_files",
 )
 load(":platform.bzl", "cxx_by_platform")
@@ -168,14 +169,19 @@ def create_compile_cmds(
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo],
-        add_coverage_instrumentation_compiler_flags: bool) -> CxxCompileCommandOutput:
+        add_coverage_instrumentation_compiler_flags: bool,
+        compile_pch: CxxPrecompiledHeader | None = None,
+    ) -> CxxCompileCommandOutput:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
     of the generated compile commands and argsfile output.
     """
 
-    srcs_extensions = collect_extensions(impl_params.srcs)
+    if compile_pch:
+        srcs_extensions = set([CxxExtension(compile_pch.clanguage)])
+    else:
+        srcs_extensions = collect_extensions(impl_params.srcs)
     extension_for_plain_headers = detect_source_extension_for_plain_headers(srcs_extensions, impl_params.rule_type)
 
     srcs_with_flags = []  # type: [CxxSrcWithFlags]
@@ -218,8 +224,10 @@ def create_compile_cmds(
     cxx_compile_cmd_by_ext = {}  # type: dict[CxxExtension, CxxCompileCommand]
     argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
     xcode_argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
-
-    src_extensions = collect_source_extensions(srcs_with_flags, extension_for_plain_headers)
+    if compile_pch:
+        src_extensions = [CxxExtension(compile_pch.clanguage)]
+    else:
+        src_extensions = collect_source_extensions(srcs_with_flags, extension_for_plain_headers)
 
     # Deduplicate shared arguments to save memory. If we compile multiple files
     # of the same extension they will have some of the same flags. Save on
@@ -234,13 +242,17 @@ def create_compile_cmds(
         src_args = []
         src_args.extend(src.flags)
 
-        ext = get_source_extension(src, extension_for_plain_headers)
+        if compile_pch:
+            ext = CxxExtension(compile_pch.clanguage)
+        else:
+            ext = get_source_extension(src, extension_for_plain_headers)
+
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
 
         if add_coverage_instrumentation_compiler_flags and cxx_compile_cmd.compiler_type != "gcc":
             src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
 
-        if src.is_header:
+        if src.is_header or compile_pch:
             if cxx_compile_cmd.compiler_type in ["clang", "clang_windows", "gcc"]:
                 language_mode = get_header_language_mode(ext)
                 src_args.extend(["-x", language_mode] if language_mode else [])
@@ -249,6 +261,10 @@ def create_compile_cmds(
 
         if cxx_compile_cmd.compiler_type != "nasm":
             src_args.append("-c")
+
+        if compile_pch and cxx_compile_cmd.compiler_type == "windows":
+            cxx_compile_cmd.base_compile_cmd.add("-I", compile_pch.namespace)
+
         src_args.append(src.file)
 
         src_compile_command = CxxSrcCompileCommand(
@@ -294,8 +310,12 @@ def _compile_single_cxx(
         optimization_flags: list,
         src_compile_cmd: CxxSrcCompileCommand,
         pic: bool,
+        flavor: CxxCompileFlavor,
         provide_syntax_only: bool,
-        use_header_units: bool) -> CxxCompileOutput:
+        use_header_units: bool,
+        precompiled_header: CPrecompiledHeaderInfo | None = None,
+        compile_pch: CxxPrecompiledHeader | None = None
+    ) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
@@ -316,6 +336,7 @@ def _compile_single_cxx(
         identifier += " (modular)"
 
     filename_base = filename_base + (".optimized" if optimization_flags else "")
+    filename_base = filename_base + (".compiled_pch" if compile_pch else "")
     folder_name = "__objects__"
     object = ctx.actions.declare_output(
         folder_name,
@@ -326,7 +347,21 @@ def _compile_single_cxx(
 
     # For distributed NVCC compilation we will bind the object in the
     # cuda_compile function.
-    output_args = None if src_compile_cmd.src.extension == ".cu" else get_output_flags(compiler_type, object)
+    pch_object_output = None
+    if src_compile_cmd.src.extension == ".cu":
+        output_args = None
+    elif compile_pch and src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
+        pch_object_output = ctx.actions.declare_output(
+            folder_name,
+            "{}.pch.o".format(filename_base),
+        )
+        output_args = [
+            cmd_args(object.as_output(), format="/Fp{}"),
+            cmd_args(pch_object_output.as_output(), format="/Fo{}")
+        ]
+    else:
+        output_args = get_output_flags(compiler_type, object)
+
     cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
@@ -335,6 +370,23 @@ def _compile_single_cxx(
         output_args = output_args,
     )
     cmd.add(optimization_flags)
+
+    if compile_pch:
+        if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
+            cmd.add(cmd_args(compile_pch.basename_src, format="/Yc{}"))
+        elif src_compile_cmd.cxx_compile_cmd.compiler_type == "clang":
+            cmd.add(
+                "-Xclang", "-emit-pch",
+                "-Xclang", "-fno-pch-timestamp",
+                "-fpch-instantiate-templates",
+            )
+
+    if precompiled_header and precompiled_header.compiled:
+        pch_info = ctx.attrs.precompiled_header[DefaultInfo].sub_targets["pch"]
+        pch_subtargets = pch_info.get(DefaultInfo).sub_targets
+        target = pch_subtargets[flavor.value].get(CPrecompiledHeaderInfo)
+
+        cmd.add(_get_use_pch_args(src_compile_cmd, target, precompiled_header))
 
     action_dep_files = {}
 
@@ -540,6 +592,7 @@ def _compile_single_cxx(
         preproc = preproc,
         nvcc_dag = dist_nvcc_dag,
         nvcc_env = dist_nvcc_env,
+        pch_object_output = pch_object_output,
     )
 
 def _get_base_compile_cmd(
@@ -576,7 +629,10 @@ def compile_cxx(
         src_compile_cmds: list[CxxSrcCompileCommand],
         flavor: CxxCompileFlavor,
         provide_syntax_only: bool,
-        use_header_units: bool = False) -> list[CxxCompileOutput]:
+        use_header_units: bool = False,
+        precompiled_header: CPrecompiledHeaderInfo | None = None,
+        compile_pch: CxxPrecompiledHeader | None = None,
+    ) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -611,8 +667,11 @@ def compile_cxx(
             optimization_flags = optimization_flags,
             src_compile_cmd = src_compile_cmd,
             pic = flavor != CxxCompileFlavor("default"),
+            flavor = flavor,
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
+            precompiled_header = precompiled_header,
+            compile_pch = compile_pch,
         )
         objects.append(cxx_compile_output)
 
@@ -1223,7 +1282,7 @@ def _mk_argsfiles(
 
         # Workaround as that's not precompiled, but working just as prefix header.
         # Another thing is that it's clang specific, should be generalized.
-        if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
+        if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None and not ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].compiled:
             target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
         if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
             target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
@@ -1348,6 +1407,11 @@ def _get_dep_tracking_mode(toolchain: Provider, file_type: DepFileType) -> DepTr
     else:
         return DepTrackingMode("makefile")
 
+def get_compiler_type(ctx: AnalysisContext, ext: CxxExtension) -> typing.Any:
+    toolchain = get_cxx_toolchain_info(ctx)
+    compiler_info = _get_compiler_info(toolchain, ext)
+    return compiler_info.compiler_type
+
 def _generate_base_compile_command(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
@@ -1415,3 +1479,25 @@ def _generate_base_compile_command(
         category = category,
         allow_cache_upload = allow_cache_upload,
     )
+
+def _get_use_pch_args(
+    src_compile_cmd: CxxSrcCompileCommand,
+    compile_with_pch: CPrecompiledHeaderInfo,
+    precompiled_header: CPrecompiledHeaderInfo,
+) -> cmd_args:
+    if precompiled_header.clanguage != src_compile_cmd.src.extension:
+        return cmd_args()
+
+    pch_args = cmd_args()
+    if src_compile_cmd.cxx_compile_cmd.compiler_type in ["windows"]:
+        pch_args.add(cmd_args(compile_with_pch.basename, format="/Yu{}"))
+        pch_args.add(cmd_args(compile_with_pch.basename, format="/FI{}"))
+        pch_args.add(cmd_args(compile_with_pch.header, format="/Fp{}"))
+    elif src_compile_cmd.cxx_compile_cmd.compiler_type in ["clang"]:
+        pch_args.add("-Xclang", "-include-pch", "-Xclang", compile_with_pch.header)
+    else:
+        print("Warning: Unsupported compiler type for precompiled header usage: {}".format(
+            src_compile_cmd.cxx_compile_cmd.compiler_type,
+        ))
+
+    return pch_args
