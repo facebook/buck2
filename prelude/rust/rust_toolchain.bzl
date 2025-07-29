@@ -39,6 +39,8 @@ rust_toolchain_attrs = {
     # Rustc target triple to use
     # https://doc.rust-lang.org/rustc/platform-support.html
     "rustc_target_triple": provider_field(str | None, default = None),
+    # Extra env variables that should be made available to the rustc executable.
+    "rustc_env": provider_field(dict[str, typing.Any], default = {}),
     # Baseline compiler config
     "rustc_flags": provider_field(list[typing.Any], default = []),
     # Rustc flags, except that they are applied on the command line after the

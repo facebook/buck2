@@ -1366,7 +1366,7 @@ def _rustc_invoke(
         profile_mode: ProfileMode | None) -> Invoke:
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
+    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustc_env | ctx.attrs.env)
 
     more_plain_env, more_path_env = process_env(compile_ctx, env)
     plain_env.update(more_plain_env)
