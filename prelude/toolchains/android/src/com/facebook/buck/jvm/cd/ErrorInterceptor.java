@@ -236,16 +236,21 @@ public class ErrorInterceptor extends PrintStream {
   }
 
   // Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
+  // Supports both VS Code and Android Studio links based on ANDROID_EDITOR environment variable.
   private static String createHyperlink(String file, int line, String text) {
     String OSC = "\033]";
     String ST = "\033\\";
+    String uri;
 
-    // Assembles raw url, terminal handles encoding.
-    String uri =
-        "https://www.internalfb.com/intern/nuclide/open/arc/?project=fbsource&paths[0]="
-            + file
-            + "&lines[0]="
-            + line;
+    if (System.getenv("ANDROID_EDITOR") != null) {
+      uri = "fb-ide-opener://open/?ide=intellij&filepath=/fbsource/" + file + "&line=" + line;
+    } else {
+      uri =
+          "https://www.internalfb.com/intern/nuclide/open/arc/?project=fbsource&paths[0]="
+              + file
+              + "&lines[0]="
+              + line;
+    }
 
     return OSC + "8;;" + uri + ST + text + OSC + "8;;" + ST;
   }

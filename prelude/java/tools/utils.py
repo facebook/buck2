@@ -210,6 +210,7 @@ class FileType(Enum):
 def _hyperlink(file: str, line: int, text: str) -> str:
     """
     Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
+    Supports both VS Code and Android Studio links based on ANDROID_EDITOR environment variable.
 
     Args:
         file: The file path to link to
@@ -221,8 +222,33 @@ def _hyperlink(file: str, line: int, text: str) -> str:
     """
     OSC = "\033]"
     ST = "\033\\"
-    params = urlencode({"project": "fbsource", "paths[0]": file, "lines[0]": line})
-    uri = f"https://www.internalfb.com/intern/nuclide/open/arc/?{params}"
+
+    if "ANDROID_EDITOR" in os.environ:
+        params = {
+            "ide": "intellij",
+            "filepath": f"/fbsource/{file}",
+            "line": line,
+        }
+        encoded_params = "&".join(
+            [
+                f"{key}={urlencode({key: str(value)}).split('=', 1)[1]}"
+                for key, value in params.items()
+            ]
+        )
+
+        uri = f"fb-ide-opener://open/?{encoded_params}"
+
+    else:
+        params = {
+            "project": "fbsource",
+            "paths[0]": file,
+            "lines[0]": line,
+        }
+
+        encoded_params = urlencode(params)
+
+        uri = f"https://www.internalfb.com/intern/nuclide/open/arc/?{encoded_params}"
+
     return f"{OSC}8;;{uri}{ST}{text}{OSC}8;;{ST}"
 
 
