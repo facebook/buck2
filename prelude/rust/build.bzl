@@ -19,6 +19,10 @@ load(
     "executable_shared_lib_arguments",
     "make_link_args",
 )
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerType",
+)
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
@@ -413,7 +417,7 @@ def rust_compile(
     # TODO(pickett): We can expand this to support all linked crate types (cdylib + binary)
     # We can also share logic here for producing linked artifacts with cxx_library (instead of using)
     # deferred_link_action
-    if params.crate_type == CrateType("dylib") and emit == Emit("link") and compile_ctx.dep_ctx.advanced_unstable_linking:
+    if _deferred_link_enabled(compile_ctx, params, emit):
         out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
         out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True)
         linker_cmd = cmd_args(
@@ -1569,3 +1573,9 @@ def process_env(
             )
 
     return (plain_env, path_env)
+
+def _deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit: Emit) -> bool:
+    return compile_ctx.toolchain_info.advanced_unstable_linking and \
+           params.crate_type == CrateType("dylib") and \
+           emit == Emit("link") and \
+           compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu")
