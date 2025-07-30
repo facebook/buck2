@@ -188,6 +188,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             srcs.append(manifests.default_resources[0])
         if manifests.extensions != None:
             ((extension, _),) = manifests.extensions.items()
+            if extension in extensions:
+                fail("Duplicate extension entry for {}. Did your library_query forget to filter by `target_deps()`?".format(extension))
             extensions[extension] = dep
 
     # We support two modes of linking:
