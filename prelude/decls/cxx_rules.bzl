@@ -425,6 +425,7 @@ cxx_genrule = prelude_rule(
                 Whether this target should be executed in a sandbox or not.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
+            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
