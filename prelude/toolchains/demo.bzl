@@ -7,8 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//android/tools:jdk_system_image.bzl", "jdk_system_image")
-load("@prelude//fbcode/buck2/prelude/toolchains/go:system_go_bootstrap_toolchain.bzl", "system_go_bootstrap_toolchain")
-load("@prelude//fbcode/buck2/prelude/toolchains/go:system_go_toolchain.bzl", "system_go_toolchain")
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
 load("@prelude//toolchains:android.bzl", "android_sdk_tools", "system_android_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
@@ -22,6 +20,8 @@ load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "sy
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 load("@prelude//toolchains:zip_file.bzl", "zip_file_toolchain")
+load("@prelude//toolchains/go:system_go_bootstrap_toolchain.bzl", "system_go_bootstrap_toolchain")
+load("@prelude//toolchains/go:system_go_toolchain.bzl", "system_go_toolchain")
 
 def _hack_impl(ctx):
     return ctx.attrs.actual.providers
