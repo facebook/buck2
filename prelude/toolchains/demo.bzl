@@ -7,12 +7,13 @@
 # above-listed licenses.
 
 load("@prelude//android/tools:jdk_system_image.bzl", "jdk_system_image")
+load("@prelude//fbcode/buck2/prelude/toolchains/go:system_go_bootstrap_toolchain.bzl", "system_go_bootstrap_toolchain")
+load("@prelude//fbcode/buck2/prelude/toolchains/go:system_go_toolchain.bzl", "system_go_toolchain")
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
 load("@prelude//toolchains:android.bzl", "android_sdk_tools", "system_android_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:dex.bzl", "system_dex_toolchain", "system_noop_dex_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
-load("@prelude//toolchains:go.bzl", "system_go_bootstrap_toolchain", "system_go_toolchain")
 load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
 load("@prelude//toolchains:java.bzl", "java_test_toolchain", "javacd_toolchain", "system_java_bootstrap_toolchain", "system_java_lib", "system_java_tool", "system_prebuilt_jar_bootstrap_toolchain")
 load("@prelude//toolchains:kotlin.bzl", "kotlincd_toolchain", "system_kotlin_bootstrap_toolchain")
