@@ -57,6 +57,7 @@ go_binary(
         "embed1.txt",
         "embed2.txt",
     ],
+    visibility = ["PUBLIC"],
 )`,
 			notExpected: []string{
 				"go_library",
@@ -113,6 +114,7 @@ go_library(
             ],
         }),
     }),
+    visibility = ["PUBLIC"],
 )`,
 			notExpected: []string{
 				"go_binary",
@@ -140,6 +142,7 @@ go_library(
     package_name = "github.com/example/simple_lib",
     srcs = native.glob(["*.go", "*.s", "*.h", "*.c", "*.cc", "*.cpp", "*.S"]),
     header_namespace = "",
+    visibility = ["PUBLIC"],
 )`,
 			notExpected: []string{
 				"deps =",
@@ -241,6 +244,7 @@ go_library(
             "arm64": [],
         }),
     }),
+    visibility = ["PUBLIC"],
 )`,
 			notExpected: []string{
 				"go_binary",

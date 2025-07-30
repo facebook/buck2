@@ -1,0 +1,8 @@
+{
+    "buck": {
+        "deps_target_label_prefix": "root//vendor/"
+    },
+    "platforms": [
+        {"go_os": "darwin", "go_arch": "arm64", "buck_os": "config//os:macos", "buck_arch": "config//cpu:arm64"}
+    ]
+}

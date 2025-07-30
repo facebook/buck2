@@ -1,0 +1,9 @@
+oncall("golang")
+
+go_binary(
+    name = "helloyaml",
+    srcs = glob(["*.go"]),
+    deps = [
+        "root//vendor/github.com/goccy/go-yaml:go-yaml",
+    ],
+)

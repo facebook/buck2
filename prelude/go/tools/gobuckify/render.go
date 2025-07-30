@@ -79,6 +79,7 @@ var targetTempate = `
         {{- end }}
     }),
     {{- end }}
+    visibility = ["PUBLIC"],
 )
 `
 

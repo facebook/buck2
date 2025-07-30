@@ -63,8 +63,8 @@ func queryGoList(workDir, rootModuleName string, extraArgs ...string) (map[strin
 		if pkg.Module == nil {
 			continue // that's not a ligit third-party package
 		}
-		if pkg.ImportPath == rootModuleName {
-			continue // skip the root module
+		if strings.HasPrefix(pkg.ImportPath, rootModuleName) {
+			continue // skip the root module packages
 		}
 		pkgs[pkg.ImportPath] = &pkg
 	}
