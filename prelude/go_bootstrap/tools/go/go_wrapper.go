@@ -145,6 +145,7 @@ func main() {
 	var outputFile = flag.String("output", "", "file to redirect stdout to")
 	var workdir = flag.String("workdir", "", "directory to run the command in")
 	var useFakeGoroot = flag.Bool("use-fake-goroot", false, "use a fake GOROOT")
+	var useTmpWorkdir = flag.Bool("use-tmp-workdir", false, "use BUCK_SCRATCH_PATH as workdir")
 	flag.Parse()
 	unknownArgs := flag.Args()
 
@@ -185,6 +186,10 @@ func main() {
 
 		if *useFakeGoroot {
 			envs["GOROOT"] = absBuckScratchPath
+		}
+
+		if *useTmpWorkdir {
+			*workdir = absBuckScratchPath
 		}
 	}
 

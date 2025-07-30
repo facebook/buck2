@@ -55,9 +55,9 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         return cmd_args([
             go_toolchain.go_wrapper,
             ["--go", go_toolchain.go],
+            "--use-tmp-workdir",  # cd to a tmp dir to avoid interference with procject's go.mod
             "install",
-            "-pkgdir",
-            out.as_output(),
+            cmd_args(out.as_output(), format = "-pkgdir=%cwd%/{}"),
             cmd_args(["-asmflags=", cmd_args(local_assembler_flags, delimiter = " ")], delimiter = "") if local_assembler_flags else [],
             cmd_args(["-gcflags=", cmd_args(local_compiler_flags, delimiter = " ")], delimiter = "") if local_compiler_flags else [],
             cmd_args(["-ldflags=", cmd_args(linker_flags, delimiter = " ")], delimiter = "") if linker_flags else [],
