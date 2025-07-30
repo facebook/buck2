@@ -17,7 +17,8 @@
     extra_flags :: [string()],
     common_app_env :: #{string() => string()},
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
-    raw_target :: binary()
+    raw_target :: binary(),
+    trampolines :: [binary()]
 }).
 
 -record(ct_test, {suite, groups, test_name, canonical_name}).
@@ -37,7 +38,8 @@
     erl_cmd :: [binary()],
     extra_flags :: [string()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
-    raw_target :: binary() | undefined
+    raw_target :: binary() | undefined,
+    trampolines :: [binary()]
 }).
 
 -record(run_specs, {

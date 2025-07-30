@@ -31,7 +31,7 @@ communicates the result to the test runner.
 
 -export([
     start_test_node/6,
-    start_test_node/7,
+    start_test_node/8,
     cookie/0,
     generate_arg_tuple/2,
     project_root/0
@@ -103,8 +103,14 @@ handle_info(
         _ ->
             ErrorMsg =
                 case ExitStatus of
-                    137 ->
-                        "ct runner killed by SIGKILL (exit code 137), likely due to running out of memory. Check https://fburl.com/wiki/01s5fnom for information about memory limits for tests";
+                    N when N == 137 orelse N == 143 ->
+                        unicode:characters_to_list(
+                            io_lib:format(
+                                ("ct runner killed by SIGKILL (exit code ~b), likely due to running out of memory."
+                                " Check https://fburl.com/wiki/01s5fnom for information about memory limits for tests"),
+                                [ExitStatus]
+                            )
+                        );
                     _ ->
                         unicode:characters_to_list(
                             io_lib:format("ct run exited with status exit ~p", [
@@ -151,7 +157,8 @@ run_test(
         erl_cmd = ErlCmd,
         extra_flags = ExtraFlags,
         common_app_env = CommonAppEnv0,
-        raw_target = RawTarget
+        raw_target = RawTarget,
+        trampolines = Trampolines
     } = _TestEnv,
     PortEpmd
 ) ->
@@ -167,6 +174,7 @@ run_test(
 
     start_test_node(
         ErlCmd,
+        Trampolines,
         ExtraFlags,
         CodePath,
         ConfigFiles,
@@ -177,7 +185,8 @@ run_test(
                 {"ERL_EPMD_PORT", integer_to_list(PortEpmd)},
                 {"PROJECT_ROOT", ProjectRoot}
             ]}
-        ]
+        ],
+        false
     ).
 
 -spec build_common_args(
@@ -234,6 +243,7 @@ start_test_node(
 ) ->
     start_test_node(
         ErlCmd,
+        [],
         ExtraFlags,
         CodePath,
         ConfigFiles,
@@ -244,6 +254,7 @@ start_test_node(
 
 -spec start_test_node(
     Erl :: [binary()],
+    Trampolines :: [string()],
     ExtraFlags :: [string()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
@@ -253,6 +264,7 @@ start_test_node(
 ) -> port().
 start_test_node(
     ErlCmd,
+    Trampolines,
     ExtraFlags,
     CodePath,
     ConfigFiles,
@@ -260,15 +272,16 @@ start_test_node(
     PortSettings0,
     ReplayIo
 ) ->
-    % split of args from Erl which can contain emulator flags
-    [ErlExecutable | Flags] = ErlCmd,
+    % we handle ErlCmd and Trampolines as one and execute the first
+    % executale in the chain
+    [Executable | ExecutableArgs] = Trampolines ++ ErlCmd,
 
     % HomeDir is the execution directory.
     HomeDir = set_home_dir(OutputDir),
 
     %% merge args, enc, cd settings
     LaunchArgs =
-        Flags ++ ExtraFlags ++
+        ExecutableArgs ++ ExtraFlags ++
             build_common_args(CodePath, ConfigFiles) ++
             proplists:get_value(args, PortSettings0, []),
 
@@ -302,13 +315,13 @@ start_test_node(
     %% start the node
     ?LOG_DEBUG(
         io_lib:format("Launching ~tp ~tp ~n with env variables ~tp ~n", [
-            ErlExecutable,
+            Executable,
             LaunchArgs,
             LaunchEnv
         ])
     ),
 
-    erlang:open_port({spawn_executable, ErlExecutable}, LaunchSettings).
+    erlang:open_port({spawn_executable, Executable}, LaunchSettings).
 
 -spec generate_arg_tuple(atom(), [] | term()) -> [io_lib:chars()].
 generate_arg_tuple(_Prop, []) ->
