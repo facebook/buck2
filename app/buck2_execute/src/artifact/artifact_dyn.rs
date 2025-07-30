@@ -34,4 +34,6 @@ pub trait ArtifactDyn: Send + Sync + 'static {
     fn requires_materialization(&self, fs: &ArtifactFs) -> bool;
 
     fn has_content_based_path(&self) -> bool;
+
+    fn is_projected(&self) -> bool;
 }

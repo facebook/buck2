@@ -339,10 +339,24 @@ def _use_projection_with_content_based_path_impl(ctx):
     args = cmd_args(["fbpython", script, out.as_output(), projection1.as_output(), projection2.as_output()])
     ctx.actions.run(args, category = "test_run", prefer_remote = True)
 
-    copied_projection = ctx.actions.declare_output("copied_projection.txt", uses_experimental_content_based_path_hashing = True)
-    ctx.actions.copy_file(copied_projection, projection1)
+    copy_script = ctx.actions.write(
+        "copy_script.py",
+        [
+            "import shutil",
+            "import sys",
+            "shutil.copyfile(sys.argv[1], sys.argv[2])",
+        ],
+    )
 
-    return [DefaultInfo(default_output = copied_projection)]
+    first_copy_projection1 = ctx.actions.declare_output("first_copied_projection1.txt", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["fbpython", copy_script, projection1, first_copy_projection1.as_output()], hidden = [out])
+    ctx.actions.run(args, category = "test_first_copy_projection1", prefer_local = True)
+
+    second_copy_projection1 = ctx.actions.declare_output("second_copied_projection1.txt", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["fbpython", copy_script, projection1, second_copy_projection1.as_output()], hidden = [first_copy_projection1])
+    ctx.actions.run(args, category = "test_second_copy_projection1", prefer_local = True)
+
+    return [DefaultInfo(default_output = second_copy_projection1)]
 
 use_projection_with_content_based_path = rule(
     impl = _use_projection_with_content_based_path_impl,

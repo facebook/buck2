@@ -978,19 +978,25 @@ pub async fn materialize_inputs(
                                 Some(&artifact_value.content_based_path_hash()),
                             )?;
 
-                            let mut builder =
-                                ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
-                            builder.add_symlinked(
-                                artifact_value,
-                                &content_based_path,
-                                &configuration_hash_path,
-                            )?;
-                            let symlink_value = builder.build(&configuration_hash_path)?;
-                            configuration_path_to_content_based_path_symlinks
-                                .push((configuration_hash_path.clone(), symlink_value));
+                            // TODO(ianc) We want to also create symlinks here for projected artifacts.
+                            if artifact.is_projected() {
+                                paths.push(content_based_path);
+                            } else {
+                                let mut builder =
+                                    ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
+                                builder.add_symlinked(
+                                    artifact_value,
+                                    &content_based_path,
+                                    &configuration_hash_path,
+                                )?;
+                                let symlink_value = builder.build(&configuration_hash_path)?;
+                                configuration_path_to_content_based_path_symlinks
+                                    .push((configuration_hash_path.clone(), symlink_value));
+                                paths.push(configuration_hash_path);
+                            }
+                        } else {
+                            paths.push(configuration_hash_path);
                         }
-
-                        paths.push(configuration_hash_path);
                     }
                 }
             }

@@ -245,6 +245,10 @@ impl ArtifactDyn for Artifact {
     fn has_content_based_path(&self) -> bool {
         self.has_content_based_path()
     }
+
+    fn is_projected(&self) -> bool {
+        !self.as_parts().1.is_empty()
+    }
 }
 
 #[derive(
