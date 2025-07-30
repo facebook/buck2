@@ -18,7 +18,6 @@ use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
-use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::label::label::TargetLabel;
@@ -197,9 +196,8 @@ impl EvaluationResult {
     pub fn apply_spec<T: PatternType>(
         &self,
         spec: PackageSpec<T>,
-        modifiers: Modifiers,
     ) -> (
-        BTreeMap<(TargetName, T, Modifiers), TargetNode>,
+        BTreeMap<(TargetName, T), TargetNode>,
         Option<MissingTargets>,
     ) {
         match spec {
@@ -207,11 +205,7 @@ impl EvaluationResult {
                 let mut label_to_node = BTreeMap::new();
                 for target_info in self.targets().values() {
                     label_to_node.insert(
-                        (
-                            target_info.label().name().to_owned(),
-                            T::default(),
-                            modifiers.dupe(),
-                        ),
+                        (target_info.label().name().to_owned(), T::default()),
                         target_info.to_owned(),
                     );
                 }
@@ -224,8 +218,7 @@ impl EvaluationResult {
                     let node = self.get_target(target_name.as_ref());
                     match node {
                         Some(node) => {
-                            label_to_node
-                                .insert((target_name, extra, modifiers.dupe()), node.to_owned());
+                            label_to_node.insert((target_name, extra), node.to_owned());
                         }
                         None => missing_targets
                             .push(TargetLabel::new(self.package(), target_name.as_ref())),

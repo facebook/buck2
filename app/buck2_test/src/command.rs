@@ -984,7 +984,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     PackageSpec::All() => true,
                 };
 
-                let (targets, missing) = res.apply_spec(spec, modifiers);
+                let (targets, missing) = res.apply_spec(spec);
 
                 if let Some(missing) = missing {
                     match state.missing_target_behavior {
@@ -1006,16 +1006,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
-                let labels =
-                    targets
-                        .into_keys()
-                        .map(|(target_name, providers_pattern, modifiers)| {
-                            providers_pattern.into_providers_label_with_modifiers(
-                                package.dupe(),
-                                target_name.as_ref(),
-                                modifiers,
-                            )
-                        });
+                let labels = targets.into_keys().map(|(target_name, providers_pattern)| {
+                    providers_pattern.into_providers_label_with_modifiers(
+                        package.dupe(),
+                        target_name.as_ref(),
+                        modifiers.dupe(),
+                    )
+                });
 
                 let work = labels
                     .into_iter()

@@ -121,16 +121,16 @@ pub struct LoadedPatterns<T: PatternType> {
 }
 
 pub struct PackageLoadedPatterns<T: PatternType> {
-    targets: BTreeMap<(TargetName, T, Modifiers), TargetNode>,
+    targets: BTreeMap<(TargetName, T), TargetNode>,
     super_package: SuperPackage,
 }
 
 impl<T: PatternType> PackageLoadedPatterns<T> {
-    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T, Modifiers), TargetNodeRef<'_>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T), TargetNodeRef<'_>)> {
         self.targets.iter().map(|(k, v)| (k, v.as_ref()))
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &(TargetName, T, Modifiers)> {
+    pub fn keys(&self) -> impl Iterator<Item = &(TargetName, T)> {
         self.targets.keys()
     }
 
@@ -148,8 +148,8 @@ impl<T: PatternType> PackageLoadedPatterns<T> {
 }
 
 impl<T: PatternType> IntoIterator for PackageLoadedPatterns<T> {
-    type Item = ((TargetName, T, Modifiers), TargetNode);
-    type IntoIter = std::collections::btree_map::IntoIter<(TargetName, T, Modifiers), TargetNode>;
+    type Item = ((TargetName, T), TargetNode);
+    type IntoIter = std::collections::btree_map::IntoIter<(TargetName, T), TargetNode>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.targets.into_iter()
@@ -231,8 +231,7 @@ fn apply_spec<T: PatternType>(
         };
         match result {
             Ok(res) => {
-                let (label_to_node, missing) =
-                    res.apply_spec(pkg_spec, package_with_modifiers.modifiers);
+                let (label_to_node, missing) = res.apply_spec(pkg_spec);
                 if let Some(missing) = missing {
                     match skip_missing_targets {
                         MissingTargetBehavior::Fail => {

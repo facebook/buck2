@@ -776,7 +776,7 @@ impl CliArgType {
                             .flat_map(|(pkg, result)| match result {
                                 Ok(res) => res
                                     .keys()
-                                    .map(|(target, pattern, _)| {
+                                    .map(|(target, pattern)| {
                                         Ok(CliArgValue::ProvidersLabel(
                                             pattern
                                                 .to_owned()
