@@ -12,6 +12,7 @@ use buck2_cli_proto::TargetCfg;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
+use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_core::pattern::pattern::TargetLabelWithExtra;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
@@ -39,17 +40,6 @@ enum PatternNotSupportedError {
         "Patterns with configuration label without configuration hash are not supported: `{0}`"
     )]
     ConfigurationLabelWithoutHashNotSupported(String),
-}
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-pub enum ModifiersError {
-    #[error("Cannot use ?modifier syntax in target pattern expression with --target-universe flag")]
-    PatternModifiersWithTargetUniverse(),
-    #[error(
-        "Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
-    )]
-    PatternModifiersWithGlobalModifiers(),
 }
 
 pub enum TargetResolutionConfig {
@@ -95,9 +85,7 @@ impl TargetResolutionConfig {
                     None => global_cfg_options.dupe(),
                     Some(modifiers) => {
                         if !global_cfg_options.cli_modifiers.is_empty() {
-                            return Err(
-                                ModifiersError::PatternModifiersWithGlobalModifiers().into()
-                            );
+                            return Err(ModifiersError::PatternModifiersWithGlobalModifiers.into());
                         }
 
                         GlobalCfgOptions {
@@ -112,7 +100,7 @@ impl TargetResolutionConfig {
             }
             TargetResolutionConfig::Universe(universe) => {
                 if modifiers.is_some() {
-                    return Err(ModifiersError::PatternModifiersWithTargetUniverse().into());
+                    return Err(ModifiersError::PatternModifiersWithTargetUniverse.into());
                 }
 
                 // TODO(nga): whoever called this function,

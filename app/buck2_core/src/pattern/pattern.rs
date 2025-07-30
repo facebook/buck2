@@ -87,6 +87,17 @@ enum TargetPatternParseError {
     PatternCrossesCellBoundaries(String, String, String),
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+pub enum ModifiersError {
+    #[error("Cannot use ?modifier syntax in target pattern expression with --target-universe flag")]
+    PatternModifiersWithTargetUniverse,
+    #[error(
+        "Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
+    )]
+    PatternModifiersWithGlobalModifiers,
+}
+
 pub fn display_precise_pattern<'a, T: PatternType>(
     package: &'a PackageLabel,
     target_name: &'a TargetNameRef,

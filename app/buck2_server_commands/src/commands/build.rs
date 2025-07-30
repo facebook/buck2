@@ -42,6 +42,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
+use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -63,7 +64,6 @@ use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::target_resolution_config::ModifiersError;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
@@ -185,12 +185,12 @@ async fn build(
     match &target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
             if !global_cfg_options.cli_modifiers.is_empty() && has_pattern_modifiers {
-                return Err(ModifiersError::PatternModifiersWithGlobalModifiers().into());
+                return Err(ModifiersError::PatternModifiersWithGlobalModifiers.into());
             }
         }
         TargetResolutionConfig::Universe(_) => {
             if has_pattern_modifiers {
-                return Err(ModifiersError::PatternModifiersWithTargetUniverse().into());
+                return Err(ModifiersError::PatternModifiersWithTargetUniverse.into());
             }
         }
     }

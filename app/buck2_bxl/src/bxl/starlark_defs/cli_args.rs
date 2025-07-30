@@ -18,6 +18,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
+use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern::lex_target_pattern;
@@ -34,7 +35,6 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
-use buck2_server_ctx::target_resolution_config::ModifiersError;
 use clap::ArgAction;
 use derive_more::Display;
 use dupe::Dupe;
@@ -672,7 +672,7 @@ impl CliArgType {
                         Some(modifiers) => {
                             if !ctx.global_cfg_options.cli_modifiers.is_empty() {
                                 return Err(
-                                    ModifiersError::PatternModifiersWithGlobalModifiers().into()
+                                    ModifiersError::PatternModifiersWithGlobalModifiers.into()
                                 );
                             }
                             &GlobalCfgOptions {

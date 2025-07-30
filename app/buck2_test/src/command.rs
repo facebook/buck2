@@ -57,6 +57,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
+use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -83,7 +84,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::target_resolution_config::ModifiersError;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::test_command::TEST_COMMAND;
@@ -376,7 +376,7 @@ async fn test(
         .iter()
         .any(|p| p.modifiers.as_slice().is_some());
     if !global_cfg_options.cli_modifiers.is_empty() && has_pattern_modifiers {
-        return Err(ModifiersError::PatternModifiersWithGlobalModifiers().into());
+        return Err(ModifiersError::PatternModifiersWithGlobalModifiers.into());
     }
 
     let resolved_pattern =
