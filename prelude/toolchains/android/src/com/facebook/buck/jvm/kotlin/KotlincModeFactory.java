@@ -13,13 +13,10 @@ package com.facebook.buck.jvm.kotlin;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
-import com.facebook.buck.io.file.MostFiles;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -88,15 +85,6 @@ public class KotlincModeFactory {
               kotlinClassUsageFileDir,
               getJvmAbiGenWorkingDir(
                   extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir())));
-    }
-  }
-
-  private static void createCleanDirectory(AbsPath dir) {
-    try {
-      MostFiles.deleteRecursivelyIfExists(dir.getPath());
-      Files.createDirectories(dir.getPath());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 

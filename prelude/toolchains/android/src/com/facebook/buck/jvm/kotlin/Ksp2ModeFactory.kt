@@ -9,15 +9,20 @@
  */
 
 @file:JvmName("Ksp2ModeFactory")
+@file:OptIn(ExperimentalPathApi::class)
 
 package com.facebook.buck.jvm.kotlin
 
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.core.util.log.Logger
+import com.facebook.buck.io.file.MostFiles
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams
 import com.facebook.buck.jvm.java.ActionMetadata
 import com.facebook.buck.jvm.kotlin.ksp.incremental.Ksp2Mode
+import com.facebook.buck.jvm.kotlin.ksp.incremental.ReprocessReason
+import java.nio.file.Files
+import kotlin.io.path.ExperimentalPathApi
 
 @JvmName("create")
 fun Ksp2Mode(
@@ -41,18 +46,34 @@ fun Ksp2Mode(
           extraParams.ksp2CachesDir.orElseThrow {
             IllegalStateException("incremental_state_dir/ksp2_caches_dir is not created")
           }
-      val metadata = SourceFilesActionMetadata(requireNotNull(actionMetadata))
+      val sourceFilesMetadata = SourceFilesActionMetadata(requireNotNull(actionMetadata))
+      val jarsMetadata = JarsActionMetadata(requireNotNull(actionMetadata))
+      val hasClasspathChanged = jarsMetadata.hasClasspathChanged()
+
+      if (hasClasspathChanged) {
+        // TODO(ijurcikova) implement support for classpath changes and move the logic into Ksp2Step
+        LOG.info(
+            "Non-incremental processing will be performed: Incremental processing after classpath change is not supported yet")
+        createCleanDirectory(cachesDir)
+      }
 
       LOG.info("Incremental mode applied")
 
       return Ksp2Mode.Incremental(
           cachesDir,
           true,
-          metadata.calculateAddedAndModifiedSourceFiles().map(rootProjectDir::resolve),
-          metadata.calculateRemovedFiles().map(rootProjectDir::resolve),
-          emptyList())
+          sourceFilesMetadata.calculateAddedAndModifiedSourceFiles().map(rootProjectDir::resolve),
+          sourceFilesMetadata.calculateRemovedFiles().map(rootProjectDir::resolve),
+          emptyList(),
+          if (hasClasspathChanged) ReprocessReason.CLASSPATH_CHANGED else null,
+      )
     }
   }
+}
+
+private fun createCleanDirectory(dir: AbsPath) {
+  MostFiles.deleteRecursivelyIfExists(dir.getPath())
+  Files.createDirectories(dir.getPath())
 }
 
 private val LOG = Logger.get("Ksp2ModeFactory")

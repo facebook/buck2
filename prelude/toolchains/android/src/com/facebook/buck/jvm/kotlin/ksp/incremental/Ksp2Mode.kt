@@ -22,6 +22,7 @@ sealed interface Ksp2Mode {
       val incrementalLog: Boolean,
       val modifiedSources: List<AbsPath>,
       val removedSources: List<AbsPath>,
-      val changedClasses: List<String>
+      val changedClasses: List<String>,
+      val reprocessReason: ReprocessReason?
   ) : Ksp2Mode
 }
