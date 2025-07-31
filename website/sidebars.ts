@@ -125,6 +125,7 @@ export const sidebars: SidebarsConfig = {
               label: 'Go',
               items: [
                 'users/languages/go/toolchains',
+                'users/languages/go/third_party_packages',
               ],
             },
           ],
