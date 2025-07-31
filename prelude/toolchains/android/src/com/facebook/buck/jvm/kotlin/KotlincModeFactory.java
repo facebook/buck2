@@ -79,7 +79,8 @@ public class KotlincModeFactory {
           rootProjectDir,
           buildDir,
           kotlicWorkingDir,
-          KotlinSourceChangesFactory.create(rootProjectDir, metadata),
+          KotlinSourceChangesFactory.create(
+              rootProjectDir, new SourceFilesActionMetadata(metadata)),
           ClasspathChangesFactory.create(metadata, classpathSnapshots),
           kotlinClassUsageFileDir,
           incrementalCompilationValidator.validate(

@@ -10,19 +10,12 @@
 
 package com.facebook.buck.jvm.java;
 
-import com.facebook.buck.core.filesystems.RelPath;
-import com.facebook.buck.io.file.FileExtensionMatcher;
-import com.facebook.buck.io.file.PathMatcher;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 public class ActionMetadata {
-
-  private static final PathMatcher KT_PATH_MATCHER = FileExtensionMatcher.of("kt");
-  private static final PathMatcher JAVA_PATH_MATCHER = FileExtensionMatcher.of("java");
 
   private final Map<Path, String> previousDigest;
   private final Map<Path, String> currentDigest;
@@ -43,24 +36,6 @@ public class ActionMetadata {
 
   public Map<Path, String> getCurrentDigest() {
     return currentDigest;
-  }
-
-  public Map<Path, String> getPreviousSourceFilesDigest() {
-    return previousDigest.entrySet().stream()
-        .filter(
-            pathStringEntry ->
-                KT_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey()))
-                    || JAVA_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey())))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  public Map<Path, String> getCurrentSourceFilesDigest() {
-    return currentDigest.entrySet().stream()
-        .filter(
-            pathStringEntry ->
-                KT_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey()))
-                    || JAVA_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey())))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Nullable

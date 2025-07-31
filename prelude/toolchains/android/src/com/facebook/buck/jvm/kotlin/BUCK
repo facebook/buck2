@@ -7,7 +7,10 @@ source_listing()
 
 buck_kotlin_library(
     name = "steps",
-    srcs = glob(["*.java"]),
+    srcs = glob([
+        "*.java",
+        "**/*.kt",
+    ]),
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin:kotlin",
     ],
