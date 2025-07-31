@@ -44,8 +44,7 @@ public class Ksp2ModeFactoryTest {
   public void when_sourceOnly_then_nonIncremental() {
     when(mockKotlinExtraParams.getShouldKsp2RunIncrementally()).thenReturn(true);
 
-    Ksp2Mode ksp2Mode =
-        Ksp2ModeFactory.create(true, relPath, mockKotlinExtraParams, Optional.empty());
+    Ksp2Mode ksp2Mode = Ksp2ModeFactory.create(true, relPath, mockKotlinExtraParams, null);
 
     assertTrue(ksp2Mode instanceof Ksp2Mode.NonIncremental);
   }
@@ -54,8 +53,7 @@ public class Ksp2ModeFactoryTest {
   public void when_not_shouldKsp2RunIncrementally_then_nonIncremental() {
     when(mockKotlinExtraParams.getShouldKsp2RunIncrementally()).thenReturn(false);
 
-    Ksp2Mode ksp2Mode =
-        Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, Optional.empty());
+    Ksp2Mode ksp2Mode = Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, null);
 
     assertTrue(ksp2Mode instanceof Ksp2Mode.NonIncremental);
   }
@@ -66,7 +64,7 @@ public class Ksp2ModeFactoryTest {
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKsp2CachesDir()).thenReturn(Optional.empty());
 
-    Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, Optional.of(mockActionMetadata));
+    Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, mockActionMetadata);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -75,7 +73,7 @@ public class Ksp2ModeFactoryTest {
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKsp2CachesDir()).thenReturn(Optional.empty());
 
-    Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, Optional.empty());
+    Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, null);
   }
 
   @Test
@@ -86,8 +84,7 @@ public class Ksp2ModeFactoryTest {
     when(mockKotlinExtraParams.getKsp2CachesDir()).thenReturn(Optional.of(AbsPath.get("/")));
 
     Ksp2Mode ksp2Mode =
-        Ksp2ModeFactory.create(
-            false, relPath, mockKotlinExtraParams, Optional.of(mockActionMetadata));
+        Ksp2ModeFactory.create(false, relPath, mockKotlinExtraParams, mockActionMetadata);
 
     assertTrue(ksp2Mode instanceof Ksp2Mode.Incremental);
   }

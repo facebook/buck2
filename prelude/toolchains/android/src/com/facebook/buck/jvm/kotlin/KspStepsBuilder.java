@@ -172,7 +172,10 @@ public class KspStepsBuilder {
               getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
               kotlinCDAnalytics,
               Ksp2ModeFactory.create(
-                  invokingRule.isSourceOnlyAbi(), kspCachesOutput, extraParams, actionMetadata));
+                  invokingRule.isSourceOnlyAbi(),
+                  kspCachesOutput,
+                  extraParams,
+                  actionMetadata.orElse(null)));
       steps.add(ksp2Step);
     } else {
       kspInvocationStatus = KSPInvocationStatus.KSP1_INVOKED;
