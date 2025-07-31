@@ -172,6 +172,7 @@ public class KspStepsBuilder {
               getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
               kotlinCDAnalytics,
               Ksp2ModeFactory.create(
+                  rootPath,
                   invokingRule.isSourceOnlyAbi(),
                   kspCachesOutput,
                   extraParams,

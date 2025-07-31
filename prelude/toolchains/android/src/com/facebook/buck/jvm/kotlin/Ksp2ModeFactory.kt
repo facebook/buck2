@@ -12,6 +12,7 @@
 
 package com.facebook.buck.jvm.kotlin
 
+import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams
@@ -20,6 +21,7 @@ import com.facebook.buck.jvm.kotlin.ksp.incremental.Ksp2Mode
 
 @JvmName("create")
 fun Ksp2Mode(
+    rootProjectDir: AbsPath,
     isSourceOnly: Boolean,
     kspCachesOutput: RelPath,
     extraParams: KotlinExtraParams,
@@ -43,7 +45,12 @@ fun Ksp2Mode(
 
       LOG.info("Incremental mode applied")
 
-      return Ksp2Mode.Incremental(cachesDir, true, emptyList(), emptyList(), emptyList())
+      return Ksp2Mode.Incremental(
+          cachesDir,
+          true,
+          metadata.calculateAddedAndModifiedSourceFiles().map(rootProjectDir::resolve),
+          metadata.calculateRemovedFiles().map(rootProjectDir::resolve),
+          emptyList())
     }
   }
 }

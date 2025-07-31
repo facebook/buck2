@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.kotlin.ksp.incremental
 
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
-import java.io.File
 
 sealed interface Ksp2Mode {
 
@@ -21,8 +20,8 @@ sealed interface Ksp2Mode {
   data class Incremental(
       val cachesDir: AbsPath,
       val incrementalLog: Boolean,
-      val modifiedSources: List<File>,
-      val removedSources: List<File>,
+      val modifiedSources: List<AbsPath>,
+      val removedSources: List<AbsPath>,
       val changedClasses: List<String>
   ) : Ksp2Mode
 }

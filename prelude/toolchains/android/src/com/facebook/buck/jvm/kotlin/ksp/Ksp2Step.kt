@@ -158,8 +158,8 @@ class Ksp2Step(
                   incremental = true
                   cachesDir = ksp2Mode.cachesDir.toFile()
                   incrementalLog = ksp2Mode.incrementalLog
-                  modifiedSources = ksp2Mode.modifiedSources
-                  removedSources = ksp2Mode.removedSources
+                  modifiedSources = ksp2Mode.modifiedSources.map { it.toFile() }
+                  removedSources = ksp2Mode.removedSources.map { it.toFile() }
                   changedClasses = ksp2Mode.changedClasses
                 }
               }
