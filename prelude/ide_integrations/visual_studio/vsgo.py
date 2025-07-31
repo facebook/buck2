@@ -211,6 +211,9 @@ def main(
 
     parts = sln_path.split(os.sep)
     gen_root_index = parts.index("main.bxl") + 1
+    if fbsource:
+        # bxl now generates an extra layer of hash in the path
+        gen_root_index += 1
     gen_root = os.sep.join(parts[: gen_root_index + 1])
 
     os.makedirs(os.path.join(gen_root, MODE_CONFIGS_DIR), exist_ok=True)
