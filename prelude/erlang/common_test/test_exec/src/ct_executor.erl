@@ -34,6 +34,8 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
 
 -spec run([string()]) -> no_return().
 run(Args) when is_list(Args) ->
+    {ok, CWDDir} = file:get_cwd(),
+    os:putenv("HOME", CWDDir),
     ExitCode =
         try
             {CtExecutorArgs, CtRunArgs} = parse_arguments(Args),
