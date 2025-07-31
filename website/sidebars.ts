@@ -116,6 +116,19 @@ export const sidebars: SidebarsConfig = {
             'users/how_tos/compilation_database',
           ],
         },
+        {
+          type: 'category' as const,
+          label: 'Languages',
+          items: [
+            {
+              type: 'category' as const,
+              label: 'Go',
+              items: [
+                'users/languages/go/toolchains',
+              ],
+            },
+          ],
+        },
         'users/cheat_sheet',
         {
           type: 'category' as const,
