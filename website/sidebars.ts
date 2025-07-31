@@ -124,6 +124,7 @@ export const sidebars: SidebarsConfig = {
               type: 'category' as const,
               label: 'Go',
               items: [
+                'users/languages/go/overview',
                 'users/languages/go/toolchains',
                 'users/languages/go/third_party_packages',
                 'users/languages/go/gopackagesdriver',
