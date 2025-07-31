@@ -82,6 +82,7 @@ def create_jar_artifact_kotlincd(
         incremental: bool,
         enable_used_classes: bool,
         language_version: str,
+        ksp2_enable_incremental_processing_override: bool | None = None,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
@@ -114,7 +115,7 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = False
 
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
-    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing
+    should_ksp2_run_incrementally = ksp2_enable_incremental_processing_override if ksp2_enable_incremental_processing_override != None else kotlin_toolchain.ksp2_enable_incremental_processing
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_experimental_content_based_path_hashing = False, dir = True)
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)

@@ -530,6 +530,7 @@ def build_kotlin_library(
                         optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
                         incremental = False,
+                        ksp2_enable_incremental_processing_override = False,
                         bootclasspath_snapshot_entries = [],
                         **common_kotlincd_kwargs
                     )
