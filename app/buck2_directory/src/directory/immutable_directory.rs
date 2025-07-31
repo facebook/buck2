@@ -64,13 +64,13 @@ where
     L: Clone,
     H: DirectoryDigest,
 {
-    pub fn into_entries<C>(self) -> C
+    pub fn collect_entries<C>(self) -> C
     where
         C: FromIterator<(FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)>,
     {
         match self {
-            Self::Exclusive(dir) => dir.into_entries(),
-            Self::Shared(dir) => dir.into_entries(),
+            Self::Exclusive(dir) => dir.collect_entries(),
+            Self::Shared(dir) => dir.collect_entries(),
         }
     }
 }

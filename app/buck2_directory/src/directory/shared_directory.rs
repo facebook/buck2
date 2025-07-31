@@ -109,7 +109,7 @@ where
     L: Clone,
     H: DirectoryDigest,
 {
-    pub fn into_entries<C>(self) -> C
+    pub fn collect_entries<C>(self) -> C
     where
         C: FromIterator<(FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)>,
     {

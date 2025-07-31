@@ -230,7 +230,7 @@ where
         };
 
         let entries = match std::mem::replace(self, DirectoryBuilder::Mutable(Default::default())) {
-            Self::Immutable(d) => d.into_entries::<SmallMap<_, _>>(),
+            Self::Immutable(d) => d.collect_entries::<SmallMap<_, _>>(),
             Self::Mutable(..) => unreachable!(),
         };
 
