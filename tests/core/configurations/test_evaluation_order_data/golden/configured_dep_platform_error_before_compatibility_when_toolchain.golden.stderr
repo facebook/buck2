@@ -2,7 +2,7 @@
 
 Command failed: 
 Error in configured node dependency, dependency chain follows (-> indicates depends on, ^ indicates same configuration as previous):
-       root//:configured_dep_platform_error_before_compatibility_when_toolchain (root//:p-cat#24d70f740de80057)
+       root//:configured_dep_platform_error_before_compatibility_when_toolchain (root//:p-cat#79093ed7ae0e9c0c)
     -> root//:incompat_toolchain_with_broken_configured_dep (^)
 
 

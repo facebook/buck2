@@ -385,11 +385,6 @@ pub struct DaemonStartupConfig {
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
     pub health_check_config: HealthCheckConfig,
-    // We don't actually read this buckconfig value because this is temporary and it's a ton of work
-    // to wire this to where this actually gets used when hashing configurations. Instead, we just
-    // need this read here so that daemon is forced to restart when this value changes, and we never
-    // get possibility of multiple buck-out hashes for same configured target on same revision.
-    pub new_platform_hash_rollout: Option<String>,
 }
 
 impl DaemonStartupConfig {
@@ -459,12 +454,6 @@ impl DaemonStartupConfig {
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
             health_check_config: HealthCheckConfig::from_config(config)?,
-            new_platform_hash_rollout: config
-                .get(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "new_platform_hash_rollout",
-                })
-                .map(ToOwned::to_owned),
         })
     }
 
@@ -491,7 +480,6 @@ impl DaemonStartupConfig {
                 LogDownloadMethod::None
             },
             health_check_config: HealthCheckConfig::default(),
-            new_platform_hash_rollout: None,
         }
     }
 }

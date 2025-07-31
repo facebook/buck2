@@ -9,7 +9,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::hash::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -20,7 +19,6 @@ use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use once_cell::sync::Lazy;
-use once_cell::sync::OnceCell;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
@@ -51,8 +49,6 @@ enum ConfigurationError {
         "Attempted to access the configuration data for the \"unspecified_exec\" platform. This platform is used when no execution platform was resolved for a target."
     )]
     UnspecifiedExec,
-    #[error("Internal error: NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD is already initialized")]
-    NewPlatformHashRolloutThresholdAlreadyInitialized,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -68,21 +64,6 @@ enum ConfigurationLookupError {
         "Found configuration `{0}` by hash, but label mismatched from what is requested: `{1}`"
     )]
     ConfigFoundByHashLabelMismatch(ConfigurationData, BoundConfigurationId),
-}
-
-pub static NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD: OnceCell<u8> = OnceCell::new();
-
-pub fn init_new_platform_hash_rollout_threshold(rollout: Option<f64>) -> buck2_error::Result<()> {
-    let rollout_threshold = if let Some(rollout) = rollout {
-        (rollout * (u64::MAX as f64)) as u8
-    } else {
-        // disabled by default
-        0u8
-    };
-    NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD
-        .set(rollout_threshold)
-        .map_err(|_| ConfigurationError::NewPlatformHashRolloutThresholdAlreadyInitialized)?;
-    Ok(())
 }
 
 fn emit_configuration_instant_event(cfg: &ConfigurationData) -> buck2_error::Result<()> {
@@ -446,24 +427,6 @@ impl HashedConfigurationPlatform {
         let mut hasher = Blake3StrongHasher::new();
         configuration_platform.strong_hash(&mut hasher);
         let output_hash = hasher.finish();
-
-        let rollout_threshold = match NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD.get() {
-            Some(v) => *v,
-            // We only hit the uninitialized case in unit tests. In this case, we don't want to throw an
-            // error because it would fail a bunch of unit tests, and we don't want to
-            // unit tests explicitly initialize this value because this is a temporary migration value
-            // that we will get rid of later. We have e2e tests checking that this does not enable
-            // new hashing in production.
-            None => u8::MAX,
-        };
-
-        let output_hash = if output_hash as u8 <= rollout_threshold {
-            output_hash
-        } else {
-            let mut hasher = DefaultHasher::new();
-            configuration_platform.hash(&mut hasher);
-            hasher.finish()
-        };
         let output_hash = ConfigurationHash::new(output_hash);
 
         let full_name = match &configuration_platform {

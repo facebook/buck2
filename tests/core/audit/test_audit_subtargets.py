@@ -155,13 +155,22 @@ async def test_audit_subtarget_modifiers_target_universe(buck: Buck) -> None:
         "--json",
     )
 
-    [linux_cfg, macos_cfg] = _extract_configuration(result.stdout)
+    cfgs = _extract_configuration(result.stdout)
+    assert len(cfgs) == 2
 
-    linux_cfg = await buck.audit_configurations(linux_cfg)
-    assert "root//:linux" in linux_cfg.stdout
+    # Audit each configuration to determine which is linux and which is macos
+    linux_cfg = None
+    macos_cfg = None
 
-    macos_cfg = await buck.audit_configurations(macos_cfg)
-    assert "root//:macos" in macos_cfg.stdout
+    for cfg in cfgs:
+        audited_cfg = await buck.audit_configurations(cfg)
+        if "root//:linux" in audited_cfg.stdout:
+            linux_cfg = audited_cfg
+        elif "root//:macos" in audited_cfg.stdout:
+            macos_cfg = audited_cfg
+
+    assert linux_cfg is not None, "Could not find linux configuration"
+    assert macos_cfg is not None, "Could not find macos configuration"
 
     result = await buck.audit(
         "subtargets",
