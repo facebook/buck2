@@ -14,7 +14,7 @@
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "UpdateOperations", "apple_info_plist_impl")
+load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs", "get_apple_toolchain_attr")
@@ -1559,6 +1559,7 @@ apple_info_plist = prelude_rule(
                 attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.bool(), attrs.int())),
             ),
             attrs.tuple(attrs.enum(MergeOperations.values()), attrs.source()),
+            attrs.tuple(attrs.enum(RestrictedMergeOperations.values()), attrs.source(), attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.bool()))),
         )),
         "src": attrs.source(),
         "xml": attrs.bool(default = False),

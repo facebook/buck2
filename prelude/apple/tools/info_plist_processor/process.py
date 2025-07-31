@@ -70,9 +70,18 @@ def _apply_merge(plist_data: Dict[str, Any], merge_path: str) -> None:
         pass
 
 
-def _traverse_keypath(plist_data: Dict[str, Any], keypath_str: str) -> Tuple[str, Any]:
+def _traverse_keypath(
+    plist_data: Dict[str, Any],
+    keypath_str: str,
+    insert_arrays=True,
+) -> Tuple[str | int, Any]:
     """Return the internal object in plist_data found at the keypath_str, save
-    for the last component."""
+    for the last component.
+
+    keypath_str is a key-value coding key path, extended to allow a numerical
+    element to index in an array. As a consequence, we can return an int or a
+    str for the last component.
+    """
 
     keypath = keypath_str.split(".")
     plist_pointer = plist_data
@@ -94,11 +103,16 @@ def _traverse_keypath(plist_data: Dict[str, Any], keypath_str: str) -> Tuple[str
             index = int(indexstr)
             plist_pointer = plist_pointer[key][index]
         else:
-            if key not in plist_pointer:
+            if key not in plist_pointer and insert_arrays:
                 plist_pointer[key] = []
             plist_pointer = plist_pointer[key]
+    final_key = keypath[-1]
+    if final_key.endswith("]"):
+        key, indexstr = final_key[:-1].split("[")
+        plist_pointer = plist_pointer[key]
+        final_key = int(indexstr)
 
-    return keypath[-1], plist_pointer
+    return final_key, plist_pointer
 
 
 def _apply_insert(plist_data: Dict[str, Any], insert_params: Dict[str, Any]) -> None:
@@ -174,18 +188,45 @@ def _apply_set(plist_data: Dict[str, Any], set_params: Dict[str, Any]) -> None:
     plist_pointer[key] = value
 
 
+def _apply_copy(
+    plist_data: Dict[str, Any], source_path: str, copy_params: List[str]
+) -> None:
+    """Copy an element from a source plist to the target plist"""
+    source_keypath = copy_params["source_keypath"]
+    target_keypath = copy_params["target_keypath"]
+    ignore_missing_source = copy_params.get("ignore_missing_source", False)
+    with open(source_path, "rb") as source_file:
+        source_data = detect_format_and_load(source_file)
+        target_key, target_element = _traverse_keypath(plist_data, target_keypath)
+        try:
+            source_key, source_element = _traverse_keypath(
+                source_data, source_keypath, insert_arrays=False
+            )
+            target_element[target_key] = source_element[source_key]
+        except (KeyError, IndexError) as e:
+            print(
+                f"source plist doesn't contain keypath {source_keypath} for copy",
+                file=sys.stderr,
+            )
+            if ignore_missing_source:
+                return
+            raise e
+
+
 def _apply_mutations(
     plist_data: Dict[str, Any], mutations: List[tuple[str, str] | tuple[str, dict]]
 ) -> None:
     """Apply a list of mutation operations to plist data."""
     for mutation in mutations:
-        operation, arguments = mutation
+        operation = mutation[0]
         if operation == "merge":
-            _apply_merge(plist_data, arguments)
+            _apply_merge(plist_data, mutation[1])
         elif operation == "insert":
-            _apply_insert(plist_data, arguments)
+            _apply_insert(plist_data, mutation[1])
         elif operation == "set":
-            _apply_set(plist_data, arguments)
+            _apply_set(plist_data, mutation[1])
+        elif operation == "copy":
+            _apply_copy(plist_data, mutation[1], mutation[2])
         else:
             print(
                 f"Attempting to apply unknown plist mutation operation {operation}",

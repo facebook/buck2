@@ -24,6 +24,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 UpdateOperations = enum("set", "insert")
 MergeOperations = enum("merge")
+RestrictedMergeOperations = enum("copy")
 
 def process_info_plist(ctx: AnalysisContext, override_input: Artifact | None) -> AppleBundlePart:
     input = _preprocess_info_plist(ctx)
@@ -193,9 +194,9 @@ def apple_info_plist_impl(ctx: AnalysisContext) -> list[Provider]:
         command.add("--mutations")
         command.add(mutations_file)
         for mutation in ctx.attrs.mutations:
-            operation, args = mutation
-            if operation in MergeOperations.values():
-                command.add(cmd_args(hidden = args))
+            operation = mutation[0]
+            if operation in MergeOperations.values() or operation in RestrictedMergeOperations.values():
+                command.add(cmd_args(hidden = mutation[1]))
 
     ctx.actions.run(
         command,
