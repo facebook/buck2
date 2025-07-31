@@ -80,6 +80,7 @@ public class KotlinExtraParamsSerializerTest {
             false,
             false,
             Optional.empty(),
+            false,
             KotlinSupportedLanguageVersion.V2_0.getValue());
 
     KotlinExtraParams actual =
