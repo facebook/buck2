@@ -223,7 +223,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 )
                 for extension, dep in extensions.items()
             },
-            anonymous = True,
+            anonymous = ctx.attrs.anonymous_link,
         )
 
         # Extract re-linked extensions.
@@ -479,6 +479,7 @@ python_wheel = rule(
         support_future_python_versions = attrs.bool(default = False),
         labels = attrs.list(attrs.string(), default = []),
         linker_flags = attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+        anonymous_link = attrs.bool(default = True),
         link_execution_preference = link_execution_preference_attr(),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
