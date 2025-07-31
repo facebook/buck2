@@ -103,6 +103,7 @@ public class KotlinExtraParamsSerializer {
         .map(AbsPathSerializer::serialize)
         .ifPresent(builder::setDepTrackerPlugin);
     builder.setLanguageVersion(kotlinExtraParams.getLanguageVersion().getValue());
+    builder.setShouldKsp2RunIncrementally(kotlinExtraParams.getShouldKsp2RunIncrementally());
     return builder.build();
   }
 
@@ -156,6 +157,7 @@ public class KotlinExtraParamsSerializer {
         Optional.of(kotlinExtraParams.getIncrementalStateDir())
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
+        kotlinExtraParams.getShouldKsp2RunIncrementally(),
         kotlinExtraParams.getLanguageVersion());
   }
 }

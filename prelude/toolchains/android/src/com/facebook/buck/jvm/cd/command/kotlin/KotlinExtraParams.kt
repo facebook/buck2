@@ -39,6 +39,7 @@ data class KotlinExtraParams(
     val shouldKotlincRunIncrementally: Boolean,
     val shouldUseStandaloneKosabi: Boolean,
     val incrementalStateDir: Optional<AbsPath>,
+    val shouldKsp2RunIncrementally: Boolean,
     private val languageVersionString: String
 ) : CompileToJarStepFactory.ExtraParams {
 

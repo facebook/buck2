@@ -114,6 +114,7 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = False
 
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
+    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_experimental_content_based_path_hashing = False, dir = True)
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
@@ -167,6 +168,7 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = should_use_jvm_abi_gen,
         actual_abi_generation_mode = actual_abi_generation_mode,
         should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
+        should_ksp2_run_incrementally = should_ksp2_run_incrementally,
         incremental_state_dir = incremental_state_dir,
         language_version = language_version,
     )
@@ -194,7 +196,7 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         is_creating_subtarget = is_creating_subtarget,
         incremental_state_dir = incremental_state_dir,
-        should_action_run_incrementally = should_kotlinc_run_incrementally,
+        should_action_run_incrementally = should_kotlinc_run_incrementally or should_ksp2_run_incrementally,
     )
 
     final_jar_output = prepare_final_jar(
@@ -222,6 +224,7 @@ def create_jar_artifact_kotlincd(
             should_use_jvm_abi_gen = should_use_jvm_abi_gen,
             actual_abi_generation_mode = actual_abi_generation_mode,
             should_kotlinc_run_incrementally = False,
+            should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
             language_version = language_version,
         )
@@ -285,6 +288,7 @@ def _encode_kotlin_extra_params(
         should_use_jvm_abi_gen: bool,
         actual_abi_generation_mode: AbiGenerationMode,
         should_kotlinc_run_incrementally: bool,
+        should_ksp2_run_incrementally: bool,
         incremental_state_dir: Artifact | None,
         language_version: str):
     kosabiPluginOptionsMap = {}
@@ -318,6 +322,7 @@ def _encode_kotlin_extra_params(
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
+        shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
         languageVersion = language_version,
