@@ -20,9 +20,10 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
-import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
+import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
+import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.java.JavacPluginParams;
 import com.facebook.buck.jvm.java.ResolvedJavacPluginProperties;
@@ -53,7 +54,8 @@ public class KspStepsBuilder {
 
   /** Initialize all the folders, steps and parameters needed to run KSP plugins for this rule. */
   public static KSPInvocationStatus prepareKspProcessorsIfNeeded(
-      AnnotationProcessingTool annotationProcessingTool,
+      Optional<ActionMetadata> actionMetadata,
+      KotlinExtraParams extraParams,
       BuildTargetValue invokingRule,
       AbsPath rootPath,
       ImmutableList.Builder<IsolatedStep> steps,
@@ -65,7 +67,6 @@ public class KspStepsBuilder {
       RelPath reportsOutput,
       boolean shouldTrackClassUsage,
       ImmutableList<AbsPath> allClasspaths,
-      ImmutableMap<AbsPath, ImmutableMap<String, String>> resolvedKotlinCompilerPlugins,
       String kotlinPluginGeneratedOutFullPath,
       RelPath projectBaseDir,
       JavacPluginParams annotationProcessorParams,
@@ -76,14 +77,10 @@ public class KspStepsBuilder {
       CompilerOutputPaths compilerOutputPaths,
       RelPath configuredBuckOut,
       ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath,
-      String kosabiJvmAbiGenEarlyTerminationMessagePrefix,
       ImmutableSortedSet.Builder<RelPath> sourceBuilderWithKspOutputs,
       ImmutableList<AbsPath> sourceOnlyAbiClasspath,
       String moduleName,
-      Optional<String> jvmTarget,
-      ImmutableList<String> extraKotlincArguments,
-      KotlinCDAnalytics kotlinCDAnalytics,
-      LanguageVersion languageVersion) {
+      KotlinCDAnalytics kotlinCDAnalytics) {
 
     ImmutableList<ResolvedJavacPluginProperties> kspAnnotationProcessors =
         getKspAnnotationProcessors(getAnnotationProcessors(annotationProcessorParams));
@@ -91,7 +88,7 @@ public class KspStepsBuilder {
     KSPInvocationStatus kspInvocationStatus = KSPInvocationStatus.NOT_INVOKED;
 
     // The other option is to use JAVAC, and we don't want to use KSP in that case.
-    if (!annotationProcessingTool.equals(AnnotationProcessingTool.KAPT)) {
+    if (!extraParams.getAnnotationProcessingTool().equals(AnnotationProcessingTool.KAPT)) {
       return kspInvocationStatus;
     }
 
@@ -169,12 +166,13 @@ public class KspStepsBuilder {
               kspClassesOutput,
               kspKotlinOutput,
               kspJavaOutput,
-              kspCachesOutput,
               kspOutputBaseDir,
-              jvmTarget,
-              languageVersion,
-              getJvmDefaultMode(extraKotlincArguments),
-              kotlinCDAnalytics);
+              extraParams.getJvmTarget(),
+              extraParams.getLanguageVersion(),
+              getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
+              kotlinCDAnalytics,
+              Ksp2ModeFactory.create(
+                  invokingRule.isSourceOnlyAbi(), kspCachesOutput, extraParams, actionMetadata));
       steps.add(ksp2Step);
     } else {
       kspInvocationStatus = KSPInvocationStatus.KSP1_INVOKED;
@@ -188,7 +186,7 @@ public class KspStepsBuilder {
               reportsOutput,
               shouldTrackClassUsage,
               allClasspaths,
-              resolvedKotlinCompilerPlugins,
+              extraParams.getKotlinCompilerPlugins(),
               kotlinPluginGeneratedOutFullPath,
               projectBaseDir,
               annotationProcessorParams,
@@ -199,10 +197,10 @@ public class KspStepsBuilder {
               compilerOutputPaths,
               configuredBuckOut,
               resolvedKosabiPluginOptionPath,
-              kosabiJvmAbiGenEarlyTerminationMessagePrefix,
+              extraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().orElse(null),
               sourceOnlyAbiClasspath,
               moduleName,
-              extraKotlincArguments,
+              extraParams.getExtraKotlincArguments(),
               kspProcessorsClasspath,
               kspClassesOutput,
               kspKotlinOutput,

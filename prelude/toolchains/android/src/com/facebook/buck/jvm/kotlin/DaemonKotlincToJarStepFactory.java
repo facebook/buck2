@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -223,7 +224,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
       KspStepsBuilder.KSPInvocationStatus kspInvocationStatus =
           prepareKspProcessorsIfNeeded(
-              extraParams.getAnnotationProcessingTool(),
+              Optional.ofNullable(actionMetadata),
+              extraParams,
               invokingRule,
               buildCellRootPath,
               steps,
@@ -235,7 +237,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               reportsOutput,
               parameters.getShouldTrackClassUsage(),
               allClasspaths,
-              extraParams.getKotlinCompilerPlugins(),
               kotlinPluginGeneratedFullPath,
               buildTargetValueExtraParams.getCellRelativeBasePath(),
               annotationProcessorParams,
@@ -246,14 +247,10 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               compilerOutputPaths,
               buckOut,
               kosabiPluginOptions.getKosabiPlugins(),
-              extraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().orElse(null),
               sourceWithStubsAndKaptAndKspOutputBuilder,
               sourceOnlyAbiClasspathBuilder.build(),
               moduleName,
-              extraParams.getJvmTarget(),
-              extraParams.getExtraKotlincArguments(),
-              kotlinCDAnalytics,
-              extraParams.getLanguageVersion());
+              kotlinCDAnalytics);
 
       // Avoid running Kotlin source-only builds twice when KSP split invocation happens.
       // If KSP1 processors has invoked previously, we should have sufficient source-only ABI

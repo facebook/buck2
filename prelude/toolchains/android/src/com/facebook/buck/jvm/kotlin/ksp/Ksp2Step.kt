@@ -21,6 +21,7 @@ import com.facebook.buck.jvm.java.CompilerOutputPaths
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
 import com.facebook.buck.jvm.kotlin.cd.analytics.StepParam
+import com.facebook.buck.jvm.kotlin.ksp.incremental.Ksp2Mode
 import com.facebook.buck.jvm.kotlin.util.getExpandedSourcePaths
 import com.facebook.buck.step.StepExecutionResult
 import com.facebook.buck.step.StepExecutionResults
@@ -57,12 +58,12 @@ class Ksp2Step(
     private val kspClassesOutput: RelPath,
     private val kspKotlinOutput: RelPath,
     private val kspJavaOutput: RelPath,
-    private val kspCachesOutput: RelPath,
     private val kspOutputBaseDir: RelPath,
     private val jvmTarget: Optional<String>,
     private val languageVersion: LanguageVersion,
     private val jvmDefaultMode: String,
-    private val kotlinCDAnalytics: KotlinCDAnalytics
+    private val kotlinCDAnalytics: KotlinCDAnalytics,
+    private val ksp2Mode: Ksp2Mode
 ) : IsolatedStep {
 
   @Throws(IOException::class, InterruptedException::class)
@@ -138,7 +139,6 @@ class Ksp2Step(
               kotlinOutputDir = rootPath.resolve(kspKotlinOutput).toFile()
               javaOutputDir = rootPath.resolve(kspJavaOutput).toFile()
               resourceOutputDir = rootPath.resolve(kspClassesOutput).toFile()
-              cachesDir = rootPath.resolve(kspCachesOutput).toFile()
               outputBaseDir = rootPath.resolve(kspOutputBaseDir).toFile()
               processorOptions = apOptions
               moduleName = this@Ksp2Step.moduleName
@@ -149,6 +149,20 @@ class Ksp2Step(
               apiVersion = this@Ksp2Step.languageVersion.value
               libraries = allClasspaths.map { it.toFile() }
               jvmDefaultMode = this@Ksp2Step.jvmDefaultMode
+
+              when (ksp2Mode) {
+                is Ksp2Mode.NonIncremental -> {
+                  cachesDir = rootPath.resolve(ksp2Mode.kspCachesOutput).toFile()
+                }
+                is Ksp2Mode.Incremental -> {
+                  incremental = true
+                  cachesDir = ksp2Mode.cachesDir.toFile()
+                  incrementalLog = ksp2Mode.incrementalLog
+                  modifiedSources = ksp2Mode.modifiedSources
+                  removedSources = ksp2Mode.removedSources
+                  changedClasses = ksp2Mode.changedClasses
+                }
+              }
             }
             .build()
 
@@ -173,6 +187,11 @@ class Ksp2Step(
               |  apiVersion = ${kspConfig.apiVersion}
               |  libraries = ${kspConfig.libraries}
               |  jvmDefaultMode = ${kspConfig.jvmDefaultMode}
+              |  incremental = ${kspConfig.incremental}
+              |  incrementalLog = ${kspConfig.incrementalLog}
+              |  modifiedSources = ${kspConfig.modifiedSources.joinToString()}
+              |  removedSources = ${kspConfig.removedSources.joinToString()}
+              |  changedClasses = ${kspConfig.changedClasses.joinToString()}
               |]"""
             .trimMargin())
     // Run!
