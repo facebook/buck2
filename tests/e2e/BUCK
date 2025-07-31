@@ -49,3 +49,11 @@ buck2_e2e_test(
     test_with_deployed_buck2 = True,
     use_compiled_buck2_client_and_tpx = True,
 )
+
+buck2_e2e_test(
+    name = "test_install_modifiers",
+    srcs = ["test_install_modifiers.py"],
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
