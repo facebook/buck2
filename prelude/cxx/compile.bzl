@@ -1079,6 +1079,31 @@ def create_cmd_args(is_nasm: bool, is_xcode_argsfile: bool, *args) -> cmd_args:
     else:
         return cmd_args(quote = "shell", *args)
 
+_PRECOMPILE_OPTION_IGNORE_REGEX = regex(
+    "^(" +
+    "|".join([
+        # Debug flags, which only affect debug symbols in the backend.
+        "-f(no-)?debug-types-section",
+        "-g[0-3]",
+        "-g(no-)?pubnames",
+        "-g(no-)?simple-template-names",
+        "-g(no-)?split-dwarf(=.*)?",
+    ]) +
+    ")$",
+)
+
+def _filter_precompile_args(args: list[typing.Any]) -> list[typing.Any]:
+    def should_ignore(s):
+        return _PRECOMPILE_OPTION_IGNORE_REGEX.match(repr(s)[1:-1])
+
+    return filter(
+        None,
+        [
+            _filter_precompile_args(arg) if type(arg) == type([]) else arg if not should_ignore(arg) else None
+            for arg in args
+        ],
+    )
+
 def _mk_argsfiles(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
@@ -1174,7 +1199,7 @@ def _mk_argsfiles(
     make_deps_argsfile()
 
     def make_target_argsfile():
-        target_args = cmd_args(
+        target_args = [
             # preprocessor
             impl_params.preprocessor_flags,
             cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
@@ -1191,7 +1216,10 @@ def _mk_argsfiles(
             # flags ordering-dependent build errors
             impl_params.compiler_flags,
             headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")),
-        )
+        ]
+        if is_precompile:
+            target_args = _filter_precompile_args(target_args)
+        target_args = cmd_args(target_args)
 
         # Workaround as that's not precompiled, but working just as prefix header.
         # Another thing is that it's clang specific, should be generalized.
