@@ -187,7 +187,6 @@ def _build_erlang_test(
         config_files = config_files,
         erl_cmd = toolchain.otp_binaries.erl,
         raw_target = str(ctx.label.raw_target()) if ctx.label else "",
-        inner_trampolines = [trampoline[RunInfo].args for trampoline in ctx.attrs._inner_trampolines],
     )
     cmd.add(test_info_file)
 
@@ -253,8 +252,7 @@ def _write_test_info_file(
         test_dir: Artifact,
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact],
-        raw_target: str,
-        inner_trampolines: list[cmd_args]) -> WriteJsonCliArgs:
+        raw_target: str) -> WriteJsonCliArgs:
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
         "common_app_env": ctx.attrs.common_app_env,
@@ -268,7 +266,6 @@ def _write_test_info_file(
         "raw_target": raw_target,
         "test_dir": test_dir,
         "test_suite": test_suite,
-        "trampolines": inner_trampolines,
     }
     test_info_file = ctx.actions.declare_output("tests_info")
     return ctx.actions.write_json(test_info_file, tests_info, with_inputs = True)

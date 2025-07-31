@@ -43,8 +43,7 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
                 erl_cmd = TestInfo#test_info.erl_cmd,
                 extra_flags = TestInfo#test_info.extra_flags,
                 artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa,
-                raw_target = TestInfo#test_info.raw_target,
-                trampolines = TestInfo#test_info.trampolines
+                raw_target = TestInfo#test_info.raw_target
             })
     end.
 

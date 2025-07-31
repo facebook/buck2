@@ -26,8 +26,7 @@
     extra_flags = [],
     common_app_env = #{},
     erl_cmd = [],
-    artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
-    trampolines = []
+    artifact_annotation_mfa = fun artifact_annotations:default_annotation/1
 }).
 
 -spec set_up_logger(file:filename(), atom()) -> ok.

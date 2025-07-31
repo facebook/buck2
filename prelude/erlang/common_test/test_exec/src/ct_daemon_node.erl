@@ -79,7 +79,6 @@ start(
         ct_runner:start_test_node(
             ErlCommand,
             [],
-            [],
             CodePaths,
             ConfigFiles,
             OutputDir,
