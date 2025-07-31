@@ -126,6 +126,7 @@ export const sidebars: SidebarsConfig = {
               items: [
                 'users/languages/go/toolchains',
                 'users/languages/go/third_party_packages',
+                'users/languages/go/gopackagesdriver',
               ],
             },
           ],
