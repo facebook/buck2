@@ -99,7 +99,10 @@ def buck2_modifiers():
                 "DEFAULT": None,
                 "ovr_config//runtime:fbcode": modifiers.conditional({
                     "ovr_config//cpu:arm64": "ovr_config//runtime/constraints:platform010-aarch64",
-                    "ovr_config//cpu:x86_64": "ovr_config//runtime/constraints:platform010",
+                    "ovr_config//cpu:x86_64": modifiers.conditional({
+                        "DEFAULT": "ovr_config//runtime/constraints:platform010",
+                        "ovr_config//cpp/constraints:libc++": "ovr_config//runtime/constraints:platform010-libcxx",
+                    }),
                 }),
             }),
         }),
