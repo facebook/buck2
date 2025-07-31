@@ -43,7 +43,7 @@ use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_common::manifold::Ttl;
-use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
+use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
@@ -52,7 +52,10 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
+use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -277,14 +280,13 @@ async fn collect_install_request_data<'a>(
     .await?;
 
     // Note <TargetName> does not return the providers
-    let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
-        ctx,
-        &request.target_patterns,
-        cwd,
-    )
+    let parsed_patterns_with_modifiers = parse_patterns_with_modifiers_from_cli_args::<
+        ConfiguredProvidersPatternExtra,
+    >(ctx, &request.target_patterns, cwd)
     .await?;
-    server_ctx.log_target_pattern(&parsed_patterns);
-    let resolved_pattern = ResolveTargetPatterns::resolve(ctx, &parsed_patterns).await?;
+    server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
+    let resolved_pattern =
+        ResolveTargetPatterns::resolve_with_modifiers(ctx, &parsed_patterns_with_modifiers).await?;
 
     let resolved_pattern = resolved_pattern
         .convert_pattern()
@@ -292,12 +294,12 @@ async fn collect_install_request_data<'a>(
 
     let mut installer_to_files_map = HashMap::new();
     for (package_with_modifiers, spec) in resolved_pattern.specs {
+        let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
+
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
             PackageSpec::Targets(targets) => targets.into_iter().collect(),
             PackageSpec::All() => {
-                let interpreter_results = ctx
-                    .get_interpreter_results(package_with_modifiers.package.dupe())
-                    .await?;
+                let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 interpreter_results
                     .targets()
                     .keys()
@@ -312,11 +314,25 @@ async fn collect_install_request_data<'a>(
                     .collect()
             }
         };
+
+        let local_cfg_options = match modifiers.as_slice() {
+            Some(modifiers) => {
+                if !global_cfg_options.cli_modifiers.is_empty() {
+                    return Err(ModifiersError::PatternModifiersWithGlobalModifiers.into());
+                }
+
+                GlobalCfgOptions {
+                    target_platform: global_cfg_options.target_platform.dupe(),
+                    cli_modifiers: modifiers.to_vec().into(),
+                }
+            }
+            None => global_cfg_options.dupe(),
+        };
+
         for (target_name, providers) in targets {
-            let label = providers
-                .into_providers_label(package_with_modifiers.package.dupe(), target_name.as_ref());
+            let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_provider_label(&label, &global_cfg_options)
+                .get_configured_provider_label(&label, &local_cfg_options)
                 .await?;
             let install_info = ctx
                 .get_providers(&providers_label)
@@ -335,7 +351,7 @@ async fn collect_install_request_data<'a>(
                 None => {
                     return Err(InstallError::NoInstallProvider(
                         label.target().name().to_owned(),
-                        package_with_modifiers.package.dupe(),
+                        package.dupe(),
                     )
                     .into());
                 }
