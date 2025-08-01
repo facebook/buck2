@@ -190,7 +190,8 @@ def rewrite_static_symbols(
         non_pic_objects: list[Artifact],
         libraries: dict[LibOutputStyle, LinkInfos],
         cxx_toolchain: CxxToolchainInfo,
-        suffix_all: bool = False) -> dict[LibOutputStyle, LinkInfos]:
+        suffix_all: bool = False,
+        suffix_exclude_rtti: bool = False) -> dict[LibOutputStyle, LinkInfos]:
     symbols_file = _write_syms_file(
         ctx = ctx,
         name = ctx.label.name + "_rename_syms",
@@ -198,6 +199,7 @@ def rewrite_static_symbols(
         suffix = suffix,
         cxx_toolchain = cxx_toolchain,
         suffix_all = suffix_all,
+        suffix_exclude_rtti = suffix_exclude_rtti,
     )
     static_objects, stripped_static_objects = suffix_symbols(ctx, suffix, non_pic_objects, symbols_file, cxx_toolchain)
 
@@ -208,6 +210,7 @@ def rewrite_static_symbols(
         suffix = suffix,
         cxx_toolchain = cxx_toolchain,
         suffix_all = suffix_all,
+        suffix_exclude_rtti = suffix_exclude_rtti,
     )
     static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file_pic, cxx_toolchain)
 
@@ -262,7 +265,8 @@ def _write_syms_file(
         objects: list[Artifact],
         suffix: str,
         cxx_toolchain: CxxToolchainInfo,
-        suffix_all: bool = False) -> Artifact:
+        suffix_all: bool = False,
+        suffix_exclude_rtti: bool = False) -> Artifact:
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
@@ -302,6 +306,10 @@ def _write_syms_file(
     # __asan_*, ___asan_*, __tsan_*, ___tsan_*, __sanitizer_*, ___sanitizer_*,
     # asan.module_ctor, asan.module_dtor, tsan.module_ctor, tsan.module_dtor
     script += " | grep -v \"\\(\\(^_\\?__\\(\\(a\\|t\\)san\\|\\(sanitizer\\)\\)_\\)\\|\\(^\\(a\\|t\\)san.module_\\(c\\|d\\)tor\\)\\)\""
+    if suffix_exclude_rtti:
+        # We also should not rename _ZTI... RTTI type info symbols as whole
+        # program devirtualisation uses them to detect subclasses.
+        script += " | grep -v '^_ZTI'"
 
     script += (
         ' | awk \'{{print $1" "$1"_{suffix}"}}\' | sort -u > '.format(suffix = suffix) +

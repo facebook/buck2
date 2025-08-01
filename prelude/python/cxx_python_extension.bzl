@@ -184,6 +184,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
                 libraries = link_infos,
                 cxx_toolchain = cxx_toolchain,
                 suffix_all = ctx.attrs.suffix_all,
+                suffix_exclude_rtti = ctx.attrs.suffix_exclude_rtti,
             )
             pyinit_symbol = "PyInit_{}_{}".format(module_name, suffix)
 
