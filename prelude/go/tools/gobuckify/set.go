@@ -19,8 +19,20 @@ func newSet() *stringSet {
 	return &newSet
 }
 
+func newFromList(vs []string) *stringSet {
+	newSet := newSet()
+	newSet.AddList(vs)
+	return newSet
+}
+
 func (s *stringSet) Add(v string) {
 	(*s)[v] = struct{}{}
+}
+
+func (s *stringSet) AddList(vs []string) {
+	for _, v := range vs {
+		(*s)[v] = struct{}{}
+	}
 }
 
 func (s *stringSet) Remove(v string) {

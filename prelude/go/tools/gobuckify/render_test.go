@@ -38,7 +38,7 @@ func TestTargetTemplate(t *testing.T) {
 				Name:       "test_binary",
 				ImportPath: "github.com/example/test_binary",
 				IsBinary:   true,
-				EmbedFiles: []string{"embed1.txt", "embed2.txt"},
+				EmbedFiles: *newFromList([]string{"embed1.txt", "embed2.txt"}),
 				CommonDeps: []string{"github.com/example/dep1", "github.com/example/dep2"},
 			},
 			expectedOutput: `

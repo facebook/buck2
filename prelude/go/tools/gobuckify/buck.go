@@ -33,7 +33,7 @@ type BuckTarget struct {
 	Name                 string
 	ImportPath           string
 	IsBinary             bool
-	EmbedFiles           []string
+	EmbedFiles           stringSet
 	CommonDeps           []string
 	PlatformDeps         map[string]*OSDeps
 	TargetCompatibleWith map[string][]string // os => []arch
@@ -105,13 +105,14 @@ func (b *BuckTargets) AddPackage(pkg *Package, buckOS, buckArch string) {
 			Name:                 targetNameFromImportPath(pkg.ImportPath),
 			ImportPath:           pkg.ImportPath,
 			PlatformDeps:         make(map[string]*OSDeps),
-			EmbedFiles:           pkg.EmbedFiles,
+			EmbedFiles:           *newSet(),
 			IsBinary:             pkg.Name == "main",
 			TargetCompatibleWith: map[string][]string{},
 		}
 		(*b)[pkg.ImportPath] = target
 	}
 
+	target.EmbedFiles.AddList(pkg.EmbedFiles)
 	target.TargetCompatibleWith[buckOS] = append(target.TargetCompatibleWith[buckOS], buckArch)
 
 	if target.PlatformDeps[buckOS] == nil {

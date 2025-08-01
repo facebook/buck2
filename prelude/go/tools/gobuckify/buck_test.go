@@ -243,8 +243,8 @@ func TestBuckTargetsAddPackage(t *testing.T) {
 				t.Errorf("Target IsBinary = %v, want %v", target.IsBinary, tt.wantIsBinary)
 			}
 
-			if !reflect.DeepEqual(target.EmbedFiles, tt.wantEmbedFiles) {
-				t.Errorf("Target EmbedFiles = %v, want %v", target.EmbedFiles, tt.wantEmbedFiles)
+			if !reflect.DeepEqual(target.EmbedFiles.SortedList(), tt.wantEmbedFiles) {
+				t.Errorf("Target EmbedFiles = %v, want %v", target.EmbedFiles.SortedList(), tt.wantEmbedFiles)
 			}
 
 			// Check platform deps

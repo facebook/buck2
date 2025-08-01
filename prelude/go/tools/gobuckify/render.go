@@ -61,7 +61,7 @@ var targetTempate = `
     {{- end }}
     {{- if and .Target.EmbedFiles .Config.GenerateEmbedSrcs }}
     embed_srcs = [
-        {{- range .Target.EmbedFiles }}
+        {{- range .Target.EmbedFiles.SortedList }}
         "{{.}}",
         {{- end }}
     ],
