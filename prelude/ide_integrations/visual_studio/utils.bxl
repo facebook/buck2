@@ -118,21 +118,6 @@ def basename(path, separator = "/"):
 def dirname(path, separator = "/"):
     return path.rsplit(separator, 1)[0]
 
-def extract_path_up_to_dir(path, target_dir, separator = "/"):
-    parts = path.split(separator)
-
-    idx = -1
-    for i in range(len(parts)):
-        if parts[i] == target_dir:
-            idx = i
-            break
-    if idx == -1:
-        # target_dir not found
-        return path
-
-    # Join parts up to and including the target directory
-    return separator.join(parts[:idx + 1])
-
 def normcase(path):
     return path.replace("/", "\\")
 
