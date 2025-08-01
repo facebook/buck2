@@ -12,7 +12,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,43 +32,57 @@ type Package struct {
 	Module     interface{}
 }
 
-func queryGoList(workDir, rootModuleName string, extraArgs ...string) (map[string]*Package, error) {
-	cmdArgs := slices.Concat(
-		[]string{"buck2", "run", "toolchains//:go[go]", "--", "list", "-C", workDir, "-e", "-json=Name,ImportPath,Imports,EmbedFiles,Standard,Module"},
-		extraArgs,
-		[]string{"all"},
-	)
-	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	// need for consistent behaviour on any host machine
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
-	out, err := cmd.Output()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			fmt.Println(string(exitErr.Stderr))
-		}
-		return nil, err
-	}
+func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Package, chan error) {
+	pkgChan := make(chan *Package, 1000) // 1000 is a guess, but should be enough
+	errChan := make(chan error)
+	go func() {
+		defer close(pkgChan)
+		defer close(errChan)
+		cmdArgs := slices.Concat(
+			[]string{"buck2", "run", "toolchains//:go[go]", "--", "list", "-C", workDir, "-e", "-json=Name,ImportPath,Imports,EmbedFiles,Standard,Module"},
+			extraArgs,
+			[]string{"all"},
+		)
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		// need for consistent behaviour on any host machine
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
+		cmd.Stderr = os.Stderr
 
-	pkgs := make(map[string]*Package)
-	for dec := json.NewDecoder(bytes.NewBuffer(out)); dec.More(); {
-		var pkg Package
-		if err := dec.Decode(&pkg); err != nil {
-			return nil, err
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			errChan <- fmt.Errorf("failed to get stdout pipe: %w", err)
+			return
 		}
-		if pkg.Standard {
-			continue // skip standard library packages
-		}
-		if pkg.Module == nil {
-			continue // that's not a ligit third-party package
-		}
-		if strings.HasPrefix(pkg.ImportPath, rootModuleName) {
-			continue // skip the root module packages
-		}
-		pkgs[pkg.ImportPath] = &pkg
-	}
 
-	return pkgs, nil
+		if err := cmd.Start(); err != nil {
+			errChan <- fmt.Errorf("failed to start go list: %w", err)
+			return
+		}
+
+		for dec := json.NewDecoder(stdout); dec.More(); {
+			var pkg Package
+			if err := dec.Decode(&pkg); err != nil {
+				errChan <- fmt.Errorf("failed to decode json: %w", err)
+				return
+			}
+			if pkg.Standard {
+				continue // skip standard library packages
+			}
+			if pkg.Module == nil {
+				continue // that's not a ligit third-party package
+			}
+			if strings.HasPrefix(pkg.ImportPath, rootModuleName) {
+				continue // skip the root module packages
+			}
+			pkgChan <- &pkg
+		}
+
+		if err := cmd.Wait(); err != nil {
+			errChan <- fmt.Errorf("failed to wait for go list: %w", err)
+		}
+	}()
+
+	return pkgChan, errChan
 }
 
 func readModuleName(path string) (string, error) {

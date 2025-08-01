@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 )
 
 func main() {
@@ -40,18 +41,74 @@ func main() {
 		os.Exit(1)
 	}
 
-	buckTargets := make(BuckTargets)
+	type result struct {
+		pkg      *Package
+		buckOS   string
+		buckArch string
+	}
+
+	results := make(chan *result, 1000*len(cfg.Platforms)) // should be enough
+	mainErrChan := make(chan error)
+
+	// Limit concurrency to avoid OOMs as `go list` can use a lot of memory
+	// It used 300MB for 7k packages on my tests, so 10 should be reasonable number
+	maxConcurrency := 10
+	semaphore := make(chan struct{}, maxConcurrency)
+
+	wg := sync.WaitGroup{}
 	for _, p := range cfg.Platforms {
-		tags := slices.Concat([]string{p.GoOS, p.GoArch}, cfg.DefaultTags)
-		pkgs, err := queryGoList(thirdPartyDir, rootModuleName, fmt.Sprintf("-tags=%s", strings.Join(tags, ",")))
-		if err != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// Acquire semaphore
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			tags := slices.Concat([]string{p.GoOS, p.GoArch}, cfg.DefaultTags)
+			pkgChan, errChan := queryGoList(thirdPartyDir, rootModuleName, fmt.Sprintf("-tags=%s", strings.Join(tags, ",")))
+			pkgCount := 0
+			for pkg := range pkgChan {
+				pkgCount++
+				results <- &result{pkg: pkg, buckOS: p.BuckOS, buckArch: p.BuckArch}
+			}
+			slog.Info("Found packages", "count", pkgCount, "os", p.GoOS, "arch", p.GoArch)
+			for err := range errChan {
+				mainErrChan <- fmt.Errorf("error querying golist for %s: %w", p, err)
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+		close(mainErrChan)
+	}()
+
+	buckTargets := make(BuckTargets)
+	resultsClosed, mainErrChanClosed, hadErrors := false, false, false
+	for {
+		if resultsClosed && mainErrChanClosed {
+			break
+		}
+		select {
+		case res, ok := <-results:
+			if !ok {
+				resultsClosed = true
+				continue
+			}
+			buckTargets.AddPackage(res.pkg, res.buckOS, res.buckArch)
+		case err, ok := <-mainErrChan:
+			if !ok {
+				mainErrChanClosed = true
+				continue
+			}
 			slog.Error("Error querying golist", "err", err)
-			os.Exit(1)
+			hadErrors = true
 		}
-		slog.Info("Found packages", "count", len(pkgs), "os", p.GoOS, "arch", p.GoArch)
-		for _, pkg := range pkgs {
-			buckTargets.AddPackage(pkg, p.BuckOS, p.BuckArch)
-		}
+	}
+	if hadErrors {
+		os.Exit(1)
 	}
 
 	for _, target := range buckTargets {
