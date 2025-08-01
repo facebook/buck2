@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"text/template"
 )
 
@@ -95,17 +96,43 @@ func renderBuckFiles(cfg *Config, thirdPartyDir string, buckTargets BuckTargets)
 	})
 	tmpl1 = template.Must(tmpl1.Parse(targetTempate))
 
+	errors := make(chan error)
+	wg := sync.WaitGroup{}
+	sem := make(chan struct{}, 50) // limit IO concurrency to some reasonable number
 	for _, target := range buckTargets {
-		buckFile := filepath.Join(thirdPartyDir, "vendor", target.ImportPath, "BUCK")
-		f, err := os.Create(buckFile)
-		if err != nil {
-			return fmt.Errorf("can't create BUCK file: %w", err)
-		}
-		defer f.Close()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		if err := tmpl1.Execute(f, templateData{Config: cfg.Buck, Target: target}); err != nil {
-			slog.Error("Error executing template:", "err", err)
-		}
+			target.Normalise(len(cfg.Platforms))
+
+			// Acquire semaphore before doing IO
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			buckFile := filepath.Join(thirdPartyDir, "vendor", target.ImportPath, "BUCK")
+			f, err := os.Create(buckFile)
+			if err != nil {
+				errors <- fmt.Errorf("can't create BUCK file: %w", err)
+			}
+			defer f.Close()
+
+			if err := tmpl1.Execute(f, templateData{Config: cfg.Buck, Target: target}); err != nil {
+				errors <- fmt.Errorf("can't execute template: %w", err)
+			}
+		}()
 	}
-	return nil
+
+	go func() {
+		wg.Wait()
+		close(errors)
+	}()
+
+	var lastErr error
+	for err := range errors {
+		slog.Error("renderBuckFiles", "err", err)
+		lastErr = err
+	}
+
+	return lastErr
 }

@@ -110,10 +110,6 @@ func main() {
 	if hadErrors {
 		os.Exit(1)
 	}
-
-	for _, target := range buckTargets {
-		target.Normalise(len(cfg.Platforms))
-	}
 	slog.Info("Packages collected", "count", len(buckTargets))
 	slog.Info("Rendering BUCK files")
 	if err := renderBuckFiles(cfg, thirdPartyDir, buckTargets); err != nil {
