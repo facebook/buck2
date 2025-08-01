@@ -86,6 +86,10 @@ func (b *BuckTarget) Normalise(totalPlatformNumber int) {
 	if compatibleWithNumber == totalPlatformNumber {
 		b.TargetCompatibleWith = nil // all platforms are compatible
 	}
+
+	for _, archList := range b.TargetCompatibleWith {
+		slices.Sort(archList) // sort arch list to render it deterministically
+	}
 }
 
 // BuckTargets is a map of buck targets keyed by import path
