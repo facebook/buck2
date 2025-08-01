@@ -257,6 +257,21 @@ def _apple_toolchain_arg():
         "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-default", providers = [AppleToolchainInfo]),
     }
 
+def _asset_catalogs_compilation_options_arg():
+    return {
+        "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}, doc = """
+                A dict holding parameters for asset catalogs compiler (actool). Its options include:
+
+                * `notices` (defaults to `True`)
+                * `warnings` (defaults to `True`)
+                * `errors` (defaults to `True`)
+                * `compress_pngs` (defaults to `True`)
+                * `optimization` (defaults to `'space'`)
+                * `output_format` (defaults to `'human-readable-text'`)
+                * `extra_flags` (defaults to `[]`)
+            """),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -280,4 +295,5 @@ apple_common = struct(
     executable_name_for_universal_arg = _executable_name_for_universal_arg,
     executable_name_arg = _executable_name_arg,
     apple_toolchain_arg = _apple_toolchain_arg,
+    asset_catalogs_compilation_options_arg = _asset_catalogs_compilation_options_arg,
 )
