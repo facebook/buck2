@@ -610,6 +610,7 @@ impl InterpreterForDir {
             path: package_file_path.clone(),
             parent,
             visibility: RefCell::new(None),
+            test_config_unification_rollout: RefCell::new(None),
         });
 
         let (_finished_eval, eval_result) = self.eval(

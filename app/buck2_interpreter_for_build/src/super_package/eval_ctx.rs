@@ -40,6 +40,7 @@ pub struct PackageFileEvalCtx {
     /// When evaluating root `PACKAGE` file, parent is still defined.
     pub(crate) parent: SuperPackage,
     pub(crate) visibility: RefCell<Option<PackageFileVisibilityFields>>,
+    pub(crate) test_config_unification_rollout: RefCell<Option<bool>>,
 }
 
 impl PackageFileEvalCtx {
@@ -111,11 +112,18 @@ impl PackageFileEvalCtx {
             }
         };
 
+        let test_config_unification_rollout =
+            match self.test_config_unification_rollout.into_inner() {
+                Some(test_config_unification_rollout) => test_config_unification_rollout,
+                None => self.parent.test_config_unification_rollout(),
+            };
+
         SuperPackage::new(
             merged_package_values,
             visibility,
             within_view,
             cfg_constructor,
+            test_config_unification_rollout,
         )
     }
 }

@@ -130,6 +130,8 @@ pub struct TargetNodeData {
 
     /// Config modifiers set in the package this target belongs to
     package_cfg_modifiers: Option<PackageCfgModifiersValue>,
+
+    test_config_unification_rollout: bool,
 }
 
 impl TargetNodeData {
@@ -156,6 +158,10 @@ impl TargetNodeData {
     pub fn package_cfg_modifiers(&self) -> Option<&PackageCfgModifiersValue> {
         self.package_cfg_modifiers.as_ref()
     }
+
+    pub fn test_config_unification_rollout(&self) -> bool {
+        self.test_config_unification_rollout
+    }
 }
 
 impl TargetNode {
@@ -167,6 +173,7 @@ impl TargetNode {
         deps_cache: CoercedDeps,
         call_stack: Option<StarlarkCallStack>,
         package_cfg_modifiers: Option<PackageCfgModifiersValue>,
+        test_config_unification_rollout: bool,
     ) -> TargetNode {
         TargetNode(triomphe::Arc::new(TargetNodeData {
             rule,
@@ -176,6 +183,7 @@ impl TargetNode {
             deps_cache,
             call_stack,
             package_cfg_modifiers,
+            test_config_unification_rollout,
         }))
     }
 
@@ -702,6 +710,7 @@ pub mod testing {
                 CoercedDeps::from(deps_cache),
                 call_stack,
                 None,
+                false,
             )
         }
     }

@@ -73,6 +73,7 @@ impl TargetNodeExt for TargetNode {
             CoercedDeps::default(),
             None,
             package_cfg_modifiers,
+            internals.super_package.test_config_unification_rollout(),
         ))
     }
 
@@ -120,6 +121,7 @@ impl TargetNodeExt for TargetNode {
                 .map(StarlarkCallStackWrapper)
                 .map(StarlarkCallStack::new),
             package_cfg_modifiers,
+            internals.super_package.test_config_unification_rollout(),
         ))
     }
 }

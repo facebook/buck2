@@ -32,6 +32,7 @@ pub(crate) struct SuperPackageData {
     // we store it here separately as rust value because we are going to use it
     // in a special attribute and cfg constractor
     cfg_modifiers: Option<PackageCfgModifiersValue>,
+    test_config_unification_rollout: bool,
 }
 
 impl SuperPackageData {
@@ -40,6 +41,7 @@ impl SuperPackageData {
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
+        test_config_unification_rollout: bool,
     ) -> buck2_error::Result<SuperPackageData> {
         let modifier_key =
             MetadataKeyRef::new(MODIFIER_METADATA_KEY).map_err(buck2_error::Error::from)?;
@@ -52,6 +54,7 @@ impl SuperPackageData {
             within_view,
             cfg_constructor,
             cfg_modifiers,
+            test_config_unification_rollout,
         })
     }
 }
@@ -67,12 +70,14 @@ impl SuperPackage {
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
+        test_config_unification_rollout: bool,
     ) -> buck2_error::Result<SuperPackage> {
         Ok(SuperPackage(Arc::new(SuperPackageData::new(
             package_values,
             visibility,
             within_view,
             cfg_constructor,
+            test_config_unification_rollout,
         )?)))
     }
 
@@ -82,6 +87,7 @@ impl SuperPackage {
             VisibilitySpecification::default(),
             WithinViewSpecification::default(),
             None,
+            false,
         )
     }
 
@@ -104,6 +110,9 @@ impl SuperPackage {
     pub fn cfg_modifiers(&self) -> Option<&PackageCfgModifiersValue> {
         self.0.cfg_modifiers.as_ref()
     }
+    pub fn test_config_unification_rollout(&self) -> bool {
+        self.0.test_config_unification_rollout
+    }
 }
 
 impl PartialEq for SuperPackage {
@@ -114,6 +123,7 @@ impl PartialEq for SuperPackage {
             within_view: this_within_view,
             cfg_constructor: this_cfg_constructor,
             cfg_modifiers: _, // cfg_modifiers are already contained in package_values
+            test_config_unification_rollout: this_test_config_unification_rollout,
         } = &*self.0;
         let SuperPackageData {
             package_values: other_values,
@@ -121,15 +131,18 @@ impl PartialEq for SuperPackage {
             within_view: other_within_view,
             cfg_constructor: other_cfg_constructor,
             cfg_modifiers: _, // cfg_modifiers are already contained in package_values
+            test_config_unification_rollout: other_test_config_unification_rollout,
         } = &*other.0;
-        (this_visibility, this_within_view) == (other_visibility, other_within_view) && {
-            // If either package values are not empty, we cannot compare them
-            // because we cannot reliably compare arbitrary Starlark values.
-            // So if either package values are not empty, we consider super package not equal.
-            this_values.is_empty() && other_values.is_empty()
+        (this_visibility, this_within_view) == (other_visibility, other_within_view)
+            && {
+                // If either package values are not empty, we cannot compare them
+                // because we cannot reliably compare arbitrary Starlark values.
+                // So if either package values are not empty, we consider super package not equal.
+                this_values.is_empty() && other_values.is_empty()
                 &&
                 // Same logic for cfg constructors.
                 this_cfg_constructor.is_none() && other_cfg_constructor.is_none()
-        }
+            }
+            && this_test_config_unification_rollout == other_test_config_unification_rollout
     }
 }

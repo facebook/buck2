@@ -39,7 +39,12 @@ async fn test_package_value_same_dir_package_file() {
     fs.write_file("rules.bzl", RULES);
     fs.write_file(
         "headphones/PACKAGE",
-        "write_package_value('aaa.bbb', 'ccc')",
+        indoc!(
+            r#"
+            write_package_value('aaa.bbb', 'ccc')
+            test_config_unification_rollout(enabled=True)
+            "#
+        ),
     );
     fs.write_file(
         "headphones/BUCK",
@@ -83,6 +88,7 @@ async fn test_package_value_same_dir_package_file() {
             .as_display_no_ctx()
             .to_string()
     );
+    assert!(target_node.test_config_unification_rollout());
 }
 
 #[tokio::test]
@@ -90,7 +96,15 @@ async fn test_package_value_parent_dir_package_file() {
     let fs = ProjectRootTemp::new().unwrap();
 
     fs.write_file("rules.bzl", RULES);
-    fs.write_file("PACKAGE", "write_package_value('aaa.bbb', 'ccc')");
+    fs.write_file(
+        "PACKAGE",
+        indoc!(
+            r#"
+            write_package_value('aaa.bbb', 'ccc')
+            test_config_unification_rollout(enabled=True)
+            "#
+        ),
+    );
     fs.write_file(
         "trackpad/BUCK",
         indoc!(
@@ -133,6 +147,7 @@ async fn test_package_value_parent_dir_package_file() {
             .as_display_no_ctx()
             .to_string()
     );
+    assert!(target_node.test_config_unification_rollout());
 }
 
 #[tokio::test]
@@ -399,4 +414,54 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
             .contains("In a Package context, consider using `read_parent_package_value`"),
         "err = {err:?}"
     );
+}
+
+#[tokio::test]
+async fn test_config_unification_rollout_function_override() {
+    let fs = ProjectRootTemp::new().unwrap();
+    fs.write_file("rules.bzl", RULES);
+    fs.write_file(
+        "PACKAGE",
+        indoc!(
+            r#"
+            write_package_value('aaa.bbb', 'ccc')
+            test_config_unification_rollout(enabled=True)
+            "#
+        ),
+    );
+    fs.write_file(
+        "foo/PACKAGE",
+        "test_config_unification_rollout(enabled=False)",
+    );
+    fs.write_file(
+        "foo/BUCK",
+        indoc!(
+            r#"
+                load("//:rules.bzl", "rrr")
+                rrr(
+                    name = "foo",
+                    value = read_package_value("aaa.bbb"),
+                )
+        "#
+        ),
+    );
+    let package_label = PackageLabel::testing_parse("root//foo");
+    let mut ctx = calculation(&fs).await;
+    let mut interpreter = ctx
+        .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+            PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
+        ))
+        .await
+        .unwrap();
+
+    let result = interpreter
+        .eval_build_file(package_label, &CancellationContext::testing())
+        .await
+        .1
+        .unwrap();
+
+    let target_nodes: Vec<_> = result.targets().values().collect();
+    assert_eq!(1, target_nodes.len());
+    let target_node = &target_nodes[0];
+    assert_eq!(false, target_node.test_config_unification_rollout());
 }

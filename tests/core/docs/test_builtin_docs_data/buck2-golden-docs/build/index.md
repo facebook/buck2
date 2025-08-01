@@ -38,6 +38,7 @@
 ## sha1
 ## sha256
 ## soft\_error
+## test\_config\_unification\_rollout
 ## transition
 ## transitive\_set
 ## warning
