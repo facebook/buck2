@@ -60,7 +60,8 @@ public class KosabiStubgenStep extends KotlincStep {
       Optional<AbsPath> depTrackerPath,
       RelPath stubgenDir,
       @Nullable RelPath stubClassOutputDir,
-      KotlinCDAnalytics kotlinCDAnalytics) {
+      KotlinCDAnalytics kotlinCDAnalytics,
+      LanguageVersion languageVersion) {
 
     super(
         invokingRule,
@@ -85,7 +86,7 @@ public class KosabiStubgenStep extends KotlincStep {
         depTrackerPath,
         KotlincMode.NonIncremental.INSTANCE,
         kotlinCDAnalytics,
-        LanguageVersion.Companion.getK1());
+        languageVersion);
     this.stubgenDir = stubgenDir;
     this.stubClassOutputDir = stubClassOutputDir;
   }

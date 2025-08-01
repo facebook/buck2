@@ -15,6 +15,7 @@ import static com.facebook.buck.jvm.java.JavaPaths.SRC_ZIP;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
 import com.facebook.buck.jvm.java.CompilerParameters;
@@ -58,7 +59,8 @@ public class KosabiStubgenStepsBuilder {
       ImmutableMap<String, AbsPath> allKosabiPluginOptionPath,
       ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder,
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
-      KotlinCDAnalytics kotlinCDAnalytics) {
+      KotlinCDAnalytics kotlinCDAnalytics,
+      LanguageVersion languageVersion) {
     ImmutableSortedSet<RelPath> stubsGenOutputPath;
     if (invokingRule.isSourceOnlyAbi() && extraParams.getShouldUseStandaloneKosabi()) {
       RelPath stubgenOutputDir = buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs__");
@@ -114,7 +116,8 @@ public class KosabiStubgenStepsBuilder {
               extraParams.getDepTrackerPlugin(),
               stubgenOutputDir,
               stubgenClassOutputDir,
-              kotlinCDAnalytics));
+              kotlinCDAnalytics,
+              LanguageVersion.getK1()));
 
       steps.add(
           new ZipIsolatedStep(

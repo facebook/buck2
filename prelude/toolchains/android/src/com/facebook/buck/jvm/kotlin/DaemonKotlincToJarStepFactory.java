@@ -220,7 +220,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kosabiPluginOptions.getAllKosabiPlugins(),
           sourceOnlyAbiClasspathBuilder,
           postKotlinCompilationFailureSteps,
-          kotlinCDAnalytics);
+          kotlinCDAnalytics,
+          extraParams.getLanguageVersion());
 
       KspStepsBuilder.KSPInvocationStatus kspInvocationStatus =
           prepareKspProcessorsIfNeeded(
