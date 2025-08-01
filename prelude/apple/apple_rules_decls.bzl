@@ -101,6 +101,7 @@ SWIFT_VERSION_FEATURE_MAP = {
 def apple_bundle_base_attrs():
     return (apple_common.product_name_from_module_name_arg() |
             apple_common.asset_catalogs_compilation_options_arg() |
+            apple_common.info_plist_substitutions_arg() |
             {
                 "codesign_flags": attrs.list(attrs.string(), default = []),
                 "codesign_identity": attrs.option(attrs.string(), default = None),
@@ -112,7 +113,6 @@ def apple_bundle_base_attrs():
                 "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
                 "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
                 "info_plist": attrs.source(),
-                "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
                 "labels": attrs.list(attrs.string(), default = []),
                 "licenses": attrs.list(attrs.source(), default = []),
                 "platform_binary": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.dep())), default = None),
@@ -158,7 +158,6 @@ def _apple_resource_bundle_attrs():
         "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
         "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
         "info_plist": attrs.source(),
-        "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
         "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
         "privacy_manifest": attrs.option(attrs.source(), default = None),
@@ -177,6 +176,7 @@ def _apple_resource_bundle_attrs():
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_common.asset_catalogs_compilation_options_arg())
+    attribs.update(apple_common.info_plist_substitutions_arg())
     return attribs
 
 apple_asset_catalog = prelude_rule(
@@ -342,6 +342,7 @@ apple_binary = prelude_rule(
         apple_common.uses_explicit_modules_arg() |
         apple_common.apple_sanitizer_compatibility_arg() |
         apple_common.executable_name_arg() |
+        apple_common.info_plist_substitutions_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -370,7 +371,6 @@ apple_binary = prelude_rule(
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "info_plist": attrs.option(attrs.source(), default = None),
-            "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
@@ -676,6 +676,7 @@ apple_library = prelude_rule(
         apple_common.meta_apple_library_validation_enabled_arg() |
         apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
+        apple_common.info_plist_substitutions_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -701,7 +702,6 @@ apple_library = prelude_rule(
             "force_static": attrs.option(attrs.bool(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "info_plist": attrs.option(attrs.source(), default = None),
-            "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
