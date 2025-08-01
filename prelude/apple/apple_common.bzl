@@ -12,7 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-load(":apple_toolchain_types.bzl", "AppleToolsInfo")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 def _headers_arg():
     return {
@@ -252,6 +252,11 @@ def _executable_name_arg():
         "executable_name": attrs.option(attrs.string(), default = None),
     }
 
+def _apple_toolchain_arg():
+    return {
+        "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-default", providers = [AppleToolchainInfo]),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -274,4 +279,5 @@ apple_common = struct(
     product_name_from_module_name_arg = _product_name_from_module_name_arg,
     executable_name_for_universal_arg = _executable_name_for_universal_arg,
     executable_name_arg = _executable_name_arg,
+    apple_toolchain_arg = _apple_toolchain_arg,
 )

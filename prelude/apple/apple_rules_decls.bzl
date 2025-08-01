@@ -17,7 +17,7 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
@@ -97,8 +97,6 @@ SWIFT_VERSION_FEATURE_MAP = {
     "5": [],
     "6": [],
 }
-
-_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def apple_bundle_base_attrs():
     return (apple_common.product_name_from_module_name_arg() |
@@ -255,7 +253,6 @@ def _apple_binary_extra_attrs():
         "stripped": attrs.option(attrs.bool(), default = None),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
@@ -264,6 +261,7 @@ def _apple_binary_extra_attrs():
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
     } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
+    attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(constraint_overrides.attributes)
     attribs.update(get_skip_swift_incremental_outputs_attrs())
@@ -591,7 +589,6 @@ def _apple_library_extra_attrs():
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "use_archive": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
@@ -604,6 +601,7 @@ def _apple_library_extra_attrs():
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
     } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
+    attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(get_swift_incremental_file_hashing_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
@@ -1210,10 +1208,10 @@ prebuilt_apple_framework = prelude_rule(
             "extra_codesign_paths": attrs.list(attrs.string(), default = [], doc = """
                 A list of extra paths, relative to the framework root, that will be codesigned.
                 """),
-            "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
             "_stripped_default": attrs.bool(default = False),
         } |
-        apple_common.apple_tools_arg()
+        apple_common.apple_tools_arg() |
+        apple_common.apple_toolchain_arg()
     ),
     impl = prebuilt_apple_framework_impl,
 )
@@ -1310,9 +1308,9 @@ def _apple_universal_executable_attrs():
                     of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
                     for more information on resolution.
                 """),
-            "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         } |
-        apple_common.executable_name_for_universal_arg()
+        apple_common.executable_name_for_universal_arg() |
+        apple_common.apple_toolchain_arg()
     )
 
     attribs.update(apple_common.apple_tools_arg())
@@ -1473,8 +1471,7 @@ apple_static_archive = prelude_rule(
         "flat_deps": attrs.list(attrs.dep(), default = []),
         "labels": attrs.list(attrs.string(), default = []),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-        "_apple_toolchain": get_apple_toolchain_attr(),
-    } | apple_common.apple_tools_arg(),
+    } | apple_common.apple_tools_arg() | apple_common.apple_toolchain_arg(),
 )
 
 apple_selective_debugging = prelude_rule(

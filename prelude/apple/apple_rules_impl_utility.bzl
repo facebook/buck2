@@ -24,9 +24,6 @@ load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 
 AppleFrameworkBundleModuleMapType = ["auto"]
 
-def get_apple_toolchain_attr():
-    return attrs.toolchain_dep(default = "toolchains//:apple-default", providers = [AppleToolchainInfo])
-
 def get_apple_bundle_toolchain_attr():
     return attrs.toolchain_dep(default = "toolchains//:apple-bundle", providers = [AppleToolchainInfo])
 
@@ -181,12 +178,12 @@ def apple_test_extra_attrs():
             An optional name of the RE use case for the test execution.
             Overrides a default selection mechanism.
         """),
-        "_apple_toolchain": get_apple_toolchain_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
         "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
     } | validation_common.attrs_validators_arg()
+    attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.update(get_swift_incremental_file_hashing_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
@@ -206,9 +203,9 @@ def apple_xcuitest_extra_attrs():
         "target_sdk_version": attrs.option(attrs.string(), default = None),
         # The test bundle to package in the UI test runner app.
         "test_bundle": attrs.dep(),
-        "_apple_toolchain": get_apple_toolchain_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
     }
+    attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.pop("_dsymutil_extra_flags", None)
     attribs.pop("_dsymutil_verify_dwarf", None)
