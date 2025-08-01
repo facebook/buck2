@@ -62,6 +62,7 @@ message ConfiguredTarget {
   string target = 5;
   string configuration = 6;
   string package_project_relative_path = 7;
+  bool test_config_unification_rollout = 8;
 }
 
 enum TestStatus {

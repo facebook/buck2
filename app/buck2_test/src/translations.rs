@@ -29,6 +29,7 @@ pub(crate) fn build_configured_target_handle(
     target: ConfiguredProvidersLabel,
     session: &TestSession,
     cell_resolver: &CellResolver,
+    test_config_unification_rollout: bool,
 ) -> anyhow::Result<ConfiguredTarget> {
     let label = target.target().unconfigured();
     let cell = label.pkg().cell_name().to_string();
@@ -50,6 +51,7 @@ pub(crate) fn build_configured_target_handle(
         target: target_name,
         configuration,
         package_project_relative_path: package_project_relative_path.into(),
+        test_config_unification_rollout,
     })
 }
 

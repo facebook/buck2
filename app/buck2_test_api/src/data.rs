@@ -48,6 +48,7 @@ pub struct ConfiguredTarget {
     pub target: String,
     pub configuration: String,
     pub package_project_relative_path: ForwardRelativePathBuf,
+    pub test_config_unification_rollout: bool,
 }
 
 /// Metadata about the execution to display

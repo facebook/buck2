@@ -818,16 +818,19 @@ enum TestDriverTask {
     ConfigureTarget {
         label_with_modifiers: ProvidersLabelWithModifiers,
         skippable: bool,
+        test_config_unification_rollout: bool,
     },
     BuildTarget {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
+        test_config_unification_rollout: bool,
     },
     TestTarget {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
+        test_config_unification_rollout: bool,
     },
 }
 
@@ -909,19 +912,39 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             TestDriverTask::ConfigureTarget {
                                 label_with_modifiers,
                                 skippable,
+                                test_config_unification_rollout,
                             } => {
-                                self.configure_target(label_with_modifiers, skippable);
+                                self.configure_target(
+                                    label_with_modifiers,
+                                    skippable,
+                                    test_config_unification_rollout,
+                                );
                             }
-                            TestDriverTask::BuildTarget { label, modifiers } => {
-                                self.build_target(label, modifiers);
+                            TestDriverTask::BuildTarget {
+                                label,
+                                modifiers,
+                                test_config_unification_rollout,
+                            } => {
+                                self.build_target(
+                                    label,
+                                    modifiers,
+                                    test_config_unification_rollout,
+                                );
                             }
                             TestDriverTask::TestTarget {
                                 label,
                                 modifiers,
                                 providers,
                                 build_target_result,
+                                test_config_unification_rollout,
                             } => {
-                                self.test_target(label, modifiers, providers, build_target_result);
+                                self.test_target(
+                                    label,
+                                    modifiers,
+                                    providers,
+                                    build_target_result,
+                                    test_config_unification_rollout,
+                                );
                             }
                         }
                     }
@@ -1006,19 +1029,27 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
-                let labels = targets.into_keys().map(|(target_name, providers_pattern)| {
-                    providers_pattern.into_providers_label_with_modifiers(
-                        package.dupe(),
-                        target_name.as_ref(),
-                        modifiers.dupe(),
-                    )
-                });
-
+                let labels =
+                    targets
+                        .into_iter()
+                        .map(|((target_name, providers_pattern), target_node)| {
+                            (
+                                providers_pattern.into_providers_label_with_modifiers(
+                                    package.dupe(),
+                                    target_name.as_ref(),
+                                    modifiers.dupe(),
+                                ),
+                                target_node.test_config_unification_rollout(),
+                            )
+                        });
                 let work = labels
                     .into_iter()
-                    .map(|label_with_modifiers| TestDriverTask::ConfigureTarget {
-                        label_with_modifiers,
-                        skippable,
+                    .map(|(label_with_modifiers, test_config_unification_rollout)| {
+                        TestDriverTask::ConfigureTarget {
+                            label_with_modifiers,
+                            skippable,
+                            test_config_unification_rollout,
+                        }
                     })
                     .collect();
 
@@ -1032,6 +1063,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         &mut self,
         label_with_modifiers: ProvidersLabelWithModifiers,
         skippable: bool,
+        test_config_unification_rollout: bool,
     ) {
         if !self
             .labels_configured
@@ -1108,6 +1140,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             let mut work = vec![TestDriverTask::BuildTarget {
                 label,
                 modifiers: modifiers.dupe(),
+                test_config_unification_rollout,
             }];
 
             // If this node is a forward, it'll get flattened when we do analysis and run the
@@ -1127,6 +1160,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         // Historically `skippable: false` is what we enforced here, perhaps that
                         // should change.
                         skippable: false,
+                        test_config_unification_rollout,
                     });
                 }
             }
@@ -1138,7 +1172,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         self.work.push(fut);
     }
 
-    fn build_target(&mut self, label: ConfiguredProvidersLabel, modifiers: Modifiers) {
+    fn build_target(
+        &mut self,
+        label: ConfiguredProvidersLabel,
+        modifiers: Modifiers,
+        test_config_unification_rollout: bool,
+    ) {
         if !self.labels_tested.insert(label.dupe()) {
             self.work.push(
                 async move {
@@ -1189,6 +1228,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 build_target_result: result.0,
                 providers: result.1,
                 modifiers,
+                test_config_unification_rollout,
             }])
         }
         .boxed();
@@ -1202,6 +1242,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         modifiers: Modifiers,
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
+        test_config_unification_rollout: bool,
     ) {
         let should_test = !build_target_result.build_failed && !build_target_result.is_empty();
         self.build_target_result.extend(build_target_result);
@@ -1221,6 +1262,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 state.label_filtering.dupe(),
                 state.cell_resolver,
                 state.working_dir_cell,
+                test_config_unification_rollout,
             )
             .await
             {
@@ -1319,6 +1361,7 @@ async fn test_target(
     label_filtering: Arc<TestLabelFiltering>,
     cell_resolver: &CellResolver,
     working_dir_cell: CellName,
+    test_config_unification_rollout: bool,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
     let collection = providers.provider_collection();
 
@@ -1334,6 +1377,7 @@ async fn test_target(
                 session,
                 cell_resolver,
                 working_dir_cell,
+                test_config_unification_rollout,
             )
             .map(|l| Some(l).transpose())
             .left_future()
@@ -1369,9 +1413,14 @@ fn run_tests<'a, 'b>(
     session: &'b TestSession,
     cell_resolver: &'b CellResolver,
     working_dir_cell: CellName,
+    test_config_unification_rollout: bool,
 ) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
-    let maybe_handle =
-        build_configured_target_handle(providers_label.dupe(), session, cell_resolver);
+    let maybe_handle = build_configured_target_handle(
+        providers_label.dupe(),
+        session,
+        cell_resolver,
+        test_config_unification_rollout,
+    );
 
     match maybe_handle {
         Ok(handle) => {

@@ -187,6 +187,7 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
             target,
             configuration,
             package_project_relative_path,
+            test_config_unification_rollout,
         } = s;
 
         Ok(Self {
@@ -201,6 +202,7 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
             package_project_relative_path: ForwardRelativePathBuf::try_from(
                 package_project_relative_path,
             )?,
+            test_config_unification_rollout,
         })
     }
 }
@@ -216,6 +218,7 @@ impl TryInto<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
             target: self.target,
             configuration: self.configuration,
             package_project_relative_path: self.package_project_relative_path.as_str().to_owned(),
+            test_config_unification_rollout: self.test_config_unification_rollout,
         })
     }
 }
@@ -1069,6 +1072,7 @@ mod tests {
                 package_project_relative_path: ForwardRelativePathBuf::unchecked_new(
                     "qux/foo".to_owned(),
                 ),
+                test_config_unification_rollout: false,
             },
             test_type: "some_type".to_owned(),
             command: vec![
