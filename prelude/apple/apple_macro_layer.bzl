@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//apple/user:apple_ipa_package.bzl", "make_apple_ipa_package_target")
+load("@prelude//utils:selects.bzl", "selects")
 load(":apple_bundle_config.bzl", "apple_bundle_config")
 load(":apple_dsym_config.bzl", "apple_dsym_config")
 load(":apple_info_plist_substitutions_parsing.bzl", "parse_codesign_entitlements")
@@ -114,8 +115,10 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
     kwargs.update(apple_dsym_config())
+    codesign_entitlements = selects.apply(info_plist_substitutions, parse_codesign_entitlements)
+
     apple_bundle_rule(
-        _codesign_entitlements = parse_codesign_entitlements(info_plist_substitutions),
+        _codesign_entitlements = codesign_entitlements,
         _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs),
         **kwargs
     )
