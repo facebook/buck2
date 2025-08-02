@@ -32,7 +32,10 @@ load(
     "CxxResourceSpec",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
-load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
+load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_precompiled_headers",
+    "CPrecompiledHeaderInfo",
+    "CxxPrecompiledHeader",
+)
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARGSFILES_SUB_TARGET",
@@ -131,6 +134,7 @@ load(
     "create_compile_cmds",
     "cxx_objects_sub_targets",
     "precompile_cxx",
+    "get_compiler_type",
 )
 load(
     ":compile_types.bzl",
@@ -138,6 +142,7 @@ load(
     "CxxCompileFlavor",
     "CxxCompileOutput",  # @unused Used as a type
     "CxxSrcCompileCommand",
+    "CxxExtension",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
@@ -229,6 +234,7 @@ load(
     "generate_tbd_with_symbols",
     "shared_library_interface",
 )
+load(":cxx_sources.bzl", "CxxSrcWithFlags")
 
 # A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
 # it represents just the sources of the library target itself, while a shared library will bundle multiple libraries
@@ -299,6 +305,7 @@ _CxxAllLibraryOutputs = record(
 _CxxLibraryCompileOutput = record(
     # object files
     objects = field(list[Artifact]),
+    pch_object_output = field(list[Artifact]),
     # object files stripped of debug information
     stripped_objects = field(list[Artifact]),
     # Those outputs which are bitcode
@@ -363,6 +370,11 @@ _CxxLibraryParameterizedOutput = record(
     sanitizer_runtime_files = field(list[Artifact], []),
 )
 
+def valid_pch_clanguage(val: typing.Any) -> bool:
+    if not val:
+        return False
+    return val in [ext.value for ext in CxxExtension]
+
 def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams) -> _CxxLibraryParameterizedOutput:
     """
     Defines the outputs for a cxx library, return the default output and any subtargets and providers based upon the requested params.
@@ -386,6 +398,40 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     non_exported_deps = cxx_attr_deps(ctx)
     exported_deps = cxx_attr_exported_deps(ctx)
 
+    precompiled_header = ctx.attrs.precompiled_header[CPrecompiledHeaderInfo] if ctx.attrs.precompiled_header else None
+
+    compile_pch = None
+    compiler_type = None
+    pch_clanguage = None
+    if impl_params.rule_type == "cxx_precompiled_header":
+        if len(ctx.attrs.srcs) != 1:
+            fail("cxx_precompiled_header must have exactly one source file, got: {}".format(len(ctx.attrs.srcs)))
+
+        pch_clanguage = ctx.attrs.pch_clanguage
+        if not valid_pch_clanguage(pch_clanguage):
+            fail("pch_clanguage was: {}, must be one of: {}".format(pch_clanguage, [ext.value for ext in CxxExtension]))
+
+        compiler_type = get_compiler_type(ctx, CxxExtension(pch_clanguage))
+
+        pch_artifact = ctx.attrs.srcs[0]
+        pch_header = cxx_attr_precompiled_headers(ctx, impl_params.headers_layout)
+        basename = "{}.{}".format(pch_artifact.basename, pch_clanguage)
+        path = paths.join(pch_header.namespace, pch_header.name)
+
+        if compiler_type == "windows":
+            src_file = ctx.actions.declare_output("__pch__win/__src__", basename)
+            ctx.actions.write(src_file, '#include "{}"'.format(pch_header.name))
+            impl_params.srcs[0] = CxxSrcWithFlags(file = src_file)
+
+        compile_pch = CxxPrecompiledHeader(
+            header = ctx.attrs.srcs[0],
+            basename = basename,
+            basename_src = pch_artifact.basename,
+            path = path,
+            namespace = pch_header.namespace,
+            clanguage = pch_clanguage,
+        )
+
     # TODO(T110378095) right now we implement reexport of exported_* flags manually, we should improve/automate that in the macro layer
 
     # Gather preprocessor inputs.
@@ -402,7 +448,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     own_exported_preprocessors = [own_exported_preprocessor_info]
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
-        non_exported_deps + filter(None, [ctx.attrs.precompiled_header]),
+        non_exported_deps + filter(None, [ctx.attrs.precompiled_header if precompiled_header and not precompiled_header.compiled else None]),
     )
     inherited_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(exported_deps)
 
@@ -417,11 +463,31 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
         preferred_linkage = preferred_linkage,
+        precompiled_header = precompiled_header,
+        compile_pch = compile_pch,
         add_coverage_instrumentation_compiler_flags = needs_coverage(exported_needs_coverage),
     )
 
     sub_targets = {}
     providers = []
+
+    if compile_pch:
+        pch_provider = CPrecompiledHeaderInfo(
+            header = compile_pch.header,
+            basename = compile_pch.basename,
+            compiled = True,
+            clanguage = pch_clanguage,
+        )
+
+        sub_targets["pch"] = [DefaultInfo(
+            sub_targets = {
+                CxxCompileFlavor("pic").value: [CPrecompiledHeaderInfo(header = compiled_srcs.pic.objects[0], basename = compile_pch.basename, compiled = True, clanguage=pch_clanguage)] if compiled_srcs.pic else [],
+                CxxCompileFlavor("default").value: [CPrecompiledHeaderInfo(header = compiled_srcs.non_pic.objects[0], basename = compile_pch.basename, compiled = True, clanguage=pch_clanguage)] if compiled_srcs.non_pic else [],
+                CxxCompileFlavor("pic_optimized").value: [CPrecompiledHeaderInfo(header = compiled_srcs.pic_optimized.objects[0], basename = compile_pch.basename, compiled = True, clanguage=pch_clanguage)] if compiled_srcs.pic_optimized else [],
+            },
+        )]
+
+        providers.append(pch_provider)
 
     providers.append(exported_needs_coverage)
 
@@ -560,6 +626,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
         shared_interface_info = shared_interface_info,
+        compile_pch = compile_pch
     )
     solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
     shared_libs = create_shared_libraries(ctx, solib_as_dict)
@@ -647,7 +714,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # Propagate link info provider.
     if impl_params.generate_providers.merged_native_link_info or impl_params.generate_providers.template_placeholders:
         # Gather link inputs.
-        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps)
+        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [ctx.attrs.precompiled_header if compiler_type != "clang" else None]))
         inherited_exported_link = cxx_inherited_link_info(exported_deps)
 
         merged_native_link_info = create_merged_link_info(
@@ -1075,6 +1142,8 @@ def _get_library_compile_output(
     objects = [out.object for out in outs]
     stripped_objects = _strip_objects(ctx, objects)
 
+    pch_object_output = [out.pch_object_output for out in outs if out.pch_object_output]
+
     bitcode_objects = [
         out.object
         for out in outs
@@ -1103,6 +1172,7 @@ def _get_library_compile_output(
 
     return _CxxLibraryCompileOutput(
         objects = objects,
+        pch_object_output = pch_object_output,
         stripped_objects = stripped_objects,
         bitcode_objects = bitcode_objects,
         clang_traces = [out.clang_trace for out in outs if out.clang_trace != None],
@@ -1123,6 +1193,8 @@ def cxx_compile_srcs(
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo],
         preferred_linkage: Linkage,
         add_coverage_instrumentation_compiler_flags: bool,
+        precompiled_header = CPrecompiledHeaderInfo | None,
+        compile_pch: CxxPrecompiledHeader | None = None,
         own_exported_preprocessors: list[CPreprocessor] = []) -> _CxxCompiledSourcesOutput:
     """
     Compile objects we'll need for archives and shared libraries.
@@ -1135,6 +1207,7 @@ def cxx_compile_srcs(
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
         add_coverage_instrumentation_compiler_flags = add_coverage_instrumentation_compiler_flags,
+        compile_pch = compile_pch,
     )
 
     # Define header unit.
@@ -1159,6 +1232,8 @@ def cxx_compile_srcs(
         flavor = CxxCompileFlavor("pic"),
         provide_syntax_only = True,
         use_header_units = impl_params.use_header_units,
+        precompiled_header = precompiled_header,
+        compile_pch = compile_pch,
     )
     pic = _get_library_compile_output(
         ctx = ctx,
@@ -1177,6 +1252,8 @@ def cxx_compile_srcs(
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
+            compile_pch = compile_pch,
+            precompiled_header = precompiled_header,
             use_header_units = impl_params.use_header_units,
         )
         non_pic = _get_library_compile_output(
@@ -1219,7 +1296,8 @@ def _form_library_outputs(
         extra_static_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable]],
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference,
-        shared_interface_info: [SharedInterfaceInfo, None]) -> _CxxAllLibraryOutputs:
+        shared_interface_info: [SharedInterfaceInfo, None],
+        compile_pch: CxxPrecompiledHeader | None) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     solib = None
@@ -1277,11 +1355,12 @@ def _form_library_outputs(
                 )
 
             # Only generate an archive if we have objects to include
-            if lib_compile_output.objects:
+            archive_objects = lib_compile_output.pch_object_output if compile_pch else lib_compile_output.objects
+            if archive_objects:
                 output, info = _static_library(
                     ctx,
                     impl_params,
-                    lib_compile_output.objects,
+                    archive_objects,
                     objects_have_external_debug_info = lib_compile_output.objects_have_external_debug_info,
                     external_debug_info = make_artifact_tset(
                         ctx.actions,
