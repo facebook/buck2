@@ -49,6 +49,13 @@ def _gen_filename(filename: str, num_of_instance: int) -> str:
 
 def identify_file(path: str) -> Tuple[ArchiveKind, str]:
     path = os.path.realpath(path)
+
+    if path.endswith(".rlib"):
+        # `file -b` sometimes misfires and reports a Rust rlib
+        # as "DOS/MBR boot sector"
+        output = "current ar archive\n"
+        return (ArchiveKind.ARCHIVE, output)
+
     output = subprocess.check_output(["file", "-b", path]).decode()
     if "ar archive" in output:
         return (ArchiveKind.ARCHIVE, output)
