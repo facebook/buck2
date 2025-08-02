@@ -1084,10 +1084,15 @@ _PRECOMPILE_OPTION_IGNORE_REGEX_STR = (
     "|".join([
         # Debug flags, which only affect debug symbols in the backend.
         "-f(?:no-)?debug-types-section",
-        "-g[0-3]",
         "-g(?:no-)?pubnames",
+        "-g(?:no-)?record-gcc-switches",
         "-g(?:no-)?simple-template-names",
         "-g(?:no-)?split-dwarf(?:=.*)?",
+        "-g[0-3]",
+        "-gdwarf.*",
+        # Profiling flags, used for PGO in the backend.
+        "-fdebug-info-for-profiling",
+        "-fprofile-sample-use=.*",
     ]) +
     ")$"
 )
