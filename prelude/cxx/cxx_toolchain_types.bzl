@@ -165,6 +165,7 @@ CxxInternalTools = provider(fields = dict(
     concatenate_diagnostics = RunInfo,
     dep_file_processor = RunInfo,
     dist_lto = DistLtoToolsInfo,
+    filter_argsfile = RunInfo,
     hmap_wrapper = RunInfo,
     make_comp_db = RunInfo,
     remap_cwd = RunInfo,

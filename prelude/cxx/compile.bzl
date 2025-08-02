@@ -1079,18 +1079,20 @@ def create_cmd_args(is_nasm: bool, is_xcode_argsfile: bool, *args) -> cmd_args:
     else:
         return cmd_args(quote = "shell", *args)
 
-_PRECOMPILE_OPTION_IGNORE_REGEX = regex(
-    "^(" +
+_PRECOMPILE_OPTION_IGNORE_REGEX_STR = (
+    "^(?:" +
     "|".join([
         # Debug flags, which only affect debug symbols in the backend.
-        "-f(no-)?debug-types-section",
+        "-f(?:no-)?debug-types-section",
         "-g[0-3]",
-        "-g(no-)?pubnames",
-        "-g(no-)?simple-template-names",
-        "-g(no-)?split-dwarf(=.*)?",
+        "-g(?:no-)?pubnames",
+        "-g(?:no-)?simple-template-names",
+        "-g(?:no-)?split-dwarf(?:=.*)?",
     ]) +
-    ")$",
+    ")$"
 )
+
+_PRECOMPILE_OPTION_IGNORE_REGEX = regex(_PRECOMPILE_OPTION_IGNORE_REGEX_STR)
 
 def _filter_precompile_args(args: list[typing.Any]) -> list[typing.Any]:
     def should_ignore(s):
@@ -1103,6 +1105,32 @@ def _filter_precompile_args(args: list[typing.Any]) -> list[typing.Any]:
             for arg in args
         ],
     )
+
+def _filter_precompile_argsfile_anon_impl(ctx: AnalysisContext):
+    argsfile = ctx.actions.declare_output("filtered_args")
+    ctx.actions.run(
+        [
+            ctx.attrs._cxx_toolchain[CxxToolchainInfo].internal_tools.filter_argsfile,
+            _PRECOMPILE_OPTION_IGNORE_REGEX_STR,
+            ctx.attrs.src,
+            argsfile.as_output(),
+        ],
+        category = "filter_modules_precompile_argsfile",
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
+    )
+    return [DefaultInfo(default_outputs = [argsfile])]
+
+_filter_precompile_argsfile_anon_rule = anon_rule(
+    impl = _filter_precompile_argsfile_anon_impl,
+    attrs = {
+        "allow_cache_upload": attrs.bool(),
+        "src": attrs.source(),
+        "_cxx_toolchain": attrs.dep(),
+    },
+    artifact_promise_mappings = {
+        "argsfile": lambda x: x[DefaultInfo].default_outputs[0],
+    },
+)
 
 def _mk_argsfiles(
         ctx: AnalysisContext,
@@ -1152,6 +1180,26 @@ def _mk_argsfiles(
             # filename example: .cpp.toolchain_cxx_args
             compiler_info_filename = filename_prefix + "toolchain_cxx_args"
             compiler_info_argsfile = mk_argsfile(compiler_info_filename, compiler_info_flags)
+
+        if is_precompile:
+            filtered_info_argsfile = ctx.actions.anon_target(_filter_precompile_argsfile_anon_rule, {
+                "allow_cache_upload": cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
+                "src": compiler_info_argsfile,
+                # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
+                # AppleToolchain for C++20 modules. Update this if that changes.
+                "_cxx_toolchain": ctx.attrs._cxx_toolchain,
+            }).artifact("argsfile")
+
+            # TODO(nml): Currently we need to copy the output file so its content-based
+            # path is the same across different configurations. We should move the whole
+            # anon rule to the compiler_info target instead, but this would require some
+            # refactoring, so we do this for now to experiment with content-based
+            # configuration merging.
+            compiler_info_argsfile = ctx.actions.copy_file(
+                filename_prefix + "filtered_toolchain_cxx_args",
+                filtered_info_argsfile,
+                uses_experimental_content_based_path_hashing = True,
+            )
 
         argsfiles.append(compiler_info_argsfile)
         args_list.append(compiler_info_flags)
