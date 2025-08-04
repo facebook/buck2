@@ -192,6 +192,7 @@ fn eden_service_error_tag(error: &edenfs::EdenError) -> ErrorTag {
         EdenErrorType::JOURNAL_TRUNCATED => ErrorTag::IoEdenJournalTruncated,
         EdenErrorType::CHECKOUT_IN_PROGRESS => ErrorTag::IoEdenCheckoutInProgress,
         EdenErrorType::OUT_OF_DATE_PARENT => ErrorTag::IoEdenOutOfDateParent,
+        EdenErrorType::ATTRIBUTE_UNAVAILABLE => ErrorTag::IoEdenAttributeUnavailable,
         _ => ErrorTag::IoEdenUncategorized,
     }
 }
