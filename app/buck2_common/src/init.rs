@@ -437,6 +437,7 @@ pub struct DaemonStartupConfig {
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
     pub health_check_config: HealthCheckConfig,
+    pub test_builds_targets: bool,
 }
 
 impl DaemonStartupConfig {
@@ -512,6 +513,12 @@ impl DaemonStartupConfig {
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
             health_check_config: HealthCheckConfig::from_config(config)?,
+            test_builds_targets: config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "test_builds_targets",
+                })?
+                .unwrap_or(false),
         })
     }
 
@@ -539,6 +546,7 @@ impl DaemonStartupConfig {
                 LogDownloadMethod::None
             },
             health_check_config: HealthCheckConfig::default(),
+            test_builds_targets: false,
         }
     }
 }
