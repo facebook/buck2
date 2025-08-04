@@ -343,6 +343,7 @@ apple_binary = prelude_rule(
         apple_common.apple_sanitizer_compatibility_arg() |
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
+        cxx_common.supported_platforms_regex_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -399,7 +400,6 @@ apple_binary = prelude_rule(
             "sdk_modules": attrs.list(attrs.string(), default = []),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = False),
@@ -677,6 +677,7 @@ apple_library = prelude_rule(
         apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
+        cxx_common.supported_platforms_regex_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -726,7 +727,6 @@ apple_library = prelude_rule(
             "sdk_modules": attrs.list(attrs.string(), default = []),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
@@ -947,6 +947,7 @@ apple_test = prelude_rule(
         apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
+        cxx_common.supported_platforms_regex_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -1022,7 +1023,6 @@ apple_test = prelude_rule(
             "soname": attrs.option(attrs.string(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = False),
@@ -1193,14 +1193,14 @@ prebuilt_apple_framework = prelude_rule(
             "modular": attrs.bool(default = True),
             "sdk_modules": attrs.list(attrs.string(), default = []),
             "stripped": attrs.option(attrs.bool(), default = None),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "extra_codesign_paths": attrs.list(attrs.string(), default = [], doc = """
                 A list of extra paths, relative to the framework root, that will be codesigned.
                 """),
             "_stripped_default": attrs.bool(default = False),
         } |
         apple_common.apple_tools_arg() |
-        apple_common.apple_toolchain_arg()
+        apple_common.apple_toolchain_arg() |
+        cxx_common.supported_platforms_regex_arg()
     ),
     impl = prebuilt_apple_framework_impl,
 )

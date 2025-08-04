@@ -1384,6 +1384,7 @@ prebuilt_cxx_library_group = prelude_rule(
         cxx_common.exported_deps_arg() |
         cxx_common.exported_platform_deps_arg() |
         cxx_common.version_arg() |
+        cxx_common.supported_platforms_regex_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -1393,7 +1394,6 @@ prebuilt_cxx_library_group = prelude_rule(
             "include_in_android_merge_map_output": attrs.bool(default = True),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "supports_shared_library_interface": attrs.bool(default = True),
         }
     ),
