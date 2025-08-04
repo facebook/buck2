@@ -251,7 +251,7 @@ def create_jar_artifact_kotlincd(
             track_class_usage = True,
             encode_abi_command = abi_command_builder,
             define_action = define_kotlincd_action,
-            uses_experimental_content_based_path_hashing = False,
+            uses_experimental_content_based_path_hashing = kotlin_toolchain.allow_experimental_content_based_path_hashing,
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
         return make_compile_outputs(
@@ -504,8 +504,9 @@ def _define_kotlincd_action(
     # and tagged as unused so that it is not used for dep-file comparison, and an argfile
     # that uses placeholders instead of content-based paths, which is not tagged for dep-files
     # and therefore causes a dep-file miss if it changes.
-    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json", uses_experimental_content_based_path_hashing = False)
-    proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json", uses_experimental_content_based_path_hashing = False)
+    uses_experimental_content_based_path_hashing = target_type != TargetType("library") and kotlin_toolchain.allow_experimental_content_based_path_hashing
+    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     proto_with_inputs = classpath_jars_tag.tag_artifacts(actions.write_json(proto, kotlin_build_command))
     proto_with_inputs_for_dep_files = actions.write_json(proto_dep_files_placeholder, kotlin_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True)

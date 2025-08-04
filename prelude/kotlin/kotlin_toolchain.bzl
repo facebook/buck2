@@ -12,6 +12,7 @@ KotlinToolchainInfo = provider(
     # @unsorted-dict-items
     doc = "Kotlin toolchain info",
     fields = {
+        "allow_experimental_content_based_path_hashing": provider_field(typing.Any, default = None),
         "allow_k2_usage": provider_field(typing.Any, default = None),
         "annotation_processing_jar": provider_field(typing.Any, default = None),
         "class_loader_bootstrapper": provider_field(typing.Any, default = None),
