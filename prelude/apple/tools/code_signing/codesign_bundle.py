@@ -286,7 +286,7 @@ def codesign_bundle(
                 codesign_on_copy_paths=codesign_on_copy_paths,
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
-                codesign_tool=codesign_tool,
+                codesign_command_factory=DryRunCodesignCommandFactory(codesign_tool),
                 platform=platform,
             )
         else:
@@ -446,11 +446,9 @@ def _dry_codesign_everything(
     codesign_on_copy_paths: List[CodesignedPath],
     identity_fingerprint: str,
     tmp_dir: str,
-    codesign_tool: Path,
+    codesign_command_factory: ICodesignCommandFactory,
     platform: ApplePlatform,
 ) -> None:
-    codesign_command_factory = DryRunCodesignCommandFactory(codesign_tool)
-
     codesign_on_copy_directory_paths = [
         p for p in codesign_on_copy_paths if p.path.is_dir()
     ]
