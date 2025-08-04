@@ -15,6 +15,7 @@ with the epmd daemon.
 
 -behavior(application).
 
+-include_lib("kernel/include/logger.hrl").
 -export([start/2, stop/1, kill_process/1]).
 -include_lib("common/include/buck_ct_records.hrl").
 
@@ -35,7 +36,8 @@ kill_process(Port) ->
         undefined ->
             ok;
         {os_pid, OsPid} ->
-            os:cmd(io_lib:format("kill -9 ~p", [OsPid])),
+            X = os:cmd(io_lib:format("kill -9 -~p", [OsPid])),
+            ?LOG_DEBUG("Sending kill signal to process group from ~p resulted in ~p", [OsPid, X]),
             spawn(fun() -> port_close(Port) end),
             ok
     end.
