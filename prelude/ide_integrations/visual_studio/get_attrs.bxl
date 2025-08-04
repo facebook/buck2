@@ -28,6 +28,7 @@ def get_attrs(target: bxl.ConfiguredTargetNode, bxl_ctx) -> dict:
     output["exported_headers"] = _get_exported_headers(attrs)
     output["header_namespace"] = _get_header_namespace(attrs)
     output["raw_headers"] = _get_raw_headers(attrs)
+    output["header_dirs"] = _get_header_dirs(attrs)
     output["compiler_flags"] = _get_compiler_flags(attrs)
     output["linker_flags"] = _get_linker_flags(attrs)
     output["exported_linker_flags"] = _get_exported_linker_flags(attrs)
@@ -96,6 +97,9 @@ def _get_exported_headers(attrs) -> dict:
 
 def _get_raw_headers(attrs) -> list:
     return attrs.get("raw_headers") or []
+
+def _get_header_dirs(attrs) -> list:
+    return attrs.get("header_dirs") or []
 
 ############## include directories ##############
 

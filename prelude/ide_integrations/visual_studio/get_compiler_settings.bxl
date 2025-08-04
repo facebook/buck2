@@ -23,6 +23,10 @@ def _get_exported_additional_include_directories(target: bxl.ConfiguredTargetNod
     dirs = attrs["public_include_directories"] + attrs["public_system_include_directories"]
     dirs = [target.label.package + "/" + d for d in dirs]
 
+    # header_dirs is used in prebuilt_cxx_library (legacy Buck rule, still widely used for third-party code)
+    # e.g., //third-party/gsl:gsl
+    dirs += attrs["header_dirs"]
+
     # TODO: handle header files with header_path_prefix
     for name, path in attrs["exported_headers"].items():
         header_namespace = attrs["header_namespace"]
