@@ -29,6 +29,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::deferred::base_deferred_key::PathResolutionError;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -275,8 +276,8 @@ impl BaseDeferredKeyDyn for AnonTarget {
         prefix: &ForwardRelativePath,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
-        _path_resolution_method: BuckOutPathKind,
-        _content_hash: Option<&ContentBasedPathHash>,
+        path_resolution_method: BuckOutPathKind,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let cell_relative_path = self.name().pkg().cell_relative_path().as_str();
 
@@ -289,15 +290,33 @@ impl BaseDeferredKeyDyn for AnonTarget {
             prefix.as_str(),
             "-anon/",
             self.name().pkg().cell_name().as_str(),
-            "/",
-            self.exec_cfg().cfg().output_hash().as_str(),
+            if path_resolution_method == BuckOutPathKind::Configuration {
+                "/"
+            } else {
+                ""
+            },
+            if path_resolution_method == BuckOutPathKind::Configuration {
+                self.exec_cfg().cfg().output_hash().as_str()
+            } else {
+                ""
+            },
             cell_relative_path,
             if cell_relative_path.is_empty() {
                 ""
             } else {
                 "/"
             },
-            self.path_hash(),
+            if path_resolution_method == BuckOutPathKind::Configuration {
+                self.path_hash()
+            } else {
+                if let Some(content_hash) = content_hash {
+                    content_hash.as_str()
+                } else {
+                    return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
+                        path.to_buf(),
+                    ))?;
+                }
+            },
             "/__",
             self.name().name().as_str(),
             "__",
