@@ -22,6 +22,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::execute::blobs::ActionBlobs;
@@ -99,7 +100,12 @@ async fn materialize_artifact_group(
                     )?;
 
                     let mut builder = ArtifactValueBuilder::new(fs, digest_config);
-                    builder.add_symlinked(value, &content_based_path, &configuration_hash_path)?;
+                    builder.add_symlinked(
+                        // The materializer doesn't care about the `src_value`.
+                        &ArtifactValue::dir(digest_config.empty_directory()),
+                        &content_based_path,
+                        &configuration_hash_path,
+                    )?;
                     let symlink_value = builder.build(&configuration_hash_path)?;
                     configuration_path_to_content_based_path_symlinks
                         .push((configuration_hash_path.clone(), symlink_value));
