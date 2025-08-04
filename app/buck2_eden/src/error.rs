@@ -14,7 +14,6 @@ use buck2_error::ErrorTag;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;
-use edenfs::FileAttributeData;
 use edenfs::FileAttributeDataOrErrorV2;
 use edenfs::FileAttributeDataV2;
 use edenfs::PathString;
@@ -153,7 +152,6 @@ macro_rules! impl_has_error_handling_strategy {
     };
 }
 
-impl_has_error_handling_strategy!(GetAttributesFromFilesError);
 impl_has_error_handling_strategy!(GetAttributesFromFilesV2Error);
 impl_has_error_handling_strategy!(GlobFilesError);
 impl_has_error_handling_strategy!(ListMountsError);
@@ -265,8 +263,6 @@ impl_eden_data_into_result!(
     SourceControlType,
     sourceControlType
 );
-
-impl_eden_data_into_result!(FileAttributeDataOrError, FileAttributeData, data);
 
 impl_eden_data_into_result!(
     FileAttributeDataOrErrorV2,
