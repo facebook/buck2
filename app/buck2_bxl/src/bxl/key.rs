@@ -20,6 +20,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::deferred::base_deferred_key::PathResolutionError;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -209,8 +210,8 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         prefix: &ForwardRelativePath,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
-        _path_resolution_method: BuckOutPathKind,
-        _content_hash: Option<&ContentBasedPathHash>,
+        path_resolution_method: BuckOutPathKind,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let label = &self.key.spec;
         let cell_relative_path = label.bxl_path.path().path().as_str();
@@ -242,8 +243,16 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
             "-bxl/",
             label.bxl_path.cell().as_str(),
             "/",
-            exec_platform.as_str(),
-            "/",
+            if path_resolution_method == BuckOutPathKind::Configuration {
+                exec_platform.as_str()
+            } else {
+                ""
+            },
+            if path_resolution_method == BuckOutPathKind::Configuration {
+                "/"
+            } else {
+                ""
+            },
             cell_relative_path,
             if cell_relative_path.is_empty() {
                 "__"
@@ -254,7 +263,17 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
             "__/",
             action_key.unwrap_or_default(),
             if action_key.is_none() { "" } else { "/" },
-            output_hash.as_str(),
+            if path_resolution_method == BuckOutPathKind::Configuration {
+                output_hash.as_str()
+            } else {
+                if let Some(content_hash) = content_hash {
+                    content_hash.as_str()
+                } else {
+                    return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
+                        path.to_buf(),
+                    ))?;
+                }
+            },
             "/",
             path.as_str(),
         ];

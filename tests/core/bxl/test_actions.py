@@ -39,7 +39,7 @@ async def test_bxl_create_build_actions(buck: Buck) -> None:
     assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test()
 async def test_bxl_create_build_actions_with_content_based_path(buck: Buck) -> None:
     result = await buck.bxl(
         "//actions_test:actions.bxl:build_actions_test",
@@ -49,15 +49,8 @@ async def test_bxl_create_build_actions_with_content_based_path(buck: Buck) -> N
         "--uses_experimental_content_based_path_hashing",
         "true",
     )
-    try:
-        assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
-        raise AssertionError(
-            "Content based paths are not yet supported, this should fail"
-        )
-    except RuntimeError:
-        pass
-    except OSError:
-        pass
+
+    assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
 
 
 @buck_test()
