@@ -81,6 +81,13 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Path to code signing utility. If not provided standard `codesign` tool will be used.",
     )
     parser.add_argument(
+        "--codesign-manifest",
+        metavar="<manifest_file>",
+        type=Path,
+        required=False,
+        help="Path to a file containing codesign invocations.",
+    )
+    parser.add_argument(
         "--strict-provisioning-profile-search",
         action="store_true",
         required=False,
@@ -514,6 +521,7 @@ def _main() -> None:
             codesign_on_copy_paths=codesign_on_copy_paths,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
+            codesign_manifest_path=args.codesign_manifest,
         )
 
     if incremental_state:

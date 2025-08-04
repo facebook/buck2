@@ -10,6 +10,7 @@
 
 import asyncio
 import importlib.resources
+import json
 import logging
 import os
 import shutil
@@ -29,6 +30,7 @@ from .codesign_command_factory import (
     DefaultCodesignCommandFactory,
     DryRunCodesignCommandFactory,
     ICodesignCommandFactory,
+    ManifestCodesignCommandFactory,
 )
 from .fast_adhoc import is_fast_adhoc_codesign_allowed, should_skip_adhoc_signing_path
 from .identity import CodeSigningIdentity
@@ -234,6 +236,7 @@ def codesign_bundle(
     codesign_on_copy_paths: List[CodesignedPath],
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
+    codesign_manifest_path: Optional[Path] = None,
 ) -> None:
     codesign_on_copy_paths = sorted(
         codesign_on_copy_paths,
@@ -281,12 +284,15 @@ def codesign_bundle(
                 raise RuntimeError(
                     "Expected codesign tool not to be the default one when dry run codesigning is requested."
                 )
+            manifest_codesign_factory = ManifestCodesignCommandFactory(
+                DryRunCodesignCommandFactory(codesign_tool)
+            )
             _dry_codesign_everything(
                 root=bundle_path_with_prepared_entitlements,
                 codesign_on_copy_paths=codesign_on_copy_paths,
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
-                codesign_command_factory=DryRunCodesignCommandFactory(codesign_tool),
+                codesign_command_factory=manifest_codesign_factory,
                 platform=platform,
             )
         else:
@@ -294,16 +300,27 @@ def codesign_bundle(
                 codesign_configuration is CodesignConfiguration.fastAdhoc
                 and is_fast_adhoc_codesign_allowed()
             )
-            _LOGGER.info(f"Fast adhoc signing enabled: {fast_adhoc_signing_enabled}")
+            manifest_codesign_factory = ManifestCodesignCommandFactory(
+                DefaultCodesignCommandFactory(codesign_tool)
+            )
             _codesign_everything(
                 root=bundle_path_with_prepared_entitlements,
                 codesign_on_copy_paths=codesign_on_copy_paths,
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
-                codesign_command_factory=DefaultCodesignCommandFactory(codesign_tool),
+                codesign_command_factory=manifest_codesign_factory,
                 platform=platform,
                 fast_adhoc_signing=fast_adhoc_signing_enabled,
             )
+
+        if codesign_manifest_path:
+            with open(codesign_manifest_path, "w") as codesign_manifest_file:
+                codesign_manifest = (
+                    manifest_codesign_factory.generate_codesign_manifest(
+                        bundle_path.path
+                    )
+                )
+                json.dump(codesign_manifest, codesign_manifest_file, indent=4)
 
 
 def _prepare_entitlements_and_info_plist(

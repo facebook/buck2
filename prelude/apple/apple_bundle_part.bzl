@@ -122,11 +122,19 @@ def assemble_bundle(
     else:
         swift_args = []
 
+    codesign_manifest = ctx.actions.write_json("placeholder_codesign_manifest.json", {})
+
     if codesign_required:
         codesign_args = [
             "--codesign",
             "--codesign-tool",
             codesign_tool,
+        ]
+
+        codesign_manifest = ctx.actions.declare_output("codesign_manifest.json")
+        codesign_args += [
+            "--codesign-manifest",
+            codesign_manifest.as_output(),
         ]
 
         profile_selection_required = _should_embed_provisioning_profile(ctx, codesign_type)
@@ -238,6 +246,7 @@ def assemble_bundle(
     command_json = ctx.actions.declare_output("bundling_command.json")
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
     subtargets["command"] = [DefaultInfo(default_output = command_json, other_outputs = [command_json_cmd_args])]
+    subtargets["codesign-manifest"] = [DefaultInfo(default_output = codesign_manifest, other_outputs = [command_json_cmd_args])]
 
     bundle_manifest_log_file_map = {
         ctx.label: AppleBundleManifestLogFiles(

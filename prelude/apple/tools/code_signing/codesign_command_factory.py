@@ -8,9 +8,45 @@
 
 # pyre-strict
 
+import base64
+import dataclasses
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
+
+@dataclasses.dataclass
+class CodesignInvocation:
+    path: Path
+    identity_fingerprint: str
+    entitlements: Optional[Path]
+    codesign_args: List[str]
+    extra_file_paths: Optional[List[Path]]
+
+    def as_json(self, base_path: Path) -> Optional[Dict[str, Any]]:
+        if not self.path.is_relative_to(base_path):
+            # The dummy binary to be signed is not part of the bundle,
+            # so it can be ignored
+            return None
+
+        invocation = {
+            "path": str(self.path.relative_to(base_path)),
+            "identity_fingerprint": self.identity_fingerprint,
+            "codesign_args": self.codesign_args,
+        }
+        if self.entitlements:
+            with open(self.entitlements, "rb") as entitlements_file:
+                # We cannot rely on the presence of the entitlements file by
+                # any consumers of the manifest because the file might not
+                # be materialized or might be a temp file prepared by the
+                # bundling script.
+                entitlements_bytes = base64.b64encode(entitlements_file.read())
+                invocation["entitlements"] = entitlements_bytes.decode("utf-8")
+        if self.extra_file_paths:
+            invocation["extra_file_paths"] = [
+                str(extra_path) for extra_path in self.extra_file_paths
+            ]
+        return invocation
 
 
 class ICodesignCommandFactory(metaclass=ABCMeta):
@@ -24,6 +60,50 @@ class ICodesignCommandFactory(metaclass=ABCMeta):
         extra_file_paths: Optional[List[Path]],
     ) -> List[Union[str, Path]]:
         raise NotImplementedError
+
+
+class ManifestCodesignCommandFactory(ICodesignCommandFactory):
+    def __init__(self, underlying: Optional[ICodesignCommandFactory]):
+        self.underlying = underlying
+        self.invocations = []
+
+    def codesign_command(
+        self,
+        path: Path,
+        identity_fingerprint: str,
+        entitlements: Optional[Path],
+        codesign_args: List[str],
+        extra_file_paths: Optional[List[Path]],
+    ) -> List[Union[str, Path]]:
+        self.invocations.append(
+            CodesignInvocation(
+                path=path,
+                identity_fingerprint=identity_fingerprint,
+                entitlements=entitlements,
+                codesign_args=codesign_args,
+                extra_file_paths=extra_file_paths,
+            )
+        )
+        if self.underlying:
+            return self.underlying.codesign_command(
+                path=path,
+                identity_fingerprint=identity_fingerprint,
+                entitlements=entitlements,
+                codesign_args=codesign_args,
+                extra_file_paths=extra_file_paths,
+            )
+        return ["/usr/bin/true"]
+
+    def generate_codesign_manifest(self, base_path: Path):
+        all_invocations = [
+            invocation.as_json(base_path) for invocation in self.invocations
+        ]
+        valid_invocations = list(filter(lambda x: x is not None, all_invocations))
+        return {
+            "version": 1,
+            "bundle": str(base_path),
+            "invocations": valid_invocations,
+        }
 
 
 class DefaultCodesignCommandFactory(ICodesignCommandFactory):
