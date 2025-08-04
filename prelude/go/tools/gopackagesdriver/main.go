@@ -22,7 +22,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := driver.Run(ctx, &driver.NoopTelemetry{})
+	err := driver.Run(ctx, driver.WithTelemetry(&driver.NoopTelemetry{}))
 	if err != nil {
 		slog.Error("error with input", "args", os.Args[1:], "err", err)
 		os.Exit(1)

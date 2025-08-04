@@ -138,8 +138,31 @@ func readDriverRequest() (*packages.DriverRequest, error) {
 	return &req, nil
 }
 
+// RunOptions holds configuration options for the driver
+type RunOptions struct {
+	telemetry Telemetry
+}
+
+// Option is a functional option for configuring RunOptions
+type Option func(*RunOptions)
+
+// WithTelemetry sets the telemetry implementation
+func WithTelemetry(t Telemetry) Option {
+	return func(opts *RunOptions) {
+		opts.telemetry = t
+	}
+}
+
 // Run parses the command line arguments and stdin, then runs buck2 and `go list` and writes results to stdout
-func Run(ctx context.Context, telemetry Telemetry) error {
+func Run(ctx context.Context, opts ...Option) error {
+	options := &RunOptions{
+		telemetry: &NoopTelemetry{},
+	}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	telemetry := options.telemetry
 	defer func() {
 		if r := recover(); r != nil {
 			telemetry.LogEvent(ctx, &PanicEvent{
