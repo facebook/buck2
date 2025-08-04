@@ -675,7 +675,7 @@ terminate(#{role := bot}) ->
 
 -spec write_output({file, string()} | stdout, binary()) -> ok.
 write_output({file, FN}, JSON) ->
-    io:format("Writing result file ~p", [FN]),
+    io:format("Writing result file ~p~n", [FN]),
     ok = filelib:ensure_dir(FN),
     file:write_file(FN, JSON, [raw]);
 write_output(stdout, JSON) ->
