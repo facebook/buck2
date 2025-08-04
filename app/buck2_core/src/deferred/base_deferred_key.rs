@@ -45,7 +45,9 @@ pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync +
         prefix: &ForwardRelativePath,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
-    ) -> ProjectRelativePathBuf;
+        path_resolution_method: BuckOutPathKind,
+        content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ProjectRelativePathBuf>;
     /// Fake label for anon targets, `None` for BXL.
     fn configured_label(&self) -> Option<ConfiguredTargetLabel>;
     fn to_proto(&self) -> BaseDeferredKeyProto;
@@ -235,9 +237,15 @@ impl BaseDeferredKey {
 
                 Ok(ProjectRelativePathBuf::unchecked_new(hashed_path.concat()))
             }
-            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
-                Ok(d.make_hashed_path(base, prefix, action_key, path))
-            }
+            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => d
+                .make_hashed_path(
+                    base,
+                    prefix,
+                    action_key,
+                    path,
+                    path_resolution_method,
+                    content_hash,
+                ),
         }
     }
 

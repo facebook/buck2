@@ -16,9 +16,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -207,7 +209,9 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         prefix: &ForwardRelativePath,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
-    ) -> ProjectRelativePathBuf {
+        _path_resolution_method: BuckOutPathKind,
+        _content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let label = &self.key.spec;
         let cell_relative_path = label.bxl_path.path().path().as_str();
 
@@ -255,7 +259,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
             path.as_str(),
         ];
 
-        ProjectRelativePathBuf::unchecked_new(parts.concat())
+        Ok(ProjectRelativePathBuf::unchecked_new(parts.concat()))
     }
 
     fn configured_label(&self) -> Option<ConfiguredTargetLabel> {

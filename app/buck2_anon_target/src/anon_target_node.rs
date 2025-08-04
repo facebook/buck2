@@ -26,9 +26,11 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -273,7 +275,9 @@ impl BaseDeferredKeyDyn for AnonTarget {
         prefix: &ForwardRelativePath,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
-    ) -> ProjectRelativePathBuf {
+        _path_resolution_method: BuckOutPathKind,
+        _content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let cell_relative_path = self.name().pkg().cell_relative_path().as_str();
 
         // It is performance critical that we use slices and allocate via `join` instead of
@@ -303,7 +307,7 @@ impl BaseDeferredKeyDyn for AnonTarget {
             path.as_str(),
         ];
 
-        ProjectRelativePathBuf::unchecked_new(parts.concat())
+        Ok(ProjectRelativePathBuf::unchecked_new(parts.concat()))
     }
 
     fn configured_label(&self) -> Option<ConfiguredTargetLabel> {
