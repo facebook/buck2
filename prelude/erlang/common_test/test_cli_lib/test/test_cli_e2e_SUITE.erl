@@ -36,7 +36,8 @@ init_per_suite(Config) ->
         ct_opts = [],
         erl_cmd = ErlCmd,
         extra_flags = [],
-        artifact_annotation_mfa = {foo, bar, 42}
+        artifact_annotation_mfa = {foo, bar, 42},
+        trampolines = []
     }),
 
     application:set_env(test_cli_lib, test_info_file, TestInfoFile),

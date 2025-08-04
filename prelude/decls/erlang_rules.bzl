@@ -285,10 +285,15 @@ rules_attributes = {
         "_artifact_annotation_mfa": attrs.string(default = "artifact_annotations:default_annotation/1"),
         "_cli_lib": attrs.dep(providers = [ErlangAppInfo], default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
         "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
+        "_inner_trampolines": attrs.list(attrs.dep(), default = [], doc = """
+            trampolines that are used for the test node
+        """),
         "_providers": attrs.string(default = ""),
         "_test_binary_lib": attrs.dep(providers = [ErlangAppInfo], default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-        "_trampolines": attrs.list(attrs.dep(), default = []),
+        "_trampolines": attrs.list(attrs.dep(), default = [], doc = """
+            trampolines that are used for the test binary
+        """),
     } | common_shell_attributes | re_test_args(),
 }
 
