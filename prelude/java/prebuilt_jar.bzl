@@ -38,7 +38,7 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
             extension,
         ))
 
-    output = ctx.actions.declare_output("symlink/{}".format(binary_jar.short_path))
+    output = ctx.actions.declare_output("symlink/{}".format(binary_jar.short_path), uses_experimental_content_based_path_hashing = True)
     ctx.actions.symlink_file(output, binary_jar)
 
     gwt_output = ctx.actions.declare_output("{}-gwt.jar".format(ctx.label.name))
