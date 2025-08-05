@@ -20,15 +20,15 @@ load(
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
 def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
-    manifest = ctx.actions.declare_output("AndroidManifest.xml", uses_experimental_content_based_path_hashing = True)
-    all_classes_jar = ctx.actions.declare_output("classes.jar", uses_experimental_content_based_path_hashing = True)
-    r_dot_txt = ctx.actions.declare_output("R.txt", uses_experimental_content_based_path_hashing = True)
-    res = ctx.actions.declare_output("res", dir = True, uses_experimental_content_based_path_hashing = True)
-    assets = ctx.actions.declare_output("assets", dir = True, uses_experimental_content_based_path_hashing = True)
-    jni = ctx.actions.declare_output("jni", dir = True, uses_experimental_content_based_path_hashing = True)
-    annotation_jars_dir = ctx.actions.declare_output("annotation_jars", dir = True, uses_experimental_content_based_path_hashing = True)
-    proguard_config = ctx.actions.declare_output("proguard.txt", uses_experimental_content_based_path_hashing = True)
-    lint_jar = ctx.actions.declare_output("lint.jar", uses_experimental_content_based_path_hashing = True)
+    manifest = ctx.actions.declare_output("AndroidManifest.xml")
+    all_classes_jar = ctx.actions.declare_output("classes.jar")
+    r_dot_txt = ctx.actions.declare_output("R.txt")
+    res = ctx.actions.declare_output("res", dir = True)
+    assets = ctx.actions.declare_output("assets", dir = True)
+    jni = ctx.actions.declare_output("jni", dir = True)
+    annotation_jars_dir = ctx.actions.declare_output("annotation_jars", dir = True)
+    proguard_config = ctx.actions.declare_output("proguard.txt")
+    lint_jar = ctx.actions.declare_output("lint.jar")
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
