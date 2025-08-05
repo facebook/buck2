@@ -901,8 +901,8 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::target_label(), short)?)
     }
 
-    /// Takes an arg from cli with `?modifier` modifiers,
-    /// and gets a parsed `ConfiguredTargetLabel` in bxl.
+    /// Takes an arg from cli, and gets a parsed `ConfiguredTargetLabel` in bxl.
+    /// The target can be configured using either ?modifier syntax or --modifier flag, in addition to --target-platforms flag.
     fn configured_target_label<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -935,7 +935,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     /// Takes an arg from the cli, and treats it as a target pattern, e.g. "cell//foo:bar", "cell//foo:", or "cell//foo/..."
-    /// with `?modifier` modifiers.
+    /// The target can be configured using either ?modifier syntax or --modifier flag, in addition to --target-platforms flag.
     /// We will get a list of `ConfiguredTargetLabel` in bxl.
     fn configured_target_expr<'v>(
         #[starlark(default = "")] doc: &str,
