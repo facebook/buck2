@@ -1509,9 +1509,9 @@ def process_env(
     plain_env = {}
 
     for k, v in env.items():
-        v = cmd_args(v)
-        if len(v.inputs) > 0:
-            path_env[k] = v
+        arg = cmd_args(v)
+        if len(arg.inputs) > 0:
+            path_env[k] = arg
         elif escape_for_rustc_action:
             # Environment variables may have newlines, escape them for now.
             # Will be unescaped in rustc_action.
@@ -1525,7 +1525,7 @@ def process_env(
                 ],
             )
         else:
-            plain_env[k] = cmd_args(v)
+            plain_env[k] = arg
 
     # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
     # of some target, then interpret it as a relative path inside of the crate's
