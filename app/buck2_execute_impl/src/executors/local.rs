@@ -1432,6 +1432,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(fbcode_build)]
     #[tokio::test]
     async fn test_exec_cmd_timeout() -> buck2_error::Result<()> {
         let (executor, _, _tmpdir) = test_executor()?;
