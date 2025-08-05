@@ -178,9 +178,9 @@ public class ErrorInterceptor extends PrintStream {
   private static final Pattern WARNING_PATTERN =
       Pattern.compile("\\bwarning\\b(:.*?)\\n", Pattern.CASE_INSENSITIVE);
   private static final Pattern JAVA_FILE_PATTERN =
-      Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.java)\\b:(\\d+):");
+      Pattern.compile("\\b(/?(?:[\\w-]+/)*[\\w-]+\\.java)\\b:(\\d+):");
   private static final Pattern KOTLIN_FILE_PATTERN =
-      Pattern.compile("\\b(/?(?:\\w+/)*\\w+\\.kt)\\b:(\\d+):(\\d+):");
+      Pattern.compile("\\b(/?(?:[\\w-]+/)*[\\w-]+\\.kt)\\b:(\\d+):(\\d+):");
 
   /** Enum representing supported file types with their associated patterns and keywords. */
   public enum FileType {
