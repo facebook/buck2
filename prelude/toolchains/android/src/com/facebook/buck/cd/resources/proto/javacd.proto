@@ -118,7 +118,7 @@ message OutputPathsValue {
 }
 
 message ResolvedJavacOptions {
-  string bootclasspath = 1;
+  // reserved = 1;
   repeated string bootclasspathList = 2;
   JavacLanguageLevelOptions languageLevelOptions = 3;
   bool debug = 4;

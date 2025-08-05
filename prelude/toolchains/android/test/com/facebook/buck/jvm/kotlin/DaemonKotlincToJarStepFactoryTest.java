@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Optional;
 import org.junit.Test;
 
 public class DaemonKotlincToJarStepFactoryTest {
@@ -140,7 +139,6 @@ public class DaemonKotlincToJarStepFactoryTest {
   private static ResolvedJavacOptions getResolvedJavacOptions(
       JavacPluginParams javaAnnotationProcessorParams) {
     return new ResolvedJavacOptions(
-        Optional.ofNullable(null),
         ImmutableList.of() /* bootclasspathList */,
         JavacLanguageLevelOptions.DEFAULT,
         false /* debug */,

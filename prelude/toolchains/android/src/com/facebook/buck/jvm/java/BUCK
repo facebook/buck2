@@ -148,7 +148,6 @@ buck_kotlin_library(
         "BaseCompileToJarStepFactory.java",
         "BaseJavacToJarStepFactory.java",
         "CalculateClassAbiStep.java",
-        "ClasspathChecker.java",
         "CompileToJarStepFactory.java",
         "CopyResourcesStep.java",
         "DaemonJavacToJarStepFactory.java",

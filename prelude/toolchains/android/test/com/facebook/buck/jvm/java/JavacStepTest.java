@@ -30,13 +30,11 @@ import com.facebook.buck.util.FakeProcess;
 import com.facebook.buck.util.FakeProcessExecutor;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
@@ -133,11 +131,8 @@ public class JavacStepTest {
 
   @Test
   public void existingBootclasspathDirSucceeds() throws Exception {
-    ResolvedJavacOptions javacOptions = getResolvedJavacOptions("/this-totally-exists");
-
-    ClasspathChecker classpathChecker =
-        new ClasspathChecker(
-            "/", ":", Paths::get, dir -> true, file -> false, (path, glob) -> ImmutableSet.of());
+    ResolvedJavacOptions javacOptions =
+        getResolvedJavacOptions(ImmutableList.of(RelPath.get("this-totally-exists")));
 
     JavacStep step =
         new JavacStep(
@@ -146,7 +141,6 @@ public class JavacStepTest {
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
-            classpathChecker,
             compilerParameters,
             null,
             null);
@@ -165,7 +159,7 @@ public class JavacStepTest {
   @Test
   public void bootclasspathResolvedToAbsolutePath() {
     ResolvedJavacOptions javacOptions =
-        getResolvedJavacOptions("/this-totally-exists:relative-path");
+        getResolvedJavacOptions(ImmutableList.of(RelPath.get("this-totally-exists:relative-path")));
 
     JavacStep step =
         new JavacStep(
@@ -199,38 +193,14 @@ public class JavacStepTest {
     }
   }
 
-  @Test
-  public void missingBootclasspathDirFailsWithError() throws Exception {
-    ResolvedJavacOptions javacOptions = getResolvedJavacOptions("/no-such-dir");
-
-    JavacStep step =
-        new JavacStep(
-            fakeJavac,
-            javacOptions,
-            buildTargetValue,
-            configuredBuckOut,
-            getCompilerOutputPathsValue(),
-            compilerParameters,
-            null,
-            null);
-
-    FakeProcess fakeJavacProcess = new FakeProcess(1, "javac stdout\n", "javac stderr\n");
-
-    IsolatedExecutionContext executionContext =
-        TestExecutionContext.newInstance(
-            tmp.getRoot(), new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
-    thrown.expectMessage("Bootstrap classpath /no-such-dir contains no valid entries");
-    step.executeIsolatedStep(executionContext);
-  }
-
   private static ResolvedJavacOptions getResolvedJavacOptions() {
-    return getResolvedJavacOptions(null);
+    return getResolvedJavacOptions(ImmutableList.of());
   }
 
-  private static ResolvedJavacOptions getResolvedJavacOptions(@Nullable String classpath) {
+  private static ResolvedJavacOptions getResolvedJavacOptions(
+      ImmutableList<RelPath> bootclasspathList) {
     return new ResolvedJavacOptions(
-        Optional.ofNullable(classpath),
-        ImmutableList.of() /* bootclasspathList */,
+        bootclasspathList,
         JavacLanguageLevelOptions.DEFAULT,
         false /* debug */,
         false /* verbose */,

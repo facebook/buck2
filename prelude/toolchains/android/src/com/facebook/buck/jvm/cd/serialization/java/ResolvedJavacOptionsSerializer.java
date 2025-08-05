@@ -29,8 +29,6 @@ public class ResolvedJavacOptionsSerializer {
       ResolvedJavacOptions options) {
     var builder = com.facebook.buck.cd.model.java.ResolvedJavacOptions.newBuilder();
 
-    Optional<String> bootclasspath = options.getBootclasspath();
-    bootclasspath.ifPresent(builder::setBootclasspath);
     builder.setDebug(options.getDebug());
     builder.setVerbose(options.getVerbose());
 
@@ -67,7 +65,6 @@ public class ResolvedJavacOptionsSerializer {
             .collect(ImmutableList.toImmutableList());
 
     return new ResolvedJavacOptions(
-        toOptionalString(options.getBootclasspath()),
         bootclasspathList,
         JavacLanguageLevelOptionsSerializer.deserialize(options.getLanguageLevelOptions()),
         options.getDebug(),

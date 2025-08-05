@@ -16,15 +16,11 @@ import com.facebook.buck.jvm.java.version.JavaVersion
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSortedSet
 import java.io.File
-import java.io.IOException
-import java.io.UncheckedIOException
 import java.util.Optional
-import java.util.function.Function
 import java.util.stream.Collectors
 
 /** Resolved JavacOptions used in [JavacPipelineState] */
 data class ResolvedJavacOptions(
-    val bootclasspath: Optional<String>,
     val bootclasspathList: ImmutableList<RelPath>,
     val languageLevelOptions: JavacLanguageLevelOptions,
     val debug: Boolean,
@@ -44,7 +40,6 @@ data class ResolvedJavacOptions(
       return this
     }
     return ResolvedJavacOptions(
-        bootclasspath,
         bootclasspathList,
         languageLevelOptions,
         debug,
@@ -53,23 +48,6 @@ data class ResolvedJavacOptions(
         standardJavacPluginParams,
         extraArguments,
         systemImage)
-  }
-
-  /** Validates classpath */
-  @Throws(IOException::class)
-  fun validateClasspath(classpathChecker: Function<String, Boolean>) {
-    if (bootclasspath.isEmpty) {
-      return
-    }
-    val bootClasspath = bootclasspath.get()
-    try {
-      if (!classpathChecker.apply(bootClasspath)) {
-        throw IOException(
-            String.format("Bootstrap classpath %s contains no valid entries", bootClasspath))
-      }
-    } catch (e: UncheckedIOException) {
-      throw e.cause!!
-    }
   }
 
   companion object {
@@ -84,8 +62,7 @@ data class ResolvedJavacOptions(
       appendOptionsTo(
           rootCellRoot,
           optionsConsumer,
-          getBootclasspathString(
-              resolvedJavacOptions.bootclasspath, resolvedJavacOptions.bootclasspathList),
+          getBootclasspathString(resolvedJavacOptions.bootclasspathList),
           resolvedJavacOptions.languageLevelOptions,
           resolvedJavacOptions.debug,
           resolvedJavacOptions.verbose,
@@ -191,14 +168,7 @@ data class ResolvedJavacOptions(
       optionsConsumer.addExtras(extraArguments)
     }
 
-    fun getBootclasspathString(
-        bootclasspathOptional: Optional<String>,
-        bootclasspathList: ImmutableList<RelPath>
-    ): Optional<String> {
-      if (bootclasspathOptional.isPresent) {
-        return bootclasspathOptional
-      }
-
+    fun getBootclasspathString(bootclasspathList: ImmutableList<RelPath>): Optional<String> {
       if (bootclasspathList.isEmpty()) {
         return Optional.empty()
       }

@@ -34,32 +34,6 @@ public class JavacStep implements IsolatedStep {
   private final boolean ownsPipelineObject;
   private final CompilerOutputPathsValue compilerOutputPathsValue;
 
-  @VisibleForTesting
-  JavacStep(
-      ResolvedJavac resolvedJavac,
-      ResolvedJavacOptions javacOptions,
-      BuildTargetValue invokingRule,
-      RelPath configuredBuckOut,
-      CompilerOutputPathsValue compilerOutputPathsValue,
-      ClasspathChecker classpathChecker,
-      CompilerParameters compilerParameters,
-      @Nullable JarParameters abiJarParameters,
-      @Nullable JarParameters libraryJarParameters) {
-    this(
-        new JavacPipelineState(
-            resolvedJavac,
-            javacOptions,
-            invokingRule,
-            classpathChecker,
-            compilerParameters,
-            abiJarParameters,
-            libraryJarParameters),
-        invokingRule,
-        configuredBuckOut,
-        true,
-        compilerOutputPathsValue);
-  }
-
   public JavacStep(
       ResolvedJavac resolvedJavac,
       ResolvedJavacOptions javacOptions,

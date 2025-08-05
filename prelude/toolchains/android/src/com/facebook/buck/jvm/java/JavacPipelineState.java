@@ -43,7 +43,6 @@ public class JavacPipelineState implements AutoCloseable {
   private final ResolvedJavacOptions resolvedJavacOptions;
   private final BuildTargetValue invokingRule;
   private final ResolvedJavac resolvedJavac;
-  private final ClasspathChecker classpathChecker;
   @Nullable private final JarParameters abiJarParameters;
   @Nullable private final JarParameters libraryJarParameters;
 
@@ -57,34 +56,15 @@ public class JavacPipelineState implements AutoCloseable {
       ResolvedJavac resolvedJavac,
       ResolvedJavacOptions resolvedJavacOptions,
       BuildTargetValue invokingRule,
-      ClasspathChecker classpathChecker,
       CompilerParameters compilerParameters,
       @Nullable JarParameters abiJarParameters,
       @Nullable JarParameters libraryJarParameters) {
     this.resolvedJavac = resolvedJavac;
     this.invokingRule = invokingRule;
-    this.classpathChecker = classpathChecker;
     this.compilerParameters = compilerParameters;
     this.abiJarParameters = abiJarParameters;
     this.libraryJarParameters = libraryJarParameters;
     this.resolvedJavacOptions = resolvedJavacOptions;
-  }
-
-  public JavacPipelineState(
-      ResolvedJavac resolvedJavac,
-      ResolvedJavacOptions resolvedJavacOptions,
-      BuildTargetValue invokingRule,
-      CompilerParameters compilerParameters,
-      @Nullable JarParameters abiJarParameters,
-      @Nullable JarParameters libraryJarParameters) {
-    this(
-        resolvedJavac,
-        resolvedJavacOptions,
-        invokingRule,
-        new ClasspathChecker(),
-        compilerParameters,
-        abiJarParameters,
-        libraryJarParameters);
   }
 
   public boolean isRunning() {
@@ -98,8 +78,6 @@ public class JavacPipelineState implements AutoCloseable {
       RelPath configuredBuckOut)
       throws IOException {
     if (invocation == null) {
-      resolvedJavacOptions.validateClasspath(classpathChecker::validateClasspath);
-
       stdout = new CapturingPrintStream();
       closeables.add(stdout);
       stderr = new CapturingPrintStream();
@@ -234,7 +212,7 @@ public class JavacPipelineState implements AutoCloseable {
         ruleCellRoot);
     Optional<String> bootclasspath =
         ResolvedJavacOptions.Companion.getBootclasspathString(
-            resolvedJavacOptions.getBootclasspath(), resolvedJavacOptions.getBootclasspathList());
+            resolvedJavacOptions.getBootclasspathList());
 
     // verbose flag, if appropriate.
     if (context.getVerbosity().shouldUseVerbosityFlagIfAvailable()) {

@@ -38,7 +38,6 @@ public class KotlinExtraParamsSerializerTest {
   public void serializeDeserialize() throws IOException {
     ResolvedJavacOptions resolvedJavacOptions =
         new ResolvedJavacOptions(
-            Optional.empty(),
             ImmutableList.of(),
             JavacLanguageLevelOptions.DEFAULT,
             false,
