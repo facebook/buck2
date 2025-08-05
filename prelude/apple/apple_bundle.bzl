@@ -460,6 +460,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             binary_name = get_product_name(ctx),
             contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
+            codesign_manifest_tree = bundle_result.codesign_manifest_tree,
         ),
         AppleDebuggableInfo(
             dsyms = dsym_artifacts,

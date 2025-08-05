@@ -35,6 +35,14 @@ AppleBundleManifest = record(
     log_file_map = dict[Label, AppleBundleManifestLogFiles],
 )
 
+AppleBundleCodesignManifestTree = record(
+    # Codesign manifest for the bundle itself
+    codesign_manifest = field(Artifact),
+    # Codesign manifest for inner bundles.
+    # Maps from relative bundle destination -> AppleBundleCodesignManifestTree
+    inner_codesign_manifests = field(dict[str, typing.Any]),
+)
+
 AppleBundleManifestInfo = provider(
     fields = {
         "manifest": provider_field(AppleBundleManifest),
@@ -60,6 +68,7 @@ AppleBundleInfo = provider(
         "skip_copying_swift_stdlib": provider_field([bool, None]),
         # List of extra paths (relative to bundle root) to be codesigned.
         "extra_codesign_paths": provider_field([list[str], None], default = None),
+        "codesign_manifest_tree": provider_field(AppleBundleCodesignManifestTree | None, default = None),
     },
 )
 

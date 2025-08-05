@@ -11,7 +11,7 @@ load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
+load(":apple_bundle_types.bzl", "AppleBundleCodesignManifestTree", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType", "get_code_signing_configuration_attr_value")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
@@ -50,6 +50,7 @@ SwiftStdlibArguments = record(
 AppleBundleConstructionResult = record(
     providers = field(list[Provider]),
     sub_targets = field(dict[str, list[Provider]]),
+    codesign_manifest_tree = field(AppleBundleCodesignManifestTree),
 )
 
 def bundle_output(ctx: AnalysisContext) -> Artifact:
@@ -278,6 +279,11 @@ def assemble_bundle(
     if cache_buster:
         env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
 
+    codesign_manifest_tree = AppleBundleCodesignManifestTree(
+        codesign_manifest = codesign_manifest,
+        inner_codesign_manifests = {},
+    )
+
     force_local_bundling = codesign_type.value != "skip"
     ctx.actions.run(
         command,
@@ -288,7 +294,11 @@ def assemble_bundle(
         error_handler = apple_build_error_handler,
         **run_incremental_args
     )
-    return AppleBundleConstructionResult(sub_targets = subtargets, providers = providers)
+    return AppleBundleConstructionResult(
+        sub_targets = subtargets,
+        providers = providers,
+        codesign_manifest_tree = codesign_manifest_tree,
+    )
 
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
