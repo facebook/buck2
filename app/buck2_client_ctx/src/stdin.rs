@@ -150,33 +150,26 @@ fn read_and_forward(
 mod raw_reader {
     use std::io;
     use std::io::Read;
-    use std::os::unix::io::AsRawFd;
-    use std::os::unix::io::RawFd;
+    use std::os::fd::AsFd;
 
     use nix::unistd;
 
     pub struct RawReader<R> {
-        fd: RawFd,
-        // Keep this alive for as long as we use it, on the assumption that dropping it releases
-        // the FD.
-        _owner: R,
+        inner: R,
     }
 
     impl<R> RawReader<R>
     where
-        R: AsRawFd,
+        R: AsFd,
     {
         pub fn new(reader: R) -> Self {
-            Self {
-                fd: reader.as_raw_fd(),
-                _owner: reader,
-            }
+            Self { inner: reader }
         }
     }
 
-    impl<R> Read for RawReader<R> {
+    impl<R: AsFd> Read for RawReader<R> {
         fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-            unistd::read(self.fd, buf).map_err(io::Error::from)
+            unistd::read(&self.inner, buf).map_err(io::Error::from)
         }
     }
 }

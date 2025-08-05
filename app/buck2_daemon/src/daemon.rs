@@ -466,10 +466,8 @@ impl DaemonCommand {
 
     #[cfg(unix)]
     fn redirect_output(stdout: File, stderr: File) -> buck2_error::Result<()> {
-        use std::os::unix::io::AsRawFd;
-
-        nix::unistd::dup2(stdout.as_raw_fd(), nix::libc::STDOUT_FILENO)?;
-        nix::unistd::dup2(stderr.as_raw_fd(), nix::libc::STDERR_FILENO)?;
+        nix::unistd::dup2_stdout(&stdout)?;
+        nix::unistd::dup2_stderr(&stderr)?;
         Ok(())
     }
 

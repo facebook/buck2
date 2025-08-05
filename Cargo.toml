@@ -220,7 +220,7 @@ memmap2 = "0.5.0"
 memoffset = "0.6.4"
 mimalloc = "0.1.46"
 multimap = "0.8.2"
-nix = { version = "0.29.0", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }
+nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }
 nom = "8"
 nom-language = "0.1"
 notify = "=5.0.0"

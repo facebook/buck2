@@ -84,8 +84,7 @@ where
 
 #[cfg(unix)]
 mod unix_non_blocking_drainer {
-    use std::os::unix::io::AsRawFd;
-    use std::os::unix::prelude::RawFd;
+    use std::os::fd::AsFd;
 
     use nix::unistd;
 
@@ -97,31 +96,27 @@ mod unix_non_blocking_drainer {
     /// `read()` (and potentially get WouldBlock if there is nothing to read and the pipe isn't
     /// ready).
     pub(crate) struct UnixNonBlockingDrainer<R> {
-        fd: RawFd,
-        // Kept so this is dropped and closed properly.
-        _owner: R,
+        inner: R,
     }
 
     impl<R> DrainerFromReader<R> for UnixNonBlockingDrainer<R>
     where
-        R: AsRawFd + Send + 'static,
+        R: AsFd + Send + 'static,
     {
         fn from_reader(reader: R) -> Self {
-            UnixNonBlockingDrainer {
-                fd: reader.as_raw_fd(),
-                _owner: reader,
-            }
+            UnixNonBlockingDrainer { inner: reader }
         }
     }
 
-    impl<R> AsyncRead for UnixNonBlockingDrainer<R> {
+    impl<R: AsFd> AsyncRead for UnixNonBlockingDrainer<R> {
         fn poll_read(
             self: Pin<&mut Self>,
             _cx: &mut Context<'_>,
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
             Poll::Ready(
-                match unistd::read(self.fd, buf.initialize_unfilled()).map_err(io::Error::from) {
+                match unistd::read(&self.inner, buf.initialize_unfilled()).map_err(io::Error::from)
+                {
                     Err(e) => {
                         if e.kind() == io::ErrorKind::WouldBlock {
                             tracing::debug!("Child did not close its pipe");

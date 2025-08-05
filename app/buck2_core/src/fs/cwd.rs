@@ -54,6 +54,8 @@ pub trait WorkingDirectoryImpl: Sized {
 #[cfg(unix)]
 mod unix_impl {
 
+    use std::os::fd::BorrowedFd;
+
     use allocative::Allocative;
     use buck2_error::BuckErrorContext;
     use nix::fcntl::OFlag;
@@ -69,23 +71,29 @@ mod unix_impl {
 
     impl WorkingDirectoryImpl for UnixWorkingDirectoryImpl {
         fn open(path: &AbsNormPath) -> buck2_error::Result<Self> {
+            use std::os::fd::IntoRawFd;
+
             let fd = nix::fcntl::open(
                 path.as_path(),
                 OFlag::O_RDONLY | OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
                 Mode::empty(),
             )
-            .with_buck_error_context(|| format!("Failed to open: `{path}`"))?;
+            .with_buck_error_context(|| format!("Failed to open: `{path}`"))?
+            // FIXME(JakobDegen): We leak this fd
+            .into_raw_fd();
 
             Ok(Self { fd })
         }
 
         fn chdir(&self, _path: &AbsNormPath) -> buck2_error::Result<()> {
-            nix::unistd::fchdir(self.fd)?;
+            // SAFETY: Opened above
+            nix::unistd::fchdir(unsafe { BorrowedFd::borrow_raw(self.fd) })?;
             Ok(())
         }
 
         fn is_stale(&self, path: &AbsNormPath) -> buck2_error::Result<bool> {
-            let cwd = nix::sys::stat::fstat(self.fd).buck_error_context("Failed to stat cwd")?;
+            let cwd = nix::sys::stat::fstat(unsafe { BorrowedFd::borrow_raw(self.fd) })
+                .buck_error_context("Failed to stat cwd")?;
             let path = nix::sys::stat::stat(path.as_path())
                 .with_buck_error_context(|| format!("Failed to stat `{path}`"))?;
             Ok(cwd.st_dev != path.st_dev || cwd.st_ino != path.st_ino)
