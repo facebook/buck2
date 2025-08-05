@@ -6,11 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//fbcode/buck2/prelude/toolchains/go:system_go_bootstrap_toolchain.bzl", _system_go_bootstrap_toolchain = "system_go_bootstrap_toolchain")
-load("@prelude//fbcode/buck2/prelude/toolchains/go:system_go_toolchain.bzl", _system_go_toolchain = "system_go_toolchain")
+load("@prelude//toolchains/go:system_go_bootstrap_toolchain.bzl", _system_go_bootstrap_toolchain = "system_go_bootstrap_toolchain")
+load("@prelude//toolchains/go:system_go_toolchain.bzl", _system_go_toolchain = "system_go_toolchain")
 
-# deprecated: use `@prelude//fbcode/buck2/prelude/toolchains/go:system_go_bootstrap_toolchain.bzl` instead
+# deprecated: use `@prelude///toolchains/go:system_go_bootstrap_toolchain.bzl` instead
 system_go_bootstrap_toolchain = _system_go_bootstrap_toolchain
 
-# deprecated: use `@prelude//fbcode/buck2/prelude/toolchains/go:system_go_toolchain.bzl` instead
+# deprecated: use `@prelude///toolchains/go:system_go_toolchain.bzl` instead
 system_go_toolchain = _system_go_toolchain
