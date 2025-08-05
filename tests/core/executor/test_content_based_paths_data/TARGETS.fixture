@@ -39,7 +39,7 @@ write_json_with_content_based_path(
 
 run_with_content_based_path(
     name = "run_remote_with_content_based_path",
-    data = "hello world",
+    data = read_config("test", "data_string", "hello world"),
     prefer_local = False,
     _ignored = read_config("test", "ignored_attr", "ignored"),
 )

@@ -416,3 +416,31 @@ async def test_local_action_inputs_have_configuration_path_symlinks(
         and entry["path"].endswith("out")
     ]
     assert len(run_remote_output_materialized) == 2
+
+
+@buck_test()
+async def test_output_symlink_is_updated(buck: Buck) -> None:
+    target = "root//:run_remote_with_content_based_path"
+
+    result1 = await buck.build(
+        target, "-c", "test.data_string=hello world", "--show-output"
+    )
+    path1 = result1.get_target_to_build_output().get(target)
+
+    actual1 = (buck.cwd / path1).resolve()
+    assert actual1.exists()
+    with open(actual1, "r") as f:
+        assert f.read() == "hello world"
+
+    result2 = await buck.build(
+        target, "-c", "test.data_string=goodbye world", "--show-output"
+    )
+    path2 = result2.get_target_to_build_output().get(target)
+
+    assert path2 == path1
+
+    actual2 = (buck.cwd / path2).resolve()
+    assert actual2.exists()
+    assert actual2 != actual1
+    with open(actual2, "r") as f:
+        assert f.read() == "goodbye world"
