@@ -200,10 +200,26 @@ def create_jar_artifact_kotlincd(
         should_action_run_incrementally = should_kotlinc_run_incrementally or should_ksp2_run_incrementally,
     )
 
+    if kotlin_toolchain.allow_experimental_content_based_path_hashing:
+        output = declare_prefixed_output(actions, actions_identifier, "content_based_{}.jar".format(label.name), uses_experimental_content_based_path_hashing = True)
+        if should_create_class_abi:
+            content_based_class_abi_jar = declare_prefixed_output(actions, actions_identifier, "content_based_class-abi.jar", uses_experimental_content_based_path_hashing = True)
+            content_based_class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "content_based_class_abi_dir", uses_experimental_content_based_path_hashing = True, dir = True)
+            class_abi_jar = actions.copy_file(
+                content_based_class_abi_jar,
+                class_abi_jar,
+            )
+            class_abi_output_dir = actions.copy_file(
+                content_based_class_abi_output_dir,
+                class_abi_output_dir,
+            )
+    else:
+        output = None
+
     final_jar_output = prepare_final_jar(
         actions = actions,
         actions_identifier = actions_identifier,
-        output = None,
+        output = output,
         output_paths = output_paths,
         additional_compiled_srcs = None,
         jar_builder = java_toolchain.jar_builder,
