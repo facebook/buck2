@@ -122,6 +122,8 @@ def assemble_bundle(
     else:
         swift_args = []
 
+    # Manifest is always provided, so that consumers of the `[codesign-manifest]`
+    # subtarget can safely request it and _always_ get output (rather than failing the build)
     codesign_manifest = ctx.actions.write_json("placeholder_codesign_manifest.json", {})
 
     if codesign_required:
