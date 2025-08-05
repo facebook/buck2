@@ -11,6 +11,7 @@ load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 
 _DEFAULT_MAVEN_REPO = read_config("http", "maven_repo", "https://repo1.maven.org/maven2")
+_MAVEN_REPO_OVERRIDE = read_config("http", "maven_repo_override")
 
 def _from_mvn_url(url: str) -> str:
     """
@@ -32,6 +33,7 @@ def _from_mvn_url(url: str) -> str:
         repo = repo_protocol + ":" + repo_host
     elif count == 7:
         mvn, repo_protocol, repo_host, group, id, typ, mod, version = url.split(":")
+        mod = "-" + mod
         repo = repo_protocol + ":" + repo_host
     else:
         fail("Unsupported mvn URL scheme: " + url + " (" + str(count) + ")")
@@ -44,6 +46,9 @@ def _from_mvn_url(url: str) -> str:
         ext = "-sources.jar"
     else:
         ext = "." + typ
+
+    if _MAVEN_REPO_OVERRIDE:
+        repo = _MAVEN_REPO_OVERRIDE
 
     return "{repo}/{group}/{id}/{version}/{id}-{version}{mod}{ext}".format(
         repo = repo,
