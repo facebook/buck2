@@ -185,7 +185,11 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     if args.preload_libraries:
         ld_preload = [p.name for p in args.preload_libraries]
 
-    new_data = data.replace("<PYTHON>", "/usr/bin/env " + str(args.python))
+    python = str(args.python)
+    if not os.path.isabs(python) and os.path.sep in python:
+        python = os.path.abspath(python)
+
+    new_data = data.replace("<PYTHON>", f"/usr/bin/env {python}")
     new_data = new_data.replace("<PYTHON_INTERPRETER_FLAGS>", "")
 
     new_data = new_data.replace("<MODULES_DIR>", str(relative_modules_dir))
