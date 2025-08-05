@@ -44,10 +44,7 @@ def _gen_folder(folder_path, guid):
     )
 
 def _gen_project(target, vs_settings, project_names):
-    project_name = target.label.name
-    if project_names[project_name] > 1:
-        # Unique name to avoid prompt: The solution already contains an item named 'xxx'.
-        project_name = sanitize(target.label.package + "_" + target.label.name)
+    project_name = sanitize(target.label.name)
 
     # List of project type GUIDs https://github.com/JamesW75/visual-studio-project-type-guid
     project_type_guid_cpp = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}"
@@ -55,7 +52,7 @@ def _gen_project(target, vs_settings, project_names):
     return _gen_entry(
         project_type_guid_cpp,
         project_name,
-        get_project_file_path(target.label, ".vcxproj"),
+        get_project_file_path(target.label, ".vcxproj").replace("/", "\\"),
         vs_settings["Globals"]["ProjectGuid"],
     )
 
@@ -154,18 +151,28 @@ def gen_sln(targets, vs_settings_list, explicit_targets, startup_target_label, b
     for target in targets:
         project_names[target.label.name] = project_names.get(target.label.name, 0) + 1
 
+    # Ideally this should have some amount of uniqueness built in, but it isn't clear what a good algorithm for doing this would be
+    solution_guid = gen_guid("Buck2 vsgo solution file")
     sln_content = """Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
+VisualStudioVersion = 17
+MinimumVisualStudioVersion = 10.0.40219.1
 {projects}
 Global
 \tGlobalSection(SolutionConfigurationPlatforms) = preSolution
 {solution_configuration_platforms}
 \tEndGlobalSection
-\tGlobalSection(ProjectConfigurationPlatforms) = preSolution
+\tGlobalSection(ProjectConfigurationPlatforms) = postSolution
 {project_configuration_platforms}
+\tEndGlobalSection
+\tGlobalSection(SolutionProperties) = preSolution
+\t\tHideSolutionNode = FALSE
 \tEndGlobalSection
 \tGlobalSection(NestedProjects) = preSolution
 {nested_projects}
+\tEndGlobalSection
+\tGlobalSection(ExtensibilityGlobals) = postSolution
+\t\tSolutionGuid = {solution_guid}
 \tEndGlobalSection
 EndGlobal""".format(
         projects = "\n".join([
@@ -181,6 +188,7 @@ EndGlobal""".format(
             for (t, s) in zip(targets, vs_settings_list)
         ]),
         nested_projects = _gen_nested_projects(nested_projects),
+        solution_guid = solution_guid,
     )
 
     return sln_content
