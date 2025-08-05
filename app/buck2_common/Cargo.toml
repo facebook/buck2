@@ -24,6 +24,7 @@ futures = { workspace = true }
 globset = { workspace = true }
 hex = { workspace = true }
 hyper = { workspace = true }
+hyper-util = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 num_enum = { workspace = true }

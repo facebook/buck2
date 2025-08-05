@@ -145,6 +145,8 @@ struct CriticalPathEntry<'a> {
     potential_improvement_duration: OptionalDuration,
 }
 
+// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+#[allow(clippy::clone_on_copy)]
 async fn log_critical_path(
     critical_path: &buck2_data::BuildGraphExecutionInfo,
     format: LogCommandOutputFormat,

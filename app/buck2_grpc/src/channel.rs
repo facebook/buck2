@@ -85,8 +85,14 @@ pub async fn make_channel<T>(io: T, name: &str) -> anyhow::Result<Channel>
 where
     T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static,
 {
+    // We have otherwise standardized on using tokio::io::Async*
+    // to define our type constraints in the vicinity of this file,
+    // (mostly because switching the impl to the Hyper equivalents isn't as
+    // convenient - we cannot simply use the TokioIo wrapper when going
+    // from Hyper->Tokio because the wrapper doesn't have an implementation for Connected)
+    // but we need a Hyper object here for backward compatability
+    let io = hyper_util::rt::tokio::TokioIo::new(io);
     let mut io = Some(io);
-
     // NOTE: The uri here is only used to populate the requests we send. We don't actually connect
     // anywhere since we already have an I/O channel on hand.
     let channel = Endpoint::try_from(format!("http://{name}.invalid"))

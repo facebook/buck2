@@ -296,6 +296,8 @@ impl ServerCommandTemplate for TestServerCommand {
     }
 }
 
+// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+#[allow(clippy::clone_on_copy)]
 async fn test(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,

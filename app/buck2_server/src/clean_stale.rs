@@ -73,6 +73,8 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
             .await
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+    #[allow(clippy::clone_on_copy)]
     fn end_event(&self, response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
         let clean_stale_stats = if let Ok(res) = response {
             res.stats.clone()

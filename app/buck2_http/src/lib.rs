@@ -74,7 +74,7 @@ pub enum HttpError {
     SendRequest {
         uri: String,
         #[source]
-        source: hyper::Error,
+        source: hyper_util::client::legacy::Error,
     },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
     #[buck2(tags = tag_from_status(status))]

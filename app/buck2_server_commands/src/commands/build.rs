@@ -134,6 +134,8 @@ fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions
     req.build_opts.as_ref().expect("should have build options")
 }
 
+// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+#[allow(clippy::clone_on_copy)]
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
@@ -335,6 +337,8 @@ async fn build(
     .await
 }
 
+// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+#[allow(clippy::clone_on_copy)]
 async fn process_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,

@@ -50,7 +50,10 @@ pub struct CountingStream<S> {
     bytes_read: Arc<AtomicU64>,
 }
 
-impl<S> CountingStream<S> {
+impl<S, E> CountingStream<S>
+where
+    S: Stream<Item = Result<Bytes, E>>,
+{
     pub fn new(stream: S, bytes_read: Arc<AtomicU64>) -> Self {
         Self {
             inner: stream,

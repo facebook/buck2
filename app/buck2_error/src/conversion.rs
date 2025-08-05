@@ -18,6 +18,7 @@ pub mod http;
 pub mod hyper;
 pub mod nix;
 pub mod other;
+pub mod pem;
 pub mod prost;
 pub mod regex;
 pub mod relative_path;

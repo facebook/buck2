@@ -10,16 +10,19 @@ anyhow = { workspace = true }
 bytes = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
 hyper = { workspace = true }
-hyper-proxy = { workspace = true }
+hyper-proxy2 = { workspace = true }
 hyper-rustls = { workspace = true }
 hyper-timeout = { workspace = true }
+hyper-util = { workspace = true }
 ipnetwork = { workspace = true }
 pin-project = { workspace = true }
 rustls = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 tokio-util = { workspace = true }
+tower-service = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }
@@ -29,7 +32,7 @@ buck2_certs = { workspace = true }
 buck2_error = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-hyper-unix-connector = { workspace = true }
+hyperlocal = { workspace = true }
 
 [dev-dependencies]
 httptest = { workspace = true }

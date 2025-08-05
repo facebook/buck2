@@ -128,8 +128,8 @@ fn main() -> io::Result<()> {
             "buck.data.MaterializationMethod",
             "#[derive(::gazebo::variants::VariantName)]",
         )
-        .type_attribute("buck.data.CpuCounter", "#[derive(Copy, dupe::Dupe)]")
-        .type_attribute("buck.data.CommandExecutionStats", "#[derive(Copy, dupe::Dupe)]")
+        .type_attribute("buck.data.CpuCounter", "#[derive(dupe::Dupe)]")
+        .type_attribute("buck.data.CommandExecutionStats", "#[derive(dupe::Dupe)]")
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
         .type_attribute("buck.data.SoftError", "#[derive(Eq, Hash)]")

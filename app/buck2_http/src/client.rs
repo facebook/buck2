@@ -21,11 +21,12 @@ use http::Method;
 use http::Uri;
 use http::request::Builder;
 use http::uri::Scheme;
-use hyper::Body;
+use http_body_util::BodyExt;
+use http_body_util::Full;
 use hyper::Request;
 use hyper::Response;
-use hyper::client::ResponseFuture;
-use hyper::client::connect::Connect;
+use hyper_util::client::legacy::ResponseFuture;
+use hyper_util::client::legacy::connect::Connect;
 use tokio::io::AsyncReadExt;
 use tokio::sync::Semaphore;
 use tokio_util::io::StreamReader;
@@ -149,12 +150,15 @@ impl HttpClient {
             }
         })?;
         Ok(resp.map(move |body| {
-            CountingStream::new(body, self.stats.downloaded_bytes().dupe())
-                .inspect(move |_| {
-                    // Ensure we keep a concurrent request permit alive until the stream is consumed
-                    let _guard = &semaphore_guard;
-                })
-                .boxed()
+            CountingStream::new(
+                body.into_data_stream(),
+                self.stats.downloaded_bytes().dupe(),
+            )
+            .inspect(move |_| {
+                // Ensure we keep a concurrent request permit alive until the stream is consumed
+                let _guard = &semaphore_guard;
+            })
+            .boxed()
         }))
     }
 
@@ -224,12 +228,13 @@ pub(super) trait RequestClient: Send + Sync {
     fn request(&self, request: Request<Bytes>) -> ResponseFuture;
 }
 
-impl<C> RequestClient for hyper::Client<C>
+impl<C> RequestClient for hyper_util::client::legacy::Client<C, Full<Bytes>>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
     fn request(&self, request: Request<Bytes>) -> ResponseFuture {
-        self.request(request.map(Body::from))
+        let mapped_request: Request<Full<Bytes>> = request.map(Full::new);
+        self.request(mapped_request)
     }
 }
 
@@ -273,7 +278,7 @@ fn change_scheme_to_http(request: &mut Request<Bytes>) -> Result<(), HttpError> 
 
 /// Helper function to check if any error in the chain of errors produced by
 /// hyper is due to a timeout.
-fn is_hyper_error_due_to_timeout(e: &hyper::Error) -> bool {
+fn is_hyper_error_due_to_timeout(e: &hyper_util::client::legacy::Error) -> bool {
     use std::error::Error;
 
     let mut cause = e.source();
@@ -606,13 +611,12 @@ mod tests {
 
     #[cfg(unix)]
     mod unix {
-        use std::convert::Infallible;
         use std::path::PathBuf;
 
-        use hyper::Server;
-        use hyper::service::make_service_fn;
-        use hyper::service::service_fn;
-        use hyper_unix_connector::UnixConnector;
+        use http_body_util::BodyExt;
+        use hyper::body::Incoming;
+        use hyper_util::rt::TokioExecutor;
+        use hyper_util::rt::TokioIo;
 
         use super::*;
 
@@ -633,30 +637,44 @@ mod tests {
                 let tempdir = tempfile::tempdir()?;
                 let socket = tempdir.path().join("test-uds.sock");
 
-                let listener: UnixConnector = tokio::net::UnixListener::bind(&socket)
-                    .buck_error_context("binding to unix socket")?
-                    .into();
-                let handler_func = make_service_fn(|_conn| async move {
-                    Ok::<_, Infallible>(service_fn(|mut req: Request<Body>| async move {
-                        let client = hyper::Client::new();
-                        req.headers_mut().insert(
-                            http::header::VIA,
-                            http::HeaderValue::from_static("testing-proxy-server"),
-                        );
-                        println!("Proxying request: {req:?}");
-                        client
-                            .request(req.map(Body::from))
-                            .await
-                            .buck_error_context_anyhow("Failed sending requeest to destination")
-                    }))
-                });
+                let handler_func = |mut req: Request<Incoming>| async move {
+                    let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new());
+                    req.headers_mut().insert(
+                        http::header::VIA,
+                        http::HeaderValue::from_static("testing-proxy-server"),
+                    );
 
-                let handle = tokio::task::spawn(async move {
-                    println!("started proxy server");
-                    Server::builder(listener)
-                        .serve(handler_func)
+                    let forwarded_body = http_body_util::Full::new(
+                        req.body_mut()
+                            .collect()
+                            .await
+                            .expect("Couldn't get all bytes from incoming request")
+                            .to_bytes(),
+                    );
+                    println!("Proxying request: {req:?}");
+                    client
+                        .build_http()
+                        // Use 'map' here to preserve headers from original request
+                        // even though we already accessed the effective body above
+                        .request(req.map(|_| forwarded_body))
                         .await
-                        .expect("Proxy server exited unexpectedly");
+                        .buck_error_context_anyhow("Failed sending requeest to destination")
+                };
+
+                let listener = tokio::net::UnixListener::bind(&socket)
+                    .buck_error_context("binding to unix socket")?;
+                let handle = tokio::task::spawn(async move {
+                    loop {
+                        let (stream, _) =
+                            listener.accept().await.expect("Couldn't accept connection");
+                        let io = TokioIo::new(stream);
+                        let svc_fn = hyper::service::service_fn(handler_func);
+
+                        hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
+                            .serve_connection(io, svc_fn)
+                            .await
+                            .expect("Expected to serve connection")
+                    }
                 });
 
                 Ok(Self {
@@ -688,9 +706,9 @@ mod tests {
 
         let client = HttpClientBuilder::https_with_system_roots()
             .await?
-            .with_x2p_proxy(hyper_proxy::Proxy::new(
-                hyper_proxy::Intercept::Http,
-                hyper_unix_connector::Uri::new(proxy_server.socket, "/").into(),
+            .with_x2p_proxy(hyper_proxy2::Proxy::new(
+                hyper_proxy2::Intercept::Http,
+                hyperlocal::Uri::new(proxy_server.socket, "/").into(),
             ))
             .build();
         let resp = client.get(&url.to_string()).await?;
@@ -841,22 +859,27 @@ mod tests {
 // TODO(skarlage, T160529958): Debug why these tests fail on CircleCI
 #[cfg(all(test, fbcode_build))]
 mod proxy_tests {
-    use std::convert::Infallible;
-    use std::net::TcpListener;
     use std::net::ToSocketAddrs;
     use std::time::Duration;
 
     use buck2_error::BuckErrorContext;
+    use bytes::Bytes;
+    use http::Method;
     use httptest::Expectation;
     use httptest::matchers::*;
     use httptest::responders;
-    use hyper::Server;
-    use hyper::service::make_service_fn;
-    use hyper::service::service_fn;
-    use hyper_proxy::Intercept;
-    use hyper_proxy::Proxy;
+    use hyper::Request;
+    use hyper::body::Incoming;
+    use hyper_proxy2::Intercept;
+    use hyper_proxy2::Proxy;
+    use hyper_util::client::legacy::Client;
+    use hyper_util::rt::TokioExecutor;
+    use hyper_util::rt::TokioIo;
+    use tokio::net::TcpListener;
+    use tokio::task::JoinHandle;
 
     use super::*;
+    use crate::HttpError;
     use crate::proxy::DefaultSchemeUri;
 
     const HEADER_SLEEP_DURATION_MS: &str = "x-buck2-test-proxy-sleep-duration-ms";
@@ -875,38 +898,42 @@ mod proxy_tests {
         async fn new() -> buck2_error::Result<Self> {
             let proxy_server_addr = "[::1]:0".to_socket_addrs().unwrap().next().unwrap();
             let listener = TcpListener::bind(proxy_server_addr)
+                .await
                 .buck_error_context("failed to bind to local address")?;
             let proxy_server_addr = listener.local_addr()?;
 
-            let make_proxy_service = make_service_fn(|_conn| async move {
-                Ok::<_, Infallible>(service_fn(|mut req: Request<Body>| async move {
-                    // Sleep if requested to simulate slow reads.
-                    if let Some(s) = req.headers().get(HEADER_SLEEP_DURATION_MS) {
-                        let sleep_duration =
-                            Duration::from_millis(s.to_str().unwrap().parse().unwrap());
-                        tokio::time::sleep(sleep_duration).await;
-                    }
-
-                    let client = hyper::Client::new();
-                    req.headers_mut().insert(
-                        http::header::VIA,
-                        http::HeaderValue::from_static("testing-proxy-server"),
-                    );
-                    println!("Proxying request: {req:?}");
-                    client
-                        .request(req)
-                        .await
-                        .buck_error_context_anyhow("Failed sending requeest to destination")
-                }))
-            });
-
-            let handle = tokio::task::spawn(async move {
+            let handle: JoinHandle<()> = tokio::task::spawn(async move {
                 println!("started proxy server");
-                Server::from_tcp(listener)
-                    .unwrap()
-                    .serve(make_proxy_service)
-                    .await
-                    .expect("Proxy server exited unexpectedly");
+                loop {
+                    let (stream, _) = listener.accept().await.expect("Couldn't accept connection");
+                    let io = TokioIo::new(stream);
+
+                    let svc_fn =
+                        hyper::service::service_fn(|mut req: Request<Incoming>| async move {
+                            // Sleep if requested to simulate slow reads.
+                            if let Some(s) = req.headers().get(HEADER_SLEEP_DURATION_MS) {
+                                let sleep_duration =
+                                    Duration::from_millis(s.to_str().unwrap().parse().unwrap());
+                                tokio::time::sleep(sleep_duration).await;
+                            }
+
+                            let client = Client::builder(TokioExecutor::new()).build_http();
+                            req.headers_mut().insert(
+                                http::header::VIA,
+                                http::HeaderValue::from_static("testing-proxy-server"),
+                            );
+                            println!("Proxying request: {req:?}");
+                            client
+                                .request(req)
+                                .await
+                                .buck_error_context_anyhow("Failed sending requeest to destination")
+                        });
+
+                    hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
+                        .serve_connection(io, svc_fn)
+                        .await
+                        .expect("Expected to serve connection");
+                }
             });
 
             Ok(Self {

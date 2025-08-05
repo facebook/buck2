@@ -16,8 +16,8 @@ use http::Uri;
 use http::uri::InvalidUri;
 use http::uri::PathAndQuery;
 use http::uri::Scheme;
-use hyper_proxy::Intercept;
-use hyper_proxy::Proxy;
+use hyper_proxy2::Intercept;
+use hyper_proxy2::Proxy;
 use ipnetwork::IpNetwork;
 
 /// Lookup environment variable and return string value. Checks first for uppercase
@@ -40,7 +40,7 @@ fn noproxy_from_env(scheme: Scheme) -> buck2_error::Result<Option<NoProxy>> {
     Ok(env_to_string("NO_PROXY")?.map(|no_proxy| NoProxy::new(scheme, no_proxy)))
 }
 
-/// Returns a hyper_proxy::Proxy struct that proxies connections to the uri at
+/// Returns a hyper_proxy2::Proxy struct that proxies connections to the uri at
 /// $HTTPS_PROXY (or $https_proxy if the former is unset). Respects $NO_PROXY.
 pub(super) fn https_proxy_from_env() -> buck2_error::Result<Option<Proxy>> {
     if let Some(https_proxy) = env_to_string("HTTPS_PROXY")? {
@@ -60,7 +60,7 @@ pub(super) fn https_proxy_from_env() -> buck2_error::Result<Option<Proxy>> {
     }
 }
 
-/// Returns a hyper_proxy::Proxy struct that proxies connections to the uri at
+/// Returns a hyper_proxy2::Proxy struct that proxies connections to the uri at
 /// $HTTP_PROXY (or $http_proxy if the former is unset). Respects $NO_PROXY.
 pub(super) fn http_proxy_from_env() -> buck2_error::Result<Option<Proxy>> {
     if let Some(http_proxy) = env_to_string("HTTP_PROXY")? {
@@ -189,11 +189,11 @@ impl NoProxy {
         }
     }
 
-    /// Converts this NoProxy spec into a hyper_proxy::Intercept::Custom closure
-    /// so it can be used to build a new hyper_proxy::Proxy.
+    /// Converts this NoProxy spec into a hyper_proxy2::Intercept::Custom closure
+    /// so it can be used to build a new hyper_proxy2::Proxy.
     ///
     /// Note: There's a tricky bit of logic below. We explicitly *negate* the return
-    /// condition of the closure because of the way hyper_proxy::Intercept::Custom's
+    /// condition of the closure because of the way hyper_proxy2::Intercept::Custom's
     /// closure works; if it returns `true`, the connection is proxied.
     ///
     /// For NoProxy, we want to *negate* this logic - if a (scheme, host) pair

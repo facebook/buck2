@@ -17,6 +17,7 @@ fancy-regex = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
+hyper-util = { workspace = true }
 libc = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
@@ -24,6 +25,8 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 relative-path = { workspace = true }
 rusqlite = { workspace = true }
+rustls-native-certs = { workspace = true }
+rustls-pki-types = { workspace = true }
 serde_json = { workspace = true }
 smallvec = { workspace = true }
 thiserror = { workspace = true }

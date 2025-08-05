@@ -90,6 +90,8 @@ impl Syncher {
     ///
     /// The first event will be sent immediately. Each subsequent event will be sent with a delay
     /// based on its time since that first event.
+    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+    #[allow(clippy::clone_on_copy)]
     fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> buck2_error::Result<Sleep> {
         let event_time = SystemTime::try_from(event.timestamp.as_ref().unwrap().clone())?;
         let (sync_start, log_start) = self.start.get_or_insert((Instant::now(), event_time));

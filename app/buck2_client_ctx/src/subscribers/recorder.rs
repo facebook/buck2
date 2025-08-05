@@ -1135,7 +1135,9 @@ impl InvocationRecorder {
     }
     fn handle_action_execution_end(
         &mut self,
-        action: &buck2_data::ActionExecutionEnd,
+
+        // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+        #[allow(clippy::clone_on_copy)] action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         if action.kind == buck2_data::ActionKind::Run as i32 {
@@ -1268,6 +1270,8 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_materialization_end(
         &mut self,
         materialization: &buck2_data::MaterializationEnd,
@@ -1278,6 +1282,8 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_materializer_state_info(
         &mut self,
         materializer_state_info: &buck2_data::MaterializerStateInfo,
@@ -1287,6 +1293,8 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_bxl_ensure_artifacts_end(
         &mut self,
         _bxl_ensure_artifacts_end: &buck2_data::BxlEnsureArtifactsEnd,
@@ -1306,6 +1314,8 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+    #[allow(clippy::clone_on_copy)]
     fn handle_install_finished(
         &mut self,
         install_finished: &buck2_data::InstallFinished,
@@ -1631,6 +1641,8 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_file_watcher_start(
         &mut self,
         file_watcher: &FileWatcherStart,
@@ -1696,6 +1708,8 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_dice_cleanup_end(
         &mut self,
         _command: &buck2_data::DiceCleanupEnd,

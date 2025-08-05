@@ -173,6 +173,8 @@ impl From<BuckEvent> for Box<buck2_data::BuckEvent> {
 impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
     type Error = buck2_error::Error;
 
+    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+    #[allow(clippy::clone_on_copy)]
     fn try_from(event: Box<buck2_data::BuckEvent>) -> buck2_error::Result<BuckEvent> {
         event.data.as_ref().ok_or(BuckEventError::MissingData)?;
         fn new_span_id(num: u64) -> Option<SpanId> {

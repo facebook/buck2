@@ -24,6 +24,8 @@ impl DiceState {
         }
     }
 
+    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+    #[allow(clippy::clone_on_copy)]
     pub fn update(&mut self, update: &DiceStateSnapshot) {
         for (k, v) in &update.key_states {
             self.key_states.insert(k.clone(), v.clone());

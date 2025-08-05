@@ -203,6 +203,8 @@ async fn build_action_no_redirect(
     action_execution_data.action_result
 }
 
+// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
+#[allow(clippy::clone_on_copy)]
 async fn build_action_inner(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,

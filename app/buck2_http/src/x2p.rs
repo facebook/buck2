@@ -12,13 +12,13 @@ use buck2_error::buck2_error;
 use http::HeaderMap;
 use http::HeaderValue;
 use http::Uri;
-use hyper_proxy::Proxy;
+use hyper_proxy2::Proxy;
 
 #[cfg(fbcode_build)]
 mod imp {
     use buck2_error::BuckErrorContext;
     use http::Uri;
-    use hyper_proxy::Intercept;
+    use hyper_proxy2::Intercept;
 
     use super::*;
 
@@ -30,7 +30,7 @@ mod imp {
                 "Using x2pagent unix socket proxy client at: {}",
                 unix_socket
             );
-            let unix_uri = hyper_unix_connector::Uri::new(unix_socket, "/");
+            let unix_uri = hyperlocal::Uri::new(unix_socket, "/");
             Some(Proxy::new(Intercept::All, unix_uri.into()))
         } else {
             None

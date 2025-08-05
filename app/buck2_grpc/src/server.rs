@@ -16,8 +16,8 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use tonic::service::Routes;
 use tonic::transport::server::Router;
-use tonic::transport::server::Routes;
 use tower::Service;
 use tower::layer::Layer;
 
@@ -49,14 +49,14 @@ where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static + tonic::transport::server::Connected,
     L: Layer<Routes> + Send + 'static,
     L::Service: Service<
-            http::Request<tonic::transport::Body>,
-            Response = http::Response<tonic::body::BoxBody>,
+            hyper::Request<tonic::body::BoxBody>,
+            Response = hyper::Response<tonic::body::BoxBody>,
         > + Clone
         + Send
         + 'static,
-    <<L as Layer<Routes>>::Service as Service<http::Request<tonic::transport::Body>>>::Future:
+    <<L as Layer<Routes>>::Service as Service<hyper::Request<tonic::body::BoxBody>>>::Future:
         Send + 'static,
-    <<L as Layer<Routes>>::Service as Service<http::Request<tonic::transport::Body>>>::Error:
+    <<L as Layer<Routes>>::Service as Service<hyper::Request<tonic::body::BoxBody>>>::Error:
         Into<Box<dyn std::error::Error + Send + Sync>> + Send,
 {
     // We reserve 2 slots here: one for the connection and one for the ServerHandle's

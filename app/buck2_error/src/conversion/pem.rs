@@ -8,18 +8,18 @@
  * above-listed licenses.
  */
 
-impl From<hyper_util::client::legacy::Error> for crate::Error {
+impl From<rustls_pki_types::pem::Error> for crate::Error {
     #[cold]
     #[track_caller]
-    fn from(value: hyper_util::client::legacy::Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Hyper)
+    fn from(value: rustls_pki_types::pem::Error) -> Self {
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Certs)
     }
 }
 
-impl From<hyper::Error> for crate::Error {
+impl From<rustls_native_certs::Error> for crate::Error {
     #[cold]
     #[track_caller]
-    fn from(value: hyper::Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Hyper)
+    fn from(value: rustls_native_certs::Error) -> Self {
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Certs)
     }
 }

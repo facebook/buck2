@@ -1,14 +1,14 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library_prost_0134")
 
 oncall("build_infra")
 
-rust_protobuf_library(
+rust_protobuf_library_prost_0134(
     name = "re_grpc_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
     protos = glob(["proto/**/*.proto"]),
     deps = [
-        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:prost-types-0-13-4",
         "fbsource//third-party/rust:serde",
         "//buck2/app/buck2_data:buck2_data",
     ],

@@ -14,38 +14,50 @@ use std::path::Path;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use gazebo::prelude::VecExt;
-use rustls::Certificate;
 use rustls::ClientConfig;
-use rustls::PrivateKey;
 use rustls::RootCertStore;
+use rustls_pki_types::CertificateDer;
+use rustls_pki_types::PrivateKeyDer;
+use rustls_pki_types::pem::PemObject;
 
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
-    let native_certs =
-        rustls_native_certs::load_native_certs().tag(buck2_error::ErrorTag::Environment);
-    let native_certs = if cfg!(fbcode_build) {
-        let windows_message = if cfg!(target_os = "windows") {
-            " on an admin PowerShell"
-        } else {
-            ""
-        };
-        let context = format!(
+    let mut native_certs_results = rustls_native_certs::load_native_certs();
+
+    // rustls_native_certs now supports multiple errors
+    let native_certs = if native_certs_results.errors.is_empty() {
+        Ok(native_certs_results.certs)
+    } else {
+        // Consider the first error to be indicative of the overall problem
+        let failed_certs = Err(native_certs_results.errors.remove(0));
+        let native_certs = failed_certs.tag(buck2_error::ErrorTag::Environment);
+
+        // Annotate the error with our context, but note that we do not return
+        // the error here because we may recover through find_root_ca_certs()/load_certs() below
+        if cfg!(fbcode_build) {
+            let windows_message = if cfg!(target_os = "windows") {
+                " on an admin PowerShell"
+            } else {
+                ""
+            };
+            let context = format!(
             "Error loading system root certificates native frameworks.
             This is usually due to Chef not installed or working properly.
             Please try `getchef -reason 'chef broken'`{windows_message}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
             If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state."
         );
-        native_certs.buck_error_context(context)
-    } else {
-        native_certs.buck_error_context("Error loading system root certificates native frameworks.")
+            native_certs.buck_error_context(context)
+        } else {
+            native_certs
+                .buck_error_context("Error loading system root certificates native frameworks.")
+        }
     };
 
     let root_certs =
           // Load the system root certificates using native frameworks.
           if let Ok(certs) = native_certs {
-              certs.into_map(|cert| cert.0)
+              certs
           }
           else if let Some(path) = find_root_ca_certs() {
               tracing::debug!(
@@ -66,7 +78,7 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
     // is pertinent for e.g. macOS which may have a lot of old certificates that may
     // not parse correctly.
     let mut roots = RootCertStore::empty();
-    let (valid, invalid) = roots.add_parsable_certificates(root_certs.as_slice());
+    let (valid, invalid) = roots.add_parsable_certificates(root_certs);
 
     // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
     // able to make any connections via https.
@@ -82,22 +94,13 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
 }
 
 // Load private key from the given path
-async fn load_key<P: AsRef<Path>>(key: P) -> buck2_error::Result<PrivateKey> {
+async fn load_key<P: AsRef<Path>>(key: P) -> buck2_error::Result<PrivateKeyDer<'static>> {
     let key = key.as_ref();
 
-    let key_data = tokio::fs::read(key)
-        .await
+    let private_key = PrivateKeyDer::from_pem_file(key)
         .with_buck_error_context(|| format!("Error opening key file `{}`", key.display()))?;
 
-    let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_data.as_slice())
-        .with_buck_error_context(|| format!("Error parsing key file `{}`", key.display()))?
-        .pop()
-        .with_buck_error_context(|| {
-            format!("Found no private key in key file `{}`", key.display())
-        })?;
-    let key = PrivateKey(private_key);
-
-    Ok(key)
+    Ok(private_key)
 }
 
 /// Deserialize certificate pair at `cert` and `key` into structures that can
@@ -105,8 +108,8 @@ async fn load_key<P: AsRef<Path>>(key: P) -> buck2_error::Result<PrivateKey> {
 async fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
-) -> buck2_error::Result<(Vec<Certificate>, PrivateKey)> {
-    let certs = load_certs(cert).await?.into_map(Certificate);
+) -> buck2_error::Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)> {
+    let certs = load_certs(cert).await?;
     let key = load_key(key).await?;
 
     Ok((certs, key))
@@ -115,7 +118,6 @@ async fn load_cert_pair<P: AsRef<Path>>(
 pub async fn tls_config_with_system_roots() -> buck2_error::Result<ClientConfig> {
     let system_roots = load_system_root_certs().await?;
     Ok(ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(system_roots)
         .with_no_client_auth())
 }
@@ -129,15 +131,16 @@ pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
         .await
         .buck_error_context("Error loading certificate pair")?;
     ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(system_roots)
         .with_client_auth_cert(cert, key)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Certs))
         .buck_error_context("Error creating TLS config with cert and key path")
 }
 
-// Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
-pub(crate) async fn load_certs<P: AsRef<Path>>(cert_path: P) -> buck2_error::Result<Vec<Vec<u8>>> {
+// Load certs from the given path
+pub(crate) async fn load_certs<P: AsRef<Path>>(
+    cert_path: P,
+) -> buck2_error::Result<Vec<CertificateDer<'static>>> {
     let cert_path = cert_path.as_ref();
 
     let cert_data = tokio::fs::read(cert_path)
@@ -146,11 +149,15 @@ pub(crate) async fn load_certs<P: AsRef<Path>>(cert_path: P) -> buck2_error::Res
             format!("Error reading certificate file `{}`", cert_path.display())
         })?;
 
-    let certs = rustls_pemfile::certs(&mut cert_data.as_slice()).with_buck_error_context(|| {
-        format!("Error parsing certificate file `{}`", cert_path.display())
-    })?;
+    let cert_results: Vec<Result<CertificateDer, rustls_pki_types::pem::Error>> =
+        CertificateDer::pem_reader_iter(&mut cert_data.as_slice()).collect();
 
-    Ok(certs)
+    let certs: Result<Vec<CertificateDer<'static>>, rustls_pki_types::pem::Error> =
+        cert_results.into_iter().collect();
+
+    certs.with_buck_error_context(|| {
+        format!("Error reading certificate file `{}`", cert_path.display())
+    })
 }
 
 /// Find root CA certs.

@@ -72,6 +72,11 @@ async fn get_channel_uds_no_symlink(connect_to: &Path) -> buck2_error::Result<Ch
 
     let io = tokio::net::UnixStream::connect(&connect_to).await?;
 
+    // tokio provides a UnixStream that has implementations for AsyncRead/AsyncWrite,
+    // but its own connect_with_connector uses the hyper equivalents
+    // Use the hyper interop wrapper to paper over this discrepancy
+    let io = hyper_util::rt::tokio::TokioIo::new(io);
+
     let mut io = Some(io);
     // This URL string is not relevant to the connection. Some URL is required for the function to work but the closure running inside connect_with_connector()
     // deals with connecting to the unix domain socket.

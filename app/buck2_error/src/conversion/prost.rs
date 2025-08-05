@@ -24,6 +24,16 @@ impl From<prost::DecodeError> for crate::Error {
     }
 }
 
+impl From<prost::UnknownEnumValue> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: prost::UnknownEnumValue) -> Self {
+        // Replacement for 'DecodeError' in some circumstances
+        // https://github.com/tokio-rs/prost/blob/master/CHANGELOG.md#prost-version-0130
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Prost)
+    }
+}
+
 impl From<prost_types::DurationError> for crate::Error {
     #[cold]
     #[track_caller]

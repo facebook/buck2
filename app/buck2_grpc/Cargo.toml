@@ -8,7 +8,8 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 futures = { workspace = true }
-http = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 pin-project = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }

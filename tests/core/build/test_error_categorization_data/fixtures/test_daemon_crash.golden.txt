@@ -10,5 +10,5 @@ Command failed: Buck daemon event bus encountered an error, the root cause (if a
 Caused by:
     0: status: Unknown, message: "transport error", details: [], metadata: MetadataMap { headers: {} }
     1: transport error
-    2: connection error: stream closed because of a broken pipe
+    2: connection error
     3: stream closed because of a broken pipe
