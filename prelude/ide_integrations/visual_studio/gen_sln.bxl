@@ -18,11 +18,20 @@ EndProject""".format(
         project_guid = project_guid,
     )
 
-def _gen_folder(folder_path, guid, project_names):
+def _gen_folder(folder_path, guid):
     project_name = basename(folder_path)
-    if project_name in project_names:
-        # "()" quote folder name to avoid prompt: The solution already contains an item named 'xxx'.
-        project_name = "(" + project_name + ")"
+
+    # Imagine you have `foo//bar:bar` and `foo//:bar`.  This means that underneath `foo`, you will have
+    # both a Solution Folder called `bar`, as well as a project called `bar`.  Visual Studio doesn't
+    # allow this, so we disambiguate folders from projects by surrounding folder names with parens.
+    # While we could try to be smart and only do this when we detect a collision, what happens then is
+    # that we would end up with solution folders, some with parens and some without parens, and it would
+    # break the sorting of child items when there is a long list of solution folders.  For example, you
+    # might end up with:
+    #    (bar)
+    #    (xyz)
+    #    bar
+    project_name = "(" + project_name + ")"
 
     # List of project type GUIDs https://github.com/JamesW75/visual-studio-project-type-guid
     project_type_guid_folder = "{2150E333-8FDC-42A3-9474-1A3956D46DE8}"
@@ -55,19 +64,23 @@ def _gen_project(target, vs_settings, project_names):
 def _gen_target(target, vs_settings, existing_folders, nested_projects, project_names):
     entries = []
 
+    # It's possible to have `foo//:target` and `bar//:target`.  It's not sufficient to simply use the package
+    # name, because if you do that then you will get a name collision in the above scenario.
+    folders = [target.label.cell]
     if target.label.package:
-        folders = target.label.package.split("/")
-        folder_prev = None
-        for i in range(len(folders)):
-            folder = "/".join(folders[0:i + 1])
-            folder_guid = gen_guid(folder)
-            if folder_prev:
-                nested_projects[folder_guid] = existing_folders[folder_prev]
-            if folder not in existing_folders:
-                entries.append(_gen_folder(folder, folder_guid, project_names))
-                existing_folders[folder] = folder_guid
-            folder_prev = folder
-        nested_projects[vs_settings["Globals"]["ProjectGuid"]] = existing_folders[folder_prev]
+        folders += target.label.package.split("/")
+
+    folder_prev = None
+    for i in range(len(folders)):
+        folder = "/".join(folders[0:i + 1])
+        folder_guid = gen_guid(folder)
+        if folder_prev:
+            nested_projects[folder_guid] = existing_folders[folder_prev]
+        if folder not in existing_folders:
+            entries.append(_gen_folder(folder, folder_guid))
+            existing_folders[folder] = folder_guid
+        folder_prev = folder
+    nested_projects[vs_settings["Globals"]["ProjectGuid"]] = existing_folders[folder_prev]
 
     entries.append(_gen_project(target, vs_settings, project_names))
     return "\n".join(entries)
