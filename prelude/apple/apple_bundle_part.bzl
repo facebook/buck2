@@ -284,6 +284,22 @@ def assemble_bundle(
         inner_codesign_manifests = {},
     )
 
+    codesign_manifest_tree_json = _get_codesign_manifest_tree_as_json(codesign_manifest_tree)
+    codesign_manifest_tree_json_file = ctx.actions.declare_output("codesign_manifest_tree.json")
+    codesign_manifest_tree_json_cmd_args = ctx.actions.write_json(
+        codesign_manifest_tree_json_file,
+        codesign_manifest_tree_json,
+        with_inputs = True,
+        pretty = True,
+    )
+
+    subtargets["codesign-manifest-tree"] = [
+        DefaultInfo(
+            default_output = codesign_manifest_tree_json_file,
+            other_outputs = [codesign_manifest_tree_json_cmd_args],
+        ),
+    ]
+
     force_local_bundling = codesign_type.value != "skip"
     ctx.actions.run(
         command,
@@ -299,6 +315,18 @@ def assemble_bundle(
         providers = providers,
         codesign_manifest_tree = codesign_manifest_tree,
     )
+
+def _get_codesign_manifest_tree_as_json(codesign_manifest_tree: AppleBundleCodesignManifestTree) -> dict[str, typing.Any]:
+    json_obj = {
+        "codesign_manifest": codesign_manifest_tree.codesign_manifest,
+    }
+
+    inner_manifests = {}
+    for relative_path, inner_codesign_manifest_tree in codesign_manifest_tree.inner_codesign_manifests.items():
+        inner_manifests[relative_path] = _get_codesign_manifest_tree_as_json(inner_codesign_manifest_tree)
+
+    json_obj["inner_codesign_manifests"] = inner_manifests
+    return json_obj
 
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
