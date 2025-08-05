@@ -26,11 +26,6 @@ public class AbsPathSerializer {
 
   private AbsPathSerializer() {}
 
-  /** Serializes {@link AbsPath} into javacd model */
-  public static String serialize(AbsPath absPath) {
-    return absPath.toString();
-  }
-
   /** Deserializes javacd model into {@link AbsPath}. */
   public static AbsPath deserialize(String absPath) {
     Path path = Paths.get(absPath);

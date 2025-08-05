@@ -23,25 +23,6 @@ class JavacPluginParamsSerializer {
   private JavacPluginParamsSerializer() {}
 
   /**
-   * Serializes {@link JavacPluginParams} into javacd model's {@link
-   * ResolvedJavacOptions.JavacPluginParams }.
-   */
-  public static ResolvedJavacOptions.JavacPluginParams serialize(
-      JavacPluginParams javacPluginParams) {
-    ResolvedJavacOptions.JavacPluginParams.Builder builder =
-        ResolvedJavacOptions.JavacPluginParams.newBuilder();
-    for (String param : javacPluginParams.getParameters()) {
-      builder.addParameters(param);
-    }
-    for (ResolvedJavacPluginProperties pluginProperties : javacPluginParams.getPluginProperties()) {
-      builder.addPluginProperties(
-          ResolvedJavacPluginPropertiesSerializer.serialize(pluginProperties));
-    }
-
-    return builder.build();
-  }
-
-  /**
    * Deserializes javacd model's {@link ResolvedJavacOptions.JavacPluginParams } into {@link
    * JavacPluginParams}.
    */

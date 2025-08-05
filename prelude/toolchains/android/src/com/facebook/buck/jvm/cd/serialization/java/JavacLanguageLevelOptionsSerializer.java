@@ -19,18 +19,6 @@ class JavacLanguageLevelOptionsSerializer {
   private JavacLanguageLevelOptionsSerializer() {}
 
   /**
-   * Serializes {@link JavacLanguageLevelOptions} into javacd model's {@link
-   * ResolvedJavacOptions.JavacLanguageLevelOptions}.
-   */
-  public static ResolvedJavacOptions.JavacLanguageLevelOptions serialize(
-      JavacLanguageLevelOptions javacLanguageLevelOptions) {
-    return ResolvedJavacOptions.JavacLanguageLevelOptions.newBuilder()
-        .setSourceLevel(javacLanguageLevelOptions.getSourceLevelValue().getVersion())
-        .setTargetLevel(javacLanguageLevelOptions.getTargetLevelValue().getVersion())
-        .build();
-  }
-
-  /**
    * Deserializes javacd model's {@link ResolvedJavacOptions.JavacLanguageLevelOptions} into {@link
    * JavacLanguageLevelOptions}.
    */

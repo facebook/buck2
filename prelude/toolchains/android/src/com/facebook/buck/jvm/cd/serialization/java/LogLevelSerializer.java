@@ -19,11 +19,6 @@ class LogLevelSerializer {
 
   private LogLevelSerializer() {}
 
-  /** Serializes {@link Level} into javacd model's {@link JarParameters.LogLevel}. */
-  public static JarParameters.LogLevel serialize(Level level) {
-    return com.facebook.buck.cd.model.java.JarParameters.LogLevel.valueOf(level.getName());
-  }
-
   /** Deserializes javacd model's {@link JarParameters.LogLevel} into {@link Level}. */
   public static Level deserialize(JarParameters.LogLevel level) {
     switch (level) {

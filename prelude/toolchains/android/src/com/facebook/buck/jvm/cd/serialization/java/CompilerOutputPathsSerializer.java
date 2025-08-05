@@ -22,32 +22,6 @@ public class CompilerOutputPathsSerializer {
   private CompilerOutputPathsSerializer() {}
 
   /**
-   * Serializes {@link CompilerOutputPaths} into javacd model's {@link
-   * OutputPathsValue.OutputPaths}.
-   */
-  public static OutputPathsValue.OutputPaths serialize(CompilerOutputPaths compilerOutputPaths) {
-    OutputPathsValue.OutputPaths.Builder builder = OutputPathsValue.OutputPaths.newBuilder();
-    builder.setClassesDir(toRelPath(compilerOutputPaths.getClassesDir()));
-    builder.setOutputJarDirPath(toRelPath(compilerOutputPaths.getOutputJarDirPath()));
-    compilerOutputPaths
-        .getAbiJarPath()
-        .map(RelPathSerializer::serialize)
-        .ifPresent(builder::setAbiJarPath);
-    builder.setAnnotationPath(toRelPath(compilerOutputPaths.getAnnotationPath()));
-    builder.setPathToSourcesList(toRelPath(compilerOutputPaths.getPathToSourcesList()));
-    builder.setWorkingDirectory(toRelPath(compilerOutputPaths.getWorkingDirectory()));
-    compilerOutputPaths
-        .getOutputJarPath()
-        .map(RelPathSerializer::serialize)
-        .ifPresent(builder::setOutputJarPath);
-    return builder.build();
-  }
-
-  private static String toRelPath(RelPath relPath) {
-    return RelPathSerializer.serialize(relPath);
-  }
-
-  /**
    * Deserializes javacd model's {@link OutputPathsValue.OutputPaths} into {@link
    * CompilerOutputPaths}.
    */

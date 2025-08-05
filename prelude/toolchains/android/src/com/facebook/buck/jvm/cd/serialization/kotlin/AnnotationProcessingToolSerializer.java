@@ -25,20 +25,6 @@ public class AnnotationProcessingToolSerializer {
 
   private AnnotationProcessingToolSerializer() {}
 
-  /** Internal buck representation to protocol buffer model */
-  public static com.facebook.buck.cd.model.kotlin.AnnotationProcessingTool serialize(
-      AnnotationProcessingTool annotationProcessingTool) {
-    switch (annotationProcessingTool) {
-      case KAPT:
-        return com.facebook.buck.cd.model.kotlin.AnnotationProcessingTool.KAPT;
-      case JAVAC:
-        return com.facebook.buck.cd.model.kotlin.AnnotationProcessingTool.JAVAC;
-      default:
-        throw new IllegalArgumentException(
-            "Unrecognised annotation processing tool: " + annotationProcessingTool);
-    }
-  }
-
   /** Protocol buffer model to internal buck representation. */
   public static AnnotationProcessingTool deserialize(
       com.facebook.buck.cd.model.kotlin.AnnotationProcessingTool annotationProcessingTool) {

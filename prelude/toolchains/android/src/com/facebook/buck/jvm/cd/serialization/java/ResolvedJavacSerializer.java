@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.cd.serialization.java;
 import com.facebook.buck.jvm.cd.serialization.SerializationUtil;
 import com.facebook.buck.jvm.java.ExternalJavac;
 import com.facebook.buck.jvm.java.JdkProvidedInMemoryJavac;
-import com.facebook.buck.jvm.java.Jsr199Javac;
 import com.facebook.buck.jvm.java.ResolvedJavac;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ProtocolStringList;
@@ -22,43 +21,6 @@ import com.google.protobuf.ProtocolStringList;
 public class ResolvedJavacSerializer {
 
   private ResolvedJavacSerializer() {}
-
-  /**
-   * Serializes {@link ResolvedJavac} into javacd model's {@link
-   * com.facebook.buck.cd.model.java.ResolvedJavac}.
-   */
-  public static com.facebook.buck.cd.model.java.ResolvedJavac serialize(ResolvedJavac javac) {
-    var builder = com.facebook.buck.cd.model.java.ResolvedJavac.newBuilder();
-
-    boolean done = false;
-
-    if (javac instanceof ExternalJavac.ResolvedExternalJavac) {
-      var externalJavac = (ExternalJavac.ResolvedExternalJavac) javac;
-      var externalJavacBuilder =
-          com.facebook.buck.cd.model.java.ResolvedJavac.ExternalJavac.newBuilder();
-
-      externalJavacBuilder.setShortName(externalJavac.getShortName());
-      for (String item : externalJavac.getCommandPrefix()) {
-        externalJavacBuilder.addCommandPrefix(item);
-      }
-
-      builder.setExternalJavac(externalJavacBuilder.build());
-      done = true;
-    }
-
-    if (!done && javac instanceof Jsr199Javac.ResolvedJsr199Javac) {
-      builder.setJsr199Javac(
-          com.facebook.buck.cd.model.java.ResolvedJavac.JSR199Javac.getDefaultInstance());
-      done = true;
-    }
-
-    if (!done) {
-      throw new IllegalStateException(
-          javac.getClass().getSimpleName() + " type is not implemented!");
-    }
-
-    return builder.build();
-  }
 
   /**
    * Deserializes javacd model's {@link com.facebook.buck.cd.model.java.ResolvedJavac} into {@link

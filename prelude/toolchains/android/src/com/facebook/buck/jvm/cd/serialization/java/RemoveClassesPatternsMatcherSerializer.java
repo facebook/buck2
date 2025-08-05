@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.cd.serialization.java;
 
 import com.facebook.buck.cd.model.java.JarParameters;
 import com.facebook.buck.jvm.java.RemoveClassesPatternsMatcher;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.regex.Pattern;
 
@@ -20,21 +19,6 @@ import java.util.regex.Pattern;
 class RemoveClassesPatternsMatcherSerializer {
 
   private RemoveClassesPatternsMatcherSerializer() {}
-
-  /**
-   * Serializes {@link RemoveClassesPatternsMatcher} into javacd model's {@link
-   * JarParameters.RemoveClassesPatternsMatcher}.
-   */
-  public static JarParameters.RemoveClassesPatternsMatcher serialize(
-      RemoveClassesPatternsMatcher removeClassesPatternsMatcher) {
-    ImmutableList<Pattern> patterns = removeClassesPatternsMatcher.getPatterns();
-    com.facebook.buck.cd.model.java.JarParameters.RemoveClassesPatternsMatcher.Builder builder =
-        com.facebook.buck.cd.model.java.JarParameters.RemoveClassesPatternsMatcher.newBuilder();
-    for (Pattern pattern : patterns) {
-      builder.addPatterns(pattern.pattern());
-    }
-    return builder.build();
-  }
 
   /**
    * Deserializes javacd model's {@link JarParameters.RemoveClassesPatternsMatcher} into {@link

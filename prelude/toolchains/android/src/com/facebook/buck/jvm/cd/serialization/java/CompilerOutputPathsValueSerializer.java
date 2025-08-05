@@ -21,20 +21,6 @@ public class CompilerOutputPathsValueSerializer {
 
   private CompilerOutputPathsValueSerializer() {}
 
-  /** Serializes {@link CompilerOutputPathsValue} into javacd model's {@link OutputPathsValue}. */
-  public static OutputPathsValue serialize(CompilerOutputPathsValue value) {
-    OutputPathsValue.Builder builder = OutputPathsValue.newBuilder();
-    builder.setLibraryPaths(toOutputPaths(value.getLibraryCompilerOutputPath()));
-    builder.setSourceAbiPaths(toOutputPaths(value.getSourceAbiCompilerOutputPath()));
-    builder.setSourceOnlyAbiPaths(toOutputPaths(value.getSourceOnlyAbiCompilerOutputPath()));
-    builder.setLibraryTargetFullyQualifiedName(value.getLibraryTargetFullyQualifiedName());
-    return builder.build();
-  }
-
-  private static OutputPathsValue.OutputPaths toOutputPaths(CompilerOutputPaths outputPaths) {
-    return CompilerOutputPathsSerializer.serialize(outputPaths);
-  }
-
   /** Deserializes javacd model's {@link OutputPathsValue} into {@link CompilerOutputPathsValue}. */
   public static CompilerOutputPathsValue deserialize(OutputPathsValue outputPathsValue) {
     return deserialize(outputPathsValue, Optional.empty());

@@ -30,28 +30,6 @@ public class ActionMetadataSerializer {
 
   private ActionMetadataSerializer() {}
 
-  /** Internal buck representation to protocol buffer model */
-  public static com.facebook.buck.cd.model.kotlin.ActionMetadata serialize(
-      ActionMetadata actionMetadata) {
-    com.facebook.buck.cd.model.kotlin.ActionMetadata.Builder actionMetadataBuilder =
-        com.facebook.buck.cd.model.kotlin.ActionMetadata.newBuilder();
-
-    actionMetadataBuilder.setCurrentMetadata(serialize(actionMetadata.getCurrentDigest()));
-    actionMetadataBuilder.setPreviousMetadata(serialize(actionMetadata.getPreviousDigest()));
-
-    return actionMetadataBuilder.build();
-  }
-
-  private static com.facebook.buck.cd.model.kotlin.Metadata serialize(Map<Path, String> digests) {
-    com.facebook.buck.cd.model.kotlin.Metadata.Builder metadataBuilder =
-        com.facebook.buck.cd.model.kotlin.Metadata.newBuilder();
-
-    metadataBuilder.addAllDigests(
-        digests.entrySet().stream().map(DigestSerializer::serialize).collect(Collectors.toList()));
-
-    return metadataBuilder.build();
-  }
-
   /** Protocol buffer model to internal buck representation. */
   public static ActionMetadata deserialize(
       Path incrementalMetadataFilePath,

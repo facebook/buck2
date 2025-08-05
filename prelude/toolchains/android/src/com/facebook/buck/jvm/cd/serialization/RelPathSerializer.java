@@ -63,11 +63,6 @@ public class RelPathSerializer {
         .collect(ImmutableList.toImmutableList());
   }
 
-  /** Serializes {@link RelPath} into javacd model */
-  public static String serialize(RelPath relPath) {
-    return relPath.toString();
-  }
-
   /** Deserializes javacd model into {@link RelPath}. */
   public static RelPath deserialize(String relPath) {
     return RelPath.get(relPath);

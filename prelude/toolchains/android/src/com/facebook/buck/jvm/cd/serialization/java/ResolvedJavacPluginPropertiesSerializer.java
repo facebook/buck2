@@ -25,34 +25,6 @@ class ResolvedJavacPluginPropertiesSerializer {
   private ResolvedJavacPluginPropertiesSerializer() {}
 
   /**
-   * Serializes {@link ResolvedJavacPluginProperties} into javacd model's {@link
-   * ResolvedJavacOptions.ResolvedJavacPluginProperties}.
-   */
-  public static ResolvedJavacOptions.ResolvedJavacPluginProperties serialize(
-      ResolvedJavacPluginProperties pluginProperties) {
-    ResolvedJavacOptions.ResolvedJavacPluginProperties.Builder builder =
-        ResolvedJavacOptions.ResolvedJavacPluginProperties.newBuilder();
-
-    builder.setCanReuseClassLoader(pluginProperties.getCanReuseClassLoader());
-    builder.setDoesNotAffectAbi(pluginProperties.getDoesNotAffectAbi());
-    builder.setSupportsAbiGenerationFromSource(
-        pluginProperties.getSupportAbiGenerationFromSource());
-    builder.setRunsOnJavaOnly(pluginProperties.getRunsOnJavaOnly());
-    for (String processorName : pluginProperties.getProcessorNames()) {
-      builder.addProcessorNames(processorName);
-    }
-    for (RelPath classpath : pluginProperties.getClasspath()) {
-      builder.addClasspath(RelPathSerializer.serialize(classpath));
-    }
-
-    pluginProperties
-        .getPathParams()
-        .forEach((key, value) -> builder.putPathParams(key, RelPathSerializer.serialize(value)));
-
-    return builder.build();
-  }
-
-  /**
    * Deserializes javacd model's {@link ResolvedJavacOptions.ResolvedJavacPluginProperties} into
    * {@link ResolvedJavacPluginProperties}.
    */

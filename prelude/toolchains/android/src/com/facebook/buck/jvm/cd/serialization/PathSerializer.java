@@ -18,11 +18,6 @@ public class PathSerializer {
 
   private PathSerializer() {}
 
-  /** Serializes {@link Path} into javacd model */
-  public static String serialize(Path path) {
-    return path.toString();
-  }
-
   /** Deserializes javacd model into {@link Path}. */
   public static Path deserialize(String path) {
     return Paths.get(path);

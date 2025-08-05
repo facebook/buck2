@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.cd.serialization.kotlin;
 
-import com.facebook.buck.cd.model.kotlin.PluginParams;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.cd.serialization.AbsPathSerializer;
@@ -34,78 +33,6 @@ import java.util.Optional;
 public class KotlinExtraParamsSerializer {
 
   private KotlinExtraParamsSerializer() {}
-
-  /** Internal buck representation to protocol buffer model */
-  public static com.facebook.buck.cd.model.kotlin.KotlinExtraParams serialize(
-      KotlinExtraParams kotlinExtraParams) {
-    com.facebook.buck.cd.model.kotlin.KotlinExtraParams.Builder builder =
-        com.facebook.buck.cd.model.kotlin.KotlinExtraParams.newBuilder();
-
-    builder.setStandardLibraryClassPath(
-        AbsPathSerializer.serialize(kotlinExtraParams.getStandardLibraryClassPath()));
-    builder.setAnnotationProcessingClassPath(
-        AbsPathSerializer.serialize(kotlinExtraParams.getAnnotationProcessingClassPath()));
-
-    kotlinExtraParams.getExtraClassPaths().stream()
-        .map(AbsPathSerializer::serialize)
-        .forEach(builder::addExtraClassPaths);
-
-    kotlinExtraParams.getExtraClassPathSnapshots().stream()
-        .map(AbsPathSerializer::serialize)
-        .forEach(builder::addExtraClassPathSnapshots);
-
-    builder.setAnnotationProcessingTool(
-        AnnotationProcessingToolSerializer.serialize(
-            kotlinExtraParams.getAnnotationProcessingTool()));
-    builder.addAllExtraKotlincArguments(kotlinExtraParams.getExtraKotlincArguments());
-
-    kotlinExtraParams.getKotlinCompilerPlugins().entrySet().stream()
-        .forEach(
-            entry ->
-                builder.putKotlinCompilerPlugins(
-                    entry.getKey().toString(),
-                    PluginParams.newBuilder().putAllParams(entry.getValue()).build()));
-
-    kotlinExtraParams.getKosabiPluginOptions().entrySet().stream()
-        .forEach(
-            entry ->
-                builder.putKosabiPluginOptions(
-                    entry.getKey(), AbsPathSerializer.serialize(entry.getValue())));
-    kotlinExtraParams
-        .getKosabiJvmAbiGenEarlyTerminationMessagePrefix()
-        .ifPresent(builder::setKosabiJvmAbiGenEarlyTerminationMessagePrefix);
-
-    kotlinExtraParams.getFriendPaths().stream()
-        .map(AbsPathSerializer::serialize)
-        .forEach(builder::addFriendPaths);
-
-    kotlinExtraParams.getKotlinHomeLibraries().stream()
-        .map(AbsPathSerializer::serialize)
-        .forEach(builder::addKotlinHomeLibraries);
-
-    kotlinExtraParams.getJvmTarget().ifPresent(builder::setJvmTarget);
-
-    builder.setShouldVerifySourceOnlyAbiConstraints(
-        kotlinExtraParams.getShouldVerifySourceOnlyAbiConstraints());
-    builder.setShouldUseJvmAbiGen(kotlinExtraParams.getShouldUseJvmAbiGen());
-    builder.setShouldUseStandaloneKosabi(kotlinExtraParams.getShouldUseStandaloneKosabi());
-    kotlinExtraParams
-        .getJvmAbiGenPlugin()
-        .map(AbsPathSerializer::serialize)
-        .ifPresent(builder::setJvmAbiGenPlugin);
-    builder.setShouldKotlincRunIncrementally(kotlinExtraParams.getShouldKotlincRunIncrementally());
-    kotlinExtraParams
-        .getIncrementalStateDir()
-        .map(AbsPathSerializer::serialize)
-        .ifPresent(builder::setIncrementalStateDir);
-    kotlinExtraParams
-        .getDepTrackerPlugin()
-        .map(AbsPathSerializer::serialize)
-        .ifPresent(builder::setDepTrackerPlugin);
-    builder.setLanguageVersion(kotlinExtraParams.getLanguageVersion().getValue());
-    builder.setShouldKsp2RunIncrementally(kotlinExtraParams.getShouldKsp2RunIncrementally());
-    return builder.build();
-  }
 
   /** Protocol buffer model to internal buck representation. */
   public static KotlinExtraParams deserialize(
