@@ -130,7 +130,7 @@ pub(crate) async fn targets_batch(
     formatter.begin(&mut buffer);
     let mut stats = Stats::default();
     let mut needs_separator = false;
-    for (package, result) in results.iter() {
+    for (package_with_modifiers, result) in results.iter() {
         match result {
             Ok(res) => {
                 stats.success += 1;
@@ -163,7 +163,12 @@ pub(crate) async fn targets_batch(
                     formatter.separator(&mut buffer);
                 }
                 needs_separator = true;
-                formatter.package_error(package.dupe(), e, &mut buffer, &mut stderr);
+                formatter.package_error(
+                    package_with_modifiers.package.dupe(),
+                    e,
+                    &mut buffer,
+                    &mut stderr,
+                );
 
                 server_ctx.stderr()?.write_all(stderr.as_bytes())?;
 

@@ -24,7 +24,7 @@ use buck2_common::file_ops::metadata::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
-use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_futures::spawn::DropcancelJoinHandle;
@@ -196,7 +196,10 @@ pub(crate) trait TargetHashingTargetNode: QueryTarget {
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
         dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        )>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> buck2_error::Result<TargetSet<Self>>;
 }
@@ -209,7 +212,10 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
     async fn get_target_nodes(
         dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        )>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> buck2_error::Result<TargetSet<Self>> {
         Ok(get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await?)
@@ -224,11 +230,14 @@ impl TargetHashingTargetNode for TargetNode {
 
     async fn get_target_nodes(
         _dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        )>,
         _global_cfg_options: &GlobalCfgOptions,
     ) -> buck2_error::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
-        for (_package, result) in loaded_targets {
+        for (_package_with_modifiers, result) in loaded_targets {
             target_set.extend(result?);
         }
         Ok(target_set)
@@ -418,7 +427,10 @@ impl TargetHashes {
     pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         mut dice: DiceTransaction,
         lookup: L,
-        targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
+        targets: Vec<(
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        )>,
         global_cfg_options: &GlobalCfgOptions,
         file_hash_mode: TargetHashesFileMode,
         use_fast_hash: bool,

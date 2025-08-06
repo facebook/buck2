@@ -16,6 +16,7 @@ use buck2_common::file_ops::trait_::DiceFileOps;
 use buck2_common::pattern::package_roots::collect_package_roots;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::PatternType;
@@ -117,7 +118,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 }
 
 pub struct LoadedPatterns<T: PatternType> {
-    results: BTreeMap<PackageLabel, buck2_error::Result<PackageLoadedPatterns<T>>>,
+    results: BTreeMap<PackageLabelWithModifiers, buck2_error::Result<PackageLoadedPatterns<T>>>,
 }
 
 pub struct PackageLoadedPatterns<T: PatternType> {
@@ -159,7 +160,12 @@ impl<T: PatternType> IntoIterator for PackageLoadedPatterns<T> {
 impl<T: PatternType> LoadedPatterns<T> {
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, &buck2_error::Result<PackageLoadedPatterns<T>>)> {
+    ) -> impl Iterator<
+        Item = (
+            PackageLabelWithModifiers,
+            &buck2_error::Result<PackageLoadedPatterns<T>>,
+        ),
+    > {
         self.results.iter().map(|(k, v)| (k.dupe(), v))
     }
 
@@ -167,7 +173,12 @@ impl<T: PatternType> LoadedPatterns<T> {
     #[allow(clippy::should_implement_trait)]
     pub fn into_iter(
         self,
-    ) -> impl Iterator<Item = (PackageLabel, buck2_error::Result<PackageLoadedPatterns<T>>)> {
+    ) -> impl Iterator<
+        Item = (
+            PackageLabelWithModifiers,
+            buck2_error::Result<PackageLoadedPatterns<T>>,
+        ),
+    > {
         self.results.into_iter()
     }
 
@@ -185,7 +196,12 @@ impl<T: PatternType> LoadedPatterns<T> {
 
     pub fn iter_loaded_targets_by_package(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)> + '_ {
+    ) -> impl Iterator<
+        Item = (
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        ),
+    > + '_ {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()
@@ -244,7 +260,7 @@ fn apply_spec<T: PatternType>(
                 };
 
                 all_targets.insert(
-                    package_with_modifiers.package,
+                    package_with_modifiers,
                     Ok(PackageLoadedPatterns {
                         targets: label_to_node,
                         super_package: res.super_package().dupe(),
@@ -252,7 +268,7 @@ fn apply_spec<T: PatternType>(
                 );
             }
             Err(e) => {
-                all_targets.insert(package_with_modifiers.package, Err(e.dupe()));
+                all_targets.insert(package_with_modifiers, Err(e.dupe()));
             }
         }
     }

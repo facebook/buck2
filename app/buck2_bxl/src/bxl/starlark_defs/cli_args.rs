@@ -773,14 +773,15 @@ impl CliArgType {
                     Some(CliArgValue::List(
                         loaded
                             .into_iter()
-                            .flat_map(|(pkg, result)| match result {
+                            .flat_map(|(package_with_modifiers, result)| match result {
                                 Ok(res) => res
                                     .keys()
                                     .map(|(target, pattern)| {
                                         Ok(CliArgValue::ProvidersLabel(
-                                            pattern
-                                                .to_owned()
-                                                .into_providers_label(pkg.dupe(), target.as_ref()),
+                                            pattern.to_owned().into_providers_label(
+                                                package_with_modifiers.package.dupe(),
+                                                target.as_ref(),
+                                            ),
                                         ))
                                     })
                                     .collect::<Vec<_>>(),

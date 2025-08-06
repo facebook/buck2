@@ -11,7 +11,8 @@
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
-use buck2_core::package::PackageLabel;
+use buck2_core::package::PackageLabelWithModifiers;
+use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -28,7 +29,6 @@ use buck2_util::future::try_join_all;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::VecExt;
 use starlark_map::small_set::SmallSet;
 
 // Returns a tuple of compatible and incompatible targets.
@@ -63,28 +63,48 @@ pub async fn get_maybe_compatible_targets<'a, T>(
     impl Iterator<Item = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>> + use<T>,
 >
 where
-    T: IntoIterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
+    T: IntoIterator<
+        Item = (
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        ),
+    >,
 {
     let mut by_package_fns: Vec<_> = Vec::new();
 
-    for (_package, result) in loaded_targets {
+    for (package_with_modifiers, result) in loaded_targets {
         match result {
             Ok(targets) => {
-                by_package_fns.extend({
-                    let target_fns: Vec<_> = targets.into_map(|target| {
-                        DiceComputations::declare_closure(|ctx| {
-                            async move {
-                                let target = ctx
-                                    .get_configured_target(target.label(), global_cfg_options)
-                                    .await?;
-                                buck2_error::Ok(ctx.get_configured_target_node(&target).await?)
-                            }
-                            .boxed()
-                        })
-                    });
+                let local_cfg_options = match package_with_modifiers.modifiers.as_slice() {
+                    Some(modifiers) => {
+                        if !global_cfg_options.cli_modifiers.is_empty() {
+                            return Err(buck2_error::Error::from(
+                                ModifiersError::PatternModifiersWithGlobalModifiers,
+                            ));
+                        }
 
-                    target_fns
+                        GlobalCfgOptions {
+                            target_platform: global_cfg_options.target_platform.dupe(),
+                            cli_modifiers: modifiers.to_vec().into(),
+                        }
+                    }
+                    None => global_cfg_options.dupe(),
+                };
+
+                let target_fns = targets.into_iter().map(|target| {
+                    let duped_cfg_options = local_cfg_options.dupe();
+                    DiceComputations::declare_closure(|ctx| {
+                        async move {
+                            let target = ctx
+                                .get_configured_target(target.label(), &duped_cfg_options)
+                                .await?;
+                            buck2_error::Ok(ctx.get_configured_target_node(&target).await?)
+                        }
+                        .boxed()
+                    })
                 });
+
+                by_package_fns.extend(target_fns);
             }
             Err(e) => {
                 // TODO(@wendyy) - log the error
@@ -103,7 +123,12 @@ where
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &mut DiceComputations<'_>,
-    loaded_targets: impl IntoIterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
+    loaded_targets: impl IntoIterator<
+        Item = (
+            PackageLabelWithModifiers,
+            buck2_error::Result<Vec<TargetNode>>,
+        ),
+    >,
     global_cfg_options: &GlobalCfgOptions,
 ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let maybe_compatible_targets =
