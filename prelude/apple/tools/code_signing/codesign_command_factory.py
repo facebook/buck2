@@ -101,7 +101,7 @@ class ManifestCodesignCommandFactory(ICodesignCommandFactory):
         valid_invocations = list(filter(lambda x: x is not None, all_invocations))
         return {
             "version": 1,
-            "bundle": str(base_path),
+            "bundle_name": base_path.name,
             "invocations": valid_invocations,
         }
 
