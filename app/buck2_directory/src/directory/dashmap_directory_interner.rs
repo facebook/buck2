@@ -13,7 +13,6 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::directory_digest::InternableDirectoryDigest;
 use buck2_util::hash::BuckHasherBuilder;
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
@@ -35,7 +34,7 @@ where
 
 impl<L, H> DashMapDirectoryInterner<L, H>
 where
-    H: InternableDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn new() -> Self {
         Self {
@@ -94,16 +93,7 @@ where
 
         SharedDirectory { inner: new_inner }
     }
-}
 
-impl<L, H> DashMapDirectoryInterner<L, H>
-where
-    // Note: We "should" require `H: InternableDirectoryDigest` here; however, we can't do that
-    // because `Drop` impls having to be always-applicable would force us to require `H:
-    // InternableDirectoryDigest` on `ImmutableDirectory`. This should still be ok though, because
-    // you can't create a `SharedDirectory` for which that trait bound is not met.
-    H: DirectoryDigest,
-{
     /// Notify the interner that an entry has been removed.
     pub fn dropped(&self, data: &SharedDirectoryData<L, H>) {
         // Note: we still check the count here, since you could hypothetically have a race where

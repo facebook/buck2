@@ -774,11 +774,6 @@ impl<Kind: CasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
 
 impl<Kind: CasDigestKind> buck2_core::directory_digest::DirectoryDigest for TrackedCasDigest<Kind> {}
 
-impl<Kind: CasDigestKind> buck2_core::directory_digest::InternableDirectoryDigest
-    for TrackedCasDigest<Kind>
-{
-}
-
 impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
     pub fn new(data: CasDigest<Kind>, config: CasDigestConfig) -> Self
     where

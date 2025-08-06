@@ -10,7 +10,6 @@
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::directory_digest::InternableDirectoryDigest;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
@@ -39,7 +38,7 @@ where
 
 impl<L, H> ExclusiveDirectory<L, H>
 where
-    H: InternableDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
         if let Some(shared) = interner.get(self.fingerprint()) {
@@ -65,12 +64,7 @@ where
 
         interner.intern(new_data)
     }
-}
 
-impl<L, H> ExclusiveDirectory<L, H>
-where
-    H: DirectoryDigest,
-{
     pub fn collect_entries<C>(self) -> C
     where
         C: FromIterator<(FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)>,

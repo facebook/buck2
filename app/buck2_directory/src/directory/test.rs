@@ -17,7 +17,6 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use assert_matches::assert_matches;
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::directory_digest::InternableDirectoryDigest;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -51,11 +50,9 @@ pub struct NopEntry;
 pub struct TestHasher;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Display)]
-struct TestDigest(u64);
+pub(crate) struct TestDigest(u64);
 
 impl DirectoryDigest for TestDigest {}
-
-impl InternableDirectoryDigest for TestDigest {}
 
 impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest

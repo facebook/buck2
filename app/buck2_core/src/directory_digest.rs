@@ -19,9 +19,3 @@ pub trait DirectoryDigest:
     Allocative + PartialEq + Eq + Hash + Clone + Dupe + Debug + Display
 {
 }
-
-/// Indicates that this type of digest is suitable for use for interning.
-///
-/// Specifically, this is not implemented for `NoDigest`, as that returns the same `()` digest for
-/// all directories.
-pub trait InternableDirectoryDigest: DirectoryDigest {}

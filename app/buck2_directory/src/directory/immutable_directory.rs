@@ -10,7 +10,6 @@
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::directory_digest::InternableDirectoryDigest;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
@@ -37,7 +36,7 @@ where
 
 impl<L, H> ImmutableDirectory<L, H>
 where
-    H: InternableDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
         match self {
@@ -45,12 +44,7 @@ where
             Self::Shared(dir) => dir,
         }
     }
-}
 
-impl<L, H> ImmutableDirectory<L, H>
-where
-    H: DirectoryDigest,
-{
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
         match self {
             Self::Exclusive(d) => d.into_builder(),
