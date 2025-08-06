@@ -1,5 +1,6 @@
 load(
     ":defs.bzl",
+    "argsfile_with_incorrectly_declared_output",
     "cas_artifact_with_content_based_path",
     "copied_dir",
     "copy",
@@ -157,6 +158,10 @@ uses_relative_to(
 
 sets_inconsistent_params(
     name = "sets_inconsistent_params",
+)
+
+argsfile_with_incorrectly_declared_output(
+    name = "argsfile_with_incorrectly_declared_output",
 )
 
 platform(

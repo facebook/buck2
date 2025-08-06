@@ -461,3 +461,27 @@ sets_inconsistent_params = rule(
     impl = _sets_inconsistent_params_impl,
     attrs = {},
 )
+
+def _argsfile_with_incorrectly_declared_output_impl(ctx):
+    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import sys",
+            cmd_args(out, format = "with open('{}', 'w') as f:"),
+            "  f.write('blah')",
+        ],
+    )
+
+    args = cmd_args(["fbpython", script], hidden = [out.as_output()])
+
+    ctx.actions.run(args, category = "test_run")
+
+    return [DefaultInfo(default_output = out), RunInfo(args = [out])]
+
+argsfile_with_incorrectly_declared_output = rule(
+    impl = _argsfile_with_incorrectly_declared_output_impl,
+    attrs = {
+    },
+)
