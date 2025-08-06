@@ -26,3 +26,60 @@ get_package_path = bxl_main(
     impl = _get_package_path,
     cli_args = {},
 )
+
+def _read_package_value_impl(ctx):
+    # Get an unconfigured target node
+    node = ctx.unconfigured_targets("root//:dummy")
+    pkg_path = node.label.package_path
+
+    # Read package values using the package path from node
+    value = bxl.read_package_value(pkg_path, "test.key")
+    asserts.equals(value, "root_value")
+
+    dict_value = bxl.read_package_value(pkg_path, "test.dict")
+    asserts.equals(dict_value["name"], "root_dict")
+    asserts.equals(dict_value["value"], 42)
+
+read_package_value = bxl_main(
+    impl = _read_package_value_impl,
+    cli_args = {},
+)
+
+def _read_package_value_from_string_impl(_ctx):
+    # Read package values using a package string
+    value = bxl.read_package_value("root//sub_dir", "test.key")
+    asserts.equals(value, "inner_value")
+
+    dict_value = bxl.read_package_value("root//sub_dir", "test.dict")
+    asserts.equals(dict_value["name"], "inner_dict")
+    asserts.equals(dict_value["value"], 100)
+
+    val = bxl.read_package_value("root//sub_dir", "test.sub_dir")
+    asserts.equals(val, "value")
+
+read_package_value_from_string = bxl_main(
+    impl = _read_package_value_from_string_impl,
+    cli_args = {},
+)
+
+def _read_override_package_value_impl(_ctx):
+    value = bxl.read_package_value("root//", "test.key")
+    asserts.equals(value, "root_value")
+
+    override_value = bxl.read_package_value("root//sub_dir", "test.key")
+    asserts.equals(override_value, "inner_value")
+
+read_override_package_value = bxl_main(
+    impl = _read_override_package_value_impl,
+    cli_args = {},
+)
+
+def _read_package_value_not_found_impl(_ctx):
+    # Read a package value that doesn't exist
+    value = bxl.read_package_value("root//", "test.non_exist_key")
+    asserts.equals(value, None)
+
+read_package_value_not_found = bxl_main(
+    impl = _read_package_value_not_found_impl,
+    cli_args = {},
+)

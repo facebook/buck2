@@ -18,3 +18,23 @@ async def test_get_package_path(buck: Buck) -> None:
     await buck.bxl(
         "//package.bxl:get_package_path",
     )
+
+
+@buck_test()
+async def test_read_package_value(buck: Buck) -> None:
+    await buck.bxl("//package.bxl:read_package_value")
+
+
+@buck_test()
+async def test_read_package_value_from_string(buck: Buck) -> None:
+    await buck.bxl("//package.bxl:read_package_value_from_string")
+
+
+@buck_test()
+async def test_read_override_package_value(buck: Buck) -> None:
+    await buck.bxl("//package.bxl:read_override_package_value")
+
+
+@buck_test()
+async def test_read_package_value_not_found(buck: Buck) -> None:
+    await buck.bxl("//package.bxl:read_package_value_not_found")
