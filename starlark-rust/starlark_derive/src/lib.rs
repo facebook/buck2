@@ -72,7 +72,6 @@ mod vtable;
 ///
 /// * `#[starlark(attribute_type = "foo")]` - if the function has `.type` applied, return this string. Usually used on
 ///   constructor functions so that `ctor.type` can be used in Starlark code.
-/// * `#[starlark(return_type = "foo")]` - the return type of the function used for documention.
 /// * `#[starlark(speculative_exec_safe)]` - the function
 ///   is considered safe to execute speculatively: the function should have
 ///   no global side effects, should not panic, and should finish in reasonable time.
