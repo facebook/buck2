@@ -126,19 +126,19 @@ def _generate_r_dot_java_source_code(
             [android_resource.text_symbols for android_resource in android_resources],
     ))
 
-    output_dir = ctx.actions.declare_output("{}_source_code".format(identifier), dir = True)
+    output_dir = ctx.actions.declare_output("{}_source_code".format(identifier), dir = True, uses_experimental_content_based_path_hashing = True)
     merge_resources_cmd.add(["--output-dir", output_dir.as_output()])
-    output_dir_zipped = ctx.actions.declare_output("{}.src.zip".format(identifier))
+    output_dir_zipped = ctx.actions.declare_output("{}.src.zip".format(identifier), uses_experimental_content_based_path_hashing = True)
     merge_resources_cmd.add(["--output-dir-zipped", output_dir_zipped.as_output()])
 
     if generate_strings_and_ids_separately:
-        strings_output_dir = ctx.actions.declare_output("strings_source_code", dir = True)
+        strings_output_dir = ctx.actions.declare_output("strings_source_code", dir = True, uses_experimental_content_based_path_hashing = True)
         merge_resources_cmd.add(["--strings-output-dir", strings_output_dir.as_output()])
-        strings_output_dir_zipped = ctx.actions.declare_output("strings.src.zip")
+        strings_output_dir_zipped = ctx.actions.declare_output("strings.src.zip", uses_experimental_content_based_path_hashing = True)
         merge_resources_cmd.add(["--strings-output-dir-zipped", strings_output_dir_zipped.as_output()])
-        ids_output_dir = ctx.actions.declare_output("ids_source_code", dir = True)
+        ids_output_dir = ctx.actions.declare_output("ids_source_code", dir = True, uses_experimental_content_based_path_hashing = True)
         merge_resources_cmd.add(["--ids-output-dir", ids_output_dir.as_output()])
-        ids_output_dir_zipped = ctx.actions.declare_output("ids.src.zip")
+        ids_output_dir_zipped = ctx.actions.declare_output("ids.src.zip", uses_experimental_content_based_path_hashing = True)
         merge_resources_cmd.add(["--ids-output-dir-zipped", ids_output_dir_zipped.as_output()])
     else:
         strings_output_dir = None
