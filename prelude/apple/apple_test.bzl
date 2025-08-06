@@ -204,6 +204,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         return [
             DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
+            cxx_library_output.index_store_info,
             cxx_library_output.xcode_data_info,
             cxx_library_output.cxx_compilationdb_info,
         ] + bundle_result.providers + cxx_providers

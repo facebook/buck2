@@ -175,7 +175,7 @@ load(
 )
 load(":diagnostics.bzl", "check_sub_target")
 load(":gcno.bzl", "GcnoFilesInfo")
-load(":index_store.bzl", "create_index_store_subtargets_and_provider")
+load(":index_store.bzl", "IndexStoreInfo", "create_index_store_subtargets_and_provider")
 load(
     ":link.bzl",
     "CxxLinkResult",  # @unused Used as a type
@@ -354,6 +354,9 @@ _CxxLibraryParameterizedOutput = record(
     # XcodeDataInfo provider, returned separately as we cannot check
     # provider type from providers above
     xcode_data_info = field([XcodeDataInfo, None], None),
+    # IndexStoreInfo provider, so we can access the paths of all the index stores
+    # or Swift-specific index stores.
+    index_store_info = field([IndexStoreInfo, None], None),
     # CxxCompilationDbInfo provider, returned separately as we cannot check
     # provider type from providers above
     cxx_compilationdb_info = field([CxxCompilationDbInfo, None], None),
@@ -1049,6 +1052,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         sub_targets = sub_targets,
         bitcode_bundle = bitcode_bundle,
         providers = providers + additional_providers,
+        index_store_info = index_store_info,
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
         linkable_root = linkable_root,
