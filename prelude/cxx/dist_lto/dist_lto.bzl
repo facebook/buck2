@@ -297,18 +297,35 @@ def cxx_gnu_dist_link(
 
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
+    pre_flags_argsfile = ctx.actions.declare_output(output.basename + ".thinlto_pre_flags_argsfile")
+    linkables_argsfile = ctx.actions.declare_output(output.basename + ".thinlto_linkables_argsfile")
+    post_flags_argsfile = ctx.actions.declare_output(output.basename + ".thinlto_post_flags_argsfile")
 
-    def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
+    def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact, pre_flags_argsfile: Artifact, linkables_argsfile: Artifact, post_flags_argsfile: Artifact) -> None:
         def plan(ctx: AnalysisContext, artifacts, outputs):
+            pre_flags = {}
+            linkables = {}
+            post_flags = {}
+
             def get_pre_flags(idx: int) -> list:
                 if idx in pre_post_flags:
                     return [flags.pre_flags for flags in pre_post_flags[idx]]
                 return []
 
+            def add_pre_flags(idx: int) -> None:
+                flags = get_pre_flags(idx)
+                if flags:
+                    pre_flags[idx] = flags
+
             def get_post_flags(idx: int) -> list:
                 if idx in pre_post_flags:
                     return [flags.post_flags for flags in pre_post_flags[idx]]
                 return []
+
+            def add_post_flags(idx: int) -> None:
+                flags = get_post_flags(idx)
+                if flags:
+                    post_flags[idx] = flags
 
             def get_linkables_args(idx: int):
                 if idx in linkables_index:
@@ -318,6 +335,11 @@ def cxx_gnu_dist_link(
                     return object_link_args
                 return []
 
+            def add_linkables_args(idx: int) -> None:
+                args = get_linkables_args(idx)
+                if args:
+                    linkables[idx] = args
+
             # index link command args
             prepend_index_args = cmd_args()
             index_args = cmd_args()
@@ -325,16 +347,12 @@ def cxx_gnu_dist_link(
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
             index_meta = cmd_args()
 
-            pre_flags = {}
-            linkables = {}
-            post_flags = {}
-
             # buildifier: disable=uninitialized
             for idx, artifact in enumerate(index_link_data):
                 index_args.add(get_pre_flags(idx))
-                pre_flags[idx] = get_pre_flags(idx)
+                add_pre_flags(idx)
                 index_args.add(get_linkables_args(idx))
-                linkables[idx] = get_linkables_args(idx)
+                add_linkables_args(idx)
                 if artifact != None:
                     link_data = artifact.link_data
 
@@ -353,20 +371,29 @@ def cxx_gnu_dist_link(
 
                         archive_args = prepend_index_args if link_data.prepend else index_args
 
+                        # LinkInfo[0] contains toolchain link flags, it does not contain any artifacts.
+                        # Appending to the argument list at index 0 is sufficient for link_data.prepend
+                        # because there will be no artifacts that mess up link order for link flags that
+                        # are positional dependent.
+                        archive_args_index = 0 if link_data.prepend else idx
+
                         archive_args.add(cmd_args(hidden = link_data.objects_dir))
 
                         if not link_data.link_whole:
                             archive_args.add("-Wl,--start-lib")
+                            pre_flags.setdefault(archive_args_index, []).append("-Wl,--start-lib")
 
                         for obj in manifest["objects"]:
                             index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
                             archive_args.add(obj)
+                            linkables.setdefault(archive_args_index, []).append(obj)
 
                         if not link_data.link_whole:
                             archive_args.add("-Wl,--end-lib")
+                            post_flags.setdefault(archive_args_index, []).append("-Wl,--end-lib")
 
                 index_args.add(get_post_flags(idx))
-                post_flags[idx] = get_post_flags(idx)
+                add_post_flags(idx)
 
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
@@ -398,6 +425,29 @@ def cxx_gnu_dist_link(
                 index_meta,
             )
 
+            def dict_to_cmd_args(d: dict) -> cmd_args:
+                cmd = cmd_args()
+                for idx in d:
+                    cmd.add("idx: {}".format(idx))
+                    cmd.add(d[idx])
+                return cmd
+
+            ctx.actions.write(
+                outputs[pre_flags_argsfile].as_output(),
+                dict_to_cmd_args(pre_flags),
+                allow_args = True,
+            )
+            ctx.actions.write(
+                outputs[linkables_argsfile].as_output(),
+                dict_to_cmd_args(linkables),
+                allow_args = True,
+            )
+            ctx.actions.write(
+                outputs[post_flags_argsfile].as_output(),
+                dict_to_cmd_args(post_flags),
+                allow_args = True,
+            )
+
             plan_cmd = cmd_args(
                 [
                     lto_planner,
@@ -410,11 +460,11 @@ def cxx_gnu_dist_link(
                     "--final-link-index",
                     outputs[final_link_index].as_output(),
                     "--pre-flags",
-                    str(pre_flags),
+                    pre_flags_argsfile,
                     "--linkables",
-                    str(linkables),
+                    linkables_argsfile,
                     "--post-flags",
-                    str(post_flags),
+                    post_flags_argsfile,
                     "--",
                 ],
             )
@@ -434,11 +484,11 @@ def cxx_gnu_dist_link(
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
         plan_inputs.append(ctx.actions.write(output.basename + ".plan_hack.txt", ""))
-        plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output()])
+        plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output(), pre_flags_argsfile.as_output(), linkables_argsfile.as_output(), post_flags_argsfile.as_output(), post_flags_argsfile.as_output()])
         ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
 
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
-    dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
+    dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index, pre_flags_argsfile = pre_flags_argsfile, linkables_argsfile = linkables_argsfile, post_flags_argsfile = post_flags_argsfile)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
         opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
