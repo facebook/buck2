@@ -124,7 +124,7 @@ enum CellError {
     DuplicateNames(CellName, CellRootPathBuf, CellRootPathBuf),
     #[error("Two cells, `{0}` and `{1}`, share the same path `{2}`")]
     DuplicatePaths(CellName, CellName, CellRootPathBuf),
-    #[error("unknown cell alias: `{0}`. In cell `{1}`, known aliases are: `{}`", .2.iter().join(", "))]
+    #[error("unknown cell alias: `{0}`. In cell `{1}`, known aliases are: `{}`", .2.iter().sorted().join(", "))]
     UnknownCellAlias(CellAlias, CellName, Vec<NonEmptyCellAlias>),
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
     UnknownCellName(CellName, Vec<CellName>),
