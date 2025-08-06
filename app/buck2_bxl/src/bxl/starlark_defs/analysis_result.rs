@@ -73,7 +73,7 @@ impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
 /// The result of running an analysis in bxl.
 #[starlark_module]
 fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
-    /// Access the providers of the rule. Returns a `provider_collection` the same as accessing
+    /// Access the providers of the rule. Returns a `ProviderCollection` the same as accessing
     /// providers of dependencies within a rule implementation.
     ///
     /// Sample usage:
@@ -97,7 +97,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Converts the analysis result into a `dependency`. Currently, you can only get a `dependency` without any
+    /// Converts the analysis result into a `Dependency`. Currently, you can only get a `Dependency` without any
     /// transitions. This means that you cannot create an exec dep or toolchain from an analysis result.
     ///
     /// We may support other dependency transition types in the future.

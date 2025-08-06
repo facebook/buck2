@@ -214,8 +214,8 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///     - a single unconfigured  target node or label
     ///     - a list of the two options above.
     ///
-    /// This returns either a single [`StarlarkTargetNode`] if the given `labels`
-    /// is "singular", a dict keyed by target labels of [`StarlarkTargetNode`] if the
+    /// This returns either a single `UnconfiguredTargetNode` if the given `labels`
+    /// is "singular", a dict keyed by target labels of `UnconfiguredTargetNode` if the
     /// given `labels` is list-like
     fn unconfigured_targets<'v>(
         this: &'v BxlContext<'v>,
@@ -273,7 +273,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Returns the `target_universe` that can lookup valid configured nodes in the universe.
+    /// Returns the `TargetUniverse` that can lookup valid configured nodes in the universe.
     ///
     /// The given `labels` is a target expression, which is either:
     ///     - a single string that is a `target pattern`.
@@ -758,7 +758,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///     }
     ///
     ///     promise = actions.anon_target(my_anon_targets_rule, attrs).promise.map(my_map_function)
-    ///     providers_result = ctx.resolve(actions, promise) # result is `provider_collection` type, which is a collection of `provider`s
+    ///     providers_result = ctx.resolve(actions, promise) # result is `ProviderCollection` type, which is a collection of `Provider`s
     ///     ctx.output.print(providers_result[0].my_field)
     /// ```
     fn resolve<'v>(
