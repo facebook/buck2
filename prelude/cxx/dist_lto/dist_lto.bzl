@@ -300,25 +300,23 @@ def cxx_gnu_dist_link(
 
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
         def plan(ctx: AnalysisContext, artifacts, outputs):
-            # buildifier: disable=uninitialized
-            def add_pre_flags(idx: int):
+            def get_pre_flags(idx: int) -> list:
                 if idx in pre_post_flags:
-                    for flags in pre_post_flags[idx]:
-                        index_args.add(flags.pre_flags)
+                    return [flags.pre_flags for flags in pre_post_flags[idx]]
+                return []
 
-            # buildifier: disable=uninitialized
-            def add_post_flags(idx: int):
+            def get_post_flags(idx: int) -> list:
                 if idx in pre_post_flags:
-                    for flags in pre_post_flags[idx]:
-                        index_args.add(flags.post_flags)
+                    return [flags.post_flags for flags in pre_post_flags[idx]]
+                return []
 
-            # buildifier: disable=uninitialized
-            def add_linkables_args(idx: int):
+            def get_linkables_args(idx: int):
                 if idx in linkables_index:
-                    object_link_arg = cmd_args()
+                    object_link_args = cmd_args()
                     for linkable in linkables_index[idx]:
-                        append_linkable_args(object_link_arg, linkable)
-                    index_args.add(object_link_arg)
+                        append_linkable_args(object_link_args, linkable)
+                    return object_link_args
+                return []
 
             # index link command args
             prepend_index_args = cmd_args()
@@ -329,9 +327,8 @@ def cxx_gnu_dist_link(
 
             # buildifier: disable=uninitialized
             for idx, artifact in enumerate(index_link_data):
-                add_pre_flags(idx)
-                add_linkables_args(idx)
-
+                index_args.add(get_pre_flags(idx))
+                index_args.add(get_linkables_args(idx))
                 if artifact != None:
                     link_data = artifact.link_data
 
@@ -362,7 +359,7 @@ def cxx_gnu_dist_link(
                         if not link_data.link_whole:
                             archive_args.add("-Wl,--end-lib")
 
-                add_post_flags(idx)
+                index_args.add(get_post_flags(idx))
 
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
