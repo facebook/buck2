@@ -19,6 +19,7 @@ use buck2_interpreter::starlark_promise::register_promise;
 use buck2_interpreter::types::cell_path::register_cell_path;
 use buck2_interpreter::types::cell_root::register_cell_root;
 use buck2_interpreter::types::configured_providers_label::register_providers_label;
+use buck2_interpreter::types::package_path::register_package_path;
 use buck2_interpreter::types::project_root::register_project_root;
 use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter::types::target_label::register_target_label;
@@ -76,6 +77,7 @@ pub fn register_load_natives(builder: &mut GlobalsBuilder) {
     register_providers_label(builder);
     register_cell_path(builder);
     register_cell_root(builder);
+    register_package_path(builder);
     register_project_root(builder);
     register_target_label(builder);
     register_path(builder);

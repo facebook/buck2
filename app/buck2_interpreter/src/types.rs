@@ -13,6 +13,7 @@ pub mod cell_root;
 pub mod configuration;
 pub mod configured_providers_label;
 pub mod opaque_metadata;
+pub mod package_path;
 pub mod project_root;
 pub mod provider;
 pub mod regex;
