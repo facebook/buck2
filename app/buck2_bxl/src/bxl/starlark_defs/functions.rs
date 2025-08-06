@@ -12,6 +12,13 @@ use std::time::Instant;
 
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLikeUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::package::PackageLabel;
+use buck2_core::pattern::parse_package::parse_package;
+use buck2_interpreter::types::package_path::StarlarkPackagePath;
+use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
+use buck2_interpreter_for_build::super_package::package_value::SuperPackageValuesImpl;
+use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use dupe::Dupe;
@@ -21,11 +28,13 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::Heap;
 use starlark::values::StringValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::UnpackTuple;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use super::artifacts::visit_artifact_path_without_associated_deduped;
 use super::context::output::get_artifact_path_display;
@@ -250,5 +259,74 @@ pub(crate) fn register_error_handling_function(builder: &mut GlobalsBuilder) {
             }
         }
         Err(BxlErrorWithoutStacktrace(s).into())
+    }
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum PackagePathArg<'v> {
+    PackagePath(&'v StarlarkPackagePath),
+    Str(&'v str),
+}
+
+impl<'v> PackagePathArg<'v> {
+    fn pkg(&self, cell_alias_resolver: &CellAliasResolver) -> buck2_error::Result<PackageLabel> {
+        match self {
+            PackagePathArg::PackagePath(package_path) => Ok(package_path.pkg().dupe()),
+            PackagePathArg::Str(pkg_str) => {
+                // TODO(nero): add support for relative path
+                parse_package(pkg_str, cell_alias_resolver)
+            }
+        }
+    }
+}
+
+#[starlark_module]
+pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder) {
+    /// Read package value from the specified package path.
+    ///
+    /// Returns the value specified in the PACKAGE file for the given package path and key,
+    /// or None if not found.
+    ///
+    /// This function returns the nearest `name` value registered per `PACKAGE` based on the given
+    /// `PackagePath` or str, or None if such value does not exist.
+    ///
+    /// The `package` parameter accepts any of the following:
+    /// - A `PackagePath`
+    /// - A string representing a package path (e.g., "root//some/package")
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_read_package_value(ctx):
+    ///     # Get a unconfigured target from the package we want to read metadata from
+    ///     node = ctx.unconfigured_targets("root//some/package:target")
+    ///     pkg_path = node.label.package_path
+    ///
+    ///     # Read a package value with the given key from the unconfigured target
+    ///     pkg_value1 = bxl.read_package_value(pkg_path, "aaa.bbb")
+    ///
+    ///     pkg_value2 = bxl.read_package_value("root//path/to/pkg", "aaa.ccc")
+    /// ```
+    fn read_package_value<'v>(
+        #[starlark(require = pos)] package_path: PackagePathArg<'v>,
+        #[starlark(require = pos)] key: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Value<'v>> {
+        let metadata_key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
+
+        let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
+
+        let super_package = bxl_eval_extra.via_dice(|dice, core_data| {
+            let package = package_path.pkg(core_data.cell_alias_resolver())?;
+            dice.via(|dice| async { dice.eval_package_file(package).await }.boxed_local())
+        })?;
+
+        // Use this instead of `get_package_value_json()`` to get the native Starlark value directly,
+        // rather than converting the Starlark value to JSON first
+        match SuperPackageValuesImpl::get(&**super_package.package_values())?
+            .get_package_value(metadata_key)
+        {
+            Some(value) => Ok(value.owned_frozen_value().owned_value(eval.frozen_heap())),
+            None => Ok(Value::new_none()),
+        }
     }
 }

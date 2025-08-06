@@ -55,6 +55,10 @@ impl StarlarkPackagePath {
     pub fn new(pkg: PackageLabel) -> Self {
         StarlarkPackagePath { pkg }
     }
+
+    pub fn pkg(&self) -> &PackageLabel {
+        &self.pkg
+    }
 }
 
 #[starlark_value(type = "PackagePath")]

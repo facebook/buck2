@@ -54,13 +54,18 @@ pub struct SuperPackageValuesImpl {
 }
 
 impl SuperPackageValuesImpl {
-    pub(crate) fn get(
-        values: &dyn SuperPackageValues,
-    ) -> buck2_error::Result<&SuperPackageValuesImpl> {
+    pub fn get(values: &dyn SuperPackageValues) -> buck2_error::Result<&SuperPackageValuesImpl> {
         values
             .as_any()
             .downcast_ref::<SuperPackageValuesImpl>()
             .internal_error("Expecting SuperPackageValuesImpl")
+    }
+
+    pub fn get_package_value(
+        &self,
+        key: &MetadataKeyRef,
+    ) -> Option<&OwnedFrozenStarlarkPackageValue> {
+        self.values.get(key)
     }
 
     pub(crate) fn merge(
@@ -120,7 +125,7 @@ pub(crate) struct StarlarkPackageValue<'v>(Value<'v>);
 pub(crate) struct FrozenStarlarkPackageValue(FrozenValue);
 
 #[derive(Debug, Allocative, Clone, Dupe)]
-pub(crate) struct OwnedFrozenStarlarkPackageValue(OwnedFrozenValue);
+pub struct OwnedFrozenStarlarkPackageValue(OwnedFrozenValue);
 
 impl<'v> StarlarkPackageValue<'v> {
     pub(crate) fn new(value: Value<'v>) -> buck2_error::Result<StarlarkPackageValue<'v>> {
@@ -166,7 +171,7 @@ impl OwnedFrozenStarlarkPackageValue {
             .internal_error("Not valid JSON, should have been validated at construction")
     }
 
-    pub(crate) fn owned_frozen_value(&self) -> &OwnedFrozenValue {
+    pub fn owned_frozen_value(&self) -> &OwnedFrozenValue {
         &self.0
     }
 }
