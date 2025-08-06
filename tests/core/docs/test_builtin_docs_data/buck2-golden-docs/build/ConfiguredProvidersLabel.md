@@ -6,6 +6,7 @@
 ## ConfiguredProvidersLabel.configured\_target
 ## ConfiguredProvidersLabel.name
 ## ConfiguredProvidersLabel.package
+## ConfiguredProvidersLabel.package\_path
 ## ConfiguredProvidersLabel.path
 ## ConfiguredProvidersLabel.project\_root
 ## ConfiguredProvidersLabel.raw\_target

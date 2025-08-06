@@ -39,6 +39,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use crate::types::cell_path::StarlarkCellPath;
 use crate::types::cell_root::CellRoot;
+use crate::types::package_path::StarlarkPackagePath;
 use crate::types::project_root::StarlarkProjectRoot;
 use crate::types::target_label::StarlarkConfiguredTargetLabel;
 use crate::types::target_label::StarlarkTargetLabel;
@@ -150,6 +151,14 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn cell<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> starlark::Result<&'v str> {
         Ok(this.label.target().pkg().cell_name().as_str())
+    }
+
+    /// Returns the PackagePath for this configured providers label.
+    #[starlark(attribute)]
+    fn package_path<'v>(
+        this: &StarlarkConfiguredProvidersLabel,
+    ) -> starlark::Result<StarlarkPackagePath> {
+        Ok(StarlarkPackagePath::new(this.label.target().pkg().dupe()))
     }
 
     /// Obtain a reference to this target label's cell root. This can be used as if it were an
@@ -278,6 +287,12 @@ fn label_methods(builder: &mut MethodsBuilder) {
     fn cell<'v>(this: &'v StarlarkProvidersLabel) -> starlark::Result<&'v str> {
         let cell = this.label.target().pkg().cell_name().as_str();
         Ok(cell)
+    }
+
+    /// Returns the PackagePath for this providers label.
+    #[starlark(attribute)]
+    fn package_path<'v>(this: &StarlarkProvidersLabel) -> starlark::Result<StarlarkPackagePath> {
+        Ok(StarlarkPackagePath::new(this.label.target().pkg().dupe()))
     }
 
     /// Returns the unconfigured underlying target label.

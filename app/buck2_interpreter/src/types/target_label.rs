@@ -47,6 +47,7 @@ use crate::types::cell_path::StarlarkCellPath;
 use crate::types::configuration::StarlarkConfiguration;
 use crate::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use crate::types::configured_providers_label::StarlarkProvidersLabel;
+use crate::types::package_path::StarlarkPackagePath;
 
 #[derive(
     Clone,
@@ -130,6 +131,12 @@ fn label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn path<'v>(this: &StarlarkTargetLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.pkg().to_cell_path()))
+    }
+
+    /// Returns the PackagePath for this target label.
+    #[starlark(attribute)]
+    fn package_path<'v>(this: &StarlarkTargetLabel) -> starlark::Result<StarlarkPackagePath> {
+        Ok(StarlarkPackagePath::new(this.label.pkg().dupe()))
     }
 
     /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget names,
@@ -242,6 +249,14 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn path<'v>(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.pkg().to_cell_path()))
+    }
+
+    /// Returns the PackagePath for this configured target label.
+    #[starlark(attribute)]
+    fn package_path<'v>(
+        this: &StarlarkConfiguredTargetLabel,
+    ) -> starlark::Result<StarlarkPackagePath> {
+        Ok(StarlarkPackagePath::new(this.label.pkg().dupe()))
     }
 
     fn config<'v>(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<StarlarkConfiguration> {

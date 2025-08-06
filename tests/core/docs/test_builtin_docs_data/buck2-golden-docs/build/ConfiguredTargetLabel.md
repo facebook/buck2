@@ -5,6 +5,7 @@
 ## ConfiguredTargetLabel.config
 ## ConfiguredTargetLabel.name
 ## ConfiguredTargetLabel.package
+## ConfiguredTargetLabel.package\_path
 ## ConfiguredTargetLabel.path
 ## ConfiguredTargetLabel.raw\_target
 ## ConfiguredTargetLabel.with\_sub\_target

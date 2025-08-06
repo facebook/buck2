@@ -6,6 +6,7 @@
 ## Label.configured\_target
 ## Label.name
 ## Label.package
+## Label.package\_path
 ## Label.path
 ## Label.project\_root
 ## Label.raw\_target
