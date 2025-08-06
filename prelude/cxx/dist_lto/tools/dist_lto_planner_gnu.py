@@ -64,6 +64,33 @@ def _extract_lib_search_path(argsfile_path: str) -> List[str]:
     return lib_search_path
 
 
+def read_argsfile(argsfile_path: str) -> dict:
+    """Example argsfile format:
+
+    idx:0
+    -Wl,-S
+    -pie
+    idx: 1
+    idx: 2
+    -Wl,--push-state
+    -Wl,--no-as-needed
+    idx: 3
+    -Wl,--pop-state
+    """
+    args = {}
+    idx = -1
+    with open(argsfile_path) as argsfile:
+        for line in argsfile:
+            line = line.rstrip()
+            if line.startswith("idx: "):
+                idx = int(line.split(" ")[1])
+            elif idx not in args:
+                args[idx] = [line]
+            else:
+                args[idx].append(line)
+    return {idx: arg for idx, arg in args.items() if arg}
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--meta")
@@ -81,6 +108,21 @@ def main(argv):
     bitcode_suffix = ".thinlto.bc"
     imports_suffix = ".imports"
     opt_objects_suffix = ".opt.o"  # please note the files are not exist yet, this is to generate the index file use in final link
+
+    pre_flags = read_argsfile(args.pre_flags)
+    linkables = read_argsfile(args.linkables)
+    post_flags = read_argsfile(args.post_flags)
+
+    linkables_index = {}
+    # a map of linkables to the (pre_flag, post_flag) indexes
+    for idx, linkable_list in linkables.items():
+        if not linkable_list:
+            continue
+        elif len(linkable_list) == 1:
+            linkables_index[linkable_list[0].strip()] = (idx, idx)
+        else:
+            linkables_index[linkable_list[0].strip()] = (idx, -1)
+            linkables_index[linkable_list[-1].strip()] = (-1, idx)
 
     with open(args.meta) as meta:
         meta_lines = [line.strip() for line in meta.readlines()]
@@ -294,11 +336,43 @@ def main(argv):
         args.final_link_index, "w"
     ) as final_link_index_output:
         final_link_index_output.write("\n".join(lib_search_path) + "\n")
+
+        def write_pre_flags(idx):
+            for flag in pre_flags.pop(idx, []):
+                final_link_index_output.write(flag + "\n")
+
+        def write_post_flags(idx):
+            for flag in post_flags.pop(idx, []):
+                final_link_index_output.write(flag + "\n")
+
         for line in full_index_input:
             line = line.strip()
             if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
                 continue
             path = os.path.relpath(line, start=args.index)
+
+            if path in mapping:
+                pre_flag_idx = post_flag_idx = mapping[path]["index"]
+            else:
+                pre_flag_idx, post_flag_idx = linkables_index.setdefault(line, (-1, -1))
+            min_pre_post_flag_idx = min(
+                min(pre_flags, default=pre_flag_idx),
+                min(post_flags, default=post_flag_idx),
+            )
+
+            # Wrtie pre-post-flags that we've gone past. These are not positional
+            # relative to the linkables, but are relative to each other.
+            while (pre_flag_idx > -1 and min_pre_post_flag_idx < pre_flag_idx) or (
+                post_flag_idx > -1 and min_pre_post_flag_idx < post_flag_idx
+            ):
+                if min_pre_post_flag_idx < pre_flag_idx:
+                    write_pre_flags(min_pre_post_flag_idx)
+                if min_pre_post_flag_idx < post_flag_idx:
+                    write_post_flags(min_pre_post_flag_idx)
+                min_pre_post_flag_idx += 1
+
+            write_pre_flags(pre_flag_idx)
+
             if line in index_files_set:
                 if mapping[path]["output"]:
                     # handle files that were not extracted from archives
@@ -315,9 +389,17 @@ def main(argv):
                 else:
                     # handle pre-built archives
                     final_link_index_output.write(line + "\n")
+
             else:
                 # handle input files that did not come from linker input, e.g. linkerscirpts
                 final_link_index_output.write(line + "\n")
+
+            write_post_flags(post_flag_idx)
+
+        # write any remaining pre/post flags that are not associated with any linkables
+        for idx in sorted((pre_flags | post_flags).keys()):
+            write_pre_flags(idx)
+            write_post_flags(idx)
 
 
 sys.exit(main(sys.argv))
