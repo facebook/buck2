@@ -1,0 +1,28 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+def _get_package_path(ctx: bxl.Context):
+    cnode = ctx.configured_targets("root//:dummy")
+    configured_label = cnode.label
+    label = configured_label.raw_target()
+    configured_providers_label = configured_label.with_sub_target([])
+    providers_label = label.with_sub_target([])
+
+    asserts.equals(configured_label.package_path, label.package_path)
+    asserts.equals(configured_label.package_path, configured_providers_label.package_path)
+    asserts.equals(configured_label.package_path, providers_label.package_path)
+    asserts.equals(str(configured_label.package_path), "root//")
+
+    bar_dummy_node = ctx.configured_targets("root//bar_dir:bar_dummy")
+    bar_dummy_label = bar_dummy_node.label
+    asserts.equals(str(bar_dummy_label.package_path), "root//bar_dir")
+
+get_package_path = bxl_main(
+    impl = _get_package_path,
+    cli_args = {},
+)
