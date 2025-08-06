@@ -19,6 +19,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
@@ -47,6 +48,40 @@ enum BuildErrors {
     MissingPackage(PackageLabel),
 }
 
+struct Builder<'c, 'd> {
+    ctx: &'c LinearRecomputeDiceComputations<'d>,
+    already_loading: HashSet<PackageLabel, BuckHasherBuilder>,
+    load_package_futs:
+        FuturesUnordered<BoxFuture<'c, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)>>,
+}
+
+impl Builder<'_, '_> {
+    pub fn new<'c, 'd>(ctx: &'c LinearRecomputeDiceComputations<'d>) -> Builder<'c, 'd> {
+        Builder {
+            ctx,
+            already_loading: HashSet::default(),
+            load_package_futs: FuturesUnordered::new(),
+        }
+    }
+
+    fn load_package(&mut self, package: PackageLabel) {
+        if !self.already_loading.insert(package.dupe()) {
+            return;
+        }
+
+        // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
+        // so DO NOT USE async move here
+        self.load_package_futs.push(
+            OwningFuture::new(self.ctx.get(), move |ctx| {
+                ctx.get_interpreter_results(package)
+                    .map(move |res| (package, res))
+                    .boxed()
+            })
+            .boxed(),
+        )
+    }
+}
+
 async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     ctx: &'c LinearRecomputeDiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
@@ -57,39 +92,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
 
-    struct Builder<'c, 'd> {
-        ctx: &'c LinearRecomputeDiceComputations<'d>,
-        already_loading: HashSet<PackageLabel, BuckHasherBuilder>,
-        load_package_futs: FuturesUnordered<
-            BoxFuture<'c, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)>,
-        >,
-    }
-
-    let mut builder = Builder {
-        ctx,
-        load_package_futs: FuturesUnordered::new(),
-        already_loading: HashSet::default(),
-    };
-
-    impl Builder<'_, '_> {
-        fn load_package(&mut self, package: PackageLabel) {
-            if !self.already_loading.insert(package.dupe()) {
-                return;
-            }
-
-            // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
-            // so DO NOT USE async move here
-            self.load_package_futs.push(
-                OwningFuture::new(self.ctx.get(), move |ctx| {
-                    ctx.get_interpreter_results(package)
-                        .map(move |res| (package, res))
-                        .boxed()
-                })
-                .boxed(),
-            )
-        }
-    }
-
+    let mut builder = Builder::new(ctx);
     for pattern in parsed_patterns {
         match pattern {
             ParsedPattern::Target(package, target_name, extra) => {
@@ -113,6 +116,52 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         buck2_error::Ok(())
     })
     .await?;
+
+    Ok((spec, builder.load_package_futs))
+}
+
+async fn resolve_patterns_with_modifiers_and_load_buildfiles<'c, T: PatternType>(
+    ctx: &'c LinearRecomputeDiceComputations<'_>,
+    parsed_patterns_with_modifiers: Vec<ParsedPatternWithModifiers<T>>,
+) -> buck2_error::Result<(
+    ResolvedPattern<T>,
+    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + use<'c, T>,
+)> {
+    let mut spec = ResolvedPattern::<T>::new();
+
+    let mut builder = Builder::new(ctx);
+    for pattern_with_modifiers in parsed_patterns_with_modifiers {
+        let ParsedPatternWithModifiers {
+            parsed_pattern,
+            modifiers,
+        } = pattern_with_modifiers;
+
+        match parsed_pattern {
+            ParsedPattern::Target(package, target_name, extra) => {
+                spec.add_target(package.dupe(), target_name, extra, modifiers);
+                builder.load_package(package.dupe());
+            }
+            ParsedPattern::Package(package) => {
+                spec.add_package(package.dupe(), modifiers);
+                builder.load_package(package.dupe());
+            }
+            ParsedPattern::Recursive(cell_path) => {
+                let mut roots = Vec::new();
+
+                collect_package_roots(&DiceFileOps(&ctx), vec![cell_path], |package| {
+                    let package = package?;
+                    roots.push(package);
+                    buck2_error::Ok(())
+                })
+                .await?;
+
+                for package in roots {
+                    spec.add_package(package.dupe(), modifiers.dupe());
+                    builder.load_package(package);
+                }
+            }
+        }
+    }
 
     Ok((spec, builder.load_package_futs))
 }
@@ -286,6 +335,26 @@ pub async fn load_patterns<T: PatternType>(
     ctx.with_linear_recompute(|ctx| async move {
         let (spec, mut load_package_futs) =
             resolve_patterns_and_load_buildfiles(&ctx, parsed_patterns).await?;
+
+        let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
+            BTreeMap::new();
+        while let Some((pkg, load_res)) = load_package_futs.next().await {
+            results.insert(pkg, load_res.map_err(buck2_error::Error::from));
+        }
+
+        apply_spec(spec, results, skip_missing_targets)
+    })
+    .await
+}
+
+pub async fn load_patterns_with_modifiers<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    parsed_patterns: Vec<ParsedPatternWithModifiers<T>>,
+    skip_missing_targets: MissingTargetBehavior,
+) -> buck2_error::Result<LoadedPatterns<T>> {
+    ctx.with_linear_recompute(|ctx| async move {
+        let (spec, mut load_package_futs) =
+            resolve_patterns_with_modifiers_and_load_buildfiles(&ctx, parsed_patterns).await?;
 
         let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
             BTreeMap::new();
