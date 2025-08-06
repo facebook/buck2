@@ -182,9 +182,9 @@ impl SystemdRunner {
         }
     }
 
-    /// Creates `std::process::Command` to run `program` under a systemd scope unit. `unit_name` is
+    /// Creates `std::process::Command` to run `program` under a systemd scope unit (cgroup). `unit_name` is
     /// an arbitrary string that you name the unit so it can be identified by the name later.
-    pub fn background_command_linux<S: AsRef<OsStr>>(
+    pub fn cgroup_scoped_command<S: AsRef<OsStr>>(
         &self,
         program: S,
         unit_name: &str,

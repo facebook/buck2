@@ -396,7 +396,7 @@ impl<'a> BuckdLifecycle<'a> {
                 .ensure_scope_stopped(&format!("{}.scope", &slice_name))
                 .await?;
             systemd_runner
-                .background_command_linux(daemon_exe, &slice_name, &project_dir.root())
+                .cgroup_scoped_command(daemon_exe, &slice_name, &project_dir.root())
                 .into()
         } else {
             async_background_command(daemon_exe)

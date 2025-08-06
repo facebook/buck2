@@ -157,8 +157,8 @@ impl Forkserver for UnixForkserverService {
                         cmd.arg(exe.as_ref());
                         (cmd, Some(output_path))
                     }
-                    (_, Some(miniperf), Some((runner, action_digest))) => {
-                        let mut cmd = runner.background_command_linux(
+                    (_, Some(miniperf), Some((systemd_runner, action_digest))) => {
+                        let mut cmd = systemd_runner.cgroup_scoped_command(
                             miniperf.miniperf.as_path(),
                             &replace_unit_delimiter(&action_digest),
                             &AbsNormPath::new(cwd)?,
