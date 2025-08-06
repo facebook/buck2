@@ -49,6 +49,20 @@ class CodesignInvocation:
         return invocation
 
 
+def generate_codesign_manifest(
+    base_path: Path, codesign_invocations: list[CodesignInvocation]
+) -> Dict[str, Any]:
+    json_invocations = [
+        invocation.as_json(base_path) for invocation in codesign_invocations
+    ]
+    valid_json_invocations = list(filter(lambda x: x is not None, json_invocations))
+    return {
+        "version": 1,
+        "bundle_name": base_path.name,
+        "invocations": valid_json_invocations,
+    }
+
+
 class ICodesignCommandFactory(metaclass=ABCMeta):
     @abstractmethod
     def codesign_command(
@@ -94,16 +108,8 @@ class ManifestCodesignCommandFactory(ICodesignCommandFactory):
             )
         return ["/usr/bin/true"]
 
-    def generate_codesign_manifest(self, base_path: Path):
-        all_invocations = [
-            invocation.as_json(base_path) for invocation in self.invocations
-        ]
-        valid_invocations = list(filter(lambda x: x is not None, all_invocations))
-        return {
-            "version": 1,
-            "bundle_name": base_path.name,
-            "invocations": valid_invocations,
-        }
+    def generate_codesign_manifest(self, base_path: Path) -> Dict[str, Any]:
+        return generate_codesign_manifest(base_path, self.invocations)
 
 
 class DefaultCodesignCommandFactory(ICodesignCommandFactory):
