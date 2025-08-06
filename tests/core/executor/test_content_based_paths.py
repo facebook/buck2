@@ -9,7 +9,6 @@
 # pyre-strict
 
 
-import asyncio
 import json
 import subprocess
 from pathlib import Path
@@ -450,11 +449,7 @@ async def test_output_symlink_is_updated(buck: Buck) -> None:
 @buck_test()
 async def test_argsfile_with_incorrectly_declared_output(buck: Buck) -> None:
     target = "root//:argsfile_with_incorrectly_declared_output"
-
-    # TODO(ianc) Fix this so we don't infinite loop!
-    try:
-        async with asyncio.timeout(10):
-            await buck.build(target)
-            raise AssertionError("This test infinitely loops, we should not get here")
-    except asyncio.TimeoutError:
-        pass
+    await expect_failure(
+        buck.build(target),
+        stderr_regex="error: Artifact must be bound by now",
+    )

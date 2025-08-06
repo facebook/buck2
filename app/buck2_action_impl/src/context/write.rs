@@ -64,6 +64,50 @@ enum WriteContentArg<'v> {
     StarlarkCommandLineValueUnpack(StarlarkCommandLineValueUnpack<'v>),
 }
 
+/// We don't need to run this visitor in order to provide the inputs to the write actions,
+/// because that is done lazily when we run the action.
+/// However, we do need to always run this visitor, because it verifies that any content-based
+/// inputs are bound. It will also collect "associated artifacts", if requested.
+struct CommandLineInputVisitor {
+    associated_artifacts: SmallSet<ArtifactGroup>,
+    with_associated_artifacts: bool,
+}
+
+impl CommandLineInputVisitor {
+    fn new(with_associated_artifacts: bool) -> Self {
+        Self {
+            associated_artifacts: Default::default(),
+            with_associated_artifacts,
+        }
+    }
+}
+
+impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
+    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+        if self.with_associated_artifacts {
+            self.associated_artifacts.insert(input.dupe());
+        }
+    }
+
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+    }
+
+    fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
+
+    fn visit_declared_artifact(
+        &mut self,
+        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        tag: Option<&ArtifactTag>,
+    ) -> buck2_error::Result<()> {
+        if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
+            let artifact = declared_artifact.ensure_bound()?.into_artifact();
+            self.visit_input(ArtifactGroup::Artifact(artifact), tag);
+        }
+
+        Ok(())
+    }
+}
+
 #[starlark_module]
 pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     /// Returns an `artifact` whose contents are `content` written as a JSON value.
@@ -104,6 +148,10 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         )?;
 
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
+        let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
+
+        let mut visitor = CommandLineInputVisitor::new(false);
+        cli.visit_contents(&mut visitor)?;
 
         this.register_action(
             indexset![output_artifact],
@@ -214,32 +262,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
         ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
-            if !with_inputs {
-                return Ok(Default::default());
-            }
-
-            #[derive(Default)]
-            struct CommandLineInputVisitor {
-                associated_artifacts: SmallSet<ArtifactGroup>,
-            }
-
-            impl CommandLineArtifactVisitor<'_> for CommandLineInputVisitor {
-                fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
-                    self.associated_artifacts.insert(input);
-                }
-
-                fn visit_declared_output(
-                    &mut self,
-                    _artifact: OutputArtifact,
-                    _tag: Option<&ArtifactTag>,
-                ) {
-                }
-
-                fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {
-                }
-            }
-
-            let mut visitor = CommandLineInputVisitor::default();
+            let mut visitor = CommandLineInputVisitor::new(with_inputs);
             cli.visit_artifacts(&mut visitor)?;
             Ok(visitor.associated_artifacts)
         }

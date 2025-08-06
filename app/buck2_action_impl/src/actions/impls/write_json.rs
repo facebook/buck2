@@ -309,6 +309,16 @@ where
     }
 }
 
+impl<'v, V: ValueLike<'v>> StarlarkWriteJsonCommandLineArgGen<V> {
+    pub fn visit_contents(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
+    ) -> buck2_error::Result<()> {
+        let content = self.content.to_value();
+        json::visit_json_artifacts(content, visitor)
+    }
+}
+
 impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLineArgGen<V> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkWriteJsonCommandLineArg::starlark_type_repr());
