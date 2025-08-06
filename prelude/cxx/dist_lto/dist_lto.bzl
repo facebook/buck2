@@ -325,10 +325,16 @@ def cxx_gnu_dist_link(
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
             index_meta = cmd_args()
 
+            pre_flags = {}
+            linkables = {}
+            post_flags = {}
+
             # buildifier: disable=uninitialized
             for idx, artifact in enumerate(index_link_data):
                 index_args.add(get_pre_flags(idx))
+                pre_flags[idx] = get_pre_flags(idx)
                 index_args.add(get_linkables_args(idx))
+                linkables[idx] = get_linkables_args(idx)
                 if artifact != None:
                     link_data = artifact.link_data
 
@@ -360,6 +366,7 @@ def cxx_gnu_dist_link(
                             archive_args.add("-Wl,--end-lib")
 
                 index_args.add(get_post_flags(idx))
+                post_flags[idx] = get_post_flags(idx)
 
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
@@ -391,7 +398,26 @@ def cxx_gnu_dist_link(
                 index_meta,
             )
 
-            plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", outputs[link_plan].as_output(), "--final-link-index", outputs[final_link_index].as_output(), "--"])
+            plan_cmd = cmd_args(
+                [
+                    lto_planner,
+                    "--meta",
+                    index_meta_file,
+                    "--index",
+                    index_out_dir,
+                    "--link-plan",
+                    outputs[link_plan].as_output(),
+                    "--final-link-index",
+                    outputs[final_link_index].as_output(),
+                    "--pre-flags",
+                    str(pre_flags),
+                    "--linkables",
+                    str(linkables),
+                    "--post-flags",
+                    str(post_flags),
+                    "--",
+                ],
+            )
             plan_cmd.add(index_cmd)
 
             plan_cmd.add(cmd_args(hidden = [

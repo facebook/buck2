@@ -70,6 +70,9 @@ def main(argv):
     parser.add_argument("--index")
     parser.add_argument("--link-plan")
     parser.add_argument("--final-link-index")
+    parser.add_argument("--pre-flags")
+    parser.add_argument("--linkables")
+    parser.add_argument("--post-flags")
     parser.add_argument("index_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
 
