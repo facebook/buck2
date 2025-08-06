@@ -14,6 +14,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -34,6 +35,7 @@ use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
+use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
 use buck2_util::process::background_command;
@@ -61,6 +63,57 @@ use crate::run::timeout_into_cancellation;
 // Not quite BoxStream: it has to be Sync (...)
 type RunStream =
     Pin<Box<dyn Stream<Item = Result<buck2_forkserver_proto::CommandEvent, Status>> + Send>>;
+
+struct ValidatedCommand {
+    exe: PathBuf,
+    argv: Vec<Vec<u8>>,
+    env: Vec<buck2_forkserver_proto::EnvDirective>,
+    cwd: PathBuf,
+    timeout: Option<std::time::Duration>,
+    enable_miniperf: bool,
+    std_redirects: Option<StdRedirectPaths>,
+    graceful_shutdown_timeout_s: Option<u32>,
+    action_digest: Option<String>,
+}
+
+impl ValidatedCommand {
+    fn try_from(cmd_request: CommandRequest) -> buck2_error::Result<Self> {
+        let CommandRequest {
+            exe,
+            argv,
+            env,
+            cwd,
+            timeout,
+            enable_miniperf,
+            std_redirects,
+            graceful_shutdown_timeout_s,
+            action_digest,
+        } = cmd_request;
+
+        let exe = OsStr::from_bytes(&exe);
+        let cwd = OsStr::from_bytes(&cwd.as_ref().buck_error_context("Missing cwd")?.path);
+        let cwd = AbsPath::new(Path::new(cwd)).buck_error_context("Invalid cwd")?;
+
+        let timeout = timeout
+            .map(|t| t.try_into_duration())
+            .transpose()
+            .buck_error_context("Invalid timeout")?;
+
+        let exe = maybe_absolutize_exe(exe, cwd)?;
+
+        Ok(ValidatedCommand {
+            exe: exe.into_owned(),
+            argv,
+            env,
+            cwd: cwd.to_path_buf(),
+            timeout,
+            enable_miniperf,
+            std_redirects,
+            graceful_shutdown_timeout_s,
+            action_digest,
+        })
+    }
+}
 
 pub struct UnixForkserverService {
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
@@ -92,6 +145,148 @@ impl UnixForkserverService {
             systemd_runner,
         })
     }
+
+    async fn parse_command_request(
+        stream: &mut Streaming<RequestEvent>,
+    ) -> buck2_error::Result<CommandRequest> {
+        let cmd_request = stream
+            .message()
+            .await?
+            .and_then(|m| m.data)
+            .and_then(|m| m.into_command_request())
+            .buck_error_context("RequestEvent was not a CommandRequest!")?;
+        Ok(cmd_request)
+    }
+
+    fn configure_environment(
+        cmd: &mut std::process::Command,
+        env_directives: &[buck2_forkserver_proto::EnvDirective],
+    ) -> buck2_error::Result<()> {
+        use buck2_forkserver_proto::env_directive::Data;
+
+        for directive in env_directives {
+            match directive
+                .data
+                .as_ref()
+                .buck_error_context("EnvDirective is missing data")?
+            {
+                Data::Clear(..) => {
+                    cmd.env_clear();
+                }
+                Data::Set(var) => {
+                    cmd.env(OsStr::from_bytes(&var.key), OsStr::from_bytes(&var.value));
+                }
+                Data::Remove(var) => {
+                    cmd.env_remove(OsStr::from_bytes(&var.key));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn setup_process_command(
+        &self,
+        validated_cmd: &ValidatedCommand,
+    ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
+        let systemd_context = self
+            .systemd_runner
+            .as_ref()
+            .zip(validated_cmd.action_digest.as_ref());
+
+        let (mut cmd, miniperf_output) = match (
+            validated_cmd.enable_miniperf,
+            &self.miniperf,
+            &systemd_context,
+        ) {
+            // Wraps the user command with miniperf for performance monitoring
+            (true, Some(miniperf), None) => {
+                let mut cmd = background_command(miniperf.miniperf.as_path());
+                let output_path = miniperf.allocate_output_path();
+                cmd.arg(output_path.as_path());
+                cmd.arg(&validated_cmd.exe);
+                (cmd, Some(output_path))
+            }
+            // Uses systemd-run + miniperf for resource control + monitoring
+            // systemd-run --scope --unit=<action_digest> miniperf <output_path> <user_executable>
+            (_, Some(miniperf), Some((systemd_runner, action_digest))) => {
+                let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
+                let mut cmd = systemd_runner.cgroup_scoped_command(
+                    miniperf.miniperf.as_path(),
+                    &replace_unit_delimiter(action_digest),
+                    workding_dir,
+                );
+                let output_path = miniperf.allocate_output_path();
+                cmd.arg(output_path.as_path());
+                cmd.arg(&validated_cmd.exe);
+                (cmd, Some(output_path))
+            }
+            // Direct execution of the command
+            _ => (background_command(&validated_cmd.exe), None),
+        };
+
+        cmd.current_dir(&validated_cmd.cwd);
+        cmd.args(validated_cmd.argv.iter().map(|a| OsStr::from_bytes(a)));
+
+        Self::configure_environment(&mut cmd, &validated_cmd.env)?;
+
+        // Some actions clear env and don't pass XDG_RUNTIME_DIR
+        // This env var is required for systemd-run,
+        // without passing it systemd returns "Failed to connect to bus: No medium found"
+        #[cfg(fbcode_build)]
+        if let Ok(value) = std::env::var("XDG_RUNTIME_DIR") {
+            cmd.env("XDG_RUNTIME_DIR", value);
+        }
+
+        if systemd_context.is_some() {
+            // we set env var to enable reading peak memory from cgroup in miniperf
+            cmd.env("MINIPERF_READ_CGROUP", "1");
+        }
+
+        let mut cmd = ProcessCommand::new(cmd);
+        if let Some(std_redirects) = &validated_cmd.std_redirects {
+            cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
+            cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
+        }
+
+        // cmd: ready-to-spawn process command
+        // miniperf_output: path to miniperf output file (if monitoring)
+        Ok((cmd, miniperf_output))
+    }
+
+    fn create_command_stream(
+        process_group: buck2_error::Result<crate::run::process_group::ProcessGroup>,
+        cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
+        + Send
+        + 'static,
+        miniperf_output: Option<AbsNormPathBuf>,
+        graceful_shutdown_timeout_s: Option<u32>,
+        stream_stdio: bool,
+    ) -> buck2_error::Result<RunStream> {
+        let stream = match miniperf_output {
+            Some(out) => stream_command_events(
+                process_group,
+                cancellation,
+                MiniperfStatusDecoder::new(out),
+                DefaultKillProcess {
+                    graceful_shutdown_timeout_s,
+                },
+                stream_stdio,
+            )?
+            .left_stream(),
+            None => stream_command_events(
+                process_group,
+                cancellation,
+                DefaultStatusDecoder,
+                DefaultKillProcess {
+                    graceful_shutdown_timeout_s,
+                },
+                stream_stdio,
+            )?
+            .right_stream(),
+        };
+        let stream = encode_event_stream(stream);
+        Ok(Box::pin(stream) as _)
+    }
 }
 
 #[async_trait::async_trait]
@@ -105,12 +300,8 @@ impl Forkserver for UnixForkserverService {
         to_tonic(async move {
             let mut stream = req.into_inner();
 
-            let msg = stream
-                .message()
-                .await?
-                .and_then(|m| m.data)
-                .and_then(|m| m.into_command_request())
-                .buck_error_context("RequestEvent was not a CommandRequest!")?;
+            let cmd_request = Self::parse_command_request(&mut stream).await?;
+            let validated_cmd = ValidatedCommand::try_from(cmd_request)?;
 
             let cancel = async move {
                 stream
@@ -123,128 +314,22 @@ impl Forkserver for UnixForkserverService {
                 Ok(GatherOutputStatus::Cancelled)
             };
 
-            let CommandRequest {
-                exe,
-                argv,
-                env,
-                cwd,
-                timeout,
-                enable_miniperf,
-                std_redirects,
-                graceful_shutdown_timeout_s,
-                action_digest,
-            } = msg;
-
-            let exe = OsStr::from_bytes(&exe);
-            let cwd = OsStr::from_bytes(&cwd.as_ref().buck_error_context("Missing cwd")?.path);
-            let cwd = AbsPath::new(Path::new(cwd)).buck_error_context("Inalid cwd")?;
-
-            let argv = argv.iter().map(|a| OsStr::from_bytes(a));
-            let timeout = timeout
-                .map(|t| t.try_into_duration())
-                .transpose()
-                .buck_error_context("Invalid timeout")?;
-
-            let exe = maybe_absolutize_exe(exe, cwd)?;
-            let systemd_context = self.systemd_runner.as_ref().zip(action_digest);
-
-            let (mut cmd, miniperf_output) =
-                match (enable_miniperf, &self.miniperf, &systemd_context) {
-                    (true, Some(miniperf), None) => {
-                        let mut cmd = background_command(miniperf.miniperf.as_path());
-                        let output_path = miniperf.allocate_output_path();
-                        cmd.arg(output_path.as_path());
-                        cmd.arg(exe.as_ref());
-                        (cmd, Some(output_path))
-                    }
-                    (_, Some(miniperf), Some((systemd_runner, action_digest))) => {
-                        let mut cmd = systemd_runner.cgroup_scoped_command(
-                            miniperf.miniperf.as_path(),
-                            &replace_unit_delimiter(&action_digest),
-                            &AbsNormPath::new(cwd)?,
-                        );
-                        let output_path = miniperf.allocate_output_path();
-                        cmd.arg(output_path.as_path());
-                        cmd.arg(exe.as_ref());
-                        (cmd, Some(output_path))
-                    }
-                    _ => (background_command(exe.as_ref()), None),
-                };
-
-            cmd.current_dir(cwd);
-            cmd.args(argv);
-
-            {
-                use buck2_forkserver_proto::env_directive::Data;
-
-                for directive in env {
-                    match directive
-                        .data
-                        .buck_error_context("EnvDirective is missing data")?
-                    {
-                        Data::Clear(..) => {
-                            cmd.env_clear();
-                        }
-                        Data::Set(var) => {
-                            cmd.env(OsStr::from_bytes(&var.key), OsStr::from_bytes(&var.value));
-                        }
-                        Data::Remove(var) => {
-                            cmd.env_remove(OsStr::from_bytes(&var.key));
-                        }
-                    }
-                }
-            }
-
-            // Some actions clear env and don't pass XDG_RUNTIME_DIR
-            // This env var is required for systemd-run,
-            // without passing it systemd returns "Failed to connect to bus: No medium found"
-            #[cfg(fbcode_build)]
-            if let Ok(value) = std::env::var("XDG_RUNTIME_DIR") {
-                cmd.env("XDG_RUNTIME_DIR", value);
-            }
-
-            if systemd_context.is_some() {
-                // we set env var to enable reading peak memory from cgroup in miniperf
-                cmd.env("MINIPERF_READ_CGROUP", "1");
-            }
-
-            let stream_stdio = std_redirects.is_none();
-            let mut cmd = ProcessCommand::new(cmd);
-            if let Some(std_redirects) = std_redirects {
-                cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
-                cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
-            }
-
+            let (mut cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
             let process_group = cmd.spawn().map_err(buck2_error::Error::from);
 
-            let timeout = timeout_into_cancellation(timeout);
-
+            let timeout = timeout_into_cancellation(validated_cmd.timeout);
             let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
 
-            let stream = match miniperf_output {
-                Some(out) => stream_command_events(
-                    process_group,
-                    cancellation,
-                    MiniperfStatusDecoder::new(out),
-                    DefaultKillProcess {
-                        graceful_shutdown_timeout_s,
-                    },
-                    stream_stdio,
-                )?
-                .left_stream(),
-                None => stream_command_events(
-                    process_group,
-                    cancellation,
-                    DefaultStatusDecoder,
-                    DefaultKillProcess {
-                        graceful_shutdown_timeout_s,
-                    },
-                    stream_stdio,
-                )?
-                .right_stream(),
-            };
-            let stream = encode_event_stream(stream);
-            Ok(Box::pin(stream) as _)
+            let stream_stdio = validated_cmd.std_redirects.is_none();
+            let stream = Self::create_command_stream(
+                process_group,
+                cancellation,
+                miniperf_output,
+                validated_cmd.graceful_shutdown_timeout_s,
+                stream_stdio,
+            )?;
+
+            Ok(stream)
         })
         .await
     }
