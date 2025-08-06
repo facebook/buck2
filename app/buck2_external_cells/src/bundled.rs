@@ -27,6 +27,7 @@ use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::directory_digest::DirectoryDigest;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -35,10 +36,10 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::builder::DirectoryBuilder;
 use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_hasher::NoDigest;
-use buck2_directory::directory::directory_hasher::NoDigestDigester;
+use buck2_directory::directory::directory_hasher::DirectoryHasher;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_ref::DirectoryRef;
+use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::find::DirectoryFindError;
 use buck2_directory::directory::find::find;
@@ -53,10 +54,12 @@ use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_external_cells_bundled::BundledCell;
 use buck2_external_cells_bundled::BundledFile;
 use buck2_external_cells_bundled::get_bundled_data;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 
 fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
     let path = env::var("NANO_PRELUDE")
@@ -152,9 +155,62 @@ struct ContentsAndMetadata {
     metadata: FileMetadata,
 }
 
-#[derive(allocative::Allocative, PartialEq, Eq)]
+/// We don't actually need the directory digest, but unfortunately the directory tooling kind of
+/// requires us to have one.
+#[derive(
+    allocative::Allocative,
+    derive_more::Display,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Copy,
+    Clone
+)]
+struct BundledDirectoryDigest(#[allocative(skip)] blake3::Hash);
+
+impl Dupe for BundledDirectoryDigest {
+    fn dupe(&self) -> Self {
+        *self
+    }
+}
+
+impl DirectoryDigest for BundledDirectoryDigest {}
+
+struct BundledDirectoryDigester;
+
+impl DirectoryHasher<ContentsAndMetadata, BundledDirectoryDigest> for BundledDirectoryDigester {
+    fn hash_entries<'a, D, I>(&self, entries: I) -> BundledDirectoryDigest
+    where
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ContentsAndMetadata>)>,
+        D: FingerprintedDirectoryRef<
+                'a,
+                Leaf = ContentsAndMetadata,
+                DirectoryDigest = BundledDirectoryDigest,
+            > + 'a,
+        Self: Sized,
+    {
+        use std::hash::Hash;
+
+        let mut hasher = Blake3StrongHasher::default();
+        for (name, entry) in entries {
+            name.hash(&mut hasher);
+            match entry {
+                DirectoryEntry::Dir(dir) => {
+                    dir.as_fingerprinted_dyn().fingerprint().hash(&mut hasher);
+                }
+                DirectoryEntry::Leaf(leaf) => {
+                    leaf.metadata.hash(&mut hasher);
+                }
+            }
+        }
+        BundledDirectoryDigest(hasher.finalize())
+    }
+}
+
+#[derive(allocative::Allocative)]
 pub(crate) struct BundledFileOpsDelegate {
-    dir: ImmutableDirectory<ContentsAndMetadata, NoDigest>,
+    dir: ImmutableDirectory<ContentsAndMetadata, BundledDirectoryDigest>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -175,7 +231,8 @@ impl BundledFileOpsDelegate {
     ) -> buck2_error::Result<
         Option<
             DirectoryEntry<
-                impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest> + use<'_>,
+                impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = BundledDirectoryDigest>
+                + use<'_>,
                 &ContentsAndMetadata,
             >,
         >,
@@ -193,7 +250,8 @@ impl BundledFileOpsDelegate {
         path: &CellRelativePath,
     ) -> buck2_error::Result<
         DirectoryEntry<
-            impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest> + use<'_>,
+            impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = BundledDirectoryDigest>
+            + use<'_>,
             &ContentsAndMetadata,
         >,
     > {
@@ -282,7 +340,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     }
 
     fn eq_token(&self) -> PartialEqAny {
-        PartialEqAny::new(self)
+        PartialEqAny::always_false()
     }
 }
 
@@ -290,13 +348,14 @@ fn get_file_ops_delegate_impl(
     data: BundledCell,
     digest_config: DigestConfig,
 ) -> buck2_error::Result<BundledFileOpsDelegate> {
-    let mut builder: DirectoryBuilder<ContentsAndMetadata, NoDigest> = DirectoryBuilder::empty();
-    let digest_config = digest_config.cas_digest_config().source_files_config();
+    let mut builder: DirectoryBuilder<ContentsAndMetadata, BundledDirectoryDigest> =
+        DirectoryBuilder::empty();
+    let source_digest_config = digest_config.cas_digest_config().source_files_config();
     for file in data.files {
         let path = ForwardRelativePath::new(file.path)
             .internal_error("non-forward relative bundled path")?;
         let metadata = FileMetadata {
-            digest: TrackedFileDigest::from_content(file.contents, digest_config),
+            digest: TrackedFileDigest::from_content(file.contents, source_digest_config),
             is_executable: file.is_executable,
         };
 
@@ -310,9 +369,8 @@ fn get_file_ops_delegate_impl(
             )
             .internal_error("conflicting bundled source paths")?;
     }
-    Ok(BundledFileOpsDelegate {
-        dir: builder.fingerprint(&NoDigestDigester),
-    })
+    let builder = builder.fingerprint(&BundledDirectoryDigester);
+    Ok(BundledFileOpsDelegate { dir: builder })
 }
 
 async fn declare_all_source_artifacts(

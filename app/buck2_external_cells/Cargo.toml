@@ -13,6 +13,7 @@ dice = { workspace = true }
 dupe = { workspace = true }
 
 async-trait = { workspace = true }
+blake3 = { workspace = true }
 derive_more = { workspace = true }
 tokio = { workspace = true }
 

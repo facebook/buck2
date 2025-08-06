@@ -17,6 +17,10 @@ impl Blake3StrongHasher {
     pub fn new() -> Self {
         Self(blake3::Hasher::new())
     }
+
+    pub fn finalize(&self) -> blake3::Hash {
+        self.0.finalize()
+    }
 }
 
 impl Hasher for Blake3StrongHasher {
