@@ -308,7 +308,7 @@ def process_genrule(
             ] + script + [
                 cmd_args('cd "$ORIGINAL_DIR_FOR_ZIP_SCRUBBING"'),
             ] + [
-                cmd_args(zip_scrubber, output, delimiter = " ", quote = "shell")
+                cmd_args(zip_scrubber, output.as_output(), delimiter = " ", quote = "shell")
                 for output in zip_outputs
             ]
 
