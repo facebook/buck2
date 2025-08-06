@@ -43,6 +43,12 @@ AppleBundlePart = record(
     extra_codesign_paths = field([list[str], None], None),
 )
 
+# Represents an `AppleBundlePart` which has an associated codesign manifest
+AppleBundleCodesignManifestTreePart = record(
+    bundle_part = field(AppleBundlePart),
+    codesign_manifest_tree = field(AppleBundleCodesignManifestTree),
+)
+
 SwiftStdlibArguments = record(
     primary_binary_rel_path = field(str),
 )
@@ -62,6 +68,7 @@ def assemble_bundle(
         ctx: AnalysisContext,
         bundle: Artifact,
         parts: list[AppleBundlePart],
+        codesign_manifest_parts: list[AppleBundleCodesignManifestTreePart],
         info_plist_part: [AppleBundlePart, None],
         swift_stdlib_args: [SwiftStdlibArguments, None],
         extra_hidden: list[Artifact] = [],
@@ -279,11 +286,7 @@ def assemble_bundle(
     if cache_buster:
         env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
 
-    codesign_manifest_tree = AppleBundleCodesignManifestTree(
-        codesign_manifest = codesign_manifest,
-        inner_codesign_manifests = {},
-    )
-
+    codesign_manifest_tree = _make_codesign_manifest_tree(ctx, codesign_manifest, codesign_manifest_parts)
     codesign_manifest_tree_json = _get_codesign_manifest_tree_as_json(codesign_manifest_tree)
     codesign_manifest_tree_json_file = ctx.actions.declare_output("codesign_manifest_tree.json")
     codesign_manifest_tree_json_cmd_args = ctx.actions.write_json(
@@ -314,6 +317,18 @@ def assemble_bundle(
         sub_targets = subtargets,
         providers = providers,
         codesign_manifest_tree = codesign_manifest_tree,
+    )
+
+def _make_codesign_manifest_tree(ctx: AnalysisContext, codesign_manifest: Artifact, inner_parts: list[AppleBundleCodesignManifestTreePart]) -> AppleBundleCodesignManifestTree:
+    inner_manifest_trees = {}
+
+    for codesign_manifest_tree_part in inner_parts:
+        relative_path = get_apple_bundle_part_relative_destination_path(ctx, codesign_manifest_tree_part.bundle_part)
+        inner_manifest_trees[relative_path] = codesign_manifest_tree_part.codesign_manifest_tree
+
+    return AppleBundleCodesignManifestTree(
+        codesign_manifest = codesign_manifest,
+        inner_codesign_manifests = inner_manifest_trees,
     )
 
 def _get_codesign_manifest_tree_as_json(codesign_manifest_tree: AppleBundleCodesignManifestTree) -> dict[str, typing.Any]:

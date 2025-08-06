@@ -170,6 +170,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ctx,
             xctest_bundle,
             bundle_parts,
+            part_list_output.codesign_manifest_parts,
             part_list_output.info_plist_part,
             swift_stdlib_args,
             # Adhoc signing can be skipped because the test executable is adhoc signed

@@ -50,7 +50,7 @@ load(
     "flatten",
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
+load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load(
     ":apple_bundle_types.bzl",
@@ -105,6 +105,8 @@ AppleBundlePartListOutput = record(
     parts = field(list[AppleBundlePart]),
     # Part that holds the info.plist
     info_plist_part = field(AppleBundlePart),
+    # Codesign manifest parts for inner bundles
+    codesign_manifest_parts = field(list[AppleBundleCodesignManifestTreePart]),
 )
 
 _AppleBundleBinaryParts = record(
@@ -327,6 +329,7 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
     return AppleBundlePartListOutput(
         parts = resource_part_list.resource_parts + params.binaries + xctest_frameworks_parts,
         info_plist_part = resource_part_list.info_plist_part,
+        codesign_manifest_parts = resource_part_list.codesign_manifest_parts,
     )
 
 def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
@@ -361,6 +364,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         bundle,
         apple_bundle_part_list_output.parts,
+        apple_bundle_part_list_output.codesign_manifest_parts,
         apple_bundle_part_list_output.info_plist_part,
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
         validation_deps_outputs,
