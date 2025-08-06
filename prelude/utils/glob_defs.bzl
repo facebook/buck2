@@ -9,7 +9,7 @@
 """Provides utility macros for working with globs."""
 
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
-load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:buckconfig.bzl", "read_bool")
 
 DISABLE_STRICT_GLOB_CHECKING = read_bool("build_defs", "disable_strict_glob_checking", False)
