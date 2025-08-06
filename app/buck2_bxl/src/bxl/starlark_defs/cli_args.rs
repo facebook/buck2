@@ -321,6 +321,7 @@ pub(crate) enum CliArgType {
     SubTarget,
     SubTargetExpr,
     Json,
+    JsonFile,
 }
 
 impl Display for CliArgType {
@@ -400,6 +401,10 @@ impl CliArgType {
 
     fn json() -> Self {
         CliArgType::Json
+    }
+
+    fn json_file() -> Self {
+        CliArgType::JsonFile
     }
 }
 
@@ -514,6 +519,9 @@ impl CliArgType {
             CliArgType::Json => {
                 return Err(CliArgError::NoDefaultsAllowed(CliArgType::Json).into());
             }
+            CliArgType::JsonFile => {
+                return Err(CliArgError::NoDefaultsAllowed(CliArgType::JsonFile).into());
+            }
         })
     }
 
@@ -577,6 +585,7 @@ impl CliArgType {
             CliArgType::ConfiguredTargetExpr => clap.num_args(1),
             CliArgType::SubTargetExpr => clap.num_args(1),
             CliArgType::Json => clap.num_args(1),
+            CliArgType::JsonFile => clap.num_args(1),
         }
     }
 
@@ -801,6 +810,19 @@ impl CliArgType {
                             return Err(CliArgError::NotAJsonObject(json.to_string()).into());
                         }
                     }
+                }
+                CliArgType::JsonFile => match clap.value_of() {
+                    None => None,
+                    Some(value) => {
+                        let contents = std::fs::read_to_string(value)?;
+                        let json: serde_json::Value = serde_json::from_str(&contents)?;
+                        let data = JsonCliArgValueData::from_serde_value(&json);
+                        if let JsonCliArgValueData::Object(_) = data {
+                            Some(CliArgValue::Json(data))
+                        } else {
+                            return Err(CliArgError::NotAJsonObject(json.to_string()).into());
+                        }
+                    }
                 },
             })
         }
@@ -965,14 +987,22 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
 
     /// Takes an arg from cli, and would be treated as a json string, and return a json object in bxl.
     ///
-    /// **Note**: It will not accept a json file path, if you want to pass a json file path, you can use like in cli `--flag "$(cat foo.json)"`
+    /// **Note**: It will not accept a json file path, if you want to pass a json file path, you can use cli_args.json_file()
     fn json<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> starlark::Result<CliArgs> {
         Ok(CliArgs::new(None, doc, CliArgType::json(), short)?)
     }
-}
+
+    /// Takes an arg from cli, and would be treated as a json file, and return a json object in bxl.
+    ///
+    fn json_file<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(None, doc, CliArgType::json_file(), short)?)
+    }}
 
 pub(crate) fn register_cli_args_module(registry: &mut GlobalsBuilder) {
     cli_args_module(registry)
