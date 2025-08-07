@@ -142,10 +142,10 @@ list_and_run(TestInfoFile, OutputDir) ->
     ResultsFile = filename:join(OutputDir, "result_exec.json"),
     print_results(ResultsFile).
 
--spec listing_to_testnames(#test_spec_test_case{}) -> [binary()].
+-spec listing_to_testnames(#test_spec_test_case{}) -> [string()].
 listing_to_testnames(Listing) ->
     [
-        binary_to_list_string(TestCase#test_spec_test_info.name)
+        TestCase#test_spec_test_info.name
      || TestCase <- Listing#test_spec_test_case.testcases
     ].
 
@@ -185,7 +185,3 @@ print_details(StdOut, Details) ->
     io:format("~ts~n", [Details]),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n"),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n").
-
-binary_to_list_string(B) when is_binary(B) ->
-    Str = unicode:characters_to_list(B),
-    if is_list(Str) -> Str end.
