@@ -221,6 +221,7 @@ pub struct ExecutedActionMemoryStats {
 #[derive(Clone, Default)]
 pub struct TaskInfo {
     pub estimated_queue_time_ms: i64,
+    pub new_estimated_queue_time_ms: i64,
     pub state: TaskState,
 }
 
