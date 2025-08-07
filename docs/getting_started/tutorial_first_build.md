@@ -251,7 +251,7 @@ buck2 targets :
 or
 
 ```bash
-buck2 targets fbcode//scripts/nero/buck2_lab/greeter_bin:
+buck2 targets fbcode//scripts/<unixname>/buck2_lab/greeter_bin:
 ```
 
 2. Expected Output:
