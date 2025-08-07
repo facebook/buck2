@@ -1,0 +1,78 @@
+load("@root//:rules.bzl", "command")
+
+command(
+    name = "slower_locally",
+    command = "slower_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+)
+
+command(
+    name = "slower_locally_and_works_on_both",
+    command = "slower_locally_and_works_on_both.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+)
+
+command(
+    name = "slower_remotely",
+    command = "slower_remotely.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+)
+
+command(
+    name = "slower_locally_force_full_hybrid",
+    command = "slower_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:default"],
+    force_full_hybrid_if_capable = True,
+)
+
+command(
+    name = "heavyweight_works_only_locally",
+    command = "heavyweight_works_only_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+    weight = 1000000,  # This will exceed the low pass filter's threshold
+    prefer_local = True,
+)
+
+command(
+    name = "slower_and_works_only_locally",
+    command = "slower_and_works_only_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+    prefer_local = True,
+)
+
+command(
+    name = "heavyweight_works_only_locally_local_not_preferred",
+    command = "heavyweight_works_only_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+    weight = 1000000,  # This will exceed the low pass filter's threshold
+)
+
+command(
+    name = "slower_and_works_only_locally_local_not_preferred",
+    command = "slower_and_works_only_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+)
+
+command(
+    name = "fails_slow_on_re_works_locally_prefer_remote",
+    command = "fails_slow_on_re_works_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+    prefer_remote = True,
+)
+
+command(
+    name = "fails_slow_on_re_works_locally_heavyweight",
+    command = "fails_slow_on_re_works_locally.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+    weight = 1000000,  # This will exceed the low pass filter's threshold
+)

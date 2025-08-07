@@ -1,0 +1,64 @@
+load("@root//:rules.bzl", "config_setting", "platform", "platforms", "target_platform")
+
+config_setting(name = "setting")
+
+target_platform(name = "target")
+
+platform(
+    name = "default",
+    setting = ":setting",
+    allow_hybrid_fallbacks_on_failure = True,
+)
+
+platform(
+    name = "local",
+    setting = ":setting",
+    local_enabled = True,
+    remote_enabled = False,
+)
+
+platform(
+    name = "remote",
+    setting = ":setting",
+    local_enabled = False,
+    remote_enabled = True,
+)
+
+platform(
+    name = "no_fallback",
+    setting = ":setting",
+    allow_hybrid_fallbacks_on_failure = False,
+)
+
+platform(
+    name = "full_hybrid_with_failure_fallbacks",
+    setting = ":setting",
+    use_limited_hybrid = False,
+    allow_hybrid_fallbacks_on_failure = True,
+)
+
+platform(
+    name = "full_hybrid_no_fallback",
+    setting = ":setting",
+    use_limited_hybrid = False,
+    allow_hybrid_fallbacks_on_failure = False,
+)
+
+platform(
+    name = "full_hybrid",
+    setting = ":setting",
+    use_limited_hybrid = False,
+)
+
+platforms(
+    name = "platforms",
+    platforms = [
+        ":default",
+        ":no_fallback",
+        ":full_hybrid",
+        ":full_hybrid_with_failure_fallbacks",
+        ":full_hybrid_no_fallback",
+        ":remote",
+        ":local",
+    ],
+)

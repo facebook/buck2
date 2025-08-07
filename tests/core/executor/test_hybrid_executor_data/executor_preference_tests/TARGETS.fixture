@@ -1,0 +1,17 @@
+load("@root//:rules.bzl", "command")
+
+command(
+    name = "remote_only_with_prefer_local",
+    command = "remote_only.py",
+    prefer_local = True,
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:default"],
+)
+
+command(
+    name = "local_only_with_local_only",
+    command = "local_only.py",
+    local_only = True,
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:default"],
+)

@@ -1,0 +1,17 @@
+load("@root//:rules.bzl", "command")
+
+command(
+    name = "remote_only_with_prefer_remote_arg_limited_hybrid",
+    command = "remote_only.py",
+    prefer_remote = True,
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:no_fallback"],
+)
+
+command(
+    name = "remote_only_with_prefer_remote_arg_full_hybrid",
+    command = "remote_only.py",
+    prefer_remote = True,
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid_no_fallback"],
+)
