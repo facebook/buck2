@@ -257,7 +257,6 @@ def assemble_bundle(
     command_json = ctx.actions.declare_output("bundling_command.json")
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
     subtargets["command"] = [DefaultInfo(default_output = command_json, other_outputs = [command_json_cmd_args])]
-    subtargets["codesign-manifest"] = [DefaultInfo(default_output = codesign_manifest, other_outputs = [command_json_cmd_args])]
 
     bundle_manifest_log_file_map = {
         ctx.label: AppleBundleManifestLogFiles(
