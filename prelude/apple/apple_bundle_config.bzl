@@ -21,8 +21,16 @@ def _get_code_signing_configuration() -> str:
     # `apple.fast_adhoc_signing_enabled=false` in a global buckconfig file.
     is_fast_adhoc_signing_enabled = _maybe_get_bool("fast_adhoc_signing_enabled", True)
 
+    is_codesign_execution_bypass_enabled = _maybe_get_bool("codesign_execution_bypass", False)
+    if is_dry_run and is_codesign_execution_bypass_enabled:
+        fail("Dry run and execution bypass are mutually exclusive, pick one")
+
     if is_dry_run:
         return CodeSignConfiguration("dry-run").value
+    elif is_codesign_execution_bypass_enabled:
+        # Fast adhoc only makes sense if we're executing codesign commands,
+        # hence execution bypass takes precedence
+        return CodeSignConfiguration("execution-bypass").value
     elif is_fast_adhoc_signing_enabled:
         return CodeSignConfiguration("fast-adhoc").value
     else:

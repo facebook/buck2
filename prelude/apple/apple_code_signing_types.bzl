@@ -18,7 +18,11 @@ CodeSignType = enum(
 )
 
 CodeSignConfiguration = enum(
+    # Produces plists inside the app bundle which contains codesign args
     "dry-run",
+    # Runs all codesigning logic except invoking the actual codesign commands
+    "execution-bypass",
+    # Skips adhoc codesigning when it's not strictly required
     "fast-adhoc",
     "none",
 )

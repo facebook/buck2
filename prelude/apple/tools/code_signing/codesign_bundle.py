@@ -227,6 +227,7 @@ def signing_context_with_profile_selection(
 # IMPORTANT: This enum is a part of incremental API, amend carefully.
 class CodesignConfiguration(str, Enum):
     fastAdhoc = "fast-adhoc"
+    executionBypass = "execution-bypass"
     dryRun = "dry-run"
 
 
@@ -309,8 +310,16 @@ def codesign_bundle(
                 codesign_configuration is CodesignConfiguration.fastAdhoc
                 and is_fast_adhoc_codesign_allowed()
             )
-            manifest_codesign_factory = ManifestCodesignCommandFactory(
+            codesign_execution_bypass_enabled = (
+                codesign_configuration is CodesignConfiguration.executionBypass
+            )
+            underlying_codesign_factory = (
                 DefaultCodesignCommandFactory(codesign_tool)
+                if (not codesign_execution_bypass_enabled)
+                else None
+            )
+            manifest_codesign_factory = ManifestCodesignCommandFactory(
+                underlying_codesign_factory
             )
             _codesign_everything(
                 root=bundle_path_with_prepared_entitlements,

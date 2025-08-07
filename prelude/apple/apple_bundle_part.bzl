@@ -91,6 +91,8 @@ def assemble_bundle(
     if code_signing_configuration == CodeSignConfiguration("dry-run"):
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
         codesign_tool = tools.dry_codesign_tool
+    elif code_signing_configuration == CodeSignConfiguration("execution-bypass"):
+        codesign_configuration_args = ["--codesign-configuration", "execution-bypass"]
     elif code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
         if _get_fast_adhoc_signing_enabled(ctx):
             codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]

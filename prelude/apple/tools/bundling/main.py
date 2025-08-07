@@ -169,6 +169,7 @@ def _args_parser() -> argparse.ArgumentParser:
         help=f"""
             Augments how code signing is run.
             Pass `{CodesignConfiguration.fastAdhoc}` to skip adhoc signing bundles if the executables are already adhoc signed.
+            Pass `{CodesignConfiguration.executionBypass}` to skip executing the actual codesigning commands.
             Pass `{CodesignConfiguration.dryRun}` for code signing to be run in dry mode (instead of actual signing only .plist
             files with signing parameters will be generated in the root of each signed bundle).
         """,
