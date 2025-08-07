@@ -8,6 +8,7 @@
 ## float
 ## int
 ## json
+## json\_file
 ## list
 ## option
 ## string
