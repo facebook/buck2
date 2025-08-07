@@ -19,8 +19,59 @@ import threading
 import warnings
 from importlib.machinery import PathFinder
 from importlib.util import module_from_spec
+from typing import Callable
 
 lock = threading.Lock()
+
+
+def __patch_ctypes(saved_env: dict[str, str]) -> None:
+    from ctypes import util as ctypes_util
+
+    orig_find_library: Callable[[str], str | None] = ctypes_util.find_library
+
+    def _patched_find_library(name: str) -> str | None:
+        if sys.platform == "darwin":
+            from ctypes.macholib.dyld import dyld_find
+
+            env = {}
+            env.update(os.environ)
+            env.update(saved_env)
+            for candidate in [
+                f"lib{name}.dylib",
+                f"{name}.dylib",
+                f"{name}.framework/{name}",
+            ]:
+                try:
+                    return dyld_find(candidate, env=env)
+                except ValueError:
+                    continue
+        elif os.name == "posix":
+            from pathlib import Path
+
+            for path in saved_env.get("LD_LIBRARY_PATH", "").split(os.pathsep):
+                if not path:
+                    continue
+                p = Path(path)
+                if not p.exists() or not p.is_dir():
+                    continue
+                for candidate in [
+                    f"{name}.so",
+                    f"lib{name}.so",
+                    f"{name}.so.[0-9]",
+                    f"lib{name}.so.[0-9]",
+                ]:
+                    for item in p.glob(candidate):
+                        return str(item)
+
+        return orig_find_library(name)
+
+    # the weird lambda is just to satisfy Pyre:
+    # ctypes.util.find_library is declared to have type
+    # `typing.Callable(ctypes_util.find_library)[[Named(name, str)],
+    # Optional[str]]` but is used as type
+    # `typing.Callable(__patch_ctypes._patched_find_library)[[Named(name, str)],
+    # Optional[str]]`
+    ctypes_util.find_library = lambda name: _patched_find_library(name)
 
 
 def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
@@ -47,7 +98,7 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     mp_util.spawnv_passfds = spawnv_passfds
 
 
-def __clear_env(patch_spawn: bool = True) -> None:
+def __clear_env(patch_spawn: bool = True, patch_ctypes: bool = True) -> None:
     saved_env = {}
 
     var_names = [
@@ -86,6 +137,9 @@ def __clear_env(patch_spawn: bool = True) -> None:
 
     if patch_spawn:
         __patch_spawn(var_names, saved_env)
+
+    if patch_ctypes:
+        __patch_ctypes(saved_env)
 
 
 def __startup__() -> None:
