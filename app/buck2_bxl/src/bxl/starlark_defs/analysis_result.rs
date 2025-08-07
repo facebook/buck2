@@ -12,6 +12,7 @@ use std::fmt;
 
 use allocative::Allocative;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dupe::Dupe;
@@ -22,7 +23,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::ValueTyped;
@@ -85,15 +86,17 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     ///     providers = ctx.analysis("//:bin").providers()
     ///     ctx.output.print(providers[FooInfo])
     /// ```
-    fn providers<'v>(this: &'v StarlarkAnalysisResult) -> starlark::Result<FrozenValue> {
+    fn providers<'v>(
+        this: &'v StarlarkAnalysisResult,
+    ) -> starlark::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         unsafe {
-            // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
+            // SAFETY: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
             // which is kept alive for 'v
             Ok(this
                 .analysis
                 .lookup_inner(&this.label)?
                 .value()
-                .to_frozen_value())
+                .value_typed())
         }
     }
 
