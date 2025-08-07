@@ -32,16 +32,17 @@ app_info.json format:
 
 -type application_resource() :: {application, atom(), proplists:proplist()}.
 -type mod() :: {atom(), [term()]} | undefined.
+-type filename() :: binary().
 
 -export([main/1]).
 
 -spec main([string()]) -> ok.
 main([AppInfoFile, Output]) ->
     try
-        do(AppInfoFile, Output)
+        do(to_binary_filename(AppInfoFile), to_binary_filename(Output))
     catch
         Type:{abort, Reason} ->
-            io:format(standard_error, "~s:~s~n", [Type, Reason]),
+            io:format(standard_error, "~ts:~ts~n", [Type, Reason]),
             erlang:halt(1)
     end;
 main(_) ->
@@ -51,7 +52,7 @@ main(_) ->
 usage() ->
     io:format("app_src_builder.escript app_info.json~n").
 
--spec do(file:filename(), file:filename()) -> ok.
+-spec do(filename(), filename()) -> ok.
 do(AppInfoFile, Output) ->
     #{
         name := Name,
@@ -76,14 +77,14 @@ do(AppInfoFile, Output) ->
     ),
     render_app_file(Name, VerifiedTerms, Output, Srcs).
 
--spec do_parse_app_info_file(file:filename()) ->
+-spec do_parse_app_info_file(filename()) ->
     #{
         name := string(),
         vsn := string(),
-        sources := [file:filename()]
+        sources := [filename()]
     }.
 do_parse_app_info_file(AppInfoFile) ->
-    case file:read_file(AppInfoFile, [raw]) of
+    case prim_file:read_file(AppInfoFile) of
         {ok, Content} ->
             case json:decode(Content) of
                 #{
@@ -116,7 +117,7 @@ do_parse_app_info_file(AppInfoFile) ->
             open_file_error(AppInfoFile, Error)
     end.
 
--spec get_template(file:filename() | undefined) -> application_resource().
+-spec get_template(filename() | undefined) -> application_resource().
 get_template(undefined) ->
     {application, '_', []};
 get_template(TemplateFile) ->
@@ -197,7 +198,7 @@ check_and_normalize_template(
                 P;
             _ ->
                 Msg = io_lib:format(
-                    "expect the top-level format of the template to be {application, '~s'/'_', [ ... ]}.~nBut got instead: ~p",
+                    "expect the top-level format of the template to be {application, '~ts'/'_', [ ... ]}.~nBut got instead: ~tp",
                     [
                         AppName,
                         Terms
@@ -256,21 +257,21 @@ verify_applications(AppName, AppDetail) ->
 
 -spec normalize_application(list(atom())) -> list(atom()).
 normalize_application(Applications) ->
-    StdLib =
+    NormalizedApplications0 =
         case lists:member(stdlib, Applications) of
             false ->
-                [stdlib];
+                [stdlib | Applications];
             true ->
-                []
+                Applications
         end,
-    Kernel =
+    NormalizedApplications =
         case lists:member(kernel, Applications) of
             false ->
-                [kernel];
+                [kernel | NormalizedApplications0];
             true ->
-                []
+                NormalizedApplications0
         end,
-    Kernel ++ StdLib ++ Applications.
+    NormalizedApplications.
 
 -spec ensure_fields(binary(), binary(), [atom()], [atom()], proplists:proplist()) ->
     proplists:proplist().
@@ -310,7 +311,7 @@ ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
         Defaults
     ).
 
--spec render_app_file(string(), application_resource(), file:filename(), [file:filename()]) ->
+-spec render_app_file(string(), application_resource(), filename(), [filename()]) ->
     ok.
 render_app_file(AppName, Terms, Output, Srcs) ->
     App = binary_to_atom(AppName),
@@ -322,16 +323,16 @@ render_app_file(AppName, Terms, Output, Srcs) ->
     Spec =
         {application, App, [{modules, Modules} | Props1]},
     ToWrite = io_lib:format("~kp.\n", [Spec]),
-    ok = file:write_file(Output, ToWrite, [raw]).
+    ok = prim_file:write_file(Output, ToWrite).
 
--spec generate_modules([file:filename()]) -> [atom()].
+-spec generate_modules([filename()]) -> [atom()].
 generate_modules(Sources) ->
     Modules = lists:foldl(
         fun(Source, Acc) ->
             case filename:extension(Source) of
                 <<".hrl">> ->
                     Acc;
-                Ext when Ext == <<".erl">> orelse Ext == <<".xrl">> orelse Ext == <<".yrl">> ->
+                Ext when Ext =:= <<".erl">> orelse Ext =:= <<".xrl">> orelse Ext =:= <<".yrl">> ->
                     ModuleName = filename:basename(Source, Ext),
                     Module = erlang:binary_to_atom(ModuleName),
                     [Module | Acc];
@@ -344,23 +345,23 @@ generate_modules(Sources) ->
     ),
     lists:usort(Modules).
 
--spec unknown_extension_error(File :: file:filename()) -> no_return().
+-spec unknown_extension_error(File :: filename()) -> no_return().
 unknown_extension_error(File) ->
-    Msg = io_lib:format("unsupported extension for source ~s", [File]),
+    Msg = io_lib:format("unsupported extension for source ~ts", [File]),
     erlang:error(
         {abort, Msg}
     ).
 
--spec open_file_error(File :: file:filename(), Error :: term()) -> no_return().
+-spec open_file_error(File :: filename(), Error :: term()) -> no_return().
 open_file_error(File, Error) ->
-    Msg = io_lib:format("cannot open file ~s: ~p", [File, Error]),
+    Msg = io_lib:format("cannot open file ~ts: ~tp", [File, Error]),
     erlang:error(
         {abort, Msg}
     ).
 
--spec file_corrupt_error(File :: file:filename(), Contents :: term()) -> no_return().
+-spec file_corrupt_error(File :: filename(), Contents :: term()) -> no_return().
 file_corrupt_error(File, Contents) ->
-    Msg = io_lib:format("corrupt information in ~s: ~p", [File, Contents]),
+    Msg = io_lib:format("corrupt information in ~ts: ~tp", [File, Contents]),
     erlang:error(
         {abort, Msg}
     ).
@@ -379,7 +380,7 @@ value_match_error(AppName, Wrong, Default) ->
 value_match_error_diff(AppName, {FieldName, Value1}, {FieldName, Value2}) ->
     Diff = diff_list(Value1, Value2),
     Msg = io_lib:format(
-        ("error when building ~s.app for application ~s: the field ~s in "
+        ("error when building ~ts.app for application ~ts: the field ~ts in "
         "the app.src template does not match with the target definition"),
         [
             AppName, AppName, FieldName
@@ -391,8 +392,8 @@ value_match_error_diff(AppName, {FieldName, Value1}, {FieldName, Value2}) ->
 
 value_match_error_scalar(AppName, {FieldName, Value1}, {FieldName, Value2}) ->
     Msg = io_lib:format(
-        ("error when building ~s.app for application ~s: the field ~s in the "
-        "app.src template (~p) does not match with the target definition (~p)"),
+        ("error when building ~ts.app for application ~ts: the field ~ts in the "
+        "app.src template (~tp) does not match with the target definition (~tp)"),
         [
             AppName, AppName, FieldName, Value1, Value2
         ]
@@ -404,7 +405,7 @@ value_match_error_scalar(AppName, {FieldName, Value1}, {FieldName, Value2}) ->
 -spec applications_type_error(string(), term()) -> no_return().
 applications_type_error(AppName, Applications) ->
     Msg = io_lib:format(
-        "error when building ~s.app for application ~s: require a list for applications value but got ~w instead",
+        "error when building ~ts.app for application ~ts: require a list for applications value but got ~tw instead",
         [
             AppName, AppName, Applications
         ]
@@ -416,7 +417,7 @@ applications_type_error(AppName, Applications) ->
 -spec parse_error(string(), string(), string()) -> no_return().
 parse_error(AppName, String, Description) ->
     Msg = io_lib:format(
-        "error when building ~s.app for application ~s: could not parse value for ~ts: `~p`",
+        "error when building ~ts.app for application ~ts: could not parse value for ~ts: `~tp`",
         [
             AppName, AppName, Description, String
         ]
@@ -456,45 +457,47 @@ construct_diff_spec([CommonItem | _] = LCS, AppSrcValue, [AddItem | TargetValue]
 ->
     construct_diff_spec(LCS, AppSrcValue, TargetValue, [{add, AddItem} | Acc]).
 
--define(LPAD, io_lib:format("~10s", [" "])).
--define(MPAD, io_lib:format("~28s", [" "])).
--define(RPAD, io_lib:format("~45s", [" "])).
+-define(LPAD, "          "). % 10 spaces
+-define(MPAD, "                            "). % 28 spaces
+-define(RPAD, "                                             "). % 45 spaces
 
 construct_diff(Spec) ->
     Header = [
         io_lib:format("           .app.src                           buck2 target~n", []),
         io_lib:format("           ========                           ============~n", [])
     ],
-    construct_diff(Spec, [Header]).
+    construct_diff(Spec, Header).
 
-construct_diff([], Acc) ->
-    lists:reverse(Acc);
-construct_diff([{common, N, Items} | Rest], Acc) when N < 5 ->
-    Output = [io_lib:format(" ~s~s~n", [?MPAD, format_item(Item)]) || Item <- lists:reverse(Items)],
-    construct_diff(Rest, [Output | Acc]);
-construct_diff([{common, N, Items} | Rest], Acc) ->
-    [Last | _] = Items,
-    [First | _] = lists:reverse(Items),
-    Output = [
-        io_lib:format(" ~s~s~n", [?MPAD, format_item(First)]),
-        io_lib:format(" ~s~s~n", [?MPAD, io_lib:format("... ~b more ...", [N - 2])]),
-        io_lib:format(" ~s~s~n", [?MPAD, format_item(Last)])
-    ],
-    construct_diff(Rest, [Output | Acc]);
-construct_diff([{remove, Item} | Rest], Acc) ->
-    Output = io_lib:format("<~s~s~n", [?LPAD, format_item(Item)]),
-    construct_diff(Rest, [Output | Acc]);
-construct_diff([{add, Item} | Rest], Acc) ->
-    Output = io_lib:format(">~s~s~n", [?RPAD, format_item(Item)]),
-    construct_diff(Rest, [Output | Acc]).
+construct_diff(L, Header) ->
+    Diff =
+        [
+            case E of
+                {common, N, Items} when N < 5 ->
+                    [io_lib:format(" ~ts~ts~n", [?MPAD, format_item(Item)]) || Item <- Items];
+                {common, N, Items} ->
+                    [Last | _] = Items,
+                    First = lists:last(Items),
+                    [
+                        io_lib:format(" ~ts~ts~n", [?MPAD, format_item(First)]),
+                        io_lib:format(" ~ts~ts~n", [?MPAD, io_lib:format("... ~b more ...", [N - 2])]),
+                        io_lib:format(" ~ts~ts~n", [?MPAD, format_item(Last)])
+                    ];
+                {remove, Item} ->
+                    io_lib:format("<~ts~ts~n", [?LPAD, format_item(Item)]);
+                {add, Item} ->
+                    io_lib:format(">~ts~ts~n", [?RPAD, format_item(Item)])
+            end
+         || E <- L
+        ],
+    [Header | Diff].
 
 format_item(Item) ->
-    S = io_lib:format("~w", [Item]),
+    S = io_lib:format("~tw", [Item]),
     case string:length(S) > 30 of
         true ->
-            io_lib:format("~.27s...", [S]);
+            io_lib:format("~.27ts...", [S]);
         false ->
-            io_lib:format("~.30s", [S])
+            io_lib:format("~.30ts", [S])
     end.
 
 %% longest common subsequence from http://rosettacode.org/wiki/Longest_common_subsequence#Erlang
@@ -512,7 +515,7 @@ lcs_length([_SH | ST] = S, [_TH | TT] = T, Cache) ->
         false ->
             {L1, C1} = lcs_length(S, TT, Cache),
             {L2, C2} = lcs_length(ST, T, C1),
-            L = lists:max([L1, L2]),
+            L = max(L1, L2),
             {L, maps:put({S, T}, L, C2)}
     end.
 
@@ -553,4 +556,9 @@ verify_metadata([{K, V0} | T], Metadata) ->
                 false ->
                     erlang:error(metadata_not_compatible, [{K, V0}, {K, V1}])
             end
+    end.
+
+to_binary_filename(Filename) ->
+    case unicode:characters_to_binary(Filename) of
+        Bin when is_binary(Bin) -> Bin
     end.
