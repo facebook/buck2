@@ -123,7 +123,6 @@ use tracing::warn;
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::common::get_default_executor_config;
-use crate::daemon::common::parse_concurrency;
 use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
@@ -135,6 +134,14 @@ use crate::snapshot::SnapshotCollector;
 enum DaemonCommunicationError {
     #[error("Got invalid working directory `{0}`")]
     InvalidWorkingDirectory(String),
+}
+
+fn parse_concurrency(requested: u32) -> Option<usize> {
+    let ret: usize = requested
+        .try_into()
+        .expect("Buck2 isn't built for 16 bit systems");
+
+    if ret == 0 { None } else { Some(ret) }
 }
 
 /// BaseCommandContext provides access to the global daemon state and information specific to a command (like the
@@ -383,8 +390,7 @@ impl<'a> ServerCommandContext<'a> {
             .build_options
             .as_ref()
             .and_then(|opts| opts.concurrency.as_ref())
-            .map(|obj| parse_concurrency(obj.concurrency))
-            .map(|v| v.map_err(buck2_error::Error::from));
+            .and_then(|obj| parse_concurrency(obj.concurrency));
 
         let executor_config = get_default_executor_config(self.host_platform_override);
         let re_connection = Arc::new(self.get_re_connection());
@@ -514,7 +520,7 @@ impl ServerCommandContext<'_> {
 struct DiceCommandUpdater<'s, 'a: 's> {
     cmd_ctx: &'s ServerCommandContext<'a>,
     execution_strategy: ExecutionStrategy,
-    concurrency: Option<Result<usize, buck2_error::Error>>,
+    concurrency: Option<usize>,
     executor_config: Arc<CommandExecutorConfig>,
     re_connection: Arc<ReConnectionHandle>,
     build_signals: BuildSignalsInstaller,
@@ -608,10 +614,10 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(0);
 
-        let concurrency = match self.concurrency.as_ref() {
-            Some(v) => v.dupe()?,
-            None => parse_concurrency(config_threads)?,
-        };
+        let concurrency = self
+            .concurrency
+            .or_else(|| parse_concurrency(config_threads))
+            .unwrap_or_else(buck2_util::threads::available_parallelism);
 
         if let Some(max_lines) = root_config.parse(BuckconfigKeyRef {
             section: "ui",
