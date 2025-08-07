@@ -25,6 +25,7 @@ use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutionPolicy;
+use buck2_core::execution_types::executor_config::RemoteExecutorCafFbpkg;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
@@ -60,6 +61,10 @@ enum CommandExecutorConfigErrors {
     NoExecutor,
     #[error("expected a dict, got `{0}` (type `{1}`)")]
     RePolicyNotADict(String, String),
+    #[error("expected an list, got `{0}` (type `{1}`)")]
+    ReCafFbpkgsNotAList(String, String),
+    #[error("expected an dict, got `{0}` (type `{1}`)")]
+    ReCafFbpkgNotADict(String, String),
 }
 
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
@@ -459,6 +464,46 @@ fn parse_remote_execution_policy(
     }
 }
 
+fn parse_remote_execution_caf_fbpkgs(
+    caf_fbpkgs: Option<Value>,
+) -> buck2_error::Result<Vec<RemoteExecutorCafFbpkg>> {
+    if caf_fbpkgs.is_none() {
+        Ok(vec![])
+    } else {
+        let re_caf_fbpkgs_list =
+            ListRef::from_value(caf_fbpkgs.unwrap().to_value()).ok_or_else(|| {
+                buck2_error::Error::from(CommandExecutorConfigErrors::ReCafFbpkgsNotAList(
+                    caf_fbpkgs.unwrap().to_value().to_repr(),
+                    caf_fbpkgs.unwrap().to_value().get_type().to_owned(),
+                ))
+            })?;
+
+        Ok(re_caf_fbpkgs_list
+            .iter()
+            .map(|caf_fbpkg| match DictRef::from_value(caf_fbpkg) {
+                Some(dict_ref) => Ok(RemoteExecutorCafFbpkg {
+                    name: dict_ref
+                        .get_str("name")
+                        .ok_or(CommandExecutorConfigErrors::MissingField("name"))?
+                        .to_str(),
+                    uuid: dict_ref
+                        .get_str("uuid")
+                        .ok_or(CommandExecutorConfigErrors::MissingField("uuid"))?
+                        .to_str(),
+                    tag: dict_ref.get_str("tag").map(|v| v.to_str()),
+                    permissions: dict_ref.get_str("permissions").map(|v| v.to_str()),
+                }),
+                None => Err(buck2_error::Error::from(
+                    CommandExecutorConfigErrors::ReCafFbpkgNotADict(
+                        caf_fbpkg.to_repr(),
+                        caf_fbpkg.get_type().to_owned(),
+                    ),
+                )),
+            })
+            .collect::<buck2_error::Result<Vec<RemoteExecutorCafFbpkg>>>()?)
+    }
+}
+
 pub fn parse_meta_internal_extra_params<'v>(
     params: Option<DictRef<'v>>,
 ) -> buck2_error::Result<MetaInternalExtraParams> {
@@ -466,6 +511,9 @@ pub fn parse_meta_internal_extra_params<'v>(
         Ok(MetaInternalExtraParams {
             remote_execution_policy: parse_remote_execution_policy(
                 params.get_str("remote_execution_policy"),
+            )?,
+            remote_execution_caf_fbpkgs: parse_remote_execution_caf_fbpkgs(
+                params.get_str("remote_execution_caf_fbpkgs"),
             )?,
         })
     } else {

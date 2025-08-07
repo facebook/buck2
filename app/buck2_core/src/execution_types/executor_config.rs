@@ -69,6 +69,14 @@ pub struct ImagePackageIdentifier {
     pub uuid: String,
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+pub struct RemoteExecutorCafFbpkg {
+    pub name: String,
+    pub uuid: String,
+    pub tag: Option<String>,
+    pub permissions: Option<String>,
+}
+
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
 pub struct RemoteExecutorCustomImage {
     pub identifier: ImagePackageIdentifier,
@@ -346,4 +354,5 @@ pub struct RemoteExecutionPolicy {
 #[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
 pub struct MetaInternalExtraParams {
     pub remote_execution_policy: RemoteExecutionPolicy,
+    pub remote_execution_caf_fbpkgs: Vec<RemoteExecutorCafFbpkg>,
 }

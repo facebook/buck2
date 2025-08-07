@@ -15,6 +15,7 @@ use std::time::Duration;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
+use buck2_core::execution_types::executor_config::RemoteExecutorCafFbpkg;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -248,6 +249,9 @@ impl CommandExecutor {
                 request.unique_input_inodes(),
                 request.remote_execution_dependencies(),
                 request.remote_execution_custom_image(),
+                &request
+                    .meta_internal_extra_params()
+                    .remote_execution_caf_fbpkgs,
             )?;
 
             buck2_error::Ok(action)
@@ -270,6 +274,7 @@ fn re_create_action(
     unique_input_inodes: bool,
     remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
     remote_execution_custom_image: &Option<RemoteExecutorCustomImage>,
+    remote_execution_caf_fbpkgs: &[RemoteExecutorCafFbpkg],
 ) -> buck2_error::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
@@ -364,6 +369,26 @@ fn re_create_action(
     #[cfg(not(fbcode_build))]
     {
         let _unused = remote_execution_custom_image;
+    }
+
+    #[cfg(fbcode_build)]
+    {
+        action.caf_fbpkgs = remote_execution_caf_fbpkgs
+            .iter()
+            .map(|caf_fbpkg| RE::CafFbpkg {
+                id: Some(RE::CafFbpkgIdentifier {
+                    name: caf_fbpkg.name.clone(),
+                    uuid: caf_fbpkg.uuid.clone(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .collect();
+    }
+
+    #[cfg(not(fbcode_build))]
+    {
+        let _unused = remote_execution_caf_fbpkgs;
     }
 
     if unique_input_inodes {
