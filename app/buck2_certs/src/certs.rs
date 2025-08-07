@@ -23,54 +23,42 @@ use rustls_pki_types::pem::PemObject;
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
-    let mut native_certs_results = rustls_native_certs::load_native_certs();
-
-    // rustls_native_certs now supports multiple errors
-    let native_certs = if native_certs_results.errors.is_empty() {
-        Ok(native_certs_results.certs)
+    let root_certs = if let Some(path) = find_root_ca_certs() {
+        load_certs(&path).await.with_buck_error_context(|| {
+            format!("Loading root certs from: {}", path.to_string_lossy())
+        })
     } else {
-        // Consider the first error to be indicative of the overall problem
-        let failed_certs = Err(native_certs_results.errors.remove(0));
-        let native_certs = failed_certs.tag(buck2_error::ErrorTag::Environment);
+        let mut native_certs_results = rustls_native_certs::load_native_certs();
 
-        // Annotate the error with our context, but note that we do not return
-        // the error here because we may recover through find_root_ca_certs()/load_certs() below
-        if cfg!(fbcode_build) {
-            let windows_message = if cfg!(target_os = "windows") {
-                " on an admin PowerShell"
-            } else {
-                ""
-            };
-            let context = format!(
-            "Error loading system root certificates native frameworks.
-            This is usually due to Chef not installed or working properly.
-            Please try `getchef -reason 'chef broken'`{windows_message}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
-            If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state."
-        );
-            native_certs.buck_error_context(context)
+        // rustls_native_certs now supports multiple errors
+        if native_certs_results.errors.is_empty() {
+            Ok(native_certs_results.certs)
         } else {
-            native_certs
-                .buck_error_context("Error loading system root certificates native frameworks.")
-        }
-    };
+            // Consider the first error to be indicative of the overall problem
+            let failed_certs = Err(native_certs_results.errors.remove(0));
+            let native_certs = failed_certs.tag(buck2_error::ErrorTag::Environment);
 
-    let root_certs =
-          // Load the system root certificates using native frameworks.
-          if let Ok(certs) = native_certs {
-              certs
-          }
-          else if let Some(path) = find_root_ca_certs() {
-              tracing::debug!(
-                  "Failed loading certs from native OS, falling back to disk at: {}",
-                  path.to_string_lossy(),
-              );
-              load_certs(&path)
-                  .await
-                  .with_buck_error_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
-          } else {
-              native_certs?;
-              return Err(buck2_error!(buck2_error::ErrorTag::Environment, "Unable to load system root certificates"));
-          };
+            // Annotate the error with our context, but note that we do not return
+            // the error here because we may recover through find_root_ca_certs()/load_certs() below
+            if cfg!(fbcode_build) {
+                let windows_message = if cfg!(target_os = "windows") {
+                    " on an admin PowerShell"
+                } else {
+                    ""
+                };
+                let context = format!(
+                    "Error loading system root certificates native frameworks.
+                    This is usually due to Chef not installed or working properly.
+                    Please try `getchef -reason 'chef broken'`{windows_message}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
+                    If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state."
+                );
+                native_certs.buck_error_context(context)
+            } else {
+                native_certs
+                    .buck_error_context("Error loading system root certificates native frameworks.")
+            }
+        }
+    }?;
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
     // it's better to only add parseable certs when loading system certs because
@@ -169,7 +157,10 @@ pub(crate) fn find_root_ca_certs() -> Option<OsString> {
     return find_certs::find_root_ca_certs();
 
     #[cfg(not(fbcode_build))]
-    return None;
+    match std::env::var_os("ROOT_CA_CERT_PATH") {
+        Some(path) if Path::new(&path).exists() => Some(path),
+        _ => None,
+    }
 }
 
 /// Find TLS certs.
