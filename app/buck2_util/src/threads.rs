@@ -20,7 +20,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 
 pub fn available_parallelism() -> usize {
-    num_cpus::get()
+    // NB: num_cpus and tokio both also use 1 as the default in case of an error
+    std::thread::available_parallelism().map_or(1, |v| v.get())
 }
 
 /// Default stack size for buck2.
@@ -208,13 +209,5 @@ pub(crate) mod tests {
             .join()
             .unwrap()
             .unwrap();
-    }
-
-    #[test]
-    fn test_num_cpus_and_std_agree() {
-        assert_eq!(
-            std::thread::available_parallelism().unwrap().get(),
-            num_cpus::get()
-        );
     }
 }
