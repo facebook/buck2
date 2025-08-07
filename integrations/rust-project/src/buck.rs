@@ -55,6 +55,7 @@ pub(crate) fn infer_xplat_platforms(targets: &[Target]) -> Vec<&'static str> {
     for target in targets {
         if target.contains("fbcode") {
             xplat_platforms.push("FBCODE");
+            break;
         }
     }
 
