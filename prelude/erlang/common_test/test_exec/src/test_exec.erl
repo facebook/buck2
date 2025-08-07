@@ -36,7 +36,7 @@ kill_process(Port) ->
         undefined ->
             ok;
         {os_pid, OsPid} ->
-            X = os:cmd(io_lib:format("kill -9 -~p", [OsPid])),
+            X = os:cmd(io_lib:format("kill -9 -~tp", [OsPid])),
             ?LOG_DEBUG("Sending kill signal to process group from ~p resulted in ~p", [OsPid, X]),
             spawn(fun() -> port_close(Port) end),
             ok

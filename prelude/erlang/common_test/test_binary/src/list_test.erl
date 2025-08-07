@@ -102,7 +102,7 @@ test_exported_test(Suite, Test) ->
                     error(
                         {invalid_test,
                             io_lib:format(
-                                "The test ~s has been discovered while recursively exploring all/0, " ++
+                                "The test ~ts has been discovered while recursively exploring all/0, " ++
                                     "groups/0 but is not an exported method of arity 1",
                                 [Test]
                             )}
@@ -231,7 +231,7 @@ test_format(Suite, Groups, Test) ->
         "",
         ListPeriodGroups
     ),
-    case unicode:characters_to_binary(io_lib:format("~s.~s", [GroupString, Test]), latin1) of
+    case unicode:characters_to_binary(io_lib:format("~ts.~ts", [GroupString, Test]), unicode) of
         Error = {'incomplete', _List, _Rest} -> error(Error);
         Error = {'error', _List, _Binary} -> error(Error);
         Binary -> Binary
@@ -273,7 +273,7 @@ get_contacts(Suite) ->
 extract_attribute(_, []) ->
     [];
 extract_attribute(Attribute, [?MATCH_STRING(Data) | Forms]) ->
-    [list_to_binary(Data)] ++ extract_attribute(Attribute, Forms);
+    [list_string_to_binary(Data)] ++ extract_attribute(Attribute, Forms);
 extract_attribute(Attribute, [?MATCH_LIST(Data) | Forms]) ->
     extract_attribute(Attribute, Data) ++
         extract_attribute(Attribute, Forms);
@@ -282,3 +282,7 @@ extract_attribute(Attribute, [?MATCH_ATTRIBUTE(Attribute, Binds) | Forms]) ->
         extract_attribute(Attribute, Forms);
 extract_attribute(Attribute, [_ | Forms]) ->
     extract_attribute(Attribute, Forms).
+
+list_string_to_binary(Str) when is_list(Str) ->
+    Bin = unicode:characters_to_binary(Str),
+    if is_binary(Bin) -> Bin end.

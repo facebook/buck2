@@ -61,7 +61,7 @@ write_to_file(FileName, TestInfo) ->
         raw_target = RawTarget,
         trampolines = Trampolines
     } = TestInfo,
-    ErlTermToStr = fun(Term) -> list_to_binary(lists:flatten(io_lib:format("~p", [Term]))) end,
+    ErlTermToStr = fun(Term) -> list_string_to_binary(lists:flatten(io_lib:format("~tp", [Term]))) end,
     Json = #{
         <<"dependencies">> => [try_make_path_relative(Dep) || Dep <- Dependencies],
         <<"test_suite">> => filename:basename(SuiteBeamPath, ".beam"),
@@ -77,7 +77,7 @@ write_to_file(FileName, TestInfo) ->
         <<"raw_target">> => RawTarget,
         <<"trampolines">> => Trampolines
     },
-    file:write_file(FileName, json:encode(Json), [raw]).
+    file:write_file(FileName, json:encode(Json), [raw, binary]).
 
 -spec make_path_absolute(file:filename_all()) -> file:filename_all().
 make_path_absolute(Path) ->
@@ -142,3 +142,7 @@ parse_mfa(MFA) ->
 -spec make_ct_opts([ctopt()], [cth()]) -> [ctopt()].
 make_ct_opts(CtOpts, []) -> CtOpts;
 make_ct_opts(CtOpts, ExtraCtHooks) -> [{ct_hooks, ExtraCtHooks} | CtOpts].
+
+list_string_to_binary(Str) when is_list(Str) ->
+    Bin = unicode:characters_to_binary(Str),
+    if is_binary(Bin) -> Bin end.

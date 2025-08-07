@@ -325,7 +325,7 @@ post_init_per_group(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "init_per_group FAILED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "init_per_group FAILED"),
         State2 = add_result(?INIT_PER_GROUP, failed, Desc, State1),
         {Error, fail_group(State2)}
     end);
@@ -338,7 +338,7 @@ post_init_per_group(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "init_per_group SKIPPED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "init_per_group SKIPPED"),
         State2 = add_result(?INIT_PER_GROUP, skipped, Desc, State1),
         {Error, fail_group(State2)}
     end);
@@ -351,14 +351,14 @@ post_init_per_group(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "init_per_group FAILED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "init_per_group FAILED"),
         State2 = add_result(?INIT_PER_GROUP, failed, Desc, State1),
         {Error, fail_group(State2)}
     end);
 post_init_per_group(_SuiteName, Group, _Config, Error, HookState) when not is_list(Error) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "init_per_group FAILED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "init_per_group FAILED"),
         State2 = add_result(?INIT_PER_GROUP, failed, Desc, State1),
         {Error, fail_group(State2)}
     end);
@@ -395,7 +395,7 @@ post_end_per_group(
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "end_per_group SKIPPED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "end_per_group SKIPPED"),
         State1 = add_result(?END_PER_GROUP, skipped, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
@@ -407,7 +407,7 @@ post_end_per_group(
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "end_per_group FAILED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "end_per_group FAILED"),
         State1 = add_result(?END_PER_GROUP, failed, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
@@ -419,7 +419,7 @@ post_end_per_group(
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{suite = Suite, groups = Groups}) ->
-        Desc = fmt_stack(Suite, "~s", [Group], Error, "end_per_group FAILED"),
+        Desc = fmt_stack(Suite, "~ts", [Group], Error, "end_per_group FAILED"),
         State1 = add_result(?END_PER_GROUP, failed, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
@@ -456,8 +456,8 @@ post_init_per_testcase(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State = #state{suite = Suite}) ->
         %% ct skip because of failed init is reported as error
-        TC = io_lib:format("~p.[init_per_testcase]", [TestCase]),
-        Desc = fmt_stack(Suite, "~s", [TC], Error, "init_per_testcase FAILED"),
+        TC = io_lib:format("~tp.[init_per_testcase]", [TestCase]),
+        Desc = fmt_stack(Suite, "~ts", [TC], Error, "init_per_testcase FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
 post_init_per_testcase(
@@ -465,8 +465,8 @@ post_init_per_testcase(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State = #state{suite = Suite}) ->
         %% other skips (user skip) are reported as skips
-        TC = io_lib:format("~p.[init_per_testcase]", [TestCase]),
-        Desc = fmt_stack(Suite, "~s", [TC], Error, "init_per_testcase SKIPPED"),
+        TC = io_lib:format("~tp.[init_per_testcase]", [TestCase]),
+        Desc = fmt_stack(Suite, "~ts", [TC], Error, "init_per_testcase SKIPPED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, skipped, Desc, State)}
     end);
 post_init_per_testcase(
@@ -474,8 +474,8 @@ post_init_per_testcase(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State = #state{suite = Suite}) ->
         %% fails are reported as errors
-        TC = io_lib:format("~p.[init_per_testcase]", [TestCase]),
-        Desc = fmt_stack(Suite, "~s", [TC], Error, "init_per_testcase FAILED"),
+        TC = io_lib:format("~tp.[init_per_testcase]", [TestCase]),
+        Desc = fmt_stack(Suite, "~ts", [TC], Error, "init_per_testcase FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
 post_init_per_testcase(_SuiteName, TestCase, _Config, Error, HookState) when
@@ -483,8 +483,8 @@ post_init_per_testcase(_SuiteName, TestCase, _Config, Error, HookState) when
 ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State = #state{suite = Suite}) ->
         %% terms are reported as errors except ok (missing in CT doc)
-        TC = io_lib:format("~p.[init_per_testcase]", [TestCase]),
-        Desc = fmt_stack(Suite, "~s", [TC], Error, "init_per_testcase FAILED"),
+        TC = io_lib:format("~tp.[init_per_testcase]", [TestCase]),
+        Desc = fmt_stack(Suite, "~ts", [TC], Error, "init_per_testcase FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
 post_init_per_testcase(_SuiteName, TestCase, _Config, Return, HookState) ->
@@ -527,7 +527,7 @@ add_result(
                             end,
                         [
                             io_lib:format(
-                                "The stdout logs have been truncated, see ~s for the full suite stdout. Showing tail below\n",
+                                "The stdout logs have been truncated, see ~ts for the full suite stdout. Showing tail below\n",
                                 [
                                     StdOutLocation
                                 ]
@@ -567,7 +567,7 @@ add_result(
 method_name(Method, Groups) ->
     MethodName =
         case Method of
-            {TestCase, Phase} -> io_lib:format("~s.~s", [atom_to_list(TestCase), atom_to_list(Phase)]);
+            {TestCase, Phase} -> io_lib:format("~ts.~ts", [atom_to_list(TestCase), atom_to_list(Phase)]);
             MethodName0 -> atom_to_list(MethodName0)
         end,
     cth_tpx_test_tree:qualified_name(Groups, MethodName).
@@ -597,7 +597,7 @@ post_end_per_testcase(_SuiteName, TC, Config, Error, HookState) ->
                     %% now report end per failure
                     Desc = fmt_stack(
                         Suite,
-                        "~s",
+                        "~ts",
                         [format_path(TC, Groups)],
                         Error,
                         "end_per_testcase FAILED"
@@ -624,12 +624,12 @@ on_tc_fail(_SuiteName, {end_per_group, _GroupName}, _, HookState) ->
     HookState;
 on_tc_fail(_SuiteName, {TC, _Group}, Reason, HookState) ->
     modify_shared_state(HookState, ?FUNCTION_NAME, fun(State = #state{suite = Suite, groups = Groups}) ->
-        Desc = fmt_fail(Suite, "~s", [format_path(TC, Groups)], Reason),
+        Desc = fmt_fail(Suite, "~ts", [format_path(TC, Groups)], Reason),
         add_result({TC, ?MAIN_TESTCASE}, failed, Desc, State)
     end);
 on_tc_fail(_SuiteName, TC, Reason, HookState) ->
     modify_shared_state(HookState, ?FUNCTION_NAME, fun(State = #state{suite = Suite, groups = Groups}) ->
-        Desc = fmt_fail(Suite, "~s", [format_path(TC, Groups)], Reason),
+        Desc = fmt_fail(Suite, "~ts", [format_path(TC, Groups)], Reason),
         add_result({TC, ?MAIN_TESTCASE}, failed, Desc, State)
     end).
 
@@ -655,11 +655,11 @@ on_tc_skip(_SuiteName, TC, Reason, HookState) ->
     end).
 
 handle_on_tc_skip(TC, {tc_auto_skip, Reason}, State = #state{suite = Suite, groups = Groups}) ->
-    Desc = fmt_fail(Suite, "~s", [format_path(TC, Groups)], Reason),
+    Desc = fmt_fail(Suite, "~ts", [format_path(TC, Groups)], Reason),
     NewState = add_result({TC, ?MAIN_TESTCASE}, failed, Desc, State),
     NewState#state{suite = Suite};
 handle_on_tc_skip(TC, {tc_user_skip, Reason}, State = #state{suite = Suite, groups = Groups}) ->
-    Desc = fmt_skip(Suite, "~s", [format_path(TC, Groups)], Reason),
+    Desc = fmt_skip(Suite, "~ts", [format_path(TC, Groups)], Reason),
     NewState = add_result({TC, ?MAIN_TESTCASE}, skipped, Desc, State),
     NewState#state{suite = Suite}.
 
@@ -675,11 +675,11 @@ terminate(#{role := bot}) ->
 
 -spec write_output({file, string()} | stdout, binary()) -> ok.
 write_output({file, FN}, JSON) ->
-    io:format("Writing result file ~p~n", [FN]),
+    io:format("Writing result file ~tp~n", [FN]),
     ok = filelib:ensure_dir(FN),
-    file:write_file(FN, JSON, [raw]);
+    file:write_file(FN, JSON, [raw, binary]);
 write_output(stdout, JSON) ->
-    io:format(user, "~p", [JSON]).
+    io:format(user, "~tp", [JSON]).
 
 -spec initialize_stdout_capture(shared_state()) -> ok.
 initialize_stdout_capture(#state{io_buffer = IoBuffer} = _State) ->

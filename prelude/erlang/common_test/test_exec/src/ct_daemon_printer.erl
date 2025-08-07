@@ -42,20 +42,20 @@ print_result(Name, {skip, Where, {error, {thrown, Reason, Stacktrace}}}) ->
     print_skip_error(Name, Where, throw, Reason, Stacktrace);
 print_result(Name, {skip, Where, Reason}) ->
     io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
-    io:format("skipped at ~s because of ~p~n", [print_skip_location(Where), Reason]),
+    io:format("skipped at ~ts because of ~tp~n", [print_skip_location(Where), Reason]),
     skip;
 print_result(Name, {fail, {TestId, Reason}}) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("~ts failed:~n", [TestId]),
-    io:format("~p~n", [Reason]),
+    io:format("~tp~n", [Reason]),
     fail;
 print_result(Name, {error, {_TestId, {'ct_daemon_core$sentinel_crash', Info}}}) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("Test process received EXIT signal with reason: ~p~n", [Info]),
+    io:format("Test process received EXIT signal with reason: ~tp~n", [Info]),
     fail;
 print_result(Name, {error, {_TestId, {timetrap, TimeoutValue}}}) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("Test timed out after ~p ms~n", [TimeoutValue]),
+    io:format("Test timed out after ~tp ms~n", [TimeoutValue]),
     fail;
 print_result(Name, {error, {_TestId, {Reason, Stacktrace}}}) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
@@ -63,26 +63,26 @@ print_result(Name, {error, {_TestId, {Reason, Stacktrace}}}) ->
 print_result(Name, Unstructured) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("unable to format failure reason, please report.~n"),
-    io:format("~p~n", [Unstructured]),
+    io:format("~tp~n", [Unstructured]),
     fail.
 
 print_error(Name, Type, Reason, Stacktrace) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("failed with ~p:~n", [Type]),
+    io:format("failed with ~tp:~n", [Type]),
     Output = ct_error_printer:format_error(Type, {Reason, chop_stack(Stacktrace)}, true),
     io:format("~ts~n", [Output]),
     fail.
 
 print_skip_error(Name, Where, Type, Reason, Stacktrace) ->
     io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
-    io:format("skipped at ~s because of~n", [print_skip_location(Where)]),
+    io:format("skipped at ~ts because of~n", [print_skip_location(Where)]),
     Output = ct_error_printer:format_error(Type, {Reason, chop_stack(Stacktrace)}, true),
     io:format("~ts~n", [Output]),
     skip.
 
 print_skip_location({_, GroupOrSuite}) ->
-    case re:run(atom_to_list(GroupOrSuite), "SUITE$") of
-        nomatch -> io_lib:format("init_per_group of ~s", [GroupOrSuite]);
+    case re:run(atom_to_list(GroupOrSuite), "SUITE$", [unicode]) of
+        nomatch -> io_lib:format("init_per_group of ~ts", [GroupOrSuite]);
         _ -> "init_per_suite"
     end;
 print_skip_location(Other) ->

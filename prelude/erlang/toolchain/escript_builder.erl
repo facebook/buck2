@@ -34,7 +34,7 @@ main([Spec]) ->
         do(Decoded)
     catch
         Type:{abort, Reason} ->
-            io:format(standard_error, "~s: ~s~n", [Type, Reason]),
+            io:format(standard_error, "~ts: ~ts~n", [Type, Reason]),
             erlang:halt(1)
     end;
 main(_) ->
@@ -69,7 +69,7 @@ do(#{
         ok ->
             ok;
         {error, EscriptError} ->
-            error(unicode:characters_to_binary(io_lib:format("could not create escript: ~p", [EscriptError])))
+            error(unicode:characters_to_binary(io_lib:format("could not create escript: ~tp", [EscriptError])))
     end,
 
     %% set executable bits (unix only)
@@ -154,7 +154,7 @@ queue(Files, JobRefs, NumLeft, Acc) ->
                 normal when is_map_key(Mref, JobRefs) ->
                     queue(Files, JobRefs, NumLeft-1, Acc);
                 _ ->
-                    io:format("ERROR: Compilation failed: ~p", [Info]),
+                    io:format("ERROR: Compilation failed: ~tp", [Info]),
                     erlang:halt(1)
             end;
         Worker when is_pid(Worker) ->

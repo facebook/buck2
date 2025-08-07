@@ -28,7 +28,7 @@ main([ReleaseSpec, OutDir]) ->
         erlang:halt(?EXITSUCCESS)
     catch
         Type:{abort, Reason} ->
-            io:format(standard_error, "~s:~s~n", [Type, Reason]),
+            io:format(standard_error, "~ts:~ts~n", [Type, Reason]),
             erlang:halt(?EXITERROR)
     end;
 main(_) ->
@@ -100,8 +100,8 @@ build_start_boot(
 
 make_boot_script(RelName, RelFileContent, Options) ->
     ok = write_file(
-        io_lib:format("~s.rel", [RelName]),
-        io_lib:format("~p.", [RelFileContent])
+        io_lib:format("~ts.rel", [RelName]),
+        io_lib:format("~tp.", [RelFileContent])
     ),
     case systools:make_script(RelName, Options) of
         ok ->
@@ -171,7 +171,7 @@ get_otp_app_deps([App | Rest], OTPAppMapping, Acc) ->
     get_otp_app_deps(Rest ++ FilteredDependencies, OTPAppMapping, Acc#{App => Spec}).
 
 app_file_path(Path, Name) ->
-    AppFile = unicode:characters_to_list(io_lib:format("~s.app", [Name])),
+    AppFile = unicode:characters_to_list(io_lib:format("~ts.app", [Name])),
     filename:join(Path, AppFile).
 
 parse_app_path(Path) ->
@@ -188,7 +188,7 @@ parse_app_path(Path) ->
     end.
 
 parse_app_file(File) ->
-    io:format("~s~n", [File]),
+    io:format("~ts~n", [File]),
     {ok, [{application, App, Props}]} =
         file:consult(File),
     AppName = atom_to_binary(App),

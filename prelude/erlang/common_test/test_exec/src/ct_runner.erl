@@ -113,7 +113,7 @@ handle_info(
                         );
                     _ ->
                         unicode:characters_to_list(
-                            io_lib:format("ct run exited with status exit ~p", [
+                            io_lib:format("ct run exited with status exit ~tp", [
                                 ExitStatus
                             ])
                         )
@@ -123,7 +123,7 @@ handle_info(
     end,
     {stop, {ct_run_finished, ExitStatus}, State};
 handle_info({_Port, {data, Data}}, #{std_out := StdOut} = State) ->
-    ?LOG_DEBUG("~s", [Data]),
+    ?LOG_DEBUG("~ts", [Data]),
     {noreply, State#{std_out => [Data | StdOut]}};
 handle_info({Port, closed}, #{port := Port} = State) ->
     {stop, ct_port_closed, State};
@@ -304,7 +304,7 @@ start_test_node(
             true -> [stderr_to_stdout, exit_status, {line, 1024}];
             false -> ?DEFAULT_LAUNCH_PORT_OPTIONS
         end,
-    ?LOG_DEBUG("default options ~p", [DefaultOptions]),
+    ?LOG_DEBUG("default options ~tp", [DefaultOptions]),
     LaunchSettings = [
         {args, LaunchArgs},
         {env, LaunchEnv},
@@ -327,7 +327,7 @@ start_test_node(
 generate_arg_tuple(_Prop, []) ->
     [];
 generate_arg_tuple(Prop, ConfigFiles) ->
-    [lists:flatten(io_lib:format("~p", [{Prop, ConfigFiles}]))].
+    [lists:flatten(io_lib:format("~tp", [{Prop, ConfigFiles}]))].
 
 config_arg([]) -> [];
 config_arg(ConfigFiles) -> ["-config"] ++ ConfigFiles.
@@ -343,7 +343,7 @@ set_home_dir(OutputDir) ->
     HomeDir = filename:join(OutputDir, "HOME"),
     ErlangCookieFile = filename:join(HomeDir, ".erlang.cookie"),
     ok = filelib:ensure_dir(ErlangCookieFile),
-    ok = file:write_file(ErlangCookieFile, atom_to_list(cookie()), [raw]),
+    ok = file:write_file(ErlangCookieFile, atom_to_list(cookie()), [raw, binary]),
     ok = file:change_mode(ErlangCookieFile, 8#00400),
 
     % In case the system is using dotslash, we leave a symlink to

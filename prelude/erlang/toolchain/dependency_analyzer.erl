@@ -99,7 +99,7 @@ do(InFile0, Outspec) ->
             OutFile = filename_to_binary(OutFile0),
             ok = prim_file:write_file(OutFile, OutData);
         stdout ->
-            io:format("~p~n", [Dependencies])
+            io:format("~tp~n", [Dependencies])
     end.
 
 -spec process_forms(erl_syntax:forms(), [file:filename()]) -> [#{string() => string()}].

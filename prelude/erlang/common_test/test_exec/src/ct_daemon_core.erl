@@ -57,7 +57,7 @@ Stateless Core functionality for ct_daemon
 %% listing and discovery
 -spec test_suites() -> [module()].
 test_suites() ->
-    {ok, Pattern} = re:compile("_SUITE$"),
+    {ok, Pattern} = re:compile("_SUITE$", [unicode]),
     [
         erlang:list_to_atom(Module)
      || {Module, _Filename, _Loaded} <- code:all_available(), re:run(Module, Pattern) =/= nomatch
@@ -92,11 +92,11 @@ to_qualified(#{suite := Suite, name := Name}) ->
 
 -spec to_qualified(Suite :: module(), Name :: string()) -> string().
 to_qualified(Suite, Name) ->
-    lists:flatten(io_lib:format("~s - ~s", [Suite, Name])).
+    lists:flatten(io_lib:format("~ts - ~ts", [Suite, Name])).
 
 -spec from_qualified(string()) -> #{suite := module(), name := string()}.
 from_qualified(FullName) ->
-    {match, [_, {ModS, ModL}, {NameS, NameL}]} = re:run(FullName, "(.*) - (.*)"),
+    {match, [_, {ModS, ModL}, {NameS, NameL}]} = re:run(FullName, "(.*) - (.*)", [unicode]),
     #{
         suite => erlang:list_to_atom(string:slice(FullName, ModS, ModL)),
         name => string:slice(FullName, NameS, NameL)
@@ -309,11 +309,11 @@ status_from_test_result(_R, _) ->
 get_fresh_config(Suite, OutputDir) ->
     {module, Suite} = code:ensure_loaded(Suite),
     SuitePath = code:which(Suite),
-    DataDir = filename:join(filename:dirname(SuitePath), io_lib:format("~s_data", [Suite])) ++ "/",
+    DataDir = filename:join(filename:dirname(SuitePath), io_lib:format("~ts_data", [Suite])) ++ "/",
     PrivDir =
         filename:join([
             OutputDir,
-            io_lib:format("~s.~s", [Suite, calendar:system_time_to_rfc3339(erlang:system_time(second))]),
+            io_lib:format("~ts.~ts", [Suite, calendar:system_time_to_rfc3339(erlang:system_time(second))]),
             "private_log"
         ]) ++ "/",
     ok = filelib:ensure_path(PrivDir),
@@ -332,22 +332,22 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
             {name, FunName} = erlang:fun_info(Fun, name),
             try Fun(Config) of
                 {skip, Reason} ->
-                    ?LOG_DEBUG("got skip for ~p because of: ~p", [Id, Reason]),
+                    ?LOG_DEBUG("got skip for ~tp because of: ~tp", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
                 {fail, Reason} ->
-                    ?LOG_DEBUG("got fail for ~p because of: ~p", [Id, Reason]),
+                    ?LOG_DEBUG("got fail for ~tp because of: ~tp", [Id, Reason]),
                     ParentPid ! {RspRef, {fail, {FunName, Id}, Reason}};
                 {skip_and_save, Reason, _} ->
-                    ?LOG_DEBUG("got skip for ~p because of: ~p", [Id, Reason]),
+                    ?LOG_DEBUG("got skip for ~tp because of: ~tp", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
                 Res ->
-                    ?LOG_DEBUG("got new result: ~p", [Res]),
+                    ?LOG_DEBUG("got new result: ~tp", [Res]),
                     ParentPid ! {RspRef, Res}
             catch
                 error:undef ->
                     ParentPid ! {RspRef, Config};
                 E:R:ST ->
-                    ?LOG_DEBUG("crashed executing part: ~p", [{E, R, ST}]),
+                    ?LOG_DEBUG("crashed executing part: ~tp", [{E, R, ST}]),
                     ParentPid ! {RspRef, {E, R, ST}}
             end
         end

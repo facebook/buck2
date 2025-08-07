@@ -39,14 +39,14 @@ run(Args) when is_list(Args) ->
     ExitCode =
         try
             {CtExecutorArgs, CtRunArgs} = parse_arguments(Args),
-            debug_print("~p", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
+            debug_print("~tp", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
             {_, OutputDir} = lists:keyfind(output_dir, 1, CtExecutorArgs),
             ok = test_logger:set_up_logger(OutputDir, ?MODULE),
 
             %% log arguments into ct_executor.log
-            ?LOG_INFO("raw args: ~p", [Args]),
-            ?LOG_INFO("executor args: ~p", [CtExecutorArgs]),
-            ?LOG_INFO("CtRunArgs: ~p", [CtRunArgs]),
+            ?LOG_INFO("raw args: ~tp", [Args]),
+            ?LOG_INFO("executor args: ~tp", [CtExecutorArgs]),
+            ?LOG_INFO("CtRunArgs: ~tp", [CtRunArgs]),
 
             % Until this point the logger is not set up so we cannot log.
             % Therefore we used io:format to forward information to the
@@ -79,7 +79,7 @@ run(Args) when is_list(Args) ->
                     end,
                 %% get longer stack traces
                 erlang:system_flag(backtrace_depth, 20),
-                ?LOG_DEBUG("ct_run called with arguments ~p ~n", [CtRunArgs]),
+                ?LOG_DEBUG("ct_run called with arguments ~tp ~n", [CtRunArgs]),
                 Providers1 = [buck_ct_provider:do_pre_running(Provider) || Provider <- Providers0],
                 {ok, IoBuffer} = io_buffer:start_link(#{
                     passthrough => true, max_elements => ?STDOUT_MAX_LINES, max_length => ?STDOUT_MAX_LINE_LENGTH
@@ -87,7 +87,7 @@ run(Args) when is_list(Args) ->
                 register(cth_tpx_io_buffer, IoBuffer),
                 %% set global timeout
                 Result = ct:run_test(CtRunArgs),
-                ?LOG_DEBUG("ct_run finished with result ~p ~n", [Result]),
+                ?LOG_DEBUG("ct_run finished with result ~tp ~n", [Result]),
                 Providers2 = [buck_ct_provider:do_post_running(Provider) || Provider <- Providers1],
                 [buck_ct_provider:do_terminate(Provider) || Provider <- Providers2],
                 0
@@ -114,14 +114,14 @@ parse_arguments(Args) ->
     % The logger is not set up yet.
     % This will be sent to the program executing it (ct_runner),
     % that will log it in its own log.
-    debug_print("CT executor called with ~p~n", [Args]),
+    debug_print("CT executor called with ~tp~n", [Args]),
     ParsedArgs = lists:map(
         fun(StrArgs) ->
             buck_ct_parser:parse_str(StrArgs)
         end,
         Args
     ),
-    debug_print("Parsed arguments ~p~n", [ParsedArgs]),
+    debug_print("Parsed arguments ~tp~n", [ParsedArgs]),
     % We split the arguments between those that go to ct_run and those that are for
     % ct_executor
     % the args passed to ct are to be found after the --ct-args

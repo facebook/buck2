@@ -39,7 +39,7 @@ cell_root() ->
 
 -spec root(Type :: cell | project) -> file:filename().
 root(Type) ->
-    case run_command("buck2 root --kind=~s 2>/dev/null", [Type], [{at_root, false}, {replay, false}]) of
+    case run_command("buck2 root --kind=~ts 2>/dev/null", [Type], [{at_root, false}, {replay, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
             case filelib:is_dir(Dir, prim_file) of
@@ -72,7 +72,7 @@ rebuild_modules(Modules) ->
 -spec buck2_build_targets([string() | binary()]) -> ok | error.
 buck2_build_targets(Targets) ->
     case
-        run_command("buck2 build --reuse-current-config --console super ~s", [
+        run_command("buck2 build --reuse-current-config --console super ~ts", [
             lists:join(" ", Targets)
         ])
     of
@@ -90,7 +90,7 @@ buck2_query(Query, Args) ->
 
 -spec buck2_query(string(), string(), [string()]) -> {ok, binary()} | error.
 buck2_query(Query, BuckArgs, Args) ->
-    run_command("buck2 uquery ~s --reuse-current-config \"~s\" ~s 2> /dev/null", [
+    run_command("buck2 uquery ~ts --reuse-current-config \"~ts\" ~ts 2> /dev/null", [
         BuckArgs, Query, lists:join(" ", Args)
     ]).
 
@@ -137,7 +137,7 @@ port_loop(Port, Replay, StdOut) ->
 get_additional_paths(Path) ->
     case
         run_command(
-            "buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~s",
+            "buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~ts",
             [Path]
         )
     of
@@ -162,4 +162,4 @@ get_additional_paths(Path) ->
 
 -spec filter_escape_chars(String :: string()) -> string().
 filter_escape_chars(String) ->
-    lists:flatten(io_lib:format("~s", [re:replace(String, ?ANSI_ESCAPE_REGEX, "", [global])])).
+    lists:flatten(io_lib:format("~ts", [re:replace(String, ?ANSI_ESCAPE_REGEX, "", [global])])).

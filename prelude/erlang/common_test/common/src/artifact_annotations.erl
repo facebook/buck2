@@ -53,5 +53,11 @@ default_annotation(FileName) ->
         end,
     #{
         type => Type,
-        description => list_to_binary(FileName)
+        description => unicode_characters_to_binary(FileName)
     }.
+
+-spec unicode_characters_to_binary(io_lib:chars()) -> binary().
+unicode_characters_to_binary(Chars) ->
+    case unicode:characters_to_binary(Chars) of
+        Binary when is_binary(Binary) -> Binary
+    end.

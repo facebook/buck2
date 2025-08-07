@@ -86,8 +86,8 @@ The groups order expected here is [leaf_group, ...., root_group]
 qualified_name(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
-    Raw = io_lib:format("~s.~s", [JoinedGroups, TestCase]),
-    case unicode:characters_to_list(Raw, latin1) of
+    Raw = io_lib:format("~ts.~ts", [JoinedGroups, TestCase]),
+    case unicode:characters_to_list(Raw, unicode) of
         Res when not is_tuple(Res) -> Res
     end.
 
@@ -211,7 +211,7 @@ report_end_failure(
     MergedOutcome = merge_outcome(EndOutcome, ResultOutcome),
     EndFailedDetails =
         unicode_characters_to_string([
-            io_lib:format("~p ~p because ~p failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails
+            io_lib:format("~tp ~tp because ~tp failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails
         ]),
     MergedDetails =
         case ResultOutcome of
@@ -220,7 +220,7 @@ report_end_failure(
             _ ->
                 unicode_characters_to_string(
                     lists:flatten(
-                        io_lib:format("~s~n~n~s", [ResultDetails, EndFailedDetails])
+                        io_lib:format("~ts~n~n~ts", [ResultDetails, EndFailedDetails])
                     )
                 )
         end,
@@ -361,7 +361,7 @@ get_missing_result(Inits, QualifiedName) ->
     MainResult =
         #{
             name => unicode_characters_to_string(
-                io_lib:format("~s.[main_testcase]", [QualifiedName])
+                io_lib:format("~ts.[main_testcase]", [QualifiedName])
             ),
             outcome => failed,
             details => "no results for this test were recorded",
@@ -385,7 +385,7 @@ handle_missing_results([Init | Inits], MainResult) ->
                 details =>
                     unicode_characters_to_string(
                         io_lib:format(
-                            "no results for this test were recorded because init ~s failed with error message : \n ~s",
+                            "no results for this test were recorded because init ~ts failed with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
                         )
                     ),
@@ -395,7 +395,7 @@ handle_missing_results([Init | Inits], MainResult) ->
             MainResult#{
                 details => unicode_characters_to_string(
                     io_lib:format(
-                        "no results for this test were recorded because init ~s timed-out with error message : \n ~s",
+                        "no results for this test were recorded because init ~ts timed-out with error message : \n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
                     )
                 ),
@@ -407,7 +407,7 @@ handle_missing_results([Init | Inits], MainResult) ->
             MainResult#{
                 details => unicode_characters_to_string(
                     io_lib:format(
-                        "no results for this test were recorded because init ~s was omitted with message : \n ~s",
+                        "no results for this test were recorded because init ~ts was omitted with message : \n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
                     )
                 ),
@@ -435,7 +435,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
                 details =>
                     unicode_characters_to_string(
                         io_lib:format(
-                            "Failed because init ~s failed, with error message : \n ~s",
+                            "Failed because init ~ts failed, with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
                         )
                     ),
@@ -447,7 +447,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
                 details =>
                     unicode_characters_to_string(
                         io_lib:format(
-                            "Timed-out because init ~s timed-out, with error message : \n ~s",
+                            "Timed-out because init ~ts timed-out, with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
                         )
                     ),
@@ -463,7 +463,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
                 details =>
                     unicode_characters_to_string(
                         io_lib:format(
-                            "Failed because init ~s was omitted, with error message : \n ~s",
+                            "Failed because init ~ts was omitted, with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
                         )
                     ),

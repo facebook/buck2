@@ -196,8 +196,7 @@ terminate(#state{process = Process, group_leader = GroupLeader} = _State) ->
 
 -spec trim_line(binary(), integer()) -> binary().
 trim_line(Line, Length) when byte_size(Line) > Length ->
-    TruncLine = binary:part(Line, {0, Length}),
-    Suffix = list_to_binary("... line truncated"),
-    <<TruncLine/binary, Suffix/binary>>;
+    TruncLine = string:slice(Line, 0, Length),
+    <<TruncLine/binary, "... line truncated"/utf8>>;
 trim_line(Line, _Length) ->
     Line.

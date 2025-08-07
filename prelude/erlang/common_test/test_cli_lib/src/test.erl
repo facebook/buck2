@@ -92,11 +92,11 @@ help() ->
 print_help(Fun, Arity) ->
     #{args := Args, desc := [DescFirst | DescRest]} = command_description(Fun, Arity),
     FunSig = string:pad(
-        io_lib:format("~s:~s(~s)", [?MODULE, Fun, lists:join(", ", Args)]), 30, trailing
+        io_lib:format("~ts:~ts(~ts)", [?MODULE, Fun, lists:join(", ", Args)]), 30, trailing
     ),
-    io:format("~s -- ~s~n", [FunSig, DescFirst]),
+    io:format("~ts -- ~ts~n", [FunSig, DescFirst]),
     Padding = string:pad("", 34),
-    [io:format("~s~s~n", [Padding, DescLine]) || DescLine <- DescRest],
+    [io:format("~ts~ts~n", [Padding, DescLine]) || DescLine <- DescRest],
     ok.
 
 -spec command_description(Fun :: atom(), arity()) -> #{args := [string()], desc := [string()]}.
@@ -161,7 +161,7 @@ tests from that module instead
 -spec list(RegExOrModule :: module() | string()) -> ok | {error, term()}.
 list(RegEx) when is_list(RegEx) ->
     case list_impl(RegEx) of
-        {ok, TestsString} -> io:format("~s", [TestsString]);
+        {ok, TestsString} -> io:format("~ts", [TestsString]);
         Error -> Error
     end.
 
@@ -207,7 +207,7 @@ run(RegExOrId) ->
                         0 ->
                             do_plain_test_run(ToRun);
                         ChangedCount ->
-                            io:format("reloaded ~p modules ~P~n", [ChangedCount, Loaded, 10]),
+                            io:format("reloaded ~tp modules ~tP~n", [ChangedCount, Loaded, 10]),
                             % There were some changes, so list the tests again, then run but without recompiling changes
                             % Note that if called with the RegEx instead of ToRun test list like above, do_plain_test_run/1 will list the tests again
                             do_plain_test_run(RegExOrId)
@@ -242,7 +242,7 @@ logs() ->
     ensure_initialized(),
     case logs_impl() of
         {ok, Logs} ->
-            lists:foreach(fun(LogPath) -> io:format("~s~n", [LogPath]) end, Logs),
+            lists:foreach(fun(LogPath) -> io:format("~ts~n", [LogPath]) end, Logs),
             io:format("~n");
         {error, not_found} ->
             io:format("no logs found~n")
@@ -288,12 +288,12 @@ init_utility_app(RunningApps, UtilityApp) ->
         true ->
             false;
         false ->
-            io:format("starting utility application ~s...~n", [UtilityApp]),
+            io:format("starting utility application ~ts...~n", [UtilityApp]),
             case application:ensure_all_started(UtilityApp) of
                 {ok, _} ->
                     true;
                 Error ->
-                    abort("could not start utility applications:~n~p", [Error])
+                    abort("could not start utility applications:~n~tp", [Error])
             end
     end.
 
@@ -381,8 +381,8 @@ print_tests(Tests) ->
 print_tests_impl([]) ->
     "";
 print_tests_impl([{Suite, SuiteTests} | Rest]) ->
-    SuiteString = io_lib:format("~s:~n", [Suite]),
-    TestsString = [io_lib:format("\t~b - ~s~n", [Id, Test]) || {Id, Test} <- SuiteTests],
+    SuiteString = io_lib:format("~ts:~n", [Suite]),
+    TestsString = [io_lib:format("\t~b - ~ts~n", [Id, Test]) || {Id, Test} <- SuiteTests],
     RestString = print_tests_impl(Rest),
     SuiteString ++ TestsString ++ RestString.
 
@@ -399,7 +399,7 @@ collect_results(PerSuite) ->
         fun(Suite, Tests, Acc) ->
             %% check if we need to reset the test node
             ensure_per_suite_encapsulation(Suite),
-            io:format("running ~b test(s) for ~s with output dir ~s~n", [
+            io:format("running ~b test(s) for ~ts with output dir ~ts~n", [
                 erlang:length(Tests), Suite, ct_daemon:output_dir()
             ]),
             %% run all tests for the current SUITE

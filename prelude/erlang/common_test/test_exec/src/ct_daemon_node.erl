@@ -41,7 +41,7 @@ start node for running tests in isolated way and keep state
     ErlCommand :: nonempty_list(binary()).
 start(ErlCommand) ->
     NodeName = list_to_atom(
-        lists:flatten(io_lib:format("test~s-atn@localhost", [random_name()]))
+        lists:flatten(io_lib:format("test~ts-atn@localhost", [random_name()]))
     ),
     StartConfig = #{
         type => shortnames,
@@ -100,7 +100,7 @@ port_loop(Port, Acc) ->
             true = erlang:unregister(?MODULE),
             ok = global:sync();
         {Port, {exit_status, N}} ->
-            ?LOG_DEBUG("Test Node Crashed on Startup: ~n~s~n", [lists:join("\n", lists:reverse(Acc))]),
+            ?LOG_DEBUG("Test Node Crashed on Startup: ~n~ts~n", [lists:join("\n", lists:reverse(Acc))]),
             {error, {crash_on_startup, N}}
     end.
 
@@ -180,7 +180,7 @@ ensure_distribution(Type, RandomName, Cookie) ->
                 ([] = os:cmd("epmd -daemon")),
             Name = list_to_atom(
                 lists:flatten(
-                    io_lib:format("ct_daemon~s@localhost", [RandomName])
+                    io_lib:format("ct_daemon~ts@localhost", [RandomName])
                 )
             ),
             {ok, _Pid} = net_kernel:start(Name, #{name_domain => Type}),
@@ -218,7 +218,7 @@ build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
 
 -spec convert_atom_arg(atom()) -> string().
 convert_atom_arg(Arg) ->
-    lists:flatten(io_lib:format("~s", [Arg])).
+    lists:flatten(io_lib:format("~ts", [Arg])).
 
 -spec get_config_files() -> [file:filename_all()].
 get_config_files() ->
@@ -242,7 +242,7 @@ gen_output_dir(RandomName) ->
 
 -spec random_name() -> io_lib:chars().
 random_name() ->
-    io_lib:format("~b-~b~s", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]).
+    io_lib:format("~b-~b~ts", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]).
 
 -spec get_domain_type() -> longnames | shortnames.
 get_domain_type() ->

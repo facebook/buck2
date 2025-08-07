@@ -69,7 +69,7 @@ summary(omitted) -> ?OMITTED.
 -spec write_json_output(string(), [case_result()]) -> {ok, file:filename_all()}.
 write_json_output(OutputDir, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
-    file:write_file(OuptputFile, format_json(TpxResults), [raw]),
+    file:write_file(OuptputFile, format_json(TpxResults), [raw, binary]),
     {ok, OuptputFile}.
 
 -spec format_json([case_result()]) -> iodata().
@@ -102,7 +102,7 @@ format_method_result(
     } = _TestResult
 ) ->
     #{
-        name => list_to_binary(Name),
+        name => unicode_characters_to_binary(Name),
         endedTime => trunc(End),
         durationSecs => End - Start,
         status => status(Outcome),
@@ -119,7 +119,7 @@ format_method_result(
     } = _TestResult
 ) ->
     #{
-        name => list_to_binary(Name),
+        name => unicode_characters_to_binary(Name),
         status => status(Outcome),
         summary => summary(Outcome),
         details => unicode_characters_to_binary(Details),

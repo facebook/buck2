@@ -30,7 +30,7 @@ extract(Wildcard, Target) ->
         [OneResult] ->
             ok = copy_dir(OneResult, Target);
         Paths ->
-            io:format("expected exactly one result but found: ~p~n", [Paths]),
+            io:format("expected exactly one result but found: ~tp~n", [Paths]),
             erlang:halt(1)
     end.
 
@@ -40,9 +40,9 @@ usage() ->
 
 copy_dir(From, To) ->
     Cmd = lists:flatten(
-        io_lib:format("cp -r ~s ~s", [From, To])
+        io_lib:format("cp -r ~ts ~ts", [From, To])
     ),
-    io:format("cmd: ~s~n~s~n~n", [Cmd, os:cmd(Cmd)]),
+    io:format("cmd: ~ts~n~ts~n~n", [Cmd, os:cmd(Cmd)]),
     case filelib:is_dir(To, prim_file) of
         true -> ok;
         false -> erlang:halt(1)

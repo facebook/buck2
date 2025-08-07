@@ -52,8 +52,16 @@ test_list(_Config) ->
         "test_cli_e2e_SUITE:\n"
         "test_list_SUITE:\n"
         "\t1 - test_list_SUITE - .test_pass\n"
-        "\t2 - test_list_SUITE - default.test_fail\n",
+        "\t2 - test_list_SUITE - default.test_fail\n"
+        "\t3 - test_list_SUITE - .test_extended_ascii_£\n"
+        "\t4 - test_list_SUITE - .test_unicode_🫠\n",
     ?assertEqual({ok, Expected}, test:list_impl("test_list_SUITE")),
+
+    EmojiExpected =
+        "test_cli_e2e_SUITE:\n"
+        "test_list_SUITE:\n"
+        "\t4 - test_list_SUITE - .test_unicode_🫠\n",
+    ?assertEqual({ok, EmojiExpected}, test:list_impl("_🫠")),
 
     ?assertMatch({error, {invalid_regex, _}}, test:list_impl("^[a")),
 

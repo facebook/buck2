@@ -32,7 +32,7 @@ main([Spec, ReleaseVariablesFile]) ->
         erlang:halt(?EXITSUCCESS)
     catch
         Type:{abort, Reason} ->
-            io:format(standard_error, "~s:~s~n", [Type, Reason]),
+            io:format(standard_error, "~ts:~ts~n", [Type, Reason]),
             erlang:halt(?EXITERROR)
     end;
 main(_) ->
@@ -47,7 +47,7 @@ do(Spec, ReleaseVariablesFile) ->
     {ok, Contents} = file:read_file(Spec, [raw]),
     Variables = json:decode(Contents),
     {ok, F} = file:open(ReleaseVariablesFile, [write, raw]),
-    [ ok = file:write(F, io_lib:format("~s=\"~s\"~n", [Key, Value]))
+    [ ok = file:write(F, io_lib:format("~ts=\"~ts\"~n", [Key, Value]))
       || Key := Value <- Variables#{"ERTS_VSN" => erlang:system_info(version)}
     ],
     ok = file:close(F),

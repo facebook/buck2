@@ -92,7 +92,7 @@ list() ->
 -spec list(RegEx :: string()) ->
     [{module(), [{non_neg_integer(), string()}]}] | {invalid_regex, {string(), non_neg_integer()}} | node_down.
 list(RegEx) ->
-    case re:compile(RegEx) of
+    case re:compile(RegEx, [unicode]) of
         {ok, Pattern} ->
             case list() of
                 node_down ->

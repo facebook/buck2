@@ -51,7 +51,7 @@ global name based on calling node
 """.
 -spec name(node()) -> atom().
 name(Node) ->
-    erlang:list_to_atom(lists:flatten(io_lib:format("~s-~s", [Node, ?MODULE]))).
+    erlang:list_to_atom(lists:flatten(io_lib:format("~ts-~ts", [Node, ?MODULE]))).
 
 %% gen_server for keeping state
 -spec init([state()]) -> {ok, state()}.
@@ -127,14 +127,14 @@ handle_call(Request, _From, State) ->
     {reply, Request, State}.
 
 handle_cast({code_paths, Paths}, State) ->
-    ?LOG_DEBUG("addign code paths ~p", [Paths]),
+    ?LOG_DEBUG("addign code paths ~tp", [Paths]),
     ok = code:add_paths(Paths),
     {noreply, State};
 handle_cast({load_module, Module}, State) ->
     reload_module(Module),
     {noreply, State};
 handle_cast(Request, State) ->
-    ?LOG_INFO("unrecognized cast: ~p state: ~p", [Request, State]),
+    ?LOG_INFO("unrecognized cast: ~tp state: ~tp", [Request, State]),
     erlang:error(not_implemented).
 
 handle_info(_Info, State) ->
@@ -165,7 +165,7 @@ discover_test(TestId, State) when erlang:is_integer(TestId) ->
     end;
 discover_test(RegEx, _State) when erlang:is_list(RegEx) ->
     Listing = maps:values(ct_daemon_core:list()),
-    case re:compile(RegEx) of
+    case re:compile(RegEx, [unicode]) of
         {ok, Pattern} ->
             [Test || Test <- lists:concat(Listing), re:run(Test, Pattern) =/= nomatch];
         {error, ErrSpec} ->
@@ -203,7 +203,7 @@ run_test(Test, State = #{output_dir := OutputDir, setup := InSetupState}) ->
     #{suite := Suite, name := Name} = ct_daemon_core:from_qualified(Test),
     Spec = test_runner:parse_test_name(Name, Suite),
 
-    ?LOG_INFO("discovered test ~p with spec ~p", [Name, Spec]),
+    ?LOG_INFO("discovered test ~tp with spec ~tp", [Name, Spec]),
 
     {Result, OutSetupState} = ct_daemon_core:run_test(Spec, InSetupState, OutputDir),
 

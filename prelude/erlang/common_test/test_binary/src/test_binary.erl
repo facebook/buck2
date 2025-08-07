@@ -55,13 +55,13 @@ main([TestInfoFile]) ->
     test_logger:set_up_logger(OutputDir, test_runner, true),
     try list_and_run(TestInfoFile, OutputDir) of
         true ->
-            io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~s~n", [OutputDir]),
+            io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [OutputDir]),
             erlang:halt(1);
         false ->
             erlang:halt(0)
     catch
         Class:Reason:StackTrace ->
-            io:format("~s~n", [erl_error:format_exception(Class, Reason, StackTrace)]),
+            io:format("~ts~n", [erl_error:format_exception(Class, Reason, StackTrace)]),
             erlang:halt(1)
     after
         test_logger:flush()
@@ -72,7 +72,7 @@ main(Other) ->
         "Wrong arguments, should be called with ~n - TestInfoFile list OutputDir ~n - TestInfoFile run OuptutDir Tests ~n"
     ),
     io:format(
-        "Instead, arguments where: ~p~n",
+        "Instead, arguments where: ~tp~n",
         [Other]
     ),
     erlang:halt(3).
@@ -145,7 +145,7 @@ list_and_run(TestInfoFile, OutputDir) ->
 -spec listing_to_testnames(#test_spec_test_case{}) -> [string()].
 listing_to_testnames(Listing) ->
     [
-        binary_to_list(TestCase#test_spec_test_info.name)
+        binary_to_list_string(TestCase#test_spec_test_info.name)
      || TestCase <- Listing#test_spec_test_case.testcases
     ].
 
@@ -185,3 +185,7 @@ print_details(StdOut, Details) ->
     io:format("~ts~n", [Details]),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n"),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n").
+
+binary_to_list_string(B) when is_binary(B) ->
+    Str = unicode:characters_to_list(B),
+    if is_list(Str) -> Str end.

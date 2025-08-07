@@ -42,7 +42,7 @@ do(Source0, InFile0, OutSpec) ->
                     {file, File0} ->
                         ok = prim_file:write_file(filename_to_binary(File0), OutData);
                     stdout ->
-                        io:format("~s~n", [OutData])
+                        io:format("~ts~n", [OutData])
                 end;
             Err ->
                 io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),

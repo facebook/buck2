@@ -67,7 +67,7 @@ execute_test_suite(
     ),
     TestSpecFile = filename:join(OutputDir, "test_spec.spec"),
     FormattedSpec = [io_lib:format("~tp.~n", [Entry]) || Entry <- TestSpec],
-    file:write_file(TestSpecFile, FormattedSpec, [raw]),
+    file:write_file(TestSpecFile, FormattedSpec, [raw, binary]),
     NewTestEnv = TestEnv#test_env{test_spec_file = TestSpecFile, ct_opts = CtOpts},
     try run_test(NewTestEnv) of
         ok -> ok
@@ -98,7 +98,7 @@ run_test(
                         unicode:characters_to_list(
                             io_lib:format(
                                 "unexpected exception in the buck2 Common Test runner:\n"
-                                "                        application test_exec crashed (~p ~p) ~n",
+                                "                        application test_exec crashed (~tp ~tp) ~n",
                                 [Object, Info]
                             )
                         )
@@ -119,7 +119,7 @@ run_test(
             end;
         {error, Reason} ->
             ErrorMsg = unicode:characters_to_list(
-                io_lib:format("TextExec failed to start due to ~p", [Reason])
+                io_lib:format("TextExec failed to start due to ~tp", [Reason])
             ),
             ?LOG_ERROR(ErrorMsg),
             test_run_fail(
@@ -142,7 +142,7 @@ Provides result as specified by the tpx protocol when test failed to ran.
 test_run_fail(#test_env{} = TestEnv, Reason) ->
     provide_output_file(
         TestEnv,
-        unicode:characters_to_list(io_lib:format("Test failed to ran due to ~s", [Reason])),
+        unicode:characters_to_list(io_lib:format("Test failed to ran due to ~ts", [Reason])),
         failed
     ).
 
@@ -176,7 +176,7 @@ provide_output_file(
     Log = trimmed_content_file(LogFile),
     StdOutFile = test_logger:get_std_out(OutputDir, ct_executor),
     StdOut = trimmed_content_file(StdOutFile),
-    OutLog = io_lib:format("ct_executor_log: ~s ~nct_executor_stdout: ~s", [Log, StdOut]),
+    OutLog = io_lib:format("ct_executor_log: ~ts ~nct_executor_stdout: ~ts", [Log, StdOut]),
     ResultsFile = filename:join(OutputDir, "result.json"),
     Results =
         case Status of
@@ -195,7 +195,7 @@ provide_output_file(
                             undefined ->
                                 ErrorMsg =
                                     io_lib:format(
-                                        "ct failed to produced results valid file ~p", [
+                                        "ct failed to produced results valid file ~tp", [
                                             ResultsFile
                                         ]
                                     ),
@@ -206,7 +206,7 @@ provide_output_file(
                                 collect_results_fine_run(TreeResults, Tests)
                         end;
                     {error, _Reason} ->
-                        ErrorMsg = io_lib:format("ct failed to produced results file ~p", [
+                        ErrorMsg = io_lib:format("ct failed to produced results file ~tp", [
                             ResultsFile
                         ]),
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
@@ -220,18 +220,18 @@ provide_output_file(
 trimmed_content_file(File) ->
     case file:open(File, [read]) of
         {error, Reason} ->
-            io_lib:format("No ~p file found, reason ~p ", [filename:basename(File), Reason]);
+            io_lib:format("No ~tp file found, reason ~tp ", [filename:basename(File), Reason]);
         {ok, IoDevice} ->
             try
                 case file:pread(IoDevice, {eof, -5000}, 5000) of
                     {error, _} ->
                         case file:pread(IoDevice, bof, 5000) of
                             {ok, Data} -> Data;
-                            eof -> io_lib:format("nothing to read from ~s", [File])
+                            eof -> io_lib:format("nothing to read from ~ts", [File])
                         end;
                     {ok, EndOfFile} ->
                         EndOfFile ++
-                            io_lib:format("~nFile truncated, see ~p for full output", [
+                            io_lib:format("~nFile truncated, see ~tp for full output", [
                                 filename:basename(File)
                             ])
                 end
@@ -256,7 +256,7 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
                 inits => [],
                 main => #{
                     name => lists:flatten(
-                        io_lib:format("~s.[main_testcase]", [
+                        io_lib:format("~ts.[main_testcase]", [
                             % We need to reverse the list of groups as the method cth_tpx_test_tree:qualified_name expects them
                             % in the reverse order (as it is designed to be called when exploring the tree of results
                             % where we push at each time the group we are in, leading to them being in reverse order).
@@ -268,7 +268,7 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
                     details =>
                         unicode:characters_to_list(
                             io_lib:format(
-                                "~s~s ~n",
+                                "~ts~ts ~n",
                                 [FormattedErrorMsg, ResultExec]
                             )
                         ),
@@ -402,7 +402,7 @@ reorder_tests(Tests, #test_spec_test_case{testcases = TestCases}) ->
     % This is the ordered lists of test from the suite as
     % binary strings.
     MapNameToTests = lists:foldl(
-        fun(#ct_test{canonical_name = Name} = Test, Map) -> Map#{list_to_binary(Name) => Test} end,
+        fun(#ct_test{canonical_name = Name} = Test, Map) -> Map#{list_string_to_binary(Name) => Test} end,
         maps:new(),
         Tests
     ),
@@ -458,7 +458,7 @@ check_ct_opts(CtOpts) ->
                 false ->
                     ok;
                 _ ->
-                    ?LOG_ERROR("Option ~p is not supported by test runner", [Opt]),
+                    ?LOG_ERROR("Option ~tp is not supported by test runner", [Opt]),
                     throw({non_valid_ct_opt, Opt})
             end
         end,
@@ -479,3 +479,7 @@ max_timeout(#test_env{ct_opts = CtOpts}) ->
                 _ -> error("Please allow at least 30s for the binary to execute")
             end
     end.
+
+list_string_to_binary(Str) when is_list(Str) ->
+    Bin = unicode:characters_to_binary(Str),
+    if is_binary(Bin) -> Bin end.

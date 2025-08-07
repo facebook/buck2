@@ -52,11 +52,11 @@ find_module(Module) ->
     | {error, not_found | {ambiguous, [file:filename_all()]}}.
 find_module_source(Module) ->
     Root = shell_buck2_utils:cell_root(),
-    io:format("use ~s as root", [Root]),
+    io:format("use ~ts as root", [Root]),
     {ok, Output} = shell_buck2_utils:run_command(
-        "find ~s -type d "
-        "\\( -path \"~s/_build*\" -path \"~s/erl/_build*\" -o -path ~s/buck-out \\) -prune "
-        "-o -name '~s.erl' -print",
+        "find ~ts -type d "
+        "\\( -path \"~ts/_build*\" -path \"~ts/erl/_build*\" -o -path ~ts/buck-out \\) -prune "
+        "-o -name '~ts.erl' -print",
         [Root, Root, Root, Root, Module]
     ),
     case
