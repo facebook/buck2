@@ -169,19 +169,11 @@ The format of the requested_results is a map from a list of groups to the list o
 """.
 -spec get_result(tree(), #{group_path() => [string()]}) -> [case_result()].
 get_result(TreeResult, RequestedResults) ->
-    maps:fold(
-        fun(Groups, CasesRequests, AccExt) ->
-            lists:map(
-                fun(CaseRequest) ->
-                    collect_result(TreeResult, Groups, CaseRequest)
-                end,
-                CasesRequests
-            ) ++
-                AccExt
-        end,
-        [],
-        RequestedResults
-    ).
+    [
+        collect_result(TreeResult, Groups, CaseRequest)
+     || Groups := CasesRequests <- RequestedResults,
+        CaseRequest <- CasesRequests
+    ].
 
 -doc """
 Provides a result for a given specific requested_result.
