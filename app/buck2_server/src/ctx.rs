@@ -14,6 +14,7 @@ use std::collections::HashSet;
 use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -658,16 +659,24 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .or(Some(10));
 
-        let re_cancel_on_estimated_queue_time_exceeds_s =
-            root_config.parse::<u32>(BuckconfigKeyRef {
+        let re_cancel_on_estimated_queue_time_exceeds = root_config
+            .parse::<u64>(BuckconfigKeyRef {
                 section: "build",
                 property: "remote_execution_cancel_on_estimated_queue_time_exceeds_s",
-            })?;
+            })?
+            .map(Duration::from_secs);
+        let re_fallback_on_estimated_queue_time_exceeds = root_config
+            .parse::<u64>(BuckconfigKeyRef {
+                section: "build",
+                property: "remote_execution_fallback_on_estimated_queue_time_exceeds_s",
+            })?
+            .map(Duration::from_secs);
 
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
-            re_cancel_on_estimated_queue_time_exceeds_s,
+            re_cancel_on_estimated_queue_time_exceeds,
+            re_fallback_on_estimated_queue_time_exceeds,
         };
 
         let host_sharing_broker =

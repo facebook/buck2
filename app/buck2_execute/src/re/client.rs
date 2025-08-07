@@ -1008,7 +1008,7 @@ impl RemoteExecutionClientImpl {
             report_stage: re_stage::Stage,
             manager: &mut CommandExecutionManager,
             re_fallback_on_estimated_queue_time_exceeds_duration: Option<Duration>,
-            re_cancel_on_estimated_queue_time_exceeds_s: Option<u32>,
+            re_cancel_on_estimated_queue_time_exceeds: Option<Duration>,
         ) -> anyhow::Result<ResponseOrStateChange> {
             executor_stage_async(
                 buck2_data::ReStage {
@@ -1049,11 +1049,9 @@ impl RemoteExecutionClientImpl {
                             let anticipated_queue_duration = Duration::from_millis(est);
 
                             if let Some(re_queue_threshold) =
-                                re_cancel_on_estimated_queue_time_exceeds_s
+                                re_cancel_on_estimated_queue_time_exceeds
                             {
-                                if anticipated_queue_duration.as_secs()
-                                    >= u64::from(re_queue_threshold)
-                                {
+                                if anticipated_queue_duration > re_queue_threshold {
                                     return Ok(ResponseOrStateChange::Cancelled(Cancelled {
                                         reason: Some(CancellationReason::ReQueueTimeout),
                                     }));
@@ -1185,6 +1183,10 @@ impl RemoteExecutionClientImpl {
         let mut exe_stage = Stage::QUEUED;
         let mut operation_metadata = None;
 
+        let re_fallback_on_estimated_queue_time_exceeds = knobs
+            .re_fallback_on_estimated_queue_time_exceeds
+            .or(re_max_queue_time);
+
         loop {
             let progress_response = wait_for_response_or_stage_change(
                 &mut receiver,
@@ -1198,8 +1200,8 @@ impl RemoteExecutionClientImpl {
                     re_use_case.clone(),
                 ),
                 manager,
-                re_max_queue_time,
-                knobs.re_cancel_on_estimated_queue_time_exceeds_s,
+                re_fallback_on_estimated_queue_time_exceeds,
+                knobs.re_cancel_on_estimated_queue_time_exceeds,
             )
             .await?;
 

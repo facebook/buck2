@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::time::Duration;
+
 use dupe::Dupe;
 
 /// Command-level config that can tweak how the executors work.
@@ -20,5 +22,9 @@ pub struct ExecutorGlobalKnobs {
     pub log_action_keys: bool,
 
     /// Maximum duration in seconds that an execution can remain in the RE queue state before it is cancelled.
-    pub re_cancel_on_estimated_queue_time_exceeds_s: Option<u32>,
+    pub re_cancel_on_estimated_queue_time_exceeds: Option<Duration>,
+
+    /// Maximum duration in seconds that an execution can remain in the RE queue state before local execution is unblocked.
+    /// Note this overrides, and should possibly replace, `remote_execution_queue_time_threshold_s` configured per executor.
+    pub re_fallback_on_estimated_queue_time_exceeds: Option<Duration>,
 }
