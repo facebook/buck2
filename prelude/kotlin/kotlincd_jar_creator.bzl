@@ -312,6 +312,9 @@ def _encode_kotlin_extra_params(
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
 
+    if kotlin_toolchain.kosabi_stubs_gen_k2_plugin != None:
+        kosabiPluginOptionsMap["kosabi_stubs_gen_k2_plugin"] = kotlin_toolchain.kosabi_stubs_gen_k2_plugin
+
     if kotlin_toolchain.kosabi_source_modifier_plugin != None:
         kosabiPluginOptionsMap["kosabi_source_modifier_plugin"] = kotlin_toolchain.kosabi_source_modifier_plugin
 
