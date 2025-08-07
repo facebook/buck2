@@ -20,6 +20,7 @@ pub fn new_tokio_runtime(thread_name: &str) -> Builder {
     builder.thread_name(thread_name);
     builder.on_thread_start(on_thread_start);
     builder.on_thread_stop(on_thread_stop);
+    builder.worker_threads(crate::threads::available_parallelism());
     builder
 }
 
