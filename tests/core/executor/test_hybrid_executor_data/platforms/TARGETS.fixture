@@ -25,6 +25,15 @@ platform(
 )
 
 platform(
+    name = "fallback_only",
+    setting = ":setting",
+    local_enabled = True,
+    remote_enabled = True,
+    use_limited_hybrid = True,
+    allow_hybrid_fallbacks_on_failure = True,
+)
+
+platform(
     name = "no_fallback",
     setting = ":setting",
     allow_hybrid_fallbacks_on_failure = False,
@@ -55,6 +64,7 @@ platforms(
     platforms = [
         ":default",
         ":no_fallback",
+        ":fallback_only",
         ":full_hybrid",
         ":full_hybrid_with_failure_fallbacks",
         ":full_hybrid_no_fallback",

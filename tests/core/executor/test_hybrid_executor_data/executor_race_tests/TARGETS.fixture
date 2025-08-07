@@ -15,6 +15,20 @@ command(
 )
 
 command(
+    name = "slower_remotely_and_works_on_both_full_hybrid",
+    command = "slower_remotely_and_works_on_both.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:full_hybrid"],
+)
+
+command(
+    name = "slower_remotely_and_works_on_both_fallback_only",
+    command = "slower_remotely_and_works_on_both.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:fallback_only"],
+)
+
+command(
     name = "slower_remotely",
     command = "slower_remotely.py",
     default_target_platform = "//platforms:target",

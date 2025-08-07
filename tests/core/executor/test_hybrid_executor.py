@@ -9,6 +9,9 @@
 # pyre-strict
 
 
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -16,7 +19,12 @@ from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
-from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
+from buck2.tests.e2e_util.helper.utils import (
+    json_get,
+    random_string,
+    read_invocation_record,
+    read_what_ran,
+)
 
 
 @buck_test()
@@ -353,3 +361,48 @@ async def test_build_offline(buck: Buck) -> None:
         "root//executor_threshold_tests:cp_small (<unspecified>) (cp)": "Local",
     }
     assert executors == expected
+
+
+@buck_test()
+async def test_hybrid_executor_remote_queuing_fallback(
+    buck: Buck, tmp_path: Path
+) -> None:
+    async def build(
+        target: str, *opts: str, env: Optional[Dict[str, str]] = None
+    ) -> dict[str, Any]:
+        record_path = tmp_path / "record.json"
+        # kill to update env
+        await buck.kill()
+        await buck.build(
+            f"root//executor_race_tests:{target}",
+            "-c",
+            f"test.cache_buster={random_string()}",
+            "--unstable-write-invocation-record",
+            str(record_path),
+            *opts,
+            env=env,
+        )
+        return read_invocation_record(record_path)
+
+    record = await build("slower_remotely_and_works_on_both_full_hybrid")
+    assert record["run_local_count"] == 1
+    assert record["run_remote_count"] == 0
+    assert record["run_fallback_count"] == 0
+
+    record = await build(
+        "slower_remotely_and_works_on_both_fallback_only",
+        env={"BUCK2_TEST_RE_QUEUE_ESTIMATE_S": "0"},
+    )
+    assert record["run_local_count"] == 0
+    assert record["run_remote_count"] == 1
+    assert record["run_fallback_count"] == 0
+
+    record = await build(
+        "slower_remotely_and_works_on_both_fallback_only",
+        "-c",
+        "build.remote_execution_fallback_on_estimated_queue_time_exceeds_s=10",
+        env={"BUCK2_TEST_RE_QUEUE_ESTIMATE_S": "100"},
+    )
+    assert record["run_local_count"] == 1
+    assert record["run_remote_count"] == 0
+    assert record["run_fallback_count"] == 0  # TODO should be counted as fallback

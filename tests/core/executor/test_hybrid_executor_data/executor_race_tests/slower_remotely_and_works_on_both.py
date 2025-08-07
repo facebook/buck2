@@ -12,9 +12,9 @@ import time
 
 re_worker_path = "/run/re_worker/beacon"
 if pathlib.Path(re_worker_path).exists():
-    sleep = 0
-else:
     sleep = 5
+else:
+    sleep = 0
 
 time.sleep(sleep)
 out = sys.argv[1]

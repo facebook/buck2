@@ -464,6 +464,25 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
     }
 }
 
+fn anticipated_queue_duration(
+    event: ExecuteWithProgressResponse,
+) -> anyhow::Result<Option<Duration>> {
+    // Return a queue estimate even if RE dequeues immediately
+    if let Some(duration) = buck2_env!(
+        "BUCK2_TEST_RE_QUEUE_ESTIMATE_S",
+        type=u64,
+        applicability = testing
+    )? {
+        return Ok(Some(Duration::from_secs(duration)));
+    }
+    if let Some(info) = event.metadata.task_info {
+        let est = u64::try_from(info.estimated_queue_time_ms)
+            .context("estimated_queue_time_ms from RE is negative")?;
+        return Ok(Some(Duration::from_millis(est)));
+    }
+    Ok(None)
+}
+
 impl RemoteExecutionClientImpl {
     async fn new(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
         let op_name = "REClientBuilder";
@@ -1043,11 +1062,8 @@ impl RemoteExecutionClientImpl {
                             return Ok(ResponseOrStateChange::Present(event));
                         }
 
-                        if let Some(info) = event.metadata.task_info {
-                            let est = u64::try_from(info.estimated_queue_time_ms)
-                                .context("estimated_queue_time_ms from RE is negative")?;
-                            let anticipated_queue_duration = Duration::from_millis(est);
-
+                        if let Some(anticipated_queue_duration) = anticipated_queue_duration(event)?
+                        {
                             if let Some(re_queue_threshold) =
                                 re_cancel_on_estimated_queue_time_exceeds
                             {
