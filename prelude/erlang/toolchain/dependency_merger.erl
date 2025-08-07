@@ -10,6 +10,8 @@
 
 -export([main/1]).
 
+-type filename() :: binary().
+
 -spec main([string()]) -> ok | no_return().
 main([OutFile, DepsFile, ExistingFile]) ->
     do(OutFile, DepsFile, ExistingFile);
@@ -21,57 +23,72 @@ main(_) ->
 
 -spec usage() -> ok.
 usage() ->
-    io:format("escript ~s.erl out.json deps.json already_unionized.dep", [?MODULE]).
+    io:format("escript ~ts.erl out.json deps.json already_unionized.dep", [?MODULE]).
 
 -spec do(file:filename(), file:filename(), file:filename()) -> ok.
-do(OutFile, DepsFile, ExistingFile) ->
+do(OutFile0, DepsFile0, ExistingFile0) ->
+    OutFile = filename_to_binary(OutFile0),
+    DepsFile = filename_to_binary(DepsFile0),
+    ExistingFile = filename_to_binary(ExistingFile0),
     case read_file_term(ExistingFile) of
         {ok, Existing} ->
             do_collect(OutFile, DepsFile, Existing);
         Err ->
-            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+            io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),
             erlang:halt(1)
     end.
 
 -spec do(file:filename(), file:filename()) -> ok.
-do(OutFile, DepsFile) ->
+do(OutFile0, DepsFile0) ->
+    OutFile = filename_to_binary(OutFile0),
+    DepsFile = filename_to_binary(DepsFile0),
     do_collect(OutFile, DepsFile, #{}).
 
--spec do_collect(file:filename(), file:filename(), map()) -> ok.
+-spec do_collect(filename(), filename(), map()) -> ok.
 do_collect(OutFile, DepsFile, Existing) ->
     case read_file(DepsFile) of
         {ok, Deps} ->
             AllCollected = maps:fold(fun collect_files/3, Existing, Deps),
-            Encoded = erlang:term_to_binary(AllCollected, [deterministic]),
-            ok = file:write_file(OutFile, Encoded, [raw]);
+            Encoded = erlang:term_to_iovec(AllCollected, [deterministic]),
+            ok = prim_file:write_file(OutFile, Encoded);
         Err ->
-            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+            io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),
             erlang:halt(1)
     end.
 
 collect_files(File, DepFile, Acc) ->
-    case file:read_file(DepFile, [raw]) of
+    case prim_file:read_file(DepFile) of
         {ok, Bin} ->
             Acc#{File => Bin};
         Err ->
-            io:format(standard_error, "error, could not read file: ~p~n", [Err]),
+            io:format(standard_error, "error, could not read file: ~tp~n", [Err]),
             erlang:halt(1)
     end.
 
--spec read_file(file:filename()) -> {ok, map()} | {error, term()}.
+-spec read_file(filename()) -> {ok, map()} | {error, term()}.
 read_file(File) ->
-    case file:read_file(File, [raw]) of
+    case prim_file:read_file(File) of
         {ok, Data} ->
             {ok, json:decode(Data)};
         Err ->
             Err
     end.
 
--spec read_file_term(file:filename()) -> {ok, map()} | {error, term()}.
+-spec read_file_term(filename()) -> {ok, map()} | {error, term()}.
 read_file_term(File) ->
-    case file:read_file(File, [raw]) of
+    case prim_file:read_file(File) of
         {ok, Data} ->
             {ok, erlang:binary_to_term(Data)};
         Err ->
             Err
+    end.
+
+filename_to_binary(Filename) ->
+    case Filename of
+        _ when is_binary(Filename) ->
+            Filename;
+        _ when is_list(Filename) ->
+            case unicode:characters_to_binary(Filename) of
+                Bin when is_binary(Bin) -> Bin
+            end
     end.

@@ -89,13 +89,15 @@ usage() ->
     io:format("dependency_analyzer.escript some_file.(h|e)rl [out.term]").
 
 -spec do(file:filename(), {file, file:filename()} | stdout) -> ok.
-do(InFile, Outspec) ->
+do(InFile0, Outspec) ->
+    InFile = filename_to_binary(InFile0),
     {ok, Forms} = epp_dodger:parse_file(InFile),
     Dependencies = lists:sort(process_forms(Forms, [])),
     case Outspec of
-        {file, File} ->
+        {file, OutFile0} ->
             OutData = erlang:term_to_binary(Dependencies, [deterministic]),
-            ok = file:write_file(File, OutData, [raw]);
+            OutFile = filename_to_binary(OutFile0),
+            ok = prim_file:write_file(OutFile, OutData);
         stdout ->
             io:format("~p~n", [Dependencies])
     end.
@@ -139,4 +141,9 @@ process_forms([_ | Rest], Acc) ->
 
 -spec module_to_erl(module()) -> file:filename().
 module_to_erl(Module) ->
-    <<(atom_to_binary(Module))/binary, ".erl">>.
+    <<(atom_to_binary(Module))/binary, ".erl"/utf8>>.
+
+filename_to_binary(Filename) ->
+    case unicode:characters_to_binary(Filename) of
+        Bin when is_binary(Bin) -> Bin
+    end.

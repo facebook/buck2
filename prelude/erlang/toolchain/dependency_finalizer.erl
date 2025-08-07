@@ -11,7 +11,9 @@
 
 -export([main/1]).
 
--type dep_files_data() :: #{file:filename() => #{string() := file:filename()}}.
+-type dep_files_data() :: #{filename() => #{string() := filename()}}.
+
+-type filename() :: binary().
 
 -spec main([string()]) -> ok | no_return().
 main([Source, InFile]) ->
@@ -24,24 +26,26 @@ main(_) ->
 
 -spec usage() -> ok.
 usage() ->
-    io:format("~s.escript source_dep_file.dep dependency_spec.term [out.json]", [?MODULE]).
+    io:format("~ts.escript source_dep_file.dep dependency_spec.term [out.json]", [?MODULE]).
 
 -spec do(file:filename(), file:filename(), {file, file:filename()} | stdout) -> ok.
-do(Source, InFile, OutSpec) ->
+do(Source0, InFile0, OutSpec) ->
+    Source = filename_to_binary(Source0),
+    InFile = filename_to_binary(InFile0),
     try
         case read_file(InFile) of
             {ok, DepFiles} ->
-                FlatDepFiles = lists:foldl(fun merge_deps/2, #{}, maps:values(DepFiles)),
+                FlatDepFiles = maps:fold(fun merge_deps/3, #{}, DepFiles),
                 Dependencies = build_dep_info(Source, FlatDepFiles),
                 OutData = json:encode(Dependencies),
                 case OutSpec of
-                    {file, File} ->
-                        ok = write_file(File, OutData);
+                    {file, File0} ->
+                        ok = prim_file:write_file(filename_to_binary(File0), OutData);
                     stdout ->
                         io:format("~s~n", [OutData])
                 end;
             Err ->
-                io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+                io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),
                 erlang:halt(1)
         end
     catch
@@ -50,18 +54,18 @@ do(Source, InFile, OutSpec) ->
             erlang:halt(1)
     end.
 
-merge_deps(DepFile, Acc) ->
+merge_deps(_File, DepFile, Acc) ->
     case read_file_term(DepFile) of
         {ok, Dependencies} ->
             maps:merge(Dependencies, Acc);
         Err ->
-            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+            io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),
             erlang:halt(1)
     end.
 
--spec read_file(file:filename()) -> {ok, dep_files_data()} | {error, term()}.
+-spec read_file(filename()) -> {ok, dep_files_data()} | {error, term()}.
 read_file(File) ->
-    case file:read_file(File, [raw]) of
+    case prim_file:read_file(File) of
         {ok, Data} ->
             {ok, json:decode(Data)};
         Err ->
@@ -70,22 +74,23 @@ read_file(File) ->
 
 -spec read_file_term(file:filename()) -> {ok, dep_files_data()} | {error, term()}.
 read_file_term(File) ->
-    case file:read_file(File, [raw]) of
+    case prim_file:read_file(File) of
         {ok, Data} ->
             {ok, erlang:binary_to_term(Data)};
         Err ->
             Err
     end.
 
--spec build_dep_info(file:filename(), dep_files_data()) -> list(map()).
+-spec build_dep_info(filename(), dep_files_data()) -> list(map()).
 build_dep_info(Source, DepFiles) ->
     case read_file_term(Source) of
         {ok, Dependencies} ->
-            Key = list_to_binary(filename:basename(Source, ".dep") ++ ".erl"),
+            Basename = filename:basename(Source, ~".dep"),
+            Key = <<Basename/binary, ".erl"/utf8>>,
             {NextKeys, NextVisited, NextAcc} = collect_dependencies_for_key(Dependencies, Key, [], sets:new([{version, 2}]), []),
             collect_dependencies(NextKeys, DepFiles, NextVisited, NextAcc);
         Err ->
-            io:format(standard_error, "error, could no parse file correctly: ~p~n", [Err]),
+            io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),
             erlang:halt(1)
     end.
 
@@ -122,24 +127,7 @@ collect_dependencies_for_key([#{file := File, type := Type} = Dep | Deps], Curre
             collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
     end.
 
--spec write_file(file:filename(), iolist()) -> string().
-write_file(File, Data) ->
-    case
-        % We write in raw mode because this is a standalone escript, so we don't
-        % need advanced file server features, and we gain performance by avoiding
-        % calling through the file server
-        file:open(File, [write, binary, raw])
-    of
-        {ok, Handle} ->
-            try
-                % We use file:pwrite instead of file:write_file to work around
-                % the latter needlessly flattening iolists (as returned by
-                % json:encode/1, etc.) to a binary
-                file:pwrite(Handle, 0, Data)
-            after
-                file:close(Handle)
-            end,
-            ok;
-        {error, _} = Error ->
-            Error
+filename_to_binary(Filename) ->
+    case unicode:characters_to_binary(Filename) of
+        Bin when is_binary(Bin) -> Bin
     end.
