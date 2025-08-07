@@ -814,6 +814,17 @@ def _advanced_unstable_link_providers(
         linkable_graphs = inherited_graphs + [linkable_graph],
     ))
 
+    providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                native_libs = [shared_libs],
+            ),
+            deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)],
+        ),
+    )
+
     return providers
 
 def _stable_link_providers(
