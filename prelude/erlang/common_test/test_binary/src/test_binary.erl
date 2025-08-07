@@ -142,7 +142,7 @@ list_and_run(TestInfoFile, OutputDir) ->
     ResultsFile = filename:join(OutputDir, "result_exec.json"),
     print_results(ResultsFile).
 
--spec listing_to_testnames(#test_spec_test_case{}) -> [string()].
+-spec listing_to_testnames(#test_spec_test_case{}) -> [binary()].
 listing_to_testnames(Listing) ->
     [
         binary_to_list_string(TestCase#test_spec_test_info.name)
