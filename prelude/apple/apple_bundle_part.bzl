@@ -130,21 +130,11 @@ def assemble_bundle(
     else:
         swift_args = []
 
-    # Manifest is always provided, so that consumers of the `[codesign-manifest]`
-    # subtarget can safely request it and _always_ get output (rather than failing the build)
-    codesign_manifest = ctx.actions.write_json("placeholder_codesign_manifest.json", {})
-
     if codesign_required:
         codesign_args = [
             "--codesign",
             "--codesign-tool",
             codesign_tool,
-        ]
-
-        codesign_manifest = ctx.actions.declare_output("codesign_manifest.json")
-        codesign_args += [
-            "--codesign-manifest",
-            codesign_manifest.as_output(),
         ]
 
         profile_selection_required = _should_embed_provisioning_profile(ctx, codesign_type)
@@ -194,6 +184,17 @@ def assemble_bundle(
         pass
     else:
         fail("Code sign type `{}` not supported".format(codesign_type))
+
+    # - Always request codesign manifest, even if signing not required.
+    #   Removes the need for conditional subtargets and fields in JSON output.
+    #  - Manifest file name reflects whether signing is required or not.
+    #    Useful for debugging purposes.
+    codesign_manifest_file_name = "codesign_manifest.json" if codesign_required else "placeholder_codesign_manifest.json"
+    codesign_manifest = ctx.actions.declare_output(codesign_manifest_file_name)
+    codesign_args += [
+        "--codesign-manifest",
+        codesign_manifest.as_output(),
+    ]
 
     command = cmd_args(
         [

@@ -25,6 +25,7 @@ from apple.tools.code_signing.codesign_bundle import (
     CodesignConfiguration,
     CodesignedPath,
     signing_context_with_profile_selection,
+    write_empty_codesign_manifest,
 )
 from apple.tools.code_signing.list_codesign_identities import (
     AdHocListCodesignIdentities,
@@ -522,6 +523,12 @@ def _main() -> None:
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
             codesign_manifest_path=args.codesign_manifest,
+        )
+    elif args.codesign_manifest:
+        # Always write the codesign manifest file, even when unsigned
+        write_empty_codesign_manifest(
+            codesign_manifest_path=args.codesign_manifest,
+            bundle_path=args.output,
         )
 
     if incremental_state:

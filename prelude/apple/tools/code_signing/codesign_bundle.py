@@ -29,6 +29,7 @@ from .apple_platform import ApplePlatform
 from .codesign_command_factory import (
     DefaultCodesignCommandFactory,
     DryRunCodesignCommandFactory,
+    generate_codesign_manifest,
     ICodesignCommandFactory,
     ManifestCodesignCommandFactory,
 )
@@ -227,6 +228,14 @@ def signing_context_with_profile_selection(
 class CodesignConfiguration(str, Enum):
     fastAdhoc = "fast-adhoc"
     dryRun = "dry-run"
+
+
+def write_empty_codesign_manifest(codesign_manifest_path: Path, bundle_path: Path):
+    with open(codesign_manifest_path, "w") as codesign_manifest_file:
+        codesign_manifest = generate_codesign_manifest(
+            bundle_path, codesign_invocations=[]
+        )
+        json.dump(codesign_manifest, codesign_manifest_file, indent=4)
 
 
 def codesign_bundle(
