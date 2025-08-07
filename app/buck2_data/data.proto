@@ -2188,6 +2188,12 @@ message InvocationRecord {
   uint64 run_skipped_count = 13;
   // Optional - Count of actions that used fallback if fallback was used
   optional uint64 run_fallback_count = 14;
+  // Optional - Count of actions that used fallback triggered by re queue
+  // estimate threshold
+  optional uint64 run_fallback_re_queue_count = 303;
+  // Optional - Count of actions that ran locally because they were configured
+  // as local_only
+  optional uint64 run_local_only_count = 304;
   // Optional - Count of actions executed locally by a persistent worker,
   // actions included in this count are also included in run_local_count.
   optional uint64 local_actions_executed_via_worker = 15;

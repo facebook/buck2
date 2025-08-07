@@ -35,6 +35,7 @@ use buck2_data::FileWatcherProvider;
 use buck2_data::FileWatcherStart;
 use buck2_data::InvocationOutcome;
 use buck2_data::ProcessedErrorReport;
+use buck2_data::SchedulingMode;
 use buck2_data::SoftError;
 use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
@@ -118,6 +119,8 @@ pub struct InvocationRecorder {
     run_remote_dep_file_cache_count: u64,
     run_skipped_count: u64,
     run_fallback_count: u64,
+    run_fallback_re_queue_count: u64,
+    run_local_only_count: u64,
     local_actions_executed_via_worker: u64,
     first_snapshot: Option<buck2_data::Snapshot>,
     last_snapshot: Option<buck2_data::Snapshot>,
@@ -273,6 +276,8 @@ impl InvocationRecorder {
             run_remote_dep_file_cache_count: 0,
             run_skipped_count: 0,
             run_fallback_count: 0,
+            run_fallback_re_queue_count: 0,
+            run_local_only_count: 0,
             local_actions_executed_via_worker: 0,
             first_snapshot: None,
             last_snapshot: None,
@@ -814,6 +819,8 @@ impl InvocationRecorder {
             ) as f32,
             run_skipped_count: self.run_skipped_count,
             run_fallback_count: Some(self.run_fallback_count),
+            run_fallback_re_queue_count: Some(self.run_fallback_re_queue_count),
+            run_local_only_count: Some(self.run_local_only_count),
             local_actions_executed_via_worker: Some(self.local_actions_executed_via_worker),
             first_snapshot: self.first_snapshot.take(),
             last_snapshot: self.last_snapshot.take(),
@@ -1143,6 +1150,20 @@ impl InvocationRecorder {
         if action.kind == buck2_data::ActionKind::Run as i32 {
             if action_stats::was_fallback_action(action) {
                 self.run_fallback_count += 1;
+            }
+
+            if let Some(scheduling_mode) = action_stats::scheduling_mode(action)
+                && action_stats::was_local_action(action)
+            {
+                match scheduling_mode {
+                    SchedulingMode::LocalOnly => {
+                        self.run_local_only_count += 1;
+                    }
+                    SchedulingMode::FallbackReQueueEstimate => {
+                        self.run_fallback_re_queue_count += 1;
+                    }
+                    _ => {}
+                }
             }
 
             match last_command_execution_kind::get_last_command_execution_kind(action) {

@@ -10,6 +10,7 @@
 
 use std::fmt;
 
+use buck2_data::SchedulingMode;
 use dupe::Dupe;
 
 use crate::cache_hit_rate::total_cache_hit_rate;
@@ -131,23 +132,25 @@ impl fmt::Display for ActionStats {
     }
 }
 
+pub fn was_local_action(action: &buck2_data::ActionExecutionEnd) -> bool {
+    action.execution_kind() == buck2_data::ActionExecutionKind::Local
+        || action.execution_kind() == buck2_data::ActionExecutionKind::LocalWorker
+}
+
+pub fn scheduling_mode(action: &buck2_data::ActionExecutionEnd) -> Option<SchedulingMode> {
+    action
+        .scheduling_mode
+        .and_then(|o| SchedulingMode::try_from(o).ok())
+}
+
 /// Identify whether an action was a fallback action.
 /// An action was a fallback if it was a local action and triggered as a
 /// fallback by the hybrid executor.
 pub fn was_fallback_action(action: &buck2_data::ActionExecutionEnd) -> bool {
-    use buck2_data::SchedulingMode;
-
-    let Some(mode) = action
-        .scheduling_mode
-        .and_then(|o| SchedulingMode::try_from(o).ok())
-    else {
-        return false;
-    };
-    let was_local = action.execution_kind() == buck2_data::ActionExecutionKind::Local
-        || action.execution_kind() == buck2_data::ActionExecutionKind::LocalWorker;
-
-    match mode {
-        SchedulingMode::Fallback | SchedulingMode::FallbackReQueueEstimate => was_local,
+    match scheduling_mode(action) {
+        Some(SchedulingMode::Fallback) | Some(SchedulingMode::FallbackReQueueEstimate) => {
+            was_local_action(action)
+        }
         _ => false,
     }
 }
