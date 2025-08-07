@@ -863,6 +863,7 @@ windows_resource = prelude_rule(
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
         {
+            "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
         }
     ),
