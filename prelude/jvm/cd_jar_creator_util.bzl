@@ -356,7 +356,7 @@ def setup_dep_files(
     if abi_to_abi_dir_map:
         abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map", uses_experimental_content_based_path_hashing)
         actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
-        post_build_params["jarToJarDirMap"] = abi_to_abi_dir_map_file
+        post_build_params["jarToJarDirMap"] = classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map_file)
         if isinstance(abi_to_abi_dir_map, TransitiveSetArgsProjection):
             new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
         for hidden_artifact in hidden:
