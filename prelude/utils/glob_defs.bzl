@@ -8,7 +8,6 @@
 
 """Provides utility macros for working with globs."""
 
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:buckconfig.bzl", "read_bool")
 
@@ -112,7 +111,7 @@ def strict_glob(include, called_by_subdir_glob = False, **kwargs):
 
     # Dedupe.
     if len(include) > 1:
-        all_results = sets.to_list(sets.make(all_results))
+        all_results = list(set(all_results))
 
     for entry in kwargs.get("exclude", []):
         has_glob_pattern = has_glob_pattern or "*" in entry
