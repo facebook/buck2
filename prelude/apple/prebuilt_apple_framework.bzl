@@ -50,9 +50,12 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "Archive",
+    "ArchiveLinkable",
     "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
+    "SharedLibLinkable",
     "create_merged_link_info",
 )
 load(
@@ -67,6 +70,7 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET")
@@ -81,6 +85,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
 
         framework_directory_artifact = ctx.attrs.framework
         framework_name = to_framework_name(framework_directory_artifact.basename)
+        framework_library_artifact = framework_directory_artifact.project(framework_name)
 
         # Check this rule's `supported_platforms_regex` with the current platform.
         if cxx_platform_supported(ctx):
@@ -98,16 +103,21 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
                 inherited_pp_info,
             ))
 
-            # Add framework to link args.
-            # TODO(T110378120): Support shared linking for mac targets:
-            # https://fburl.com/code/pqrtt1qr.
-            args = []
-            args.extend(cxx_attr_exported_linker_flags(ctx))
-            args.extend(["-F", framework_dir])
-            args.extend(["-framework", framework_name])
+            if cxx_attr_preferred_linkage(ctx) == Linkage("static"):
+                linkable = ArchiveLinkable(
+                    archive = Archive(artifact = framework_library_artifact),
+                    linker_type = get_cxx_toolchain_info(ctx).linker_info.type,
+                )
+            else:
+                # If unspecified we default to "shared".
+                linkable = SharedLibLinkable(
+                    lib = framework_library_artifact,
+                )
+
             link = LinkInfo(
                 name = framework_name,
-                pre_flags = args,
+                linkables = [linkable],
+                pre_flags = [cxx_attr_exported_linker_flags(ctx)],
             )
             link_info = LinkInfos(default = link)
 
@@ -124,7 +134,6 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
                     ctx,
                     linkable_node = create_linkable_node(
                         ctx,
-                        preferred_linkage = cxx_attr_preferred_linkage(ctx),
                         link_infos = {output_style: link_info for output_style in LibOutputStyle},
                         # TODO(cjhopman): this should be set to non-None
                         default_soname = None,
