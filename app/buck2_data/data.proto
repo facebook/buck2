@@ -1534,6 +1534,33 @@ message ActionExecutionEnd {
   optional string target_rule_type_name = 41;
 
   optional string action_inputs_hash = 42;
+
+  // Description of why an action ran locally, remotely, or both (currently only
+  // set by hybrid executor)
+  optional SchedulingMode scheduling_mode = 43;
+}
+
+enum SchedulingMode {
+  SCHEDULING_MODE_UNKNOWN = 0;
+
+  //// Single executor modes, triggered from hybrid executor
+  // Ran on one executor based on local_only or remote_only
+  LOCAL_ONLY = 1;
+  REMOTE_ONLY = 2;
+  // Executed locally due to input size limits
+  LOCAL_ACTION_TOO_LARGE = 3;
+  // Ran on one executor, used executor preference if available
+  NO_FALLBACK = 4;
+
+  /// Hybrid executor modes, can run on both executors
+  // Executors raced concurrently
+  FULL_HYBRID = 10;
+  // Ran sequentially based on prefer_remote or prefer_local, with possible
+  // fallback to non-preferred executor
+  PREFER_REMOTE = 11;
+  PREFER_LOCAL = 12;
+  // Remote started first, with possible fallback to local
+  FALLBACK = 13;
 }
 
 message CommandInvalidationInfo {

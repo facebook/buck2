@@ -18,6 +18,7 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
+use buck2_data::SchedulingMode;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
@@ -208,18 +209,25 @@ where
             fallback_on_failure,
         );
 
-        if executor_preference.requires_local()
-            || self.is_action_too_large_for_remote(command.request.paths())
-        {
-            return async move {
+        let action_too_large = self.is_action_too_large_for_remote(command.request.paths());
+        if executor_preference.requires_local() || action_too_large {
+            let mut res = async move {
                 let _guard = self.throttle_when_memory_pressure().await;
                 local_result.await
             }
             .await;
+            if action_too_large {
+                res.scheduling_mode = Some(SchedulingMode::LocalActionTooLarge);
+            } else {
+                res.scheduling_mode = Some(SchedulingMode::LocalOnly);
+            }
+            return res;
         };
 
         if executor_preference.requires_remote() {
-            return remote_result.await;
+            let mut res = remote_result.await;
+            res.scheduling_mode = Some(SchedulingMode::RemoteOnly);
+            return res;
         }
 
         let jobs = HybridExecutorJobs {
@@ -236,7 +244,9 @@ where
                 }
                 .boxed()
             });
-            return jobs.into_primary().await.0;
+            let mut res = jobs.into_primary().await.0;
+            res.scheduling_mode = Some(SchedulingMode::NoFallback);
+            return res;
         }
 
         let weight = match command.request.host_sharing_requirements() {
@@ -281,6 +291,7 @@ where
 
         let fallback_only = fallback_only && !command.request.force_full_hybrid_if_capable();
 
+        let scheduling_mode: SchedulingMode;
         let ((mut first_res, first_priority), second) =
             if executor_preference.prefers_local() || executor_preference.prefers_remote() {
                 // Don't race in this scenario, since this is typically used for
@@ -292,11 +303,17 @@ where
                     }
                     .boxed()
                 });
+                if executor_preference.prefers_local() {
+                    scheduling_mode = SchedulingMode::PreferLocal;
+                } else {
+                    scheduling_mode = SchedulingMode::PreferRemote;
+                }
                 jobs.execute_sequential().await
             } else {
                 // In the full-hybrid case, we do race both executors. If the low-pass filter is in
                 // use, then we wrap the local execution with that.
                 let jobs = if fallback_only {
+                    scheduling_mode = SchedulingMode::Fallback;
                     jobs.map_local(move |local| {
                         async move {
                             // Block local until the remote executor aborts (that's remote_execution_liveliness_guard)
@@ -309,6 +326,7 @@ where
                         .boxed()
                     })
                 } else if low_pass_filter {
+                    scheduling_mode = SchedulingMode::FullHybrid;
                     jobs.map_local(move |local| {
                         async move {
                             // Block local until either condition is met:
@@ -330,6 +348,7 @@ where
                         .boxed()
                     })
                 } else {
+                    scheduling_mode = SchedulingMode::FullHybrid;
                     jobs.map_local(|local| {
                         async move {
                             self.ensure_low_memory_pressure().await;
@@ -383,6 +402,7 @@ where
             first_res
         };
 
+        res.scheduling_mode = Some(scheduling_mode);
         res.eligible_for_full_hybrid = !fallback_only;
         res
     }

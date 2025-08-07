@@ -149,6 +149,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             eligible_for_full_hybrid: false,
             dep_file_metadata: None,
             action_result: None,
+            scheduling_mode: None,
         }
     }
 
@@ -233,6 +234,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             eligible_for_full_hybrid: false,
             dep_file_metadata: None,
             action_result: None,
+            scheduling_mode: None,
         }
     }
 

@@ -19,6 +19,7 @@ use allocative::Allocative;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_data::SchedulingMode;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexMap;
@@ -220,6 +221,8 @@ pub struct CommandExecutionResult {
     /// to be re-used when uploading the remote dep file.
     #[derivative(Debug = "ignore")]
     pub action_result: Option<TActionResult2>,
+    /// Description of how local or remote execution were scheduled (currently only set by hybrid executor)
+    pub scheduling_mode: Option<SchedulingMode>,
 }
 
 impl CommandExecutionResult {

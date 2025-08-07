@@ -26,6 +26,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
+use buck2_data::SchedulingMode;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
@@ -136,6 +137,7 @@ pub enum ActionExecutionKind {
         did_dep_file_cache_upload: bool,
         eligible_for_full_hybrid: bool,
         dep_file_key: Option<DepFileDigest>,
+        scheduling_mode: Option<SchedulingMode>,
     },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display("simple")]
@@ -161,6 +163,7 @@ pub struct CommandExecutionRef<'a> {
     pub allows_dep_file_cache_upload: bool,
     pub did_dep_file_cache_upload: bool,
     pub eligible_for_full_hybrid: bool,
+    pub scheduling_mode: Option<SchedulingMode>,
     pub dep_file_key: &'a Option<DepFileDigest>,
 }
 
@@ -189,6 +192,8 @@ impl ActionExecutionKind {
                 did_dep_file_cache_upload,
                 dep_file_key,
                 eligible_for_full_hybrid,
+                scheduling_mode,
+                ..
             } => Some(CommandExecutionRef {
                 kind,
                 prefers_local: *prefers_local,
@@ -199,6 +204,7 @@ impl ActionExecutionKind {
                 did_dep_file_cache_upload: *did_dep_file_cache_upload,
                 dep_file_key,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
+                scheduling_mode: *scheduling_mode.dupe(),
             }),
             Self::Simple | Self::Deferred | Self::LocalDepFile | Self::LocalActionCache => None,
         }
@@ -484,6 +490,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             did_dep_file_cache_upload,
             dep_file_key,
             eligible_for_full_hybrid,
+            scheduling_mode,
             ..
         } = result;
 
@@ -511,6 +518,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                             did_dep_file_cache_upload,
                             dep_file_key,
                             eligible_for_full_hybrid,
+                            scheduling_mode,
                         },
                         timing: report.timing.into(),
                         input_files_bytes,

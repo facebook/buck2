@@ -20,6 +20,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 from buck2.tests.e2e_util.helper.utils import (
+    filter_events,
     json_get,
     random_string,
     read_invocation_record,
@@ -384,10 +385,25 @@ async def test_hybrid_executor_remote_queuing_fallback(
         )
         return read_invocation_record(record_path)
 
+    FULL_HYBRID = 10
+    FALLBACK = 13
+
+    async def scheduling_mode(buck: Buck) -> int:
+        actions = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "ActionExecution",
+        )
+        return actions[0]["scheduling_mode"]
+
     record = await build("slower_remotely_and_works_on_both_full_hybrid")
     assert record["run_local_count"] == 1
     assert record["run_remote_count"] == 0
     assert record["run_fallback_count"] == 0
+    assert await scheduling_mode(buck) == FULL_HYBRID
 
     record = await build(
         "slower_remotely_and_works_on_both_fallback_only",
@@ -396,6 +412,7 @@ async def test_hybrid_executor_remote_queuing_fallback(
     assert record["run_local_count"] == 0
     assert record["run_remote_count"] == 1
     assert record["run_fallback_count"] == 0
+    assert await scheduling_mode(buck) == FALLBACK
 
     record = await build(
         "slower_remotely_and_works_on_both_fallback_only",
@@ -406,3 +423,4 @@ async def test_hybrid_executor_remote_queuing_fallback(
     assert record["run_local_count"] == 1
     assert record["run_remote_count"] == 0
     assert record["run_fallback_count"] == 0  # TODO should be counted as fallback
+    assert await scheduling_mode(buck) == FALLBACK

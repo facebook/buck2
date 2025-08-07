@@ -258,6 +258,7 @@ async fn build_action_inner(
     let mut buck2_build_time = None;
     let mut hostname = None;
     let mut input_files_bytes = None;
+    let mut scheduling_mode = None;
     let error_diagnostics = match execute_result {
         Ok((outputs, meta)) => {
             output_size = outputs.calc_output_count_and_bytes().bytes;
@@ -276,6 +277,7 @@ async fn build_action_inner(
                 did_dep_file_cache_upload = Some(command.did_dep_file_cache_upload);
                 dep_file_key = *command.dep_file_key;
                 eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
+                scheduling_mode = command.scheduling_mode;
             }
 
             None
@@ -418,6 +420,7 @@ async fn build_action_inner(
             invalidation_info,
             target_rule_type_name,
             action_inputs_hash: None,
+            scheduling_mode: scheduling_mode.map(|h| h as i32),
         }),
     )
 }
