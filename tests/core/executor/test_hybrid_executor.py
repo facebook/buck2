@@ -387,6 +387,7 @@ async def test_hybrid_executor_remote_queuing_fallback(
 
     FULL_HYBRID = 10
     FALLBACK = 13
+    FALLBACK_RE_QUEUE_ESTIMATE = 14
 
     async def scheduling_mode(buck: Buck) -> int:
         actions = await filter_events(
@@ -422,5 +423,5 @@ async def test_hybrid_executor_remote_queuing_fallback(
     )
     assert record["run_local_count"] == 1
     assert record["run_remote_count"] == 0
-    assert record["run_fallback_count"] == 0  # TODO should be counted as fallback
-    assert await scheduling_mode(buck) == FALLBACK
+    assert record["run_fallback_count"] == 1
+    assert await scheduling_mode(buck) == FALLBACK_RE_QUEUE_ESTIMATE

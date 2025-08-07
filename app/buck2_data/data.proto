@@ -1561,6 +1561,8 @@ enum SchedulingMode {
   PREFER_LOCAL = 12;
   // Remote started first, with possible fallback to local
   FALLBACK = 13;
+  // Remote queue estimate exceeded threshold, raced local with queued action
+  FALLBACK_RE_QUEUE_ESTIMATE = 14;
 }
 
 message CommandInvalidationInfo {

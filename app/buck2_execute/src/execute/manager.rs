@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -51,6 +52,7 @@ pub struct CommandExecutionManagerInner {
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
     pub intend_to_fallback_on_failure: bool,
     pub execution_kind: Option<CommandExecutionKind>,
+    pub was_result_delayed: Arc<AtomicBool>,
 }
 
 /// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
@@ -71,6 +73,7 @@ impl CommandExecutionManager {
                 liveliness_observer,
                 intend_to_fallback_on_failure: false,
                 execution_kind: None,
+                was_result_delayed: Arc::new(AtomicBool::new(false)),
             }),
         }
     }
@@ -95,6 +98,9 @@ impl CommandExecutionManager {
 
     pub fn on_result_delayed(&mut self) {
         self.inner.claim_manager.on_result_delayed();
+        self.inner
+            .was_result_delayed
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn cancel(self, reason: Option<CommandCancellationReason>) -> CommandExecutionResult {

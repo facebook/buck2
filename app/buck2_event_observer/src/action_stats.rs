@@ -131,18 +131,25 @@ impl fmt::Display for ActionStats {
     }
 }
 
-/// Identify whether an action was a fallback action. A fallback action is an action that executed
-/// two commands, unless one of those was a Cancelled, which just means hybrid execution
-/// cancelled the local run (and which is not a fallback).
+/// Identify whether an action was a fallback action.
+/// An action was a fallback if it was a local action and triggered as a
+/// fallback by the hybrid executor.
 pub fn was_fallback_action(action: &buck2_data::ActionExecutionEnd) -> bool {
-    use buck2_data::command_execution::Status;
+    use buck2_data::SchedulingMode;
 
-    action
-        .commands
-        .iter()
-        .filter(|c| !matches!(c.status, Some(Status::Cancelled(..))))
-        .count()
-        > 1
+    let Some(mode) = action
+        .scheduling_mode
+        .and_then(|o| SchedulingMode::try_from(o).ok())
+    else {
+        return false;
+    };
+    let was_local = action.execution_kind() == buck2_data::ActionExecutionKind::Local
+        || action.execution_kind() == buck2_data::ActionExecutionKind::LocalWorker;
+
+    match mode {
+        SchedulingMode::Fallback | SchedulingMode::FallbackReQueueEstimate => was_local,
+        _ => false,
+    }
 }
 
 #[cfg(test)]

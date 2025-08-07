@@ -86,15 +86,9 @@ where
     async fn remote_exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
-        claim_manager: Box<dyn ClaimManager>,
-        events: EventDispatcher,
-        liveliness_observer: Arc<dyn LivelinessObserver>,
+        remote_manager: CommandExecutionManager,
         cancellations: &CancellationContext,
-        intend_to_fallback_on_failure: bool,
     ) -> CommandExecutionResult {
-        let remote_manager =
-            CommandExecutionManager::new(claim_manager, events, liveliness_observer)
-                .with_intend_to_fallback_on_failure(intend_to_fallback_on_failure);
         self.remote
             .exec_cmd(command, remote_manager, cancellations)
             .await
@@ -196,8 +190,7 @@ where
             cancellations,
         );
 
-        let remote_result = self.remote_exec_cmd(
-            command,
+        let remote_manager = CommandExecutionManager::new(
             Box::new(ReClaimManager::new(
                 local_execution_liveliness_guard,
                 Box::new(claim_manager),
@@ -205,9 +198,10 @@ where
             )),
             manager.inner.events.dupe(),
             manager.inner.liveliness_observer.dupe(),
-            cancellations,
-            fallback_on_failure,
-        );
+        )
+        .with_intend_to_fallback_on_failure(fallback_on_failure);
+        let was_result_delayed = remote_manager.inner.was_result_delayed.dupe();
+        let remote_result = self.remote_exec_cmd(command, remote_manager, cancellations);
 
         let action_too_large = self.is_action_too_large_for_remote(command.request.paths());
         if executor_preference.requires_local() || action_too_large {
@@ -321,7 +315,12 @@ where
                             // where local unblocks just when RE finishes
                             remote_execution_liveliness_observer.while_alive().await;
                             let _guard = self.throttle_when_memory_pressure().await;
-                            local.await
+                            let (mut res, priority) = local.await;
+                            if was_result_delayed.load(std::sync::atomic::Ordering::Relaxed) {
+                                // RE queuing but not cancelled, will race with local.
+                                res.scheduling_mode = Some(SchedulingMode::FallbackReQueueEstimate);
+                            }
+                            (res, priority)
                         }
                         .boxed()
                     })
@@ -401,8 +400,10 @@ where
             // Everyone is happy, we got our result.
             first_res
         };
-
-        res.scheduling_mode = Some(scheduling_mode);
+        // Don't overwrite outcome if set by local job.
+        if res.scheduling_mode.is_none() {
+            res.scheduling_mode = Some(scheduling_mode);
+        }
         res.eligible_for_full_hybrid = !fallback_only;
         res
     }
