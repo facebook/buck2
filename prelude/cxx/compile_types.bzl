@@ -140,6 +140,7 @@ CxxCompileOutput = record(
     # the `.dwo` when using `-gsplit-dwarf=split`).
     external_debug_info = field(Artifact | None, None),
     clang_remarks = field(Artifact | None, None),
+    clang_llvm_statistics = field(Artifact | None, None),
     clang_trace = field(Artifact | None, None),
     gcno_file = field(Artifact | None, None),
     index_store = field(Artifact | None, None),

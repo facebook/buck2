@@ -201,6 +201,7 @@ def _cxx_toolchain_override(ctx):
         headers_as_raw_headers_mode = base_toolchain.headers_as_raw_headers_mode,
         use_dep_files = base_toolchain.use_dep_files,
         clang_remarks = base_toolchain.clang_remarks,
+        clang_llvm_statistics = base_toolchain.clang_llvm_statistics,
         gcno_files = base_toolchain.gcno_files,
         clang_trace = base_toolchain.clang_trace,
         object_format = CxxObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format != None else base_toolchain.object_format,

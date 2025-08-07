@@ -68,6 +68,7 @@ CxxRuleSubTargetParams = record(
     argsfiles = field(bool, True),
     compilation_database = field(bool, True),
     clang_remarks = field(bool, True),
+    clang_llvm_statistics = field(bool, True),
     clang_traces = field(bool, True),
     headers = field(bool, True),
     link_group_map = field(bool, True),

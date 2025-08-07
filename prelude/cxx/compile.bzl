@@ -361,6 +361,14 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(hidden = clang_remarks.as_output()))
 
+    clang_llvm_statistics = None
+    if toolchain.clang_llvm_statistics and compiler_type == "clang":
+        cmd.add(["-mllvm", "-stats", "-mllvm", "-info-output-file", "-mllvm"])
+        clang_llvm_statistics = ctx.actions.declare_output(
+            paths.join("__objects__", "{}.stats".format(filename_base)),
+        )
+        cmd.add(cmd_args(clang_llvm_statistics.as_output()))
+
     clang_trace = None
     if toolchain.clang_trace and compiler_type == "clang":
         cmd.add(["-ftime-trace"])
@@ -532,6 +540,7 @@ def _compile_single_cxx(
         object_has_external_debug_info = object_has_external_debug_info,
         external_debug_info = external_debug_info,
         clang_remarks = clang_remarks,
+        clang_llvm_statistics = clang_llvm_statistics,
         clang_trace = clang_trace,
         gcno_file = gcno_file,
         index_store = index_store,
@@ -921,6 +930,8 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
         if obj.clang_remarks:
             sub_targets["clang-remarks"] = [DefaultInfo(obj.clang_remarks)]
+        if obj.clang_llvm_statistics:
+            sub_targets["clang-llvm-statistics"] = [DefaultInfo(obj.clang_llvm_statistics)]
         if obj.assembly:
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         if obj.preproc:

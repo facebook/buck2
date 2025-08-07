@@ -305,6 +305,8 @@ _CxxLibraryCompileOutput = record(
     bitcode_objects = field([list[Artifact], None]),
     # yaml file with optimization remarks about clang compilation
     clang_remarks = field([list[Artifact], None]),
+    # llvm statistics about clang compilation
+    clang_llvm_statistics = field([list[Artifact], None]),
     gcno_files = field([list[Artifact], None]),
     # json file with trace information about clang compilation
     clang_traces = field(list[Artifact]),
@@ -449,6 +451,17 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         if compiled_srcs.pic.clang_remarks:
             sub_targets["pic-clang-remarks"] = [DefaultInfo(
                 default_outputs = compiled_srcs.pic.clang_remarks,
+            )]
+
+    if impl_params.generate_sub_targets.clang_llvm_statistics:
+        if compiled_srcs.non_pic and compiled_srcs.non_pic.clang_llvm_statistics:
+            sub_targets["clang-llvm-statistics"] = [DefaultInfo(
+                default_outputs = compiled_srcs.non_pic.clang_llvm_statistics,
+            )]
+
+        if compiled_srcs.pic.clang_llvm_statistics:
+            sub_targets["pic-clang-llvm-statistics"] = [DefaultInfo(
+                default_outputs = compiled_srcs.pic.clang_llvm_statistics,
             )]
 
     if impl_params.generate_sub_targets.clang_traces:
@@ -1111,6 +1124,7 @@ def _get_library_compile_output(
         bitcode_objects = bitcode_objects,
         clang_traces = [out.clang_trace for out in outs if out.clang_trace != None],
         clang_remarks = [out.clang_remarks for out in outs if out.clang_remarks != None],
+        clang_llvm_statistics = [out.clang_llvm_statistics for out in outs if out.clang_llvm_statistics != None],
         gcno_files = [out.gcno_file for out in outs if out.gcno_file != None],
         external_debug_info = [out.external_debug_info for out in outs if out.external_debug_info != None],
         objects_have_external_debug_info = lazy.is_any(lambda out: out.object_has_external_debug_info, outs),
