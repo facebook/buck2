@@ -113,6 +113,7 @@ export const sidebars: SidebarsConfig = {
             'users/how_tos/modifiers_package',
             'users/how_tos/modifiers_target',
             'users/how_tos/modifiers_cli',
+            'users/how_tos/question_mark_modifier',
             'users/how_tos/compilation_database',
           ],
         },

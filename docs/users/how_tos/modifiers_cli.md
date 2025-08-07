@@ -21,8 +21,11 @@ for more information):
 buck build :my_target -m debug
 ```
 
-The following shorthand syntax is planned, but is currently unimplemented:
+Additionally, a subset of commands support the `?modifier` syntax, which allows
+users to specify modifiers for a target pattern by appending a `?` to the
+pattern followed by the modifiers delimited by `+` (see
+[?modifier](./question_mark_modifier.md) page for more information):
 
 ```sh
-buck2 build :my_target?debug
+buck2 build :my_target?debug+linux
 ```
