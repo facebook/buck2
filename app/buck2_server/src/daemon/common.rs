@@ -69,7 +69,7 @@ pub fn parse_concurrency(requested: u32) -> buck2_error::Result<usize> {
         .buck_error_context("Invalid concurrency")?;
 
     if ret == 0 {
-        ret = num_cpus::get();
+        ret = buck2_util::threads::available_parallelism();
     }
 
     Ok(ret)

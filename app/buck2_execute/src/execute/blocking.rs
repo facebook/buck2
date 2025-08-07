@@ -100,7 +100,7 @@ impl BuckBlockingExecutor {
     ///   issues modifying the directory structure does.
     pub fn default_concurrency(fs: ProjectRoot) -> buck2_error::Result<Self> {
         let io_threads = buck2_env!("BUCK2_IO_THREADS", type=usize, default=4)?;
-        let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=num_cpus::get())?;
+        let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=buck2_util::threads::available_parallelism())?;
 
         let (command_sender, command_receiver) = unbounded();
 

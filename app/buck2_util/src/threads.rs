@@ -19,6 +19,10 @@ use std::thread;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 
+pub fn available_parallelism() -> usize {
+    num_cpus::get()
+}
+
 /// Default stack size for buck2.
 ///
 /// We want to be independent of possible future changes to the default stack size in Rust.

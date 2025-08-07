@@ -16,7 +16,7 @@ BUCK2_HARD_ERROR                        String
 BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE bool                  false
 BUCK2_INSTALLER_SEND_TIMEOUT_S          u64
 BUCK2_INSTALLER_TIMEOUT_S               u64
-BUCK2_IO_SEMAPHORE                      usize                 num_cpus::get()
+BUCK2_IO_SEMAPHORE                      usize                 buck2_util::threads::available_parallelism()
 BUCK2_IO_THREADS                        usize                 4
 BUCK2_KEEP_DEP_FILE_DIRECTORIES         bool                  false
 BUCK2_LIB_BACKTRACE                     String

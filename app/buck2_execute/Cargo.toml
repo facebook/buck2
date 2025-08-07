@@ -24,7 +24,6 @@ http = { workspace = true }
 hyper = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
-num_cpus = { workspace = true }
 once_cell = { workspace = true }
 pathdiff = { workspace = true }
 prost = { workspace = true }

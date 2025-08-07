@@ -124,7 +124,7 @@ impl BuckStarlarkDebuggerServer {
         // passed in as we should at the least respect any `-j` flag.
         Self {
             to_state,
-            eval_semaphore: Arc::new(Semaphore::new(num_cpus::get())),
+            eval_semaphore: Arc::new(Semaphore::new(buck2_util::threads::available_parallelism())),
             next_handle_id: AtomicU32::new(0),
         }
     }

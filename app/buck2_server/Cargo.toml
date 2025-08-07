@@ -21,7 +21,6 @@ host_sharing = { workspace = true }
 inferno = { workspace = true }
 lsp-server = { workspace = true }
 lsp-types = { workspace = true }
-num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }

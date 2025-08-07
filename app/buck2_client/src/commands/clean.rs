@@ -228,7 +228,7 @@ fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
 
 fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     let walk = WalkDir::new(path);
-    let thread_pool = ThreadPool::new(num_cpus::get());
+    let thread_pool = ThreadPool::new(buck2_util::threads::available_parallelism());
     let error = Arc::new(Mutex::new(None));
     // collect dir paths to delete them after deleting files in them
     // we need reverse order to make sure the dir is already empty when
