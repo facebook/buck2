@@ -24,6 +24,10 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
     if refs._opt_by_default__opt[ConstraintValueInfo].setting.label not in constraints:
         return platform
 
+    # if this is an execution platform then cancel the transition
+    if refs._opt_by_default__execution_platform_marker[ConstraintValueInfo].setting.label in constraints:
+        return platform
+
     # check if native debug is enabled, if so cancel the transition
     maybe_native_debug_constraints = getattr(constraints.get(refs._opt_by_default_native_debug_enabled[ConstraintValueInfo].setting.label), "label", None)
     if maybe_native_debug_constraints == refs._opt_by_default_native_debug_enabled[ConstraintValueInfo].label:
@@ -86,6 +90,7 @@ def _refs():
     return {
         "_opt_by_default__dev": "@config//build_mode/constraints:dev",
         "_opt_by_default__dev_san": "@config//build_mode/constraints:asan-ubsan-dev",
+        "_opt_by_default__execution_platform_marker": "@config//platform/execution/constraints:execution-platform-transitioned",
         "_opt_by_default__fbcode_build_info_mode_full": "@config//build_mode/constraints:fbcode-build-info-mode-full",
         "_opt_by_default__linux": "@config//os/constraints:linux",
         "_opt_by_default__lto_none": "@config//build_mode/constraints:lto-none",
