@@ -617,7 +617,7 @@ impl DiceCommandUpdater<'_, '_> {
         let concurrency = self
             .concurrency
             .or_else(|| parse_concurrency(config_threads))
-            .unwrap_or_else(buck2_util::threads::available_parallelism);
+            .unwrap_or_else(buck2_util::threads::available_parallelism_fresh);
 
         if let Some(max_lines) = root_config.parse(BuckconfigKeyRef {
             section: "ui",
@@ -793,6 +793,7 @@ impl DiceCommandUpdater<'_, '_> {
             .events()
             .instant_event(buck2_data::CommandOptions {
                 configured_parallelism: concurrency as _,
+                available_parallelism: buck2_util::threads::available_parallelism() as _,
             });
 
         collect_config_metadata_into(root_config, &mut data);

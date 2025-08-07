@@ -13,13 +13,32 @@ use std::future::Future;
 use std::hint;
 use std::pin::Pin;
 use std::pin::pin;
+use std::sync::OnceLock;
 use std::task::Poll;
 use std::thread;
 
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 
+/// Get the available parallelism
+///
+/// This value is cached for the lifetime of the process. The reason is that there are various
+/// components that cannot be updated to reflect the new value if it changes during the lifetime of
+/// the daemon. Caching this sacrifices some accuracy of this value in exchange for putting the
+/// daemon into a more predictable state.
+///
+/// Use `available_parallelism_fresh` if the caching is not desired
 pub fn available_parallelism() -> usize {
+    static PARALLELISM: OnceLock<usize> = OnceLock::new();
+
+    *PARALLELISM.get_or_init(available_parallelism_fresh)
+}
+
+/// Get the available parallelism
+///
+/// Unlike `available_parallelism`, this is not cached - callers using this should ensure that this
+/// value is logged somewhere
+pub fn available_parallelism_fresh() -> usize {
     // NB: num_cpus and tokio both also use 1 as the default in case of an error
     std::thread::available_parallelism().map_or(1, |v| v.get())
 }

@@ -185,6 +185,9 @@ message StarlarkUserEvent {
 message CommandOptions {
   // The value passed to the `-j` flag or equivalent
   uint64 configured_parallelism = 1;
+  // The parallelism avaiable to buck, independent of the value configured by
+  // the user
+  uint64 available_parallelism = 2;
 }
 
 message CellHasNewConfigs {
