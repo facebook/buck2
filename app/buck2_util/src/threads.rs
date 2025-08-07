@@ -209,4 +209,12 @@ pub(crate) mod tests {
             .unwrap()
             .unwrap();
     }
+
+    #[test]
+    fn test_num_cpus_and_std_agree() {
+        assert_eq!(
+            std::thread::available_parallelism().unwrap().get(),
+            num_cpus::get()
+        );
+    }
 }
