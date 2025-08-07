@@ -10,6 +10,7 @@
 
 
 import json
+import os
 import re
 from typing import List
 
@@ -721,4 +722,23 @@ async def test_cli_configured_target_platform(buck: Buck) -> None:
         output=sanitize_hashes(result.stdout),
         rel_path=GOLDEN_DIRECTORY
         + "test_cli_configured_target_platform_expr.golden.txt",
+    )
+
+
+@buck_test()
+async def test_cli_json_file(buck: Buck) -> None:
+    json_file_path = os.path.join(buck.cwd, "a.json")
+
+    await buck.bxl(
+        "//cli_args.bxl:cli_json_file",
+        "--",
+        "--json-file",
+        json_file_path,
+    )
+
+    await buck.bxl(
+        "//cli_args.bxl:cli_json_file",
+        "--",
+        "--json-file",
+        "a.json",
     )

@@ -13,10 +13,14 @@
 use std::collections::HashSet;
 use std::fmt::Formatter;
 use std::hash::Hash;
+use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -813,8 +817,22 @@ impl CliArgType {
                 },
                 CliArgType::JsonFile => match clap.value_of() {
                     None => None,
-                    Some(value) => {
-                        let contents = std::fs::read_to_string(value)?;
+                    Some(path) => {
+                        let path = Path::new(path);
+                        let abs_path = if path.is_absolute() {
+                            AbsNormPathBuf::new(path.to_path_buf())?
+                        } else {
+                            let project_root = ctx
+                                .dice
+                                .global_data()
+                                .get_io_provider()
+                                .project_root()
+                                .dupe();
+                            let project_rel_path = ProjectRelativePath::new(path)?;
+                            project_root.resolve(project_rel_path)
+                        };
+
+                        let contents = std::fs::read_to_string(abs_path)?;
                         let json: serde_json::Value = serde_json::from_str(&contents)?;
                         let data = JsonCliArgValueData::from_serde_value(&json);
                         if let JsonCliArgValueData::Object(_) = data {
@@ -996,6 +1014,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     /// Takes an arg from cli, and would be treated as a json file, and return a json object in bxl.
+    /// It support both relative and absolute path. If it's a relative path, it will be resolved relative to the buck project root.
     fn json_file<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
