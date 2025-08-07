@@ -183,7 +183,8 @@ message StarlarkUserEvent {
 }
 
 message CommandOptions {
-  uint64 concurrency = 1;
+  // The value passed to the `-j` flag or equivalent
+  uint64 configured_parallelism = 1;
 }
 
 message CellHasNewConfigs {

@@ -792,7 +792,7 @@ impl DiceCommandUpdater<'_, '_> {
         self.cmd_ctx
             .events()
             .instant_event(buck2_data::CommandOptions {
-                concurrency: concurrency as _,
+                configured_parallelism: concurrency as _,
             });
 
         collect_config_metadata_into(root_config, &mut data);
