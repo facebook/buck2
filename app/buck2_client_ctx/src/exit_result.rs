@@ -23,8 +23,8 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_data::ErrorReport;
 use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
-use buck2_error::Tier;
 use buck2_error::classify::ErrorLike;
+use buck2_error::classify::ErrorTagExtra;
 use buck2_error::classify::best_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -144,20 +144,8 @@ impl ExitResult {
     }
 
     pub fn err(err: buck2_error::Error) -> Self {
-        let exit_code = if err.has_tag(ErrorTag::IoClientBrokenPipe) {
-            ExitCode::BrokenPipe
-        } else {
-            match err.get_tier() {
-                Some(tier) => match tier {
-                    Tier::Input => ExitCode::UserError,
-                    Tier::Tier0 | Tier::Environment => ExitCode::InfraError,
-                },
-                None => ExitCode::UnknownFailure,
-            }
-        };
-
         Self {
-            variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
+            variant: ExitResultVariant::StatusWithErr(err.exit_code(), err.into()),
             stdout: Vec::new(),
             emitted_errors: Vec::new(),
         }
@@ -200,30 +188,11 @@ impl ExitResult {
                 emitted_errors: errors,
             }
         }
-
-        for e in &errors {
-            if e.tags.contains(&(ErrorTag::DaemonIsBusy as i32)) {
-                return status_with_error_report(ExitCode::DaemonIsBusy, errors);
-            }
-            if e.tags.contains(&(ErrorTag::DaemonPreempted as i32)) {
-                return status_with_error_report(ExitCode::DaemonPreempted, errors);
-            }
-        }
-
-        match best_error(&errors).map(|error| error.category()) {
-            Some(category) => match category {
-                Tier::Input => status_with_error_report(ExitCode::UserError, errors),
-                Tier::Tier0 | Tier::Environment => {
-                    status_with_error_report(ExitCode::InfraError, errors)
-                }
-            },
-            None => {
-                // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
-                // here. However, it would be more honest to return the `1` status code that we use for
-                // "unknown"
-                status_with_error_report(ExitCode::InfraError, errors)
-            }
-        }
+        let exit_code = best_error(&errors)
+            .and_then(|e| e.best_tag())
+            .map(|t| t.exit_code())
+            .unwrap_or(ExitCode::UnknownFailure);
+        status_with_error_report(exit_code, errors)
     }
 
     /// Buck2 supports being built as both a "full" binary as well as a "client-only" binary.

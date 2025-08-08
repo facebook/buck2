@@ -15,8 +15,10 @@ use buck2_data::ActionError;
 use smallvec::SmallVec;
 
 use crate::ErrorTag;
+use crate::ExitCode;
 use crate::Tier;
 use crate::UniqueRootId;
+use crate::classify::ErrorTagExtra;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::classify::tag_is_generic;
@@ -235,6 +237,12 @@ impl Error {
 
     pub fn get_tier(&self) -> Option<Tier> {
         best_tag(self.tags()).map(error_tag_category).flatten()
+    }
+
+    pub fn exit_code(&self) -> ExitCode {
+        best_tag(self.tags())
+            .map(|t| t.exit_code())
+            .unwrap_or(ExitCode::UnknownFailure)
     }
 
     /// All tags unsorted and with duplicates.

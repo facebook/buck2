@@ -10,6 +10,8 @@
 
 use buck2_data::error::ErrorTag;
 
+use crate::ExitCode;
+
 /// When there's no tag, but we want to put something in Scuba, we use this.
 pub const ERROR_TAG_UNCLASSIFIED: &str = "UNCLASSIFIED";
 
@@ -47,6 +49,8 @@ struct TagMetadata {
     // reported externally.
     // These should be removed/avoided if possible.
     hidden: bool,
+    // Allows overriding the exit code derived from the error tier.
+    exit_code: ExitCode,
 }
 
 impl TagMetadata {
@@ -60,6 +64,10 @@ impl TagMetadata {
             ..self
         }
     }
+
+    fn exit_code(self, exit_code: ExitCode) -> Self {
+        Self { exit_code, ..self }
+    }
 }
 
 macro_rules! rank {
@@ -70,24 +78,28 @@ macro_rules! rank {
                 rank: line!(),
                 generic: false,
                 hidden: false,
+                exit_code: ExitCode::InfraError,
             },
             "tier0" => TagMetadata {
                 category: Some(Tier::Tier0),
                 rank: line!(),
                 generic: false,
                 hidden: false,
+                exit_code: ExitCode::InfraError,
             },
             "input" => TagMetadata {
                 category: Some(Tier::Input),
                 rank: line!(),
                 generic: false,
                 hidden: false,
+                exit_code: ExitCode::UserError,
             },
             "unspecified" => TagMetadata {
                 category: None,
                 rank: line!(),
                 generic: true,
                 hidden: false,
+                exit_code: ExitCode::UnknownFailure,
             },
             _ => unreachable!(),
         }
@@ -106,6 +118,7 @@ pub enum ErrorSourceArea {
 
 pub trait ErrorTagExtra {
     fn source_area(&self) -> ErrorSourceArea;
+    fn exit_code(&self) -> ExitCode;
 }
 
 impl ErrorTagExtra for ErrorTag {
@@ -125,6 +138,10 @@ impl ErrorTagExtra for ErrorTag {
             ErrorSourceArea::Buck2
         }
     }
+
+    fn exit_code(&self) -> ExitCode {
+        tag_metadata(*self).exit_code
+    }
 }
 
 /// Ordering determines tag rank, more interesting tags first
@@ -134,7 +151,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::NoValidCerts => rank!(environment),
         ErrorTag::ServerSigterm => rank!(environment),
         ErrorTag::IoMaterializerFileBusy => rank!(environment),
-        ErrorTag::IoClientBrokenPipe => rank!(environment),
+        ErrorTag::IoClientBrokenPipe => rank!(environment).exit_code(ExitCode::BrokenPipe),
         ErrorTag::IoReadOnlyFilesystem => rank!(environment),
         ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
@@ -334,8 +351,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         // happens, it's probably because the user tried to shut down with Ctrl+C and something
         // about that didn't work
         ErrorTag::InterruptedByDaemonShutdown => rank!(input),
-        ErrorTag::DaemonIsBusy => rank!(input),
-        ErrorTag::DaemonPreempted => rank!(input),
+        ErrorTag::DaemonIsBusy => rank!(input).exit_code(ExitCode::DaemonIsBusy),
+        ErrorTag::DaemonPreempted => rank!(input).exit_code(ExitCode::DaemonPreempted),
         ErrorTag::ConfigureAttr => rank!(input),
         ErrorTag::DepOnlyIncompatible => rank!(input),
         ErrorTag::TargetIncompatible => rank!(input),
