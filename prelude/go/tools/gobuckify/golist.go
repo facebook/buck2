@@ -34,7 +34,7 @@ type Package struct {
 
 func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Package, chan error) {
 	pkgChan := make(chan *Package, 1000) // 1000 is a guess, but should be enough
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	go func() {
 		defer close(pkgChan)
 		defer close(errChan)
@@ -46,11 +46,16 @@ func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Pac
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 		// need for consistent behaviour on any host machine
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
-		cmd.Stderr = os.Stderr
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get stdout pipe: %w", err)
+			return
+		}
+
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			errChan <- fmt.Errorf("failed to get stderr pipe: %w", err)
 			return
 		}
 
@@ -77,7 +82,14 @@ func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Pac
 			pkgChan <- &pkg
 		}
 
+		stderrBytes, err := io.ReadAll(stderr)
+		if err != nil {
+			errChan <- fmt.Errorf("failed to read stderr: %w", err)
+			return
+		}
+
 		if err := cmd.Wait(); err != nil {
+			fmt.Fprintln(os.Stderr, string(stderrBytes))
 			errChan <- fmt.Errorf("failed to wait for go list: %w", err)
 		}
 	}()
