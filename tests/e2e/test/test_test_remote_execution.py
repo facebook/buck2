@@ -14,16 +14,17 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(inplace=True)
-async def test_re_queue_taking_longer_than_threshold(buck: Buck) -> None:
+async def test_cancel_test_if_re_queue_longer_than_threshold(buck: Buck) -> None:
     args = [
         "-c",
-        "build.remote_execution_cancel_on_estimated_queue_time_exceeds_s=0",
+        "build.remote_execution_cancel_on_estimated_queue_time_exceeds_s=10",
         "--no-remote-cache",
         "--remote-only",
     ]
     result = await buck.test(
         *args,
         "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue",
+        env={"BUCK2_TEST_RE_QUEUE_ESTIMATE_S": "100"},
     )
     assert (
         "Omitted: buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue - main"
