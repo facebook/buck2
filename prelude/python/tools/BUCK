@@ -148,3 +148,9 @@ prelude.python_bootstrap_binary(
     main = "create_link_tree.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "gather_libpython_symbols",
+    main = "gather_libpython_symbols.py",
+    visibility = ["PUBLIC"],
+)
