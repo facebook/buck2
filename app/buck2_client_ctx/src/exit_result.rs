@@ -22,6 +22,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_data::ErrorReport;
 use buck2_error::ErrorTag;
+use buck2_error::ExitCode;
 use buck2_error::Tier;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::best_error;
@@ -38,13 +39,6 @@ pub struct ExecArgs {
 
 /// ExitResult represents the outcome of a process execution where we care to return a specific
 /// exit code. This is designed to be used as the return value from `main()`.
-///
-/// The exit code is u8 integer and has the following meanings
-/// - Success             : 0
-/// - Uncategorized Error : 1
-/// - Infra Error         : 2
-/// - User Error          : 3
-/// - Signal Interruption : 129-192 (128 + signal number)
 ///
 /// We can easily turn a buck2_error::Result (or buck2_error::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
@@ -470,59 +464,6 @@ impl From<io::Error> for ClientIoError {
             ClientIoError::BrokenPipe(error)
         } else {
             ClientIoError::OtherIo(error)
-        }
-    }
-}
-
-/// Common exit codes for buck with stronger semantic meanings
-#[derive(Clone, Copy, Debug)]
-pub enum ExitCode {
-    Success,
-    UnknownFailure,
-    InfraError,
-    UserError,
-    DaemonIsBusy,
-    DaemonPreempted,
-    Timeout,
-    ConnectError,
-    SignalInterrupt,
-    BrokenPipe,
-    /// Test runner explicitly requested that this exit code be returned
-    TestRunner(u8),
-}
-
-impl ExitCode {
-    pub const fn exit_code(self) -> u32 {
-        use ExitCode::*;
-        match self {
-            Success => 0,
-            UnknownFailure => 1,
-            InfraError => 2,
-            UserError => 3,
-            DaemonIsBusy => 4,
-            DaemonPreempted => 5,
-            Timeout => 6,
-            ConnectError => 11,
-            BrokenPipe => 130,
-            SignalInterrupt => 141,
-            TestRunner(code) => code as u32,
-        }
-    }
-
-    pub fn name(self) -> &'static str {
-        use ExitCode::*;
-        match self {
-            Success => "SUCCESS",
-            UnknownFailure => "UNKNOWN_FAILURE",
-            InfraError => "INFRA_ERROR",
-            UserError => "USER_ERROR",
-            DaemonIsBusy => "DAEMON_IS_BUSY",
-            DaemonPreempted => "DAEMON_PREEMPTED",
-            Timeout => "TIMEOUT",
-            ConnectError => "CONNECT_ERROR",
-            BrokenPipe => "BROKEN_PIPE",
-            SignalInterrupt => "SIGNAL_INTERRUPT",
-            TestRunner(_) => "TEST_RUNNER",
         }
     }
 }

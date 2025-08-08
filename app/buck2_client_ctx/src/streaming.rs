@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_error::ExitCode;
 use dupe::Dupe;
 
 use crate::client_ctx::BuckSubcommand;
@@ -31,7 +32,6 @@ use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::connect::connect_buckd;
 use crate::events_ctx::EventsCtx;
-use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
 use crate::path_arg::PathArg;
 use crate::signal_handler::with_simple_sigint_handler;

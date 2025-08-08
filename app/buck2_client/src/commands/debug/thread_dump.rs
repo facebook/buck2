@@ -11,9 +11,9 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
-use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_error::BuckErrorContext;
+use buck2_error::ExitCode;
 
 use crate::commands::rage::thread_dump::thread_dump_command;
 

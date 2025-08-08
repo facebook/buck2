@@ -20,6 +20,7 @@ pub mod conversion;
 mod conversion_test;
 mod derive_tests;
 mod error;
+mod exit_code;
 mod format;
 pub mod macros;
 mod root;
@@ -41,6 +42,7 @@ pub use context::BuckErrorContext;
 pub use context_value::TypedContext;
 pub use error::DynLateFormat;
 pub use error::Error;
+pub use exit_code::ExitCode;
 pub use root::UniqueRootId;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;

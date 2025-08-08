@@ -41,6 +41,7 @@ use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
+use buck2_error::ExitCode;
 use buck2_error::Tier;
 use buck2_error::buck2_error;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
@@ -75,7 +76,6 @@ use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonEventLogOptions;
 use crate::common::PreemptibleWhen;
 use crate::console_interaction_stream::SuperConsoleToggle;
-use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
@@ -2173,10 +2173,10 @@ mod tests {
     use std::ffi::OsString;
 
     use buck2_data::InvocationOutcome;
+    use buck2_error::ExitCode;
     use buck2_error::internal_error;
     use buck2_wrapper_common::invocation_id::TraceId;
 
-    use crate::exit_result::ExitCode;
     use crate::exit_result::ExitResult;
     use crate::subscribers::recorder::InvocationRecorder;
     use crate::subscribers::recorder::truncate_stderr;
