@@ -466,6 +466,7 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
 
 fn anticipated_queue_duration(
     event: ExecuteWithProgressResponse,
+    use_new_queue_estimate: bool,
 ) -> anyhow::Result<Option<Duration>> {
     // Return a queue estimate even if RE dequeues immediately
     if let Some(duration) = buck2_env!(
@@ -475,8 +476,15 @@ fn anticipated_queue_duration(
     )? {
         return Ok(Some(Duration::from_secs(duration)));
     }
+
     if let Some(info) = event.metadata.task_info {
-        let est = u64::try_from(info.estimated_queue_time_ms)
+        let estimated_queue_time_ms = if use_new_queue_estimate {
+            info.new_estimated_queue_time_ms
+        } else {
+            info.estimated_queue_time_ms
+        };
+
+        let est = u64::try_from(estimated_queue_time_ms)
             .context("estimated_queue_time_ms from RE is negative")?;
         return Ok(Some(Duration::from_millis(est)));
     }
@@ -1028,6 +1036,7 @@ impl RemoteExecutionClientImpl {
             manager: &mut CommandExecutionManager,
             re_fallback_on_estimated_queue_time_exceeds_duration: Option<Duration>,
             re_cancel_on_estimated_queue_time_exceeds: Option<Duration>,
+            use_new_queue_estimate: bool,
         ) -> anyhow::Result<ResponseOrStateChange> {
             executor_stage_async(
                 buck2_data::ReStage {
@@ -1062,7 +1071,8 @@ impl RemoteExecutionClientImpl {
                             return Ok(ResponseOrStateChange::Present(event));
                         }
 
-                        if let Some(anticipated_queue_duration) = anticipated_queue_duration(event)?
+                        if let Some(anticipated_queue_duration) =
+                            anticipated_queue_duration(event, use_new_queue_estimate)?
                         {
                             if let Some(re_queue_threshold) =
                                 re_cancel_on_estimated_queue_time_exceeds
@@ -1218,6 +1228,7 @@ impl RemoteExecutionClientImpl {
                 manager,
                 re_fallback_on_estimated_queue_time_exceeds,
                 knobs.re_cancel_on_estimated_queue_time_exceeds,
+                knobs.re_use_new_queue_estimate,
             )
             .await?;
 
