@@ -170,6 +170,9 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         // Means a new command 'clear'ed the DICE version (e.g. from merge base change) and an old command was rejected.
         ErrorTag::DiceRejected => rank!(environment),
         ErrorTag::HttpForbidden => rank!(environment),
+        // Http 4xx errors could be either systemic problems or caused by user input.
+        // Treat them as environment errors for alerting and SLIs, but input errors so that they aren't ignored by CI.
+        ErrorTag::HttpClient => rank!(environment).exit_code(ExitCode::UserError),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -375,7 +378,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::StarlarkParser => rank!(input),
         ErrorTag::StarlarkNativeInput => rank!(input),
         ErrorTag::Visibility => rank!(input),
-        ErrorTag::HttpClient => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
         ErrorTag::InstallerInput => rank!(input).hidden(),
