@@ -17,15 +17,11 @@ use crate::impls::ctx::BaseComputeCtx;
 use crate::versions::VersionNumber;
 
 #[derive(Allocative)]
-pub(crate) enum DiceTransactionImpl {
-    Modern(BaseComputeCtx),
-}
+pub(crate) struct DiceTransactionImpl(pub(crate) BaseComputeCtx);
 
 impl Clone for DiceTransactionImpl {
     fn clone(&self) -> Self {
-        match self {
-            DiceTransactionImpl::Modern(ctx) => DiceTransactionImpl::Modern(ctx.clone()),
-        }
+        DiceTransactionImpl(self.0.clone())
     }
 }
 
@@ -33,26 +29,18 @@ impl Dupe for DiceTransactionImpl {}
 
 impl DiceTransactionImpl {
     pub(crate) fn get_version(&self) -> VersionNumber {
-        match self {
-            DiceTransactionImpl::Modern(ctx) => ctx.get_version(),
-        }
+        self.0.get_version()
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        match self {
-            DiceTransactionImpl::Modern(delegate) => delegate.into_updater(),
-        }
+        self.0.into_updater()
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
-        match self {
-            DiceTransactionImpl::Modern(ctx) => ctx.as_computations(),
-        }
+        self.0.as_computations()
     }
 
     pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'static> {
-        match self {
-            DiceTransactionImpl::Modern(ctx) => ctx.as_computations_mut(),
-        }
+        self.0.as_computations_mut()
     }
 }

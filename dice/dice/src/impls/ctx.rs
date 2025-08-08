@@ -80,11 +80,7 @@ pub(crate) struct BaseComputeCtx {
 
 impl Clone for BaseComputeCtx {
     fn clone(&self) -> Self {
-        match &self.data.0 {
-            DiceComputationsImpl::Modern(modern) => {
-                BaseComputeCtx::clone_for(modern, self.live_version_guard.dupe())
-            }
-        }
+        BaseComputeCtx::clone_for(&self.data.0.0, self.live_version_guard.dupe())
     }
 }
 
@@ -98,7 +94,7 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
-            data: DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::new(
+            data: DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
                 ParentKey::None,
                 KeyComputingUserCycleDetectorData::Untracked,
                 AsyncEvaluator {
@@ -116,7 +112,7 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> BaseComputeCtx {
         Self {
-            data: DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::new(
+            data: DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
                 ParentKey::None,
                 KeyComputingUserCycleDetectorData::Untracked,
                 modern.ctx_data().async_evaluator.clone(),
@@ -130,11 +126,7 @@ impl BaseComputeCtx {
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(match self.data.0 {
-            DiceComputationsImpl::Modern(delegate) => {
-                DiceTransactionUpdaterImpl::Modern(delegate.into_updater())
-            }
-        })
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.data.0.0.into_updater()))
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
@@ -150,17 +142,13 @@ impl Deref for BaseComputeCtx {
     type Target = ModernComputeCtx<'static>;
 
     fn deref(&self) -> &Self::Target {
-        match &self.data.0 {
-            DiceComputationsImpl::Modern(ctx) => ctx,
-        }
+        &self.data.0.0
     }
 }
 
 impl DerefMut for BaseComputeCtx {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        match &mut self.data.0 {
-            DiceComputationsImpl::Modern(ctx) => ctx,
-        }
+        &mut self.data.0.0
     }
 }
 
@@ -279,7 +267,7 @@ impl ModernComputeCtx<'_> {
             TrackedInvalidationPaths::clean(),
         )));
         let fut = func(LinearRecomputeDiceComputations(
-            LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern {
+            LinearRecomputeDiceComputationsImpl(LinearRecomputeModern {
                 ctx_data,
                 dep_trackers: dep_trackers.dupe(),
             }),
@@ -340,7 +328,7 @@ impl ModernComputeCtx<'_> {
 
 impl<'a> From<ModernComputeCtx<'a>> for DiceComputations<'a> {
     fn from(value: ModernComputeCtx<'a>) -> Self {
-        DiceComputations(DiceComputationsImpl::Modern(value))
+        DiceComputations(DiceComputationsImpl(value))
     }
 }
 
@@ -351,11 +339,10 @@ pub(crate) struct LinearRecomputeModern<'a> {
 
 impl LinearRecomputeModern<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
-        ModernComputeCtx::Linear {
+        DiceComputations(DiceComputationsImpl(ModernComputeCtx::Linear {
             ctx_data: self.ctx_data,
             dep_trackers: &self.dep_trackers,
-        }
-        .into()
+        }))
     }
 }
 
@@ -396,10 +383,8 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
                 ),
                 |(_, ctx)| func(ctx),
             )
-            .map_taking_data(|v, (this_deps, ctx)| match ctx.0 {
-                DiceComputationsImpl::Modern(ModernComputeCtx::Parallel {
-                    dep_trackers, ..
-                }) => {
+            .map_taking_data(|v, (this_deps, ctx)| match ctx.0.0 {
+                ModernComputeCtx::Parallel { dep_trackers, .. } => {
                     *this_deps = dep_trackers.collect_deps();
                     v
                 }

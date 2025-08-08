@@ -23,17 +23,13 @@ use crate::transaction::DiceTransactionImpl;
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
 #[derive(Allocative)]
-pub(crate) enum DiceTransactionUpdaterImpl {
-    Modern(TransactionUpdater),
-}
+pub(crate) struct DiceTransactionUpdaterImpl(pub(crate) TransactionUpdater);
 
 impl DiceTransactionUpdaterImpl {
     pub(crate) fn existing_state(&self) -> impl Future<Output = DiceTransaction> + '_ {
-        match self {
-            DiceTransactionUpdaterImpl::Modern(delegate) => delegate
-                .existing_state()
-                .map(|d| DiceTransaction(DiceTransactionImpl::Modern(d))),
-        }
+        self.0
+            .existing_state()
+            .map(|d| DiceTransaction(DiceTransactionImpl(d)))
     }
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
@@ -43,9 +39,7 @@ impl DiceTransactionUpdaterImpl {
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
-        match self {
-            DiceTransactionUpdaterImpl::Modern(delegate) => delegate.changed(changed),
-        }
+        self.0.changed(changed)
     }
 
     /// Records a set of `Key`s as changed to a particular value so that any
@@ -60,18 +54,14 @@ impl DiceTransactionUpdaterImpl {
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
-        match self {
-            DiceTransactionUpdaterImpl::Modern(delegate) => delegate.changed_to(changed),
-        }
+        self.0.changed_to(changed)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub(crate) fn commit(self) -> impl Future<Output = DiceTransaction> {
-        match self {
-            DiceTransactionUpdaterImpl::Modern(delegate) => delegate
-                .commit()
-                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x))),
-        }
+        self.0
+            .commit()
+            .map(|x| DiceTransaction(DiceTransactionImpl(x)))
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -80,11 +70,9 @@ impl DiceTransactionUpdaterImpl {
         self,
         extra: UserComputationData,
     ) -> impl Future<Output = DiceTransaction> {
-        match self {
-            DiceTransactionUpdaterImpl::Modern(delegate) => delegate
-                .commit_with_data(extra)
-                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x))),
-        }
+        self.0
+            .commit_with_data(extra)
+            .map(|x| DiceTransaction(DiceTransactionImpl(x)))
     }
 
     /// Clears the entire DICE state. The dropping of values from memory happens asynchronously.
@@ -93,11 +81,7 @@ impl DiceTransactionUpdaterImpl {
     /// needed to make progress.
     // TODO(cjhopman): Why is this named take when it doesn't return the taken data? It should be named clear.
     pub fn unstable_take(self) -> Self {
-        match self {
-            DiceTransactionUpdaterImpl::Modern(delegate) => {
-                delegate.unstable_take();
-                DiceTransactionUpdaterImpl::Modern(delegate)
-            }
-        }
+        self.0.unstable_take();
+        self
     }
 }

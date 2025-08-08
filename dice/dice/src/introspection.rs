@@ -12,7 +12,6 @@
 //! Interfaces for introspection of the DICE graph
 
 use crate::Dice;
-use crate::DiceImplementation;
 use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::GraphIntrospectable;
 
@@ -24,11 +23,7 @@ pub use crate::introspection::introspect::serialize_graph;
 
 impl Dice {
     pub fn to_introspectable(&self) -> GraphIntrospectable {
-        match &self.implementation {
-            DiceImplementation::Modern(_) => {
-                unimplemented!("todo")
-            }
-        }
+        self.implementation.to_introspectable()
     }
 }
 

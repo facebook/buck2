@@ -15,7 +15,6 @@ use allocative::Allocative;
 use dice_error::DiceResult;
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use gazebo::variants::UnpackVariants;
 
 use crate::LinearRecomputeDiceComputations;
 use crate::ProjectionKey;
@@ -28,18 +27,13 @@ use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::ctx::LinearRecomputeModern;
 use crate::impls::ctx::ModernComputeCtx;
-use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
 
-/// This is just a dispatcher to either of Legacy or Modern Dice.
+/// This is a wrapper around ModernComputeCtx.
 ///
-/// It converts their impl futures into a common impl (via left/right_future()) and does some
-/// minor packing/unpacking of types (like OpaqueValue to/from OpaqueValueLegacy). Otherwise it
-/// just forwards calls along.
-#[derive(Allocative, UnpackVariants)]
-pub(crate) enum DiceComputationsImpl<'a> {
-    Modern(ModernComputeCtx<'a>),
-}
+/// It forwards calls to the underlying ModernComputeCtx implementation.
+#[derive(Allocative)]
+pub(crate) struct DiceComputationsImpl<'a>(pub(crate) ModernComputeCtx<'a>);
 
 impl DiceComputationsImpl<'_> {
     /// Gets all the result of of the given computation key.
@@ -52,9 +46,7 @@ impl DiceComputationsImpl<'_> {
     where
         K: Key,
     {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.compute(key),
-        }
+        self.0.compute(key)
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -68,11 +60,9 @@ impl DiceComputationsImpl<'_> {
     where
         K: Key,
     {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate
-                .compute_opaque(key)
-                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x)))),
-        }
+        self.0
+            .compute_opaque(key)
+            .map(|r| r.map(|x| OpaqueValue::new(x)))
     }
 
     pub fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
@@ -80,22 +70,15 @@ impl DiceComputationsImpl<'_> {
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.projection(
-                derive_from.unpack_modern().expect("engine type mismatch"),
-                projection_key,
-            ),
-        }
+        self.0
+            .projection(&derive_from.implementation, projection_key)
     }
 
     pub fn opaque_into_value<K: Key>(
         &mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => Ok(delegate
-                .opaque_into_value(derive_from.into_modern().expect("engine type mismatch"))),
-        }
+        Ok(self.0.opaque_into_value(derive_from.implementation))
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
@@ -107,9 +90,7 @@ impl DiceComputationsImpl<'_> {
         Computes: IntoIterator<Item = F>,
         F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
     {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.compute_many(computes),
-        }
+        self.0.compute_many(computes)
     }
 
     pub(crate) fn compute2<'a, Compute1, T, Compute2, U>(
@@ -124,9 +105,7 @@ impl DiceComputationsImpl<'_> {
         Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.compute2(compute1, compute2),
-        }
+        self.0.compute2(compute1, compute2)
     }
 
     pub(crate) fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
@@ -144,11 +123,7 @@ impl DiceComputationsImpl<'_> {
         Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
         Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
     {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => {
-                delegate.compute3(compute1, compute2, compute3)
-            }
-        }
+        self.0.compute3(compute1, compute2, compute3)
     }
 
     pub(crate) fn with_linear_recompute<'a, Func, Fut, T>(
@@ -159,17 +134,13 @@ impl DiceComputationsImpl<'_> {
         Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
         Fut: Future<Output = T>,
     {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.with_linear_recompute(func),
-        }
+        self.0.with_linear_recompute(func)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.global_data(),
-        }
+        self.0.global_data()
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -177,44 +148,30 @@ impl DiceComputationsImpl<'_> {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.per_transaction_data(),
-        }
+        self.0.per_transaction_data()
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.cycle_guard(),
-        }
+        self.0.cycle_guard()
     }
 
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.store_evaluation_data(value),
-        }
+        self.0.store_evaluation_data(value)
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.get_version(),
-        }
+        self.0.get_version()
     }
 
     pub fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
-        match self {
-            DiceComputationsImpl::Modern(delegate) => delegate.get_invalidation_paths(),
-        }
+        self.0.get_invalidation_paths()
     }
 }
 
-pub(crate) enum LinearRecomputeDiceComputationsImpl<'a> {
-    Modern(LinearRecomputeModern<'a>),
-}
+pub(crate) struct LinearRecomputeDiceComputationsImpl<'a>(pub(crate) LinearRecomputeModern<'a>);
 
 impl LinearRecomputeDiceComputationsImpl<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
-        match self {
-            LinearRecomputeDiceComputationsImpl::Modern(delegate) => delegate.get(),
-        }
+        self.0.get()
     }
 }

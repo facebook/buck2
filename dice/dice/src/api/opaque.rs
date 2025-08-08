@@ -14,7 +14,6 @@ use std::fmt::Formatter;
 
 use crate::api::key::Key;
 use crate::impls::opaque::OpaqueValueModern;
-use crate::opaque::OpaqueValueImpl;
 
 /// Computed value which is not directly visible to user.
 ///
@@ -23,7 +22,7 @@ use crate::opaque::OpaqueValueImpl;
 /// of a computation which requested the opaqued value,
 /// but the opaque value key is not.
 pub struct OpaqueValue<K: Key> {
-    pub(crate) implementation: OpaqueValueImpl<K>,
+    pub(crate) implementation: OpaqueValueModern<K>,
 }
 
 impl<K> Debug for OpaqueValue<K>
@@ -37,19 +36,7 @@ where
 }
 
 impl<K: Key> OpaqueValue<K> {
-    pub(crate) fn new(implementation: OpaqueValueImpl<K>) -> Self {
+    pub(crate) fn new(implementation: OpaqueValueModern<K>) -> Self {
         Self { implementation }
-    }
-
-    pub(crate) fn unpack_modern(&self) -> Option<&OpaqueValueModern<K>> {
-        match &self.implementation {
-            OpaqueValueImpl::Modern(v) => Some(v),
-        }
-    }
-
-    pub(crate) fn into_modern(self) -> Option<OpaqueValueModern<K>> {
-        match self.implementation {
-            OpaqueValueImpl::Modern(v) => Some(v),
-        }
     }
 }

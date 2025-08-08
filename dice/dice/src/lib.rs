@@ -184,7 +184,6 @@ mod impls;
 pub mod introspection;
 mod legacy;
 pub(crate) mod metrics;
-mod opaque;
 pub(crate) mod owned;
 pub(crate) mod stats;
 mod transaction;
@@ -243,25 +242,15 @@ pub use crate::stats::GlobalStats;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 #[derive(Allocative, Debug)]
-pub(crate) enum DiceImplementation {
-    Modern(Arc<DiceModern>),
-}
+pub(crate) struct DiceImplementation(Arc<DiceModern>);
 
 impl DiceImplementation {
     pub fn updater(&self) -> DiceTransactionUpdater {
-        match self {
-            DiceImplementation::Modern(dice) => {
-                DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(dice.updater()))
-            }
-        }
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.0.updater()))
     }
 
     pub fn updater_with_data(&self, extra: UserComputationData) -> DiceTransactionUpdater {
-        match self {
-            DiceImplementation::Modern(dice) => DiceTransactionUpdater(
-                DiceTransactionUpdaterImpl::Modern(dice.updater_with_data(extra)),
-            ),
-        }
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.0.updater_with_data(extra)))
     }
 
     pub fn serialize_tsv(
@@ -287,56 +276,40 @@ impl DiceImplementation {
     }
 
     fn to_introspectable(&self) -> GraphIntrospectable {
-        match self {
-            DiceImplementation::Modern(dice) => dice.to_introspectable(),
-        }
+        self.0.to_introspectable()
     }
 
     pub fn detect_cycles(&self) -> &DetectCycles {
-        match self {
-            DiceImplementation::Modern(dice) => dice.detect_cycles(),
-        }
+        self.0.detect_cycles()
     }
 
     pub fn metrics(&self) -> Metrics {
-        match self {
-            DiceImplementation::Modern(dice) => dice.metrics(),
-        }
+        self.0.metrics()
     }
 
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
-        match self {
-            DiceImplementation::Modern(dice) => dice.wait_for_idle(),
-        }
+        self.0.wait_for_idle()
     }
 
     pub async fn is_idle(&self) -> bool {
-        match self {
-            DiceImplementation::Modern(dice) => dice.is_idle().await,
-        }
+        self.0.is_idle().await
     }
 }
 
-pub(crate) enum DiceDataBuilderImpl {
-    Modern(DiceModernDataBuilder),
-}
+pub(crate) struct DiceDataBuilderImpl(DiceModernDataBuilder);
 
 impl DiceDataBuilderImpl {
     pub(crate) fn new_modern() -> Self {
-        Self::Modern(DiceModernDataBuilder::new())
+        Self(DiceModernDataBuilder::new())
     }
 
     pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
-        match self {
-            DiceDataBuilderImpl::Modern(d) => d.set(val),
-        }
+        self.0.set(val)
     }
 
     pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
-        Dice::new(match self {
-            DiceDataBuilderImpl::Modern(d) => DiceImplementation::Modern(d.build(detect_cycles)),
-        })
+        Dice::new(DiceImplementation(self.0.build(detect_cycles)))
     }
 }
 

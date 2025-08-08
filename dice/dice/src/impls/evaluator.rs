@@ -62,19 +62,16 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let mut new_ctx =
-                    DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::new(
-                        ParentKey::Some(key), // within this key's compute, this key is the parent
-                        cycles,
-                        self.dupe(),
-                    )));
+                let mut new_ctx = DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
+                    ParentKey::Some(key), // within this key's compute, this key is the parent
+                    cycles,
+                    self.dupe(),
+                )));
 
                 let value = key_dyn
                     .compute(&mut new_ctx, &handle.cancellation_ctx())
                     .await;
-                let (recorded_deps, evaluation_data, cycles) = match new_ctx.0 {
-                    DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
-                };
+                let (recorded_deps, evaluation_data, cycles) = new_ctx.0.0.finalize();
 
                 state.finished(
                     handle,
