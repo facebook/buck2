@@ -191,10 +191,6 @@ impl Dice {
         DiceDataBuilder(DiceDataBuilderImpl::new_modern())
     }
 
-    pub fn modern() -> DiceDataBuilder {
-        DiceDataBuilder(DiceDataBuilderImpl::new_modern())
-    }
-
     pub(crate) fn new(implementation: DiceImplementation) -> Arc<Self> {
         Arc::new(Self { implementation })
     }

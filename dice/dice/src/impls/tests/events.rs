@@ -161,11 +161,6 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_events_legacy() -> anyhow::Result<()> {
-    test_events_impl(Dice::builder()).await
-}
-
-#[tokio::test]
 async fn test_events_modern() -> anyhow::Result<()> {
-    test_events_impl(Dice::modern()).await
+    test_events_impl(Dice::builder()).await
 }

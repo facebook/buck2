@@ -21,7 +21,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use dice::DetectCycles;
 use dice::Dice;
-use dice::WhichDice;
 
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
@@ -34,7 +33,6 @@ pub async fn configure_dice_for_buck(
     digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
-    which_dice: Option<WhichDice>,
 ) -> buck2_error::Result<Arc<Dice>> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
@@ -51,10 +49,7 @@ pub async fn configure_dice_for_buck(
         Ok,
     )?;
 
-    let mut dice = match determine_which_dice(root_config, which_dice)? {
-        WhichDice::Legacy => Dice::builder(),
-        WhichDice::Modern => Dice::modern(),
-    };
+    let mut dice = Dice::builder();
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
     let invalidation_tracking_enabled = match root_config {
@@ -79,24 +74,4 @@ pub async fn configure_dice_for_buck(
     dice_ctx.commit().await;
 
     Ok(dice)
-}
-
-fn determine_which_dice(
-    root_config: Option<&LegacyBuckConfig>,
-    which_dice: Option<WhichDice>,
-) -> buck2_error::Result<WhichDice> {
-    if let Some(v) = which_dice {
-        return Ok(v);
-    }
-
-    if let Some(cfg) = root_config {
-        if let Some(v) = cfg.parse::<WhichDice>(BuckconfigKeyRef {
-            section: "buck2",
-            property: "dice",
-        })? {
-            return Ok(v);
-        }
-    }
-
-    Ok(WhichDice::Modern)
 }

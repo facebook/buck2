@@ -186,7 +186,7 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
     // Spawn the root task
     rt.block_on(async {
         let dice = {
-            let builder = Dice::modern();
+            let builder = Dice::builder();
             builder.build(DetectCycles::Enabled)
         };
 
@@ -321,7 +321,7 @@ fn test_compute_tracks_invalidations_over_versions() -> anyhow::Result<()> {
     // Spawn the root task
     rt.block_on(async {
         let dice = {
-            let builder = Dice::modern();
+            let builder = Dice::builder();
             builder.build(DetectCycles::Enabled)
         };
 

@@ -80,7 +80,7 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::modern().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let count = Arc::new(AtomicU8::new(0));
 

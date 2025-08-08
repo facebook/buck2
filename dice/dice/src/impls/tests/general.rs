@@ -588,13 +588,8 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
 }
 
 #[tokio::test]
-async fn user_cycle_detector_is_present_legacy() -> anyhow::Result<()> {
-    user_cycle_detector_is_present(Dice::builder().build(DetectCycles::Disabled)).await
-}
-
-#[tokio::test]
 async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
-    user_cycle_detector_is_present(Dice::modern().build(DetectCycles::Disabled)).await
+    user_cycle_detector_is_present(Dice::builder().build(DetectCycles::Disabled)).await
 }
 
 async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {

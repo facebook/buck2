@@ -176,14 +176,7 @@ impl BuckdServerInitPreferences {
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
     ) -> buck2_error::Result<Arc<Dice>> {
-        configure_dice_for_buck(
-            io,
-            digest_config,
-            Some(root_config),
-            self.detect_cycles,
-            self.which_dice,
-        )
-        .await
+        configure_dice_for_buck(io, digest_config, Some(root_config), self.detect_cycles).await
     }
 }
 

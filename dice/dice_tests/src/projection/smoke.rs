@@ -195,7 +195,7 @@ async fn smoke() -> anyhow::Result<()> {
         computations: Vec::new(),
     }));
 
-    let mut dice = Dice::modern();
+    let mut dice = Dice::builder();
 
     dice.set(tracker.dupe());
     let dice = dice.build(DetectCycles::Enabled);
@@ -297,7 +297,7 @@ async fn smoke() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::Result<()> {
-    let dice = Dice::modern();
+    let dice = Dice::builder();
     let dice = dice.build(DetectCycles::Enabled);
 
     #[derive(Allocative, Clone, Debug, Display)]

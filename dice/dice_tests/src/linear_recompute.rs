@@ -63,7 +63,7 @@ async fn test_linear_recompute_tracks_deps() {
     }
 
     let dice = {
-        let builder = Dice::modern();
+        let builder = Dice::builder();
         builder.build(DetectCycles::Enabled)
     };
 

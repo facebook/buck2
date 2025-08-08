@@ -273,11 +273,7 @@ async fn main() {
 
     eprintln!("Using config {:?}", &config);
 
-    let builder = if config.modern {
-        Dice::modern()
-    } else {
-        Dice::builder()
-    };
+    let builder = Dice::builder();
     let dice = if config.detect_cycles {
         builder.build(DetectCycles::Enabled)
     } else {

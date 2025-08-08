@@ -64,7 +64,7 @@ async fn test_a_multiversion_bug() {
     }
 
     let dice = {
-        let builder = Dice::modern();
+        let builder = Dice::builder();
         builder.build(DetectCycles::Enabled)
     };
 

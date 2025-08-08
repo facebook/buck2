@@ -55,7 +55,7 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::modern().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let mut updater = dice.updater();
     updater.changed_to([(Leaf(0), 1), (Leaf(1), 100), (Leaf(2), 200)])?;
@@ -106,7 +106,7 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
         }
     }
 
-    let dice = Dice::modern().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
     let updater = dice.updater();
     let mut ctx1 = updater.commit().await;
 
@@ -170,7 +170,7 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
             }
         }
 
-        let dice = Dice::modern().build(DetectCycles::Enabled);
+        let dice = Dice::builder().build(DetectCycles::Enabled);
         let mut updater = dice.updater();
         drop(updater.changed_to([(Leaf, 1)]));
         let mut ctx1 = updater.commit().await;

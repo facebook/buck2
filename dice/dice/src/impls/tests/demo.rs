@@ -146,7 +146,7 @@ async fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
     let f = PathBuf::from(temp.path());
 
-    let dice = Dice::modern().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let mut ctx = dice.updater();
     ctx.set_encodings(Encoding::Utf8)?;
