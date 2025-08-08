@@ -44,7 +44,6 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
-load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:lazy.bzl", "lazy")
 
 _BitcodeLinkData = record(
@@ -324,7 +323,9 @@ def cxx_gnu_dist_link(
 
             def add_post_flags(idx: int) -> None:
                 flags = get_post_flags(idx)
-                if flags:
+                if idx in post_flags:
+                    post_flags[idx].append(flags)
+                else:
                     post_flags[idx] = flags
 
             def get_linkables_args(idx: int):
@@ -332,7 +333,7 @@ def cxx_gnu_dist_link(
                     object_link_args = cmd_args()
                     for linkable in linkables_index[idx]:
                         append_linkable_args(object_link_args, linkable)
-                    return object_link_args
+                    return [object_link_args]
                 return []
 
             def add_linkables_args(idx: int) -> None:
@@ -358,6 +359,11 @@ def cxx_gnu_dist_link(
 
                     if artifact.data_type == _DataType("bitcode"):
                         index_meta.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
+                        if idx in linkables:
+                            # add placeholder as counter
+                            linkables[idx].append("counter")
+                        else:
+                            linkables[idx] = ["counter"]
 
                     elif artifact.data_type == _DataType("archive"):
                         manifest = artifacts[link_data.manifest].read_json()
@@ -390,7 +396,7 @@ def cxx_gnu_dist_link(
 
                         if not link_data.link_whole:
                             archive_args.add("-Wl,--end-lib")
-                            post_flags.setdefault(archive_args_index, []).append("-Wl,--end-lib")
+                            post_flags[archive_args_index] = ["-Wl,--end-lib"]
 
                 index_args.add(get_post_flags(idx))
                 add_post_flags(idx)
@@ -642,11 +648,8 @@ def cxx_gnu_dist_link(
         elif artifact.data_type == _DataType("archive"):
             dynamic_optimize_archive(link_data)
 
-    linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_link_argsfile")
-
     def thin_lto_final_link(ctx: AnalysisContext, artifacts, outputs):
         plan = artifacts[link_plan_out].read_json()
-        link_args = cmd_args()
         plan_index = {int(k): v for k, v in plan["index"].items()}
 
         # non_lto_objects are the ones that weren't compiled with thinlto
@@ -655,7 +658,6 @@ def cxx_gnu_dist_link(
         current_index = 0
         opt_objects = []
         for link in link_infos:
-            link_args.add(link.pre_flags)
             for linkable in link.linkables:
                 if isinstance(linkable, ObjectsLinkable):
                     for obj in linkable.objects:
@@ -666,7 +668,6 @@ def cxx_gnu_dist_link(
                         current_index += 1
                 else:
                     current_index += 1
-            link_args.add(link.post_flags)
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         link_cmd = link_cmd_parts.link_cmd
@@ -676,18 +677,11 @@ def cxx_gnu_dist_link(
         for artifact in index_link_data:
             if artifact != None and artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
-        link_cmd.add(at_argfile(
-            actions = ctx.actions,
-            name = outputs[linker_argsfile_out],
-            args = link_args,
-            allow_args = True,
-        ))
         link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         link_cmd.add("-o", outputs[output].as_output())
         if linker_map:
             link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
         link_cmd_hidden.extend([
-            link_args,
             opt_objects,
         ])
         link_cmd.add(link_cmd_parts.post_linker_flags)
@@ -699,7 +693,7 @@ def cxx_gnu_dist_link(
     ctx.actions.dynamic_output(
         dynamic = final_link_inputs,
         inputs = [],
-        outputs = [output.as_output()] + ([linker_map.as_output()] if linker_map else []) + [linker_argsfile_out.as_output()],
+        outputs = [output.as_output()] + ([linker_map.as_output()] if linker_map else []),
         f = thin_lto_final_link,
     )
 
@@ -755,7 +749,7 @@ def cxx_gnu_dist_link(
         prebolt_output = output,
         dwp = dwp_output,
         external_debug_info = external_debug_info,
-        linker_argsfile = linker_argsfile_out,
+        linker_argsfile = final_link_index,
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
     )
