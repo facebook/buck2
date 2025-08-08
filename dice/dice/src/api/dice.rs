@@ -173,7 +173,6 @@ use serde::Serializer;
 
 use crate::DiceDataBuilderImpl;
 use crate::DiceImplementation;
-use crate::WhichDice;
 use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
@@ -225,12 +224,6 @@ impl Dice {
 
     pub fn detect_cycles(&self) -> &DetectCycles {
         self.implementation.detect_cycles()
-    }
-
-    pub fn which_dice(&self) -> WhichDice {
-        match self.implementation {
-            DiceImplementation::Modern(_) => WhichDice::Modern,
-        }
     }
 
     pub fn metrics(&self) -> Metrics {

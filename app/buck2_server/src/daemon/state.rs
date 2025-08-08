@@ -599,7 +599,6 @@ impl DaemonState {
 
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
-                format!("which-dice:{}", dice.which_dice().variant_name()),
                 // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
                 "hash-all-commands:true".to_owned(),
                 format!(

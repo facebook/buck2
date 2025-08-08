@@ -76,7 +76,6 @@ use buck2_util::system_stats::system_memory_stats;
 use buck2_util::threads::thread_spawn;
 use dice::DetectCycles;
 use dice::Dice;
-use dice::WhichDice;
 use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
@@ -163,7 +162,6 @@ impl DaemonShutdown {
 #[derive(Allocative)]
 pub struct BuckdServerInitPreferences {
     pub detect_cycles: Option<DetectCycles>,
-    pub which_dice: Option<WhichDice>,
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<MaterializerStateIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,

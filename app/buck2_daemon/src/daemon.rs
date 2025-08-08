@@ -36,7 +36,6 @@ use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
 use dice::DetectCycles;
-use dice::WhichDice;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::channel::mpsc;
@@ -191,7 +190,6 @@ impl DaemonCommand {
 
         let server_init_ctx = BuckdServerInitPreferences {
             detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
-            which_dice: buck2_env!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
@@ -595,7 +593,6 @@ mod tests {
             Box::new(Delegate),
             BuckdServerInitPreferences {
                 detect_cycles: None,
-                which_dice: None,
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),
