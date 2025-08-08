@@ -249,7 +249,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         // FIXME: move this into client_ctx
         with_simple_sigint_handler(work)
             .await
-            .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
+            .unwrap_or_else(ExitResult::signal_interrupt)
     }
 
     fn update_events_ctx(

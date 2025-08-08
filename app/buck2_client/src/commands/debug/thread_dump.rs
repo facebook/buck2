@@ -13,7 +13,8 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_error::BuckErrorContext;
-use buck2_error::ExitCode;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 
 use crate::commands::rage::thread_dump::thread_dump_command;
 
@@ -26,8 +27,7 @@ impl ThreadDumpCommand {
         let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
         let Ok(info) = BuckdProcessInfo::load(&daemon_dir) else {
-            buck2_client_ctx::eprintln!("No running buck daemon!")?;
-            return ExitResult::status(ExitCode::UserError);
+            return buck2_error!(ErrorTag::Input, "No running buck daemon").into();
         };
 
         ctx.with_runtime(|_| async move {
@@ -40,7 +40,10 @@ impl ThreadDumpCommand {
                 buck2_error::Ok(ExitResult::success())
             } else {
                 // We don't capture stderr, so lldb should have printed an error
-                buck2_error::Ok(ExitResult::status(ExitCode::InfraError))
+                buck2_error::Ok(ExitResult::err(buck2_error!(
+                    ErrorTag::Tier0,
+                    "Thread dump command failed"
+                )))
             }
         })?
     }

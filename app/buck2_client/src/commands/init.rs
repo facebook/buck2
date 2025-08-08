@@ -22,7 +22,7 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
-use buck2_error::ExitCode;
+use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_util::process::background_command;
 
@@ -60,8 +60,7 @@ impl InitCommand {
             Err(e) => {
                 // include the backtrace with the error output
                 // (same behaviour as returning the Error from main)
-                console.print_error(&format!("{e:?}"))?;
-                ExitResult::status(ExitCode::UnknownFailure)
+                buck2_error!(ErrorTag::Tier0, "{:?}", e).into()
             }
         }
     }

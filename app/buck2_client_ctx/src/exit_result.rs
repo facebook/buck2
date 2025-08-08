@@ -101,7 +101,8 @@ impl ExitResult {
         errors
     }
 
-    pub fn status(status: ExitCode) -> Self {
+    /// Only use for commands that did not fail, otherwise return an error
+    fn status(status: ExitCode) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),
             stdout: Vec::new(),
@@ -141,6 +142,14 @@ impl ExitResult {
             "Command failed: {}",
             msg
         ))
+    }
+
+    pub fn signal_interrupt() -> Self {
+        Self::status(ExitCode::SignalInterrupt)
+    }
+
+    pub fn timeout() -> Self {
+        Self::status(ExitCode::Timeout)
     }
 
     pub fn err(err: buck2_error::Error) -> Self {

@@ -25,7 +25,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::BuckErrorContext;
-use buck2_error::ExitCode;
 use buck2_subscription_proto::SubscriptionRequest;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -156,7 +155,8 @@ impl StreamingCommand for SubscribeCommand {
         } else {
             // FIXME(JakobDegen): This command should propagate some error information back from the
             // server so that we can do error handling here.
-            ExitResult::status(ExitCode::UnknownFailure)
+            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "Subscribe command failed")
+                .into()
         }
     }
 

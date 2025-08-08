@@ -19,7 +19,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
-use buck2_error::ExitCode;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -109,7 +108,7 @@ impl BuckSubcommand for ReplayCommand {
 
         with_simple_sigint_handler(work)
             .await
-            .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
+            .unwrap_or_else(ExitResult::signal_interrupt)
     }
 }
 

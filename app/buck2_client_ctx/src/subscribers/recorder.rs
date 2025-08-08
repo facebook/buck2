@@ -2211,9 +2211,6 @@ mod tests {
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Crashed);
         recorder.daemon_connection_failure = false;
 
-        let exit_result = ExitResult::status(ExitCode::InfraError);
-        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Unknown);
-
         let exit_result = ExitResult::exec(OsString::new(), vec![], None, vec![]);
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
     }
