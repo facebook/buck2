@@ -18,6 +18,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_data::SchedulingMode;
 use buck2_data::re_platform::Property;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
@@ -184,6 +185,7 @@ impl WhatRanEntry {
         options: &WhatRanCommandOptions,
         std_err: Option<&str>,
         duration: Option<std::time::Duration>,
+        scheduling_mode: Option<SchedulingMode>,
     ) -> Result<(), ClientIoError> {
         let action = &self.action;
         let options_regex = what_ran::WhatRanOptionsRegex::from_options(&options.options)?;
@@ -195,6 +197,7 @@ impl WhatRanEntry {
                 &options_regex,
                 std_err,
                 duration,
+                scheduling_mode,
             )?;
         }
         Ok(())
@@ -242,7 +245,7 @@ impl WhatRanCommandState {
     ) -> buck2_error::Result<()> {
         for (_, entry) in self.known_actions.into_iter() {
             if should_emit_unfinished_action(options) {
-                entry.emit_what_ran_entry(output, options, None, None)?;
+                entry.emit_what_ran_entry(output, options, None, None, None)?;
             }
         }
         Ok(())
@@ -290,7 +293,7 @@ impl WhatRanCommandState {
                     {
                         if should_emit_finished_action(&span.data, options) {
                             // Get extra data out of SpanEnd event
-                            let (std_err, duration) = match &span.data {
+                            let (std_err, duration, scheduling_mode) = match &span.data {
                                 Some(buck2_data::span_end_event::Data::ActionExecution(
                                     action_exec,
                                 )) => (
@@ -302,11 +305,21 @@ impl WhatRanCommandState {
                                             std::time::Duration::new(*seconds as u64, *nanos as u32)
                                         },
                                     ),
+                                    action_exec
+                                        .scheduling_mode
+                                        .as_ref()
+                                        .and_then(|o| SchedulingMode::try_from(*o).ok()),
                                 ),
-                                _ => (None, None),
+                                _ => (None, None, None),
                             };
 
-                            entry.emit_what_ran_entry(output, options, std_err, duration)?;
+                            entry.emit_what_ran_entry(
+                                output,
+                                options,
+                                std_err,
+                                duration,
+                                scheduling_mode,
+                            )?;
                         }
                     }
                 }
@@ -453,6 +466,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                         .map(|duration| fmt_duration::fmt_duration(duration, 1.0)),
                     extra: command.extra.map(Into::into),
                     std_err,
+                    scheduling_mode: command.scheduling_mode,
                 };
                 serde_json::to_writer(w.by_ref(), &command)?;
                 w.write_all("\n".as_bytes())?;
@@ -503,6 +517,8 @@ struct JsonCommand<'a> {
     extra: Option<JsonExtra<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     std_err: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scheduling_mode: Option<SchedulingMode>,
 }
 
 mod json_reproducer {
@@ -579,6 +595,7 @@ mod tests {
             duration: Some("1".to_owned()),
             extra: None,
             std_err: None,
+            scheduling_mode: None,
         }
     }
 
@@ -596,6 +613,7 @@ mod tests {
             duration: Some("1".to_owned()),
             extra: None,
             std_err: None,
+            scheduling_mode: None,
         }
     }
 

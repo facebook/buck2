@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use buck2_data::ActionName;
+use buck2_data::SchedulingMode;
 use buck2_data::re_platform::Property;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
@@ -100,6 +101,7 @@ pub struct WhatRanOutputCommand<'a> {
     pub extra: Option<WhatRanOutputCommandExtra<'a>>,
     pub std_err: Option<&'a str>,
     pub duration: Option<std::time::Duration>,
+    pub scheduling_mode: Option<SchedulingMode>,
 }
 
 impl WhatRanOutputCommand<'_> {
@@ -157,6 +159,7 @@ pub fn emit_what_ran_entry(
     options: &WhatRanOptionsRegex,
     std_err: Option<&str>,
     duration: Option<std::time::Duration>,
+    scheduling_mode: Option<SchedulingMode>,
 ) -> buck2_error::Result<()> {
     let should_emit = options
         .filter_category_regex
@@ -211,6 +214,7 @@ pub fn emit_what_ran_entry(
         extra,
         std_err,
         duration,
+        scheduling_mode,
     })?;
 
     Ok(())
