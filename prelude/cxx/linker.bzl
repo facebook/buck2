@@ -182,8 +182,7 @@ def get_link_whole_args(linker_type: LinkerType, inputs: list[Artifact]) -> list
             args.append(inp)
     elif linker_type == LinkerType("windows"):
         for inp in inputs:
-            args.append(inp)
-            args.append("/WHOLEARCHIVE:" + inp.basename)
+            args.append(cmd_args(inp, format = "/WHOLEARCHIVE:{}"))
     elif linker_type == LinkerType("wasm"):
         args.append("--whole-archive")
         args.extend(inputs)
