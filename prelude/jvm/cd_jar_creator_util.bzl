@@ -344,7 +344,7 @@ def setup_dep_files(
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         uses_experimental_content_based_path_hashing: bool,
         hidden: list[Artifact] = []) -> cmd_args:
-    dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt", uses_experimental_content_based_path_hashing)
+    dep_file = declare_prefixed_output(actions, actions_identifier, "jar/dep-file.txt", uses_experimental_content_based_path_hashing)
 
     new_cmd_args = []
     new_cmd_hidden = []
