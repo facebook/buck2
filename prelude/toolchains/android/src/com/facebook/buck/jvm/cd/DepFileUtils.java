@@ -13,6 +13,8 @@ package com.facebook.buck.jvm.cd;
 import com.facebook.buck.util.json.ObjectMappers;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,7 +32,10 @@ public class DepFileUtils {
 
   /** Maps used-classes.json files to a dep-file that can be used by buck2. */
   public static void usedClassesToDepFile(
-      List<Path> usedClassesMapPaths, Path depFileOutput, Optional<Path> jarToJarDirMapPath)
+      List<Path> usedClassesMapPaths,
+      Path depFileOutput,
+      Optional<Path> jarToJarDirMapPath,
+      Optional<Path> prevDepFile)
       throws IOException {
     ImmutableMap<Path, Path> jarToJarDirMap;
     if (jarToJarDirMapPath.isPresent()) {
@@ -63,19 +68,33 @@ public class DepFileUtils {
       }
     }
 
+    if (prevDepFile.isPresent()) {
+      Files.readAllLines(prevDepFile.get()).stream()
+          .forEach(path -> allUsedPaths.add(Paths.get(path)));
+    }
+
     Files.write(
         depFileOutput,
-        allUsedPaths.stream().map(Path::toString).sorted().collect(Collectors.toList()));
+        allUsedPaths.stream().map(Path::toString).distinct().sorted().collect(Collectors.toList()));
   }
 
   /**
    * Maps used-classes.json files to a used-jars.json that can be used to remove unused
    * dependencies.
    */
-  public static void usedClassesToUsedJars(List<Path> usedClassesJsonPaths, Path usedJarsFileOutput)
+  public static void usedClassesToUsedJars(
+      List<Path> usedClassesJsonPaths,
+      Path usedJarsFileOutput,
+      Optional<Path> prevUsedJarsFileOutput)
       throws IOException {
-    // Merge multiple used-classes.json files into a single map of jar to classes
     Map<Path, List<Path>> usedJarsToClasses = new TreeMap<>();
+    if (prevUsedJarsFileOutput.isPresent()) {
+      Map<Path, List<Path>> existingEntries =
+          ObjectMappers.readValue(prevUsedJarsFileOutput.get(), new TypeReference<>() {});
+      usedJarsToClasses.putAll(existingEntries);
+    }
+
+    // Merge multiple used-classes.json files into a single map of jar to classes
     for (Path usedClassesJsonPath : usedClassesJsonPaths) {
       ImmutableMap<Path, Set<Path>> usedClassesMap =
           ObjectMappers.readValue(usedClassesJsonPath, new TypeReference<>() {});
@@ -86,9 +105,13 @@ public class DepFileUtils {
           });
     }
 
-    for (final Map.Entry<Path, List<Path>> entry : usedJarsToClasses.entrySet()) {
-      entry.getValue().sort(Comparator.naturalOrder());
-    }
-    ObjectMappers.WRITER.writeValue(usedJarsFileOutput.toFile(), usedJarsToClasses);
+    ObjectMappers.WRITER.writeValue(
+        usedJarsFileOutput.toFile(),
+        usedJarsToClasses.entrySet().stream()
+            .collect(
+                ImmutableSortedMap.toImmutableSortedMap(
+                    Comparator.naturalOrder(),
+                    Map.Entry::getKey,
+                    v -> ImmutableSortedSet.copyOf(v.getValue()))));
   }
 }

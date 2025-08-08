@@ -277,7 +277,8 @@ public class KotlinCDCommand implements JvmCDCommand {
       DepFileUtils.usedClassesToDepFile(
           usedClassesMapPaths,
           postBuildParams.getDepFile(),
-          Optional.ofNullable(postBuildParams.getJarToJarDirMap()));
+          Optional.ofNullable(postBuildParams.getJarToJarDirMap()),
+          Optional.empty());
     }
   }
 
@@ -326,7 +327,8 @@ public class KotlinCDCommand implements JvmCDCommand {
             .filter(Files::exists)
             .collect(Collectors.toList());
     Preconditions.checkState(!usedClassesMapPaths.isEmpty());
-    DepFileUtils.usedClassesToUsedJars(usedClassesMapPaths, postBuildParams.getUsedJarsPath());
+    DepFileUtils.usedClassesToUsedJars(
+        usedClassesMapPaths, postBuildParams.getUsedJarsPath(), Optional.empty());
   }
 
   @Override
