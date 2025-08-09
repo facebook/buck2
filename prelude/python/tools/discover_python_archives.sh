@@ -74,7 +74,7 @@ for platform in linux macos windows; do
         entry=$(get_entry "$version" "$archive_arch" "$archive_platform")
         url="$URL_PREFIX/"$(awk '{print $2}' <<< "$entry")
         sha256=$(awk '{print $1}' <<< "$entry")
-        output+="        \"$arch\": _Archive(url = \"$url\", sha256 = \"$sha256\"),\n"
+        output+="        \"$arch\": {\"sha256\": \"$sha256\", \"url\": \"$url\"},\n"
     done
     output+="    },\n"
 done

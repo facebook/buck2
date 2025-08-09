@@ -1,0 +1,14 @@
+{
+    "linux": {
+        "arm64": {"sha256": "d295e661d6824b1b261d73dbf72773d22d464de7cc8b58a1f6378dffba5ef525", "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.14.0rc1+20250807-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"},
+        "x86_64": {"sha256": "0c7e9875f85a5fee5181468bd7a0d092030fd92229b2ca28387eae6d240568c7", "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.14.0rc1+20250807-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"}
+    },
+    "macos": {
+        "arm64": {"sha256": "cc5aa2d09e479c95aa1a1c12e31ed0bca122c98c0b9e430c8121e23867af3d13", "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.14.0rc1+20250807-aarch64-apple-darwin-install_only_stripped.tar.gz"},
+        "x86_64": {"sha256": "29d69f515de1ff29c88092327d767075725a02ec8598331eebcfb7d0057eecc2", "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.14.0rc1+20250807-x86_64-apple-darwin-install_only_stripped.tar.gz"}
+    },
+    "windows": {
+        "arm64": {"sha256": "b580fa17ee048d1efb18d337f39837e8545aa4e6eb9a5dcec37a5ac28d8764a5", "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.14.0rc1+20250807-aarch64-pc-windows-msvc-install_only_stripped.tar.gz"},
+        "x86_64": {"sha256": "668ab1b910094ad0747e199414cde5176606b4446d5f9a76f439e3aab9b3fa82", "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.14.0rc1+20250807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"}
+    }
+}
