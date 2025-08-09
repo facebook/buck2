@@ -9,6 +9,13 @@
  */
 
 /// Common exit codes for buck with stronger semantic meanings
+///
+/// The exit code is u8 integer and has the following meanings for common exit codes.
+/// - Success             : 0
+/// - Uncategorized Error : 1
+/// - Infra Error         : 2
+/// - User Error          : 3
+/// - Signal Interruption : 129-192 (128 + signal number)
 #[derive(Clone, Copy, Debug)]
 pub enum ExitCode {
     Success,
@@ -37,8 +44,11 @@ impl ExitCode {
             DaemonPreempted => 5,
             Timeout => 6,
             ConnectError => 11,
-            BrokenPipe => 130,
-            SignalInterrupt => 141,
+            // Exit codes after 129 should be reserved for exits caused by signals,
+            // which should be 128 + signal number.
+            // However, SIGINT and SIGPIPE are reversed..
+            BrokenPipe => 130,      // 128 + SIGINT(2)
+            SignalInterrupt => 141, // 128 + SIGPIPE(13)
             TestRunner(code) => code as u32,
         }
     }
