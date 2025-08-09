@@ -210,10 +210,11 @@ def main(
     sln_path = bxl_output["sln_path"]
 
     parts = sln_path.split(os.sep)
-    gen_root_index = parts.index("main.bxl") + 1
-    if fbsource:
-        # bxl now generates an extra layer of hash in the path
-        gen_root_index += 1
+    gen_root_index = parts.index("main.bxl")
+    # Skip the entry point (e.g. __main__)
+    gen_root_index += 1
+    # bxl now generates an extra layer of hash in the path
+    gen_root_index += 1
     gen_root = os.sep.join(parts[: gen_root_index + 1])
 
     os.makedirs(os.path.join(gen_root, MODE_CONFIGS_DIR), exist_ok=True)
