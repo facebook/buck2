@@ -202,6 +202,26 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     /// New version of `dynamic_output`.
     ///
     /// This is work in progress, and will eventually replace the old `dynamic_output`.
+    ///
+    /// It takes as input a `DynamicActions` obtained from calling the result of
+    /// [`dynamic_actions()`](../#dynamic_actions) or
+    /// [`bxl.dynamic_actions()`](../../bxl/#dynamic_actions) and returns an opaque
+    /// [`DynamicValue`](../DynamicValue) thunk containing the result of the call, which can be used
+    /// by further dynamic actions.
+    ///
+    /// This function can be thought of as a "bind" operation on the `DynamicValue` monad.
+    /// That is to say, `dynamic_output_new` *resolves* (unwraps) any opaque
+    /// [`DynamicValue`](../DynamicValue) arguments to become
+    /// [`ResolvedDynamicValue`](../ResolvedDynamicValue) before calling the `impl` of the dynamic
+    /// action which itself returns another `DynamicValue`.
+    ///
+    /// It is not possible to extract structured values from inside a `DynamicValue` into anything
+    /// but another dynamic action. However, dynamic actions may have *output artifact* arguments of
+    /// type [`dynattrs.output()`](../dynattrs/#output) passed into them, which can then be *bound*
+    /// by the dynamic actions and referenced from outside as if they are normal artifacts; when those
+    /// output artifacts are demanded by the build process, the dynamic action will be executed.
+    ///
+    /// For a guide on using this with BXL, see [How to run actions based on the content of artifacts](../../../bxl/how_tos/how_to_run_actions_based_on_the_content_of_artifact).
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
