@@ -272,6 +272,14 @@ impl<'a> ClientCommandContext<'a> {
             .log_download_method
             .clone())
     }
+
+    pub fn test_builds_targets(&self) -> buck2_error::Result<bool> {
+        Ok(self
+            .immediate_config
+            .daemon_startup_config()?
+            .test_builds_targets
+            .clone())
+    }
 }
 
 /// Provides a common interface for buck subcommands that use event subscribers for logging.
