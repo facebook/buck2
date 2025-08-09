@@ -12,14 +12,14 @@ package com.facebook.buck.jvm.kotlin.buildtools
 
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
+import com.facebook.kotlin.compilercompat.KotlinLoggerCompat
 import java.io.PrintStream
 import java.util.logging.Level
-import org.jetbrains.kotlin.buildtools.api.KotlinLogger
 
 internal class BuckKotlinLogger(
     private val stdErr: PrintStream,
     private val loggingContext: KotlinCDLoggingContext
-) : KotlinLogger {
+) : KotlinLoggerCompat() {
 
   override val isDebugEnabled: Boolean
     get() = LOG.isDebugEnabled
