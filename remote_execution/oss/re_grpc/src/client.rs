@@ -229,6 +229,8 @@ pub struct RERuntimeOpts {
     use_fbcode_metadata: bool,
     /// Maximum number of concurrent upload requests.
     max_concurrent_uploads_per_action: Option<usize>,
+    /// Time that digests are assumed to live in CAS after being touched.
+    cas_ttl_secs: i64,
 }
 
 struct InstanceName(Option<String>);
@@ -355,6 +357,9 @@ impl REClientBuilder {
             RERuntimeOpts {
                 use_fbcode_metadata: opts.use_fbcode_metadata,
                 max_concurrent_uploads_per_action: opts.max_concurrent_uploads_per_action,
+                // NOTE: This is an arbitrary number because RBE does not return information
+                // on the TTL of the remote blob.
+                cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(60),
             },
             grpc_clients,
             capabilities,
@@ -874,9 +879,7 @@ impl REClient {
                         digest.clone(),
                         DigestWithTtl {
                             digest: digest.clone(),
-                            // NOTE: This is an arbitrary number because RBE does not return information
-                            // on the TTL of the remote blob.
-                            ttl: 60,
+                            ttl: self.runtime_opts.cas_ttl_secs,
                         },
                     );
                     match find_missing_cache.get(digest) {
