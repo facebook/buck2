@@ -64,7 +64,7 @@ buck_java_test(
     srcs = glob(
         ["*Test.java"],
     ),
-    java_version = "17",
+    java_version = "21",
     labels = [
         "long_running",
     ],
