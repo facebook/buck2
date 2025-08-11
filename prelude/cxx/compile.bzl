@@ -469,6 +469,9 @@ def _compile_single_cxx(
         if cuda_compile_output:
             dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
+        is_producing_compiled_pch = bool(compile_pch)
+        is_consuming_compiled_pch = precompiled_header and precompiled_header.compiled
+
         ctx.actions.run(
             cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
@@ -478,6 +481,7 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
             outputs_for_error_handler = outputs_for_error_handler,
+            local_only = is_producing_compiled_pch or is_consuming_compiled_pch,
         )
 
     # If we're building with split debugging, where the debug info is in the
