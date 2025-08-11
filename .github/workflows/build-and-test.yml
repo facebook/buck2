@@ -53,8 +53,6 @@ jobs:
       with:
         toolchain: python_toolchain
     - uses: ./.github/actions/build_example_toolchain
-      # TODO(michaelpo): fix errors here
-      continue-on-error: true
       with:
         toolchain: go_toolchain
     - uses: ./.github/actions/build_example_toolchain
@@ -86,8 +84,6 @@ jobs:
       with:
         toolchain: python_toolchain
     - uses: ./.github/actions/build_example_toolchain
-      # TODO(michaelpo): fix errors here
-      continue-on-error: true
       with:
         toolchain: go_toolchain
     - uses: ./.github/actions/build_example_toolchain
@@ -118,8 +114,6 @@ jobs:
         with:
           toolchain: python_toolchain
       - uses: ./.github/actions/build_example_toolchain
-        # TODO(michaelpo): fix errors here
-        continue-on-error: true
         with:
           toolchain: go_toolchain
       - uses: ./.github/actions/build_example_toolchain
