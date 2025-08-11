@@ -30,8 +30,8 @@ usage() ->
 
 -spec do(file:filename(), file:filename(), {file, file:filename()} | stdout) -> ok.
 do(Source0, InFile0, OutSpec) ->
-    Source = filename_to_binary(Source0),
-    InFile = filename_to_binary(InFile0),
+    Source = dependency_utils:chars_to_binary(Source0),
+    InFile = dependency_utils:chars_to_binary(InFile0),
     try
         case read_file(InFile) of
             {ok, DepFiles} ->
@@ -40,7 +40,7 @@ do(Source0, InFile0, OutSpec) ->
                 OutData = json:encode(Dependencies),
                 case OutSpec of
                     {file, File0} ->
-                        ok = prim_file:write_file(filename_to_binary(File0), OutData);
+                        ok = prim_file:write_file(dependency_utils:chars_to_binary(File0), OutData);
                     stdout ->
                         io:format("~ts~n", [OutData])
                 end;
@@ -72,7 +72,7 @@ read_file(File) ->
             Err
     end.
 
--spec read_file_term(file:filename()) -> {ok, dep_files_data()} | {error, term()}.
+-spec read_file_term(filename()) -> {ok, dep_files_data()} | {error, term()}.
 read_file_term(File) ->
     case prim_file:read_file(File) of
         {ok, Data} ->
@@ -125,9 +125,4 @@ collect_dependencies_for_key([#{file := File, type := Type} = Dep | Deps], Curre
             collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc]);
         false ->
             collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
-    end.
-
-filename_to_binary(Filename) ->
-    case unicode:characters_to_binary(Filename) of
-        Bin when is_binary(Bin) -> Bin
     end.

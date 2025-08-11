@@ -90,13 +90,13 @@ usage() ->
 
 -spec do(file:filename(), {file, file:filename()} | stdout) -> ok.
 do(InFile0, Outspec) ->
-    InFile = filename_to_binary(InFile0),
+    InFile = dependency_utils:chars_to_binary(InFile0),
     {ok, Forms} = epp_dodger:parse_file(InFile),
     Dependencies = lists:sort(process_forms(Forms, [])),
     case Outspec of
         {file, OutFile0} ->
             OutData = erlang:term_to_binary(Dependencies, [deterministic]),
-            OutFile = filename_to_binary(OutFile0),
+            OutFile = dependency_utils:chars_to_binary(OutFile0),
             ok = prim_file:write_file(OutFile, OutData);
         stdout ->
             io:format("~tp~n", [Dependencies])
@@ -142,8 +142,3 @@ process_forms([_ | Rest], Acc) ->
 -spec module_to_erl(module()) -> file:filename().
 module_to_erl(Module) ->
     <<(atom_to_binary(Module))/binary, ".erl"/utf8>>.
-
-filename_to_binary(Filename) ->
-    case unicode:characters_to_binary(Filename) of
-        Bin when is_binary(Bin) -> Bin
-    end.

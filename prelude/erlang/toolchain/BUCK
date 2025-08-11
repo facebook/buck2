@@ -35,6 +35,6 @@ toolchain_utilities(
     escript_trampoline = "escript_trampoline.sh",
     extract_from_otp = "extract_from_otp.erl",
     release_variables_builder = "release_variables_builder.erl",
-    utility_modules = [],
+    utility_modules = ["dependency_utils.erl"],
     visibility = ["PUBLIC"],
 )

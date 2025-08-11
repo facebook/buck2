@@ -39,7 +39,7 @@ app_info.json format:
 -spec main([string()]) -> ok.
 main([AppInfoFile, Output]) ->
     try
-        do(to_binary_filename(AppInfoFile), to_binary_filename(Output))
+        do(dependency_utils:chars_to_binary(AppInfoFile), dependency_utils:chars_to_binary(Output))
     catch
         Type:{abort, Reason} ->
             io:format(standard_error, "~ts:~ts~n", [Type, Reason]),
@@ -556,9 +556,4 @@ verify_metadata([{K, V0} | T], Metadata) ->
                 false ->
                     erlang:error(metadata_not_compatible, [{K, V0}, {K, V1}])
             end
-    end.
-
-to_binary_filename(Filename) ->
-    case unicode:characters_to_binary(Filename) of
-        Bin when is_binary(Bin) -> Bin
     end.
