@@ -49,6 +49,18 @@ jobs:
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_toolchain
+      with:
+        toolchain: python_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      # TODO(michaelpo): fix errors here
+      continue-on-error: true
+      with:
+        toolchain: go_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      continue-on-error: true
+      with:
+        toolchain: cxx_zig_toolchain
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
   linux-build-examples:
@@ -70,6 +82,18 @@ jobs:
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_conan
     - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_toolchain
+      with:
+        toolchain: python_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      # TODO(michaelpo): fix errors here
+      continue-on-error: true
+      with:
+        toolchain: go_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      continue-on-error: true
+      with:
+        toolchain: cxx_zig_toolchain
     - uses: ./.github/actions/build_example_persistent_worker
       with:
         buildbuddyApiKey: ${{ secrets.BUILDBUDDY_API_KEY }}
@@ -90,5 +114,17 @@ jobs:
           & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
           & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
       - uses: ./.github/actions/build_example_no_prelude
+      - uses: ./.github/actions/build_example_toolchain
+        with:
+          toolchain: python_toolchain
+      - uses: ./.github/actions/build_example_toolchain
+        # TODO(michaelpo): fix errors here
+        continue-on-error: true
+        with:
+          toolchain: go_toolchain
+      - uses: ./.github/actions/build_example_toolchain
+        continue-on-error: true
+        with:
+          toolchain: cxx_zig_toolchain
       - uses: ./.github/actions/setup_reindeer
       - uses: ./.github/actions/build_bootstrap

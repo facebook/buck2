@@ -1,0 +1,21 @@
+name: build_example_toolchain
+inputs:
+  toolchain:
+    description: 'Toolchain name. Should be a directory under examples/toolchains/'
+    required: true
+description: Builds an example toolchain
+runs:
+  using: composite
+  steps:
+  - name: Build examples/toolchains/${{ inputs.toolchain }}
+    if: ${{ runner.os != 'Windows' }}
+    run: |-
+      cd examples/toolchains/${{ inputs.toolchain }}
+      $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+    shell: bash
+  - name: Build examples/toolchains/${{ inputs.toolchain }}
+    if: ${{ runner.os == 'Windows' }}
+    run: |-
+      cd examples/toolchains/${{ inputs.toolchain }}
+      & $env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
+    shell: pwsh
