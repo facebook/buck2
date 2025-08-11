@@ -94,14 +94,14 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 
     utility_modules = _gen_util_beams(ctx, env, utils.utility_modules, otp_binaries.erlc)
 
-    app_src_script = _gen_toolchain_script(ctx, env, utils.app_src_script, otp_binaries)
-    boot_script_builder = _gen_toolchain_script(ctx, env, utils.boot_script_builder, otp_binaries)
-    dependency_analyzer = _gen_toolchain_script(ctx, env, utils.dependency_analyzer, otp_binaries)
-    dependency_finalizer = _gen_toolchain_script(ctx, env, utils.dependency_finalizer, otp_binaries)
-    dependency_merger = _gen_toolchain_script(ctx, env, utils.dependency_merger, otp_binaries)
-    escript_builder = _gen_toolchain_script(ctx, env, utils.escript_builder, otp_binaries)
-    release_variables_builder = _gen_toolchain_script(ctx, env, utils.release_variables_builder, otp_binaries)
-    extract_from_otp = _gen_toolchain_script(ctx, env, utils.extract_from_otp, otp_binaries)
+    app_src_script = _gen_toolchain_script(ctx, env, utils.app_src_script, otp_binaries, utility_modules)
+    boot_script_builder = _gen_toolchain_script(ctx, env, utils.boot_script_builder, otp_binaries, utility_modules)
+    dependency_analyzer = _gen_toolchain_script(ctx, env, utils.dependency_analyzer, otp_binaries, utility_modules)
+    dependency_finalizer = _gen_toolchain_script(ctx, env, utils.dependency_finalizer, otp_binaries, utility_modules)
+    dependency_merger = _gen_toolchain_script(ctx, env, utils.dependency_merger, otp_binaries, utility_modules)
+    escript_builder = _gen_toolchain_script(ctx, env, utils.escript_builder, otp_binaries, utility_modules)
+    release_variables_builder = _gen_toolchain_script(ctx, env, utils.release_variables_builder, otp_binaries, utility_modules)
+    extract_from_otp = _gen_toolchain_script(ctx, env, utils.extract_from_otp, otp_binaries, utility_modules)
 
     # extract erts for late usage
 
@@ -222,7 +222,7 @@ default_toolchain_script_args_pre = cmd_args(
 )
 default_toolchain_script_args_post = cmd_args("-s", "erlang", "halt", "--")
 
-def _gen_toolchain_script(ctx: AnalysisContext, env: dict[str, str], script: Artifact, tools: Tools) -> Tool:
+def _gen_toolchain_script(ctx: AnalysisContext, env: dict[str, str], script: Artifact, tools: Tools, utility_modules: Artifact) -> Tool:
     name = strip_extension(script.basename)
     out = ctx.actions.declare_output(name, name + ".beam")
     _compile_toolchain_module(ctx, env, script, out.as_output(), tools.erlc)
@@ -230,6 +230,7 @@ def _gen_toolchain_script(ctx: AnalysisContext, env: dict[str, str], script: Art
     return cmd_args(
         tools.erl,
         cmd_args(out, parent = 1, prepend = "-pa"),
+        cmd_args(utility_modules, parent = 0, prepend = "-pa"),
         default_toolchain_script_args_pre,
         eval,
         default_toolchain_script_args_post,
