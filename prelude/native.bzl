@@ -17,6 +17,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:rules.bzl", __rules__ = "rules")
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_bundle_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl", "apple_test_macro_impl", "apple_universal_executable_macro_impl", "apple_xcuitest_macro_impl", "prebuilt_apple_framework_macro_impl")
+load("@prelude//apple:prebuilt_apple_xcframework_macro_impl.bzl", "prebuilt_apple_xcframework_macro_impl")
 load("@prelude//apple/swift:swift_toolchain_macro_layer.bzl", "swift_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_inheriting_target_platform")
 load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
@@ -503,6 +504,15 @@ def _prebuilt_apple_framework_macro_stub(**kwargs):
         **kwargs
     )
 
+def _prebuilt_apple_xcframework_macro_stub(**kwargs):
+    prebuilt_apple_xcframework_macro_impl(
+        alias_rule = __rules__["alias"],
+        filegroup_rule = __rules__["filegroup"],
+        genrule = __rules__["genrule"],
+        prebuilt_apple_framework_rule = __rules__["prebuilt_apple_framework"],
+        **kwargs
+    )
+
 # TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl+rule_impl.bzl.
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
@@ -530,6 +540,7 @@ __extra_rules__ = {
     "kotlin_library": _kotlin_library_macro_stub,
     "kotlin_test": _kotlin_test_macro_stub,
     "prebuilt_apple_framework": _prebuilt_apple_framework_macro_stub,
+    "prebuilt_apple_xcframework": _prebuilt_apple_xcframework_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
     "python_library": _python_library_macro_stub,
     "robolectric_test": _robolectric_test_macro_stub,
