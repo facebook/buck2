@@ -56,6 +56,7 @@ load("@prelude//linking:execution_preference.bzl", "link_execution_preference_at
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
+load(":apple_app_intents.bzl", "apple_app_intents_impl")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
@@ -232,6 +233,20 @@ apple_asset_catalog = prelude_rule(
     ),
     impl = apple_asset_catalog_impl,
     cfg = apple_resource_transition,
+)
+
+apple_app_intents = prelude_rule(
+    name = "apple_app_intents",
+    docs = "An `apple_app_intents()` rule represents App Intents definitions for Apple platforms.",
+    examples = None,
+    further = None,
+    attrs = {
+        "contacts": attrs.list(attrs.string(), default = []),
+        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+        "labels": attrs.list(attrs.string(), default = []),
+        "licenses": attrs.list(attrs.source(), default = []),
+    },
+    impl = apple_app_intents_impl,
 )
 
 def _apple_binary_extra_attrs():
@@ -1557,6 +1572,7 @@ apple_info_plist = prelude_rule(
 )
 
 apple_rules = struct(
+    apple_app_intents = apple_app_intents,
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
     apple_bundle = apple_bundle,
