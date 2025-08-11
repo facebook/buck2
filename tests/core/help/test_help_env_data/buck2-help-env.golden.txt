@@ -51,4 +51,3 @@ SANDCASTLE_TYPE                         String
 SCHEDULE_TYPE                           String
 SKYCASTLE_WORKFLOW_ALIAS                String
 SKYCASTLE_WORKFLOW_RUN_ID               String
-WHICH_DICE_UNSTABLE                     WhichDice
