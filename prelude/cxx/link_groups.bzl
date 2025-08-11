@@ -986,9 +986,7 @@ def _symbol_flags_for_link_groups(
         category = "link_groups_dynamic_list",
     )
 
-    if linker_type == LinkerType("darwin"):
-        sym_linker_flags.append("-Wl,-export_dynamic")
-    else:
+    if linker_type == LinkerType("gnu"):
         sym_linker_flags.extend([
             "-Wl,--dynamic-list",
             dynamic_list_vers,
