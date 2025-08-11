@@ -57,7 +57,6 @@ def generate_codesign_manifest(
     ]
     valid_json_invocations = list(filter(lambda x: x is not None, json_invocations))
     return {
-        "version": 1,
         "bundle_name": base_path.name,
         "invocations": valid_json_invocations,
     }
