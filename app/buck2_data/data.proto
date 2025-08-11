@@ -185,7 +185,7 @@ message StarlarkUserEvent {
 message CommandOptions {
   // The value passed to the `-j` flag or equivalent
   uint64 configured_parallelism = 1;
-  // The parallelism avaiable to buck, independent of the value configured by
+  // The parallelism available to buck, independent of the value configured by
   // the user
   uint64 available_parallelism = 2;
 }
@@ -2650,7 +2650,7 @@ message ErrorReport {
   reserved 1, 2;
   // The error message that is shown to users on the CLI
   string message = 3;
-  // If different from `message`, the error messsage that is shown to the
+  // If different from `message`, the error message that is shown to the
   // build report or logged in scuba. Currently, this distinction only exists
   // for action errors - they show the full stderr in telemetry and in a
   // separate event, but the error message only contains `failed to build target
