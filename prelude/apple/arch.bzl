@@ -6,6 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:arch.bzl", _AppleArch = "AppleArch")
+_APPLE_ARCHES = [
+    "arm64",
+    "arm64_32",
+    "x86_64",
+]
 
-AppleArch = _AppleArch
+AppleArch = enum(*_APPLE_ARCHES)
