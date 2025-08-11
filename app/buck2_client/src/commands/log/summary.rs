@@ -57,8 +57,6 @@ struct Stats {
 }
 
 impl Stats {
-    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-    #[allow(clippy::clone_on_copy)]
     fn update_with_event(&mut self, event: &buck2_data::BuckEvent) {
         match &event.data {
             Some(buck2_data::buck_event::Data::SpanEnd(end)) => match end.data.as_ref() {
@@ -81,7 +79,7 @@ impl Stats {
                     self.total_targets_analysed += 1;
                 }
                 Some(buck2_data::span_end_event::Data::Command(_command)) => {
-                    self.duration = end.duration.clone();
+                    self.duration = end.duration;
                 }
                 _ => {}
             },
@@ -137,10 +135,8 @@ impl Stats {
     }
 }
 
-// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-#[allow(clippy::clone_on_copy)]
 fn get_event_timestamp(event: &buck2_data::BuckEvent) -> Option<SystemTime> {
-    SystemTime::try_from(event.timestamp.clone()?).ok()
+    SystemTime::try_from(event.timestamp?).ok()
 }
 
 impl Display for Stats {

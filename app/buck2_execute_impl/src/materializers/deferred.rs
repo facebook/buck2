@@ -562,10 +562,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Some(self as _)
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-    #[allow(clippy::clone_on_copy)]
     fn log_materializer_state(&self, events: &EventDispatcher) {
-        events.instant_event(self.materializer_state_info.clone())
+        events.instant_event(self.materializer_state_info)
     }
 
     fn add_snapshot_stats(&self, snapshot: &mut buck2_data::Snapshot) {

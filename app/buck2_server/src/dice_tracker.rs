@@ -61,8 +61,6 @@ impl BuckDiceTracker {
         Ok(Self { event_forwarder })
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-    #[allow(clippy::clone_on_copy)]
     async fn run_task(
         events: EventDispatcher,
         mut receiver: UnboundedReceiver<DiceEvent>,
@@ -108,7 +106,7 @@ impl BuckDiceTracker {
                         events.instant_event(DiceStateSnapshot {
                             key_states: states
                                 .iter()
-                                .map(|(k, v)| ((*k).to_owned(), v.clone()))
+                                .map(|(k, v)| ((*k).to_owned(), *v))
                                 .collect(),
                         });
                     }

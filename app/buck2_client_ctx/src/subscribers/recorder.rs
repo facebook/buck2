@@ -1142,9 +1142,7 @@ impl InvocationRecorder {
     }
     fn handle_action_execution_end(
         &mut self,
-
-        // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-        #[allow(clippy::clone_on_copy)] action: &buck2_data::ActionExecutionEnd,
+        action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         if action.kind == buck2_data::ActionKind::Run as i32 {
@@ -1335,13 +1333,11 @@ impl InvocationRecorder {
         Ok(())
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-    #[allow(clippy::clone_on_copy)]
     fn handle_install_finished(
         &mut self,
         install_finished: &buck2_data::InstallFinished,
     ) -> buck2_error::Result<()> {
-        self.install_duration = install_finished.duration.clone();
+        self.install_duration = install_finished.duration;
         self.install_device_metadata = install_finished.device_metadata.clone();
         self.installer_log_url = install_finished.log_url.clone();
         Ok(())

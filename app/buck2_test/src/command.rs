@@ -296,8 +296,6 @@ impl ServerCommandTemplate for TestServerCommand {
     }
 }
 
-// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-#[allow(clippy::clone_on_copy)]
 async fn test(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
@@ -411,7 +409,7 @@ async fn test(
     let timeout = request
         .timeout
         .as_ref()
-        .map(|t| t.clone().try_into())
+        .map(|t| (*t).try_into())
         .transpose()
         .context("Invalid `duration`")
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;

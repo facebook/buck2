@@ -859,8 +859,6 @@ impl DaemonApi for BuckdServer {
         .await
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-    #[allow(clippy::clone_on_copy)]
     async fn status(&self, req: Request<StatusRequest>) -> Result<Response<CommandResult>, Status> {
         let daemon_state = self.0.daemon_state.dupe();
 
@@ -897,7 +895,7 @@ impl DaemonApi for BuckdServer {
             let uptime = self.0.start_instant.elapsed();
             let base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),
-                start_time: Some(self.0.start_time.clone()),
+                start_time: Some(self.0.start_time),
                 uptime: Some(uptime.try_into()?),
                 snapshot,
                 daemon_constraints: Some(daemon_constraints),

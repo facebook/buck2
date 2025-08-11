@@ -606,10 +606,8 @@ pub fn format_test_result(
     }?;
     let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {name}",))?]);
 
-    // TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-    #[allow(clippy::clone_on_copy)]
     if let Some(duration) = duration {
-        if let Ok(duration) = Duration::try_from(duration.clone()) {
+        if let Ok(duration) = Duration::try_from(*duration) {
             base.push(Span::new_unstyled(format!(
                 " ({})",
                 // Set time_speed parameter as 1.0 because this is taking the duration of something that was measured somewhere else,

@@ -134,8 +134,6 @@ fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions
     req.build_opts.as_ref().expect("should have build options")
 }
 
-// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-#[allow(clippy::clone_on_copy)]
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
@@ -148,7 +146,7 @@ async fn build(
     let timeout = request
         .timeout
         .as_ref()
-        .map(|t| t.clone().try_into())
+        .map(|t| (*t).try_into())
         .transpose()
         .with_buck_error_context(|| "Invalid `duration`")?;
 
@@ -197,7 +195,7 @@ async fn build(
         }
     }
 
-    let build_providers = Arc::new(request.build_providers.clone().unwrap());
+    let build_providers = Arc::new(request.build_providers.unwrap());
 
     let final_artifact_materializations =
         Materializations::try_from(request.final_artifact_materializations)
@@ -337,8 +335,6 @@ async fn build(
     .await
 }
 
-// TODO(T224096917) - Revisit call sites impacted by clone_on_copy from modern prost
-#[allow(clippy::clone_on_copy)]
 async fn process_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
@@ -351,7 +347,7 @@ async fn process_build_result(
     let cwd = server_ctx.working_dir();
 
     let build_opts = expect_build_opts(request);
-    let response_options = request.response_options.clone().unwrap_or_default();
+    let response_options = request.response_options.unwrap_or_default();
 
     let cell_resolver = ctx.get_cell_resolver().await?;
     let artifact_fs = ctx.get_artifact_fs().await?;
