@@ -12,6 +12,8 @@ AppleToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
         "actool": provider_field(RunInfo),
+        "app_intents_metadata_processor": provider_field(RunInfo | None, default = None),
+        "app_intents_nl_training_processor": provider_field(RunInfo | None, default = None),
         "architecture": provider_field(str),
         "codesign_allocate": provider_field(RunInfo),
         "codesign_identities_command": provider_field(RunInfo | None, default = None),

@@ -1055,6 +1055,8 @@ apple_toolchain = prelude_rule(
     attrs = (
         {
             "actool": attrs.exec_dep(providers = [RunInfo]),
+            "app_intents_metadata_processor": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "app_intents_nl_training_processor": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "architecture": attrs.string(default = ""),
             "build_version": attrs.option(attrs.string(), default = None),
             "codesign": attrs.exec_dep(providers = [RunInfo]),
