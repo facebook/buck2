@@ -8,6 +8,7 @@ DIR={base_dir}
 if [[ $(uname) == "Darwin" ]]
 then
     DATE_CMD="/opt/facebook/coreutils/date"
+    MV_CMD="/opt/facebook/coreutils/mv"
 else
     DATE_CMD="date"
 fi
