@@ -30,6 +30,7 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",
+    "to_soname",
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
@@ -478,6 +479,24 @@ def _convert_python_library_to_executable(
                 package_style,
                 allow_cache_upload,
             )
+            if ctx.attrs.runtime_bundle:
+                runtime_bundle = ctx.attrs.runtime_bundle[PythonRuntimeBundleInfo]
+
+                # On some platforms libpython does not link with system libraries. Include libraries
+                # in the PAR in this case.
+                for dep in runtime_bundle.shared_libs:
+                    lib = dep.get(DefaultInfo).default_outputs[0]
+                    shared_libs.append((
+                        # There's probably a smarter way to get the shared library object out of the
+                        # dependency, but I'm not sure what that is.
+                        SharedLibrary(
+                            soname = to_soname(lib.basename),
+                            label = dep.label,
+                            lib = LinkedObject(output = lib, unstripped_output = lib),
+                        ),
+                        "",
+                    ))
+
     else:
         extensions = {}
         for manifest in library.manifests.traverse():

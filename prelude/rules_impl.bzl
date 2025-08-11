@@ -263,6 +263,7 @@ def _python_runtime_bundle_attrs():
         ),
         "py_bin": attrs.string(doc = "The runtime executable"),
         "py_version": attrs.string(doc = "The version of python this represents"),
+        "shared_libs": attrs.list(attrs.dep(), default = [], doc = "Additional shared libraries required by this runtime"),
         "stdlib": attrs.string(doc = "The python standard library"),
     }
 

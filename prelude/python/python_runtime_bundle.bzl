@@ -20,6 +20,7 @@ PythonRuntimeBundleInfo = provider(fields = {
     "libpython": provider_field(Artifact | None),
     "py_bin": provider_field(Artifact),
     "py_version": provider_field(str),
+    "shared_libs": provider_field(list[Dependency]),
     "stdlib": provider_field(Artifact),
 })
 
@@ -31,5 +32,6 @@ def python_runtime_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         stdlib = root.project(ctx.attrs.stdlib),
         libpython = root.project(ctx.attrs.libpython) if ctx.attrs.libpython else None,
         include = root.project(ctx.attrs.include),
+        shared_libs = ctx.attrs.shared_libs,
     )
     return [DefaultInfo(default_output = root), info]
