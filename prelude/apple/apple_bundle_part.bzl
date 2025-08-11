@@ -326,7 +326,7 @@ def assemble_bundle(
         category = "codesign_manifest_tree_postprocess",
     )
 
-    subtargets["codesign-manifest-tree"] = [
+    subtargets["codesign-manifest"] = [
         DefaultInfo(
             default_output = postprocessed_codesign_manifest_tree,
         ),
