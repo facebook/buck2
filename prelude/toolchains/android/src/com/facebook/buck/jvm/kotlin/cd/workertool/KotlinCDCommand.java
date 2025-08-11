@@ -274,11 +274,18 @@ public class KotlinCDCommand implements JvmCDCommand {
       // we won't run javac if not necessary and used classes for java may not exist
       List<Path> usedClassesMapPaths = filterExistingFiles(postBuildParams.getUsedClassesPaths());
       Preconditions.checkState(!usedClassesMapPaths.isEmpty());
+      Optional<Path> prevDepFile = Optional.empty();
+      if (postBuildParams.getIncrementalStateDir() != null) {
+        Path possibleprevDepFile = postBuildParams.getIncrementalStateDir().resolve("dep-file.txt");
+        if (Files.exists(possibleprevDepFile)) {
+          prevDepFile = Optional.of(possibleprevDepFile);
+        }
+      }
       DepFileUtils.usedClassesToDepFile(
           usedClassesMapPaths,
           postBuildParams.getDepFile(),
           Optional.ofNullable(postBuildParams.getJarToJarDirMap()),
-          Optional.empty());
+          prevDepFile);
     }
   }
 
@@ -312,7 +319,8 @@ public class KotlinCDCommand implements JvmCDCommand {
         postExecutorsFactory.createPreviousStateWriter(
             postBuildParams.getIncrementalStateDir(),
             actionMetadataPath.orElse(null),
-            postBuildParams.getUsedClassesPaths());
+            postBuildParams.getDepFile(),
+            postBuildParams.getUsedJarsPath());
 
     previousStateWriter.execute();
   }
@@ -327,8 +335,17 @@ public class KotlinCDCommand implements JvmCDCommand {
             .filter(Files::exists)
             .collect(Collectors.toList());
     Preconditions.checkState(!usedClassesMapPaths.isEmpty());
+
+    Optional<Path> prevUsedJarsPath = Optional.empty();
+    if (postBuildParams.getIncrementalStateDir() != null) {
+      Path possiblePrevUsedJarsPath =
+          postBuildParams.getIncrementalStateDir().resolve("used-jars.json");
+      if (Files.exists(possiblePrevUsedJarsPath)) {
+        prevUsedJarsPath = Optional.of(possiblePrevUsedJarsPath);
+      }
+    }
     DepFileUtils.usedClassesToUsedJars(
-        usedClassesMapPaths, postBuildParams.getUsedJarsPath(), Optional.empty());
+        usedClassesMapPaths, postBuildParams.getUsedJarsPath(), prevUsedJarsPath);
   }
 
   @Override
@@ -353,8 +370,8 @@ public class KotlinCDCommand implements JvmCDCommand {
     maybeWriteAbiDir();
     maybeWriteDepFile();
     maybeCreateOptionalDirs();
-    maybeWritePreviousStateForNextIncrementalRun();
     maybeWriteUsedJarsFile();
+    maybeWritePreviousStateForNextIncrementalRun();
   }
 
   @Override

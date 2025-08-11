@@ -27,7 +27,8 @@ sealed interface PostExecutorsFactory {
   fun createPreviousStateWriter(
       incrementalStateDir: Path?,
       actionMetadataPath: Path?,
-      usedClassesPaths: List<Path>
+      depFilePath: Path?,
+      usedJarsPath: Path?,
   ): PreviousStateWriter
 
   companion object {
@@ -63,10 +64,14 @@ internal data object IncrementalPostExecutorsFactory : PostExecutorsFactory {
   override fun createPreviousStateWriter(
       incrementalStateDir: Path?,
       actionMetadataPath: Path?,
-      usedClassesPaths: List<Path>
+      depFilePath: Path?,
+      usedJarsPath: Path?,
   ): IncrementalPreviousStateWriter {
     return IncrementalPreviousStateWriter(
-        requireNotNull(incrementalStateDir), requireNotNull(actionMetadataPath), usedClassesPaths)
+        requireNotNull(incrementalStateDir),
+        requireNotNull(actionMetadataPath),
+        depFilePath,
+        usedJarsPath)
   }
 }
 
@@ -90,7 +95,8 @@ internal data object NonIncrementalPostExecutorsFactory : PostExecutorsFactory {
   override fun createPreviousStateWriter(
       incrementalStateDir: Path?,
       actionMetadataPath: Path?,
-      usedClassesPaths: List<Path>
+      depFilePath: Path?,
+      usedJarsPath: Path?,
   ): DoNothingPreviousStateWriter {
     return DoNothingPreviousStateWriter
   }

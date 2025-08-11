@@ -37,7 +37,8 @@ public class IncrementalCompilationValidatorTest {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
     when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn(null);
 
-    RebuildReason result = incrementalCompilationValidator.validate(actionMetadata, null, null);
+    RebuildReason result =
+        incrementalCompilationValidator.validate(actionMetadata, null, null, null);
 
     assertEquals(RebuildReason.NO_LAST_BUILD_CONFIGURATION, result);
   }
@@ -48,26 +49,26 @@ public class IncrementalCompilationValidatorTest {
     when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest1");
     when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest2");
 
-    RebuildReason result = incrementalCompilationValidator.validate(actionMetadata, null, null);
+    RebuildReason result =
+        incrementalCompilationValidator.validate(actionMetadata, null, null, null);
 
     assertEquals(RebuildReason.BUILD_CONFIGURATION_CHANGED, result);
   }
 
   @Test
-  public void
-      when_kotlinClassUsageFileDirNotExists_then_returnPreviousKotlinUsedClassesFileNotFoundReason() {
+  public void when_depFileNotExists_then_returnPreviousKotlinUsedClassesFileNotFoundReason() {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
     when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
     when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
-    AbsPath kotlinClassUsageFileDir = mock(AbsPath.class);
+    AbsPath depFile = mock(AbsPath.class);
     File mockFile = mock(File.class);
-    when(kotlinClassUsageFileDir.toFile()).thenReturn(mockFile);
+    when(depFile.toFile()).thenReturn(mockFile);
     when(mockFile.exists()).thenReturn(false);
 
     RebuildReason result =
-        incrementalCompilationValidator.validate(actionMetadata, kotlinClassUsageFileDir, null);
+        incrementalCompilationValidator.validate(actionMetadata, depFile, null, null);
 
-    assertEquals(RebuildReason.NO_LAST_KOTLIN_USED_CLASSES_FILE, result);
+    assertEquals(RebuildReason.NO_LAST_DEP_FILE, result);
   }
 
   @Test
@@ -81,7 +82,7 @@ public class IncrementalCompilationValidatorTest {
     when(mockFile.exists()).thenReturn(false);
 
     RebuildReason result =
-        incrementalCompilationValidator.validate(actionMetadata, null, jvmAbiGenWorkingDir);
+        incrementalCompilationValidator.validate(actionMetadata, null, null, jvmAbiGenWorkingDir);
 
     assertEquals(RebuildReason.NO_JVM_ABI_WORKING_DIR, result);
   }
@@ -91,18 +92,18 @@ public class IncrementalCompilationValidatorTest {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
     when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
     when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
-    AbsPath kotlinClassUsageFileDir = mock(AbsPath.class);
+    AbsPath depFile = mock(AbsPath.class);
     AbsPath jvmAbiGenWorkingDir = mock(AbsPath.class);
     File mockFile1 = mock(File.class);
     File mockFile2 = mock(File.class);
-    when(kotlinClassUsageFileDir.toFile()).thenReturn(mockFile1);
+    when(depFile.toFile()).thenReturn(mockFile1);
     when(jvmAbiGenWorkingDir.toFile()).thenReturn(mockFile2);
     when(mockFile1.exists()).thenReturn(true);
     when(mockFile2.exists()).thenReturn(true);
 
     RebuildReason result =
         incrementalCompilationValidator.validate(
-            actionMetadata, kotlinClassUsageFileDir, jvmAbiGenWorkingDir);
+            actionMetadata, depFile, null, jvmAbiGenWorkingDir);
 
     assertNull(result);
   }

@@ -49,7 +49,7 @@ public class KotlincModeFactoryTest {
 
     when(mockActionMetadata.getPreviousDigest()).thenReturn(new HashMap<>());
     when(mockActionMetadata.getCurrentDigest()).thenReturn(new HashMap<>());
-    when(incrementalCompilationValidator.validate(mockActionMetadata, absPath, absPath))
+    when(incrementalCompilationValidator.validate(mockActionMetadata, absPath, absPath, absPath))
         .thenReturn(null);
   }
 
@@ -64,6 +64,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 true,
+                relPath,
                 relPath,
                 mockKotlinExtraParams,
                 Optional.empty(),
@@ -83,6 +84,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 true,
+                relPath,
                 relPath,
                 mockKotlinExtraParams,
                 Optional.empty(),
@@ -104,6 +106,7 @@ public class KotlincModeFactoryTest {
             absPath,
             true,
             relPath,
+            relPath,
             mockKotlinExtraParams,
             Optional.of(mockActionMetadata),
             ImmutableList.of());
@@ -121,6 +124,7 @@ public class KotlincModeFactoryTest {
             absPath,
             absPath,
             true,
+            relPath,
             relPath,
             mockKotlinExtraParams,
             Optional.empty(),
@@ -142,6 +146,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 true,
+                relPath,
                 relPath,
                 mockKotlinExtraParams,
                 Optional.of(mockActionMetadata),
@@ -165,6 +170,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 false,
+                relPath,
                 relPath,
                 mockKotlinExtraParams,
                 Optional.of(mockActionMetadata),

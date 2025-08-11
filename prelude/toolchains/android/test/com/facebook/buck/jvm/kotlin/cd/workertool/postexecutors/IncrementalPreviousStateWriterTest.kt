@@ -14,7 +14,6 @@ import com.facebook.buck.testutil.TemporaryPaths
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -26,30 +25,28 @@ internal class IncrementalPreviousStateWriterTest {
 
   private lateinit var incrementalStateDir: Path
   private lateinit var actionMetadataPath: Path
-  private lateinit var usedClassesPaths: List<Path>
+  private lateinit var depFilePath: Path
+  private lateinit var usedJarsPath: Path
 
   @Before
   fun setup() {
     incrementalStateDir = temporaryFolder.newFolder("incremental-state").path
     actionMetadataPath = temporaryFolder.newFile("action-metadata.json").path
-    usedClassesPaths =
-        listOf(
-            temporaryFolder.newFile("kotlin_used_classes.json").path,
-            temporaryFolder.newFile("used_classes.json").path,
-            temporaryFolder.root.resolve("non_existing_used_classes.json").path)
+    depFilePath = temporaryFolder.newFile("dep-file.txt").path
+    usedJarsPath = temporaryFolder.newFile("used-jars.json").path
   }
 
   @Test
   fun `when executed, existing files are copied`() {
     val writer =
-        IncrementalPreviousStateWriter(incrementalStateDir, actionMetadataPath, usedClassesPaths)
+        IncrementalPreviousStateWriter(
+            incrementalStateDir, actionMetadataPath, depFilePath, usedJarsPath)
 
     writer.execute()
 
     assertEquals(3, incrementalStateDir.toFile().listFiles()?.size)
     assertTrue(Files.exists(incrementalStateDir.resolve(actionMetadataPath.fileName)))
-    assertTrue(Files.exists(incrementalStateDir.resolve(usedClassesPaths[0].fileName)))
-    assertTrue(Files.exists(incrementalStateDir.resolve(usedClassesPaths[1].fileName)))
-    assertFalse(Files.exists(incrementalStateDir.resolve(usedClassesPaths[2].fileName)))
+    assertTrue(Files.exists(incrementalStateDir.resolve(depFilePath.fileName)))
+    assertTrue(Files.exists(incrementalStateDir.resolve(usedJarsPath.fileName)))
   }
 }

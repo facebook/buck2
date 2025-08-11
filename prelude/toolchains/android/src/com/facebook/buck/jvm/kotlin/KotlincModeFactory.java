@@ -38,7 +38,8 @@ public class KotlincModeFactory {
       final AbsPath rootProjectDir,
       final AbsPath buildDir,
       final boolean isTrackClassUsageEnabled,
-      final RelPath kotlinClassUsageFile,
+      final RelPath depFilePath,
+      final RelPath usedJarsPath,
       final KotlinExtraParams extraParams,
       final Optional<ActionMetadata> actionMetadata,
       final ImmutableList<AbsPath> classpathSnapshots) {
@@ -55,10 +56,11 @@ public class KotlincModeFactory {
               .orElseThrow(() -> new IllegalStateException("incremental_state_dir is not created"));
 
       @Nullable
-      AbsPath kotlinClassUsageFileDir =
-          isTrackClassUsageEnabled
-              ? incrementalStateDir.resolve(kotlinClassUsageFile.getFileName())
-              : null;
+      AbsPath depFile =
+          isTrackClassUsageEnabled ? incrementalStateDir.resolve(depFilePath.getFileName()) : null;
+      @Nullable
+      AbsPath usedJars =
+          isTrackClassUsageEnabled ? incrementalStateDir.resolve(usedJarsPath.getFileName()) : null;
 
       AbsPath kotlicWorkingDir =
           extraParams
@@ -79,10 +81,11 @@ public class KotlincModeFactory {
           KotlinSourceChangesFactory.create(
               rootProjectDir, new SourceFilesActionMetadata(metadata)),
           ClasspathChangesFactory.create(new JarsActionMetadata(metadata), classpathSnapshots),
-          kotlinClassUsageFileDir,
+          depFile,
           incrementalCompilationValidator.validate(
               metadata,
-              kotlinClassUsageFileDir,
+              depFile,
+              usedJars,
               getJvmAbiGenWorkingDir(
                   extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir())));
     }

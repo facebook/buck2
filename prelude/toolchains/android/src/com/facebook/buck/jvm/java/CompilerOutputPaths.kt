@@ -24,6 +24,21 @@ data class CompilerOutputPaths(
     val outputJarPath: Optional<RelPath>
 ) {
   companion object {
+    /**
+     * Returns a path to a file that contains dependencies used in the compilation to be consumed by
+     * buck2
+     */
+    @JvmStatic
+    fun getDepFilePath(outputJarDirPath: RelPath): RelPath {
+      return outputJarDirPath.resolveRel("dep-file.txt")
+    }
+
+    /** Returns a path to a file that contains the .jars used in the compilation */
+    @JvmStatic
+    fun getUsedJarsFilePath(outputJarDirPath: RelPath): RelPath {
+      return outputJarDirPath.resolveRel("used-jars.json")
+    }
+
     /** Returns a path to a file that contains dependencies used in the compilation */
     @JvmStatic
     fun getJavaDepFilePath(outputJarDirPath: RelPath): RelPath {

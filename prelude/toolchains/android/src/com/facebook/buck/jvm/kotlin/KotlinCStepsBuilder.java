@@ -103,7 +103,9 @@ public class KotlinCStepsBuilder {
                     buildCellRootPath,
                     outputDirectory.getParent().toAbsolutePath(),
                     parameters.getShouldTrackClassUsage(),
-                    CompilerOutputPaths.getKotlinDepFilePath(
+                    CompilerOutputPaths.getDepFilePath(
+                        parameters.getOutputPaths().getOutputJarDirPath()),
+                    CompilerOutputPaths.getUsedJarsFilePath(
                         parameters.getOutputPaths().getOutputJarDirPath()),
                     extraParams,
                     Optional.ofNullable(actionMetadata),

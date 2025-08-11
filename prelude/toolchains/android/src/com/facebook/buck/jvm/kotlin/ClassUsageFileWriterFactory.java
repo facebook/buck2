@@ -10,10 +10,8 @@
 
 package com.facebook.buck.jvm.kotlin;
 
-import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.java.ClassUsageFileWriter;
 import com.facebook.buck.jvm.java.DefaultClassUsageFileWriter;
-import com.facebook.buck.jvm.java.MergingClassUsageFileWriter;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 
 public class ClassUsageFileWriterFactory {
@@ -21,11 +19,6 @@ public class ClassUsageFileWriterFactory {
   private ClassUsageFileWriterFactory() {}
 
   public static ClassUsageFileWriter create(KotlincMode mode) {
-    if (mode instanceof KotlincMode.Incremental) {
-      AbsPath classUsageFile = ((KotlincMode.Incremental) mode).getKotlinClassUsageFile();
-      return new MergingClassUsageFileWriter(classUsageFile);
-    } else {
-      return new DefaultClassUsageFileWriter();
-    }
+    return new DefaultClassUsageFileWriter();
   }
 }

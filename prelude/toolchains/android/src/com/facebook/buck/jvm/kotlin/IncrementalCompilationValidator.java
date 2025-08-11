@@ -21,7 +21,8 @@ public class IncrementalCompilationValidator {
 
   public @Nullable RebuildReason validate(
       ActionMetadata actionMetadata,
-      @Nullable AbsPath kotlinClassUsageFileDir,
+      @Nullable AbsPath depFile,
+      @Nullable AbsPath usedJars,
       @Nullable AbsPath jvmAbiGenWorkingDir) {
     if (actionMetadata.getPreviousIncrementalMetadataDigest() == null) {
       return RebuildReason.NO_LAST_BUILD_CONFIGURATION;
@@ -33,8 +34,12 @@ public class IncrementalCompilationValidator {
       return RebuildReason.BUILD_CONFIGURATION_CHANGED;
     }
 
-    if (kotlinClassUsageFileDir != null && !kotlinClassUsageFileDir.toFile().exists()) {
-      return RebuildReason.NO_LAST_KOTLIN_USED_CLASSES_FILE;
+    if (depFile != null && !depFile.toFile().exists()) {
+      return RebuildReason.NO_LAST_DEP_FILE;
+    }
+
+    if (usedJars != null && !usedJars.toFile().exists()) {
+      return RebuildReason.NO_LAST_USED_JARS;
     }
 
     if (jvmAbiGenWorkingDir != null && !jvmAbiGenWorkingDir.toFile().exists()) {

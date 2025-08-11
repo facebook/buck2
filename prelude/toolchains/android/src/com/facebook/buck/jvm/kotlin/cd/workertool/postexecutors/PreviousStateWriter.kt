@@ -22,13 +22,19 @@ sealed interface PreviousStateWriter {
 internal data class IncrementalPreviousStateWriter(
     private val incrementalStateDir: Path,
     private val actionMetadataPath: Path,
-    private val usedClassesPaths: List<Path>,
+    private val depFilePath: Path?,
+    private val usedJarsPath: Path?,
 ) : PreviousStateWriter {
 
   override fun execute() {
     val state = buildList {
       add(actionMetadataPath)
-      addAll(usedClassesPaths.filter { path -> Files.exists(path) })
+      if (depFilePath != null) {
+        add(depFilePath)
+      }
+      if (usedJarsPath != null) {
+        add(usedJarsPath)
+      }
     }
 
     state.forEach { path ->
