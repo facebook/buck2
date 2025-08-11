@@ -312,7 +312,7 @@ def _compile_single_cxx(
     if optimization_flags:
         identifier += " (optimized)"
 
-    if use_header_units:
+    if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units:
         identifier += " (modular)"
 
     filename_base = filename_base + (".optimized" if optimization_flags else "")
