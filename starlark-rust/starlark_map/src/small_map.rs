@@ -909,6 +909,21 @@ where
             Entry::Vacant(e) => e.insert_entry(default()),
         }
     }
+
+    /// Modify if present
+    #[inline]
+    pub fn and_modify<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut V),
+    {
+        match self {
+            Entry::Occupied(mut entry) => {
+                f(entry.get_mut());
+                Entry::Occupied(entry)
+            }
+            Entry::Vacant(entry) => Entry::Vacant(entry),
+        }
+    }
 }
 
 impl<K, V> FromIterator<(K, V)> for SmallMap<K, V>
@@ -1475,5 +1490,28 @@ mod tests {
         assert_eq!(map.len(), 50);
         assert_eq!(map.get("7"), None);
         assert_eq!(map.get("8"), Some(&11));
+    }
+
+    #[test]
+    fn test_and_modify() {
+        let mut map = SmallMap::new();
+        map.insert("key1", 10);
+        map.insert("key3", 100);
+
+        let value1 = map.entry("key1").and_modify(|v| *v += 5).or_insert(0);
+        assert_eq!(*value1, 15);
+        assert_eq!(map.get("key1"), Some(&15));
+
+        let value2 = map.entry("key2").and_modify(|v| *v += 5).or_insert(10);
+        assert_eq!(*value2, 10);
+        assert_eq!(map.get("key2"), Some(&10));
+
+        let value3 = map
+            .entry("key3")
+            .and_modify(|v| *v *= 2)
+            .and_modify(|v| *v += 10)
+            .or_insert(0);
+        assert_eq!(*value3, 210);
+        assert_eq!(map.get("key3"), Some(&210));
     }
 }
