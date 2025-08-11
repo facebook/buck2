@@ -8,9 +8,10 @@
 # above-listed licenses.
 
 import argparse
+import os
 import platform
 import subprocess
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 def parse_arguments() -> Tuple[argparse.Namespace, List[str]]:
@@ -51,7 +52,9 @@ def get_extra_build_params(args: argparse.Namespace) -> List[str]:
     return params
 
 
-def build_command(args: argparse.Namespace, extra_args: List[str]) -> List[str]:
+def build_command(
+    args: argparse.Namespace, extra_args: List[str], cwd: Optional[str]
+) -> List[str]:
     cmd = [
         "buck2",
         "run",
@@ -64,6 +67,8 @@ def build_command(args: argparse.Namespace, extra_args: List[str]) -> List[str]:
     inner_buck_isolation_dir_arg = [f"--isolation-dir={inner_buck_isolation_dir}"]
 
     cmd.extend(get_extra_build_params(args))
+    if cwd is not None and "--chdir" not in extra_args:
+        cmd.extend(["--chdir", os.getcwd()])
 
     cmd.append("--")
     cmd.extend(inner_buck_isolation_dir_arg)
@@ -77,8 +82,11 @@ def build_command(args: argparse.Namespace, extra_args: List[str]) -> List[str]:
 
 def main() -> None:
     args, extra_args = parse_arguments()
-    cmd = build_command(args, extra_args)
-    subprocess.run(cmd)
+    cwd = None
+    if __file__ is not None:
+        cwd = os.path.dirname(__file__)
+    cmd = build_command(args, extra_args, cwd)
+    subprocess.run(cmd, cwd=cwd)
 
 
 if __name__ == "__main__":
