@@ -51,6 +51,7 @@ AppleToolsInfo = provider(
         "split_arch_combine_dsym_bundles_tool": provider_field(RunInfo),
         "dry_codesign_tool": provider_field(RunInfo),
         "adhoc_codesign_tool": provider_field(RunInfo),
+        "codesign_manifest_tree_postprocessor": provider_field(RunInfo),
         "selective_debugging_scrubber": provider_field(RunInfo),
         "info_plist_processor": provider_field(RunInfo),
         "ipa_package_maker": provider_field(RunInfo),

@@ -288,23 +288,6 @@ def assemble_bundle(
     if cache_buster:
         env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
 
-    codesign_manifest_tree = _make_codesign_manifest_tree(ctx, codesign_manifest, codesign_manifest_parts)
-    codesign_manifest_tree_json = _get_codesign_manifest_tree_as_json(codesign_manifest_tree)
-    codesign_manifest_tree_json_file = ctx.actions.declare_output("codesign_manifest_tree.json")
-    codesign_manifest_tree_json_cmd_args = ctx.actions.write_json(
-        codesign_manifest_tree_json_file,
-        codesign_manifest_tree_json,
-        with_inputs = True,
-        pretty = True,
-    )
-
-    subtargets["codesign-manifest-tree"] = [
-        DefaultInfo(
-            default_output = codesign_manifest_tree_json_file,
-            other_outputs = [codesign_manifest_tree_json_cmd_args],
-        ),
-    ]
-
     force_local_bundling = codesign_type.value != "skip"
     ctx.actions.run(
         command,
@@ -315,6 +298,40 @@ def assemble_bundle(
         error_handler = apple_build_error_handler,
         **run_incremental_args
     )
+
+    codesign_manifest_tree = _make_codesign_manifest_tree(ctx, codesign_manifest, codesign_manifest_parts)
+    codesign_manifest_tree_json = _get_codesign_manifest_tree_as_json(codesign_manifest_tree)
+    codesign_manifest_tree_json_file = ctx.actions.declare_output("codesign_manifest_tree.json")
+    codesign_manifest_tree_json_cmd_args = ctx.actions.write_json(
+        codesign_manifest_tree_json_file,
+        codesign_manifest_tree_json,
+        with_inputs = True,
+        pretty = True,
+    )
+
+    tools = ctx.attrs._apple_tools[AppleToolsInfo]
+    manifest_tree_postprocessor = tools.codesign_manifest_tree_postprocessor
+
+    postprocessed_codesign_manifest_tree = ctx.actions.declare_output("postprocessed_codesign_manifest_tree.json")
+    ctx.actions.run(
+        cmd_args(
+            [
+                manifest_tree_postprocessor,
+                "--codesign-manifest-tree",
+                codesign_manifest_tree_json_cmd_args,
+                "--output",
+                postprocessed_codesign_manifest_tree.as_output(),
+            ],
+        ),
+        category = "codesign_manifest_tree_postprocess",
+    )
+
+    subtargets["codesign-manifest-tree"] = [
+        DefaultInfo(
+            default_output = postprocessed_codesign_manifest_tree,
+        ),
+    ]
+
     return AppleBundleConstructionResult(
         sub_targets = subtargets,
         providers = providers,

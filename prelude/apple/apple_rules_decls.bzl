@@ -1362,6 +1362,7 @@ apple_tools = prelude_rule(
     attrs = {
         "adhoc_codesign_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "assemble_bundle": attrs.exec_dep(providers = [RunInfo]),
+        "codesign_manifest_tree_postprocessor": attrs.exec_dep(providers = [RunInfo]),
         "dry_codesign_tool": attrs.exec_dep(providers = [RunInfo]),
         "framework_sanitizer": attrs.exec_dep(providers = [RunInfo]),
         "info_plist_processor": attrs.exec_dep(providers = [RunInfo]),
