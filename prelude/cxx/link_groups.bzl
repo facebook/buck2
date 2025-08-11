@@ -73,7 +73,7 @@ load(
     ":cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
-load(":cxx_toolchain_types.bzl", "PicBehavior")
+load(":cxx_toolchain_types.bzl", "LinkerType", "PicBehavior")
 load(
     ":groups.bzl",
     "compute_mappings",
@@ -955,6 +955,7 @@ def _symbol_files_for_link_group(
 
 def _symbol_flags_for_link_groups(
         ctx: AnalysisContext,
+        linker_type: LinkerType,
         undefined_symfiles: list[Artifact] = [],
         global_symfiles: list[Artifact] = []) -> list[ArgLike]:
     """
@@ -984,10 +985,14 @@ def _symbol_flags_for_link_groups(
         symbol_files = global_symfiles,
         category = "link_groups_dynamic_list",
     )
-    sym_linker_flags.extend([
-        "-Wl,--dynamic-list",
-        dynamic_list_vers,
-    ])
+
+    if linker_type == LinkerType("darwin"):
+        sym_linker_flags.append("-Wl,-export_dynamic")
+    else:
+        sym_linker_flags.extend([
+            "-Wl,--dynamic-list",
+            dynamic_list_vers,
+        ])
 
     return sym_linker_flags
 
@@ -1082,6 +1087,9 @@ def create_link_groups(
         build_groups_context = build_groups_context,
     )
 
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
+
     for counter, link_group_spec in enumerate(specs):
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
@@ -1136,8 +1144,6 @@ def create_link_groups(
         )
 
         if link_group_spec.group.attrs.no_as_needed:
-            toolchain_info = get_cxx_toolchain_info(ctx)
-            linker_info = toolchain_info.linker_info
             link_info = wrap_with_no_as_needed_shared_libs_flags(
                 linker_type = linker_info.type,
                 link_info = link_info,
@@ -1180,6 +1186,7 @@ def create_link_groups(
         symbol_ldflags.extend(
             _symbol_flags_for_link_groups(
                 ctx = ctx,
+                linker_type = linker_info.type,
                 undefined_symfiles = undefined_symfiles,
                 global_symfiles = global_symfiles,
             ),

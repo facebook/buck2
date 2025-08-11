@@ -170,8 +170,11 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     # when linking into the main binary
     embeddable = ctx.attrs.allow_embedding and LibOutputStyle("archive") in libraries.outputs
     if embeddable:
+        pyinit_prefix = "PyInit"
+        if ctx.attrs._target_os_type[OsLookup].os == Os("macos"):
+            pyinit_prefix = "_PyInit"
         if not ctx.attrs.allow_suffixing:
-            pyinit_symbol = "PyInit_{}".format(module_name)
+            pyinit_symbol = "{}_{}".format(pyinit_prefix, module_name)
         else:
             suffix = base_module.replace("/", "$") + module_name
             static_output = libraries.outputs[LibOutputStyle("archive")]
@@ -186,7 +189,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
                 suffix_all = ctx.attrs.suffix_all,
                 suffix_exclude_rtti = ctx.attrs.suffix_exclude_rtti,
             )
-            pyinit_symbol = "PyInit_{}_{}".format(module_name, suffix)
+            pyinit_symbol = "{}_{}_{}".format(pyinit_prefix, module_name, suffix)
 
         if base_module != "":
             lines = ["# auto generated stub for {}\n".format(ctx.label.raw_target())]

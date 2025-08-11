@@ -10,6 +10,7 @@ load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "CxxExecutableOutput", "cxx_executable")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
@@ -278,8 +279,10 @@ def _compute_cxx_executable_info(
 
     extra_binary_link_flags.extend(python_toolchain.binary_linker_flags)
 
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+
     # Set rpaths to find 1) the shared libs dir and the 2) runtime libs dir.
-    rpath_ref = get_rpath_origin(get_cxx_toolchain_info(ctx).linker_info.type)
+    rpath_ref = get_rpath_origin(linker_info.type)
     rpath_ldflag = "-Wl,-rpath,{}/".format(rpath_ref)
     if package_style == PackageStyle("standalone"):
         extra_binary_link_flags.append(rpath_ldflag + "../..")
@@ -306,7 +309,8 @@ def _compute_cxx_executable_info(
         extra_link_deps = link_deps,
         exe_shared_libs_link_tree = False,
         force_full_hybrid_if_capable = True,
-        prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
+        # Darwin requires inputs ordering for binary size and historical reasons, the ordering functions do not support stripped objects yet.
+        prefer_stripped_objects = linker_info.type != LinkerType("darwin") and ctx.attrs.prefer_stripped_native_objects,
         link_group_info = link_group_info,
         auto_link_group_specs = auto_link_group_specs,
         exe_category_suffix = "python_exe",

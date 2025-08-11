@@ -297,7 +297,7 @@ def _write_syms_file(
     ).format("--extern-only " if not suffix_all else "")
 
     if not suffix_all:
-        script += ' | grep "^PyInit_"'
+        script += ' | grep -E "^_?PyInit_"'
 
     # Don't suffix asan symbols, as they shouldn't conflict, and suffixing
     # prevents deduplicating all the module constructors, which can be really
