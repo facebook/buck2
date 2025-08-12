@@ -49,6 +49,9 @@ impl AttrTypeCoerce for TransitionDepAttrType {
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
-        TyMaybeSelect::Basic(Ty::string())
+        TyMaybeSelect::Basic(Ty::unions(vec![
+            Ty::tuple2(Ty::string(), Ty::string()),
+            Ty::string(),
+        ]))
     }
 }
