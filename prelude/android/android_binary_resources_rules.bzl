@@ -486,11 +486,14 @@ def _get_module_manifests(
     if not apk_module_graph_file:
         return []
 
-    if not ctx.attrs.default_module_manifest_skeleton:
-        if use_proto_format:
-            fail("default_module_manifest_skeleton required for a voltron enabled build")
-        else:
-            return []  # non-AAB builds will continue to manage manifests on their own
+    default_module_manifest_skeleton = getattr(ctx.attrs, "default_module_manifest_skeleton", None)
+    if use_proto_format:
+        if not ctx.attrs.module_manifests:
+            fail("module_manifests required for a voltron enabled AAB build")
+        elif default_module_manifest_skeleton:
+            fail("default_module_manifest_skeleton cannot be provided for a voltron enabled AAB build")
+    elif not default_module_manifest_skeleton:
+        return []
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
@@ -503,12 +506,14 @@ def _get_module_manifests(
         for module_name in apk_module_graph_info.module_list:
             if is_root_module(module_name):
                 continue
+            if use_proto_format:
+                module_manifest = ctx.attrs.module_manifests[DefaultInfo].default_outputs[0]
+                if not module_manifest:
+                    fail("Module {} does not have a manifest".format(module_name))
+                module_manifest = module_manifest.project(module_name + "/AndroidManifest.xml")
+            else:
+                module_manifest = default_module_manifest_skeleton
 
-            module_skeletons = getattr(ctx.attrs, "module_manifest_skeleton", {})
-            module_manifest = module_skeletons[module_name] if module_name in module_skeletons else ctx.attrs.default_module_manifest_skeleton
-
-            if isinstance(module_manifest, Dependency):
-                module_manifest = module_manifest[DefaultInfo].default_outputs[0]
             merged_module_manifest, _ = generate_android_manifest(
                 ctx,
                 android_toolchain.generate_manifest[RunInfo],
