@@ -74,6 +74,10 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("os_version".to_owned(), version);
     }
 
+    if let Some(environment) = environment() {
+        map.insert("environment".to_owned(), environment);
+    }
+
     add_env_var(&mut map, "launched_via_wrapper", BUCK2_WRAPPER_ENV_VAR);
     add_env_var(&mut map, "fbpackage_name", "FBPACKAGE_PACKAGE_NAME");
     add_env_var(&mut map, "fbpackage_version", "FBPACKAGE_PACKAGE_VERSION");
@@ -166,6 +170,19 @@ pub fn devx_session_id() -> Option<String> {
         use devx_session_id::DevXSessionId;
 
         DevXSessionId::get()
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        None
+    }
+}
+
+pub fn environment() -> Option<String> {
+    #[cfg(fbcode_build)]
+    {
+        use hostcaps::get_env;
+
+        Some(get_env().to_string().to_lowercase())
     }
     #[cfg(not(fbcode_build))]
     {
