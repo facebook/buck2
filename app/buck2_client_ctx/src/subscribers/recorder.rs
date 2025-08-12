@@ -1289,8 +1289,6 @@ impl InvocationRecorder {
         Ok(())
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_materialization_end(
         &mut self,
         materialization: &buck2_data::MaterializationEnd,
@@ -1301,22 +1299,18 @@ impl InvocationRecorder {
         Ok(())
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_materializer_state_info(
         &mut self,
-        materializer_state_info: &buck2_data::MaterializerStateInfo,
+        materializer_state_info: buck2_data::MaterializerStateInfo,
     ) -> buck2_error::Result<()> {
         self.initial_materializer_entries_from_sqlite =
             Some(materializer_state_info.num_entries_from_sqlite);
         Ok(())
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_bxl_ensure_artifacts_end(
         &mut self,
-        _bxl_ensure_artifacts_end: &buck2_data::BxlEnsureArtifactsEnd,
+        _bxl_ensure_artifacts_end: buck2_data::BxlEnsureArtifactsEnd,
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let bxl_ensure_artifacts_end = match event.data() {
@@ -1658,11 +1652,9 @@ impl InvocationRecorder {
         Ok(())
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_file_watcher_start(
         &mut self,
-        file_watcher: &FileWatcherStart,
+        file_watcher: FileWatcherStart,
     ) -> buck2_error::Result<()> {
         self.file_watcher = FileWatcherProvider::try_from(file_watcher.provider)
             .ok()
@@ -1725,11 +1717,9 @@ impl InvocationRecorder {
         Ok(())
     }
 
-    // TODO(T224096917) - Revisit call sites impacted by trivially_copy_pass_by_ref from modern prost
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn handle_dice_cleanup_end(
         &mut self,
-        _command: &buck2_data::DiceCleanupEnd,
+        _command: buck2_data::DiceCleanupEnd,
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let dice_cleanup_end = match event.data() {
@@ -1803,7 +1793,7 @@ impl InvocationRecorder {
                         self.handle_test_run_start(test_start, event)
                     }
                     buck2_data::span_start_event::Data::FileWatcher(file_watcher) => {
-                        self.handle_file_watcher_start(file_watcher)
+                        self.handle_file_watcher_start(*file_watcher)
                     }
                     _ => Ok(()),
                 }
@@ -1844,10 +1834,10 @@ impl InvocationRecorder {
                     ) => self
                         .handle_dice_block_concurrent_command_end(block_concurrent_command, event),
                     buck2_data::span_end_event::Data::DiceCleanup(dice_cleanup_end) => {
-                        self.handle_dice_cleanup_end(dice_cleanup_end, event)
+                        self.handle_dice_cleanup_end(*dice_cleanup_end, event)
                     }
                     buck2_data::span_end_event::Data::BxlEnsureArtifacts(_bxl_ensure_artifacts) => {
-                        self.handle_bxl_ensure_artifacts_end(_bxl_ensure_artifacts, event)
+                        self.handle_bxl_ensure_artifacts_end(*_bxl_ensure_artifacts, event)
                     }
                     _ => Ok(()),
                 }
@@ -1874,7 +1864,7 @@ impl InvocationRecorder {
                         self.handle_parsed_target_patterns(tag)
                     }
                     buck2_data::instant_event::Data::MaterializerStateInfo(materializer_state) => {
-                        self.handle_materializer_state_info(materializer_state)
+                        self.handle_materializer_state_info(*materializer_state)
                     }
                     buck2_data::instant_event::Data::StructuredError(err) => {
                         self.handle_structured_error(err)
