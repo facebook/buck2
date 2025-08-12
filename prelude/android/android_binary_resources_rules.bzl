@@ -503,7 +503,9 @@ def _get_module_manifests(
         for module_name in apk_module_graph_info.module_list:
             if is_root_module(module_name):
                 continue
-            module_manifest = ctx.attrs.module_manifest_skeleton[module_name] if module_name in ctx.attrs.module_manifest_skeleton else ctx.attrs.default_module_manifest_skeleton
+
+            module_skeletons = getattr(ctx.attrs, "module_manifest_skeleton", {})
+            module_manifest = module_skeletons[module_name] if module_name in module_skeletons else ctx.attrs.default_module_manifest_skeleton
 
             if isinstance(module_manifest, Dependency):
                 module_manifest = module_manifest[DefaultInfo].default_outputs[0]
