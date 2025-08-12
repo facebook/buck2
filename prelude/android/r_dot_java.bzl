@@ -187,8 +187,10 @@ def _generate_and_compile_r_dot_java(
         r_dot_java_source_code_zipped: Artifact,
         identifier: str,
         remove_classes: list[str] = []) -> RDotJavaInfo:
+    r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier), uses_experimental_content_based_path_hashing = True)
     outputs = compile_to_jar(
         ctx,
+        output = r_dot_java_out,
         actions_identifier = identifier,
         javac_tool = None,
         srcs = [r_dot_java_source_code_zipped],
