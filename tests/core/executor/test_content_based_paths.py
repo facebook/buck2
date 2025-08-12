@@ -394,6 +394,7 @@ async def test_local_action_outputs_have_configuration_path_symlinks(
         if "run_local_with_content_based_path" in entry["path"]
         and entry["path"].endswith("out")
         and entry["method"] == "copy"
+        and entry["file_count"] == 0
     ]
     assert len(run_local_action_symlink_materialized) == 1
 
@@ -409,13 +410,15 @@ async def test_local_action_inputs_have_configuration_path_symlinks(
     materialized = [
         json.loads(line) for line in materialized_out.stdout.splitlines() if line
     ]
-    run_remote_output_materialized = [
+    run_remote_output_symlink_materialized = [
         entry
         for entry in materialized
         if "run_remote_with_content_based_path" in entry["path"]
         and entry["path"].endswith("out")
+        and entry["method"] == "copy"
+        and entry["file_count"] == 0
     ]
-    assert len(run_remote_output_materialized) == 2
+    assert len(run_remote_output_symlink_materialized) == 1
 
 
 @buck_test()
