@@ -403,6 +403,8 @@ fn as_deps(
         }
     }
 
+    deps.sort_by_key(|dep| dep.crate_index);
+
     deps
 }
 
