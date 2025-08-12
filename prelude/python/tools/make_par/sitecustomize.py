@@ -52,16 +52,19 @@ def __patch_ctypes(saved_env: dict[str, str]) -> None:
                 if not path:
                     continue
                 p = Path(path)
-                if not p.exists() or not p.is_dir():
+                try:
+                    if not p.exists() or not p.is_dir():
+                        continue
+                    for candidate in [
+                        f"{name}.so",
+                        f"lib{name}.so",
+                        f"{name}.so.[0-9]",
+                        f"lib{name}.so.[0-9]",
+                    ]:
+                        for item in p.glob(candidate):
+                            return str(item)
+                except Exception:
                     continue
-                for candidate in [
-                    f"{name}.so",
-                    f"lib{name}.so",
-                    f"{name}.so.[0-9]",
-                    f"lib{name}.so.[0-9]",
-                ]:
-                    for item in p.glob(candidate):
-                        return str(item)
 
         return orig_find_library(name)
 
