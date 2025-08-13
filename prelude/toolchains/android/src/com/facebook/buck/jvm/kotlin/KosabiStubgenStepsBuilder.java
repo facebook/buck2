@@ -62,7 +62,7 @@ public class KosabiStubgenStepsBuilder {
       KotlinCDAnalytics kotlinCDAnalytics,
       LanguageVersion languageVersion) {
     ImmutableSortedSet<RelPath> stubsGenOutputPath;
-    if (invokingRule.isSourceOnlyAbi() && extraParams.getShouldUseStandaloneKosabi()) {
+    if (invokingRule.isSourceOnlyAbi()) {
       RelPath stubgenOutputDir = buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs__");
       RelPath stubgenClassOutputDir =
           buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs_class__");

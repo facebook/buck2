@@ -37,7 +37,6 @@ data class KotlinExtraParams(
     val shouldVerifySourceOnlyAbiConstraints: Boolean,
     val depTrackerPlugin: Optional<AbsPath>,
     val shouldKotlincRunIncrementally: Boolean,
-    val shouldUseStandaloneKosabi: Boolean,
     val incrementalStateDir: Optional<AbsPath>,
     val shouldKsp2RunIncrementally: Boolean,
     private val languageVersionString: String

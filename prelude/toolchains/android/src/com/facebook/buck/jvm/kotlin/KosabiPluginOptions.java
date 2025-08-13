@@ -16,13 +16,9 @@ import java.util.Map;
 
 public class KosabiPluginOptions {
   private final ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath;
-  private final boolean shouldUseStandaloneKosabi;
 
-  public KosabiPluginOptions(
-      ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath,
-      boolean shouldUseStandaloneKosabi) {
+  public KosabiPluginOptions(ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath) {
     this.resolvedKosabiPluginOptionPath = resolvedKosabiPluginOptionPath;
-    this.shouldUseStandaloneKosabi = shouldUseStandaloneKosabi;
   }
 
   public ImmutableMap<String, AbsPath> getAllKosabiPlugins() {
@@ -39,6 +35,6 @@ public class KosabiPluginOptions {
   }
 
   public ImmutableMap<String, AbsPath> getKosabiPlugins() {
-    return shouldUseStandaloneKosabi ? getAllKosabiPluginsExceptStubgen() : getAllKosabiPlugins();
+    return getAllKosabiPluginsExceptStubgen();
   }
 }

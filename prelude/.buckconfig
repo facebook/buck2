@@ -26,7 +26,6 @@ name_v2 = TARGETS,BUCK
 [kotlin]
   enable_incremental_compilation = true
   frontend_compiler = defined_by_target
-  kosabi_standalone = true
   kotlin_home = $(config fbsource.repo_relative_path)/xplat/toolchains/android/sdk/third-party/java/kotlin/$(config kotlin.kotlin_version)
   kotlin_version = 2.1.0
   kotlincd_dep_files = per_class

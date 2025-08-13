@@ -80,7 +80,6 @@ public class KotlinExtraParamsSerializer {
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
         kotlinExtraParams.getShouldKotlincRunIncrementally(),
-        kotlinExtraParams.getShouldUseStandaloneKosabi(),
         Optional.of(kotlinExtraParams.getIncrementalStateDir())
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),

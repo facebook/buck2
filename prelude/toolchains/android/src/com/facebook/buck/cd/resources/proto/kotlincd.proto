@@ -51,7 +51,6 @@ message KotlinExtraParams {
   bool shouldVerifySourceOnlyAbiConstraints = 16;
   bool shouldRemoveKotlinCompilerFromClassPath = 17;
   string depTrackerPlugin = 18;
-  bool shouldUseStandaloneKosabi = 19;
   bool shouldKotlincRunIncrementally = 21;
   string incrementalStateDir = 22;
   string languageVersion = 23;

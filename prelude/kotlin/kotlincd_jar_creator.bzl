@@ -347,7 +347,6 @@ def _encode_kotlin_extra_params(
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
         shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
-        shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
         languageVersion = language_version,
     )
 

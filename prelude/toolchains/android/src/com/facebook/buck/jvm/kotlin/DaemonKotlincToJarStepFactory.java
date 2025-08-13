@@ -141,8 +141,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               : ImmutableList.of();
 
       KosabiPluginOptions kosabiPluginOptions =
-          new KosabiPluginOptions(
-              extraParams.getKosabiPluginOptions(), extraParams.getShouldUseStandaloneKosabi());
+          new KosabiPluginOptions(extraParams.getKosabiPluginOptions());
 
       String moduleName = buildTargetValueExtraParams.getModuleName();
       String kotlinPluginGeneratedFullPath =
