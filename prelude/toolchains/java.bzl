@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
 
 def _system_java_tool_impl(ctx):
@@ -22,7 +23,7 @@ system_java_tool = rule(
 )
 
 def _system_java_lib_impl(ctx):
-    output = ctx.actions.declare_output(ctx.attrs.name)
+    output = ctx.actions.declare_output(paths.basename(ctx.attrs.jar))
     ctx.actions.run(cmd_args(["ln", "-s", ctx.attrs.jar, output.as_output()]), category = "{}_symlink".format(ctx.attrs.name))
     return [DefaultInfo(default_output = output)]
 
