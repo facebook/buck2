@@ -152,12 +152,19 @@ fn get_action_digest(command_details: Option<&CommandExecutionDetails>) -> Optio
     command_details.and_then(|command_details| {
         if let Some(command_kind) = &command_details.command_kind {
             match command_kind.command.as_ref() {
-                Some(Command::LocalCommand(c)) => Some(c.action_digest.clone()),
-                Some(Command::OmittedLocalCommand(c)) => Some(c.action_digest.clone()),
-                Some(Command::WorkerCommand(c)) => Some(c.action_digest.clone()),
-                Some(Command::WorkerInitCommand(_)) => None,
-                Some(Command::RemoteCommand(c)) => Some(c.action_digest.clone()),
-                None => None,
+                Some(Command::RemoteCommand(remote_command)) => {
+                    Some(remote_command.action_digest.to_owned())
+                }
+                Some(Command::LocalCommand(local_command)) => {
+                    Some(local_command.action_digest.to_owned())
+                }
+                Some(Command::WorkerCommand(worker_command)) => {
+                    Some(worker_command.action_digest.to_owned())
+                }
+                Some(Command::OmittedLocalCommand(omitted_local_command)) => {
+                    Some(omitted_local_command.action_digest.to_owned())
+                }
+                _ => None,
             }
         } else {
             None

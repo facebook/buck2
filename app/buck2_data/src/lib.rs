@@ -100,6 +100,35 @@ pub mod error {
     tonic::include_proto!("buck.data.error");
 }
 
+/// Extract action digest from a list of command executions.
+/// Returns the action digest from the last command execution if available.
+pub fn get_action_digest(commands: &[CommandExecution]) -> Option<String> {
+    if let Some(command_execution) = commands.last() {
+        if let Some(details) = &command_execution.details {
+            if let Some(command_kind) = &details.command_kind {
+                if let Some(command) = &command_kind.command {
+                    return match command {
+                        command_execution_kind::Command::RemoteCommand(remote_command) => {
+                            Some(remote_command.action_digest.to_owned())
+                        }
+                        command_execution_kind::Command::LocalCommand(local_command) => {
+                            Some(local_command.action_digest.to_owned())
+                        }
+                        command_execution_kind::Command::WorkerCommand(worker_command) => {
+                            Some(worker_command.action_digest.to_owned())
+                        }
+                        command_execution_kind::Command::OmittedLocalCommand(
+                            omitted_local_command,
+                        ) => Some(omitted_local_command.action_digest.to_owned()),
+                        _ => None,
+                    };
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Trait for things that can be converted into protobuf messages, for ease of emitting events. There are many core Buck
 /// types that are represented in the Daemon API that use this trait to ease conversion.
 pub trait ToProtoMessage {
