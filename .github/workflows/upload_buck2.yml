@@ -73,6 +73,9 @@ jobs:
           - os: 'windows-2022'
             triple: 'x86_64-pc-windows-msvc'
             is_windows: true
+          - os: 'windows-11-arm'
+            triple: 'aarch64-pc-windows-msvc'
+            is_windows: true
     runs-on: ${{ matrix.target.os }}
 
     steps:
@@ -139,7 +142,17 @@ jobs:
         run: |
           BUCK2="$(pwd)/${{ steps.set_variables.outputs.buck2_out }}"
           cd examples/with_prelude
-          "$BUCK2" build //rust/... //cpp/... //python/... -v=2
+          # TODO: rust examples don't work on windows + arm64
+          if [[ "${{ matrix.target.triple }}" == "aarch64-pc-windows-msvc" ]]; then
+            TARGETS="cpp/... python/..."
+          else
+            TARGETS="rust/... cpp/... python/..."
+          fi
+          "$BUCK2" build $TARGETS -v=2
+      - name: Install zstd
+        shell: pwsh
+        if: ${{ matrix.target.os == 'windows-11-arm' }}
+        run: choco install zstandard
       - name: Move binary to artifacts/
         shell: bash
         run: |

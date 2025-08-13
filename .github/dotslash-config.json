@@ -7,6 +7,10 @@
             "regex": "^buck2-aarch64-apple-darwin.zst$",
             "path": "buck2-aarch64-apple-darwin"
           },
+          "windows-aarch64": {
+            "regex": "^buck2-aarch64-pc-windows-msvc.exe.zst$",
+            "path": "buck2-aarch64-pc-windows-msvc.exe"
+          },
           "linux-aarch64": {
             "regex": "^buck2-aarch64-unknown-linux-musl.zst$",
             "path": "buck2-aarch64-unknown-linux-musl"
@@ -34,6 +38,10 @@
           "macos-aarch64": {
             "regex": "^rust-project-aarch64-apple-darwin.zst$",
             "path": "rust-project-aarch64-apple-darwin"
+          },
+          "windows-aarch64": {
+            "regex": "^rust-project-aarch64-pc-windows-msvc.exe.zst$",
+            "path": "rust-project-aarch64-pc-windows-msvc.exe"
           },
           "linux-aarch64": {
             "regex": "^rust-project-aarch64-unknown-linux-musl.zst$",
