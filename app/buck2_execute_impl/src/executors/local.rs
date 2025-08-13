@@ -63,6 +63,7 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
+use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
@@ -645,6 +646,7 @@ impl LocalExecutor {
         let mut to_declare = vec![];
         let mut mapped_outputs = IndexMap::with_capacity(entries.len());
         let mut configuration_path_to_content_based_path_symlinks = vec![];
+        let mut output_path_to_content_based_path_copies = vec![];
 
         for (output, output_path) in entries {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
@@ -654,6 +656,23 @@ impl LocalExecutor {
                         supports_incremental_remote,
                         ..
                     } => {
+                        // For content-based paths, things are a bit complicated here, because (a) the action
+                        // wrote outputs at "placeholder" paths, not the final content-based paths (because
+                        // they are not know until the output is produced), and (b) other actions can declare
+                        // outputs at the same content-based path. Note that only remote actions can do that
+                        // concurrently (with this local action), as we prevent any local actions with any of
+                        // the same placeholder output paths from running at the same time.
+                        // We do the following:
+                        // (1) We create a symlink from the configuration-based path to the content-based path
+                        //     (for any users/tooling that only has access to the configuration-based path)
+                        // (2) If we already have an artifact declared at the content-based path, we don't need
+                        //     to redeclare it.
+                        // (3) If we do need to declare the artifact at the content-based path, we first declare
+                        //     an existing artifact at the "placeholder" output path that the action wrote to.
+                        // (4) Then we declare a copy from the "placeholder" output path to the content-based path.
+                        // (5) Finally, we ensure everything is materialized.
+                        // (6) Note that we don't need to invalidate the "placeholder" output path, as that is
+                        //     the responsibility of any action that subsequently uses it.
                         if output.as_ref().has_content_based_path() {
                             let hashed_path = output
                                 .as_ref()
@@ -675,24 +694,29 @@ impl LocalExecutor {
                             configuration_path_to_content_based_path_symlinks
                                 .push((configuration_hash_path, symlink_value));
 
-                            // If we already have an artifact declared at a content-based path, we don't need to
-                            // declare it again.
                             if !self
                                 .materializer
                                 .has_artifact_at(hashed_path.clone())
                                 .await?
                             {
-                                self.blocking_executor
-                                    .execute_io_inline(|| {
-                                        self.artifact_fs.fs().copy(output_path, hashed_path.clone())
-                                    })
-                                    .await?;
-
                                 to_declare.push(DeclareArtifactPayload {
-                                    path: hashed_path,
+                                    path: output_path.clone(),
                                     artifact: value.dupe(),
                                     persist_full_directory_structure: supports_incremental_remote,
                                 });
+                                output_path_to_content_based_path_copies.push((
+                                    hashed_path.clone(),
+                                    value.dupe(),
+                                    vec![CopiedArtifact {
+                                        src: output_path.clone(),
+                                        dest: hashed_path.clone(),
+                                        dest_entry: value
+                                            .entry()
+                                            .dupe()
+                                            .map_dir(|d| d.as_immutable()),
+                                        executable_bit_override: None,
+                                    }],
+                                ));
                             }
                         } else {
                             to_declare.push(DeclareArtifactPayload {
@@ -719,6 +743,13 @@ impl LocalExecutor {
             .map(|(p, _)| p.clone())
             .collect();
         self.materializer.declare_existing(to_declare).await?;
+        buck2_util::future::try_join_all(output_path_to_content_based_path_copies.into_iter().map(
+            |(path, value, copied_artifacts)| {
+                self.materializer
+                    .declare_copy(path, value, copied_artifacts)
+            },
+        ))
+        .await?;
         buck2_util::future::try_join_all(
             configuration_path_to_content_based_path_symlinks
                 .into_iter()
