@@ -2,6 +2,27 @@ load(":defs.bzl", "basic_incremental_action")
 
 basic_incremental_action(
     name = "basic_incremental_action",
-    increment = "incremental_script.py",
+    script = "incremental_script.py",
     invalidate = read_config("test", "seed", "42"),
+)
+
+platform(
+    name = "p_default",
+    constraint_values = [],
+)
+
+platform(
+    name = "p_cat",
+    constraint_values = [
+        ":cat",
+    ],
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
 )

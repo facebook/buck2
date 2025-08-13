@@ -9,9 +9,9 @@
 def _basic_incremental_actions_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
     ctx.actions.run(
-        cmd_args(["fbpython", ctx.attrs.increment] + ["--out", out.as_output()]),
+        cmd_args(["fbpython", ctx.attrs.script] + ["--out", out.as_output()]),
         category = "incremental",
-        no_outputs_cleanup = True,
+        no_outputs_cleanup = ctx.attrs.use_incremental,
         env = {"INVALIDATE_ACTION": ctx.attrs.invalidate},
     )
     return [
@@ -20,7 +20,8 @@ def _basic_incremental_actions_impl(ctx) -> list[Provider]:
     ]
 
 basic_incremental_action = rule(impl = _basic_incremental_actions_impl, attrs = {
-    "increment": attrs.source(),
     "invalidate": attrs.string(),
+    "script": attrs.source(),
     "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
+    "use_incremental": attrs.bool(default = (read_config("test", "dont_use_incremental", True) == True)),
 })
