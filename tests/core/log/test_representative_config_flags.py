@@ -16,9 +16,8 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-# TODO: FIXME
 @buck_test()
-async def test_representative_config_flags_incorrectly_contain_run_args(
+async def test_representative_config_flags_disregards_run_args(
     buck: Buck,
 ) -> None:
     with tempfile.TemporaryDirectory() as d:
@@ -27,13 +26,38 @@ async def test_representative_config_flags_incorrectly_contain_run_args(
             "//:my_rule",
             "--unstable-write-invocation-record",
             str(invocation_record_file),
+            "--config",
+            "foo.bar=baz",
             "--",
             "--config",
-            "foo=bar",
+            "should.not=include",
         )
         with open(invocation_record_file) as f:
             invocation_record = json.load(f)
 
     assert invocation_record["data"]["Record"]["data"]["InvocationRecord"][
         "representative_config_flags"
-    ] == ["-c foo=bar"]
+    ] == ["-c foo.bar=baz"]
+
+
+@buck_test()
+async def test_representative_config_flags_includes_build_args(
+    buck: Buck,
+) -> None:
+    with tempfile.TemporaryDirectory() as d:
+        invocation_record_file = Path(d) / "record"
+        await buck.build(
+            "--unstable-write-invocation-record",
+            str(invocation_record_file),
+            "--config",
+            "foo.bar=baz",
+            # For `build` commands, anything after `--` is a positional arg.
+            "--",
+            "//:my_rule",
+        )
+        with open(invocation_record_file) as f:
+            invocation_record = json.load(f)
+
+    assert invocation_record["data"]["Record"]["data"]["InvocationRecord"][
+        "representative_config_flags"
+    ] == ["-c foo.bar=baz"]

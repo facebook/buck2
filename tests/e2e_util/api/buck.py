@@ -83,7 +83,10 @@ class Buck(Executable):
         """
         args = list(argv)
         if not any(arg.startswith("--build-report") for arg in args):
-            args.append("--build-report=-")
+            # For `build` commands, anything after `--` is a positional arg.
+            # Find the position of "--" separator to insert --build-report before it
+            separator_idx = args.index("--") if "--" in args else len(args)
+            args.insert(separator_idx, "--build-report=-")
 
         return self._run_buck_command(
             "build",

@@ -481,6 +481,7 @@ impl<'a> BuckArgMatches<'a> {
         enum State {
             None,
             Matched(&'static str),
+            Finished,
         }
         let mut state = State::None;
         let config_args = self
@@ -542,6 +543,11 @@ impl<'a> BuckArgMatches<'a> {
                                 v.split_once("=").unwrap().1.to_owned(),
                             ))
                         }
+                        // The `--` separator indicates the end of Buck flags and the start of args for the target itself.
+                        "--" => {
+                            state = State::Finished;
+                            None
+                        }
                         _ => None,
                     },
                     State::Matched(flag) => {
@@ -562,6 +568,7 @@ impl<'a> BuckArgMatches<'a> {
                             _ => unreachable!("impossible flag"),
                         }
                     }
+                    State::Finished => None,
                 }
                 .map(|flag_value| (flag_value, source))
             });
@@ -732,6 +739,41 @@ mod tests {
                 "-c a.b6=c"
             ]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_representative_config_flags_stops_at_double_dash() -> anyhow::Result<()> {
+        let mut argv = ExpandedArgvBuilder::new();
+
+        argv.push("-c".to_owned());
+        argv.push("section.option=value".to_owned());
+
+        argv.push("--config".to_owned());
+        argv.push("section.option2=value".to_owned());
+
+        // Add the -- separator
+        argv.push("--".to_owned());
+
+        // These should be ignored after --
+        argv.push("-c".to_owned());
+        argv.push("section.ignored=value".to_owned());
+        argv.push("--config".to_owned());
+        argv.push("section.ignored2=value".to_owned());
+
+        let argv = argv.build();
+
+        let clap = clap::ArgMatches::default();
+        let matches = BuckArgMatches::from_clap(&clap, &argv);
+
+        let flags = matches.get_representative_config_flags();
+
+        // Should only include flags before --, not after
+        assert_eq!(
+            flags,
+            vec!["-c section.option=value", "-c section.option2=value",]
+        );
+
         Ok(())
     }
 }
