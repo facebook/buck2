@@ -114,8 +114,5 @@ public class KosabiStubgenStep extends KotlincStep {
       builder.add("-P");
       builder.add(pluginPath + ":stubs-class-dir=" + stubClassOutputDir.toString());
     }
-
-    builder.add("-P");
-    builder.add(pluginPath + ":stubsgen-standalone-mode=" + "true");
   }
 }
