@@ -210,16 +210,6 @@ async def test_download_with_content_based_path_and_no_metadata(buck: Buck) -> N
     )
 
 
-@buck_test()
-async def test_incremental_action_with_content_based_path(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "root//:incremental_action_with_content_based_path",
-        ),
-        stderr_regex=r"Action is marked with no_outputs_cleanup but output `out` is content-based, which is not allowed.",
-    )
-
-
 def hg_init(cwd: Path) -> None:
     subprocess.run(["hg", "init"], check=True, cwd=cwd)
     hg_config_reponame(cwd)

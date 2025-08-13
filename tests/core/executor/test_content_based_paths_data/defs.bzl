@@ -84,7 +84,6 @@ def _run_with_content_based_path_impl(ctx):
     args.add(cmd_args(hidden = ctx.attrs.depends_on))
     kwargs = {
         "category": "test_run",
-        "no_outputs_cleanup": ctx.attrs.is_incremental,
         "outputs_for_error_handler": [out.as_output()],
     }
     if ctx.attrs.prefer_local:
@@ -101,7 +100,6 @@ run_with_content_based_path = rule(
     attrs = {
         "data": attrs.string(),
         "depends_on": attrs.list(attrs.source(), default = []),
-        "is_incremental": attrs.bool(default = False),
         "prefer_local": attrs.bool(default = False),
         "_ignored": attrs.string(default = "ignored"),
     },

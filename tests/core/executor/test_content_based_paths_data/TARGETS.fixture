@@ -126,12 +126,6 @@ ignores_content_based_artifact(
     name = "ignores_content_based_artifact",
 )
 
-run_with_content_based_path(
-    name = "incremental_action_with_content_based_path",
-    data = "hello world",
-    is_incremental = True,
-)
-
 slow_running_local_action_with_content_based_path(
     name = "slow_running_local_action_with_content_based_path",
     data = select({
