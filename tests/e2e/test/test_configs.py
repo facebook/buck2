@@ -19,11 +19,10 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_no_args(buck: Buck) -> None:
     buck_config = await execute_test_with_args(buck, [])
 
-    # TODO: CI uses mode=@fbcode//mode/dev, once it's fixed in buck, please update the test accordingly
     assert_buck_args_config_equal(
         buck_config,
         {
-            "mode": "",
+            "mode": "@fbcode//mode/dev",
             "config": "",
             "host": "linux",
         },
@@ -49,6 +48,24 @@ async def test_mode_file(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
+async def test_mode_file_non_default(buck: Buck) -> None:
+    all_configs_to_test = [
+        ["@fbcode//mode/opt"],
+        ["--flagfile", "fbcode//mode/opt"],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "@fbcode//mode/opt",
+                "config": "",
+                "host": "linux",
+            },
+        )
+
+
+@buck_test(inplace=True)
 async def test_config(buck: Buck) -> None:
     # certain config makes it to the buck config
     all_configs_to_test = [
@@ -62,7 +79,7 @@ async def test_config(buck: Buck) -> None:
         assert_buck_args_config_equal(
             buck_config,
             {
-                "mode": "",
+                "mode": "@fbcode//mode/dev",
                 "config": "fbcode.use_link_groups_in_dev=True",
                 "host": "linux",
             },
@@ -75,7 +92,7 @@ async def test_config(buck: Buck) -> None:
     assert_buck_args_config_equal(
         buck_config,
         {
-            "mode": "",
+            "mode": "@fbcode//mode/dev",
             "config": "",
             "host": "linux",
         },
@@ -95,7 +112,7 @@ async def test_modifier(buck: Buck) -> None:
         assert_buck_args_config_equal(
             buck_config,
             {
-                "mode": "",
+                "mode": "@fbcode//mode/dev",
                 "config": "",
                 "host": "linux",
                 "modifier": "dev",
@@ -129,8 +146,8 @@ def get_buck_config(tpx_trace_path: str) -> dict[str, str]:
         for _, line in enumerate(f):
             data = json.loads(line)
             if "fields" in data and "event_name" in data["fields"]:
-                if data["fields"]["event_name"] == "run.external_buck_config_finalized":
-                    return dict(json.loads(data["fields"]["config"]))
+                if data["fields"]["event_name"] == "utf.process_selector.include":
+                    return dict(json.loads(data["fields"]["external_config"]))
     return {}
 
 
