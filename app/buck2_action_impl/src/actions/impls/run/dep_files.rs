@@ -21,7 +21,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::execute::action_execution_target::ActionExecutionTarget;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
@@ -33,9 +32,7 @@ use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
-use buck2_core::category::Category;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -78,8 +75,10 @@ use parking_lot::MutexGuard;
 use starlark_map::ordered_map::OrderedMap;
 use tracing::instrument;
 
+use crate::actions::impls::run::RunActionKey;
+
 #[allocative::root]
-static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);
+static DEP_FILES: Lazy<DashMap<RunActionKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
@@ -115,44 +114,8 @@ pub(crate) fn init_flush_dep_files() {
     FLUSH_NON_LOCAL_DEP_FILES.init(flush_non_local_dep_files);
 }
 
-pub(crate) fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
+pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
     DEP_FILES.get(key).map(|s| s.dupe())
-}
-
-/// A key used to associate a RunAction with a possible previous dep file.
-#[derive(Eq, PartialEq, Hash, Display, Allocative)]
-#[display(
-    "{} {} {}",
-    owner,
-    category,
-    identifier.as_deref().unwrap_or("<no identifier>")
-)]
-pub(crate) struct DepFilesKey {
-    owner: BaseDeferredKey,
-    category: Category,
-    identifier: Option<String>,
-}
-
-impl DepFilesKey {
-    pub(crate) fn new(
-        owner: BaseDeferredKey,
-        category: Category,
-        identifier: Option<String>,
-    ) -> Self {
-        Self {
-            owner,
-            category,
-            identifier,
-        }
-    }
-
-    pub(crate) fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
-        Self {
-            owner: target.owner().dupe(),
-            category: target.category().to_owned(),
-            identifier: target.identifier().map(|t| t.to_owned()),
-        }
-    }
 }
 
 /// The input signatures for a DepFileState. We compute those lazily, so we either have the input
@@ -415,7 +378,7 @@ impl CommonDigests {
 }
 
 pub(crate) struct DepFileBundle {
-    dep_files_key: DepFilesKey,
+    dep_files_key: RunActionKey,
     input_directory_digest: FileDigest,
     shared_declared_inputs: Option<PartitionedInputs<ActionSharedDirectory>>,
     declared_dep_files: DeclaredDepFiles,
@@ -667,7 +630,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
     execution_paths: &'a CommandExecutionPaths,
 ) -> buck2_error::Result<DepFileBundle> {
     let input_directory_digest = execution_paths.input_directory().fingerprint();
-    let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
+    let dep_files_key = RunActionKey::from_action_execution_target(ctx.target());
 
     let DepFilesCommandLineVisitor {
         inputs: declared_inputs,
@@ -724,7 +687,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
 #[instrument(level = "debug", skip(input_directory_digest,cli_digest,ctx), fields(key = %key))]
 pub(crate) async fn match_if_identical_action(
     ctx: &dyn ActionExecutionCtx,
-    key: &DepFilesKey,
+    key: &RunActionKey,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
@@ -763,7 +726,7 @@ pub(crate) async fn match_if_identical_action(
 #[instrument(level = "debug", skip(input_directory_digest,cli_digest,declared_inputs,ctx), fields(key = %key))]
 pub(crate) async fn match_or_clear_dep_file(
     ctx: &dyn ActionExecutionCtx,
-    key: &DepFilesKey,
+    key: &RunActionKey,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,
     declared_inputs: &Option<PartitionedInputs<ActionSharedDirectory>>,
@@ -834,7 +797,7 @@ async fn outputs_match(
 }
 
 fn check_action(
-    key: &DepFilesKey,
+    key: &RunActionKey,
     previous_state: &DepFileState,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,
@@ -870,7 +833,7 @@ fn check_action(
 }
 
 async fn dep_files_match(
-    key: &DepFilesKey,
+    key: &RunActionKey,
     previous_state: &DepFileState,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,

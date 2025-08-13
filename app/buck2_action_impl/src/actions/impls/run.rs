@@ -20,6 +20,7 @@ use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
+use buck2_build_api::actions::execute::action_execution_target::ActionExecutionTarget;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
@@ -45,8 +46,10 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSep
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
+use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -139,6 +142,42 @@ impl Display for MetadataParameter {
             "path": self.path,
         });
         write!(f, "{json}")
+    }
+}
+
+/// A key that uniquely identifies a RunAction.
+#[derive(Eq, PartialEq, Hash, Display, Allocative)]
+#[display(
+    "{} {} {}",
+    owner,
+    category,
+    identifier.as_deref().unwrap_or("<no identifier>")
+)]
+pub(crate) struct RunActionKey {
+    owner: BaseDeferredKey,
+    category: Category,
+    identifier: Option<String>,
+}
+
+impl RunActionKey {
+    pub(crate) fn new(
+        owner: BaseDeferredKey,
+        category: Category,
+        identifier: Option<String>,
+    ) -> Self {
+        Self {
+            owner,
+            category,
+            identifier,
+        }
+    }
+
+    pub(crate) fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
+        Self {
+            owner: target.owner().dupe(),
+            category: target.category().to_owned(),
+            identifier: target.identifier().map(|t| t.to_owned()),
+        }
     }
 }
 

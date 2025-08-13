@@ -24,7 +24,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
 
-use crate::actions::impls::run::dep_files::DepFilesKey;
+use crate::actions::impls::run::RunActionKey;
 use crate::actions::impls::run::dep_files::StoredFingerprints;
 use crate::actions::impls::run::dep_files::get_dep_files;
 use crate::actions::impls::run::dep_files::read_dep_files;
@@ -42,7 +42,7 @@ async fn audit_dep_files(
     identifier: Option<String>,
     stdout: &mut (dyn Write + Send),
 ) -> buck2_error::Result<()> {
-    let key = DepFilesKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
+    let key = RunActionKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
 
     let state = get_dep_files(&key)
         .with_buck_error_context(|| format!("Failed to find dep files for key `{key}`"))?;
