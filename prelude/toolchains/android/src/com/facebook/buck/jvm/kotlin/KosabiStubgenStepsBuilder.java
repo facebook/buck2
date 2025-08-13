@@ -89,6 +89,13 @@ public class KosabiStubgenStepsBuilder {
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(stubgenOutputDir));
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(stubsOutputZipDir));
 
+      ImmutableList.Builder<AbsPath> kotlinHomeLibrariesBuilder =
+          ImmutableList.<AbsPath>builder()
+              .addAll(extraParams.getKotlinHomeLibraries())
+              .add(
+                  allKosabiPluginOptionPath.get(
+                      KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_EXTRA_KOTLIN_HOME_LIBRARY));
+
       steps.add(
           new KosabiStubgenStep(
               invokingRule,
@@ -96,7 +103,7 @@ public class KosabiStubgenStepsBuilder {
               sourceFilePaths,
               pathToSrcsList,
               allClasspaths,
-              extraParams.getKotlinHomeLibraries(),
+              kotlinHomeLibrariesBuilder.build(),
               reportsOutput,
               kotlinc,
               ImmutableList.of(),
@@ -106,7 +113,10 @@ public class KosabiStubgenStepsBuilder {
               buckOut,
               allKosabiPluginOptionPath.entrySet().stream()
                   .filter(
-                      entry -> KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN.equals(entry.getKey()))
+                      entry ->
+                          (KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN.equals(entry.getKey())
+                              || KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN.equals(
+                                  entry.getKey())))
                   .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
               "Terminating compilation. We're done with Stubgen.",
               false,
@@ -117,7 +127,7 @@ public class KosabiStubgenStepsBuilder {
               stubgenOutputDir,
               stubgenClassOutputDir,
               kotlinCDAnalytics,
-              LanguageVersion.getK1()));
+              languageVersion));
 
       steps.add(
           new ZipIsolatedStep(

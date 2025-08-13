@@ -37,6 +37,8 @@ public class KosabiStubgenStep extends KotlincStep {
   private final RelPath stubgenDir;
   private final RelPath stubClassOutputDir;
 
+  private final String pluginPath;
+
   KosabiStubgenStep(
       BuildTargetValue invokingRule,
       Path outputDirectory,
@@ -89,6 +91,11 @@ public class KosabiStubgenStep extends KotlincStep {
         languageVersion);
     this.stubgenDir = stubgenDir;
     this.stubClassOutputDir = stubClassOutputDir;
+    this.pluginPath =
+        "plugin:"
+            + (languageVersion.getSupportsK2()
+                ? "com.facebook.kotlin.compilerplugins.kosabi.stubsgen_k2"
+                : "com.facebook.kotlin.compilerplugins.kosabi.stubsgen");
   }
 
   @Override
@@ -97,23 +104,18 @@ public class KosabiStubgenStep extends KotlincStep {
   }
 
   @Override
-  protected void configureSourceOnlyOptions(ImmutableList.Builder<String> builder) {
-    super.configureSourceOnlyOptions(builder);
+  protected void configureSourceOnlyOptions(
+      ImmutableList.Builder<String> builder, LanguageVersion languageVersion) {
+    super.configureSourceOnlyOptions(builder, languageVersion);
     builder.add("-P");
-    builder.add(
-        "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen:stubsgen-dir="
-            + stubgenDir.toString());
+    builder.add(pluginPath + ":stubsgen-dir=" + stubgenDir.toString());
 
     if (stubClassOutputDir != null) {
       builder.add("-P");
-      builder.add(
-          "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen:stubs-class-dir="
-              + stubClassOutputDir.toString());
+      builder.add(pluginPath + ":stubs-class-dir=" + stubClassOutputDir.toString());
     }
 
     builder.add("-P");
-    builder.add(
-        "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen:stubsgen-standalone-mode="
-            + "true");
+    builder.add(pluginPath + ":stubsgen-standalone-mode=" + "true");
   }
 }

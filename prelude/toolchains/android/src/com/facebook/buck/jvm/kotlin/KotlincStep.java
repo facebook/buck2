@@ -245,7 +245,7 @@ public class KotlincStep implements IsolatedStep {
     }
 
     if (invokingRule.isSourceOnlyAbi()) {
-      configureSourceOnlyOptions(builder);
+      configureSourceOnlyOptions(builder, languageVersion);
     } else if (invokingRule.isSourceAbi()) {
       throw new Error("Source ABI flavor is not supported for Kotlin targets");
     } else if (!buildClasspathEntries.isEmpty()) {
@@ -306,12 +306,21 @@ public class KotlincStep implements IsolatedStep {
     return builder.build();
   }
 
-  protected void configureSourceOnlyOptions(ImmutableList.Builder<String> builder) {
-    if (resolvedKosabiPluginOptionPath.containsKey(KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN)) {
+  protected void configureSourceOnlyOptions(
+      ImmutableList.Builder<String> builder, LanguageVersion languageVersion) {
+    if (languageVersion.getSupportsK2()
+        && resolvedKosabiPluginOptionPath.containsKey(
+            KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN)) {
+      AbsPath stubPlugin =
+          resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN);
+      builder.add(X_PLUGIN_ARG + stubPlugin);
+    } else if (resolvedKosabiPluginOptionPath.containsKey(
+        KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN)) {
       AbsPath stubPlugin =
           resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN);
       builder.add(X_PLUGIN_ARG + stubPlugin);
     }
+
     if (resolvedKosabiPluginOptionPath.containsKey(
         KosabiConfig.PROPERTY_KOSABI_SOURCE_MODIFIER_PLUGIN)) {
       AbsPath sourceModifierPlugin =
