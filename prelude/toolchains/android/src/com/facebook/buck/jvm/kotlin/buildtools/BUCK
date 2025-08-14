@@ -17,7 +17,7 @@ buck_kotlin_library(
         "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin/...",
     ],
     deps = [
-        "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat",
+        # @oss-disable[end= ]: "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat",
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
         "prelude//toolchains/android/src/com/facebook/buck/core/build/execution/context:context",
         "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
