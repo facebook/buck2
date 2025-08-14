@@ -148,35 +148,6 @@ def apple_watchos_bundle_attrs():
     })
     return attributes
 
-def _apple_resource_bundle_attrs():
-    attribs = {
-        "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
-        "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
-        "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
-        "info_plist": attrs.source(),
-        "labels": attrs.list(attrs.string(), default = []),
-        "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
-        "privacy_manifest": attrs.option(attrs.source(), default = None),
-        "product_name": attrs.option(attrs.string(), default = None),
-        "product_name_from_module_name": attrs.bool(default = False),
-        "resource_group": attrs.option(attrs.string(), default = None),
-        "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
-        "universal": attrs.option(attrs.bool(), default = None),
-        # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
-        "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo]),
-        # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
-        # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
-        "_bundle_target_name": attrs.string(),
-        "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
-    }
-    attribs.update(get_apple_info_plist_build_system_identification_attrs())
-    attribs.update(apple_common.apple_tools_arg())
-    attribs.update(apple_common.asset_catalogs_compilation_options_arg())
-    attribs.update(apple_common.info_plist_substitutions_arg())
-    return attribs
-
 apple_asset_catalog = prelude_rule(
     name = "apple_asset_catalog",
     docs = """
@@ -1490,7 +1461,33 @@ apple_watchos_bundle = prelude_rule(
 apple_resource_bundle = prelude_rule(
     name = "apple_resource_bundle",
     impl = apple_resource_bundle_impl,
-    attrs = _apple_resource_bundle_attrs(),
+    attrs = (
+        {
+            "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
+            "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
+            "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
+            "info_plist": attrs.source(),
+            "labels": attrs.list(attrs.string(), default = []),
+            "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
+            "privacy_manifest": attrs.option(attrs.source(), default = None),
+            "product_name": attrs.option(attrs.string(), default = None),
+            "product_name_from_module_name": attrs.bool(default = False),
+            "resource_group": attrs.option(attrs.string(), default = None),
+            "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
+            "universal": attrs.option(attrs.bool(), default = None),
+            # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
+            "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo]),
+            # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
+            # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
+            "_bundle_target_name": attrs.string(),
+            "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
+        } | get_apple_info_plist_build_system_identification_attrs() |
+        apple_common.apple_tools_arg() |
+        apple_common.asset_catalogs_compilation_options_arg() |
+        apple_common.info_plist_substitutions_arg()
+    ),
 )
 
 apple_resource_dedupe_alias = prelude_rule(
