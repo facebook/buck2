@@ -148,9 +148,6 @@ def apple_watchos_bundle_attrs():
     })
     return attributes
 
-def _get_apple_resources_toolchain_attr():
-    return attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo])
-
 def _apple_resource_bundle_attrs():
     attribs = {
         "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
@@ -168,7 +165,7 @@ def _apple_resource_bundle_attrs():
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "universal": attrs.option(attrs.bool(), default = None),
         # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
-        "_apple_toolchain": _get_apple_resources_toolchain_attr(),
+        "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo]),
         # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
         # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
         "_bundle_target_name": attrs.string(),
@@ -567,45 +564,6 @@ apple_bundle = prelude_rule(
     cfg = target_sdk_version_transition,
 )
 
-def _apple_library_extra_attrs():
-    attribs = {
-        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-        "enable_distributed_thinlto": attrs.bool(default = select({
-            "DEFAULT": False,
-            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
-        })),
-        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-        "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
-        "link_execution_preference": link_execution_preference_attr(),
-        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
-        # Mach-O file type for binary when the target is built as a shared library.
-        "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
-        "stripped": attrs.option(attrs.bool(), default = None),
-        "supports_header_symlink_subtarget": attrs.bool(default = False),
-        "supports_shlib_interfaces": attrs.bool(default = True),
-        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
-        "swift_package_name": attrs.option(attrs.string(), default = None),
-        "use_archive": attrs.option(attrs.bool(), default = None),
-        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
-        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
-        "_enable_library_evolution": get_enable_library_evolution(),
-        "_stripped_default": attrs.bool(default = False),
-        "_swift_enable_testing": attrs.bool(default = select({
-            "DEFAULT": False,
-            "config//features/apple:swift_enable_testing_enabled": True,
-        })),
-        APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    } | validation_common.attrs_validators_arg()
-    attribs.update(apple_common.apple_tools_arg())
-    attribs.update(apple_common.apple_toolchain_arg())
-    attribs.update(apple_dsymutil_attrs())
-    attribs.update(get_swift_incremental_file_hashing_attrs())
-    attribs.update(get_skip_swift_incremental_outputs_attrs())
-    return attribs
-
 apple_library = prelude_rule(
     name = "apple_library",
     docs = """
@@ -688,6 +646,9 @@ apple_library = prelude_rule(
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
+        apple_common.apple_tools_arg() |
+        apple_common.apple_toolchain_arg() |
+        validation_common.attrs_validators_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -699,7 +660,13 @@ apple_library = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "devirt_enabled": attrs.bool(default = False),
             "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+            "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
             "enable_cxx_interop": attrs.bool(default = False),
+            "enable_distributed_thinlto": attrs.bool(default = select({
+                "DEFAULT": False,
+                "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+            })),
+            "enable_library_evolution": attrs.option(attrs.bool(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
@@ -711,6 +678,7 @@ apple_library = prelude_rule(
             "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
+            "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "info_plist": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
@@ -720,8 +688,10 @@ apple_library = prelude_rule(
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "link_execution_preference": link_execution_preference_attr(),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
+            "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
             "module_requires_cxx": attrs.bool(default = False),
@@ -732,24 +702,46 @@ apple_library = prelude_rule(
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+            "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
+            "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
             "public_framework_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             "sdk_modules": attrs.list(attrs.string(), default = []),
+            # Mach-O file type for binary when the target is built as a shared library.
+            "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
+            "stripped": attrs.option(attrs.bool(), default = None),
+            "supports_header_symlink_subtarget": attrs.bool(default = False),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
+            "supports_shlib_interfaces": attrs.bool(default = True),
+            "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
             "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
+            "swift_package_name": attrs.option(attrs.string(), default = None),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "thin_lto": attrs.bool(default = False),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
+            "use_archive": attrs.option(attrs.bool(), default = None),
             "uses_modules": attrs.bool(default = False),
+            "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+            "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+            "_enable_library_evolution": get_enable_library_evolution(),
+            "_stripped_default": attrs.bool(default = False),
+            "_swift_enable_testing": attrs.bool(default = select({
+                "DEFAULT": False,
+                "config//features/apple:swift_enable_testing_enabled": True,
+            })),
+            APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+            VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
         buck.allow_cache_upload_arg() |
-        _apple_library_extra_attrs()
+        apple_dsymutil_attrs() |
+        get_swift_incremental_file_hashing_attrs() |
+        get_skip_swift_incremental_outputs_attrs()
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
