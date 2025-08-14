@@ -220,12 +220,12 @@ def _build_erts(
         paths.join(
             erlang_build.utils.BUILD_DIR,
             release_name,
-            "erts",
+            "erts-0.0",
         ),
         toolchain.erts,
     )
 
-    return {"erts": erts_dir}
+    return {"erts-0.0": erts_dir}
 
 def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
     return ctx.actions.symlinked_dir(

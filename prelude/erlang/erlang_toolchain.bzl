@@ -105,7 +105,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # extract erts for late usage
 
-    erts = ctx.actions.declare_output("erts", dir = True)
+    erts = ctx.actions.declare_output("erts-0.0", dir = True)
     ctx.actions.run(
         cmd_args(extract_from_otp, "erts-*", erts.as_output()),
         identifier = ctx.attrs.name,
