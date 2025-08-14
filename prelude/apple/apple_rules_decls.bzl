@@ -1389,29 +1389,6 @@ apple_tools = prelude_rule(
     },
 )
 
-def _cxx_universal_executable_attrs():
-    return (
-        {
-            "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
-                    A build target identifying the binary which will be built for multiple architectures.
-                    The target will be transitioned into different configurations, with distinct architectures.
-
-                    The target can be one of:
-                    - `cxx_binary()`
-                    - `[shared]` subtarget `cxx_library()`
-                    - `cxx_library()` which have `preferred_linkage = shared` attribute
-                """),
-            "labels": attrs.list(attrs.string(), default = []),
-            "universal": attrs.option(attrs.bool(), default = None, doc = """
-                    Controls whether the output is universal binary. Any value overrides the presence
-                    of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
-                    for more information on resolution.
-                """),
-            "_cxx_toolchain": toolchains_common.cxx(),
-        } |
-        apple_common.executable_name_for_universal_arg()
-    )
-
 cxx_universal_executable = prelude_rule(
     name = "cxx_universal_executable",
     impl = cxx_universal_executable_impl,
@@ -1432,7 +1409,27 @@ cxx_universal_executable = prelude_rule(
     """,
     examples = None,
     further = None,
-    attrs = _cxx_universal_executable_attrs(),
+    attrs = (
+        {
+            "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
+                    A build target identifying the binary which will be built for multiple architectures.
+                    The target will be transitioned into different configurations, with distinct architectures.
+
+                    The target can be one of:
+                    - `cxx_binary()`
+                    - `[shared]` subtarget `cxx_library()`
+                    - `cxx_library()` which have `preferred_linkage = shared` attribute
+                """),
+            "labels": attrs.list(attrs.string(), default = []),
+            "universal": attrs.option(attrs.bool(), default = None, doc = """
+                    Controls whether the output is universal binary. Any value overrides the presence
+                    of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                    for more information on resolution.
+                """),
+            "_cxx_toolchain": toolchains_common.cxx(),
+        } |
+        apple_common.executable_name_for_universal_arg()
+    ),
 )
 
 apple_ipa_package = prelude_rule(
