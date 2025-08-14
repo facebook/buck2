@@ -249,38 +249,6 @@ apple_app_intents = prelude_rule(
     impl = apple_app_intents_impl,
 )
 
-def _apple_binary_extra_attrs():
-    attribs = {
-        "application_extension": attrs.bool(default = False),
-        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
-        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-        "enable_distributed_thinlto": attrs.bool(default = select({
-            "DEFAULT": False,
-            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
-        })),
-        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-        "link_execution_preference": link_execution_preference_attr(),
-        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "prefer_stripped_objects": attrs.bool(default = False),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
-        "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
-        "stripped": attrs.option(attrs.bool(), default = None),
-        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
-        "swift_package_name": attrs.option(attrs.string(), default = None),
-        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
-        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
-        "_enable_library_evolution": get_enable_library_evolution(),
-        "_stripped_default": attrs.bool(default = False),
-        "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
-        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    } | validation_common.attrs_validators_arg()
-    attribs.update(apple_common.apple_tools_arg())
-    attribs.update(apple_common.apple_toolchain_arg())
-    attribs.update(apple_dsymutil_attrs())
-    attribs.update(constraint_overrides.attributes)
-    attribs.update(get_skip_swift_incremental_outputs_attrs())
-    return attribs
-
 apple_binary = prelude_rule(
     name = "apple_binary",
     docs = """
@@ -337,6 +305,8 @@ apple_binary = prelude_rule(
                  `iphonesimulator` require this to run properly.
             """),
         } |
+        apple_common.apple_tools_arg() |
+        apple_common.apple_toolchain_arg() |
         apple_common.exported_headers_arg() |
         apple_common.header_path_prefix_arg() |
         apple_common.frameworks_arg() |
@@ -360,6 +330,8 @@ apple_binary = prelude_rule(
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
         {
+            "application_extension": attrs.bool(default = False),
+            "binary_linker_flags": attrs.list(attrs.arg(), default = []),
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -370,7 +342,13 @@ apple_binary = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "devirt_enabled": attrs.bool(default = False),
             "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+            "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
             "enable_cxx_interop": attrs.bool(default = False),
+            "enable_distributed_thinlto": attrs.bool(default = select({
+                "DEFAULT": False,
+                "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+            })),
+            "enable_library_evolution": attrs.option(attrs.bool(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
@@ -394,8 +372,10 @@ apple_binary = prelude_rule(
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "link_execution_preference": link_execution_preference_attr(),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
+            "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
             "link_whole": attrs.option(attrs.bool(), default = None),
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
@@ -406,27 +386,42 @@ apple_binary = prelude_rule(
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+            "prefer_stripped_objects": attrs.bool(default = False),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
+            "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
             "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None),
+            "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
             "sdk_modules": attrs.list(attrs.string(), default = []),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
+            "stripped": attrs.option(attrs.bool(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
+            "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = False),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
+            "swift_package_name": attrs.option(attrs.string(), default = None),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "thin_lto": attrs.bool(default = False),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
+            "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+            "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+            "_enable_library_evolution": get_enable_library_evolution(),
+            "_stripped_default": attrs.bool(default = False),
+            "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
+            VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
         buck.allow_cache_upload_arg() |
-        _apple_binary_extra_attrs()
+        validation_common.attrs_validators_arg() |
+        constraint_overrides.attributes |
+        apple_dsymutil_attrs() |
+        get_skip_swift_incremental_outputs_attrs()
     ),
     impl = apple_binary_impl,
     cfg = target_sdk_version_transition,
