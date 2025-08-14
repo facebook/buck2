@@ -31,9 +31,9 @@ GroupFilterInfo = provider(
     fields = {
         # What should be dumped in the link-groups-info subtarget.
         "info": provider_field(dict[str, typing.Any]),
-        # A function which is given a target label and list[str] and returns whether
-        # it matches.
-        "matches": provider_field(typing.Callable[[Label, list[str]], bool]),
+        # A function which is given an optional root label, a target label and
+        # a list of its labels returns if the target label matches.
+        "matches": provider_field(typing.Callable[[[Label, None], Label, list[str]], bool]),
     },
 )
 
