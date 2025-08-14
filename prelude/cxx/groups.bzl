@@ -283,6 +283,10 @@ def _find_targets_in_mapping(
         if mapping.filters:
             for filter in mapping.filters:
                 if not filter.matches(root, node, graph_node.labels):
+                    # Filters can specify if they should stop once the first
+                    # non-match occurs.
+                    if filter.stop_at_first_non_match:
+                        return False
                     return True
 
         matching_targets[node] = None

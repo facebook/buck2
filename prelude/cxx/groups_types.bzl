@@ -34,6 +34,8 @@ GroupFilterInfo = provider(
         # A function which is given an optional root label, a target label and
         # a list of its labels returns if the target label matches.
         "matches": provider_field(typing.Callable[[[Label, None], Label, list[str]], bool]),
+        # If the matching should stop once the filter no longer matches.
+        "stop_at_first_non_match": provider_field(bool, default = False),
     },
 )
 
