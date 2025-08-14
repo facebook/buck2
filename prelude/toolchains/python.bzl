@@ -22,10 +22,11 @@ _INTERPRETER = select({
     "config//os:windows": "python.exe",
 })
 
-def _system_python_bootstrap_toolchain_impl(ctx):
+def _python_bootstrap_toolchain_impl(ctx):
+    interpreter = ctx.attrs.interpreter.args if isinstance(ctx.attrs.interpreter, RunInfo) else ctx.attrs.interpreter
     return [
         DefaultInfo(),
-        PythonBootstrapToolchainInfo(interpreter = ctx.attrs.interpreter),
+        PythonBootstrapToolchainInfo(interpreter = interpreter),
     ]
 
 # Creates a new bootstrap toolchain using Python that is installed on your system.
@@ -40,11 +41,24 @@ def _system_python_bootstrap_toolchain_impl(ctx):
 # )
 # ```
 system_python_bootstrap_toolchain = rule(
-    impl = _system_python_bootstrap_toolchain_impl,
+    impl = _python_bootstrap_toolchain_impl,
     attrs = {
         "interpreter": attrs.string(default = _INTERPRETER),
     },
     is_toolchain_rule = True,
+)
+
+python_bootstrap_toolchain = rule(
+    impl = _python_bootstrap_toolchain_impl,
+    attrs = {
+        "interpreter": attrs.dep(providers = [RunInfo]),
+    },
+    is_toolchain_rule = True,
+    doc = """
+        A bootstrap toolchain using the provided interpreter.
+
+        If you want to use whatever's available on $PATH, use `system_python_bootstrap_toolchain`.
+    """,
 )
 
 def _system_python_toolchain_impl(ctx):
@@ -126,8 +140,14 @@ def remote_python_toolchain(
         name: str,
         visibility: list[str],
         cpython_urls: dict[str, dict[str, dict[str, str]]] = CPYTHON_ARCHIVE,
+        bootstrap: bool = True,
         **kwargs) -> None:
-    """Sets up a Python toolchain by using a pre-built CPython installation, downloaded from the [python-build-standalone project](https://github.com/astral-sh/python-build-standalone)."""
+    """
+    Sets up a Python toolchain by using a pre-built CPython installation, downloaded from the [python-build-standalone project](https://github.com/astral-sh/python-build-standalone).
+
+    If `bootstrap` is set to `True`, this will also set up a bootstrap toolchain using the same interpreter.
+    """
+
     native.http_archive(
         name = "cpython_archive",
         urls = [select({
@@ -161,6 +181,14 @@ def remote_python_toolchain(
         visibility = visibility,
         resources = [":cpython_archive"],
     )
+
+    if bootstrap:
+        python_bootstrap_toolchain(
+            name = "{}_bootstrap".format(name),
+            visibility = visibility,
+            interpreter = ":cpython",
+        )
+
     native.genrule(
         name = "libpython_symbols",
         out = "linker_args",
