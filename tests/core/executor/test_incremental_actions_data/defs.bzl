@@ -23,5 +23,5 @@ basic_incremental_action = rule(impl = _basic_incremental_actions_impl, attrs = 
     "invalidate": attrs.string(),
     "script": attrs.source(),
     "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
-    "use_incremental": attrs.bool(default = (read_config("test", "dont_use_incremental", True) == True)),
+    "use_incremental": attrs.bool(default = (read_config("test", "use_incremental", True) == True)),
 })

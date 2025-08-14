@@ -73,7 +73,7 @@ async def test_incremental_action_with_non_incremental_inbetween(buck: Buck) -> 
         "-c",
         f"test.seed={random_string()}",
         "-c",
-        "test.dont_use_incremental=true",
+        "test.use_incremental=false",
     )
     assert result.stdout == "foo"
 
@@ -83,7 +83,7 @@ async def test_incremental_action_with_non_incremental_inbetween(buck: Buck) -> 
         "-c",
         f"test.seed={random_string()}",
         "-c",
-        "test.dont_use_incremental=true",
+        "test.use_incremental=false",
     )
     assert result.stdout == "foo"
 
