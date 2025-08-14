@@ -11,9 +11,10 @@ load(
     "project_artifacts",
 )
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
+load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities", "macos_test_re_capabilities")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
@@ -216,7 +217,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
 def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: Artifact | None, dsym_artifact: Artifact | None = None, ui_test_target_app_bundle: Artifact | None = None) -> Provider:
     # When interacting with Tpx, we just pass our various inputs via env vars,
-    # since Tpx basiclaly wants structured output for this.
+    # since Tpx basically wants structured output for this.
 
     xctest_bundle = cmd_args(xctest_bundle, hidden = dsym_artifact) if dsym_artifact else xctest_bundle
     env = {"XCTEST_BUNDLE": xctest_bundle}
@@ -234,22 +235,25 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
     labels = ctx.attrs.labels + [tpx_label]
     labels.append(tpx_label)
 
-    sdk_name = get_apple_sdk_name(ctx)
+    test_device_type = AppleTestDeviceType(ctx.attrs.test_device_type)
+    if test_device_type == AppleTestDeviceType("default"):
+        # determine the device type based on the sdk
+        sdk_name = get_apple_sdk_name(ctx)
+        if sdk_name == MacOSXSdkMetadata.name:
+            test_device_type = AppleTestDeviceType("mac")
+        else:
+            test_device_type = AppleTestDeviceType("ios")
+
     if ctx.attrs.test_re_capabilities:
         remote_execution_properties = ctx.attrs.test_re_capabilities
-
-    elif sdk_name == MacOSXSdkMetadata.name:
-        # @oss-disable[end= ]: remote_execution_properties = macos_test_re_capabilities()
-        remote_execution_properties = None # @oss-enable
-
     else:
-        # @oss-disable[end= ]: requires_ios_booted_simulator = ctx.attrs.test_host_app != None or ctx.attrs.ui_test_target_app != None
-        # @oss-disable[end= ]: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator)
+        # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
+        # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
         remote_execution_properties = None # @oss-enable
 
-    # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(macos_test = sdk_name == MacOSXSdkMetadata.name)
-
+    # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
     remote_execution_use_case = None # @oss-enable
+
     local_enabled = remote_execution_use_case == None
     remote_enabled = remote_execution_use_case != None
 

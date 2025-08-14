@@ -10,6 +10,7 @@ load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
@@ -170,6 +171,7 @@ def apple_test_extra_attrs():
         "stripped": attrs.bool(default = False),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
+        "test_device_type": attrs.enum(AppleTestDeviceType.values(), default = "default"),
         "test_re_capabilities": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None, doc = """
             An optional dictionary with the RE capabilities for the test execution.
             Overrides a default selection mechanism.
