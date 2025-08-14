@@ -10,7 +10,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 
 PythonBootstrapSources = provider(fields = {"srcs": provider_field(typing.Any, default = None)})
 
-PythonBootstrapToolchainInfo = provider(fields = {"interpreter": provider_field(typing.Any, default = None)})
+PythonBootstrapToolchainInfo = provider(fields = {"interpreter": provider_field(str | cmd_args)})
 
 def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
     tree = {src.short_path: src for src in ctx.attrs.srcs}
