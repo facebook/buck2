@@ -23,7 +23,7 @@ _INTERPRETER = select({
 })
 
 def _python_bootstrap_toolchain_impl(ctx):
-    interpreter = ctx.attrs.interpreter.args if isinstance(ctx.attrs.interpreter, RunInfo) else ctx.attrs.interpreter
+    interpreter = ctx.attrs.interpreter if isinstance(ctx.attrs.interpreter, str) else ctx.attrs.interpreter[RunInfo].args
     return [
         DefaultInfo(),
         PythonBootstrapToolchainInfo(interpreter = interpreter),
