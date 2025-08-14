@@ -170,7 +170,7 @@ def _k2():
 
 def _incremental():
     return {
-        "incremental": attrs.bool(default = True, doc = """
+        "incremental": attrs.bool(default = False, doc = """
     Enables Kotlin incremental compilation.
     """),
     }
@@ -192,8 +192,8 @@ def _plugins():
             default = [],
             doc = """
                 Plugins that do not use the execution platform. This exists for historical reasons,
-                and should not be used. Use `plugins` instead - plugins should be configured for
-                the execution platform since that is where they are used.
+                and should not be used. Use `plugins` instead - plugins should be configured for 
+                the execution platform since that is where they are used. 
                 """,
         ),
         "plugins": attrs.list(
@@ -203,9 +203,9 @@ def _plugins():
             ),
             default = [],
             doc = """
-                List of plugins that should be run during compilation of the target. A list of
-                strings may additionally be provided in order to pass additional arguments to
-                the plugin.
+                List of plugins that should be run during compilation of the target. A list of 
+                strings may additionally be provided in order to pass additional arguments to 
+                the plugin. 
                 """,
         ),
     }
