@@ -7,15 +7,34 @@ import os
 
 
 # Copy only file contents and exec permission bit.
-def _copy(src, dst, *, follow_symlinks=True):
-    shutil.copyfile(src, dst, follow_symlinks=False)
-    src_mode = os.lstat(src).st_mode
-    dst_mode = os.lstat(dst).st_mode
-    os.chmod(
-        dst,
-        dst_mode | (src_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)),
-        follow_symlinks=False,
-    )
+def _copy(src, dst):
+    if os.path.islink(src):
+        target = os.readlink(src)
+        os.symlink(target, dst)
+    else:
+        shutil.copyfile(src, dst)
+        src_mode = os.lstat(src).st_mode
+        dst_mode = os.lstat(dst).st_mode
+        os.chmod(
+            dst,
+            dst_mode | (src_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)),
+        )
+
+
+def _copy_tree(src, dst, *, dirs_exist_ok=False):
+    os.makedirs(dst, exist_ok=dirs_exist_ok)
+
+    for root, dirs, files in os.walk(src):
+        rel_root = os.path.relpath(root, src)
+
+        for f in files:
+            src_path = os.path.join(root, f)
+            dst_path = os.path.join(dst, rel_root, f)
+            _copy(src_path, dst_path)
+
+        for d in dirs:
+            dst_path = os.path.join(dst, rel_root, d)
+            os.makedirs(dst_path, exist_ok=dirs_exist_ok)
 
 
 def main(argv):
@@ -46,11 +65,9 @@ def main(argv):
         fdst = os.path.join(args.output, dst)
         os.makedirs(os.path.dirname(fdst), exist_ok=True)
         if os.path.isdir(src):
-            shutil.copytree(
-                src, fdst, symlinks=True, dirs_exist_ok=True, copy_function=_copy
-            )
+            _copy_tree(src, fdst, dirs_exist_ok=True)
         else:
-            shutil.copy(src, fdst)
+            _copy(src, fdst)
 
     for dst, target in args.symlinks:
         fdst = os.path.join(args.output, dst)
