@@ -15,6 +15,7 @@ load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_enabled.bzl", "is_test_execution_on_re_enabled")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
@@ -237,15 +238,16 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         sdk_name = get_apple_sdk_name(ctx)
         test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
 
-    if ctx.attrs.test_re_capabilities:
-        remote_execution_properties = ctx.attrs.test_re_capabilities
-    else:
-        # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
-        # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
-        remote_execution_properties = None # @oss-enable
+    remote_execution_properties = None
+    remote_execution_use_case = None
 
-    # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
-    remote_execution_use_case = None # @oss-enable
+    # @oss-disable[end= ]: if is_test_execution_on_re_enabled():
+        # @oss-disable[end= ]: if ctx.attrs.test_re_capabilities:
+            # @oss-disable[end= ]: remote_execution_properties = ctx.attrs.test_re_capabilities
+        # @oss-disable[end= ]: else:
+            # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
+            # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
+        # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
 
     local_enabled = remote_execution_use_case == None
     remote_enabled = remote_execution_use_case != None
