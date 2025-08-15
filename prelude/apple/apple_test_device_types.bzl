@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":apple_sdk_metadata.bzl", "MacOSXSdkMetadata")
+load(":apple_sdk_metadata.bzl", "MacOSXSdkMetadata", "WatchSimulatorSdkMetadata")
 
 AppleTestDeviceType = enum(
     "default",
@@ -14,11 +14,14 @@ AppleTestDeviceType = enum(
     "ipad",
     "iphone",
     "mac",
+    "watch",
 )
 
 def get_default_test_device(sdk: str, platform: str) -> AppleTestDeviceType:
     if sdk == MacOSXSdkMetadata.name:
         return AppleTestDeviceType("mac")
+    elif sdk == WatchSimulatorSdkMetadata.name:
+        return AppleTestDeviceType("watch")
     elif "catalyst" in platform:
         return AppleTestDeviceType("catalyst")
     else:
