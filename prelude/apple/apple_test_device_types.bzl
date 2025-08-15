@@ -11,8 +11,8 @@ load(":apple_sdk_metadata.bzl", "MacOSXSdkMetadata")
 AppleTestDeviceType = enum(
     "default",
     "catalyst",
-    "ios",
     "ipad",
+    "iphone",
     "mac",
 )
 
@@ -22,4 +22,4 @@ def get_default_test_device(sdk: str, platform: str) -> AppleTestDeviceType:
     elif "catalyst" in platform:
         return AppleTestDeviceType("catalyst")
     else:
-        return AppleTestDeviceType("ios")
+        return AppleTestDeviceType("iphone")
