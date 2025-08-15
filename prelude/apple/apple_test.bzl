@@ -109,7 +109,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     shared_libraries = False,
                     template_placeholders = False,
                 ),
-                populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, xctest_bundle = xctest_bundle, test_host_app_binary = test_host_app_binary, **kwargs),
+                populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, xctest_bundle = xctest_bundle, test_host_app_binary = test_host_app_binary, test_host_app_bundle = test_host_app_bundle, **kwargs),
                 # We want to statically link the transitive dep graph of the apple_test()
                 # which we can achieve by forcing link group linking with
                 # an empty mapping (i.e., default mapping).
@@ -323,6 +323,7 @@ def _xcode_populate_attributes(
         argsfiles: dict[str, CompileArgsfile],
         xctest_bundle: Artifact,
         test_host_app_binary: [cmd_args, None],
+        test_host_app_bundle: Artifact | None,
         **_kwargs) -> dict[str, typing.Any]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data[XcodeDataInfoKeys.OUTPUT] = xctest_bundle
@@ -335,6 +336,7 @@ def _xcode_populate_attributes(
         data[XcodeDataInfoKeys.TEST_TYPE] = "unit-test"
         if test_host_app_binary:
             data[XcodeDataInfoKeys.TEST_HOST_APP_BINARY] = test_host_app_binary
+            data[XcodeDataInfoKeys.TEST_HOST_APP_BUNDLE] = test_host_app_bundle
             data[XcodeDataInfoKeys.TEST_HOST_APP_TARGET] = ctx.attrs.test_host_app.label.raw_target()
     return data
 
