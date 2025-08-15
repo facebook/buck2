@@ -12,6 +12,7 @@ AppleTestDeviceType = enum(
     "default",
     "catalyst",
     "ios",
+    "ipad",
     "mac",
 )
 
