@@ -92,6 +92,7 @@ def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
         # These are the artifacts that rustc generates as inputs to the linker.
         elif (
             arg.endswith("rcgu.o")
+            or arg.endswith("rmeta.o")
             or arg.endswith("symbols.o")
             or arg.endswith("rcgu.rmeta")
             or arg.endswith("dll_imports.lib")
