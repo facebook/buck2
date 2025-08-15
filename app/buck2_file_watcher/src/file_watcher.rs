@@ -62,13 +62,40 @@ impl dyn FileWatcher {
 
         let _allow_unused = fb;
 
-        match root_config
+        let watcher_conf = root_config
             .get(BuckconfigKeyRef {
                 section: "buck2",
                 property: "file_watcher",
             })
-            .unwrap_or(default)
-        {
+            .unwrap_or(default);
+
+        let watcher_conf = if let "edenfs" = watcher_conf {
+            #[cfg(fbcode_build)]
+            match EdenFsFileWatcher::new(
+                fb,
+                project_root,
+                root_config,
+                cells.clone(),
+                ignore_specs.clone(),
+            ) {
+                Ok(edenfs) => return Ok(Arc::new(edenfs)),
+                Err(EdenFsWatcherError::NoEden) => {
+                    soft_error!(
+                        "edenfs_watcher_creation_failure",
+                        EdenFsWatcherError::NoEden.into()
+                    )?;
+                    // fallback to watchman if failed to create edenfs watcher
+                    "watchman"
+                }
+                Err(e) => return Err(e.into()),
+            }
+            #[cfg(not(fbcode_build))]
+            default
+        } else {
+            watcher_conf
+        };
+
+        match watcher_conf {
             "watchman" => Ok(Arc::new(
                 WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
                     .buck_error_context("Creating watchman file watcher")?,
@@ -81,36 +108,6 @@ impl dyn FileWatcher {
                 FsHashCrawler::new(project_root, cells, ignore_specs)
                     .buck_error_context("Creating fs_crawler file watcher")?,
             )),
-            #[cfg(fbcode_build)]
-            "edenfs" => {
-                match EdenFsFileWatcher::new(
-                    fb,
-                    project_root,
-                    root_config,
-                    cells.clone(),
-                    ignore_specs.clone(),
-                ) {
-                    Ok(edenfs) => Ok(Arc::new(edenfs)),
-                    Err(EdenFsWatcherError::NoEden) => {
-                        soft_error!(
-                            "edenfs_watcher_creation_failure",
-                            EdenFsWatcherError::NoEden.into()
-                        )?;
-                        // fallback to watchman if failed to create edenfs watcher
-                        Ok(Arc::new(
-                            WatchmanFileWatcher::new(
-                                project_root.root(),
-                                root_config,
-                                cells,
-                                ignore_specs,
-                            )
-                            .buck_error_context("Creating watchman file watcher")?,
-                        ))
-                    }
-                    Err(e) => Err(e.into()),
-                }
-            }
-
             other => Err(buck2_error!(
                 buck2_error::ErrorTag::Tier0,
                 "Invalid buck2.file_watcher: {}",
