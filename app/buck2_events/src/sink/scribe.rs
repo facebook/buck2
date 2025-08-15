@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use buck2_core::buck2_env;
+use buck2_data::ActionExecutionEnd;
 use buck2_data::InstantEvent;
 use buck2_data::Location;
 use buck2_data::StructuredError;
@@ -199,7 +200,12 @@ impl RemoteEventSink {
                                 Ok(ActionExecutionKind::Simple) => false,
                                 Ok(ActionExecutionKind::Deferred) => false,
                                 Ok(ActionExecutionKind::NotSet) => false,
-                                _ => true,
+                                _ => {
+                                    match (action_has_cache_hit(a), self.schedule_type.is_diff()) {
+                                        (true, true) => false,
+                                        _ => true,
+                                    }
+                                }
                             }
                     }
                     Some(Data::Analysis(..)) => !self.schedule_type.is_diff(),
@@ -254,6 +260,15 @@ impl EventSink for RemoteEventSink {
             Event::PartialResult(..) => {}
         }
     }
+}
+
+fn action_has_cache_hit(action: &ActionExecutionEnd) -> bool {
+    for details in action.commands.iter().filter_map(|e| e.details.as_ref()) {
+        if get_is_cache_hit(details) {
+            return true;
+        }
+    }
+    false
 }
 
 fn get_is_cache_hit(details: &buck2_data::CommandExecutionDetails) -> bool {
