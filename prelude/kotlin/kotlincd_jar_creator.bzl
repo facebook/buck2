@@ -183,7 +183,7 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
-        source_only_abi_compiling_deps = [],
+        extra_source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
     proto, used_jars_json = define_kotlincd_action(
@@ -260,7 +260,6 @@ def create_jar_artifact_kotlincd(
             is_building_android_binary = is_building_android_binary,
             class_abi_generator = java_toolchain.class_abi_generator,
             final_jar = final_jar_output.final_jar,
-            compiling_deps_tset = compiling_deps_tset,
             source_only_abi_deps = source_only_abi_deps,
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
@@ -449,11 +448,11 @@ def _define_kotlincd_action(
         classpath_jars_tag: ArtifactTag,
         abi_dir: Artifact | None,
         target_type: TargetType,
-        source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
+        extra_source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
         is_creating_subtarget: bool = False,
         incremental_state_dir: Artifact | None = None,
         should_action_run_incrementally: bool = False):
-    _unused = source_only_abi_compiling_deps
+    _unused = extra_source_only_abi_compiling_deps
 
     compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(

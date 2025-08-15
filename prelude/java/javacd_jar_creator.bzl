@@ -148,7 +148,7 @@ def create_jar_artifact_javacd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
-        source_only_abi_compiling_deps = [],
+        extra_source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
     used_jars_json = define_javacd_action(
@@ -161,7 +161,7 @@ def create_jar_artifact_javacd(
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         is_creating_subtarget = is_creating_subtarget,
-        source_only_abi_compiling_deps = [],
+        extra_source_only_abi_compiling_deps = [],
     )
     jar_postprocessor = ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None
     final_jar_output = prepare_final_jar(
@@ -187,7 +187,6 @@ def create_jar_artifact_javacd(
             is_building_android_binary = is_building_android_binary,
             class_abi_generator = java_toolchain.class_abi_generator,
             final_jar = final_jar_output.final_jar,
-            compiling_deps_tset = compiling_deps_tset,
             source_only_abi_deps = source_only_abi_deps,
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
@@ -283,7 +282,7 @@ def _define_javacd_action(
         abi_dir: Artifact | None,
         target_type: TargetType,
         is_creating_subtarget: bool = False,
-        source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
+        extra_source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
     expect(java_toolchain.javacd, "java_toolchain.javacd must be set for javacd protocol")
     compiler = java_toolchain.javacd
     exe, local_only = prepare_cd_exe(
@@ -319,9 +318,13 @@ def _define_javacd_action(
         hidden = []
         if java_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
-                abi_as_dir_deps = [dep for dep in source_only_abi_compiling_deps if dep.abi_as_dir]
-                abi_to_abi_dir_map = [cmd_args(dep.abi, dep.abi_as_dir, delimiter = " ") for dep in abi_as_dir_deps]
-                hidden = [dep.abi_as_dir for dep in abi_as_dir_deps]
+                if extra_source_only_abi_compiling_deps:
+                    source_only_abi_compiling_deps = extra_source_only_abi_compiling_deps + [dep for dep in compiling_deps_tset.traverse() if dep.required_for_source_only_abi]
+                    abi_as_dir_deps = [dep for dep in source_only_abi_compiling_deps if dep.abi_as_dir]
+                    abi_to_abi_dir_map = [cmd_args(dep.abi, dep.abi_as_dir, delimiter = " ") for dep in abi_as_dir_deps]
+                    hidden = [dep.abi_as_dir for dep in abi_as_dir_deps]
+                elif compiling_deps_tset:
+                    abi_to_abi_dir_map = compiling_deps_tset.project_as_args("source_only_deps_abi_to_abi_dir")
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
         used_classes_json_outputs = [cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1)]
