@@ -32,7 +32,6 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
-    # TODO(T100007184) filter res/assets by ignored filenames
     sub_targets = {}
     providers = []
     default_output = None
