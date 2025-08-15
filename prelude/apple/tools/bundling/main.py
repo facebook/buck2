@@ -12,6 +12,7 @@ import argparse
 import cProfile
 import json
 import logging
+import os
 import pstats
 import shlex
 import sys
@@ -359,6 +360,21 @@ def _get_codesigned_paths_from_spec(
 def _main() -> None:
     args_parser = _args_parser()
     args = args_parser.parse_args()
+
+    uname_info = os.uname()
+    sysname = uname_info.sysname
+    major_release = int(uname_info.release.split(".")[0])
+
+    # macOS 26.0.0 Tahoe no longer supports SHA1 as an option in the codesign tool.
+    # Note: This is safe to remove along with the code that adds the digest-algorithm code
+    # in apple_bundle_wrapping_rule.bzl once we are migrated to macOS 26.0.
+    if (
+        "--digest-algorithm=sha1" in args.codesign_args
+        and sysname == "Darwin"
+        and major_release
+        >= 25  # Darwin kernel release 25.0.0 corresponds to macOS 26.0.0 Tahoe
+    ):
+        args.codesign_args.remove("--digest-algorithm=sha1")
 
     if args.log_file:
         with open(args.log_file, "w") as _:
