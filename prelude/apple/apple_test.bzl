@@ -11,7 +11,7 @@ load(
     "project_artifacts",
 )
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
-load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType")
+load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
@@ -47,10 +47,6 @@ load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_tests")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
-load(
-    ":apple_sdk_metadata.bzl",
-    "MacOSXSdkMetadata",
-)
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "XCTestSwiftSupportInfo")
@@ -237,12 +233,9 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
 
     test_device_type = AppleTestDeviceType(ctx.attrs.test_device_type)
     if test_device_type == AppleTestDeviceType("default"):
-        # determine the device type based on the sdk
+        # determine the device type from the sdk and platform
         sdk_name = get_apple_sdk_name(ctx)
-        if sdk_name == MacOSXSdkMetadata.name:
-            test_device_type = AppleTestDeviceType("mac")
-        else:
-            test_device_type = AppleTestDeviceType("ios")
+        test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
 
     if ctx.attrs.test_re_capabilities:
         remote_execution_properties = ctx.attrs.test_re_capabilities

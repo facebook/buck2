@@ -6,9 +6,19 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(":apple_sdk_metadata.bzl", "MacOSXSdkMetadata")
+
 AppleTestDeviceType = enum(
     "default",
     "catalyst",
     "ios",
     "mac",
 )
+
+def get_default_test_device(sdk: str, platform: str) -> AppleTestDeviceType:
+    if sdk == MacOSXSdkMetadata.name:
+        return AppleTestDeviceType("mac")
+    elif "catalyst" in platform:
+        return AppleTestDeviceType("catalyst")
+    else:
+        return AppleTestDeviceType("ios")
