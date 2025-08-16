@@ -304,8 +304,19 @@ pub struct WorkerSpec {
 }
 
 // Contains the declared short path name to the full content-based hash path
+
 #[derive(Allocative)]
-pub struct IncrementalState(pub SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
+pub struct IncrementalState(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
+
+impl IncrementalState {
+    pub fn new(state: SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>) -> Self {
+        IncrementalState(state)
+    }
+
+    pub fn get(&self, key: &ForwardRelativePathBuf) -> Option<&ProjectRelativePathBuf> {
+        self.0.get(key)
+    }
+}
 
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {

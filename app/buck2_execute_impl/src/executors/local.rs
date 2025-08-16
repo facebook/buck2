@@ -24,11 +24,13 @@ use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::soft_error;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
@@ -79,6 +81,7 @@ use derive_more::From;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
+use futures::future::join_all;
 use futures::future::select;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
@@ -248,16 +251,22 @@ impl LocalExecutor {
                         .await
                     },
                     async {
-                        // When user requests to not perform a cleanup for a specific action
-                        // output from previous run of that action could actually be used as the
-                        // input during current run (e.g. extra output which is an incremental state describing the actual output).
                         if !request.outputs_cleanup {
+                            // When user requests to not perform a cleanup for a specific action
+                            // output from previous run of that action could actually be used as the
+                            // input during current run (e.g. extra output which is an incremental state describing the actual output).
                             materialize_build_outputs(
                                 &self.artifact_fs,
                                 self.materializer.as_ref(),
                                 request,
                             )
                             .await?;
+
+                            // TODO(minglunli): There might be a dedup opportunity here to save some copying/materialization
+                            // if the paths already exist on disk, should explore that
+                            self.prepare_content_based_incremental_actions(request, cancellations)
+                                .await?;
+
                             buck2_error::Ok(())
                         } else {
                             Ok(())
@@ -873,6 +882,85 @@ impl LocalExecutor {
             ControlFlow::Continue((None, manager))
         }
     }
+
+    async fn prepare_content_based_incremental_actions(
+        &self,
+        request: &CommandExecutionRequest,
+        cancellations: &CancellationContext,
+    ) -> buck2_error::Result<()> {
+        let declared_content_based_outputs: Vec<BuildArtifactPath> = request
+            .outputs()
+            .filter_map(|output| match output {
+                CommandExecutionOutputRef::BuildArtifact { path, .. }
+                    if path.is_content_based_path() =>
+                {
+                    Some(path.clone())
+                }
+                _ => None,
+            })
+            .collect();
+
+        let outputs_to_delete = declared_content_based_outputs
+            .iter()
+            .map(|path| {
+                self.artifact_fs
+                    .resolve_build(&path, Some(&ContentBasedPathHash::OutputArtifact))
+            })
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+
+        self.materializer
+            .invalidate_many(outputs_to_delete.clone())
+            .await?;
+
+        // Need to clean the placeholder paths before execution as there could be stale outputs that can cause unexpected behavior
+        self.blocking_executor
+            .execute_io(
+                Box::new(CleanOutputPaths {
+                    paths: outputs_to_delete,
+                }),
+                cancellations,
+            )
+            .await
+            .buck_error_context("Failed to cleanup output directory")?;
+
+        if let Some(state) = request.incremental_state() {
+            let mut copy_futs = Vec::new();
+
+            for output in declared_content_based_outputs {
+                let p = output.path().to_buf();
+
+                if let Some(content_path) = state.get(&p) {
+                    copy_futs.push(async move {
+                        self.blocking_executor
+                            .execute_io_inline(|| {
+                                self.artifact_fs.fs().copy(
+                                    content_path.clone(),
+                                    self.artifact_fs.resolve_build(
+                                        &output,
+                                        Some(&ContentBasedPathHash::OutputArtifact),
+                                    )?,
+                                )
+                            })
+                            .await
+                    })
+                }
+            }
+
+            join_all(copy_futs).await.map(|result| {
+                if let Err(e) = result {
+                    // Builds can still pass without incremental outputs so we shouldn't error out, but would be good to track
+                    soft_error!(
+                        "content_based_incremental_copy_failed",
+                        buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e).into(),
+                        quiet: true
+                    )
+                    .unwrap();
+                };
+            });
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -1163,13 +1251,19 @@ async fn materialize_build_outputs(
 
     for output in request.outputs() {
         match output {
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            CommandExecutionOutputRef::BuildArtifact {
-                path,
-                output_type: _,
-                supports_incremental_remote: _,
-            } => paths.push(artifact_fs.resolve_build(path, None)?),
-            CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
+            CommandExecutionOutputRef::BuildArtifact { path, .. } => {
+                if path.is_content_based_path() {
+                    if let Some(state) = request.incremental_state() {
+                        let p = path.path().to_buf();
+                        if let Some(content_path) = state.get(&p) {
+                            paths.push(content_path.clone());
+                        }
+                    }
+                } else {
+                    paths.push(artifact_fs.resolve_build(path, None)?);
+                }
+            }
+            CommandExecutionOutputRef::TestPath { .. } => {}
         }
     }
 

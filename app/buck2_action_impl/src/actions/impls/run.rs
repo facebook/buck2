@@ -93,6 +93,7 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
+use starlark::collections::SmallMap;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -590,6 +591,9 @@ impl RunAction {
         let (expanded, expanded_command_line_digest_for_dep_files, worker) =
             self.expand_command_line_and_worker(ctx, visitor)?;
 
+        let executor_fs = ctx.executor_fs();
+        let fs = executor_fs.fs();
+
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
         // those things in a HashMap is just not very useful.
         let artifact_inputs: Vec<&ArtifactGroupValues> = visitor
@@ -602,8 +606,6 @@ impl RunAction {
 
         if self.inner.incremental_remote_outputs {
             let output_paths = {
-                let executor_fs = ctx.executor_fs();
-                let fs = executor_fs.fs();
                 let mut output_paths = Vec::new();
                 for output in &self.outputs {
                     // TODO(T219919866): support content based paths
@@ -627,9 +629,6 @@ impl RunAction {
         }
 
         let mut extra_env = Vec::new();
-
-        let executor_fs = ctx.executor_fs();
-        let fs = executor_fs.fs();
         let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
         self.prepare_action_metadata(
             ctx,
@@ -938,6 +937,10 @@ impl RunAction {
             ControlFlow::Continue(manager) => ctx.exec_cmd(manager, &req, &prepared_action).await,
         };
 
+        if self.inner.no_outputs_cleanup {
+            save_content_based_incremental_state(ctx, &result)?;
+        }
+
         Ok(ExecuteResult::ExecutedOrReHit {
             result,
             dep_file_bundle,
@@ -947,6 +950,39 @@ impl RunAction {
             input_files_bytes,
         })
     }
+}
+
+fn save_content_based_incremental_state(
+    ctx: &dyn ActionExecutionCtx,
+    result: &CommandExecutionResult,
+) -> buck2_error::Result<()> {
+    let mut incremental_state_map = SmallMap::new();
+
+    for (k, v) in &result.outputs {
+        if let CommandExecutionOutput::BuildArtifact { path, .. } = k
+            && path.is_content_based_path()
+        {
+            let p = path.path().to_buf();
+            let content_based_path = ctx
+                .fs()
+                .resolve_build(&path, Some(&v.content_based_path_hash()))?;
+
+            incremental_state_map.insert(p, content_based_path);
+        }
+    }
+
+    let run_action_key = RunActionKey::from_action_execution_target(ctx.target()).to_string();
+    // Need to clear the state if there weren't any outputs to prevent stale outputs from being used
+    if incremental_state_map.is_empty() {
+        INCREMENTAL.remove(&run_action_key);
+    } else {
+        INCREMENTAL.insert(
+            run_action_key,
+            IncrementalState::new(incremental_state_map).into(),
+        );
+    }
+
+    Ok(())
 }
 
 pub(crate) struct PreparedRunAction {
