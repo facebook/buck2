@@ -10,6 +10,7 @@
 
 use std::borrow::Cow;
 use std::ops::ControlFlow;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -75,9 +76,11 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::IncrementalState;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionResult;
+use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -87,6 +90,7 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::Freeze;
@@ -125,6 +129,13 @@ use crate::context::run::RunActionError;
 pub(crate) mod audit_dep_files;
 pub(crate) mod dep_files;
 mod metadata;
+
+#[allocative::root]
+static INCREMENTAL: Lazy<DashMap<String, Arc<IncrementalState>>> = Lazy::new(DashMap::new);
+
+fn get_incremental_state(key: &String) -> Option<Arc<IncrementalState>> {
+    INCREMENTAL.get(key).map(|s| s.dupe())
+}
 
 #[derive(Debug, Allocative)]
 pub(crate) struct MetadataParameter {
@@ -816,7 +827,7 @@ impl RunAction {
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
-        let req = prepared_run_action
+        let mut req = prepared_run_action
             .into_command_execution_request()
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
@@ -832,6 +843,19 @@ impl RunAction {
             )
             .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
             .with_outputs_for_error_handler(outputs_for_error_handler);
+
+        if self.inner.no_outputs_cleanup {
+            if self
+                .outputs
+                .iter()
+                .any(|o| o.get_path().is_content_based_path())
+            {
+                // Using string representation of run_action_key as it is going to be stored in db which requires it to be a string
+                let run_action_key =
+                    RunActionKey::from_action_execution_target(ctx.target()).to_string();
+                req = req.with_incremental_state(get_incremental_state(&run_action_key));
+            }
+        }
 
         let dep_file_bundle = make_dep_file_bundle(
             ctx,

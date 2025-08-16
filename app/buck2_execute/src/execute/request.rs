@@ -22,6 +22,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -37,6 +38,7 @@ use itertools::Itertools;
 use prost::Message;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
+use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_set::SortedSet;
 
 use super::dep_file_digest::DepFileDigest;
@@ -301,6 +303,10 @@ pub struct WorkerSpec {
     pub remote_key: Option<TrackedFileDigest>,
 }
 
+// Contains the declared short path name to the full content-based hash path
+#[derive(Allocative)]
+pub struct IncrementalState(pub SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
+
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {
     /// Optional arguments including executable prepended to `args` to get full command line.
@@ -344,8 +350,10 @@ pub struct CommandExecutionRequest {
     remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
     /// RE execution policy.
     meta_internal_extra_params: MetaInternalExtraParams,
-    // Failed action outputs to materialize
+    /// Failed action outputs to materialize
     outputs_for_error_handler: Vec<BuildArtifactPath>,
+    /// Incremental state for the action, used by content-based incremental actions.
+    incremental_state: Option<Arc<IncrementalState>>,
 }
 
 impl CommandExecutionRequest {
@@ -378,6 +386,7 @@ impl CommandExecutionRequest {
             remote_execution_custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
             outputs_for_error_handler: Vec::new(),
+            incremental_state: None,
         }
     }
 
@@ -605,6 +614,18 @@ impl CommandExecutionRequest {
 
     pub fn meta_internal_extra_params(&self) -> &MetaInternalExtraParams {
         &self.meta_internal_extra_params
+    }
+
+    pub fn with_incremental_state(
+        mut self,
+        incremental_state: Option<Arc<IncrementalState>>,
+    ) -> Self {
+        self.incremental_state = incremental_state;
+        self
+    }
+
+    pub fn incremental_state(&self) -> &Option<Arc<IncrementalState>> {
+        &self.incremental_state
     }
 }
 
