@@ -387,6 +387,7 @@ impl TargetNode {
             x.name.hash(state);
             x.value.hash(state);
         });
+        self.test_config_unification_rollout().hash(state);
     }
 
     #[inline]
