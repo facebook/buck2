@@ -67,7 +67,7 @@ def _get_source_library_compile_command(ctx: bxl.Context, target: bxl.Configured
     target_universe = "{}/...".format(target.label.path)
     rdeps = ctx.cquery().rdeps(target_universe, target.label, 1)
     for rdep in rdeps:
-        if rdep.label != target.label and not _is_header_only_library(rdep):
+        if rdep.label != target.label and rdep.label.path == target.label.path and not _is_header_only_library(rdep):
             source_library_target = rdep
             break
 
