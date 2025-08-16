@@ -23,6 +23,10 @@ def check_nonempty_output(command_parts):
     try:
         subprocess.run(command_parts, check=True, env=os.environ)
     except subprocess.CalledProcessError as e:
+        if e.returncode == -11:
+            print(
+                f"Segmentation fault detected in subprocess:\n{' '.join(command_parts)}"
+            )
         sys.exit(e.returncode)
 
     # Check if the output file is not empty
