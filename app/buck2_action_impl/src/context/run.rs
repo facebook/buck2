@@ -91,9 +91,9 @@ pub(crate) enum RunActionError {
     )]
     FailedActionArtifactNotDeclared { path: String },
     #[error(
-        "Action is marked with no_outputs_cleanup but output `{}` is content-based, which is not allowed.", .path
+        "Action is marked with `incremental_remote_outputs` but output `{}` is content-based, which is not allowed.", .path
     )]
-    NoOutputsCleanupWithContentBasedOutputs { path: String },
+    IncrementalRemoteOutputsWithContentBasedOutputs { path: String },
     #[error(
         "Action is marked with `incremental_remote_outputs` but not `no_outputs_cleanup`, which is not allowed."
     )]
@@ -451,11 +451,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let extra_params =
             parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
 
-        if no_outputs_cleanup {
+        if incremental_remote_outputs {
             for o in artifacts.declared_outputs.iter() {
                 if o.has_content_based_path() {
                     return Err(buck2_error::Error::from(
-                        RunActionError::NoOutputsCleanupWithContentBasedOutputs {
+                        RunActionError::IncrementalRemoteOutputsWithContentBasedOutputs {
                             path: o.get_path().to_string(),
                         },
                     )
