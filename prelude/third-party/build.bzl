@@ -67,7 +67,7 @@ def create_third_party_build_root(
         lines = []
         if shared_libs:
             for soname, shared_lib in shared_libs.items():
-                lines.append(cmd_args("--path", path_utils.join("lib", soname), shared_lib.lib.output))
+                lines.append(cmd_args("--file-follow", path_utils.join("lib", soname), shared_lib.lib.output))
 
                 # Linker link `-l<name>` dynamically (by default) by looking for `lib<name>.so`,
                 # so make sure this exists by creating it as a symlink (to the versioned name)

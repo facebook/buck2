@@ -7,8 +7,8 @@ import os
 
 
 # Copy only file contents and exec permission bit.
-def _copy(src, dst):
-    if os.path.islink(src):
+def _copy(src, dst, follow_symlinks=True):
+    if os.path.islink(src) and not follow_symlinks:
         target = os.readlink(src)
         os.symlink(target, dst)
     else:
@@ -30,7 +30,7 @@ def _copy_tree(src, dst, *, dirs_exist_ok=False):
         for f in files:
             src_path = os.path.join(root, f)
             dst_path = os.path.join(dst, rel_root, f)
-            _copy(src_path, dst_path)
+            _copy(src_path, dst_path, follow_symlinks=False)
 
         for d in dirs:
             dst_path = os.path.join(dst, rel_root, d)
@@ -43,6 +43,7 @@ def main(argv):
         "--manifest", dest="manifests", nargs=2, action="append", default=[]
     )
     parser.add_argument("--path", dest="paths", nargs=2, action="append", default=[])
+    parser.add_argument("--file-follow", dest="files_follow", nargs=2, action="append", default=[])
     parser.add_argument(
         "--symlink", dest="symlinks", nargs=2, action="append", default=[]
     )
@@ -67,7 +68,12 @@ def main(argv):
         if os.path.isdir(src):
             _copy_tree(src, fdst, dirs_exist_ok=True)
         else:
-            _copy(src, fdst)
+            _copy(src, fdst, follow_symlinks=False)
+
+    for dst, src in args.files_follow:
+        fdst = os.path.join(args.output, dst)
+        os.makedirs(os.path.dirname(fdst), exist_ok=True)
+        _copy(src, fdst, follow_symlinks=True)
 
     for dst, target in args.symlinks:
         fdst = os.path.join(args.output, dst)
