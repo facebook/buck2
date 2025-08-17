@@ -31,6 +31,13 @@ def _get_sh_ext(ctx: AnalysisContext) -> str | None:
         return toolchain_info.linker_info.shared_library_name_format.format("")
     return None
 
+def is_empty(cxx_headers: list[CPreprocessorInfo]):
+    for pps in cxx_headers:
+        for pp in pps.set.value:
+            for _ in pp.headers:
+                return False
+    return True
+
 def create_third_party_build_root(
         ctx: AnalysisContext,
         out: str = "__third_party_build__",
@@ -121,15 +128,19 @@ def create_third_party_build_info(
 
     sh_ext = _get_sh_ext(ctx)
 
+    include_paths = []
+    if not is_empty(cxx_headers):
+        include_paths.append("include")
+    include_paths.extend(cxx_header_dirs)
+
     # Build manifest.
     def gen_manifest(actions, output, shared_libs):
         manifest = {}
         manifest["project"] = project
         manifest["prefix"] = prefix
-        if cxx_header_dirs:
-            manifest["c_include_paths"] = cxx_header_dirs
-            manifest["cxx_include_paths"] = cxx_header_dirs
         manifest["bin_paths"] = []
+        manifest["c_include_paths"] = include_paths
+        manifest["cxx_include_paths"] = include_paths
         if shared_libs:
             manifest["lib_paths"] = ["lib"]
             manifest["runtime_lib_paths"] = ["lib"]
