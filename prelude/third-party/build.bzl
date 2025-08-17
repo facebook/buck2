@@ -129,7 +129,9 @@ def create_third_party_build_info(
         if cxx_header_dirs:
             manifest["c_include_paths"] = cxx_header_dirs
             manifest["cxx_include_paths"] = cxx_header_dirs
+        manifest["bin_paths"] = []
         if shared_libs:
+            manifest["lib_paths"] = ["lib"]
             manifest["runtime_lib_paths"] = ["lib"]
             libs = []
             for soname in shared_libs:
@@ -137,6 +139,10 @@ def create_third_party_build_info(
                     lib = soname.split(sh_ext)[0].removeprefix("lib")
                     libs.append("-l{}".format(lib))
             manifest["libs"] = libs
+        else:
+            manifest["lib_paths"] = []
+            manifest["runtime_lib_paths"] = []
+            manifest["libs"] = []
         return actions.write_json(output.as_output(), manifest, pretty = True)
 
     manifest = gen_shared_libs_action(
