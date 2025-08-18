@@ -674,13 +674,10 @@ impl LocalExecutor {
                         // We do the following:
                         // (1) We create a symlink from the configuration-based path to the content-based path
                         //     (for any users/tooling that only has access to the configuration-based path)
-                        // (2) If we already have an artifact declared at the content-based path, we don't need
-                        //     to redeclare it.
-                        // (3) If we do need to declare the artifact at the content-based path, we first declare
-                        //     an existing artifact at the "placeholder" output path that the action wrote to.
-                        // (4) Then we declare a copy from the "placeholder" output path to the content-based path.
-                        // (5) Finally, we ensure everything is materialized.
-                        // (6) Note that we don't need to invalidate the "placeholder" output path, as that is
+                        // (2) Declare an existing artifact at the "placeholder" output path that the action wrote to.
+                        // (3) Then we declare a copy from the "placeholder" output path to the content-based path.
+                        // (4) Finally, we ensure everything is materialized.
+                        // (5) Note that we don't need to invalidate the "placeholder" output path, as that is
                         //     the responsibility of any action that subsequently uses it.
                         if output.as_ref().has_content_based_path() {
                             let hashed_path = output
@@ -703,30 +700,21 @@ impl LocalExecutor {
                             configuration_path_to_content_based_path_symlinks
                                 .push((configuration_hash_path, symlink_value));
 
-                            if !self
-                                .materializer
-                                .has_artifact_at(hashed_path.clone())
-                                .await?
-                            {
-                                to_declare.push(DeclareArtifactPayload {
-                                    path: output_path.clone(),
-                                    artifact: value.dupe(),
-                                    persist_full_directory_structure: supports_incremental_remote,
-                                });
-                                output_path_to_content_based_path_copies.push((
-                                    hashed_path.clone(),
-                                    value.dupe(),
-                                    vec![CopiedArtifact {
-                                        src: output_path.clone(),
-                                        dest: hashed_path.clone(),
-                                        dest_entry: value
-                                            .entry()
-                                            .dupe()
-                                            .map_dir(|d| d.as_immutable()),
-                                        executable_bit_override: None,
-                                    }],
-                                ));
-                            }
+                            to_declare.push(DeclareArtifactPayload {
+                                path: output_path.clone(),
+                                artifact: value.dupe(),
+                                persist_full_directory_structure: supports_incremental_remote,
+                            });
+                            output_path_to_content_based_path_copies.push((
+                                hashed_path.clone(),
+                                value.dupe(),
+                                vec![CopiedArtifact {
+                                    src: output_path.clone(),
+                                    dest: hashed_path.clone(),
+                                    dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
+                                    executable_bit_override: None,
+                                }],
+                            ));
                         } else {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
