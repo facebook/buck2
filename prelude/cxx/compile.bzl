@@ -1174,13 +1174,14 @@ def _mk_argsfiles(
     argsfiles = []
     args_list = []
 
-    def mk_argsfile(filename: str, args) -> Artifact:
+    def mk_argsfile(filename: str, args, use_dep_files_placeholder_for_content_based_paths: bool = False) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
         argsfile, _ = ctx.actions.write(
             filename,
             content,
             allow_args = True,
             uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+            use_dep_files_placeholder_for_content_based_paths = use_dep_files_placeholder_for_content_based_paths,
         )
         return argsfile
 
@@ -1255,9 +1256,28 @@ def _mk_argsfiles(
         if preprocessor.set.reduce("uses_modules"):
             deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
-        # filename example: .cpp.deps_cxx_args
+        # We write two versions of the argsfile:
+        # - deps_argsfile_for_compiler: a tagged argsfile with the (optionally)
+        #   content-based paths to the hmaps, which will be passed to the compiler as
+        #   usual, but will NOT be marked used, so that whether the paths in it change
+        #   or not, the action will NOT rerun.
+        # - deps_argsfile_for_buck_action_rerun: an untagged argsfile with the same
+        #   content except content-based paths are replaced by placeholders; this file
+        #   is not read by the compiler but passed as a hidden input of the compiler
+        #   action, so that if something OTHER than paths in the argsfiles changes, this
+        #   redacted version will change and trigger a rerun.
+        # filename example: .cpp.deps_cxx_args, .cpp.deps_cxx_args_redacted
         deps_argsfile_filename = filename_prefix + "deps_cxx_args"
-        argsfiles.append(mk_argsfile(deps_argsfile_filename, deps_args))
+        deps_argsfile_for_compiler = mk_argsfile(deps_argsfile_filename, deps_args)
+        deps_argsfile_for_buck_action_rerun = mk_argsfile(
+            deps_argsfile_filename + "_redacted",
+            deps_args,
+            use_dep_files_placeholder_for_content_based_paths = True,
+        )
+        argsfiles.append(cmd_args(
+            headers_tag.tag_artifacts(deps_argsfile_for_compiler),
+            hidden = deps_argsfile_for_buck_action_rerun,
+        ))
         args_list.extend(deps_args)
 
     make_deps_argsfile()
