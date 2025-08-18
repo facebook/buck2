@@ -166,16 +166,22 @@ def get_compiling_deps_tset(
 
     return compiling_deps_tset
 
-def _get_specified_source_only_abi_compiling_deps(source_only_abi_deps: list[Dependency]) -> list[JavaClasspathEntry]:
-    extra_source_only_abi_compiling_deps = []
-    for d in source_only_abi_deps:
-        info = d.get(JavaLibraryInfo)
-        if not info:
-            fail("source_only_abi_deps must produce a JavaLibraryInfo but '{}' does not, please remove it".format(d.label))
-        if info.library_output and not info.library_output.required_for_source_only_abi:
-            extra_source_only_abi_compiling_deps.append(info.library_output)
+def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet, None], source_only_abi_deps: list[Dependency]) -> list[JavaClasspathEntry]:
+    source_only_abi_compiling_deps = []
+    if compiling_deps_tset:
+        source_only_abi_deps_filter = {}
+        for d in source_only_abi_deps:
+            info = d.get(JavaLibraryInfo)
+            if not info:
+                fail("source_only_abi_deps must produce a JavaLibraryInfo but '{}' does not, please remove it".format(d.label))
+            if info.library_output:
+                source_only_abi_deps_filter[info.library_output.abi] = True
 
-    return extra_source_only_abi_compiling_deps
+        def filter_compiling_deps(dep):
+            return dep.abi in source_only_abi_deps_filter or dep.required_for_source_only_abi
+
+        source_only_abi_compiling_deps = [compiling_dep for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
+    return source_only_abi_compiling_deps
 
 # buildifier: disable=unused-variable
 def encode_ap_params(annotation_processor_properties: AnnotationProcessorProperties, target_type: TargetType) -> [struct, None]:
@@ -259,23 +265,16 @@ def encode_base_jar_command(
         plugin_params: [PluginParams, None],
         manifest_file: Artifact | None,
         extra_arguments: cmd_args,
-        extra_source_only_abi_compiling_deps: list[JavaClasspathEntry],
+        source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool,
         provide_classpath_snapshot: bool = False) -> struct:
     jar_parameters = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
-        if not extra_source_only_abi_compiling_deps:
-            if compiling_deps_tset:
-                compiling_classpath = classpath_jars_tag.tag_artifacts(compiling_deps_tset.project_as_json("source_only_abi_deps", ordering = "topological"))
-            else:
-                compiling_classpath = []
-        else:
-            all_source_only_abi_compiling_deps = extra_source_only_abi_compiling_deps + [compiling_dep for compiling_dep in list(compiling_deps_tset.traverse()) if compiling_dep.required_for_source_only_abi]
-            compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in all_source_only_abi_compiling_deps])
+        compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in source_only_abi_compiling_deps])
         compiling_classpath_snapshot = []
     else:
-        expect(len(extra_source_only_abi_compiling_deps) == 0)
+        expect(len(source_only_abi_compiling_deps) == 0)
 
         # The snapshot inputs are tagged for association with dep_files, but they are not marked as used,
         # as they serve the incremental compiler's internal needs,
@@ -526,7 +525,7 @@ def encode_command(
         target_type: TargetType,
         output_paths: OutputPaths,
         classpath_jars_tag: ArtifactTag,
-        extra_source_only_abi_compiling_deps: list[JavaClasspathEntry],
+        source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
     base_jar_command = encode_base_jar_command(
         javac_tool,
@@ -547,7 +546,7 @@ def encode_command(
         plugin_params = plugin_params,
         manifest_file = manifest_file,
         extra_arguments = cmd_args(extra_arguments),
-        extra_source_only_abi_compiling_deps = extra_source_only_abi_compiling_deps,
+        source_only_abi_compiling_deps = source_only_abi_compiling_deps,
         track_class_usage = track_class_usage,
         provide_classpath_snapshot = provide_classpath_snapshot,
     )
@@ -574,6 +573,7 @@ def generate_abi_jars(
         is_building_android_binary: bool,
         class_abi_generator: Dependency,
         final_jar: Artifact,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
         source_only_abi_deps: list[Dependency],
         class_abi_jar: Artifact | None,
         class_abi_output_dir: Artifact | None,
@@ -603,7 +603,7 @@ def generate_abi_jars(
                 target_type = source_abi_target_type,
                 output_paths = source_abi_output_paths,
                 classpath_jars_tag = source_abi_classpath_jars_tag,
-                extra_source_only_abi_compiling_deps = [],
+                source_only_abi_compiling_deps = [],
                 track_class_usage = track_class_usage,
             )
             define_action(
@@ -629,13 +629,13 @@ def generate_abi_jars(
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_experimental_content_based_path_hashing)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_experimental_content_based_path_hashing, dir = True)
-            extra_source_only_abi_compiling_deps = _get_specified_source_only_abi_compiling_deps(source_only_abi_deps)
+            source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
             source_only_abi_command = encode_abi_command(
                 build_mode = BuildMode("ABI"),
                 target_type = source_only_abi_target_type,
                 output_paths = source_only_abi_output_paths,
                 classpath_jars_tag = source_only_abi_classpath_jars_tag,
-                extra_source_only_abi_compiling_deps = extra_source_only_abi_compiling_deps,
+                source_only_abi_compiling_deps = source_only_abi_compiling_deps,
                 track_class_usage = track_class_usage,
             )
             define_action(
@@ -647,7 +647,7 @@ def generate_abi_jars(
                 source_only_abi_classpath_jars_tag,
                 source_only_abi_dir,
                 source_only_abi_target_type,
-                extra_source_only_abi_compiling_deps = extra_source_only_abi_compiling_deps,
+                source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             )
             source_only_abi = source_only_abi_output_paths.jar
 

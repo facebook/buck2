@@ -124,18 +124,8 @@ def _abi_to_abi_dir(entry: JavaClasspathEntry):
         return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
     return []
 
-def _source_only_deps_abi_to_abi_dir(entry: JavaClasspathEntry):
-    if entry.required_for_source_only_abi and entry.abi_as_dir:
-        return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
-    return []
-
 def _full_library_args(entry: JavaClasspathEntry):
     return entry.full_library
-
-def _source_only_abi_deps_json(entry: JavaClasspathEntry):
-    if entry.required_for_source_only_abi:
-        return entry.abi
-    return ""
 
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
@@ -143,12 +133,10 @@ JavaCompilingDepsTSet = transitive_set(
         "args_for_ast_dumper": _args_for_ast_dumper,
         "args_for_compiling": _args_for_compiling,
         "full_library_args": _full_library_args,
-        "source_only_deps_abi_to_abi_dir": _source_only_deps_abi_to_abi_dir,
     },
     json_projections = {
         "abi_snapshot_json": _abi_snapshot_json,
         "javacd_json": _javacd_json,
-        "source_only_abi_deps": _source_only_abi_deps_json,
     },
 )
 
