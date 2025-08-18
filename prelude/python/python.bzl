@@ -106,11 +106,6 @@ def _source_type_manifests(value: PythonLibraryManifests) -> list[None] | Artifa
         return []
     return value.src_types.manifest
 
-def _source_type_manifest_jsons(value: PythonLibraryManifests) -> (TargetLabel, Artifact) | None:
-    if value.src_types == None:
-        return None
-    return (value.label.raw_target(), value.src_types.manifest)
-
 def _source_type_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.src_types == None:
         return []
@@ -146,9 +141,6 @@ args_projections.update({
 
 PythonLibraryManifestsTSet = transitive_set(
     args_projections = args_projections,
-    json_projections = {
-        "source_type_manifests_json": _source_type_manifest_jsons,
-    },
     reductions = {
         "has_hidden_resources": _has_hidden_resources,
         "standalone_has_hidden_resources": _standalone_has_hidden_resources,
