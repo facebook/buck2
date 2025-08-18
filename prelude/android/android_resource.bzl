@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//java:java_providers.bzl", "derive_compiling_deps", "get_global_code_info", "get_java_packaging_info")
+load("@prelude//java:java_providers.bzl", "derive_compiling_deps_wrapper", "get_global_code_info", "get_java_packaging_info")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
@@ -79,8 +79,8 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))
     providers.append(get_java_packaging_info(ctx, ctx.attrs.deps))
     providers.append(DefaultInfo(default_output = default_output, sub_targets = sub_targets))
-    compiling_deps = derive_compiling_deps(ctx.actions, None, ctx.attrs.deps)
-    providers.append(get_global_code_info(ctx, ctx.attrs.deps, ctx.attrs.deps, derive_compiling_deps(ctx.actions, None, []), compiling_deps, compiling_deps, ctx.attrs._java_toolchain[JavaToolchainInfo].global_code_config))
+    compiling_deps = derive_compiling_deps_wrapper(ctx.actions, None, ctx.attrs.deps)
+    providers.append(get_global_code_info(ctx, ctx.attrs.deps, ctx.attrs.deps, None, compiling_deps, [compiling_deps] if compiling_deps else [], ctx.attrs._java_toolchain[JavaToolchainInfo].global_code_config))
 
     return providers
 
