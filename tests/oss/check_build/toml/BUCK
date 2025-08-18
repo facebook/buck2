@@ -1,0 +1,26 @@
+load(":example.toml", "value")
+load(":asserts.bzl", "assert_equals")
+
+assert_equals("fruits" in value, True)
+assert_equals(
+    value["fruits"],
+    [
+        {
+        "name": "apple",
+        "physical": {
+            "color": "red",
+            "shape": "round"
+        },
+        "varieties": [
+            { "name": "red delicious" },
+            { "name": "granny smith" }
+        ]
+        },
+        {
+        "name": "banana",
+        "varieties": [
+            { "name": "plantain" }
+        ]
+        }
+  ],
+)
