@@ -30,26 +30,3 @@ static struct PyModuleDef extension = {
 PyMODINIT_FUNC PyInit_cpprint(void) {
   return PyModule_Create(&extension);
 }
-
-int main(int argc, char* argv[]) {
-  wchar_t* program = Py_DecodeLocale(argv[0], NULL);
-  if (program == NULL) {
-    fprintf(stderr, "Fatal error: cannot decode argv[0]\n");
-    exit(1);
-  }
-
-  /* Add a built-in module, before Py_Initialize */
-  if (PyImport_AppendInittab("cppring", PyInit_cpprint) == -1) {
-    fprintf(stderr, "Error: could not extend in-built modules table\n");
-    exit(1);
-  }
-
-  /* Pass argv[0] to the Python interpreter */
-  Py_SetProgramName(program);
-
-  /* Initialize the Python interpreter.  Required.
-     If this step fails, it will be a fatal error. */
-  Py_Initialize();
-
-  return 0;
-}

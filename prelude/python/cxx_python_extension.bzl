@@ -130,7 +130,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
         extra_link_flags = python_toolchain.extension_linker_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
-        preprocessor_flags = ctx.attrs.preprocessor_flags,
+        preprocessor_flags = python_toolchain.extension_preprocessor_flags + ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
