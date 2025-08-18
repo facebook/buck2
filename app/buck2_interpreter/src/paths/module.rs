@@ -45,6 +45,8 @@ pub enum StarlarkModulePath<'a> {
     BxlFile(&'a BxlFilePath),
     /// a json file to be parsed
     JsonFile(&'a ImportPath),
+    /// a toml file to be parsed
+    TomlFile(&'a ImportPath),
 }
 
 impl Equivalent<OwnedStarlarkModulePath> for StarlarkModulePath<'_> {
@@ -59,6 +61,7 @@ impl<'a> StarlarkModulePath<'a> {
             StarlarkModulePath::LoadFile(l) => l.cell(),
             StarlarkModulePath::BxlFile(b) => b.cell(),
             StarlarkModulePath::JsonFile(j) => j.cell(),
+            StarlarkModulePath::TomlFile(t) => t.cell(),
         }
     }
 
@@ -67,6 +70,7 @@ impl<'a> StarlarkModulePath<'a> {
             StarlarkModulePath::LoadFile(l) => l.build_file_cell(),
             StarlarkModulePath::BxlFile(b) => b.build_file_cell(),
             StarlarkModulePath::JsonFile(j) => j.build_file_cell(),
+            StarlarkModulePath::TomlFile(t) => t.build_file_cell(),
         }
     }
 
@@ -75,6 +79,7 @@ impl<'a> StarlarkModulePath<'a> {
             StarlarkModulePath::LoadFile(l) => l.path(),
             StarlarkModulePath::BxlFile(b) => b.path(),
             StarlarkModulePath::JsonFile(j) => j.path(),
+            StarlarkModulePath::TomlFile(t) => t.path(),
         }
     }
 
@@ -83,6 +88,7 @@ impl<'a> StarlarkModulePath<'a> {
             StarlarkModulePath::LoadFile(l) => StarlarkPath::LoadFile(l),
             StarlarkModulePath::BxlFile(b) => StarlarkPath::BxlFile(b),
             StarlarkModulePath::JsonFile(j) => StarlarkPath::JsonFile(j),
+            StarlarkModulePath::TomlFile(t) => StarlarkPath::TomlFile(t),
         }
     }
 
@@ -97,6 +103,7 @@ pub enum OwnedStarlarkModulePath {
     LoadFile(ImportPath),
     BxlFile(BxlFilePath),
     JsonFile(ImportPath),
+    TomlFile(ImportPath),
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -112,6 +119,7 @@ impl OwnedStarlarkModulePath {
             StarlarkModulePath::LoadFile(p) => Self::LoadFile(p.clone()),
             StarlarkModulePath::BxlFile(p) => Self::BxlFile(p.clone()),
             StarlarkModulePath::JsonFile(p) => Self::JsonFile(p.clone()),
+            StarlarkModulePath::TomlFile(t) => Self::TomlFile(t.clone()),
         }
     }
 
@@ -120,6 +128,7 @@ impl OwnedStarlarkModulePath {
             OwnedStarlarkModulePath::LoadFile(p) => StarlarkModulePath::LoadFile(p),
             OwnedStarlarkModulePath::BxlFile(p) => StarlarkModulePath::BxlFile(p),
             OwnedStarlarkModulePath::JsonFile(p) => StarlarkModulePath::JsonFile(p),
+            OwnedStarlarkModulePath::TomlFile(p) => StarlarkModulePath::TomlFile(p),
         }
     }
 
@@ -128,6 +137,7 @@ impl OwnedStarlarkModulePath {
             OwnedStarlarkModulePath::LoadFile(p) => p.path().as_ref(),
             OwnedStarlarkModulePath::BxlFile(p) => p.path().as_ref(),
             OwnedStarlarkModulePath::JsonFile(p) => p.path().as_ref(),
+            OwnedStarlarkModulePath::TomlFile(p) => p.path().as_ref(),
         }
     }
 
@@ -136,6 +146,7 @@ impl OwnedStarlarkModulePath {
             OwnedStarlarkModulePath::LoadFile(l) => OwnedStarlarkPath::LoadFile(l),
             OwnedStarlarkModulePath::BxlFile(b) => OwnedStarlarkPath::BxlFile(b),
             OwnedStarlarkModulePath::JsonFile(b) => OwnedStarlarkPath::JsonFile(b),
+            OwnedStarlarkModulePath::TomlFile(t) => OwnedStarlarkPath::TomlFile(t),
         }
     }
 }

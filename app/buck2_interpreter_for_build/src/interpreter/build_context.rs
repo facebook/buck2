@@ -68,6 +68,7 @@ pub enum PerFileTypeContext {
     Bxl(BxlFilePath),
     /// Context for evaluating `json` files.
     Json(ImportPath),
+    Toml(ImportPath),
 }
 
 impl PerFileTypeContext {
@@ -78,6 +79,7 @@ impl PerFileTypeContext {
             PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(&path.bzl_path),
             PerFileTypeContext::Bxl(path) => StarlarkPath::BxlFile(path),
             PerFileTypeContext::Json(path) => StarlarkPath::JsonFile(path),
+            PerFileTypeContext::Toml(path) => StarlarkPath::TomlFile(path),
         }
     }
 
