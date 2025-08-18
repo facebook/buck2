@@ -134,7 +134,7 @@ def make_archive(
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     thin = linker_info.archive_contents == "thin"
-    object_args = cmd_args(objects, ignore_artifacts = not linker_info.archiver_reads_inputs)
+    object_args = cmd_args(objects)
     args = cmd_args(object_args, hidden = hidden)
     archive = _archive(
         ctx,
