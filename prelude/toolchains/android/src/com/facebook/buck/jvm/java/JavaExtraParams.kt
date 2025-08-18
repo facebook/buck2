@@ -15,7 +15,7 @@ import com.facebook.buck.jvm.java.CompileToJarStepFactory.ExtraParams
 /** Extra params instance used to create Java related compile build steps */
 data class JavaExtraParams(
     val resolvedJavacOptions: ResolvedJavacOptions,
-    val addAnnotationPath: Boolean
+    val addAnnotationPath: Boolean,
 ) : ExtraParams {
   companion object {
     @JvmStatic
@@ -26,7 +26,7 @@ data class JavaExtraParams(
     @JvmStatic
     fun of(
         resolvedJavacOptions: ResolvedJavacOptions,
-        addAnnotationPath: Boolean
+        addAnnotationPath: Boolean,
     ): JavaExtraParams {
       return JavaExtraParams(resolvedJavacOptions, addAnnotationPath)
     }

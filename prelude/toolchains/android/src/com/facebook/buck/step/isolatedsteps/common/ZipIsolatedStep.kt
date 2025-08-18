@@ -45,7 +45,7 @@ data class ZipIsolatedStep(
     val paths: ImmutableSet<Path>,
     val junkPaths: Boolean,
     val compressionLevel: ZipCompressionLevel,
-    val baseDir: Path
+    val baseDir: Path,
 ) : IsolatedStep {
   @Throws(IOException::class, InterruptedException::class)
   override fun executeIsolatedStep(context: IsolatedExecutionContext): StepExecutionResult {
@@ -63,7 +63,14 @@ data class ZipIsolatedStep(
          * If walking the file directory throws, then an empty jar file is still created.
          */
         Zip.walkBaseDirectoryToCreateEntries(
-            rootPath, entries, baseDir, ignoredPaths, paths, junkPaths, compressionLevel)
+            rootPath,
+            entries,
+            baseDir,
+            ignoredPaths,
+            paths,
+            junkPaths,
+            compressionLevel,
+        )
         Zip.writeEntriesToZip(rootPath, out, entries)
       }
     }

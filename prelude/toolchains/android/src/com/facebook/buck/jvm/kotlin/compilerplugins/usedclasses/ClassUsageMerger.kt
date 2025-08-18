@@ -15,7 +15,7 @@ import java.nio.file.Path
 
 fun mergeClassUsageMaps(
     prevClassUsages: Map<Path, Set<Path>>,
-    currentClassUsages: Map<Path, Set<Path>>
+    currentClassUsages: Map<Path, Set<Path>>,
 ): Map<Path, Set<Path>> {
   if (prevClassUsages.isEmpty()) {
     return currentClassUsages

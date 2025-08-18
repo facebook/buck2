@@ -29,7 +29,7 @@ data class IsolatedExecutionContext(
     val console: Console,
     val processExecutor: ProcessExecutor,
     val ruleCellRoot: AbsPath,
-    val environment: ImmutableMap<String?, String?>
+    val environment: ImmutableMap<String?, String?>,
 ) : Closeable {
   val verbosity: Verbosity
     get() = console.verbosity
@@ -58,7 +58,7 @@ data class IsolatedExecutionContext(
   fun createSubContext(
       newStdout: PrintStream?,
       newStderr: PrintStream?,
-      verbosityOverride: Optional<Verbosity?>
+      verbosityOverride: Optional<Verbosity?>,
   ): IsolatedExecutionContext {
     val console = this.console
     val newConsole =
@@ -70,7 +70,8 @@ data class IsolatedExecutionContext(
         newConsole,
         processExecutor.cloneWithOutputStreams(newStdout, newStderr),
         ruleCellRoot,
-        environment)
+        environment,
+    )
   }
 
   companion object {
@@ -80,10 +81,15 @@ data class IsolatedExecutionContext(
         classLoaderCache: ClassLoaderCache,
         console: Console,
         processExecutor: ProcessExecutor,
-        ruleCellRoot: AbsPath
+        ruleCellRoot: AbsPath,
     ): IsolatedExecutionContext {
       return IsolatedExecutionContext(
-          classLoaderCache.addRef(), console, processExecutor, ruleCellRoot, ImmutableMap.of())
+          classLoaderCache.addRef(),
+          console,
+          processExecutor,
+          ruleCellRoot,
+          ImmutableMap.of(),
+      )
     }
   }
 }

@@ -14,7 +14,7 @@ enum class KotlinSupportedLanguageVersion(val value: String) {
   v1_6("1.6"),
   DEFAULT_K1("1.9"),
   V2_0("2.0"),
-  V2_1("2.1")
+  V2_1("2.1"),
 }
 
 @RequiresOptIn(level = RequiresOptIn.Level.ERROR) annotation class LanguageVersionForLogs

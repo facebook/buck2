@@ -20,7 +20,7 @@ class AdbCommandFailedException(message: String) : Exception(message)
 
 enum class SetDebugAppMode {
   SKIP,
-  SET
+  SET,
 }
 
 class AdbUtils(val adb: String, val adbServerPort: Int) {
@@ -28,7 +28,7 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
   fun executeAdbShellCommand(
       command: String,
       deviceId: String,
-      ignoreFailure: Boolean = false
+      ignoreFailure: Boolean = false,
   ): String {
     return executeAdbCommand("shell $command", deviceId, ignoreFailure)
   }
@@ -36,7 +36,7 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
   fun executeAdbCommand(
       command: String,
       deviceId: String?,
-      ignoreFailure: Boolean = false
+      ignoreFailure: Boolean = false,
   ): String {
     val adbCommandResult: AdbCommandResult =
         try {
@@ -85,7 +85,8 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
     return AdbCommandResult(
         exitCode,
         output = output.toString().trim(),
-        error = if (errorOutput.isNotEmpty()) errorOutput.toString() else null)
+        error = if (errorOutput.isNotEmpty()) errorOutput.toString() else null,
+    )
   }
 
   fun getDevices(): List<AndroidDevice> {

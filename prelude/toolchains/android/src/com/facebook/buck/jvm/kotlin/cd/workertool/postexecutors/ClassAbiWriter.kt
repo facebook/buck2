@@ -21,13 +21,13 @@ sealed interface ClassAbiWriter {
 internal data class NonIncrementalAbiWriter(
     private val libraryStubJar: StubJar,
     private val jvmAbiGenJar: AbsPath,
-    private val abiJar: AbsPath
+    private val abiJar: AbsPath,
 ) : ClassAbiWriter {
 
   constructor(
       libraryJar: AbsPath,
       jvmAbiGenJar: AbsPath,
-      abiJar: AbsPath
+      abiJar: AbsPath,
   ) : this(StubJar(libraryJar), jvmAbiGenJar, abiJar)
 
   override fun execute() {
@@ -45,7 +45,7 @@ internal data class IncrementalAbiWriter(
     private val jvmAbiGenWorkingDir: AbsPath,
     private val jvmAbiGenJar: AbsPath,
     private val libraryStubJar: StubJar,
-    private val abiJar: AbsPath
+    private val abiJar: AbsPath,
 ) : ClassAbiWriter {
 
   constructor(
@@ -53,9 +53,14 @@ internal data class IncrementalAbiWriter(
       jvmAbiGenWorkingDir: AbsPath,
       jvmAbiGenJar: AbsPath,
       libraryJar: AbsPath,
-      abiJar: AbsPath
+      abiJar: AbsPath,
   ) : this(
-      StubJar(kotlincOutputDir), jvmAbiGenWorkingDir, jvmAbiGenJar, StubJar(libraryJar), abiJar)
+      StubJar(kotlincOutputDir),
+      jvmAbiGenWorkingDir,
+      jvmAbiGenJar,
+      StubJar(libraryJar),
+      abiJar,
+  )
 
   override fun execute() {
     kotlincOutputStubJar.apply {

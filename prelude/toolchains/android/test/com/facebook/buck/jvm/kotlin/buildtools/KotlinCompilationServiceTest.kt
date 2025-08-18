@@ -59,7 +59,9 @@ internal class KotlinCompilationServiceTest {
   fun setUp() {
     kotlinCompilationService =
         KotlinCompilationService(
-            CompilationService.loadImplementation(this::class.java.classLoader), mock())
+            CompilationService.loadImplementation(this::class.java.classLoader),
+            mock(),
+        )
 
     sourcesDir = temporaryFolder.newFolder("src")
     classesDir = temporaryFolder.newFolder("__classes__")
@@ -74,28 +76,30 @@ internal class KotlinCompilationServiceTest {
         KotlinSourceFile(
             sourcesDir.resolve("Foo.kt"),
             """
-                |class Foo {
-                |
-                | fun foo() {
-                |   println("foo")
-                | }
-                |
-                | fun bar() {}
-                |}
-                |"""
-                .trimMargin())
+            |class Foo {
+            |
+            | fun foo() {
+            |   println("foo")
+            | }
+            |
+            | fun bar() {}
+            |}
+            |"""
+                .trimMargin(),
+        )
 
     barSourceFile =
         KotlinSourceFile(
             sourcesDir.resolve("Bar.kt"),
             """
-                |class Bar(private val foo: Foo) {
-                |  fun bar() {
-                |    foo.foo()
-                |  }
-                |}
-                |"""
-                .trimMargin())
+            |class Bar(private val foo: Foo) {
+            |  fun bar() {
+            |    foo.foo()
+            |  }
+            |}
+            |"""
+                .trimMargin(),
+        )
   }
 
   @Test
@@ -107,8 +111,11 @@ internal class KotlinCompilationServiceTest {
             projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
             arguments =
                 createCompilerArgs(
-                    sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-            mode = KotlincMode.NonIncremental)
+                    sourceFiles = listOf(fooSourceFile, barSourceFile),
+                    outputDir = classesDir,
+                ),
+            mode = KotlincMode.NonIncremental,
+        )
 
     assertEquals(CompilationResult.COMPILATION_SUCCESS, result)
     val classes = classesDir.path.listDirectoryEntries().filter { it.extension == "class" }
@@ -126,8 +133,11 @@ internal class KotlinCompilationServiceTest {
             projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
             arguments =
                 createCompilerArgs(
-                    sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-            mode = createIncrementalMode())
+                    sourceFiles = listOf(fooSourceFile, barSourceFile),
+                    outputDir = classesDir,
+                ),
+            mode = createIncrementalMode(),
+        )
 
     assertEquals(CompilationResult.COMPILATION_SUCCESS, result)
     assertTrue(incrementalDir.path.listDirectoryEntries().isNotEmpty())
@@ -143,8 +153,11 @@ internal class KotlinCompilationServiceTest {
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
         arguments =
             createCompilerArgs(
-                sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-        mode = createIncrementalMode())
+                sourceFiles = listOf(fooSourceFile, barSourceFile),
+                outputDir = classesDir,
+            ),
+        mode = createIncrementalMode(),
+    )
     val initialClassTimestamps = getClassModificationTimes()
 
     fooSourceFile.changeContent("println(\"foo\")", "println(\"foo!\")")
@@ -153,8 +166,11 @@ internal class KotlinCompilationServiceTest {
             projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
             arguments =
                 createCompilerArgs(
-                    sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-            mode = createIncrementalMode())
+                    sourceFiles = listOf(fooSourceFile, barSourceFile),
+                    outputDir = classesDir,
+                ),
+            mode = createIncrementalMode(),
+        )
 
     assertEquals(CompilationResult.COMPILATION_SUCCESS, result)
     val postCompilationTimestamps = getClassModificationTimes()
@@ -168,8 +184,11 @@ internal class KotlinCompilationServiceTest {
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
         arguments =
             createCompilerArgs(
-                sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-        mode = createIncrementalMode())
+                sourceFiles = listOf(fooSourceFile, barSourceFile),
+                outputDir = classesDir,
+            ),
+        mode = createIncrementalMode(),
+    )
     val initialClassTimestamps = getClassModificationTimes()
     fooSourceFile.changeContent("foo()", "foo(i: Int = 1)")
 
@@ -178,8 +197,11 @@ internal class KotlinCompilationServiceTest {
             projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
             arguments =
                 createCompilerArgs(
-                    sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-            mode = createIncrementalMode())
+                    sourceFiles = listOf(fooSourceFile, barSourceFile),
+                    outputDir = classesDir,
+                ),
+            mode = createIncrementalMode(),
+        )
 
     assertEquals(CompilationResult.COMPILATION_SUCCESS, result)
     val postCompilationTimestamps = getClassModificationTimes()
@@ -193,8 +215,11 @@ internal class KotlinCompilationServiceTest {
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
         arguments =
             createCompilerArgs(
-                sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-        mode = createIncrementalMode())
+                sourceFiles = listOf(fooSourceFile, barSourceFile),
+                outputDir = classesDir,
+            ),
+        mode = createIncrementalMode(),
+    )
     val initialClassTimestamps = getClassModificationTimes()
     fooSourceFile.changeContent("foo()", "foo(i: String = 1)")
 
@@ -203,8 +228,11 @@ internal class KotlinCompilationServiceTest {
             projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
             arguments =
                 createCompilerArgs(
-                    sourceFiles = listOf(fooSourceFile, barSourceFile), outputDir = classesDir),
-            mode = createIncrementalMode())
+                    sourceFiles = listOf(fooSourceFile, barSourceFile),
+                    outputDir = classesDir,
+                ),
+            mode = createIncrementalMode(),
+        )
 
     assertEquals(CompilationResult.COMPILATION_ERROR, result)
     val postCompilationTimestamps = getClassModificationTimes()
@@ -221,7 +249,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     var snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_MEMBER_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -229,10 +258,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val initialClassTimestamps = getClassModificationTimes()
 
     fooSourceFile.changeContent("println(\"foo\")", "println(\"foo!\")")
@@ -243,7 +274,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_MEMBER_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -251,10 +283,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val postCompilationTimestamps = getClassModificationTimes()
 
     assertEquals(initialClassTimestamps["Bar.class"], postCompilationTimestamps["Bar.class"])
@@ -269,7 +303,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     var snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_MEMBER_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -277,10 +312,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val initialClassTimestamps = getClassModificationTimes()
 
     fooSourceFile.changeContent("foo()", "foo(i: Int = 1)")
@@ -291,7 +328,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_MEMBER_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -299,10 +337,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val postCompilationTimestamps = getClassModificationTimes()
 
     assertNotEquals(initialClassTimestamps["Bar.class"], postCompilationTimestamps["Bar.class"])
@@ -317,7 +357,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     var snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_MEMBER_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -325,10 +366,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val initialClassTimestamps = getClassModificationTimes()
 
     fooSourceFile.changeContent("fun bar() {}", "")
@@ -339,7 +382,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_MEMBER_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -347,10 +391,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val postCompilationTimestamps = getClassModificationTimes()
 
     assertEquals(initialClassTimestamps["Bar.class"], postCompilationTimestamps["Bar.class"])
@@ -365,7 +411,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     var snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -373,10 +420,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val initialClassTimestamps = getClassModificationTimes()
 
     fooSourceFile.changeContent("fun bar() {}", "")
@@ -387,7 +436,8 @@ internal class KotlinCompilationServiceTest {
                 sourceFiles = listOf(fooSourceFile),
                 outputDir = librariesDir,
             ),
-        mode = KotlincMode.NonIncremental)
+        mode = KotlincMode.NonIncremental,
+    )
     snapshot = generateClasspathSnapshot(librariesDir, SnapshotGranularity.CLASS_LEVEL)
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -395,10 +445,12 @@ internal class KotlinCompilationServiceTest {
             createCompilerArgs(
                 sourceFiles = listOf(barSourceFile),
                 outputDir = classesDir,
-                classpath = listOf(librariesDir)),
+                classpath = listOf(librariesDir),
+            ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+    )
     val postCompilationTimestamps = getClassModificationTimes()
 
     assertNotEquals(initialClassTimestamps["Bar.class"], postCompilationTimestamps["Bar.class"])
@@ -443,7 +495,8 @@ internal class KotlinCompilationServiceTest {
           kotlinSourceChanges = KotlinSourceChanges.ToBeCalculated,
           classpathChanges = classPathChanges,
           kotlinClassUsageFile = kotlinDepFile,
-          rebuildReason = null)
+          rebuildReason = null,
+      )
 
   private fun getClassModificationTimes(): Map<String, Long> =
       classesDir.path.listDirectoryEntries().associate { path ->
@@ -452,7 +505,7 @@ internal class KotlinCompilationServiceTest {
 
   private fun generateClasspathSnapshot(
       dependencyOutput: AbsPath,
-      granularity: SnapshotGranularity
+      granularity: SnapshotGranularity,
   ): File {
     // see details in docs for `CachedClasspathSnapshotSerializer` for details why we can't use a
     // fixed name

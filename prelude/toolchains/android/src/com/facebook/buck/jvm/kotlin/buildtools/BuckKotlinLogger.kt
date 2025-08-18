@@ -19,7 +19,7 @@ import java.util.logging.Level
 
 internal class BuckKotlinLogger(
     private val stdErr: PrintStream,
-    private val loggingContext: KotlinCDLoggingContext
+    private val loggingContext: KotlinCDLoggingContext,
 )
 : KotlinLogger // @oss-enable
 // @oss-disable: : KotlinLoggerCompat()

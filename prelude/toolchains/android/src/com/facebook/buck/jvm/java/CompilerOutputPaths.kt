@@ -21,7 +21,7 @@ data class CompilerOutputPaths(
     val annotationPath: RelPath,
     val pathToSourcesList: RelPath,
     val workingDirectory: RelPath,
-    val outputJarPath: Optional<RelPath>
+    val outputJarPath: Optional<RelPath>,
 ) {
   companion object {
     /**

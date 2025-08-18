@@ -33,7 +33,11 @@ data class SymlinkIsolatedStep(val existingPath: RelPath, val desiredPath: RelPa
     val desiredAbsPath = ProjectFilesystemUtils.getAbsPathForRelativePath(ruleCellRoot, desiredPath)
 
     ProjectFilesystemUtils.createSymLink(
-        ruleCellRoot, desiredAbsPath.path, existingAbsPath.path, /* force */ true)
+        ruleCellRoot,
+        desiredAbsPath.path,
+        existingAbsPath.path, /* force */
+        true,
+    )
 
     return StepExecutionResults.SUCCESS
   }
@@ -46,6 +50,7 @@ data class SymlinkIsolatedStep(val existingPath: RelPath, val desiredPath: RelPa
         "-f",
         "-s",
         ProjectFilesystemUtils.getAbsPathForRelativePath(ruleCellRoot, existingPath).toString(),
-        ProjectFilesystemUtils.getAbsPathForRelativePath(ruleCellRoot, desiredPath).toString())
+        ProjectFilesystemUtils.getAbsPathForRelativePath(ruleCellRoot, desiredPath).toString(),
+    )
   }
 }

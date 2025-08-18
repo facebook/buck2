@@ -28,12 +28,16 @@ class AndroidInstallException(val installError: InstallError) :
     fun tempFolderNotWritable(): AndroidInstallException =
         AndroidInstallException(
             InstallError(
-                "Temp folder is not writable.", AndroidInstallErrorTag.TEMP_FOLDER_NOT_WRITABLE))
+                "Temp folder is not writable.",
+                AndroidInstallErrorTag.TEMP_FOLDER_NOT_WRITABLE,
+            ))
 
     fun operationNotSupported(operation: String): AndroidInstallException =
         AndroidInstallException(
             InstallError(
-                "Operation $operation is not supported.", AndroidInstallErrorTag.OTHER_INFRA))
+                "Operation $operation is not supported.",
+                AndroidInstallErrorTag.OTHER_INFRA,
+            ))
 
     fun deviceAbiUnknown() =
         AndroidInstallException(
@@ -45,7 +49,7 @@ class AndroidInstallException(val installError: InstallError) :
 
     fun adbCommandFailedException(
         message: String,
-        exceptionMessage: String?
+        exceptionMessage: String?,
     ): AndroidInstallException {
       val errorMessage = exceptionMessage?.let { "\n" + it } ?: ""
       return AndroidInstallException(

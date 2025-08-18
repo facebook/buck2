@@ -40,6 +40,7 @@ class PostBuildParams(
             model.optionalDirsList?.map(Paths::get).orEmpty(),
             model.incrementalStateDir.takeIf { it.isNotEmpty() }?.let(Paths::get),
             model.shouldCreateClassAbi,
-            model.usedJarsFile.takeIf { it.isNotEmpty() }?.let(Paths::get))
+            model.usedJarsFile.takeIf { it.isNotEmpty() }?.let(Paths::get),
+        )
   }
 }

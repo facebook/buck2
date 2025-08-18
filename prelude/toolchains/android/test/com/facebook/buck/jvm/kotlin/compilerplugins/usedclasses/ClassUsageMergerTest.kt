@@ -113,14 +113,16 @@ internal class ClassUsageMergerTest {
               Paths.get("kotlin/internal/InlineOnly.class"),
               Paths.get("kotlin/annotation/Target.class"),
               Paths.get("kotlin/annotation/MustBeDocumented.class"),
-              Paths.get("kotlin/annotation/Retention.class"))
+              Paths.get("kotlin/annotation/Retention.class"),
+          )
 
       outerMap[Paths.get("symlink_kotlin-stdlib-2.0.0.jar-class-abi.jar")] = innerSet
 
       val innerSet2: MutableSet<Path> =
           mutableSetOf(
               Paths.get("java/lang/Object.class"),
-              Paths.get("java/lang/annotation/Annotation.class"))
+              Paths.get("java/lang/annotation/Annotation.class"),
+          )
       outerMap[Paths.get("android.jar")] = innerSet2
 
       val innerSet3: MutableSet<Path> = mutableSetOf(Paths.get("D.class"))

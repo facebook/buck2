@@ -43,7 +43,12 @@ internal class IncrementalAbiWriterTest {
     jvmAbiGenWorkingDir = temporaryFolder.newFile("jvm_abi_gen_output")
     val writer =
         IncrementalAbiWriter(
-            kotlincOutputStubJar, jvmAbiGenWorkingDir, jvmAbiGenJar, libraryStubJar, abiJar)
+            kotlincOutputStubJar,
+            jvmAbiGenWorkingDir,
+            jvmAbiGenJar,
+            libraryStubJar,
+            abiJar,
+        )
 
     writer.execute()
 

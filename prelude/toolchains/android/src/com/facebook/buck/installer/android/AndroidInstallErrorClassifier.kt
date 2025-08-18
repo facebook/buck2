@@ -27,7 +27,8 @@ object AndroidInstallErrorClassifier {
           "stderr message: " to this::decorateStdErrMessages,
           "com.android.ddmlib.InstallException" to this::decorateAdbInstallException,
           "com.facebook.buck.core.exceptions.HumanReadableException" to
-              this::decorateHumanReadableException)
+              this::decorateHumanReadableException,
+      )
 
   private fun decorateStdErrMessages(input: String): InstallError {
     val message = input.substringAfter("stderr message: ")
@@ -77,7 +78,9 @@ object AndroidInstallErrorClassifier {
             createInstallError(AndroidInstallErrorTag.INSTALL_CANCELLED_BY_USER, message)
         message.contains("com.android.ddmlib.TimeoutException") ->
             createInstallError(
-                AndroidInstallErrorTag.ADB_CONNECTION_TIMED_OUT, "Connection with device timed out")
+                AndroidInstallErrorTag.ADB_CONNECTION_TIMED_OUT,
+                "Connection with device timed out",
+            )
         else ->
             InstallError("Unknown Install Exception: ${input}", AndroidInstallErrorTag.OTHER_INFRA)
       }
@@ -89,7 +92,8 @@ object AndroidInstallErrorClassifier {
       input.contains("Write failed: No space left on device") ->
           createInstallError(
               AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE,
-              "Write failed: No space left on device")
+              "Write failed: No space left on device",
+          )
       else -> createInstallError(AndroidInstallErrorTag.OTHER_INFRA, input)
     }
   }

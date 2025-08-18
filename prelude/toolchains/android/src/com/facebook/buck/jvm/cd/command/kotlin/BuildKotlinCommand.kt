@@ -31,7 +31,9 @@ class BuildKotlinCommand(
           BaseJarCommand.fromProto(model.baseJarCommand, scratchDir)
       val kotlinExtraParams: KotlinExtraParams =
           KotlinExtraParamsSerializer.deserialize(
-              model.baseJarCommand.resolvedJavacOptions, model.kotlinExtraParams)
+              model.baseJarCommand.resolvedJavacOptions,
+              model.kotlinExtraParams,
+          )
 
       return BuildKotlinCommand(kotlinExtraParams, baseJarCommand, buildMode)
     }

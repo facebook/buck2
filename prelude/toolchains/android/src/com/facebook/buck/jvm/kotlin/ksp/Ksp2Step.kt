@@ -63,7 +63,7 @@ class Ksp2Step(
     private val languageVersion: LanguageVersion,
     private val jvmDefaultMode: String,
     private val kotlinCDAnalytics: KotlinCDAnalytics,
-    private val ksp2Mode: Ksp2Mode
+    private val ksp2Mode: Ksp2Mode,
 ) : IsolatedStep {
 
   @Throws(IOException::class, InterruptedException::class)
@@ -77,18 +77,21 @@ class Ksp2Step(
           KotlinSymbolProcessing.ExitCode.PROCESSING_ERROR ->
               StepExecutionResult(
                   StepExecutionResults.ERROR_EXIT_CODE,
-                  Optional.of(stderr.getContentsAsString(StandardCharsets.UTF_8)))
+                  Optional.of(stderr.getContentsAsString(StandardCharsets.UTF_8)),
+              )
         }
       } catch (e: LinkageError) {
         return StepExecutionResult(
             StepExecutionResults.ERROR_EXIT_CODE,
             Optional.of(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327"))
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327"),
+        )
       } catch (e: Throwable) {
         return StepExecutionResult(
             StepExecutionResults.ERROR_EXIT_CODE,
             Optional.of(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}"))
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}"),
+        )
       }
     }
   }
@@ -103,12 +106,14 @@ class Ksp2Step(
     val processorClassloader: ClassLoader =
         URLClassLoader(
             kspProcessorsClasspathList.map { File(it).toURI().toURL() }.toTypedArray(),
-            filteringClassLoader)
+            filteringClassLoader,
+        )
     val processorProviders =
         ServiceLoader.load(
                 processorClassloader.loadClass(
                     "com.google.devtools.ksp.processing.SymbolProcessorProvider"),
-                processorClassloader)
+                processorClassloader,
+            )
             .toList() as List<SymbolProcessorProvider>
 
     // Build processor options
@@ -240,7 +245,7 @@ class Ksp2Step(
       ignoredPathMatcher: GlobPatternMatcher?,
       workingDirectory: Optional<Path>,
       invokingRule: BuildTargetValue,
-      logger: BuckKsp2Logger
+      logger: BuckKsp2Logger,
   ) =
       try {
         getExpandedSourcePaths(ruleCellRoot, kotlinSourceFilePaths, workingDirectory).filterNot {
@@ -260,6 +265,7 @@ class Ksp2Step(
             ClassLoader.getPlatformClassLoader(),
             "com.google.devtools.ksp.",
             "kotlin.",
-            "ksp.")
+            "ksp.",
+        )
   }
 }

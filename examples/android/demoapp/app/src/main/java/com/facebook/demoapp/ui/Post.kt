@@ -46,7 +46,8 @@ fun Post(model: PostModel) {
     Text(
         text = model.authorName,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp),
-        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp))
+        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp),
+    )
     Image(
         painter = painterResource(id = model.imageResId),
         contentDescription = null,
@@ -77,7 +78,8 @@ fun ActionsRow(model: PostModel) {
       val fontWeight = if (likedByMe) FontWeight.Bold else FontWeight.Normal
       Text(
           text = "\uD83D\uDC4D Like (${renderedLikeCount})",
-          style = TextStyle(fontWeight = fontWeight, fontSize = 18.sp))
+          style = TextStyle(fontWeight = fontWeight, fontSize = 18.sp),
+      )
     }
     TextButton(
         onClick = {},

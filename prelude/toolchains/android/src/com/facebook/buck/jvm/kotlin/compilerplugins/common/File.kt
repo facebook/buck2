@@ -45,7 +45,7 @@ fun createNewKtFile(
     outputDir: String,
     name: String,
     content: String,
-    writable: Boolean = false
+    writable: Boolean = false,
 ): KtFile {
   val directory = File(outputDir).apply { mkdirs() }
   val file =
@@ -107,7 +107,7 @@ private class FakeVirtualFile(
     name: String,
     content: String,
     fileType: FileType = KotlinFileType.INSTANCE,
-    private val virtualFilePath: String
+    private val virtualFilePath: String,
 ) : LightVirtualFile(name, fileType, content) {
   override fun getPath(): String {
     return virtualFilePath

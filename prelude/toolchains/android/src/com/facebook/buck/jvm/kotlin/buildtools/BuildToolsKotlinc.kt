@@ -49,7 +49,7 @@ class BuildToolsKotlinc : Kotlinc {
       workingDirectory: Optional<Path>,
       ruleCellRoot: AbsPath,
       mode: KotlincMode,
-      kotlinCDLoggingContext: KotlinCDLoggingContext
+      kotlinCDLoggingContext: KotlinCDLoggingContext,
   ): Int {
     val compilerArgs =
         buildCompilerArgs(
@@ -58,7 +58,8 @@ class BuildToolsKotlinc : Kotlinc {
             workingDirectory,
             invokingRule,
             options,
-            kotlinCDLoggingContext)
+            kotlinCDLoggingContext,
+        )
 
     LOG.info(
         "[KotlinC Toolchain Build Step from for target:${invokingRule.fullyQualifiedName} type:${invokingRule.type}] " +
@@ -69,14 +70,16 @@ class BuildToolsKotlinc : Kotlinc {
         KotlinCompilationService(
             CompilationService.loadImplementation(
                 context.classLoaderCache.getClassLoader(kotlinHomeLibraries)),
-            kotlinCDLoggingContext)
+            kotlinCDLoggingContext,
+        )
 
     val result =
         kotlinCompilationService.compile(
             ProjectId.ProjectUUID(UUID.randomUUID()),
             compilerArgs,
             mode,
-            BuckKotlinLogger(UncloseablePrintStream(context.stdErr), kotlinCDLoggingContext))
+            BuckKotlinLogger(UncloseablePrintStream(context.stdErr), kotlinCDLoggingContext),
+        )
 
     return result.toExitCode.code
   }
@@ -92,7 +95,8 @@ class BuildToolsKotlinc : Kotlinc {
     val classPathURLs = kotlinHomeLibraries.map { absPath -> absPath.path.toUri().toURL() }
     return getClassLoaderForClassPath(
         SharedApiClassesClassLoaderProvider.sharedApiClassesClassLoader,
-        ImmutableList.copyOf(classPathURLs))
+        ImmutableList.copyOf(classPathURLs),
+    )
   }
 
   private fun buildCompilerArgs(
@@ -101,18 +105,24 @@ class BuildToolsKotlinc : Kotlinc {
       workingDirectory: Optional<Path>,
       invokingRule: BuildTargetValue,
       options: List<String>,
-      kotlinCDLoggingContext: KotlinCDLoggingContext
+      kotlinCDLoggingContext: KotlinCDLoggingContext,
   ): List<String> {
     val expandedSources: ImmutableList<Path> =
         getExpandedSourcePathsOrThrow(
-            ruleCellRoot, kotlinSourceFilePaths, workingDirectory, invokingRule)
+            ruleCellRoot,
+            kotlinSourceFilePaths,
+            workingDirectory,
+            invokingRule,
+        )
 
     expandedSources
         .groupingBy { path -> path.extension }
         .eachCount()
         .forEach { (extension, count) ->
           kotlinCDLoggingContext.addExtras(
-              BuildToolsKotlinc::class.java.simpleName, "Total count of $extension files: $count")
+              BuildToolsKotlinc::class.java.simpleName,
+              "Total count of $extension files: $count",
+          )
         }
 
     val resolvedExpandedSources =
@@ -139,7 +149,7 @@ class BuildToolsKotlinc : Kotlinc {
       ruleCellRoot: AbsPath,
       kotlinSourceFilePaths: ImmutableSortedSet<RelPath>,
       workingDirectory: Optional<Path>,
-      invokingRule: BuildTargetValue
+      invokingRule: BuildTargetValue,
   ) =
       try {
         getExpandedSourcePaths(ruleCellRoot, kotlinSourceFilePaths, workingDirectory)
@@ -151,7 +161,7 @@ class BuildToolsKotlinc : Kotlinc {
 
   private fun getExpandedMultiPlatformSourcePathsOrThrow(
       options: List<String>,
-      allSources: List<String>
+      allSources: List<String>,
   ): List<String> =
       buildList() {
         options
@@ -183,7 +193,7 @@ class BuildToolsKotlinc : Kotlinc {
   override fun getDescription(
       options: ImmutableList<String>,
       kotlinSourceFilePaths: ImmutableSortedSet<RelPath>,
-      pathToSrcsList: Path
+      pathToSrcsList: Path,
   ): String = buildString {
     append("kotlinc ")
     append(options.joinToString(separator = " "))

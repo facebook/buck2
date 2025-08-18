@@ -25,5 +25,5 @@ data class JarParameters(
     val overrideEntriesToJar: ImmutableSortedSet<RelPath>,
     val mainClass: Optional<String>,
     val manifestFile: Optional<RelPath>,
-    val duplicatesLogLevel: Level
+    val duplicatesLogLevel: Level,
 )

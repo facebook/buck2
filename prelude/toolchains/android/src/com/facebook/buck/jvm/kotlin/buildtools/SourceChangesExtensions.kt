@@ -24,6 +24,7 @@ internal fun KotlinSourceChanges.toSourcesChanges(): SourcesChanges =
       is KotlinSourceChanges.Known -> {
         SourcesChanges.Known(
             this.addedAndModifiedFiles.map { path -> path.toFile() },
-            this.removedFiles.map { it.toFile() })
+            this.removedFiles.map { it.toFile() },
+        )
       }
     }

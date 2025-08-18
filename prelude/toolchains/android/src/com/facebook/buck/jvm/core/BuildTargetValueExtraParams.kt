@@ -25,7 +25,7 @@ data class BuildTargetValueExtraParams(
     val basePathForBaseName: RelPath,
     val shortNameAndFlavorPostfix: String,
     val shortName: String,
-    val scratchDir: RelPath
+    val scratchDir: RelPath,
 ) {
   val moduleName: String
     get() {
@@ -59,14 +59,18 @@ data class BuildTargetValueExtraParams(
   /** Returns `gen` directory path for the given `target` and `format` */
   fun getGenPath(format: String): RelPath {
     Preconditions.checkArgument(
-        !format.startsWith("/"), "format string should not start with a slash")
+        !format.startsWith("/"),
+        "format string should not start with a slash",
+    )
     return getRelativePath(format, scratchDir.resolveRel("gen"))
   }
 
   /** Returns `gen` directory path for the given `target` and `format` */
   fun getScratchPath(format: String): RelPath {
     Preconditions.checkArgument(
-        !format.startsWith("/"), "format string should not start with a slash")
+        !format.startsWith("/"),
+        "format string should not start with a slash",
+    )
     return getRelativePath(format, scratchDir.resolveRel("bin"))
   }
 
@@ -76,7 +80,9 @@ data class BuildTargetValueExtraParams(
 
   fun getBasePath(format: String): RelPath {
     Preconditions.checkArgument(
-        !format.startsWith("/"), "format string should not start with a slash")
+        !format.startsWith("/"),
+        "format string should not start with a slash",
+    )
     return basePathForBaseName.resolveRel(formatLastSegment(format, shortNameAndFlavorPostfix))
   }
 
@@ -88,20 +94,22 @@ data class BuildTargetValueExtraParams(
         basePathForBaseName: RelPath,
         shortNameAndFlavorPostfix: String,
         shortName: String,
-        scratchDir: RelPath
+        scratchDir: RelPath,
     ): BuildTargetValueExtraParams {
       Preconditions.checkArgument(
           shortNameAndFlavorPostfix.startsWith(shortName),
           "shortNameAndFlavorPostfix:%s should start with shortName:%s",
           shortNameAndFlavorPostfix,
-          shortName)
+          shortName,
+      )
       return BuildTargetValueExtraParams(
           cellRelativeBasePath,
           flavored,
           basePathForBaseName,
           shortNameAndFlavorPostfix,
           shortName,
-          scratchDir)
+          scratchDir,
+      )
     }
 
     @JvmStatic
@@ -132,7 +140,8 @@ data class BuildTargetValueExtraParams(
           RelPathSerializer.deserialize(basePath),
           shortNameAndFlavorPostfix,
           targetName,
-          buckOut)
+          buckOut,
+      )
     }
 
     /**
@@ -148,7 +157,9 @@ data class BuildTargetValueExtraParams(
     private fun formatLastSegment(format: String, arg: String): String {
       var format = format
       Preconditions.checkArgument(
-          !format.startsWith("/"), "format string should not start with a slash")
+          !format.startsWith("/"),
+          "format string should not start with a slash",
+      )
 
       if (Platform.detect() == Platform.WINDOWS) {
         // TODO(nga): prohibit backslashes in format

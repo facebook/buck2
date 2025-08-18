@@ -32,7 +32,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       installViaSd: Boolean,
       quiet: Boolean,
       verifyTempWritable: Boolean,
-      stagedInstallMode: Boolean
+      stagedInstallMode: Boolean,
   ): Boolean {
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
@@ -48,7 +48,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       // TODO consider using --fastdeploy after intaller is stable
       executeAdbCommandCatching(
           "install -r -d${if (stagedInstallMode) " --staged" else ""} ${apk.absolutePath}",
-          "Failed to install ${apk.name}.")
+          "Failed to install ${apk.name}.",
+      )
     }
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info("Installed ${apk.name} (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
@@ -85,7 +86,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required")) {
           // try install again without --force-non-staged
           executeAdbCommandCatching(
-              "install -d --apex ${apex.absolutePath}", "Failed to install ${apex.name}.")
+              "install -d --apex ${apex.absolutePath}",
+              "Failed to install ${apex.name}.",
+          )
           throw AndroidInstallException.rebootRequired(
               "Installed ${apex.name} on device; however --force-non-staged doesn't work when the" +
                   " native lib dependencies of an apex have changed. You need to run 'adb" +
@@ -94,7 +97,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
 
         throw AndroidInstallException.adbCommandFailedException(
-            "Failed to install ${apex.name}.", e.message)
+            "Failed to install ${apex.name}.",
+            e.message,
+        )
       }
 
       if (!softRebootAvailable) {
@@ -120,7 +125,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   override fun stopPackage(packageName: String) {
     executeAdbShellCommandCatching(
-        "am force-stop $packageName", "Failed to stop package $packageName.")
+        "am force-stop $packageName",
+        "Failed to stop package $packageName.",
+    )
   }
 
   @Throws(Exception::class)
@@ -180,7 +187,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         executeAdbShellCommand("cat /data/local/tmp/${tempFile.name} | xargs rm -f")
       } catch (e: AdbCommandFailedException) {
         throw AndroidInstallException.adbCommandFailedException(
-            "Failed delete ${filesToDelete.count()} files from $dirPath.", e.message)
+            "Failed delete ${filesToDelete.count()} files from $dirPath.",
+            e.message,
+        )
       } finally {
         tempFile.delete()
         executeAdbShellCommand("rm -f /data/local/tmp/${tempFile.name}")
@@ -202,7 +211,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         installPaths
             .map { "${it.value.parent} -> ${it.key.parent}" }
             .distinct()
-            .joinToString(separator = "\n\t", prefix = "[", postfix = "]"))
+            .joinToString(separator = "\n\t", prefix = "[", postfix = "]"),
+    )
     val timeSpent: Long = measureTimeMillis {
       when (filesType) {
         // 1- create a temp folder for each destination folder
@@ -235,7 +245,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               executeAdbShellCommand("rm -rf /data/local/tmp/${source.fileName}")
             } catch (e: AdbCommandFailedException) {
               throw AndroidInstallException.adbCommandFailedException(
-                  "Failed to push $source to $destination.", e.message)
+                  "Failed to push $source to $destination.",
+                  e.message,
+              )
             }
           }
           // delete temp folder
@@ -245,7 +257,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           installPaths.forEach { (destination, source) ->
             LOG.debug("\tPushing $source to $destination")
             executeAdbCommandCatching(
-                "push $source $destination", "Failed to push $source to $destination.")
+                "push $source $destination",
+                "Failed to push $source to $destination.",
+            )
           }
         }
       }
@@ -256,7 +270,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   @Throws(Exception::class)
   override fun mkDirP(dirpath: String) {
     executeAdbShellCommandCatching(
-        "umask 022 && mkdir -p $dirpath", "Failed to create dir $dirpath.")
+        "umask 022 && mkdir -p $dirpath",
+        "Failed to create dir $dirpath.",
+    )
   }
 
   @Throws(Exception::class)
@@ -308,7 +324,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   override fun fixRootDir(rootDir: String) {
     LOG.info("Fixing root dir $rootDir")
     executeAdbShellCommandCatching(
-        "find $rootDir -type d -exec chmod a+x {} +", "Failed to fix root dir $rootDir.")
+        "find $rootDir -type d -exec chmod a+x {} +",
+        "Failed to fix root dir $rootDir.",
+    )
   }
 
   override fun setDebugAppPackageName(packageName: String?): Boolean {
@@ -356,7 +374,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   override fun installBuildUuidFile(
       dataRoot: Path,
       packageName: String,
-      buildUuid: String
+      buildUuid: String,
   ): Boolean {
     val destinationPath: String = dataRoot.resolve(packageName).toString()
     try {

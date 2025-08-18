@@ -40,7 +40,11 @@ internal class IncrementalPreviousStateWriterTest {
   fun `when executed, existing files are copied`() {
     val writer =
         IncrementalPreviousStateWriter(
-            incrementalStateDir, actionMetadataPath, depFilePath, usedJarsPath)
+            incrementalStateDir,
+            actionMetadataPath,
+            depFilePath,
+            usedJarsPath,
+        )
 
     writer.execute()
 

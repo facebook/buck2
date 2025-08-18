@@ -16,11 +16,11 @@ import java.util.Optional
 data class StepExecutionResult(
     val exitCode: Int,
     val stderr: Optional<String>,
-    val cause: Optional<Exception>
+    val cause: Optional<Exception>,
 ) {
   constructor(
       exitCode: Int,
-      stderr: Optional<String>
+      stderr: Optional<String>,
   ) : this(exitCode, stderr, Optional.empty<Exception>())
 
   val isSuccess: Boolean
@@ -41,7 +41,8 @@ data class StepExecutionResult(
       return StepExecutionResult(
           exitCode,
           if (exitCode == 0) Optional.empty() else Optional.of("Failed to execute isolated step."),
-          Optional.empty())
+          Optional.empty(),
+      )
     }
 
     /** Creates `StepExecutionResult` from `exception` */
@@ -50,7 +51,8 @@ data class StepExecutionResult(
       return StepExecutionResult(
           StepExecutionResults.ERROR_EXIT_CODE,
           Optional.of("Failed to execute isolated step."),
-          Optional.ofNullable(exception.cause as Exception?))
+          Optional.ofNullable(exception.cause as Exception?),
+      )
     }
   }
 }

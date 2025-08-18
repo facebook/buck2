@@ -20,7 +20,7 @@ data class CompilerOutputPathsValue(
     val libraryTargetFullyQualifiedName: String,
     val libraryCompilerOutputPath: CompilerOutputPaths,
     val sourceAbiCompilerOutputPath: CompilerOutputPaths,
-    val sourceOnlyAbiCompilerOutputPath: CompilerOutputPaths
+    val sourceOnlyAbiCompilerOutputPath: CompilerOutputPaths,
 ) {
   /** Returns [CompilerOutputPaths] by given `type` */
   fun getByType(type: BuildTargetValue.Type): CompilerOutputPaths {
@@ -42,13 +42,14 @@ data class CompilerOutputPathsValue(
         libraryTargetFullyQualifiedName: String,
         libraryCompilerOutputPath: CompilerOutputPaths,
         sourceAbiCompilerOutputPath: CompilerOutputPaths,
-        sourceOnlyAbiCompilerOutputPath: CompilerOutputPaths
+        sourceOnlyAbiCompilerOutputPath: CompilerOutputPaths,
     ): CompilerOutputPathsValue {
       return CompilerOutputPathsValue(
           libraryTargetFullyQualifiedName,
           libraryCompilerOutputPath,
           sourceAbiCompilerOutputPath,
-          sourceOnlyAbiCompilerOutputPath)
+          sourceOnlyAbiCompilerOutputPath,
+      )
     }
   }
 }

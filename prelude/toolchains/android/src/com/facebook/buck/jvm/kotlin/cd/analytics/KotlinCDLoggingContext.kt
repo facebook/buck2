@@ -16,7 +16,7 @@ import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 class KotlinCDLoggingContext(
     val step: StepParam,
     val languageVersion: LanguageVersion,
-    val kotlincMode: KotlincModeParam?
+    val kotlincMode: KotlincModeParam?,
 ) {
 
   val classpathChangesParam = (kotlincMode as? KotlincModeParam.Incremental)?.classpathChangesParam

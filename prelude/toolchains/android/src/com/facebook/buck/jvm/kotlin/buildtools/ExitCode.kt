@@ -21,7 +21,7 @@ internal enum class ExitCode(val code: Int) {
   OK(0),
   COMPILATION_ERROR(1),
   INTERNAL_ERROR(2),
-  OOM_ERROR(137)
+  OOM_ERROR(137),
 }
 
 internal val CompilationResult.toExitCode: ExitCode

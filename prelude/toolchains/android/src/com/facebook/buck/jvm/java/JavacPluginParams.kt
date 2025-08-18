@@ -26,7 +26,7 @@ import java.net.URL
  */
 data class JavacPluginParams(
     val pluginProperties: ImmutableList<ResolvedJavacPluginProperties>,
-    val parameters: ImmutableSortedSet<String>
+    val parameters: ImmutableSortedSet<String>,
 ) {
   val isEmpty: Boolean
     get() = pluginProperties.isEmpty() && parameters.isEmpty()

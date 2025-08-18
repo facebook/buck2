@@ -24,5 +24,5 @@ data class CompilerParameters(
     val abiGenerationMode: AbiGenerationMode,
     val abiCompatibilityMode: AbiGenerationMode,
     val shouldTrackClassUsage: Boolean,
-    val sourceOnlyAbiRuleInfoFactory: SourceOnlyAbiRuleInfoFactory?
+    val sourceOnlyAbiRuleInfoFactory: SourceOnlyAbiRuleInfoFactory?,
 )

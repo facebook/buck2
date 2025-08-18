@@ -66,7 +66,9 @@ class AndroidDeviceImplTest {
     verify(mockAdbUtils).executeAdbCommand("root", serialNumber)
     verify(mockAdbUtils)
         .executeAdbCommand(
-            "install --apex --force-non-staged ${apexFile.absolutePath}", serialNumber)
+            "install --apex --force-non-staged ${apexFile.absolutePath}",
+            serialNumber,
+        )
     verify(mockAdbUtils).executeAdbShellCommand("stop", serialNumber)
     verify(mockAdbUtils).executeAdbShellCommand("start", serialNumber)
     assertTrue(result)
@@ -102,12 +104,15 @@ class AndroidDeviceImplTest {
     val packagePath = "/data/app/com.test.app-1/base.apk"
     whenever(
             mockAdbUtils.executeAdbShellCommand(
-                "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'", serialNumber))
+                "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'",
+                serialNumber,
+            ))
         .thenReturn("META-INF/CERT.SF")
     whenever(
             mockAdbUtils.executeAdbShellCommand(
                 "unzip -p $packagePath META-INF/CERT.SF | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
-                serialNumber))
+                serialNumber,
+            ))
         .thenReturn("SHA1-Digest-Manifest: abcdef1234567890")
 
     val result = androidDevice.getSignature(packagePath)
@@ -154,7 +159,9 @@ class AndroidDeviceImplTest {
   fun testGetDiskSpace() {
     whenever(
             mockAdbUtils.executeAdbShellCommand(
-                "df -h /data | awk '{print $2, $3, $4}'", serialNumber))
+                "df -h /data | awk '{print $2, $3, $4}'",
+                serialNumber,
+            ))
         .thenReturn("Size Used Available\n64G 32G 32G")
 
     val result = androidDevice.getDiskSpace()

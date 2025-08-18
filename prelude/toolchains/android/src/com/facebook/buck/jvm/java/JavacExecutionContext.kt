@@ -25,5 +25,5 @@ data class JavacExecutionContext(
     val ruleCellRoot: AbsPath,
     val environment: ImmutableMap<String, String>,
     val processExecutor: ProcessExecutor,
-    val configuredBuckOut: RelPath
+    val configuredBuckOut: RelPath,
 )

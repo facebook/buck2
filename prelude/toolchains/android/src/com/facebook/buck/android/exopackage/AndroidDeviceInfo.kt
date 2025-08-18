@@ -20,7 +20,7 @@ data class AndroidDeviceInfo(
     val density: DensityClass,
     val sdk: String,
     val isEmulator: Boolean,
-    val androidDeviceImplementation: String
+    val androidDeviceImplementation: String,
 ) {
   /** The display density category of the device. */
   enum class DensityClass(private val maxDotsPerInch: Int) {

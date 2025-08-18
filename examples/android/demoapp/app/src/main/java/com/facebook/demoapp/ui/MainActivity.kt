@@ -53,7 +53,8 @@ class MainActivity : ComponentActivity() {
                           containerColor = MaterialTheme.colorScheme.primaryContainer,
                           titleContentColor = MaterialTheme.colorScheme.primary,
                       ),
-                  title = { Text(text = stringResource(id = R.string.app_name)) })
+                  title = { Text(text = stringResource(id = R.string.app_name)) },
+              )
             },
         ) { innerPadding ->
           SocialFeed(models, modifier = Modifier.padding(innerPadding))

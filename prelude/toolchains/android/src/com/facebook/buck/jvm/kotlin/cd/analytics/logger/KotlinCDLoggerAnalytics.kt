@@ -31,7 +31,7 @@ constructor(
     private val numJavaFiles: Long,
     private val numKotlinFiles: Long,
     private val incremental: Boolean,
-    private val clock: Clock = Clock.systemDefaultZone()
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) : KotlinCDAnalytics() {
 
   override fun log(context: KotlinCDLoggingContext) {

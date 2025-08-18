@@ -30,7 +30,7 @@ fun Ksp2Mode(
     isSourceOnly: Boolean,
     kspCachesOutput: RelPath,
     extraParams: KotlinExtraParams,
-    actionMetadata: ActionMetadata?
+    actionMetadata: ActionMetadata?,
 ): Ksp2Mode {
   when {
     !extraParams.shouldKsp2RunIncrementally -> {

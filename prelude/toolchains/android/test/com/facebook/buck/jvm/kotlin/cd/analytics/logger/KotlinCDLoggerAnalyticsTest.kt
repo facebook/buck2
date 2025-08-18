@@ -113,7 +113,8 @@ internal class KotlinCDLoggerAnalyticsTest {
             extras =
                 mapOf(
                     "testKey1" to listOf("testValue1", "testValue2"),
-                    "testKey2" to listOf("testValue3", "testValue4"))))
+                    "testKey2" to listOf("testValue3", "testValue4"),
+                )))
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -130,7 +131,8 @@ internal class KotlinCDLoggerAnalyticsTest {
                 KotlincModeParam.Incremental(
                     ClasspathChangesParam.NO_CHANGES,
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
-                    emptySet())))
+                    emptySet(),
+                )))
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -147,7 +149,8 @@ internal class KotlinCDLoggerAnalyticsTest {
                 KotlincModeParam.Incremental(
                     ClasspathChangesParam.NO_CHANGES,
                     emptySet(),
-                    setOf(AbsPath.get("/B"), AbsPath.get("/A")))))
+                    setOf(AbsPath.get("/B"), AbsPath.get("/A")),
+                )))
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -157,7 +160,7 @@ internal class KotlinCDLoggerAnalyticsTest {
       languageVersion: String = DEFAULT_LANGUAGE_VERSION,
       kotlincMode: KotlincModeParam? =
           KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
-      extras: Map<String, List<String>> = mapOf()
+      extras: Map<String, List<String>> = mapOf(),
   ): KotlinCDLoggingContext {
     val context = KotlinCDLoggingContext(step, LanguageVersion(languageVersion), kotlincMode)
     extras.forEach { (key, extras) -> extras.forEach { item -> context.addExtras(key, item) } }
@@ -174,7 +177,8 @@ internal class KotlinCDLoggerAnalyticsTest {
           numJavaFiles = NUM_JAVA_FILES,
           numKotlinFiles = NUM_KOTLIN_FILES,
           incremental = INCREMENTAL,
-          clock = clock)
+          clock = clock,
+      )
 
   private fun createExpectedKotlinCDLogEntry(
       step: StepParam = StepParam.KOTLINC,

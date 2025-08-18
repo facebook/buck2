@@ -39,7 +39,7 @@ data class KotlinExtraParams(
     val shouldKotlincRunIncrementally: Boolean,
     val incrementalStateDir: Optional<AbsPath>,
     val shouldKsp2RunIncrementally: Boolean,
-    private val languageVersionString: String
+    private val languageVersionString: String,
 ) : CompileToJarStepFactory.ExtraParams {
 
   val kotlincWorkingDir: Optional<AbsPath> =

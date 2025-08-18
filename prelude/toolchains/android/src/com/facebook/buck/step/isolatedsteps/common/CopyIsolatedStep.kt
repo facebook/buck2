@@ -26,7 +26,7 @@ import java.util.StringJoiner
 data class CopyIsolatedStep(
     val source: Path,
     val destination: Path,
-    val copySourceMode: CopySourceMode
+    val copySourceMode: CopySourceMode,
 ) : IsolatedStep {
   override fun getShortName(): String {
     return "cp"
@@ -87,7 +87,7 @@ data class CopyIsolatedStep(
     fun forDirectory(
         source: Path,
         destination: Path,
-        copySourceMode: CopySourceMode
+        copySourceMode: CopySourceMode,
     ): CopyIsolatedStep {
       return CopyIsolatedStep(source, destination, copySourceMode)
     }
@@ -97,7 +97,7 @@ data class CopyIsolatedStep(
     fun forDirectory(
         source: RelPath,
         destination: RelPath,
-        copySourceMode: CopySourceMode
+        copySourceMode: CopySourceMode,
     ): CopyIsolatedStep {
       return forDirectory(source.path, destination.path, copySourceMode)
     }

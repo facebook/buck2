@@ -17,10 +17,13 @@ import javax.tools.JavaFileManager
 /** Default factory for SourceOnlyAbiRuleInfos. */
 data class DefaultSourceOnlyAbiRuleInfoFactory(
     val fullyQualifiedBuildTargetName: String,
-    val ruleIsRequiredForSourceOnlyAbi: Boolean
+    val ruleIsRequiredForSourceOnlyAbi: Boolean,
 ) : SourceOnlyAbiRuleInfoFactory {
   override fun create(fileManager: JavaFileManager): SourceOnlyAbiRuleInfo {
     return DefaultSourceOnlyAbiRuleInfo(
-        fileManager, fullyQualifiedBuildTargetName, ruleIsRequiredForSourceOnlyAbi)
+        fileManager,
+        fullyQualifiedBuildTargetName,
+        ruleIsRequiredForSourceOnlyAbi,
+    )
   }
 }

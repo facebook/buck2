@@ -39,7 +39,10 @@ internal data class IncrementalPreviousStateWriter(
 
     state.forEach { path ->
       Files.copy(
-          path, incrementalStateDir.resolve(path.fileName), StandardCopyOption.REPLACE_EXISTING)
+          path,
+          incrementalStateDir.resolve(path.fileName),
+          StandardCopyOption.REPLACE_EXISTING,
+      )
     }
   }
 }

@@ -27,7 +27,7 @@ constructor(
      * If present, the map of environment variables used for the launched process. Otherwise,
      * inherits the current process's environment.
      */
-    val directory: Optional<Path> = Optional.empty()
+    val directory: Optional<Path> = Optional.empty(),
 ) {
 
   companion object {

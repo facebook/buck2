@@ -28,7 +28,7 @@ import java.util.StringJoiner
 data class RmIsolatedStep(
     val path: RelPath,
     val isRecursive: Boolean,
-    val excludedPaths: ImmutableSet<RelPath>
+    val excludedPaths: ImmutableSet<RelPath>,
 ) : IsolatedStep {
   override fun getShortName(): String {
     return "rm"
@@ -44,7 +44,9 @@ data class RmIsolatedStep(
     } else {
       // Delete a single file
       Preconditions.checkState(
-          excludedPaths.isEmpty(), "Excluded paths only valid for recursive steps")
+          excludedPaths.isEmpty(),
+          "Excluded paths only valid for recursive steps",
+      )
       Files.deleteIfExists(absolutePath.path)
     }
     return StepExecutionResults.SUCCESS
@@ -56,7 +58,7 @@ data class RmIsolatedStep(
 
   private fun convertRelPathToAbsPath(
       context: IsolatedExecutionContext,
-      relPath: RelPath
+      relPath: RelPath,
   ): AbsPath {
     return ProjectFilesystemUtils.getAbsPathForRelativePath(context.ruleCellRoot, relPath)
   }

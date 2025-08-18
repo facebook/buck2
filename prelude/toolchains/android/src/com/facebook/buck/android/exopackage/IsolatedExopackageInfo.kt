@@ -21,7 +21,7 @@ import java.util.Optional
 data class IsolatedExopackageInfo(
     val dexInfo: Optional<IsolatedDexInfo>,
     val nativeLibsInfo: Optional<IsolatedNativeLibsInfo>,
-    val resourcesInfo: Optional<IsolatedResourcesInfo>
+    val resourcesInfo: Optional<IsolatedResourcesInfo>,
 ) {
   /** Isolated DexInfo */
   data class IsolatedDexInfo(val metadata: AbsPath, val directory: AbsPath)

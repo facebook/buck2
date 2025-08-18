@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 class ClasspathSnapshotGenerator(
     private val inputJar: Path,
     private val outputSnapshot: Path,
-    private val granularity: SnapshotGranularity
+    private val granularity: SnapshotGranularity,
 ) {
 
   fun run() {
@@ -28,7 +28,9 @@ class ClasspathSnapshotGenerator(
       val compilationService = CompilationService.loadImplementation(this.javaClass.classLoader!!)
       val snapshot =
           compilationService.calculateClasspathSnapshot(
-              inputJar.toFile(), granularity.toClassSnapshotGranularity)
+              inputJar.toFile(),
+              granularity.toClassSnapshotGranularity,
+          )
       snapshot.saveSnapshot(outputSnapshot.toFile())
     }
     LOG.info("Classpath snapshot generation took $timeSpent ms for input jar: $inputJar")

@@ -67,7 +67,8 @@ internal class JvmCompilationConfigurationFactoryTest {
             workingDirectory = any(),
             sourcesChanges = any(),
             approachParameters = any(),
-            options = any())
+            options = any(),
+        )
   }
 
   @Test
@@ -80,7 +81,8 @@ internal class JvmCompilationConfigurationFactoryTest {
             workingDirectory = any(),
             sourcesChanges = any(),
             approachParameters = any(),
-            options = any())
+            options = any(),
+        )
   }
 
   @Test
@@ -94,7 +96,8 @@ internal class JvmCompilationConfigurationFactoryTest {
             workingDirectory = eq(fakeIncrementalKotlincMode.kotlicWorkingDir.toFile()),
             sourcesChanges = any(),
             approachParameters = any(),
-            options = any())
+            options = any(),
+        )
   }
 
   @Test
@@ -106,7 +109,8 @@ internal class JvmCompilationConfigurationFactoryTest {
             workingDirectory = any(),
             sourcesChanges = eq(SourcesChanges.ToBeCalculated),
             approachParameters = any(),
-            options = any())
+            options = any(),
+        )
   }
 
   @Test
@@ -132,7 +136,8 @@ internal class JvmCompilationConfigurationFactoryTest {
                           expectedClasspathSnapshotBasedIncrementalCompilationApproachParameters
                               .shrunkClasspathSnapshot
                 },
-            options = any())
+            options = any(),
+        )
   }
 
   @Test
@@ -146,7 +151,8 @@ internal class JvmCompilationConfigurationFactoryTest {
             workingDirectory = any(),
             sourcesChanges = any(),
             approachParameters = any(),
-            options = eq(classpathSnapshotBasedIncrementalJvmCompilationConfiguration))
+            options = eq(classpathSnapshotBasedIncrementalJvmCompilationConfiguration),
+        )
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
         .setRootProjectDir(fakeIncrementalKotlincMode.rootProjectDir.toFile())
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
@@ -199,12 +205,13 @@ internal class JvmCompilationConfigurationFactoryTest {
       ClasspathSnapshotBasedIncrementalCompilationApproachParameters(
           newClasspathSnapshotFiles = mode.classpathChanges.classpathSnapshotFiles,
           shrunkClasspathSnapshot =
-              mode.kotlicWorkingDir.resolve("shrunk-classpath-snapshot.bin").toFile())
+              mode.kotlicWorkingDir.resolve("shrunk-classpath-snapshot.bin").toFile(),
+      )
 
   private fun createFakeIncrementalKotlincMode(
       classpathChanges: ClasspathChanges = createFakeClasspathChanges(),
       kotlinDepFile: AbsPath? = createExistingFileMock(),
-      rebuildReason: RebuildReason? = null
+      rebuildReason: RebuildReason? = null,
   ): KotlincMode.Incremental {
     val rootProjectDir = AbsPath.get("/home/root")
     val buildDir = AbsPath.get("/home/root/buildDir")
@@ -217,7 +224,8 @@ internal class JvmCompilationConfigurationFactoryTest {
         KotlinSourceChanges.ToBeCalculated,
         classpathChanges,
         kotlinDepFile,
-        rebuildReason)
+        rebuildReason,
+    )
   }
 
   private fun createFakeClasspathChanges(): ClasspathChanges =

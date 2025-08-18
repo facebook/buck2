@@ -21,7 +21,7 @@ sealed interface PostExecutorsFactory {
       jvmAbiGenWorkingDir: AbsPath?,
       jvmAbiGenJar: Path?,
       libraryJar: Path?,
-      abiJar: Path?
+      abiJar: Path?,
   ): ClassAbiWriter
 
   fun createPreviousStateWriter(
@@ -51,14 +51,15 @@ internal data object IncrementalPostExecutorsFactory : PostExecutorsFactory {
       jvmAbiGenWorkingDir: AbsPath?,
       jvmAbiGenJar: Path?,
       libraryJar: Path?,
-      abiJar: Path?
+      abiJar: Path?,
   ): IncrementalAbiWriter {
     return IncrementalAbiWriter(
         kotlincOutputDir = requireNotNull(kotlincOutputDir),
         jvmAbiGenWorkingDir = requireNotNull(jvmAbiGenWorkingDir),
         jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
         libraryJar = root.resolve(requireNotNull(libraryJar)),
-        abiJar = root.resolve(requireNotNull(abiJar)))
+        abiJar = root.resolve(requireNotNull(abiJar)),
+    )
   }
 
   override fun createPreviousStateWriter(
@@ -71,7 +72,8 @@ internal data object IncrementalPostExecutorsFactory : PostExecutorsFactory {
         requireNotNull(incrementalStateDir),
         requireNotNull(actionMetadataPath),
         depFilePath,
-        usedJarsPath)
+        usedJarsPath,
+    )
   }
 }
 
@@ -84,12 +86,13 @@ internal data object NonIncrementalPostExecutorsFactory : PostExecutorsFactory {
       jvmAbiGenWorkingDir: AbsPath?,
       jvmAbiGenJar: Path?,
       libraryJar: Path?,
-      abiJar: Path?
+      abiJar: Path?,
   ): NonIncrementalAbiWriter {
     return NonIncrementalAbiWriter(
         libraryJar = root.resolve(requireNotNull(libraryJar)),
         jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
-        abiJar = root.resolve(requireNotNull(abiJar)))
+        abiJar = root.resolve(requireNotNull(abiJar)),
+    )
   }
 
   override fun createPreviousStateWriter(

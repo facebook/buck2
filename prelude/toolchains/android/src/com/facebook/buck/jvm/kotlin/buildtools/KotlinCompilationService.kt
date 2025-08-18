@@ -21,7 +21,7 @@ import org.jetbrains.kotlin.buildtools.api.ProjectId
 @OptIn(ExperimentalBuildToolsApi::class)
 internal class KotlinCompilationService(
     private val compilationService: CompilationService,
-    kotlinCDLoggingContext: KotlinCDLoggingContext
+    kotlinCDLoggingContext: KotlinCDLoggingContext,
 ) {
 
   private val jvmCompilationConfigurationFactory =
@@ -31,7 +31,7 @@ internal class KotlinCompilationService(
       projectId: ProjectId,
       arguments: List<String>,
       mode: KotlincMode,
-      logger: KotlinLogger? = null
+      logger: KotlinLogger? = null,
   ): CompilationResult {
     val compilerExecutionStrategyConfiguration =
         compilationService.makeCompilerExecutionStrategyConfiguration()
@@ -48,6 +48,7 @@ internal class KotlinCompilationService(
         compilerExecutionStrategyConfiguration,
         jvmCompilationConfiguration,
         emptyList(),
-        arguments)
+        arguments,
+    )
   }
 }

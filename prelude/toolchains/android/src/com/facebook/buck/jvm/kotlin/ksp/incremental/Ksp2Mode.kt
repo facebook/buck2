@@ -23,6 +23,6 @@ sealed interface Ksp2Mode {
       val modifiedSources: List<AbsPath>,
       val removedSources: List<AbsPath>,
       val changedClasses: List<String>,
-      val reprocessReason: ReprocessReason?
+      val reprocessReason: ReprocessReason?,
   ) : Ksp2Mode
 }

@@ -47,7 +47,8 @@ data class ResolvedJavacOptions(
         javaAnnotationProcessorParams,
         standardJavacPluginParams,
         extraArguments,
-        systemImage)
+        systemImage,
+    )
   }
 
   companion object {
@@ -57,7 +58,7 @@ data class ResolvedJavacOptions(
     fun appendOptionsTo(
         optionsConsumer: OptionsConsumer,
         resolvedJavacOptions: ResolvedJavacOptions,
-        rootCellRoot: AbsPath
+        rootCellRoot: AbsPath,
     ) {
       appendOptionsTo(
           rootCellRoot,
@@ -68,7 +69,8 @@ data class ResolvedJavacOptions(
           resolvedJavacOptions.verbose,
           resolvedJavacOptions.javaAnnotationProcessorParams,
           resolvedJavacOptions.standardJavacPluginParams,
-          resolvedJavacOptions.extraArguments)
+          resolvedJavacOptions.extraArguments,
+      )
     }
 
     private fun appendOptionsTo(
@@ -80,7 +82,7 @@ data class ResolvedJavacOptions(
         isVerbose: Boolean,
         javaAnnotationProcessorParams: JavacPluginParams,
         standardJavacPluginParams: JavacPluginParams,
-        extraArguments: List<String?>
+        extraArguments: List<String?>,
     ) {
       // Add some standard options.
 
@@ -120,7 +122,8 @@ data class ResolvedJavacOptions(
                 .stream()
                 .map { obj: ResolvedJavacPluginProperties -> obj.processorNames }
                 .flatMap { obj: ImmutableSortedSet<String> -> obj.stream() }
-                .collect(Collectors.joining(",")))
+                .collect(Collectors.joining(",")),
+        )
 
         // Add processor parameters.
         for (parameter in javaAnnotationProcessorParams.parameters) {
@@ -161,7 +164,8 @@ data class ResolvedJavacOptions(
       if (!allPlugins.isEmpty()) {
         optionsConsumer.addOptionValue(
             "processorpath",
-            ResolvedJavacPluginProperties.getJoinedClasspath(allPlugins, ruleCellRoot))
+            ResolvedJavacPluginProperties.getJoinedClasspath(allPlugins, ruleCellRoot),
+        )
       }
 
       // Add extra arguments.

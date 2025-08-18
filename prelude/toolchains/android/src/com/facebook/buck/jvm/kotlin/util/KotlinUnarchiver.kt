@@ -25,7 +25,7 @@ import java.util.Optional
 fun getExpandedSourcePaths(
     ruleCellRoot: AbsPath,
     kotlinSourceFilePaths: ImmutableSet<RelPath>,
-    workingDirectory: Optional<Path>
+    workingDirectory: Optional<Path>,
 ): ImmutableList<Path> {
   // Add sources file or sources list to command
 
@@ -41,7 +41,8 @@ fun getExpandedSourcePaths(
               ruleCellRoot,
               ruleCellRoot.resolve(path).path,
               ruleCellRoot.resolve(workingDirectory.orElse(path.path)).path,
-              ExistingFileMode.OVERWRITE)
+              ExistingFileMode.OVERWRITE,
+          )
       sources.addAll(
           zipPaths
               .stream()

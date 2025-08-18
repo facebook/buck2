@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.buildtools.api.jvm.JvmCompilationConfiguration
 @OptIn(ExperimentalBuildToolsApi::class)
 internal class JvmCompilationConfigurationFactory(
     private val compilationService: CompilationService,
-    private val kotlinCDLoggingContext: KotlinCDLoggingContext
+    private val kotlinCDLoggingContext: KotlinCDLoggingContext,
 ) {
 
   fun create(mode: KotlincMode): JvmCompilationConfiguration =
@@ -41,9 +41,8 @@ internal class JvmCompilationConfigurationFactory(
                     ClasspathSnapshotBasedIncrementalCompilationApproachParameters(
                         newClasspathSnapshotFiles = mode.classpathChanges.classpathSnapshotFiles,
                         shrunkClasspathSnapshot =
-                            mode.kotlicWorkingDir
-                                .resolve("shrunk-classpath-snapshot.bin")
-                                .toFile()),
+                            mode.kotlicWorkingDir.resolve("shrunk-classpath-snapshot.bin").toFile(),
+                    ),
                 options =
                     makeClasspathSnapshotBasedIncrementalCompilationConfiguration().apply {
                       setRootProjectDir(mode.rootProjectDir.toFile())
@@ -57,7 +56,8 @@ internal class JvmCompilationConfigurationFactory(
                             "Non-incremental compilation will be performed: ${rebuildReason.message}")
                         kotlinCDLoggingContext.addExtras(
                             JvmCompilationConfigurationFactory::class.java.simpleName,
-                            "Non-incremental compilation will be performed: ${rebuildReason.message}")
+                            "Non-incremental compilation will be performed: ${rebuildReason.message}",
+                        )
                         forceNonIncrementalMode(true)
                       }
 
@@ -67,7 +67,8 @@ internal class JvmCompilationConfigurationFactory(
                               "Non-incremental compilation will be performed: classpath changes not available")
                           kotlinCDLoggingContext.addExtras(
                               JvmCompilationConfigurationFactory::class.java.simpleName,
-                              "Non-incremental compilation will be performed: classpath changes not available")
+                              "Non-incremental compilation will be performed: classpath changes not available",
+                          )
                           forceNonIncrementalMode(true)
                         }
                         is ClasspathChanges.NoChanges -> {
@@ -75,7 +76,8 @@ internal class JvmCompilationConfigurationFactory(
                         }
                         else -> {}
                       }
-                    })
+                    },
+            )
           }
         }
       }
