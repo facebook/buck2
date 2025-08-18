@@ -19,7 +19,7 @@ def _test_impl(ctx):
     # Produce a file that contains our name.
     out = ctx.actions.write("out.txt", str(ctx.label.name) + "\n")
 
-    # Produce a tset that is our file concated wiht all the files emitted by
+    # Produce a tset that is our file concatenated with all the files emitted by
     # our children.
     children = [d[NameInfo].tset for d in ctx.attrs.deps]
     tset = ctx.actions.tset(NameSet, value = out, children = children)
