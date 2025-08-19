@@ -70,3 +70,19 @@ async def test_re_uploads_limit(buck: Buck) -> None:
     args = ["-c", f"write.text={random_string()}"]
     await buck.build("root//:write_xxl", *args)
     await _assert_locally_executed_upload_attempted(buck, 0)
+
+
+@buck_test()
+async def test_re_uploads_default(buck: Buck) -> None:
+    args = ["-c", f"write.text={random_string()}"]
+    await buck.build("root//:write_default", *args)
+    await _assert_locally_executed_upload_attempted(buck, 0)
+
+    args = [
+        "-c",
+        f"write.text={random_string()}",
+        "-c",
+        "buck2.default_allow_cache_upload=true",
+    ]
+    await buck.build("root//:write_default", *args)
+    await _assert_locally_executed_upload_attempted(buck, 1)

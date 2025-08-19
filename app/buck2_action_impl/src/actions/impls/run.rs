@@ -237,7 +237,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) metadata_param: Option<MetadataParameter>,
     pub(crate) no_outputs_cleanup: bool,
     pub(crate) incremental_remote_outputs: bool,
-    pub(crate) allow_cache_upload: bool,
+    pub(crate) allow_cache_upload: Option<bool>,
     pub(crate) allow_dep_file_cache_upload: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
     pub(crate) unique_input_inodes: bool,
@@ -1109,7 +1109,10 @@ impl Action for RunAction {
                 Some(x) => x.to_string(),
             },
             "no_outputs_cleanup".to_owned() => self.inner.no_outputs_cleanup.to_string(),
-            "allow_cache_upload".to_owned() => self.inner.allow_cache_upload.to_string(),
+            "allow_cache_upload".to_owned() => match &self.inner.allow_cache_upload {
+                None => "None".to_owned(),
+                Some(x) => x.to_string(),
+            },
             "allow_dep_file_cache_upload".to_owned() => self.inner.allow_dep_file_cache_upload.to_string(),
         }
     }
@@ -1210,11 +1213,16 @@ impl Action for RunAction {
             ),
         };
 
+        let allow_cache_upload = self
+            .inner
+            .allow_cache_upload
+            .unwrap_or_else(|| ctx.run_action_knobs().default_allow_cache_upload);
+
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload;
         if result.was_success()
             && !result.was_served_by_remote_dep_file_cache()
-            && (self.inner.allow_cache_upload || upload_dep_file || force_cache_upload()?)
+            && (allow_cache_upload || upload_dep_file || force_cache_upload()?)
         {
             let re_result = result.action_result.take();
             let upload_result = ctx
@@ -1240,7 +1248,7 @@ impl Action for RunAction {
         let (outputs, metadata) = ctx.unpack_command_execution_result(
             executor_preference,
             result,
-            self.inner.allow_cache_upload,
+            allow_cache_upload,
             self.inner.allow_dep_file_cache_upload,
             Some(input_files_bytes),
         )?;

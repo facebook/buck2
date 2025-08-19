@@ -21,6 +21,9 @@ pub struct RunActionKnobs {
     /// for network actions (download_file, cas_artifact). Used to support offline
     /// builds.
     pub use_network_action_output_cache: bool,
+
+    /// Default for per-action `allow_cache_upload`, to make it opt-out instead of opt-in.
+    pub default_allow_cache_upload: bool,
 }
 
 pub trait HasRunActionKnobs {

@@ -385,6 +385,7 @@ impl<'a> ServerCommandContext<'a> {
                 .daemon
                 .use_network_action_output_cache,
             eager_dep_files,
+            default_allow_cache_upload: false,
         };
 
         let concurrency = self
@@ -717,6 +718,12 @@ impl DiceCommandUpdater<'_, '_> {
             .parse::<bool>(BuckconfigKeyRef {
                 section: "buck2",
                 property: "use_network_action_output_cache",
+            })?
+            .unwrap_or(false);
+        run_action_knobs.default_allow_cache_upload |= root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "default_allow_cache_upload",
             })?
             .unwrap_or(false);
 

@@ -29,7 +29,7 @@ def _write_impl(ctx):
 write = rule(
     impl = _write_impl,
     attrs = {
-        "allow_cache_upload": attrs.bool(default = False),
+        "allow_cache_upload": attrs.option(attrs.bool(), default = None),
         "dir": attrs.bool(default = False),
         "format": attrs.string(default = "{}"),
         "local_only": attrs.bool(default = False),

@@ -28,3 +28,12 @@ write(
     default_target_platform = "//platforms:target",
     exec_compatible_with = ["//platforms:cache_uploads"],
 )
+
+write(
+    name = "write_default",
+    text = read_config("write", "text") or fail("text missing"),
+    allow_cache_upload = None,
+    local_only = True,
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:cache_uploads"],
+)

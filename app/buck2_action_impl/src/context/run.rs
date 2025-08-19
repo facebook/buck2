@@ -209,7 +209,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] incremental_remote_outputs: bool,
-        #[starlark(require = named, default = false)] allow_cache_upload: bool,
+        #[starlark(require = named, default = NoneOr::None)] allow_cache_upload: NoneOr<bool>,
         #[starlark(require = named, default = false)] allow_dep_file_cache_upload: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
         #[starlark(require = named)] exe: Option<
@@ -473,7 +473,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             metadata_param,
             no_outputs_cleanup,
             incremental_remote_outputs,
-            allow_cache_upload,
+            allow_cache_upload: allow_cache_upload.into_option(),
             allow_dep_file_cache_upload,
             force_full_hybrid_if_capable,
             unique_input_inodes,
