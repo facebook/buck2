@@ -215,6 +215,7 @@ def _create_kotlin_sources(
         ctx.actions.run(
             cmd_args(ksp_cmd, hidden = ksp_kotlinc_cmd_args),
             category = "ksp_kotlinc",
+            allow_cache_upload = True,
             error_handler = kotlin_toolchain.kotlin_error_handler,
         )
 
@@ -245,6 +246,7 @@ def _create_kotlin_sources(
     ctx.actions.run(
         cmd_args(compile_kotlin_cmd_args, hidden = compile_kotlin_cmd_hidden),
         category = "kotlinc",
+        allow_cache_upload = True,
         error_handler = kotlin_toolchain.kotlin_error_handler,
     )
 
