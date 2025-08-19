@@ -36,6 +36,7 @@ use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
+use hyper_util::client::legacy::connect::HttpConnector;
 use lru::LruCache;
 use once_cell::sync::Lazy;
 use prost::Message;
@@ -98,6 +99,7 @@ use crate::error::*;
 use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
+use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
 
@@ -311,26 +313,33 @@ impl REClientBuilder {
             let uri = address.parse().context("Invalid address")?;
             let uri = prepare_uri(uri, opts.tls).context("Invalid URI")?;
 
-            let mut channel = Channel::builder(uri);
+            let mut endpoint = Channel::builder(uri);
             if opts.tls {
-                channel = channel.tls_config(tls_config.clone())?;
+                endpoint = endpoint.tls_config(tls_config.clone())?;
             }
 
             // Configure gRPC keepalive settings
             if let Some(keepalive_time_secs) = opts.grpc_keepalive_time_secs {
-                channel =
-                    channel.http2_keep_alive_interval(Duration::from_secs(keepalive_time_secs));
+                endpoint =
+                    endpoint.http2_keep_alive_interval(Duration::from_secs(keepalive_time_secs));
             }
             if let Some(keepalive_timeout_secs) = opts.grpc_keepalive_timeout_secs {
-                channel = channel.keep_alive_timeout(Duration::from_secs(keepalive_timeout_secs));
+                endpoint = endpoint.keep_alive_timeout(Duration::from_secs(keepalive_timeout_secs));
             }
             if let Some(keepalive_while_idle) = opts.grpc_keepalive_while_idle {
-                channel = channel.keep_alive_while_idle(keepalive_while_idle);
+                endpoint = endpoint.keep_alive_while_idle(keepalive_while_idle);
             }
 
+            // Since we are creating the HttpConnector ourselves, any TCP
+            // settings (tcp_nodelay, tcp_keepalive, connect_timeout), need to
+            // be set here instead of on the endpoint
+            let mut http = HttpConnector::new();
+            http.enforce_http(false);
+            let connector = CountingConnector::new(http);
+
             anyhow::Ok(
-                channel
-                    .connect()
+                endpoint
+                    .connect_with_connector(connector)
                     .await
                     .with_context(|| format!("Error connecting to `{address}`"))?,
             )
