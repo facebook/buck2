@@ -286,7 +286,12 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
     )
 
 def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
-    header_root = prepare_headers(ctx, headers, "buck-headers")
+    header_root = prepare_headers(
+        ctx,
+        headers,
+        "buck-headers",
+        uses_experimental_content_based_path_hashing = True,
+    )
     precompile_root = prepare_headers(
         ctx,
         headers,
