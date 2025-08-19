@@ -95,6 +95,18 @@ public class ClasspathUtils {
     return friendAbsPaths;
   }
 
+  public static boolean assertValidClasspathsPattern(AbsPath absPath) {
+    String path = absPath.toString();
+    if (!(path.endsWith(".jar") || path.endsWith(".zip") || path.contains("buck-out/"))) {
+      throw new AssertionError(
+          String.format(
+              "classpath %s is not supported, only jar, zip file or a directory inside `buck-out/`"
+                  + " are allowed",
+              path));
+    }
+    return true;
+  }
+
   public ImmutableList<AbsPath> getAllClasspaths(ImmutableList.Builder<IsolatedStep> steps) {
     ImmutableList.Builder<AbsPath> classpathBuilder =
         ImmutableList.<AbsPath>builder()
@@ -103,10 +115,12 @@ public class ClasspathUtils {
                     .map(buildCellRootPath::resolve)
                     .map(AbsPath::normalize)
                     .map(p -> remappedClasspathEntries.getOrDefault(p, p))
+                    .filter(path -> path != null && assertValidClasspathsPattern(path))
                     .iterator())
             .addAll(
                 extraClasspaths.stream()
                     .map(p -> remappedClasspathEntries.getOrDefault(p, p))
+                    .filter(path -> path != null && assertValidClasspathsPattern(path))
                     .iterator());
     ImmutableList<AbsPath> allClasspaths = classpathBuilder.build();
     return allClasspaths;

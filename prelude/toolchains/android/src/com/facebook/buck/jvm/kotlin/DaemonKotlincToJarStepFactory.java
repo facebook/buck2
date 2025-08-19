@@ -198,6 +198,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               .addAll(
                   parameters.getClasspathEntries().stream()
                       .map(RelPath::toAbsolutePath)
+                      .filter(ClasspathUtils::assertValidClasspathsPattern)
                       .collect(Collectors.toList()));
 
       prepareKosabiStubgenIfNeeded(
