@@ -434,16 +434,16 @@ LinkedObject = record(
 # This doesn't contain the information about things needed to package the linked result
 # (i.e. this doesn't contain the information needed to know what shared libs needed at runtime
 # for the final result).
-MergedLinkInfo = provider(fields = [
-    "_infos",  # dict[LinkStrategy, LinkInfosTSet]
-    "_external_debug_info",  # dict[LinkStrategy, ArtifactTSet]
+MergedLinkInfo = provider(fields = {
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
     # structure, based on the link-style.
-    "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
-    "swiftmodules",  # dict[LinkStrategy, SwiftmoduleLinkable | None]
-])
+    "frameworks": provider_field(dict[LinkStrategy, FrameworksLinkable | None]),
+    "swiftmodules": provider_field(dict[LinkStrategy, SwiftmoduleLinkable | None]),
+    "_external_debug_info": provider_field(dict[LinkStrategy, ArtifactTSet]),
+    "_infos": provider_field(dict[LinkStrategy, LinkInfosTSet]),
+})
 
 # A map of linkages to all possible output styles it supports.
 _LIB_OUTPUT_STYLES_FOR_LINKAGE = {
