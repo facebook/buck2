@@ -537,7 +537,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                                     LinkArgs(flags = shlink_args),
                                     # TODO(T110378118): As per v1, we always link against "shared"
                                     # dependencies when building a shaerd library.
-                                    get_link_args_for_strategy(ctx, inherited_exported_link, LinkStrategy("shared")),
+                                    get_link_args_for_strategy(ctx, inherited_exported_link, LinkStrategy("shared"), prefer_stripped = False),
                                 ],
                                 link_execution_preference = LinkExecutionPreference("any"),
                             ),

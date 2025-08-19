@@ -758,7 +758,7 @@ def get_link_args_for_strategy(
         ctx: AnalysisContext,
         deps_merged_link_infos: list[MergedLinkInfo],
         link_strategy: LinkStrategy,
-        prefer_stripped: bool = False,
+        prefer_stripped: bool,
         additional_link_info: [LinkInfo, None] = None) -> LinkArgs:
     """
     Derive the `LinkArgs` for a strategy and strip preference from a list of dependency's MergedLinkInfo.

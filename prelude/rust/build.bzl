@@ -299,6 +299,7 @@ def generate_rustdoc_test(
                     preferred_linkage = Linkage("static"),
                 )] + inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
                 params.dep_link_strategy,
+                prefer_stripped = False,
             ),
         ],
     )
@@ -528,6 +529,7 @@ def rust_compile(
                     compile_ctx.dep_ctx,
                 ).values(),
                 params.dep_link_strategy,
+                prefer_stripped = False,
             )
 
         if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):

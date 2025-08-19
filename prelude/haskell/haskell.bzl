@@ -596,6 +596,7 @@ def _build_haskell_lib(
             ctx,
             nlis,
             to_link_strategy(link_style),
+            prefer_stripped = False,
         )
         link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
         ctx.actions.run(
@@ -886,6 +887,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx,
                 [merged_link_info],
                 to_link_strategy(link_style),
+                prefer_stripped = False,
             ),
         ))
         templ_vars[name] = args
@@ -1126,7 +1128,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             if li != None:
                 nlis.append(li)
         sos.extend(traverse_shared_library_info(shlib_info))
-        infos = get_link_args_for_strategy(ctx, nlis, to_link_strategy(link_style))
+        infos = get_link_args_for_strategy(ctx, nlis, to_link_strategy(link_style), prefer_stripped = False)
 
     link_args.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 

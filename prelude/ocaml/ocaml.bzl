@@ -747,7 +747,7 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ctx.actions,
         cxx_toolchain,
-        [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))],
+        [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"), prefer_stripped = False)],
     )
     ld_nat = _mk_ld(ctx, [link_args_output.link_args], "ld_native.sh")
     ld_byt = _mk_ld(ctx, [link_args_output.link_args], "ld_bytecode.sh")
@@ -840,7 +840,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ctx.actions,
         cxx_toolchain,
-        [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))],
+        [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"), prefer_stripped = False)],
     )
     ld = _mk_ld(ctx, [link_args_output.link_args], "ld.sh")
 
@@ -940,7 +940,7 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ctx.actions,
         cxx_toolchain,
-        [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))],
+        [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"), prefer_stripped = False)],
     )
 
     # 'ocamlopt.opt' with '-cc' fails to propagate '-shared' (and potentially

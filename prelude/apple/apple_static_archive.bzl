@@ -99,6 +99,7 @@ def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
         ctx,
         [x.merged_link_info for x in linkables(ctx.attrs.deps)],
         LinkStrategy("static"),
+        prefer_stripped = False,
     )
     args.append(unpack_link_args(transitive_link_args))
 
