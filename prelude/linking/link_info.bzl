@@ -334,18 +334,18 @@ LinkInfos = record(
     stripped = field([LinkInfo, None], None),
 )
 
-def _link_info_default_args(infos: LinkInfos):
+def _link_info_default_args(infos: LinkInfos) -> cmd_args:
     info = infos.default
     return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("all"))
 
-def _link_info_stripped_link_args(infos: LinkInfos):
+def _link_info_stripped_link_args(infos: LinkInfos) -> cmd_args:
     info = infos.stripped or infos.default
     return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("all"))
 
-def _link_info_object_files_and_lazy_archives_only_args(infos: LinkInfos):
+def _link_info_object_files_and_lazy_archives_only_args(infos: LinkInfos) -> cmd_args:
     return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("object_files_and_lazy_archives_only"))
 
-def _link_info_excluding_object_files_and_lazy_archives_args(infos: LinkInfos):
+def _link_info_excluding_object_files_and_lazy_archives_args(infos: LinkInfos) -> cmd_args:
     return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives"))
 
 def link_info_to_metadata_args(info: LinkInfo, args: cmd_args | None = None) -> ArgLike:
