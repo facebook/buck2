@@ -23,11 +23,11 @@ def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
     cquery = ctx.cquery()
     uquery = ctx.uquery()
     files = cquery.deps(uquery.owner(ctx.cli_args.file), 0)  # deps(0) to convert to configured
-    targets = cquery.eval("kind('python_library', %s)", ctx.cli_args.target)
+    targets = cquery.eval("kind('python_library|alias', %s)", ctx.cli_args.target)
     res = files
     for target in targets.values():
         res += target
-    return cquery.deps(res, filter = "kind('python_library', first_order_deps())")
+    return cquery.deps(res, filter = "kind('python_library|alias', target_deps())")
 
 def _clean_module(base_module: str, module: str) -> str:
     base_module = base_module.removesuffix("/").replace("/", ".")
@@ -62,6 +62,14 @@ def _main(ctx: bxl.Context) -> None:
             base_module = base_module.value()
         else:
             base_module = x.label.package
+
+        if x.rule_type == "prelude//rules.bzl:alias":
+            actual = attrs.get("actual")
+            if actual != None:
+                deps.append(actual.value().raw_target())
+                continue
+            else:
+                fail("Alias has no actual target".format(x.label))
 
         if attrs.get("deps") == None:
             fail(x.rule_type)
