@@ -222,7 +222,7 @@ def get_android_binary_native_library_info(
         native_library_merge_map = native_library_merge_dir.project("merge.map")
         split_groups_map = native_library_merge_dir.project("split_groups.map")
         mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
-        ctx.actions.run(mergemap_cmd, category = "compute_mergemap")
+        ctx.actions.run(mergemap_cmd, category = "compute_mergemap", allow_cache_upload = True)
         enhance_ctx.debug_output("compute_merge_sequence", native_library_merge_dir)
 
         dynamic_inputs.append(native_library_merge_map)
@@ -748,32 +748,41 @@ def _get_native_libs_and_assets(
                 "--library-dirs",
             ] + non_root_module_libs_srcs),
             category = "combine_non_root_module_native_libs",
+            allow_cache_upload = True,
         )
 
     combined_native_libs = ctx.actions.declare_output("combined_native_libs", dir = True)
     native_libs_metadata = ctx.actions.declare_output("native_libs_metadata.txt")
     native_library_pick_first = getattr(ctx.attrs, "native_library_pick_first", [])
     native_library_pick_first_arg = ["--pick-first"] + native_library_pick_first if native_library_pick_first else []
-    ctx.actions.run(cmd_args([
-        ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
-        "--output-dir",
-        combined_native_libs.as_output(),
-        "--library-dirs",
-        native_libs,
-        stripped_linkables.linkables,
-        "--metadata-file",
-        native_libs_metadata.as_output(),
-    ] + native_library_pick_first_arg), category = "combine_native_libs")
+    ctx.actions.run(
+        cmd_args([
+            ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
+            "--output-dir",
+            combined_native_libs.as_output(),
+            "--library-dirs",
+            native_libs,
+            stripped_linkables.linkables,
+            "--metadata-file",
+            native_libs_metadata.as_output(),
+        ] + native_library_pick_first_arg),
+        category = "combine_native_libs",
+        allow_cache_upload = True,
+    )
 
     combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk", dir = True)
-    ctx.actions.run(cmd_args([
-        ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
-        "--output-dir",
-        combined_native_libs_always_in_primary_apk.as_output(),
-        "--library-dirs",
-        native_libs_always_in_primary_apk,
-        stripped_linkables.linkables_always_in_primary_apk,
-    ]), category = "combine_native_libs_always_in_primary_apk")
+    ctx.actions.run(
+        cmd_args([
+            ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
+            "--output-dir",
+            combined_native_libs_always_in_primary_apk.as_output(),
+            "--library-dirs",
+            native_libs_always_in_primary_apk,
+            stripped_linkables.linkables_always_in_primary_apk,
+        ]),
+        category = "combine_native_libs_always_in_primary_apk",
+        allow_cache_upload = True,
+    )
 
     return _NativeLibsAndAssetsInfo(
         native_libs = combined_native_libs,
@@ -807,6 +816,7 @@ def _filter_prebuilt_native_library_dir(
         cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis),
         category = "filter_prebuilt_native_library_dir",
         identifier = identifier,
+        allow_cache_upload = True,
     )
 
     return base_output_dir
@@ -909,7 +919,7 @@ def _get_native_libs_as_assets_metadata(
         "--metadata-output",
         metadata_output.as_output(),
     ])
-    ctx.actions.run(metadata_cmd, category = "get_native_libs_as_assets_metadata", identifier = module)
+    ctx.actions.run(metadata_cmd, category = "get_native_libs_as_assets_metadata", identifier = module, allow_cache_upload = True)
     return metadata_output
 
 def _get_native_libs_as_assets_dir(module: str) -> str:
@@ -1035,7 +1045,7 @@ def run_mergemap_codegen(ctx: AnalysisContext, merged_library_map: Artifact) -> 
     mapping_java = ctx.actions.declare_output("MergedLibraryMapping.java")
     args = cmd_args(ctx.attrs.native_library_merge_code_generator[RunInfo])
     args.add([merged_library_map, mapping_java.as_output()])
-    ctx.actions.run(args, category = "mergemap_codegen")
+    ctx.actions.run(args, category = "mergemap_codegen", allow_cache_upload = True)
     return mapping_java
 
 # We can't merge a prebuilt shared (that has no archive) and must use it's original info.
@@ -1912,6 +1922,7 @@ def _create_bolt_lib(
         prefer_remote = action_execution_properties.prefer_remote,
         local_only = action_execution_properties.local_only,
         identifier = output_path,
+        allow_cache_upload = True,
     )
 
     linked_object = LinkedObject(
