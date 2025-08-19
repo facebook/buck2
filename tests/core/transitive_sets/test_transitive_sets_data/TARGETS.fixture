@@ -1,4 +1,4 @@
-load(":defs.bzl", "test", "test_duplication")
+load(":defs.bzl", "optional_args", "optional_json_args", "test", "test_duplication")
 
 test(name = "foo1")
 
@@ -22,4 +22,30 @@ test(
 
 test_duplication(
     name = "test_duplication",
+)
+
+optional_args(name = "optional_args1", has_artifact = True)
+
+optional_args(name = "optional_args2", has_artifact = False)
+
+optional_args(
+    name = "combined_optional_args",
+    deps = [
+        ":optional_args1",
+        ":optional_args2",
+    ],
+    has_artifact = True,
+)
+
+optional_json_args(name = "optional_json_args1", has_artifact = True)
+
+optional_json_args(name = "optional_json_args2", has_artifact = False)
+
+optional_json_args(
+    name = "combined_optional_json_args",
+    deps = [
+        ":optional_json_args1",
+        ":optional_json_args2",
+    ],
+    has_artifact = True,
 )

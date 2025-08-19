@@ -75,3 +75,89 @@ test_duplication = rule(
         "deps": attrs.list(attrs.dep(providers = [NameInfo]), default = []),
     },
 )
+
+OptionalArtifact = record(
+    artifact = field(Artifact | None),
+)
+
+def project_as_args(optional_artifact: OptionalArtifact):
+    if optional_artifact.artifact:
+        return optional_artifact.artifact.short_path
+    return None
+
+OptionalArgsNameSet = transitive_set(
+    args_projections = {
+        "project": project_as_args,
+    },
+    json_projections = {
+        "project_json": project_as_args,
+    },
+)
+
+OptionalArgsNameInfo = provider(fields = ["tset"])
+
+def _optional_args_impl(ctx):
+    # Produce a file whose short-name is our name.
+    if ctx.attrs.has_artifact:
+        out = ctx.actions.write("{}".format(str(ctx.label.name)), "hello world")
+    else:
+        out = None
+
+    # Produce a tset from our file and our children's files.
+    children = [d[OptionalArgsNameInfo].tset for d in ctx.attrs.deps]
+    tset = ctx.actions.tset(OptionalArgsNameSet, value = OptionalArtifact(artifact = out), children = children)
+
+    # Write the projection of the tset to a file.
+    agg = ctx.actions.declare_output("agg.txt")
+    ctx.actions.write(agg, tset.project_as_args("project"))
+
+    return [
+        OptionalArgsNameInfo(tset = tset),
+        DefaultInfo(default_output = agg),
+    ]
+
+optional_args = rule(
+    impl = _optional_args_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(providers = [OptionalArgsNameInfo]), default = []),
+        "has_artifact": attrs.bool(default = True),
+    },
+)
+
+OptionalJsonArgsNameSet = transitive_set(
+    json_projections = {
+        "project_json": project_as_args,
+    },
+)
+
+OptionalJsonArgsNameInfo = provider(fields = ["tset"])
+
+def _optional_json_args_impl(ctx):
+    # Produce a file whose short-name is our name.
+    if ctx.attrs.has_artifact:
+        out = ctx.actions.write("{}".format(str(ctx.label.name)), "hello world")
+    else:
+        out = None
+
+    # Produce a tset from our file and our children's files.
+    children = [d[OptionalJsonArgsNameInfo].tset for d in ctx.attrs.deps]
+    tset = ctx.actions.tset(OptionalJsonArgsNameSet, value = OptionalArtifact(artifact = out), children = children)
+
+    # Concatenate all the files declared by the tset, into a single file
+    # (agg.txt), which we'll return as our output.
+    agg = ctx.actions.declare_output("agg.txt")
+
+    ctx.actions.write_json(agg, tset.project_as_json("project_json"))
+
+    return [
+        OptionalJsonArgsNameInfo(tset = tset),
+        DefaultInfo(default_output = agg),
+    ]
+
+optional_json_args = rule(
+    impl = _optional_json_args_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(providers = [OptionalJsonArgsNameInfo]), default = []),
+        "has_artifact": attrs.bool(default = True),
+    },
+)
