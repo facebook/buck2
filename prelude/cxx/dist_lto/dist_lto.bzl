@@ -715,26 +715,55 @@ def cxx_gnu_dist_link(
         final_output = output
         split_debug_output = None
 
-    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_tool_available else None
-
     if dwp_tool_available:
-        if split_debug_output:
-            referenced_objects = final_link_inputs + [split_debug_output]
-        else:
-            materialized_external_debug_info = project_artifacts(ctx.actions, [external_debug_info])
-            referenced_objects = final_link_inputs + materialized_external_debug_info
-        run_dwp_action(
-            ctx = ctx,
-            toolchain = cxx_toolchain,
-            obj = final_output,
-            identifier = identifier,
-            category_suffix = category_suffix,
-            referenced_objects = referenced_objects,
-            dwp_output = dwp_output,
-            # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
-            # ensure all dwo source files are available
-            local_only = True,
+        dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp")
+
+        def dynamic_run_dwp_action(ctx: AnalysisContext, artifacts, outputs):
+            plan = artifacts[link_plan_out].read_json()
+            plan_index = {int(k): v for k, v in plan["index"].items()}
+            non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
+
+            referenced_objects = list(final_link_inputs)
+
+            # Include hidden dependencies for the final link.
+            for idx, artifact in enumerate(index_link_data):
+                if artifact == None:
+                    continue
+                link_data = artifact.link_data
+                if artifact.data_type == _DataType("bitcode"):
+                    if idx in plan_index:
+                        referenced_objects.append(link_data.opt_object)
+                    elif idx in non_lto_objects:
+                        referenced_objects.append(link_data.initial_object)
+                elif artifact.data_type == _DataType("archive"):
+                    referenced_objects.append(link_data.opt_objects_dir)
+
+            if split_debug_output:
+                referenced_objects += [split_debug_output]
+            else:
+                referenced_objects += project_artifacts(ctx.actions, [external_debug_info])
+
+            run_dwp_action(
+                ctx = ctx,
+                toolchain = cxx_toolchain,
+                obj = final_output,
+                identifier = identifier,
+                category_suffix = category_suffix,
+                referenced_objects = referenced_objects,
+                dwp_output = outputs[dwp_output],
+                # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
+                # ensure all dwo source files are available
+                local_only = True,
+            )
+
+        ctx.actions.dynamic_output(
+            dynamic = [link_plan_out],
+            inputs = [],
+            outputs = [dwp_output.as_output()],
+            f = dynamic_run_dwp_action,
         )
+    else:
+        dwp_output = None
 
     unstripped_output = final_output
     if opts.strip:
