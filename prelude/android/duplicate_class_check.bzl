@@ -30,6 +30,7 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
             hidden = target_name_to_class_name_mapping.values(),
         ),
         category = "check_duplicate_classes_pre_dexed_libs",
+        allow_cache_upload = True,
     )
     return validation_output
 
