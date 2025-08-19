@@ -228,8 +228,8 @@ def main() -> None:  # noqa: C901
 
     script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 
-    cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
-    cargo_rustc_env_pattern = re.compile("^cargo:rustc-env=(.+?)=(.*)")
+    cargo_rustc_cfg_pattern = re.compile("^cargo::?rustc-cfg=(.*)")
+    cargo_rustc_env_pattern = re.compile("^cargo::?rustc-env=(.+?)=(.*)")
     flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
