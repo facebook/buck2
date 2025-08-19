@@ -111,23 +111,27 @@ def get_android_binary_resources_info(
         primary_resources_apk = ctx.actions.declare_output("after_exo/primary_resources_apk.apk")
         exo_resources = ctx.actions.declare_output("exo_resources.apk")
         exo_resources_hash = ctx.actions.declare_output("exo_resources.apk.hash")
-        ctx.actions.run(cmd_args([
-            android_toolchain.exo_resources_rewriter[RunInfo],
-            "--original-r-dot-txt",
-            aapt2_link_info.r_dot_txt,
-            "--new-r-dot-txt",
-            r_dot_txt.as_output(),
-            "--original-primary-apk-resources",
-            aapt2_link_info.primary_resources_apk,
-            "--new-primary-apk-resources",
-            primary_resources_apk.as_output(),
-            "--exo-resources",
-            exo_resources.as_output(),
-            "--exo-resources-hash",
-            exo_resources_hash.as_output(),
-            "--zipalign-tool",
-            android_toolchain.zipalign[RunInfo],
-        ]), category = "write_exo_resources")
+        ctx.actions.run(
+            cmd_args([
+                android_toolchain.exo_resources_rewriter[RunInfo],
+                "--original-r-dot-txt",
+                aapt2_link_info.r_dot_txt,
+                "--new-r-dot-txt",
+                r_dot_txt.as_output(),
+                "--original-primary-apk-resources",
+                aapt2_link_info.primary_resources_apk,
+                "--new-primary-apk-resources",
+                primary_resources_apk.as_output(),
+                "--exo-resources",
+                exo_resources.as_output(),
+                "--exo-resources-hash",
+                exo_resources_hash.as_output(),
+                "--zipalign-tool",
+                android_toolchain.zipalign[RunInfo],
+            ]),
+            category = "write_exo_resources",
+            allow_cache_upload = True,
+        )
 
         exopackage_info = ExopackageResourcesInfo(
             assets = exopackaged_assets,
@@ -315,6 +319,7 @@ def _maybe_filter_resources(
         filter_resources_cmd,
         local_only = post_filter_resources_cmd != None and "run_post_filter_resources_cmd_locally" in ctx.attrs.labels,
         category = "filter_resources",
+        allow_cache_upload = True,
     )
 
     filtered_resource_infos = []
@@ -388,7 +393,7 @@ def _maybe_generate_string_source_map(
     if is_voltron_string_source_map:
         generate_string_source_map_cmd.add("--is-voltron")
 
-    actions.run(generate_string_source_map_cmd, category = "generate_{}string_source_map".format(prefix))
+    actions.run(generate_string_source_map_cmd, category = "generate_{}string_source_map".format(prefix), allow_cache_upload = True)
 
     return output
 
@@ -428,7 +433,7 @@ def _maybe_package_strings_as_assets(
     if locales:
         package_strings_as_assets_cmd.add("--locales", ",".join(locales))
 
-    ctx.actions.run(package_strings_as_assets_cmd, category = "package_strings_as_assets")
+    ctx.actions.run(package_strings_as_assets_cmd, category = "package_strings_as_assets", allow_cache_upload = True)
 
     return string_assets_zip
 
@@ -472,7 +477,7 @@ def get_manifest(
         if android_toolchain.should_run_sanity_check_for_placeholders:
             replace_application_id_placeholders_cmd.add("--sanity-check-placeholders")
 
-        ctx.actions.run(replace_application_id_placeholders_cmd, category = "replace_application_id_placeholders")
+        ctx.actions.run(replace_application_id_placeholders_cmd, category = "replace_application_id_placeholders", allow_cache_upload = True)
         return android_manifest_with_replaced_application_id
     else:
         return android_manifest
@@ -619,7 +624,7 @@ def _merge_assets(
             merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
             merge_assets_cmd.add(cmd_args(hidden = flatten(module_to_assets_dirs.values())))
 
-            ctx.actions.run(merge_assets_cmd, category = "merge_assets")
+            ctx.actions.run(merge_assets_cmd, category = "merge_assets", allow_cache_upload = True)
 
         ctx.actions.dynamic_output(
             dynamic = [apk_module_graph_file],
@@ -640,7 +645,7 @@ def _merge_assets(
         merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
         merge_assets_cmd.add(cmd_args(hidden = assets_dirs))
 
-        ctx.actions.run(merge_assets_cmd, category = "merge_assets")
+        ctx.actions.run(merge_assets_cmd, category = "merge_assets", allow_cache_upload = True)
 
         if is_exopackaged_enabled_for_resources:
             return base_apk, merged_assets_output, merged_assets_output_hash, None
