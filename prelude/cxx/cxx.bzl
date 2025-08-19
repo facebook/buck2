@@ -528,6 +528,15 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                         shlink_args.extend(linker_flags.exported_flags)
                         shlink_args.extend(linker_flags.flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
+
+                        # TODO(T110378118): As per v1, we always link against "shared"
+                        # dependencies when building a shaerd library.
+                        shared_link_args = get_link_args_for_strategy(
+                            ctx,
+                            inherited_exported_link,
+                            LinkStrategy("shared"),
+                            prefer_stripped = False,
+                        )
                         link_result = cxx_link_shared_library(
                             ctx = ctx,
                             output = soname.ensure_str(),
@@ -535,9 +544,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             opts = link_options(
                                 links = [
                                     LinkArgs(flags = shlink_args),
-                                    # TODO(T110378118): As per v1, we always link against "shared"
-                                    # dependencies when building a shaerd library.
-                                    get_link_args_for_strategy(ctx, inherited_exported_link, LinkStrategy("shared"), prefer_stripped = False),
+                                    shared_link_args,
                                 ],
                                 link_execution_preference = LinkExecutionPreference("any"),
                             ),

@@ -174,7 +174,12 @@ def link(
         is_win = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
         # Gather external link args from deps.
-        ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style), prefer_stripped = False)
+        ext_links = get_link_args_for_strategy(
+            ctx,
+            cxx_inherited_link_info(deps),
+            to_link_strategy(link_style),
+            prefer_stripped = False,
+        )
         ext_link_args_output = make_link_args(
             ctx,
             ctx.actions,
