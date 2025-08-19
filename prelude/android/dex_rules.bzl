@@ -115,6 +115,7 @@ def get_single_primary_dex(
         d8_cmd,
         category = "get_single_primary_dex",
         identifier = "{}:{}".format(ctx.label.package, ctx.label.name),
+        allow_cache_upload = True,
         error_handler = android_toolchain.android_error_handler,
     )
 
@@ -233,6 +234,7 @@ def get_multi_dex(
                 multi_dex_cmd,
                 category = "multi_dex",
                 identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module),
+                allow_cache_upload = True,
                 error_handler = android_toolchain.android_error_handler,
             )
 
@@ -243,6 +245,7 @@ def get_multi_dex(
                 secondary_dex_compression_cmd,
                 category = "secondary_dex_compression",
                 identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module),
+                allow_cache_upload = True,
                 error_handler = android_toolchain.android_error_handler,
             )
 
@@ -294,6 +297,7 @@ def _get_primary_dex_and_secondary_dex_jars(
             jar_splitter_cmd,
             category = "jar_splitter",
             identifier = identifier,
+            allow_cache_upload = True,
             error_handler = android_toolchain.android_error_handler,
         )
 
@@ -423,6 +427,7 @@ def _filter_pre_dexed_libs(
         filter_dex_cmd,
         category = "filter_dex",
         identifier = "batch_{}".format(batch_number),
+        allow_cache_upload = True,
         error_handler = android_toolchain.android_error_handler,
     )
 
@@ -618,6 +623,7 @@ def merge_to_split_dex(
                     multi_dex_cmd,
                     category = "multi_dex_from_raw_dexes",
                     identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module),
+                    allow_cache_upload = True,
                     error_handler = android_toolchain.android_error_handler,
                 )
 
@@ -709,6 +715,7 @@ def _merge_dexes(
         d8_cmd,
         category = "merge_dexes",
         identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path),
+        allow_cache_upload = True,
         error_handler = android_toolchain.android_error_handler,
     )
 

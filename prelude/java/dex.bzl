@@ -74,6 +74,7 @@ def get_dex_produced_from_java_library(
         d8_cmd,
         category = "pre_dex",
         identifier = identifier,
+        allow_cache_upload = True,
     )
 
     return DexLibraryInfo(
