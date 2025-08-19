@@ -1438,8 +1438,7 @@ def _generate_base_compile_command(
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
         ext: CxxExtension,
-        filename_prefix: str = "",
-        uses_experimental_content_based_path_hashing: bool = False) -> CxxCompileCommand:
+        filename_prefix: str = "") -> CxxCompileCommand:
     """
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
@@ -1472,7 +1471,7 @@ def _generate_base_compile_command(
             headers_tag,
             is_precompile = False,
             filename_prefix = filename_prefix,
-            uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+            uses_experimental_content_based_path_hashing = True,
             **kwargs
         )
 
@@ -1485,7 +1484,7 @@ def _generate_base_compile_command(
         pre,
         ext,
         filename_prefix,
-        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+        uses_experimental_content_based_path_hashing = True,
     )
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
