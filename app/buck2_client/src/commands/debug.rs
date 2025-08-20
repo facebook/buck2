@@ -123,7 +123,7 @@ impl DebugCommand {
             DebugCommand::FlushDepFiles(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx, events_ctx),
             DebugCommand::Materialize(cmd) => ctx.exec(cmd, matches, events_ctx),
-            DebugCommand::UploadReLogs(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::UploadReLogs(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Allocative(cmd) => ctx.exec(cmd, matches, events_ctx),

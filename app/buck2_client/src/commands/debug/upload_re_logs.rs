@@ -9,6 +9,7 @@
  */
 
 use async_compression::tokio::bufread::ZstdEncoder;
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -26,24 +27,29 @@ pub struct UploadReLogsCommand {
     session_id: String,
 }
 
-impl UploadReLogsCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        buck2_core::facebook_only();
+impl BuckSubcommand for UploadReLogsCommand {
+    const COMMAND_NAME: &'static str = "upload-re-logs";
 
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        events_ctx: &mut buck2_client_ctx::events_ctx::EventsCtx,
+    ) -> ExitResult {
+        buck2_core::facebook_only();
+        events_ctx.log_invocation_record = false;
+        let manifold = ManifoldClient::new().await?;
         // TODO: This should receive the path from the caller.
-        ctx.with_runtime(|ctx| async move {
-            let manifold = ManifoldClient::new().await?;
-            let re_logs_dir = ctx.paths()?.re_logs_dir();
-            upload_re_logs(
-                &manifold,
-                Bucket::RE_LOGS,
-                &re_logs_dir,
-                &self.session_id,
-                &format!("flat/{}.log.zst", &self.session_id),
-            )
-            .await?;
-            ExitResult::success()
-        })
+        let re_logs_dir = ctx.paths()?.re_logs_dir();
+        upload_re_logs(
+            &manifold,
+            Bucket::RE_LOGS,
+            &re_logs_dir,
+            &self.session_id,
+            &format!("flat/{}.log.zst", &self.session_id),
+        )
+        .await?;
+        ExitResult::success()
     }
 }
 
