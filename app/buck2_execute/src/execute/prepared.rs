@@ -30,6 +30,7 @@ pub struct PreparedAction {
     pub action_and_blobs: ActionDigestAndBlobs,
     pub platform: RE::Platform,
     pub remote_execution_dependencies: Vec<RemoteExecutorDependency>,
+    pub worker_tool_init_action: Option<ActionDigestAndBlobs>,
 }
 
 impl PreparedAction {

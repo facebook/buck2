@@ -318,6 +318,13 @@ impl IncrementalState {
     }
 }
 
+pub struct RemoteWorkerSpec {
+    pub id: WorkerId,
+    pub init: Vec<String>,
+    pub input_paths: CommandExecutionPaths,
+    pub concurrency: Option<usize>,
+}
+
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {
     /// Optional arguments including executable prepended to `args` to get full command line.
@@ -349,6 +356,8 @@ pub struct CommandExecutionRequest {
     required_local_resources: SortedSet<LocalResourceState>,
     /// Persistent worker to use for execution
     worker: Option<WorkerSpec>,
+    /// Persistent remote worker to use for execution
+    remote_worker: Option<RemoteWorkerSpec>,
     /// Whether the executor should guarantee that the inodes for all inputs are unique (i.e. avoid
     /// hardlinking identical input files, for example)
     unique_input_inodes: bool,
@@ -391,6 +400,7 @@ impl CommandExecutionRequest {
             disable_miniperf: false,
             required_local_resources: SortedSet::new(),
             worker: None,
+            remote_worker: None,
             unique_input_inodes: false,
             remote_dep_file_key: None,
             remote_execution_dependencies: Vec::new(),
@@ -484,8 +494,17 @@ impl CommandExecutionRequest {
         &self.worker
     }
 
+    pub fn remote_worker(&self) -> &Option<RemoteWorkerSpec> {
+        &self.remote_worker
+    }
+
     pub fn with_worker(mut self, worker: Option<WorkerSpec>) -> Self {
         self.worker = worker;
+        self
+    }
+
+    pub fn with_remote_worker(mut self, remote_worker: Option<RemoteWorkerSpec>) -> Self {
+        self.remote_worker = remote_worker;
         self
     }
 

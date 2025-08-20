@@ -285,6 +285,7 @@ impl RemoteExecutionClient {
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
+        worker_tool_action_digest: Option<ActionDigest>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
@@ -301,6 +302,7 @@ impl RemoteExecutionClient {
                 re_resource_units,
                 knobs,
                 meta_internal_extra_params,
+                worker_tool_action_digest,
             ))
             .await
     }
@@ -1264,7 +1266,11 @@ impl RemoteExecutionClientImpl {
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
+        worker_tool_action_digest: Option<ActionDigest>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
+        #[cfg(not(fbcode_build))]
+        let _unused = worker_tool_action_digest;
+
         if buck2_env!("BUCK2_TEST_FAIL_RE_EXECUTE", bool, applicability = testing)? {
             return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
         }
@@ -1319,6 +1325,10 @@ impl RemoteExecutionClientImpl {
                         ..Default::default()
                     })
                     .collect(),
+                #[cfg(fbcode_build)]
+                worker_tool_action_digest: worker_tool_action_digest
+                    .map(|d| d.to_re())
+                    .unwrap_or(Default::default()),
                 ..Default::default()
             },
             ..Default::default()

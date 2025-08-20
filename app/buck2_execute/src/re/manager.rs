@@ -429,6 +429,7 @@ impl ManagedRemoteExecutionClient {
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
+        worker_tool_action_digest: Option<ActionDigest>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         self.lock()?
             .get()
@@ -446,6 +447,7 @@ impl ManagedRemoteExecutionClient {
                 re_resource_units,
                 knobs,
                 meta_internal_extra_params,
+                worker_tool_action_digest,
             )
             .await
     }

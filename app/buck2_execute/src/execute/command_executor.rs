@@ -50,6 +50,7 @@ use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
 use crate::execute::request::OutputType;
+use crate::execute::request::RemoteWorkerSpec;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
 
@@ -205,7 +206,7 @@ impl CommandExecutor {
                 CommandExecutionInput::IncrementalRemoteOutput(..) => None,
             });
             let mut platform = self.0.re_platform.clone();
-            let args = if self.0.options.use_bazel_protocol_remote_persistent_workers
+            let all_args = if self.0.options.use_bazel_protocol_remote_persistent_workers
                 && let Some(worker) = request.worker()
                 && let Some(key) = worker.remote_key.as_ref()
             {
@@ -235,7 +236,8 @@ impl CommandExecutor {
                 request.all_args_vec()
             };
             let action = re_create_action(
-                args,
+                request.args().to_vec(),
+                all_args,
                 request.paths().output_paths(),
                 request.working_directory(),
                 request.env(),
@@ -252,6 +254,7 @@ impl CommandExecutor {
                 &request
                     .meta_internal_extra_params()
                     .remote_execution_caf_fbpkgs,
+                request.remote_worker(),
             )?;
 
             buck2_error::Ok(action)
@@ -261,6 +264,7 @@ impl CommandExecutor {
 
 fn re_create_action(
     args: Vec<String>,
+    all_args: Vec<String>,
     outputs: &[(ProjectRelativePathBuf, OutputType)],
     working_directory: &ProjectRelativePath,
     environment: &SortedVectorMap<String, String>,
@@ -275,9 +279,36 @@ fn re_create_action(
     remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
     remote_execution_custom_image: &Option<RemoteExecutorCustomImage>,
     remote_execution_caf_fbpkgs: &[RemoteExecutorCafFbpkg],
+    worker: &Option<RemoteWorkerSpec>,
 ) -> buck2_error::Result<PreparedAction> {
+    let (worker_tool_init_action, command_args) = if let Some(worker) = worker {
+        let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
+        let command = RE::Command {
+            arguments: worker.init.clone(),
+            platform: Some(platform.clone()),
+            working_directory: working_directory.as_str().to_owned(),
+            ..Default::default()
+        };
+        let input_digest = worker.input_paths.input_directory().fingerprint();
+
+        let action = RE::Action {
+            input_root_digest: Some(input_digest.to_grpc()),
+            command_digest: Some(action_and_blobs.add_command(&command).to_grpc()),
+            timeout: timeout
+                .map(|t| t.try_into())
+                .transpose()
+                .buck_error_context("Cannot convert timeout to GRPC")?,
+            do_not_cache,
+            ..Default::default()
+        };
+        let action_and_blobs = action_and_blobs.build(&action);
+        (Some(action_and_blobs), args)
+    } else {
+        (None, all_args)
+    };
+
     let mut command = RE::Command {
-        arguments: args,
+        arguments: command_args,
         platform: Some(platform),
         working_directory: working_directory.as_str().to_owned(),
         environment_variables: environment
@@ -350,6 +381,8 @@ fn re_create_action(
             .transpose()
             .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
+        #[cfg(fbcode_build)]
+        worker_tool_action_digest: worker_tool_init_action.clone().map(|a| a.action.to_grpc()),
         ..Default::default()
     };
 
@@ -416,5 +449,6 @@ fn re_create_action(
             .platform
             .expect("We did put a platform a few lines up"),
         remote_execution_dependencies: remote_execution_dependencies.to_owned(),
+        worker_tool_init_action,
     })
 }

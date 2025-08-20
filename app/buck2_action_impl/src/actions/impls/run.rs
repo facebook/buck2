@@ -77,6 +77,7 @@ use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::IncrementalState;
+use buck2_execute::execute::request::RemoteWorkerSpec;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -338,6 +339,17 @@ impl FrozenStarlarkRunActionValues {
             .map_err(buck2_error::Error::from)
             .map(Some)
     }
+
+    pub(crate) fn remote_worker<'v>(
+        &'v self,
+    ) -> buck2_error::Result<Option<ValueOf<'v, &'v WorkerInfo<'v>>>> {
+        let Some(remote_worker) = self.remote_worker else {
+            return Ok(None);
+        };
+        ValueOf::unpack_value_err(remote_worker.to_value())
+            .map_err(buck2_error::Error::from)
+            .map(Some)
+    }
 }
 
 struct UnpackedWorkerValues<'v> {
@@ -353,6 +365,7 @@ struct UnpackedRunActionValues<'v> {
     args: &'v dyn CommandLineArgLike<'v>,
     env: Vec<(&'v str, &'v dyn CommandLineArgLike<'v>)>,
     worker: Option<UnpackedWorkerValues<'v>>,
+    remote_worker: Option<UnpackedWorkerValues<'v>>,
 }
 
 #[derive(Debug, Allocative)]
@@ -418,11 +431,22 @@ impl RunAction {
                 .supports_bazel_remote_persistent_worker_protocol(),
         });
 
+        let remote_worker: Option<&WorkerInfo> = values.remote_worker()?.map(|v| v.typed);
+
+        let remote_worker = remote_worker.map(|remote_worker| UnpackedWorkerValues {
+            exe: remote_worker.exe_command_line(),
+            id: WorkerId(remote_worker.id),
+            concurrency: remote_worker.concurrency(),
+            streaming: false,
+            supports_bazel_remote_persistent_worker_protocol: false,
+        });
+
         Ok(UnpackedRunActionValues {
             exe,
             args,
             env,
             worker,
+            remote_worker,
         })
     }
 
@@ -435,6 +459,7 @@ impl RunAction {
         ExpandedCommandLine,
         ExpandedCommandLineDigestForDepFiles,
         Option<WorkerSpec>,
+        Option<RemoteWorkerSpec>,
     )> {
         let fs = &action_execution_ctx.executor_fs();
         let mut cli_ctx = DefaultCommandLineContext::new(fs);
@@ -500,6 +525,42 @@ impl RunAction {
             None
         };
 
+        let remote_worker = if let Some(remote_worker) = values.remote_worker {
+            let mut remote_worker_init_visitor = SimpleCommandLineArtifactVisitor::new();
+            let mut remote_worker_init_rendered = Vec::<String>::new();
+            remote_worker.exe.add_to_command_line(
+                &mut remote_worker_init_rendered,
+                &mut cli_ctx,
+                &artifact_path_mapping,
+            )?;
+            remote_worker
+                .exe
+                .visit_artifacts(&mut remote_worker_init_visitor)?;
+
+            let artifact_inputs: Vec<&ArtifactGroupValues> = remote_worker_init_visitor
+                .inputs()
+                .map(|group| action_execution_ctx.artifact_values(group))
+                .collect();
+
+            let inputs: Vec<CommandExecutionInput> =
+                artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+
+            let input_paths = CommandExecutionPaths::new(
+                inputs,
+                IndexSet::new(),
+                action_execution_ctx.fs(),
+                action_execution_ctx.digest_config(),
+            )?;
+            Some(RemoteWorkerSpec {
+                init: remote_worker_init_rendered,
+                input_paths,
+                id: remote_worker.id,
+                concurrency: remote_worker.concurrency,
+            })
+        } else {
+            None
+        };
+
         let mut args_rendered = Vec::<String>::new();
         values.args.add_to_command_line(
             &mut args_rendered,
@@ -550,6 +611,7 @@ impl RunAction {
             },
             command_line_digest_for_dep_files.finalize(),
             worker,
+            remote_worker,
         ))
     }
 
@@ -588,7 +650,7 @@ impl RunAction {
         ExpandedCommandLineDigestForDepFiles,
         HostSharingRequirements,
     )> {
-        let (expanded, expanded_command_line_digest_for_dep_files, worker) =
+        let (expanded, expanded_command_line_digest_for_dep_files, worker, remote_worker) =
             self.expand_command_line_and_worker(ctx, visitor)?;
 
         let executor_fs = ctx.executor_fs();
@@ -691,6 +753,7 @@ impl RunAction {
                 extra_env,
                 paths,
                 worker,
+                remote_worker,
             },
             expanded_command_line_digest_for_dep_files,
             host_sharing_requirements,
@@ -991,6 +1054,7 @@ pub(crate) struct PreparedRunAction {
     extra_env: Vec<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
+    remote_worker: Option<RemoteWorkerSpec>,
 }
 
 impl PreparedRunAction {
@@ -1000,13 +1064,16 @@ impl PreparedRunAction {
             extra_env,
             paths,
             worker,
+            remote_worker,
         } = self;
 
         for (k, v) in extra_env {
             env.insert(k, v);
         }
 
-        CommandExecutionRequest::new(exe, args, paths, env).with_worker(worker)
+        CommandExecutionRequest::new(exe, args, paths, env)
+            .with_worker(worker)
+            .with_remote_worker(remote_worker)
     }
 }
 
@@ -1053,6 +1120,9 @@ impl Action for RunAction {
         values.exe.visit_artifacts(&mut artifact_visitor)?;
         if let Some(worker) = values.worker {
             worker.exe.visit_artifacts(&mut artifact_visitor)?;
+        }
+        if let Some(remote_worker) = values.remote_worker {
+            remote_worker.exe.visit_artifacts(&mut artifact_visitor)?;
         }
         for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;

@@ -156,6 +156,7 @@ impl ReExecutor {
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
         meta_internal_extra_params: &MetaInternalExtraParams,
+        worker_tool_action_digest: Option<ActionDigest>,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -175,6 +176,7 @@ impl ReExecutor {
             self.re_resource_units,
             &self.knobs,
             meta_internal_extra_params,
+            worker_tool_action_digest,
         );
 
         let execute_response =
@@ -314,6 +316,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     action_and_blobs,
                     platform,
                     remote_execution_dependencies,
+                    worker_tool_init_action,
                 },
             digest_config,
         } = command;
@@ -352,6 +355,22 @@ impl PreparedCommandExecutor for ReExecutor {
             )
             .await?;
 
+        let manager = if let (Some(worker), Some(worker_tool_init_action)) =
+            (request.remote_worker(), worker_tool_init_action)
+        {
+            self.upload(
+                manager,
+                &identity,
+                &worker_tool_init_action.blobs,
+                &worker.input_paths,
+                *digest_config,
+            )
+            .await?
+        } else {
+            manager
+        };
+        let worker_tool_action_digest = worker_tool_init_action.clone().map(|w| w.action);
+
         let (manager, response) = self
             .re_execute(
                 manager,
@@ -364,6 +383,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
                 &command.request.meta_internal_extra_params(),
+                worker_tool_action_digest,
             )
             .await?;
 
