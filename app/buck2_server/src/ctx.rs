@@ -807,6 +807,7 @@ impl DiceCommandUpdater<'_, '_> {
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
+            format!("re-use-new-queue-estimate:{}", re_use_new_queue_estimate),
         ];
         self.cmd_ctx
             .events()
