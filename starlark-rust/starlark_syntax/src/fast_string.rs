@@ -178,7 +178,11 @@ fn split_at_end(x: &str, i: CharIndex) -> &str {
     }
 }
 
-fn convert_str_indices_slow(s: &str, start: Option<i32>, end: Option<i32>) -> Option<StrIndices> {
+fn convert_str_indices_slow(
+    s: &str,
+    start: Option<i32>,
+    end: Option<i32>,
+) -> Option<StrIndices<'_>> {
     // Slow version when we need to compute full string length
     // because at least one of the indices is negative.
     debug_assert!(matches!(start, Some(start) if start < 0) || matches!(end, Some(end) if end < 0));
@@ -210,7 +214,11 @@ fn convert_str_indices_slow(s: &str, start: Option<i32>, end: Option<i32>) -> Op
 
 /// Convert common `start` and `end` arguments of `str` functions like `str.find`.
 #[inline(always)]
-pub fn convert_str_indices(s: &str, start: Option<i32>, end: Option<i32>) -> Option<StrIndices> {
+pub fn convert_str_indices(
+    s: &str,
+    start: Option<i32>,
+    end: Option<i32>,
+) -> Option<StrIndices<'_>> {
     match (start, end) {
         // Following cases but last optimize index computation
         // by avoiding computing the length of the string.

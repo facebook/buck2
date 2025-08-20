@@ -78,7 +78,7 @@ impl HttpClient {
     pub async fn get(
         &self,
         uri: &str,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+    ) -> Result<Response<BoxStream<'_, hyper::Result<Bytes>>>, HttpError> {
         let req = self
             .request_builder(uri)
             .method(Method::GET)
@@ -92,7 +92,7 @@ impl HttpClient {
         uri: &str,
         body: Bytes,
         headers: Vec<(String, String)>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+    ) -> Result<Response<BoxStream<'_, hyper::Result<Bytes>>>, HttpError> {
         let mut builder = self.request_builder(uri).method(Method::POST);
         for (name, value) in headers {
             builder = builder.header(name, value);
@@ -106,7 +106,7 @@ impl HttpClient {
         uri: &str,
         body: Bytes,
         headers: Vec<(String, String)>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+    ) -> Result<Response<BoxStream<'_, hyper::Result<Bytes>>>, HttpError> {
         let mut builder = self.request_builder(uri).method(Method::PUT);
         for (name, value) in headers {
             builder = builder.header(name, value);
@@ -118,7 +118,7 @@ impl HttpClient {
     async fn send_request_impl(
         &self,
         mut request: Request<Bytes>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+    ) -> Result<Response<BoxStream<'_, hyper::Result<Bytes>>>, HttpError> {
         let uri = request.uri().to_string();
         let now = tokio::time::Instant::now();
 
@@ -166,7 +166,7 @@ impl HttpClient {
     pub async fn request(
         &self,
         request: Request<Bytes>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+    ) -> Result<Response<BoxStream<'_, hyper::Result<Bytes>>>, HttpError> {
         let pending_request = PendingRequest::from_request(&request);
         let uri = request.uri().clone();
         tracing::debug!("http: request: {:?}", request);

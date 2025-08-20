@@ -20,7 +20,7 @@ use cmp_any::PartialEqAny;
 
 /// A `Key` that has been requested within Dice.
 pub trait RequestedKey: Allocative + Display + Debug + Send + Sync {
-    fn get_key_equality(&self) -> PartialEqAny;
+    fn get_key_equality(&self) -> PartialEqAny<'_>;
     fn hash(&self, state: &mut dyn Hasher);
 }
 
@@ -28,7 +28,7 @@ impl<T> RequestedKey for T
 where
     T: Allocative + Display + Debug + Hash + Eq + Send + Sync + 'static,
 {
-    fn get_key_equality(&self) -> PartialEqAny {
+    fn get_key_equality(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 

@@ -126,7 +126,7 @@ impl Action for SimpleAction {
         &self.outputs.as_slice()[0]
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         self.category.as_ref()
     }
 

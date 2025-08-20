@@ -148,7 +148,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Key references iterator.
     #[inline]
-    pub fn keys(&self) -> Keys<K, V> {
+    pub fn keys(&self) -> Keys<'_, K, V> {
         Keys {
             iter: self.entries.keys(),
         }
@@ -156,7 +156,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Value references iterator.
     #[inline]
-    pub fn values(&self) -> Values<K, V> {
+    pub fn values(&self) -> Values<'_, K, V> {
         Values {
             iter: self.entries.values(),
         }
@@ -180,7 +180,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Mutable value references iterator.
     #[inline]
-    pub fn values_mut(&mut self) -> ValuesMut<K, V> {
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
         ValuesMut {
             iter: self.entries.values_mut(),
         }
@@ -196,7 +196,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Entry references with hashes iterator.
     #[inline]
-    pub fn iter_hashed(&self) -> IterHashed<K, V> {
+    pub fn iter_hashed(&self) -> IterHashed<'_, K, V> {
         IterHashed {
             iter: self.entries.iter_hashed(),
         }

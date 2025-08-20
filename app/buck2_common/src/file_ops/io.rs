@@ -128,7 +128,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         Ok(dir.iter().any(|f| &*f.file_name == entry))
     }
 
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 }

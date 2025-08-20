@@ -146,7 +146,7 @@ impl StarlarkStr {
     }
 
     #[inline]
-    pub(crate) fn as_aligned_padded_str(&self) -> AlignedPaddedStr {
+    pub(crate) fn as_aligned_padded_str(&self) -> AlignedPaddedStr<'_> {
         unsafe { AlignedPaddedStr::new(self.len(), self.str.body.as_ptr()) }
     }
 

@@ -113,7 +113,7 @@ impl CommandExecutor {
         &self.0.artifact_fs
     }
 
-    pub fn executor_fs(&self) -> ExecutorFs {
+    pub fn executor_fs(&self) -> ExecutorFs<'_> {
         ExecutorFs::new(&self.0.artifact_fs, self.0.options.path_separator)
     }
 

@@ -162,7 +162,7 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// Get an entry in the map for in-place manipulation.
     #[inline]
-    pub fn entry(&mut self, k: K) -> Entry<K, V>
+    pub fn entry(&mut self, k: K) -> Entry<'_, K, V>
     where
         K: Hash + Eq,
     {
@@ -179,7 +179,7 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// Lower-level access to the entry API.
     #[inline]
-    pub fn raw_entry_mut(&mut self) -> RawEntryBuilderMut<K, V> {
+    pub fn raw_entry_mut(&mut self) -> RawEntryBuilderMut<'_, K, V> {
         RawEntryBuilderMut { map: self }
     }
 

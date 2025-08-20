@@ -183,7 +183,7 @@ impl ChunkChain {
         }
     }
 
-    pub(crate) fn iter(&self) -> ChunkChainIterator {
+    pub(crate) fn iter(&self) -> ChunkChainIterator<'_> {
         ChunkChainIterator { next: Some(self) }
     }
 

@@ -79,7 +79,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
 
     /// Iterate entries in unspecified order.
     #[inline]
-    pub fn iter(&self) -> Iter<T, SHARDS> {
+    pub fn iter(&self) -> Iter<'_, T, SHARDS> {
         Iter {
             table: self,
             shard: 0,

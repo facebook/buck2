@@ -110,7 +110,7 @@ pub(crate) struct ExplicitCancellationContext {
 
 impl ExplicitCancellationContext {
     /// Ignore cancellations while 'PreventCancellation' is held
-    pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard {
+    pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
         self.inner.enter_structured_cancellation()
     }
 

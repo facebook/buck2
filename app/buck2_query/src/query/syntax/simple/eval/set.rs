@@ -105,7 +105,7 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.iter().map(|e| e.node_key())
     }
 
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.targets.iter()
     }
 

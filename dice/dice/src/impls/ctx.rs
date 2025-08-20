@@ -538,7 +538,7 @@ impl ModernComputeCtx<'_> {
         }
     }
 
-    fn unpack(&mut self) -> (&CoreCtx, DepsTrackerHolder) {
+    fn unpack(&mut self) -> (&CoreCtx, DepsTrackerHolder<'_>) {
         match self {
             ModernComputeCtx::Owned {
                 ctx_data,

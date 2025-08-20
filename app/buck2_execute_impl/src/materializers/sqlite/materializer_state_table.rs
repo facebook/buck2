@@ -621,7 +621,7 @@ impl MaterializerStateSqliteTable {
         convert_sqlite_entries_to_materializer_state(entries, digest_config)
     }
 
-    fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry>> {
+    fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry<'_>>> {
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
                 "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path FROM {STATE_TABLE_NAME}",

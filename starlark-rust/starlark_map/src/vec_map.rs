@@ -176,19 +176,19 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn values(&self) -> Values<K, V> {
+    pub(crate) fn values(&self) -> Values<'_, K, V> {
         Values { iter: self.iter() }
     }
 
     #[inline]
-    pub(crate) fn values_mut(&mut self) -> ValuesMut<K, V> {
+    pub(crate) fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
         ValuesMut {
             iter: self.iter_mut(),
         }
     }
 
     #[inline]
-    pub(crate) fn keys(&self) -> Keys<K, V> {
+    pub(crate) fn keys(&self) -> Keys<'_, K, V> {
         Keys { iter: self.iter() }
     }
 
@@ -200,14 +200,14 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn iter(&self) -> Iter<K, V> {
+    pub(crate) fn iter(&self) -> Iter<'_, K, V> {
         Iter {
             iter: self.buckets.aaa().iter(),
         }
     }
 
     #[inline]
-    pub(crate) fn iter_hashed(&self) -> IterHashed<K, V> {
+    pub(crate) fn iter_hashed(&self) -> IterHashed<'_, K, V> {
         IterHashed {
             // Values go first since they terminate first and we can short-circuit
             iter: self.buckets.iter(),
@@ -223,14 +223,14 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn iter_mut(&mut self) -> IterMut<K, V> {
+    pub(crate) fn iter_mut(&mut self) -> IterMut<'_, K, V> {
         IterMut {
             iter: self.buckets.aaa_mut().iter_mut(),
         }
     }
 
     #[inline]
-    pub(crate) fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<K, V> {
+    pub(crate) fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<'_, K, V> {
         IterMutUnchecked {
             iter: self.buckets.aaa_mut().iter_mut(),
         }

@@ -25,7 +25,7 @@ use std::borrow::Cow;
 /// Additionally, we probably also incorrectly use shell quoting for `cmd.exe`.
 ///
 /// Long story short, we should not depend on possible correct behavior change in `shlex` crate.
-pub(crate) fn shlex_quote(in_str: &str) -> Cow<str> {
+pub(crate) fn shlex_quote(in_str: &str) -> Cow<'_, str> {
     if in_str.is_empty() {
         "\"\"".into()
     } else if in_str.bytes().any(|c| match c as char {

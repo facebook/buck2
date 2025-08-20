@@ -234,14 +234,20 @@ impl HttpClientBuilder {
                 if let Some(unix_socket) = find_unix_proxy(proxies) =>
             {
                 let timeout_connector = timeout_config.to_connector(hyperlocal::UnixConnector);
-                let proxy_connector =
-                    build_proxy_connector(&[unix_socket.clone()], timeout_connector, None);
+                let proxy_connector = build_proxy_connector(
+                    std::slice::from_ref(unix_socket),
+                    timeout_connector,
+                    None,
+                );
                 Arc::new(Client::builder(TokioExecutor::new()).build(proxy_connector))
             }
             #[cfg(unix)]
             (proxies @ [_, ..], None) if let Some(unix_socket) = find_unix_proxy(proxies) => {
-                let proxy_connector =
-                    build_proxy_connector(&[unix_socket.clone()], hyperlocal::UnixConnector, None);
+                let proxy_connector = build_proxy_connector(
+                    std::slice::from_ref(unix_socket),
+                    hyperlocal::UnixConnector,
+                    None,
+                );
                 Arc::new(Client::builder(TokioExecutor::new()).build(proxy_connector))
             }
 

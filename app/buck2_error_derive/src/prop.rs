@@ -18,7 +18,7 @@ use crate::ast::Struct;
 use crate::ast::Variant;
 
 impl Struct<'_> {
-    pub(crate) fn source_field(&self) -> Option<&Field> {
+    pub(crate) fn source_field(&self) -> Option<&Field<'_>> {
         source_field(&self.fields)
     }
 }
@@ -39,7 +39,7 @@ impl Enum<'_> {
 }
 
 impl Variant<'_> {
-    pub(crate) fn source_field(&self) -> Option<&Field> {
+    pub(crate) fn source_field(&self) -> Option<&Field<'_>> {
         source_field(&self.fields)
     }
 }

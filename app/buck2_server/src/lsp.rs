@@ -108,7 +108,7 @@ impl DocsCacheManager {
     async fn get_cache(
         &self,
         mut current_dice_ctx: DiceTransaction,
-    ) -> buck2_error::Result<MutexGuard<DocsCache>> {
+    ) -> buck2_error::Result<MutexGuard<'_, DocsCache>> {
         let mut docs_cache = self.docs_cache.lock().await;
 
         let fs = &self.fs;

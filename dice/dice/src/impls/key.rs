@@ -235,7 +235,7 @@ pub(crate) struct CowDiceKeyHashed<'a> {
 }
 
 impl<'a> CowDiceKeyHashed<'a> {
-    pub(crate) fn key_ref<K: Key>(key: &K) -> CowDiceKeyHashed {
+    pub(crate) fn key_ref<K: Key>(key: &'a K) -> CowDiceKeyHashed<'a> {
         let hash = key_hash(key);
         CowDiceKeyHashed {
             cow: CowDiceKey::Ref(DiceKeyErasedRef::key(key)),
@@ -283,7 +283,7 @@ pub(crate) trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
         cancellations: &CancellationContext,
     ) -> Arc<dyn DiceValueDyn>;
 
-    fn cmp_any(&self) -> PartialEqAny;
+    fn cmp_any(&self) -> PartialEqAny<'_>;
 
     fn hash(&self) -> u64;
 
@@ -312,7 +312,7 @@ where
         Arc::new(DiceKeyValue::<K>::new(value))
     }
 
-    fn cmp_any(&self) -> PartialEqAny {
+    fn cmp_any(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 
@@ -348,7 +348,7 @@ pub(crate) trait DiceProjectionDyn: Allocative + Display + Send + Sync + 'static
         ctx: &DiceProjectionComputations,
     ) -> Arc<dyn DiceValueDyn>;
 
-    fn cmp_any(&self) -> PartialEqAny;
+    fn cmp_any(&self) -> PartialEqAny<'_>;
 
     fn hash(&self) -> u64;
 
@@ -379,7 +379,7 @@ where
         Arc::new(DiceProjectValue::<K>::new(value))
     }
 
-    fn cmp_any(&self) -> PartialEqAny {
+    fn cmp_any(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 
@@ -529,7 +529,7 @@ mod introspection {
             }
 
             impl KeyForIntrospection for Wrap {
-                fn get_key_equality(&self) -> PartialEqAny {
+                fn get_key_equality(&self) -> PartialEqAny<'_> {
                     PartialEqAny::new(self)
                 }
 

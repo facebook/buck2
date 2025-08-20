@@ -174,7 +174,7 @@ impl Action for CasArtifactAction {
         &self.output
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new("cas_artifact")
     }
 

@@ -231,8 +231,11 @@ impl BundledFileOpsDelegate {
     ) -> buck2_error::Result<
         Option<
             DirectoryEntry<
-                impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = BundledDirectoryDigest>
-                + use<'_>,
+                impl DirectoryRef<
+                    '_,
+                    Leaf = ContentsAndMetadata,
+                    DirectoryDigest = BundledDirectoryDigest,
+                > + use<'_>,
                 &ContentsAndMetadata,
             >,
         >,
@@ -250,7 +253,7 @@ impl BundledFileOpsDelegate {
         path: &CellRelativePath,
     ) -> buck2_error::Result<
         DirectoryEntry<
-            impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = BundledDirectoryDigest>
+            impl DirectoryRef<'_, Leaf = ContentsAndMetadata, DirectoryDigest = BundledDirectoryDigest>
             + use<'_>,
             &ContentsAndMetadata,
         >,
@@ -339,7 +342,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
         self.read_path_metadata_if_exists(path)
     }
 
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::always_false()
     }
 }

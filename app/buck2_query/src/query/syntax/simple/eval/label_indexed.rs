@@ -102,7 +102,7 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
             .map(|e| e.0)
     }
 
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             iter: self.nodes.iter(),
         }

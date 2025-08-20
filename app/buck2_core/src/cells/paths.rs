@@ -356,7 +356,7 @@ impl CellRelativePath {
     ///
     /// # buck2_error::Ok(())
     /// ```
-    pub fn iter(&self) -> ForwardRelativePathIter {
+    pub fn iter(&self) -> ForwardRelativePathIter<'_> {
         self.0.iter()
     }
 

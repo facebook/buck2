@@ -105,7 +105,7 @@ impl Symbol {
     }
 
     #[inline]
-    pub(crate) fn as_aligned_padded_str(&self) -> AlignedPaddedStr {
+    pub(crate) fn as_aligned_padded_str(&self) -> AlignedPaddedStr<'_> {
         unsafe { AlignedPaddedStr::new(self.len as usize, self.payload.as_ptr()) }
     }
 

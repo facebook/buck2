@@ -179,7 +179,7 @@ impl Line {
     }
 
     /// Iterate over the spans in the line.
-    pub fn iter(&self) -> slice::Iter<Span> {
+    pub fn iter(&self) -> slice::Iter<'_, Span> {
         self.0.iter()
     }
 

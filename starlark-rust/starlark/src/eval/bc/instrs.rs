@@ -158,7 +158,7 @@ pub(crate) struct PatchAddr {
 }
 
 impl BcInstrs {
-    pub(crate) fn start_ptr(&self) -> BcPtrAddr {
+    pub(crate) fn start_ptr(&self) -> BcPtrAddr<'_> {
         BcPtrAddr::for_slice_start(&self.instrs)
     }
 
@@ -180,7 +180,7 @@ impl BcInstrs {
         )
     }
 
-    pub(crate) fn end_ptr(&self) -> BcPtrAddr {
+    pub(crate) fn end_ptr(&self) -> BcPtrAddr<'_> {
         self.start_ptr().offset(self.end())
     }
 
@@ -198,7 +198,7 @@ impl BcInstrs {
         opcodes
     }
 
-    fn iter(&self) -> impl Iterator<Item = (BcPtrAddr, BcAddr)> {
+    fn iter(&self) -> impl Iterator<Item = (BcPtrAddr<'_>, BcAddr)> {
         let mut next_ptr = self.start_ptr();
         iter::from_fn(move || {
             assert!(next_ptr <= self.end_ptr());

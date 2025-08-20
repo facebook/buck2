@@ -33,11 +33,11 @@ impl LabeledNode for TargetNode {
 impl QueryTarget for TargetNode {
     type Attr<'a> = CoercedAttr;
 
-    fn rule_type(&self) -> Cow<str> {
+    fn rule_type(&self) -> Cow<'_, str> {
         Cow::Borrowed(TargetNodeData::rule_type(self).name())
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.label().name().as_str())
     }
 

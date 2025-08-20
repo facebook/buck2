@@ -66,7 +66,7 @@ pub(crate) enum Location {
 }
 
 impl Location {
-    pub(crate) fn as_legacy_buck_config_location(&self) -> LegacyBuckConfigLocation {
+    pub(crate) fn as_legacy_buck_config_location(&self) -> LegacyBuckConfigLocation<'_> {
         match self {
             Self::File(x) => LegacyBuckConfigLocation::File(&x.source_file.path, x.line),
             Self::CommandLineArgument => LegacyBuckConfigLocation::CommandLineArgument,
@@ -205,7 +205,7 @@ impl<'a> LegacyBuckConfigValue<'a> {
         self.value.raw_value()
     }
 
-    pub fn location(&self) -> LegacyBuckConfigLocation {
+    pub fn location(&self) -> LegacyBuckConfigLocation<'_> {
         match &self.value.source {
             Location::File(file) => {
                 LegacyBuckConfigLocation::File(&file.source_file.path, file.line)
@@ -214,7 +214,7 @@ impl<'a> LegacyBuckConfigValue<'a> {
         }
     }
 
-    pub fn location_stack(&self) -> Vec<LegacyBuckConfigLocation> {
+    pub fn location_stack(&self) -> Vec<LegacyBuckConfigLocation<'_>> {
         let mut res = Vec::new();
         let mut location = Some(&self.value.source);
 

@@ -71,7 +71,7 @@ pub struct AnalysisActions<'v> {
 }
 
 impl<'v> AnalysisActions<'v> {
-    pub fn state(&self) -> buck2_error::Result<RefMut<AnalysisRegistry<'v>>> {
+    pub fn state(&self) -> buck2_error::Result<RefMut<'_, AnalysisRegistry<'v>>> {
         let state = self
             .state
             .try_borrow_mut()

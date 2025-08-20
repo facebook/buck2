@@ -188,7 +188,7 @@ impl BxlDynamicKey {
 }
 
 impl BaseDeferredKeyDyn for BxlDynamicKeyData {
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 

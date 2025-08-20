@@ -75,7 +75,7 @@ impl EventLogOptions {
             } else if !self.no_remote {
                 EventLogPathBuf::infer(self.download_remote_id(id, ctx).await?)
             } else {
-                return Err(EventLogOptionsError::LogNotFoundLocally(id.dupe()).into());
+                Err(EventLogOptionsError::LogNotFoundLocally(id.dupe()).into())
             }
         } else {
             retrieve_nth_recent_log(

@@ -28,7 +28,7 @@ pub trait BuildSignalsNodeKeyImpl:
 }
 
 pub trait BuildSignalsNodeKeyDyn: Send + Sync + 'static {
-    fn eq_token(&self) -> PartialEqAny;
+    fn eq_token(&self) -> PartialEqAny<'_>;
     fn dislpay(&self) -> &dyn Display;
     fn debug(&self) -> &dyn Debug;
     fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry>;
@@ -36,7 +36,7 @@ pub trait BuildSignalsNodeKeyDyn: Send + Sync + 'static {
 }
 
 impl<T: BuildSignalsNodeKeyImpl> BuildSignalsNodeKeyDyn for T {
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 

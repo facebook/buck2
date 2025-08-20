@@ -43,11 +43,11 @@ impl QueryTarget for ConfiguredTargetNode {
         self.label().unconfigured().to_string()
     }
 
-    fn rule_type(&self) -> Cow<str> {
+    fn rule_type(&self) -> Cow<'_, str> {
         Cow::Borrowed(ConfiguredTargetNode::rule_type(self).name())
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.label().name().as_str())
     }
 

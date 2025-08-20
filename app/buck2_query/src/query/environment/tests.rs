@@ -59,11 +59,11 @@ impl QueryTarget for TestTarget {
         unimplemented!()
     }
 
-    fn rule_type(&self) -> Cow<str> {
+    fn rule_type(&self) -> Cow<'_, str> {
         unimplemented!()
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         unimplemented!()
     }
 

@@ -38,7 +38,7 @@ use super::results::CompletionResults;
 use crate::complete::print_completions;
 
 pub(crate) trait TargetResolver: Send {
-    fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>>;
+    fn resolve(&mut self, partial_target: String) -> BoxFuture<'_, CommandOutcome<Vec<String>>>;
 }
 
 pub(crate) struct CompleteTargetCommand {
@@ -170,7 +170,7 @@ struct DaemonTargetResolver<'a> {
 }
 
 impl TargetResolver for DaemonTargetResolver<'_> {
-    fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
+    fn resolve(&mut self, partial_target: String) -> BoxFuture<'_, CommandOutcome<Vec<String>>> {
         let request = NewGenericRequest::Complete(CompleteRequest {
             target_cfg: self.target_cfg.target_cfg(),
             partial_target,

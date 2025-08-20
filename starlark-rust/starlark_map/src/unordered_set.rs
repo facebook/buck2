@@ -104,7 +104,7 @@ impl<T> UnorderedSet<T> {
 
     /// Lower-level access to the underlying map.
     #[inline]
-    pub fn raw_entry_mut(&mut self) -> RawEntryBuilderMut<T> {
+    pub fn raw_entry_mut(&mut self) -> RawEntryBuilderMut<'_, T> {
         RawEntryBuilderMut {
             entry: self.map.raw_entry_mut(),
         }

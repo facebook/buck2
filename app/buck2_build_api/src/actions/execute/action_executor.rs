@@ -361,7 +361,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.command_executor.fs()
     }
 
-    fn executor_fs(&self) -> ExecutorFs {
+    fn executor_fs(&self) -> ExecutorFs<'_> {
         self.executor.command_executor.executor_fs()
     }
 
@@ -906,7 +906,7 @@ mod tests {
                 &self.outputs.as_slice()[0]
             }
 
-            fn category(&self) -> CategoryRef {
+            fn category(&self) -> CategoryRef<'_> {
                 CategoryRef::new("testing").unwrap()
             }
 

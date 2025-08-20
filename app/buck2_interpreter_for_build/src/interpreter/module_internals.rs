@@ -194,7 +194,7 @@ impl ModuleInternals {
         }
     }
 
-    fn recording_targets(&self) -> RefMut<RecordingTargets> {
+    fn recording_targets(&self) -> RefMut<'_, RecordingTargets> {
         RefMut::map(self.state.borrow_mut(), |state| {
             loop {
                 match state {

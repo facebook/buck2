@@ -34,7 +34,7 @@ impl CellRoot {
         ))
     }
 
-    pub fn cell_path(&self) -> CellPathRef {
+    pub fn cell_path(&self) -> CellPathRef<'_> {
         self.0.as_ref()
     }
 }

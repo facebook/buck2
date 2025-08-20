@@ -445,16 +445,16 @@ pub trait CommandLineContext {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation>;
+    ) -> buck2_error::Result<CommandLineLocation<'_>>;
 
-    fn fs(&self) -> &ExecutorFs;
+    fn fs(&self) -> &ExecutorFs<'_>;
 
     /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
     fn resolve_artifact(
         &self,
         artifact: &Artifact,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation<'_>> {
         self.resolve_project_path(
             artifact.resolve_path(self.fs().fs(), artifact_path_mapping.get(artifact))?,
         )
@@ -467,7 +467,7 @@ pub trait CommandLineContext {
     fn resolve_output_artifact(
         &self,
         artifact: &Artifact,
-    ) -> buck2_error::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation<'_>> {
         self.resolve_project_path(artifact.get_path().resolve(
             self.fs().fs(),
             Some(&ContentBasedPathHash::for_output_artifact()),
@@ -475,7 +475,7 @@ pub trait CommandLineContext {
         .with_buck_error_context(|| format!("Error resolving output artifact: {artifact}"))
     }
 
-    fn resolve_cell_path(&self, path: CellPathRef) -> buck2_error::Result<CommandLineLocation> {
+    fn resolve_cell_path(&self, path: CellPathRef) -> buck2_error::Result<CommandLineLocation<'_>> {
         self.resolve_project_path(self.fs().fs().resolve_cell_path(path)?)
             .with_buck_error_context(|| format!("Error resolving cell path: {path}"))
     }

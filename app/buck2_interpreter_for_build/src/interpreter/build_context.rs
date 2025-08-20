@@ -71,7 +71,7 @@ pub enum PerFileTypeContext {
 }
 
 impl PerFileTypeContext {
-    pub(crate) fn starlark_path(&self) -> StarlarkPath {
+    pub(crate) fn starlark_path(&self) -> StarlarkPath<'_> {
         match self {
             PerFileTypeContext::Build(module) => StarlarkPath::BuildFile(module.buildfile_path()),
             PerFileTypeContext::Package(package) => StarlarkPath::PackageFile(&package.path),
@@ -222,7 +222,7 @@ impl<'a> BuildContext<'a> {
         }
     }
 
-    pub fn starlark_path(&self) -> StarlarkPath {
+    pub fn starlark_path(&self) -> StarlarkPath<'_> {
         self.additional.starlark_path()
     }
 

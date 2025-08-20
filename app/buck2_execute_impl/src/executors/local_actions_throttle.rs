@@ -40,7 +40,7 @@ impl LocalActionsThrottle {
     }
 
     /// When memory pressure only allow a single action to be scheduled.
-    pub(crate) async fn throttle(&self) -> Option<MutexGuard<()>> {
+    pub(crate) async fn throttle(&self) -> Option<MutexGuard<'_, ()>> {
         tokio::select! {
             _ = self.ensure_low_memory_pressure() => {
                 None

@@ -60,13 +60,13 @@ impl<K, V> OrderedMap<K, V> {
 
     /// Iterate over the entries.
     #[inline]
-    pub fn iter(&self) -> small_map::Iter<K, V> {
+    pub fn iter(&self) -> small_map::Iter<'_, K, V> {
         self.0.iter()
     }
 
     /// Iterate over the entries, with mutable values.
     #[inline]
-    pub fn iter_mut(&mut self) -> small_map::IterMut<K, V> {
+    pub fn iter_mut(&mut self) -> small_map::IterMut<'_, K, V> {
         self.0.iter_mut()
     }
 
@@ -174,7 +174,7 @@ impl<K, V> OrderedMap<K, V> {
 
     /// Iterate over the map with hashes.
     #[inline]
-    pub fn iter_hashed(&self) -> small_map::IterHashed<K, V> {
+    pub fn iter_hashed(&self) -> small_map::IterHashed<'_, K, V> {
         self.0.iter_hashed()
     }
 }

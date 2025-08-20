@@ -100,7 +100,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
 }
 
 impl FrozenStarlarkOutputArtifact {
-    pub fn inner(&self) -> FrozenValueTyped<StarlarkArtifact>
+    pub fn inner(&self) -> FrozenValueTyped<'_, StarlarkArtifact>
     // Ensures that this stops compiling if this changes
     where
         for<'v> StarlarkDeclaredArtifact<'v>: Freeze<Frozen = StarlarkArtifact>,

@@ -63,7 +63,7 @@ impl VersionedGraphNode {
         &mut self,
         v: VersionNumber,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult {
+    ) -> InvalidateResult<'_> {
         match self {
             VersionedGraphNode::Occupied(e) => e.force_dirty(v, invalidation_priority),
             VersionedGraphNode::Vacant(e) => {
@@ -83,7 +83,7 @@ impl VersionedGraphNode {
         &mut self,
         v: VersionNumber,
         invalidation_priority: Option<InvalidationSourcePriority>,
-    ) -> InvalidateResult {
+    ) -> InvalidateResult<'_> {
         match self {
             VersionedGraphNode::Occupied(e) => {
                 if e.mark_invalidated(v, invalidation_priority) {
@@ -125,7 +125,7 @@ impl VersionedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult {
+    ) -> InvalidateResult<'_> {
         match self {
             VersionedGraphNode::Occupied(occ) => {
                 occ.on_injected(version, value, invalidation_priority)
@@ -485,7 +485,7 @@ impl OccupiedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult {
+    ) -> InvalidateResult<'_> {
         // TODO(cjhopman): accepting injections only for InjectedKey would make the VersionedGraph simpler. Currently, this is used
         // for "mocking" dice keys in tests via DiceBuilder::mock_and_return().
         if self.val().equality(&value) {
@@ -540,7 +540,7 @@ impl OccupiedGraphNode {
         &mut self,
         v: VersionNumber,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult {
+    ) -> InvalidateResult<'_> {
         self.mark_invalidated(v, Some(invalidation_priority));
         if self
             .metadata
@@ -638,7 +638,7 @@ impl InjectedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult {
+    ) -> InvalidateResult<'_> {
         match self.values.values_mut().next_back() {
             Some(v) if v.value.equality(&value) => {
                 return InvalidateResult::NoChange;

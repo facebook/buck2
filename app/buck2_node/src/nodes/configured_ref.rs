@@ -106,11 +106,11 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         self.0.label().unconfigured().to_string()
     }
 
-    fn rule_type(&self) -> Cow<str> {
+    fn rule_type(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.0.rule_type().name())
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.0.label().name().as_str())
     }
 

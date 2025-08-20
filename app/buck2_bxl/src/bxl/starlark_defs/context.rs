@@ -125,7 +125,7 @@ pub(crate) enum BxlContextType<'v> {
 }
 
 impl<'v> BxlContextType<'v> {
-    fn unpack_root(&self) -> buck2_error::Result<&'v RootBxlContextData> {
+    fn unpack_root(&self) -> buck2_error::Result<&'v RootBxlContextData<'_>> {
         match &self {
             BxlContextType::Root(root) => Ok(root),
             BxlContextType::Dynamic(_) => Err(buck2_error!(

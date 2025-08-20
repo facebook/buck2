@@ -1280,7 +1280,7 @@ pub struct ForwardRelativePathNormalizer {}
 impl ForwardRelativePathNormalizer {
     pub fn normalize_path<P: AsRef<Path> + ?Sized>(
         rel_path: &P,
-    ) -> buck2_error::Result<Cow<ForwardRelativePath>> {
+    ) -> buck2_error::Result<Cow<'_, ForwardRelativePath>> {
         let rel_path = rel_path.as_ref();
         if !rel_path.is_relative() {
             return Err(

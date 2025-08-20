@@ -139,7 +139,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     /// A category provides a namespace for identifiers within the rule that produced this action. Examples of
     /// categories would be things such as `cxx_compile`, `cxx_link`, and so on. Categories are user-specified in the
     /// rule implementation; however, buck2 enforces some restrictions on category names.
-    fn category(&self) -> CategoryRef;
+    fn category(&self) -> CategoryRef<'_>;
 
     /// A machine-readable identifier for this action. Required (but as of now, not yet enforced) to be unique within
     /// a category within a single invocation of a rule. Like categories, identifiers are also user-specified and buck2
@@ -206,7 +206,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// An 'ArtifactFs' to be used for managing 'Artifact's
     fn fs(&self) -> &ArtifactFs;
 
-    fn executor_fs(&self) -> ExecutorFs;
+    fn executor_fs(&self) -> ExecutorFs<'_>;
 
     /// A `Materializer` used for expensive materializations
     fn materializer(&self) -> &dyn Materializer;
@@ -375,7 +375,7 @@ impl RegisteredAction {
         &self.executor_config
     }
 
-    pub fn category(&self) -> CategoryRef {
+    pub fn category(&self) -> CategoryRef<'_> {
         self.action.category()
     }
 

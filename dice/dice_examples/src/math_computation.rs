@@ -141,7 +141,7 @@ impl Key for EvalVar {
         let equation = lookup_unit(ctx, &self.0).await.map_err(Arc::new)?;
         Ok(match &*equation {
             Equation::Add(adds) => resolve_units(ctx, &adds[..]).await?.iter().sum(),
-            Equation::Unit(unit) => resolve_units(ctx, &[unit.clone()]).await?[0],
+            Equation::Unit(unit) => resolve_units(ctx, std::slice::from_ref(&unit)).await?[0],
         })
     }
 

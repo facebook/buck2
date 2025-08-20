@@ -46,7 +46,7 @@ impl CancellationContext {
     }
 
     /// Ignore cancellations while 'CriticalSectionGuard' is held
-    pub fn enter_critical_section(&self) -> CriticalSectionGuard {
+    pub fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
         self.0.begin_ignore_cancellation()
     }
 

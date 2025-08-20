@@ -139,7 +139,7 @@ mod tests {
     async fn test_future() {
         struct SomeData(usize);
 
-        fn some_fn(d: &mut SomeData) -> BoxFuture<usize> {
+        fn some_fn(d: &mut SomeData) -> BoxFuture<'_, usize> {
             async move { d.0 }.boxed()
         }
 
@@ -155,7 +155,7 @@ mod tests {
     async fn test_future_mapping() {
         struct SomeData(usize);
 
-        fn some_fn(d: &mut SomeData) -> BoxFuture<usize> {
+        fn some_fn(d: &mut SomeData) -> BoxFuture<'_, usize> {
             async move { d.0 }.boxed()
         }
 

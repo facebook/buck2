@@ -169,7 +169,7 @@ impl TargetLabel {
     }
 
     #[inline]
-    pub fn as_ref(&self) -> TargetLabelRef {
+    pub fn as_ref(&self) -> TargetLabelRef<'_> {
         TargetLabelRef::new(self.pkg(), self.name())
     }
 
@@ -203,7 +203,7 @@ impl TargetLabel {
         TargetLabel(unsafe { ThinArc::from_raw(raw as *const _) })
     }
 
-    pub(crate) fn arc_borrow(&self) -> TargetLabelBorrow {
+    pub(crate) fn arc_borrow(&self) -> TargetLabelBorrow<'_> {
         TargetLabelBorrow {
             borrow: ThinArcBorrow::borrow(&self.0),
         }

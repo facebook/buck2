@@ -194,7 +194,7 @@ impl Action for WriteJsonAction {
         &self.output
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new("write_json")
     }
 

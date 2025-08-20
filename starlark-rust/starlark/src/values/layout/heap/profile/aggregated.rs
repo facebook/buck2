@@ -340,7 +340,7 @@ impl AggregateHeapProfileInfo {
         }
     }
 
-    fn root(&self) -> StackFrameWithContext {
+    fn root(&self) -> StackFrameWithContext<'_> {
         StackFrameWithContext {
             frame: &self.root,
             strings: &self.strings,

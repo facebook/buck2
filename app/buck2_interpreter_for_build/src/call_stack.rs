@@ -21,7 +21,7 @@ use starlark::eval::CallStack;
 pub struct StarlarkCallStackWrapper(pub CallStack);
 
 impl StarlarkCallStackImpl for StarlarkCallStackWrapper {
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 

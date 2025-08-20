@@ -180,7 +180,7 @@ impl CoercedSelector {
         Ok(())
     }
 
-    pub fn all_entries(&self) -> impl Iterator<Item = (CoercedSelectorKeyRef, &CoercedAttr)> {
+    pub fn all_entries(&self) -> impl Iterator<Item = (CoercedSelectorKeyRef<'_>, &CoercedAttr)> {
         self.entries
             .iter()
             .map(|(k, v)| (CoercedSelectorKeyRef::Target(k), v))

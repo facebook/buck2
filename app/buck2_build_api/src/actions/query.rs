@@ -294,7 +294,7 @@ impl ActionQueryNodeRef {
 impl QueryTarget for ActionQueryNode {
     type Attr<'a> = ActionAttr;
 
-    fn rule_type(&self) -> Cow<str> {
+    fn rule_type(&self) -> Cow<'_, str> {
         match &self.data {
             ActionQueryNodeData::Analysis(..) => Cow::Borrowed("analysis"),
             ActionQueryNodeData::Action(a) => {
@@ -303,7 +303,7 @@ impl QueryTarget for ActionQueryNode {
         }
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         Cow::Owned(self.node_key().to_string())
     }
 

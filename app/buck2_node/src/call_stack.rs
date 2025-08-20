@@ -26,7 +26,7 @@ pub struct StarlarkTargetCallStackRoot {
 
 /// Untyped version of `starlark::eval::CallStack`.
 pub trait StarlarkCallStackImpl: Display + Debug + Send + Sync + 'static {
-    fn eq_token(&self) -> PartialEqAny;
+    fn eq_token(&self) -> PartialEqAny<'_>;
     fn hash(&self, hashed: &mut dyn Hasher);
     fn root_location(&self) -> Option<StarlarkTargetCallStackRoot>;
 }

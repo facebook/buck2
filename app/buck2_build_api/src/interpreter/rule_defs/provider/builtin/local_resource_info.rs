@@ -155,7 +155,7 @@ impl FrozenLocalResourceInfo {
             .collect()
     }
 
-    pub fn setup_command_line(&self) -> &dyn CommandLineArgLike {
+    pub fn setup_command_line(&self) -> &dyn CommandLineArgLike<'_> {
         ValueAsCommandLineLike::unpack_value_err(self.setup.to_value().get())
             .unwrap()
             .0

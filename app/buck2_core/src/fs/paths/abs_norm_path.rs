@@ -264,7 +264,7 @@ impl AbsNormPath {
     pub fn strip_prefix<P: AsRef<AbsNormPath>>(
         &self,
         base: P,
-    ) -> buck2_error::Result<Cow<ForwardRelativePath>> {
+    ) -> buck2_error::Result<Cow<'_, ForwardRelativePath>> {
         let stripped_path = self.strip_prefix_impl(base.as_ref())?;
         ForwardRelativePathNormalizer::normalize_path(stripped_path)
     }

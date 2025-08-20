@@ -62,7 +62,7 @@ impl ArtifactGroup {
     pub async fn resolved_artifact(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<ResolvedArtifactGroup> {
+    ) -> buck2_error::Result<ResolvedArtifactGroup<'_>> {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
             ArtifactGroup::TransitiveSetProjection(a) => {

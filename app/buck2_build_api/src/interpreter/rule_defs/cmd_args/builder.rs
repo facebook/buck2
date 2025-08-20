@@ -67,7 +67,7 @@ impl<'v> DefaultCommandLineContext<'v> {
     }
 
     /// The `ArtifactFilesystem` to resolve `Artifact`s
-    pub fn fs(&self) -> &ExecutorFs {
+    pub fn fs(&self) -> &ExecutorFs<'_> {
         self.fs
     }
 }
@@ -76,14 +76,14 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation<'_>> {
         Ok(CommandLineLocation::from_relative_path(
             path.into(),
             self.fs.path_separator(),
         ))
     }
 
-    fn fs(&self) -> &ExecutorFs {
+    fn fs(&self) -> &ExecutorFs<'_> {
         self.fs
     }
 
@@ -118,7 +118,7 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation<'_>> {
         Ok(CommandLineLocation::from_root(
             self.0.fs().fs().fs(),
             path.into(),
@@ -126,7 +126,7 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
         ))
     }
 
-    fn fs(&self) -> &ExecutorFs {
+    fn fs(&self) -> &ExecutorFs<'_> {
         self.0.fs()
     }
 

@@ -62,7 +62,7 @@ pub struct BuckdClientConnector {
 }
 
 impl BuckdClientConnector {
-    pub fn with_flushing(&mut self) -> FlushingBuckdClient {
+    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_> {
         FlushingBuckdClient {
             inner: &mut self.client,
         }

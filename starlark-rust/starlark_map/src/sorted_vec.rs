@@ -49,7 +49,7 @@ impl<T> SortedVec<T> {
 
     /// Iterate over the elements.
     #[inline]
-    pub fn iter(&self) -> slice::Iter<T> {
+    pub fn iter(&self) -> slice::Iter<'_, T> {
         self.vec.iter()
     }
 }

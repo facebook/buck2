@@ -347,7 +347,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         )?))
     }
 
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::always_false()
     }
 }

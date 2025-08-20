@@ -592,7 +592,7 @@ impl FileSpan {
     }
 
     /// Cheap reference to the span.
-    pub fn as_ref(&self) -> FileSpanRef {
+    pub fn as_ref(&self) -> FileSpanRef<'_> {
         FileSpanRef {
             file: &self.file,
             span: self.span,

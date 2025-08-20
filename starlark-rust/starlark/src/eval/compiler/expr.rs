@@ -295,12 +295,12 @@ impl ExprCompiled {
     }
 
     /// Expression is known to be a constant which is a `def`.
-    pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<FrozenDef>> {
+    pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<'_, FrozenDef>> {
         FrozenValueTyped::new(self.as_value()?)
     }
 
     /// Expression is known to be a frozen bound method.
-    pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<FrozenBoundMethod>> {
+    pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<'_, FrozenBoundMethod>> {
         FrozenValueTyped::new(self.as_value()?)
     }
 
@@ -467,7 +467,7 @@ impl<'a> IrSpanned<ExprShortList<'a>> {
 
 impl IrSpanned<ExprCompiled> {
     /// Try to extract `[e0, e1, ..., en]` from this expression.
-    fn as_short_list(&self) -> Option<IrSpanned<ExprShortList>> {
+    fn as_short_list(&self) -> Option<IrSpanned<ExprShortList<'_>>> {
         // Prevent exponential explosion during optimization.
         const MAX_LEN: usize = 1000;
         match &self.node {

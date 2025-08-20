@@ -258,7 +258,7 @@ impl AstModule {
 
     /// Return the file names of all the `load` statements in the module.
     /// If the [`Dialect`] had [`enable_load`](Dialect::enable_load) set to [`false`] this will be an empty list.
-    pub fn loads(&self) -> Vec<AstLoad> {
+    pub fn loads(&self) -> Vec<AstLoad<'_>> {
         // We know that `load` statements must be at the top-level, so no need to descend inside `if`, `for`, `def` etc.
         // There is a suggestion that `load` statements should be at the top of a file, but we tolerate that not being true.
         fn f<'a>(ast: &'a AstStmt, codemap: &CodeMap, vec: &mut Vec<AstLoad<'a>>) {

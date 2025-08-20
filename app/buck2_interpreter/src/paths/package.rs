@@ -41,7 +41,7 @@ impl PackageFilePath {
     }
 
     /// Files which could be `PACKAGE` files.
-    pub fn for_dir(path: CellPathRef) -> impl Iterator<Item = PackageFilePath> + '_ {
+    pub fn for_dir(path: CellPathRef<'_>) -> impl Iterator<Item = PackageFilePath> + '_ {
         Self::package_file_names().map(move |name| PackageFilePath {
             path: path.join(name),
         })
@@ -73,7 +73,7 @@ impl PackageFilePath {
     }
 
     /// Directory containing this `PACKAGE` file.
-    pub fn dir(&self) -> CellPathRef {
+    pub fn dir(&self) -> CellPathRef<'_> {
         self.path
             .parent()
             .expect("constructor verifies that path is not root")

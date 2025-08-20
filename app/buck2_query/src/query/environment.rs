@@ -90,9 +90,9 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     /// Returns the input files for this node.
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, func: F) -> Result<(), E>;
 
-    fn rule_type(&self) -> Cow<str>;
+    fn rule_type(&self) -> Cow<'_, str>;
 
-    fn name(&self) -> Cow<str>;
+    fn name(&self) -> Cow<'_, str>;
 
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath;

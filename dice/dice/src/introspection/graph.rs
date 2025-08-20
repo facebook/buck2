@@ -235,7 +235,7 @@ pub(crate) trait EngineForIntrospection {
 }
 
 pub(crate) trait KeyForIntrospection: Display + Send + 'static {
-    fn get_key_equality(&self) -> PartialEqAny;
+    fn get_key_equality(&self) -> PartialEqAny<'_>;
 
     fn hash(&self, state: &mut dyn Hasher);
 
@@ -250,7 +250,7 @@ impl<K> KeyForIntrospection for K
 where
     K: Clone + Display + Hash + Eq + Send + 'static,
 {
-    fn get_key_equality(&self) -> PartialEqAny {
+    fn get_key_equality(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 

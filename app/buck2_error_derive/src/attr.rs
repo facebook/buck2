@@ -132,7 +132,7 @@ pub enum Trait {
     UpperExp,
 }
 
-pub fn get(input: &[Attribute]) -> Result<Attrs> {
+pub fn get(input: &[Attribute]) -> Result<Attrs<'_>> {
     let mut attrs = Attrs {
         display: None,
         source: None,

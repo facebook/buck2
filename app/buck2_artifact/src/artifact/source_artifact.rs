@@ -51,7 +51,7 @@ impl SourceArtifact {
         Self(Arc::new(SourceArtifactData(path)))
     }
 
-    pub fn get_path(&self) -> SourcePathRef {
+    pub fn get_path(&self) -> SourcePathRef<'_> {
         self.0.0.as_ref()
     }
 }

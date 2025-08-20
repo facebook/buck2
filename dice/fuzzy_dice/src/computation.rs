@@ -207,7 +207,7 @@ impl Key for EvalVar {
     ) -> Self::Value {
         let step = self.state.next_step_for_var(self.key);
         let ret = match &*lookup_unit(ctx, self.key).await.map_err(Arc::new)? {
-            Expr::Unit(unit) => resolve_units(ctx, &[unit.clone()], self.state.dupe())
+            Expr::Unit(unit) => resolve_units(ctx, std::slice::from_ref(unit), self.state.dupe())
                 .await
                 .map_err(Arc::new)?[0],
             Expr::Cond {
@@ -215,15 +215,15 @@ impl Key for EvalVar {
                 then,
                 otherwise,
             } => {
-                if resolve_units(ctx, &[test.clone()], self.state.dupe())
+                if resolve_units(ctx, std::slice::from_ref(test), self.state.dupe())
                     .await
                     .map_err(Arc::new)?[0]
                 {
-                    resolve_units(ctx, &[then.clone()], self.state.dupe())
+                    resolve_units(ctx, std::slice::from_ref(then), self.state.dupe())
                         .await
                         .map_err(Arc::new)?[0]
                 } else {
-                    resolve_units(ctx, &[otherwise.clone()], self.state.dupe())
+                    resolve_units(ctx, std::slice::from_ref(otherwise), self.state.dupe())
                         .await
                         .map_err(Arc::new)?[0]
                 }

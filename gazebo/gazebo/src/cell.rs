@@ -175,19 +175,19 @@ impl<A: Ord + ?Sized> Ord for ARef<'_, A> {
 /// Obtain an [`ARef`] from either a normal pointer or a [`RefCell`].
 pub trait AsARef<T: ?Sized> {
     /// Get an [`ARef`] pointing at this type.
-    fn as_aref(this: &Self) -> ARef<T>;
+    fn as_aref(this: &Self) -> ARef<'_, T>;
     /// Try and get an [`ARef`] pointing at this type. Returns an [`Err`] if
     /// the type `Self` is a [`RefCell`] which is already mutably borrowed.
-    fn try_as_aref(this: &Self) -> Result<ARef<T>, BorrowError>;
+    fn try_as_aref(this: &Self) -> Result<ARef<'_, T>, BorrowError>;
     /// Return the underlying [`RefCell`] if `Self` is one, otherwise [`None`].
     fn as_ref_cell(this: &Self) -> Option<&RefCell<T>>;
 }
 
 impl<T: ?Sized> AsARef<T> for T {
-    fn as_aref(this: &Self) -> ARef<T> {
+    fn as_aref(this: &Self) -> ARef<'_, T> {
         ARef::new_ptr(this)
     }
-    fn try_as_aref(this: &Self) -> Result<ARef<T>, BorrowError> {
+    fn try_as_aref(this: &Self) -> Result<ARef<'_, T>, BorrowError> {
         Ok(ARef::new_ptr(this))
     }
     fn as_ref_cell(_this: &Self) -> Option<&RefCell<T>> {
@@ -196,10 +196,10 @@ impl<T: ?Sized> AsARef<T> for T {
 }
 
 impl<T: ?Sized> AsARef<T> for RefCell<T> {
-    fn as_aref(this: &Self) -> ARef<T> {
+    fn as_aref(this: &Self) -> ARef<'_, T> {
         ARef::new_ref(this.borrow())
     }
-    fn try_as_aref(this: &Self) -> Result<ARef<T>, BorrowError> {
+    fn try_as_aref(this: &Self) -> Result<ARef<'_, T>, BorrowError> {
         Ok(ARef::new_ref(this.try_borrow()?))
     }
     fn as_ref_cell(this: &Self) -> Option<&RefCell<T>> {
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_as_aref() {
-        fn get_str(x: &impl AsARef<String>) -> ARef<str> {
+        fn get_str(x: &impl AsARef<String>) -> ARef<'_, str> {
             ARef::map(AsARef::as_aref(x), |x| x.as_str())
         }
 

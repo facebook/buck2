@@ -1139,7 +1139,7 @@ impl Action for RunAction {
         &self.outputs.as_slice()[0]
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new(self.starlark_values.category.as_str())
     }
 

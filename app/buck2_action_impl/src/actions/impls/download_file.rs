@@ -240,7 +240,7 @@ impl Action for DownloadFileAction {
         self.output()
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new("download_file")
     }
 

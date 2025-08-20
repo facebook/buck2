@@ -38,6 +38,7 @@ where
     const MY_STR: &str = &U::default().to_string();
 }
 
+#[allow(dead_code)]
 struct CustomNone<T>(PhantomData<T>);
 
 impl<T> StarlarkTypeRepr for CustomNone<T> {

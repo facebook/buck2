@@ -234,7 +234,7 @@ impl Action for WriteAction {
         &self.output
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new("write")
     }
 

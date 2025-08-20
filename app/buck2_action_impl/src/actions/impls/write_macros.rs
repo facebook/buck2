@@ -155,7 +155,7 @@ impl Action for WriteMacrosToFileAction {
         &self.outputs[0]
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new("write_macros_to_file")
     }
 
@@ -316,14 +316,14 @@ impl CommandLineContext for MacroContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation<'_>> {
         Ok(CommandLineLocation::from_relative_path(
             self.relativize_path(path),
             self.fs.path_separator(),
         ))
     }
 
-    fn fs(&self) -> &ExecutorFs {
+    fn fs(&self) -> &ExecutorFs<'_> {
         self.fs
     }
 

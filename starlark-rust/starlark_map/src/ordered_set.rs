@@ -113,7 +113,7 @@ impl<T> OrderedSet<T> {
 
     /// Iterate over the elements.
     #[inline]
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.0.iter()
     }
 

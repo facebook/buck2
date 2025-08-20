@@ -107,13 +107,13 @@ impl<T> SmallSet<T> {
 
     /// Iterate the element references.
     #[inline]
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.into_iter()
     }
 
     /// Iterate the hashed element references.
     #[inline]
-    pub fn iter_hashed(&self) -> IterHashed<T> {
+    pub fn iter_hashed(&self) -> IterHashed<'_, T> {
         IterHashed {
             iter: self.0.iter_hashed(),
         }
@@ -124,7 +124,7 @@ impl<T> SmallSet<T> {
     /// This operation is memory safe, but otherwise no guarantees
     /// if keys are mutated inconsistently (hash or equality changes).
     #[inline]
-    pub fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<T> {
+    pub fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<'_, T> {
         IterMutUnchecked {
             iter: self.0.iter_mut_unchecked(),
         }

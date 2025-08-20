@@ -113,7 +113,7 @@ where
         }
     }
 
-    async fn throttle_when_memory_pressure(&self) -> Option<MutexGuard<()>> {
+    async fn throttle_when_memory_pressure(&self) -> Option<MutexGuard<'_, ()>> {
         if let Some(ref t) = self.local_actions_throttle {
             t.throttle().await
         } else {

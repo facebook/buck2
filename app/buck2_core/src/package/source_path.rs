@@ -66,7 +66,7 @@ impl SourcePath {
     }
 
     #[inline]
-    pub fn as_ref(&self) -> SourcePathRef {
+    pub fn as_ref(&self) -> SourcePathRef<'_> {
         SourcePathRef {
             pkg: self.pkg.dupe(),
             path: &self.path,

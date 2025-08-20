@@ -282,7 +282,7 @@ impl TargetNode {
     ///
     /// "attribute" here is a user defined attribute, not including "special" attributes.
     #[inline]
-    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull> {
+    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull<'_>> {
         self.as_ref().attrs(opts)
     }
 

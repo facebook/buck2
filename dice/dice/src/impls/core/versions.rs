@@ -150,7 +150,7 @@ impl VersionTracker {
 
     /// Requests the 'WriteVersion' that is intended to be used for updates to
     /// the incremental computations
-    pub(crate) fn write(&mut self) -> VersionForWrites {
+    pub(crate) fn write(&mut self) -> VersionForWrites<'_> {
         VersionForWrites { tracker: self }
     }
 

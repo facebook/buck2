@@ -260,7 +260,7 @@ impl<T, const BUCKETS: usize> LockFreeVec<T, BUCKETS> {
     ///
     /// Iterates over snapshot of the vector, newly pushed elements may not be visible.
     #[inline]
-    pub fn iter(&self) -> Iter<T, BUCKETS> {
+    pub fn iter(&self) -> Iter<'_, T, BUCKETS> {
         let len = self.len();
         let slice = if len == 0 {
             &[]

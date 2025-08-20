@@ -127,7 +127,7 @@ impl ImportPath {
     }
 
     /// Parent directory of the import path.
-    pub fn path_parent(&self) -> CellPathRef {
+    pub fn path_parent(&self) -> CellPathRef<'_> {
         self.path
             .parent()
             .expect("constructor verified path has parent")

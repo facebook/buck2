@@ -114,7 +114,7 @@ impl<'a> From<PackageLabelDataRef<'a>> for PackageLabelData {
 }
 
 impl PackageLabelData {
-    fn as_ref(&self) -> PackageLabelDataRef {
+    fn as_ref(&self) -> PackageLabelDataRef<'_> {
         PackageLabelDataRef {
             path: self.0.as_ref(),
         }
@@ -173,7 +173,7 @@ impl PackageLabel {
     }
 
     #[inline]
-    pub fn as_cell_path(&self) -> CellPathRef {
+    pub fn as_cell_path(&self) -> CellPathRef<'_> {
         self.0.0.as_ref()
     }
 

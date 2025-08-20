@@ -471,7 +471,7 @@ impl BazelContext {
         }
     }
 
-    fn get_repository_names(&self) -> Vec<Cow<str>> {
+    fn get_repository_names(&self) -> Vec<Cow<'_, str>> {
         let mut names = Vec::new();
         if let Some(workspace_name) = &self.workspace_name {
             names.push(Cow::Borrowed(workspace_name.as_str()));

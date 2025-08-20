@@ -126,7 +126,7 @@ where
 
     /// Iterate over the map with hashes.
     #[inline]
-    pub fn iter_hashed(&self) -> small_map::IterHashed<K, V> {
+    pub fn iter_hashed(&self) -> small_map::IterHashed<'_, K, V> {
         self.map.iter_hashed()
     }
 }

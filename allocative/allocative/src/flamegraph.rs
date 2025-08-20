@@ -188,7 +188,7 @@ struct Tree {
 }
 
 impl Tree {
-    fn as_ref(&self) -> TreeRef {
+    fn as_ref(&self) -> TreeRef<'_> {
         TreeRef {
             trees: &self.trees,
             tree_id: self.tree_id,
@@ -346,7 +346,7 @@ impl Default for FlameGraphBuilder {
 }
 
 impl FlameGraphBuilder {
-    pub fn root_visitor(&mut self) -> Visitor {
+    pub fn root_visitor(&mut self) -> Visitor<'_> {
         assert!(!self.entered_root_visitor);
         self.entered_root_visitor = true;
         Visitor {
@@ -416,7 +416,7 @@ impl FlameGraphBuilder {
         tree.rem_size = (size as isize).saturating_sub(children_size as isize);
     }
 
-    fn current(&mut self) -> TreeStackRef {
+    fn current(&mut self) -> TreeStackRef<'_, '_> {
         TreeStackRef {
             trees: &mut self.trees,
             stack: &mut self.current,

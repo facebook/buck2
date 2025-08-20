@@ -46,7 +46,7 @@ pub enum UnpackedBuckEvent<'a> {
     UnrecognizedInstant(&'a BuckEvent, &'a InstantEvent),
 }
 
-pub fn unpack_event(event: &BuckEvent) -> buck2_error::Result<UnpackedBuckEvent> {
+pub fn unpack_event(event: &BuckEvent) -> buck2_error::Result<UnpackedBuckEvent<'_>> {
     match &event.data() {
         buck_event::Data::SpanStart(v) => Ok({
             if let Some(data) = v.data.as_ref() {

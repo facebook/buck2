@@ -43,7 +43,7 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
-                    &[self.pattern.clone()],
+                    std::slice::from_ref(&self.pattern),
                     server_ctx.working_dir(),
                 )
                 .await?

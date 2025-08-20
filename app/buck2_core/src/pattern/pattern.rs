@@ -284,7 +284,7 @@ impl ParsedPattern<ProvidersPatternExtra> {
 }
 
 impl<T: PatternType> ParsedPattern<T> {
-    pub(crate) fn cell_path(&self) -> CellPathRef {
+    pub(crate) fn cell_path(&self) -> CellPathRef<'_> {
         match self {
             ParsedPattern::Target(pkg, _, _) => pkg.as_cell_path(),
             ParsedPattern::Package(pkg) => pkg.as_cell_path(),

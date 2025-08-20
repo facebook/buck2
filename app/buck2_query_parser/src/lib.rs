@@ -230,14 +230,14 @@ where
 }
 
 /// nom's convert_error requires that the error's type be very str-like and Span isn't. So, we convert the Span error into a &str error.
-fn convert_to_str_error(err: VerboseError<Span>) -> VerboseError<&str> {
+fn convert_to_str_error(err: VerboseError<Span<'_>>) -> VerboseError<&str> {
     VerboseError {
         errors: err.errors.into_map(|(span, kind)| (span.fragment(), kind)),
     }
 }
 
 /// Parses a query string into a SpannedExpr. Requires that the entire input is consumed.
-pub fn parse_expr(input: &str) -> buck2_error::Result<SpannedExpr> {
+pub fn parse_expr(input: &str) -> buck2_error::Result<SpannedExpr<'_>> {
     let span = Span::new(input);
     // Parse with fast error (`()`) first,
     // and on error reparse again with `VerboseError` to get detailed errors.

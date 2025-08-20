@@ -167,7 +167,7 @@ pub(crate) struct CancellationContextSharedStateView {
 }
 
 impl CancellationContextSharedStateView {
-    pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard {
+    pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard<'_> {
         let mut shared = self.context_data.lock();
 
         let notification = shared.enter_structured_cancellation();

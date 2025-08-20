@@ -184,7 +184,7 @@ impl FrozenExternalRunnerTestInfo {
         )
     }
 
-    pub fn worker(&self) -> Option<&WorkerInfo> {
+    pub fn worker(&self) -> Option<&WorkerInfo<'_>> {
         unpack_opt_worker(self.worker.get().to_value()).unwrap()
     }
 

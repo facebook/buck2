@@ -563,7 +563,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
-            ) -> buck2_error::Result<CommandLineLocation> {
+            ) -> buck2_error::Result<CommandLineLocation<'_>> {
                 let Self {
                     ctx,
                     relative_to,
@@ -606,7 +606,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 ))
             }
 
-            fn fs(&self) -> &ExecutorFs {
+            fn fs(&self) -> &ExecutorFs<'_> {
                 self.ctx.fs()
             }
 

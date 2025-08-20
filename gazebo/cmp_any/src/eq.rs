@@ -77,7 +77,7 @@ mod tests {
     struct Wrap<T>(T);
 
     impl<T: PartialEq + 'static> Wrap<T> {
-        fn token(&self) -> PartialEqAny {
+        fn token(&self) -> PartialEqAny<'_> {
             PartialEqAny::new(&self.0)
         }
     }

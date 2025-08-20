@@ -103,7 +103,7 @@ impl Compiler<'_, '_, '_, '_> {
         self.locals.pop().unwrap()
     }
 
-    pub(crate) fn current_scope(&self) -> &ScopeNames {
+    pub(crate) fn current_scope(&self) -> &ScopeNames<'_> {
         self.scope_data.get_scope(*self.locals.last().unwrap())
     }
 }

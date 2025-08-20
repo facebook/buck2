@@ -278,7 +278,7 @@ impl FileOpsDelegate for TestCellFileOps {
         FileOps::read_path_metadata_if_exists(&self.1, path.as_ref()).await
     }
 
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::always_false()
     }
 }

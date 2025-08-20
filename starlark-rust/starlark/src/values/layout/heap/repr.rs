@@ -154,7 +154,7 @@ impl AValueOrForward {
         unsafe { (self.flags & 1) != 0 }
     }
 
-    pub(crate) fn unpack(&self) -> AValueOrForwardUnpack {
+    pub(crate) fn unpack(&self) -> AValueOrForwardUnpack<'_> {
         if self.is_forward() {
             AValueOrForwardUnpack::Forward(unsafe { &self.forward })
         } else {

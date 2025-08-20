@@ -78,7 +78,7 @@ impl<'a> StarlarkModulePath<'a> {
         }
     }
 
-    pub fn starlark_path(&self) -> StarlarkPath {
+    pub fn starlark_path(&self) -> StarlarkPath<'_> {
         match self {
             StarlarkModulePath::LoadFile(l) => StarlarkPath::LoadFile(l),
             StarlarkModulePath::BxlFile(b) => StarlarkPath::BxlFile(b),

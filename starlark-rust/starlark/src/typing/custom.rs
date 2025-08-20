@@ -106,9 +106,9 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
-    fn eq_token(&self) -> PartialEqAny;
+    fn eq_token(&self) -> PartialEqAny<'_>;
     fn hash_code(&self) -> u64;
-    fn cmp_token(&self) -> (OrdAny, &'static str);
+    fn cmp_token(&self) -> (OrdAny<'_>, &'static str);
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
     fn as_any(&self) -> &dyn Any;
 
@@ -150,7 +150,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 
@@ -160,7 +160,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         hasher.finish()
     }
 
-    fn cmp_token(&self) -> (OrdAny, &'static str) {
+    fn cmp_token(&self) -> (OrdAny<'_>, &'static str) {
         (OrdAny::new(self), any::type_name::<Self>())
     }
 

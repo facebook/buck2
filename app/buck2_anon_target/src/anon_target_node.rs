@@ -258,7 +258,7 @@ impl AnonTargetDyn for AnonTarget {
 }
 
 impl BaseDeferredKeyDyn for AnonTarget {
-    fn eq_token(&self) -> PartialEqAny {
+    fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)
     }
 

@@ -76,7 +76,7 @@ impl SharedCache {
             .map(|task| task.value.dupe())
     }
 
-    pub(crate) fn get(&self, key: DiceKey) -> DiceTaskRef {
+    pub(crate) fn get(&self, key: DiceKey) -> DiceTaskRef<'_> {
         if let Some(computed) = self.try_get_computed(key) {
             return DiceTaskRef::Computed(computed);
         }

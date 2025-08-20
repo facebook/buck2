@@ -53,7 +53,7 @@ impl LegacyBuckConfigSection {
         )
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&str, LegacyBuckConfigValue)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&str, LegacyBuckConfigValue<'_>)> {
         self.values
             .iter()
             .map(move |(key, value)| (key.as_str(), LegacyBuckConfigValue { value }))
@@ -63,7 +63,7 @@ impl LegacyBuckConfigSection {
         self.values.keys()
     }
 
-    pub fn get(&self, key: &str) -> Option<LegacyBuckConfigValue> {
+    pub fn get(&self, key: &str) -> Option<LegacyBuckConfigValue<'_>> {
         self.values
             .get(key)
             .map(move |value| LegacyBuckConfigValue { value })

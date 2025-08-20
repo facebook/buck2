@@ -114,7 +114,7 @@ impl CellPath {
     /// # buck2_error::Ok(())
     /// ```
     #[inline]
-    pub fn parent(&self) -> Option<CellPathRef> {
+    pub fn parent(&self) -> Option<CellPathRef<'_>> {
         self.as_ref().parent()
     }
 
@@ -148,7 +148,7 @@ impl CellPath {
     /// # buck2_error::Ok(())
     /// ```
     #[inline]
-    pub fn ancestors(&self) -> impl Iterator<Item = CellPathRef> {
+    pub fn ancestors(&self) -> impl Iterator<Item = CellPathRef<'_>> {
         self.as_ref().ancestors()
     }
 
@@ -302,7 +302,7 @@ impl CellPath {
     }
 
     #[inline]
-    pub fn as_ref(&self) -> CellPathRef {
+    pub fn as_ref(&self) -> CellPathRef<'_> {
         CellPathRef {
             cell: self.cell,
             path: &self.path,
@@ -323,7 +323,7 @@ impl<'a> CellPathRef<'a> {
         CellPathRef { cell, path }
     }
 
-    pub fn testing_new(path: &str) -> CellPathRef {
+    pub fn testing_new(path: &str) -> CellPathRef<'_> {
         let (cell, path) = path
             .split_once("//")
             .with_buck_error_context(|| format!("invalid path: `{path}`"))

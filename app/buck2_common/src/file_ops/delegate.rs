@@ -93,7 +93,7 @@ pub trait FileOpsDelegate: Send + Sync {
         Ok(metadata.is_some())
     }
 
-    fn eq_token(&self) -> PartialEqAny;
+    fn eq_token(&self) -> PartialEqAny<'_>;
 }
 
 #[async_trait]

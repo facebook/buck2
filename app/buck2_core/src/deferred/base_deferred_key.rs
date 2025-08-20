@@ -36,7 +36,7 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
 pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync + 'static {
-    fn eq_token(&self) -> PartialEqAny;
+    fn eq_token(&self) -> PartialEqAny<'_>;
     fn hash(&self) -> u64;
     fn strong_hash(&self) -> u64;
     fn make_hashed_path(
@@ -260,7 +260,7 @@ impl BaseDeferredKey {
         }
     }
 
-    fn escape_target_name(target_name: &str) -> Cow<str> {
+    fn escape_target_name(target_name: &str) -> Cow<'_, str> {
         // Equals sign is difficult to escape especially for cmd.exe on Windows
         // which doesn't follow common escaping rules.
         if target_name.contains('=') {

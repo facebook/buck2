@@ -26,7 +26,7 @@ pub trait AttrDisplayWithContextExt: AttrDisplayWithContext {
         AttrDisplayWithContextAsDisplay { ctx, value: self }
     }
 
-    fn as_display_no_ctx(&self) -> AttrDisplayWithContextAsDisplay<Self> {
+    fn as_display_no_ctx(&self) -> AttrDisplayWithContextAsDisplay<'_, Self> {
         self.as_display(&AttrFmtContext::NO_CONTEXT)
     }
 }

@@ -199,7 +199,7 @@ impl<'v> ArtifactArg<'v> {
 }
 
 impl EnsuredArtifact {
-    pub(crate) fn as_artifact(&self) -> &dyn StarlarkArtifactLike {
+    pub(crate) fn as_artifact(&self) -> &dyn StarlarkArtifactLike<'_> {
         &self.artifact as &dyn StarlarkArtifactLike
     }
 
@@ -207,7 +207,7 @@ impl EnsuredArtifact {
         self.abs
     }
 
-    pub(crate) fn get_artifact_path(&self) -> ArtifactPath {
+    pub(crate) fn get_artifact_path(&self) -> ArtifactPath<'_> {
         self.artifact.get_artifact_path()
     }
 }

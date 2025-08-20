@@ -141,7 +141,7 @@ impl Action for CopyAction {
         self.output()
     }
 
-    fn category(&self) -> CategoryRef {
+    fn category(&self) -> CategoryRef<'_> {
         CategoryRef::unchecked_new("copy")
     }
 

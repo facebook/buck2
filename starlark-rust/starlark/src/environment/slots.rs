@@ -49,7 +49,7 @@ impl<'v> MutableSlots<'v> {
         Self(RefCell::new(Vec::new()))
     }
 
-    pub(crate) fn get_slots_mut(&self) -> RefMut<Vec<Option<Value<'v>>>> {
+    pub(crate) fn get_slots_mut(&self) -> RefMut<'_, Vec<Option<Value<'v>>>> {
         self.0.borrow_mut()
     }
 
