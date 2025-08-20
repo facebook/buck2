@@ -16,7 +16,7 @@ from typing import List, Optional
 from dataclasses_json import dataclass_json
 
 
-class SimState(str, Enum):
+class SimulatorState(str, Enum):
     booted = "Booted"
     booting = "Booting"
     creating = "Creating"
@@ -25,13 +25,22 @@ class SimState(str, Enum):
     unknown = "Unknown"
 
 
+class SimulatorType(str, Enum):
+    iosUnbooted = "ios_unbooted_simulator"
+    iosBooted = "ios_booted_simulator"
+
+    def booted(self) -> bool:
+        return self == SimulatorType.iosBooted
+
+
 @dataclass_json
 @dataclass
-class IdbTarget:
+class Simulator:
     name: str = ""
+    device_type_identifier: str = ""
     os_version: str = ""
     udid: str = ""
-    state: SimState = SimState.shutdown
+    state: SimulatorState = SimulatorState.shutdown
 
     def is_valid(self):
         return self.os_version != "" and self.udid != ""
@@ -43,19 +52,19 @@ class SimulatorInfo:
     device_set_path: str
 
 
-def managed_simulator_from_stdout(stdout: Optional[str]) -> IdbTarget:
+def managed_simulator_from_stdout(stdout: Optional[str]) -> Simulator:
     if not stdout:
         return None
     # pyre-ignore[16]: `from_dict` is dynamically provided by `dataclass_json`
-    return IdbTarget.from_dict(json.loads(stdout))
+    return Simulator.from_dict(json.loads(stdout))
 
 
-def managed_simulators_list_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
+def managed_simulators_list_from_stdout(stdout: Optional[str]) -> List[Simulator]:
     if not stdout:
         return []
     targets = map(
         # pyre-ignore[16]: `from_dict` is dynamically provided by `dataclass_json`
-        IdbTarget.from_dict,
+        Simulator.from_dict,
         json.loads(stdout),
     )
     return list(filter(lambda target: target.is_valid(), targets))

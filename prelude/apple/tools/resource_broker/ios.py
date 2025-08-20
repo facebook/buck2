@@ -14,14 +14,15 @@ from typing import List, Optional
 
 from packaging.version import Version
 
-from .idb_target import (
-    IdbTarget,
-    managed_simulators_list_from_stdout,
-    SimState,
-    SimulatorInfo,
-)
-
 from .simctl_runtime import list_runtimes, XCSimRuntime
+
+from .simulator import (
+    managed_simulators_list_from_stdout,
+    Simulator,
+    SimulatorInfo,
+    SimulatorState,
+    SimulatorType,
+)
 
 from .timeouts import SIMULATOR_BOOT_TIMEOUT
 
@@ -110,12 +111,12 @@ def _select_simulator_spec(
 
 async def _generic_managed_simulators_list_command(
     name: str, cmd: List[str]
-) -> List[IdbTarget]:
+) -> List[Simulator]:
     stdout = await execute_generic_text_producing_command(name=name, cmd=cmd)
     return managed_simulators_list_from_stdout(stdout)
 
 
-async def _list_managed_simulators(simulator_manager: str) -> List[IdbTarget]:
+async def _list_managed_simulators(simulator_manager: str) -> List[Simulator]:
     list_cmd = _list_managed_simulators_command(simulator_manager=simulator_manager)
     return await _generic_managed_simulators_list_command(
         name="list managed simulators", cmd=list_cmd
@@ -128,8 +129,10 @@ def normalize_os_version(os_version: str) -> Version:
 
 
 def choose_simulators(
-    simulators: List[IdbTarget], os_version: Optional[str], device: Optional[str]
-) -> List[IdbTarget]:
+    simulators: List[Simulator],
+    os_version: Optional[str],
+    device: Optional[str],
+) -> List[Simulator]:
     # If no device or os_version is specified, default to only iPhone simulators (where os_version starts with "iOS")
     if not device and not os_version:
         simulators = list(
@@ -177,18 +180,24 @@ async def _get_managed_simulators_create_if_needed(
     simulator_manager: str,
     os_version: Optional[str] = None,
     device: Optional[str] = None,
-) -> List[IdbTarget]:
+) -> List[Simulator]:
     managed_simulators = await _get_managed_simulators(
-        simulator_manager=simulator_manager, os_version=os_version, device=device
+        simulator_manager=simulator_manager,
+        os_version=os_version,
+        device=device,
     )
     if managed_simulators:
         return managed_simulators
 
     await _create_simulator(
-        simulator_manager=simulator_manager, os_version=os_version, device=device
+        simulator_manager=simulator_manager,
+        os_version=os_version,
+        device=device,
     )
     managed_simulators = await _get_managed_simulators(
-        simulator_manager=simulator_manager, os_version=os_version, device=device
+        simulator_manager=simulator_manager,
+        os_version=os_version,
+        device=device,
     )
     if managed_simulators:
         return managed_simulators
@@ -202,7 +211,7 @@ async def _get_managed_simulators(
     simulator_manager: str,
     os_version: Optional[str] = None,
     device: Optional[str] = None,
-) -> List[IdbTarget]:
+) -> List[Simulator]:
     managed_simulators = await _list_managed_simulators(
         simulator_manager=simulator_manager
     )
@@ -210,11 +219,11 @@ async def _get_managed_simulators(
 
 
 def _select_simulator(
-    only_booted: bool, all_simulators: List[IdbTarget]
-) -> Optional[IdbTarget]:
+    only_booted: bool, all_simulators: List[Simulator]
+) -> Optional[Simulator]:
     return next(
         filter(
-            lambda s: s.state == SimState.booted if only_booted else True,
+            lambda s: s.state == SimulatorState.booted if only_booted else True,
             iter(all_simulators),
         ),
         None,
@@ -222,8 +231,8 @@ def _select_simulator(
 
 
 def _select_simulator_with_preference(
-    prefer_booted: bool, all_simulators: List[IdbTarget]
-) -> IdbTarget:
+    prefer_booted: bool, all_simulators: List[Simulator]
+) -> Simulator:
     simulator = _select_simulator(
         only_booted=prefer_booted, all_simulators=all_simulators
     )
@@ -236,7 +245,7 @@ def _select_simulator_with_preference(
 
 async def prepare_simulator(
     simulator_manager: str,
-    booted: bool,
+    simulator_type: SimulatorType,
     os_version: Optional[str] = None,
     device: Optional[str] = None,
 ) -> SimulatorInfo:
@@ -247,10 +256,10 @@ async def prepare_simulator(
     )
 
     simulator = _select_simulator_with_preference(
-        prefer_booted=booted, all_simulators=managed_simulators
+        prefer_booted=simulator_type.booted(), all_simulators=managed_simulators
     )
 
-    if simulator.state != SimState.booted and booted:
+    if simulator.state != SimulatorState.booted and simulator_type.booted():
         boot_cmd = _boot_simulator_command(
             simulator_manager=simulator_manager, udid=simulator.udid
         )

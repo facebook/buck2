@@ -12,9 +12,9 @@ import argparse
 import asyncio
 import json
 import sys
-from enum import Enum
 
 from .ios import prepare_simulator
+from .simulator import SimulatorType
 
 
 def _args_parser() -> argparse.ArgumentParser:
@@ -30,13 +30,13 @@ def _args_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--type",
         metavar="<TYPE>",
-        type=_ResourceType,
-        choices=[e.value for e in _ResourceType],
+        type=SimulatorType,
+        choices=[e.value for e in SimulatorType],
         required=True,
         help=f"""
             Type of required resources.
-            Pass `{_ResourceType.iosUnbootedSimulator}` to get an unbooted iOS simulator.
-            Pass `{_ResourceType.iosBootedSimulator}` to get a booted iOS simulator.
+            Pass `{SimulatorType.iosUnbooted}` to get an unbooted iOS simulator.
+            Pass `{SimulatorType.iosBooted}` to get a booted iOS simulator.
         """,
     )
     parser.add_argument(
@@ -54,18 +54,12 @@ def _args_parser() -> argparse.ArgumentParser:
     return parser
 
 
-class _ResourceType(str, Enum):
-    iosUnbootedSimulator = "ios_unbooted_simulator"
-    iosBootedSimulator = "ios_booted_simulator"
-
-
 def main() -> None:
     args = _args_parser().parse_args()
-    booted = args.type == _ResourceType.iosBootedSimulator
     sim = asyncio.run(
         prepare_simulator(
             simulator_manager=args.simulator_manager,
-            booted=booted,
+            simulator_type=args.type,
             os_version=args.os_version,
             device=args.device,
         )
