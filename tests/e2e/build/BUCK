@@ -37,6 +37,19 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_remote_worker",
+    srcs = ["test_remote_worker.py"],
+    labels = ["long_running"],
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
+    test_with_deployed_buck2 = False,
+    use_compiled_buck2_client_and_tpx = True,
+    deps = ["//buck2/tests/e2e_util:utils"],
+)
+
+buck2_e2e_test(
     name = "test_action_digest",
     srcs = ["test_action_digest.py"],
     # This test is currently broken on Windows due to rustc_link non-determinism
