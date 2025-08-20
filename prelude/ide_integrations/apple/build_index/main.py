@@ -28,6 +28,17 @@ def parse_arguments() -> Namespace:
     return parser.parse_args()
 
 
+def parse_targets(target_args: list[str]) -> list[str]:
+    """Parse target arguments, handling multiple targets separated by newlines or spaces."""
+    targets = []
+    for target_arg in target_args:
+        split_targets = []
+        for line in target_arg.split("\n"):
+            split_targets.extend(line.split())
+        targets.extend([t.strip() for t in split_targets if t.strip()])
+    return targets
+
+
 def run_bxl_and_merge_index(
     targets: list[str], dest: str, configs: list[str] = None
 ) -> None:
@@ -74,7 +85,8 @@ def run_bxl_and_merge_index(
 def main() -> None:
     args = parse_arguments()
     Path(args.dest).mkdir(parents=True, exist_ok=True)
-    run_bxl_and_merge_index(args.target, args.dest, args.config)
+    targets = parse_targets(args.target)
+    run_bxl_and_merge_index(targets, args.dest, args.config)
 
 
 if __name__ == "__main__":
