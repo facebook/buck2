@@ -19,7 +19,7 @@ from .simulator import SimulatorType
 
 def _args_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Utility to set up iOS simulators which are used by buck to run tests locally."
+        description="Utility to set up simulators which are used by buck to run tests locally."
     )
     parser.add_argument(
         "--simulator-manager",
@@ -35,8 +35,10 @@ def _args_parser() -> argparse.ArgumentParser:
         required=True,
         help=f"""
             Type of required resources.
-            Pass `{SimulatorType.iosUnbooted}` to get an unbooted iOS simulator.
-            Pass `{SimulatorType.iosBooted}` to get a booted iOS simulator.
+            Pass `{SimulatorType.iphoneUnbooted}` to get an unbooted iPhone simulator.
+            Pass `{SimulatorType.iphoneBooted}` to get a booted iPhone simulator.
+            Pass `{SimulatorType.ipad}` to get an iPad simulator.
+            Pass `{SimulatorType.watch}` to get an Apple Watch simulator.
         """,
     )
     parser.add_argument(

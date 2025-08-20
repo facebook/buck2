@@ -21,6 +21,7 @@ from .utils import execute_generic_text_producing_command
 @dataclass
 class XCSimDevice:
     name: str
+    identifier: str
     product_family: str = field(metadata=config(field_name="productFamily"))
 
 

@@ -26,11 +26,33 @@ class SimulatorState(str, Enum):
 
 
 class SimulatorType(str, Enum):
-    iosUnbooted = "ios_unbooted_simulator"
-    iosBooted = "ios_booted_simulator"
+    iphoneUnbooted = "ios_unbooted_simulator"
+    iphoneBooted = "ios_booted_simulator"
+    ipad = "ipad_simulator"
+    watch = "watch_simulator"
 
     def booted(self) -> bool:
-        return self == SimulatorType.iosBooted
+        return self in (
+            SimulatorType.iphoneBooted,
+            SimulatorType.ipad,
+            SimulatorType.watch,
+        )
+
+    def default_device(self) -> str:
+        return {
+            SimulatorType.iphoneUnbooted: "iPhone 11",
+            SimulatorType.iphoneBooted: "iPhone 11",
+            SimulatorType.ipad: "iPad (7th generation)",
+            SimulatorType.watch: "Apple Watch Series 10 (46mm)",
+        }[self]
+
+    def matches_identifier(self, identifier: str) -> bool:
+        return {
+            SimulatorType.iphoneUnbooted: "iPhone",
+            SimulatorType.iphoneBooted: "iPhone",
+            SimulatorType.ipad: "iPad",
+            SimulatorType.watch: "Apple-Watch",
+        }[self]
 
 
 @dataclass_json
@@ -41,6 +63,9 @@ class Simulator:
     os_version: str = ""
     udid: str = ""
     state: SimulatorState = SimulatorState.shutdown
+
+    def is_type(self, simulator_type: SimulatorType) -> bool:
+        return simulator_type.matches_identifier(self.device_type_identifier)
 
     def is_valid(self):
         return self.os_version != "" and self.udid != ""
