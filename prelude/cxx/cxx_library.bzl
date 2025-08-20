@@ -205,6 +205,7 @@ load(
     "get_ignore_undefined_symbols_flags",
     "get_shared_library_name",
     "get_shared_library_name_for_param",
+    "sandbox_exported_linker_flags",
 )
 load(
     ":omnibus.bzl",
@@ -1247,14 +1248,20 @@ def _form_library_outputs(
     sanitizer_runtime_files = []
     gcno_files = []
 
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
     linker_flags = cxx_attr_linker_flags_all(ctx)
 
     # Add in exported linker flags.
     def ldflags(inner: LinkInfo) -> LinkInfo:
+        exported_flags, exported_post_flags = sandbox_exported_linker_flags(
+            linker_info,
+            linker_flags.exported_flags,
+            linker_flags.exported_post_flags,
+        )
         return wrap_link_info(
             inner = inner,
-            pre_flags = linker_flags.exported_flags,
-            post_flags = linker_flags.exported_post_flags,
+            pre_flags = exported_flags,
+            post_flags = exported_post_flags,
         )
 
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.

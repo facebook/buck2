@@ -148,6 +148,7 @@ load(
     "get_pdb_providers",
     "get_shared_library_name",
     "get_shared_library_name_for_param",
+    "sandbox_exported_linker_flags",
 )
 load(
     ":omnibus.bzl",
@@ -606,18 +607,23 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[output_style] = out
         dep_metadata = cxx_attr_dep_metadata(ctx)
+        exported_flags, exported_post_flags = sandbox_exported_linker_flags(
+            linker_info,
+            linker_flags.exported_flags,
+            linker_flags.exported_post_flags,
+        )
         libraries[output_style] = LinkInfos(
             default = LinkInfo(
                 name = ctx.attrs.name,
-                pre_flags = linker_flags.exported_flags,
-                post_flags = linker_flags.exported_post_flags,
+                pre_flags = exported_flags,
+                post_flags = exported_post_flags,
                 linkables = [linkable] if linkable else [],
                 metadata = dep_metadata,
             ),
             stripped = None if linkable_stripped == None else LinkInfo(
                 name = ctx.attrs.name,
-                pre_flags = linker_flags.exported_flags,
-                post_flags = linker_flags.exported_post_flags,
+                pre_flags = exported_flags,
+                post_flags = exported_post_flags,
                 linkables = [linkable_stripped],
                 metadata = dep_metadata,
             ),

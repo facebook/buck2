@@ -75,6 +75,8 @@ LinkerInfo = provider(
         "use_archiver_flags": provider_field(typing.Any, default = None),
         "force_full_hybrid_if_capable": provider_field(typing.Any, default = None),
         "is_pdb_generated": provider_field(typing.Any, default = None),  # bool
+        # Flags to use to "sandbox" exported library linker flags.
+        "push_pop_state_flags": provider_field(typing.Any, default = None),
     },
 )
 

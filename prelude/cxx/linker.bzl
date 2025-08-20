@@ -325,3 +325,21 @@ def get_dumpbin_providers(
             default_output = dumpbin_headers_out,
         )],
     })]
+
+def sandbox_exported_linker_flags(
+        linker_info: LinkerInfo,
+        flags: list[typing.Any],
+        post_flags: list[typing.Any]) -> (list[typing.Any], list[typing.Any]):
+    """
+    Helper to wrap exported pre/post linker flags with sandboxing flags (e.g.
+    `--push-state`/`--pop-state`) only if flags are actually non-empty.
+    """
+
+    # If we're exporting flags, wrap in push/pop state flags to provide some
+    # level of sandboxing.
+    if linker_info.push_pop_state_flags != None and (flags or post_flags):
+        push_state_flags, pop_state_flags = linker_info.push_pop_state_flags
+        flags = push_state_flags + flags
+        post_flags = post_flags + pop_state_flags
+
+    return (flags, post_flags)
