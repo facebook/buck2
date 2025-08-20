@@ -330,6 +330,12 @@ def _encode_kotlin_extra_params(
     if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
 
+    if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin != None:
+        kosabiPluginOptionsMap["kosabi_jvm_abi_gen_k2_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin
+
+    if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin == None and should_kosabi_jvm_abi_gen_use_k2:
+        fail("Kosabi jvm abi gen k2 plugin is not supported")
+
     return struct(
         extraClassPaths = bootclasspath_entries,
         extraClassPathSnapshots = bootclasspath_snapshot_entries,

@@ -86,6 +86,7 @@ def _kotlin_toolchain_rule_impl(ctx):
             kotlincd_worker = ctx.attrs.kotlincd_worker,
             track_class_usage_plugin = ctx.attrs.track_class_usage_plugin,
             kotlin_error_handler = None,
+            kosabi_jvm_abi_gen_k2_plugin = ctx.attrs.kosabi_jvm_abi_gen_k2_plugin,
         ),
     ]
 
@@ -100,6 +101,7 @@ _kotlin_toolchain_rule = rule(
         "jvm_abi_gen_plugin": attrs.option(attrs.source(), default = None),
         "kapt_base64_encoder": attrs.dep(providers = [RunInfo]),
         "kosabi_applicability_plugin": attrs.option(attrs.source(), default = None),
+        "kosabi_jvm_abi_gen_k2_plugin": attrs.option(attrs.source(), default = None),
         "kosabi_jvm_abi_gen_plugin": attrs.option(attrs.source(), default = None),
         "kosabi_source_modifier_plugin": attrs.option(attrs.source(), default = None),
         "kosabi_stubs_gen_extra_kotlin_home_library": attrs.option(attrs.source(), default = None),
