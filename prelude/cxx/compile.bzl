@@ -1461,7 +1461,7 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    def gen_argsfiles(**kwargs):
+    def gen_argsfiles(is_xcode_argsfile):
         return _mk_argsfiles(
             ctx,
             impl_params,
@@ -1471,8 +1471,8 @@ def _generate_base_compile_command(
             headers_tag,
             is_precompile = False,
             filename_prefix = filename_prefix,
-            uses_experimental_content_based_path_hashing = True,
-            **kwargs
+            uses_experimental_content_based_path_hashing = not is_xcode_argsfile,
+            is_xcode_argsfile = is_xcode_argsfile,
         )
 
     argsfile = gen_argsfiles(is_xcode_argsfile = False)
