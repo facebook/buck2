@@ -86,7 +86,8 @@ def create_jar_artifact_kotlincd(
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
-        debug_port: [int, None] = None) -> (JavaCompileOutputs, Artifact):
+        debug_port: [int, None] = None,
+        should_kosabi_jvm_abi_gen_use_k2: bool | None = False) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -244,6 +245,7 @@ def create_jar_artifact_kotlincd(
             should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
             language_version = language_version,
+            should_kosabi_jvm_abi_gen_use_k2 = should_kosabi_jvm_abi_gen_use_k2,
         )
         abi_command_builder = command_builder(
             kotlin_extra_params = kotlin_extra_params,
@@ -307,7 +309,8 @@ def _encode_kotlin_extra_params(
         should_kotlinc_run_incrementally: bool,
         should_ksp2_run_incrementally: bool,
         incremental_state_dir: Artifact | None,
-        language_version: str):
+        language_version: str,
+        should_kosabi_jvm_abi_gen_use_k2: bool | None = False):
     kosabiPluginOptionsMap = {}
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
@@ -348,6 +351,7 @@ def _encode_kotlin_extra_params(
         shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
+        shouldKosabiJvmAbiGenUseK2 = should_kosabi_jvm_abi_gen_use_k2 == True,
     )
 
 def _command_builder(

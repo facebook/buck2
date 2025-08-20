@@ -497,6 +497,7 @@ def build_kotlin_library(
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
                 bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
+                should_kosabi_jvm_abi_gen_use_k2 = getattr(ctx.attrs, "should_kosabi_jvm_abi_gen_use_k2", False),
                 **common_kotlincd_kwargs
             )
 

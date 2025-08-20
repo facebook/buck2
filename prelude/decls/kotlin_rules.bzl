@@ -140,7 +140,7 @@ kotlin_library = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        } | jvm_common.plugins() | validation_common.attrs_validators_arg()
+        } | jvm_common.plugins() | jvm_common.should_kosabi_jvm_abi_gen_use_k2() | validation_common.attrs_validators_arg()
     ),
 )
 

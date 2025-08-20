@@ -84,6 +84,7 @@ public class KotlinExtraParamsSerializer {
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
         kotlinExtraParams.getShouldKsp2RunIncrementally(),
-        kotlinExtraParams.getLanguageVersion());
+        kotlinExtraParams.getLanguageVersion(),
+        kotlinExtraParams.getShouldKosabiJvmAbiGenUseK2());
   }
 }
