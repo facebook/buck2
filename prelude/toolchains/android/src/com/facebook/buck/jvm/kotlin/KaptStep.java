@@ -65,7 +65,10 @@ public class KaptStep extends KotlincStep {
         Optional.empty(),
         KotlincMode.NonIncremental.INSTANCE,
         kotlinCDAnalytics,
-        languageVersion);
+        languageVersion,
+        // Flag turning on/off K2 support for jvm-abi-gen actions
+        // not part of KAPT, since jvm-abi-gen doesn't run on KAPT steps
+        false);
   }
 
   @Override

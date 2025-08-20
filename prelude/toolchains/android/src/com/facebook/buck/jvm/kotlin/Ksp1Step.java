@@ -74,7 +74,8 @@ public class Ksp1Step extends KotlincStep {
         KotlincMode.NonIncremental.INSTANCE,
         kotlinCDAnalytics,
         // force K1 for KSP1
-        LanguageVersion.Companion.getK1());
+        LanguageVersion.Companion.getK1(),
+        false);
   }
 
   @Override

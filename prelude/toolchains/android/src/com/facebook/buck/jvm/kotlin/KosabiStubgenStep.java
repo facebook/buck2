@@ -88,7 +88,10 @@ public class KosabiStubgenStep extends KotlincStep {
         depTrackerPath,
         KotlincMode.NonIncremental.INSTANCE,
         kotlinCDAnalytics,
-        languageVersion);
+        languageVersion,
+        // Flag turning on/off K2 support for jvm-abi-gen actions
+        // not part of stubsgen, since jvm-abi-gen doesn't run on stubsgen steps
+        false);
     this.stubgenDir = stubgenDir;
     this.stubClassOutputDir = stubClassOutputDir;
     this.pluginPath =
