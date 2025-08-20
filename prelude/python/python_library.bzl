@@ -45,7 +45,6 @@ load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_root",
     "prefix_from_label",
-    "project_from_label",
 )
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_build_info")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
@@ -381,14 +380,11 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Allow third-party-build rules to depend on Python rules.
-    tp_project = project_from_label(ctx.label)
     tp_prefix = prefix_from_label(ctx.label)
     providers.append(
         third_party_build_info(
             actions = ctx.actions,
             build = ThirdPartyBuild(
-                # TODO(agallagher): Figure out a way to get a unique name?
-                project = tp_project,
                 prefix = tp_prefix,
                 root = create_third_party_build_root(
                     ctx = ctx,
@@ -402,7 +398,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 manifest = ctx.actions.write_json(
                     "third_party_build_manifest.json",
                     dict(
-                        project = tp_project,
                         prefix = tp_prefix,
                         py_lib_paths = ["lib/python"],
                     ),

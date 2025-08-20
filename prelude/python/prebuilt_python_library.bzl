@@ -33,7 +33,6 @@ load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_root",
     "prefix_from_label",
-    "project_from_label",
 )
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_build_info")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
@@ -121,13 +120,11 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )))
 
     # Allow third-party-build rules to depend on Python rules.
-    tp_project = project_from_label(ctx.label)
     tp_prefix = prefix_from_label(ctx.label)
     providers.append(
         third_party_build_info(
             actions = ctx.actions,
             build = ThirdPartyBuild(
-                project = tp_project,
                 prefix = tp_prefix,
                 root = create_third_party_build_root(
                     ctx = ctx,
@@ -142,7 +139,6 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     "third_party_build_manifest.json",
                     dict(
                         prefix = tp_prefix,
-                        project = tp_project,
                         py_lib_paths = ["lib/python"],
                     ),
                 ),

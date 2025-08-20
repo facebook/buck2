@@ -9,7 +9,7 @@ load("@prelude//:artifacts.bzl", "ArtifactExt")
 
 ThirdPartyBuild = record(
     # A logical project name for the project, currently used for logging.
-    project = field(str),
+    project = field(str | None, None),
     # The directory containing the build output.
     root = field(ArtifactExt),
     # The prefix to install the build output.

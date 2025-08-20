@@ -13,12 +13,6 @@ load(
 )
 load(":providers.bzl", "ThirdPartyBuild", "ThirdPartyBuildInfo", "third_party_build_info")
 
-def project_from_label(label: Label) -> str:
-    """
-    Generate a unique third-party project name for the given label.
-    """
-    return str(label.raw_target())
-
 def prefix_from_label(label: Label, prefix: str = "/usr/local") -> str:
     """
     Generate a unique third-party prefix for the given label.
@@ -112,8 +106,6 @@ def create_third_party_build_info(
         cxx_header_dirs: list[str] = [],
         paths: list[(str, Artifact)] = [],
         deps: list[Dependency] = []) -> ThirdPartyBuildInfo:
-    if project == None:
-        project = project_from_label(ctx.label)
     if prefix == None:
         prefix = prefix_from_label(ctx.label)
 
@@ -136,7 +128,8 @@ def create_third_party_build_info(
     # Build manifest.
     def gen_manifest(actions, output, shared_libs):
         manifest = {}
-        manifest["project"] = project
+        if project != None:
+            manifest["project"] = project
         manifest["prefix"] = prefix
         manifest["bin_paths"] = []
         manifest["c_include_paths"] = include_paths
