@@ -50,7 +50,8 @@ internal class JvmCompilationConfigurationFactoryTest {
         .thenReturn(jvmCompilationConfiguration)
     whenever(
             jvmCompilationConfiguration
-                .makeClasspathSnapshotBasedIncrementalCompilationConfiguration())
+                .makeClasspathSnapshotBasedIncrementalCompilationConfiguration()
+        )
         .thenReturn(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
 
     jvmCompilationConfigurationFactory =
@@ -121,7 +122,8 @@ internal class JvmCompilationConfigurationFactoryTest {
 
     val expectedClasspathSnapshotBasedIncrementalCompilationApproachParameters =
         createClasspathSnapshotBasedIncrementalCompilationApproachParameters(
-            fakeIncrementalKotlincMode)
+            fakeIncrementalKotlincMode
+        )
     verify(jvmCompilationConfiguration)
         .useIncrementalCompilation(
             workingDirectory = any(),
@@ -162,7 +164,8 @@ internal class JvmCompilationConfigurationFactoryTest {
   @Test
   fun `when there are no classpath changes, compiler is assured about no classpath changes`() {
     jvmCompilationConfigurationFactory.create(
-        createFakeIncrementalKotlincMode(ClasspathChanges.NoChanges(ImmutableList.of())))
+        createFakeIncrementalKotlincMode(ClasspathChanges.NoChanges(ImmutableList.of()))
+    )
 
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
         .assureNoClasspathSnapshotsChanges(true)
@@ -173,7 +176,8 @@ internal class JvmCompilationConfigurationFactoryTest {
   @Test
   fun `when classpath changes can not be detected, non-incremental mode is forced`() {
     jvmCompilationConfigurationFactory.create(
-        createFakeIncrementalKotlincMode(ClasspathChanges.Unknown))
+        createFakeIncrementalKotlincMode(ClasspathChanges.Unknown)
+    )
 
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
         .forceNonIncrementalMode(true)
@@ -184,7 +188,8 @@ internal class JvmCompilationConfigurationFactoryTest {
   @Test
   fun `when requires rebuild, non-incremental mode is forced`() {
     jvmCompilationConfigurationFactory.create(
-        createFakeIncrementalKotlincMode(rebuildReason = mock()))
+        createFakeIncrementalKotlincMode(rebuildReason = mock())
+    )
 
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
         .forceNonIncrementalMode(true)
@@ -193,7 +198,8 @@ internal class JvmCompilationConfigurationFactoryTest {
   @Test
   fun `when rebuild is not required, non-incremental mode is not forced`() {
     jvmCompilationConfigurationFactory.create(
-        createFakeIncrementalKotlincMode(rebuildReason = null))
+        createFakeIncrementalKotlincMode(rebuildReason = null)
+    )
 
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration, never())
         .forceNonIncrementalMode(true)

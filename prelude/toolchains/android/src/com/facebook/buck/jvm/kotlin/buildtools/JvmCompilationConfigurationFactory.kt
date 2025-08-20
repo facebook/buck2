@@ -53,7 +53,8 @@ internal class JvmCompilationConfigurationFactory(
                       val rebuildReason = mode.rebuildReason
                       if (rebuildReason != null) {
                         LOG.info(
-                            "Non-incremental compilation will be performed: ${rebuildReason.message}")
+                            "Non-incremental compilation will be performed: ${rebuildReason.message}"
+                        )
                         kotlinCDLoggingContext.addExtras(
                             JvmCompilationConfigurationFactory::class.java.simpleName,
                             "Non-incremental compilation will be performed: ${rebuildReason.message}",
@@ -64,7 +65,8 @@ internal class JvmCompilationConfigurationFactory(
                       when (mode.classpathChanges) {
                         is ClasspathChanges.Unknown -> {
                           LOG.info(
-                              "Non-incremental compilation will be performed: classpath changes not available")
+                              "Non-incremental compilation will be performed: classpath changes not available"
+                          )
                           kotlinCDLoggingContext.addExtras(
                               JvmCompilationConfigurationFactory::class.java.simpleName,
                               "Non-incremental compilation will be performed: classpath changes not available",

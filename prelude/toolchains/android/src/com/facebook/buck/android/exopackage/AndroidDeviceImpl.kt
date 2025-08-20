@@ -77,13 +77,17 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       } catch (e: AdbCommandFailedException) {
         if ((e.message ?: "").contains("INSTALL_FAILED_VERIFICATION_FAILURE: Staged session ")) {
           throw AndroidInstallException.rebootRequired(
-              "Device is already staged; You need to run 'adb reboot' on your device.")
+              "Device is already staged; You need to run 'adb reboot' on your device."
+          )
         }
 
         // if the device can't install because the list of native libs is different,
         // retry without the --force-non-staged flag. Then reboot automatically.
-        if ((e.message ?: "").contains(
-            "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required")) {
+        if (
+            (e.message ?: "").contains(
+                "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required"
+            )
+        ) {
           // try install again without --force-non-staged
           executeAdbCommandCatching(
               "install -d --apex ${apex.absolutePath}",
@@ -93,7 +97,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               "Installed ${apex.name} on device; however --force-non-staged doesn't work when the" +
                   " native lib dependencies of an apex have changed. You need to run 'adb" +
                   " reboot' on your device to complete the install. See also:" +
-                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/")
+                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/"
+          )
         }
 
         throw AndroidInstallException.adbCommandFailedException(
@@ -107,7 +112,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "--force-non-staged is not available on device" +
                 "(is the device running an older build?); " +
                 "${apex.name} was installed successfully but will not be active until " +
-                "you run 'adb reboot' on your device")
+                "you run 'adb reboot' on your device"
+        )
       }
 
       try {
@@ -115,7 +121,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         executeAdbShellCommand("start")
       } catch (e: AdbCommandFailedException) {
         throw AndroidInstallException.rebootRequired(
-            "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'")
+            "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
+        )
       }
     }
     val kbps = (apex.length() / 1024.0) / (elapsed / 1000.0)
@@ -152,7 +159,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         executeAdbShellCommand("unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'").trim()
     val result: String =
         executeAdbShellCommand(
-            "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'")
+            "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'"
+        )
     val (_, digest) = result.split(":", limit = 2)
     return digest.trim()
   }
@@ -182,7 +190,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       val tempFile = File.createTempFile("files_to_delete", ".txt")
       try {
         tempFile.writeText(
-            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() })
+            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() }
+        )
         executeAdbCommand("push -z brotli ${tempFile.absolutePath} /data/local/tmp")
         executeAdbShellCommand("cat /data/local/tmp/${tempFile.name} | xargs rm -f")
       } catch (e: AdbCommandFailedException) {

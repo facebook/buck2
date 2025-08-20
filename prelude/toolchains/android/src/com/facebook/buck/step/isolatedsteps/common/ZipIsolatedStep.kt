@@ -51,7 +51,8 @@ data class ZipIsolatedStep(
   override fun executeIsolatedStep(context: IsolatedExecutionContext): StepExecutionResult {
     if (ProjectFilesystemUtils.exists(rootPath, pathToZipFile)) {
       throw RuntimeException(
-          String.format("Attempting to overwrite an existing zip: %s", pathToZipFile))
+          String.format("Attempting to overwrite an existing zip: %s", pathToZipFile)
+      )
     }
 
     val entries: Map<String, Pair<CustomZipEntry, Optional<Path>>> = TreeMap()

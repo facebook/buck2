@@ -82,7 +82,8 @@ internal class KotlinCDLoggerAnalyticsTest {
     val expectedEntry = createExpectedKotlinCDLogEntry(extras = """{"testKey": ["testValue"]}""")
 
     kotlinCDAnalytics.log(
-        createKotlinCDLoggingContext(extras = mapOf("testKey" to listOf("testValue"))))
+        createKotlinCDLoggingContext(extras = mapOf("testKey" to listOf("testValue")))
+    )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -95,7 +96,9 @@ internal class KotlinCDLoggerAnalyticsTest {
 
     kotlinCDAnalytics.log(
         createKotlinCDLoggingContext(
-            extras = mapOf("testKey" to listOf("testValue1", "testValue2"))))
+            extras = mapOf("testKey" to listOf("testValue1", "testValue2"))
+        )
+    )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -106,7 +109,8 @@ internal class KotlinCDLoggerAnalyticsTest {
     val expectedEntry =
         createExpectedKotlinCDLogEntry(
             extras =
-                """{"testKey1": ["testValue1", "testValue2"], "testKey2": ["testValue3", "testValue4"]}""")
+                """{"testKey1": ["testValue1", "testValue2"], "testKey2": ["testValue3", "testValue4"]}"""
+        )
 
     kotlinCDAnalytics.log(
         createKotlinCDLoggingContext(
@@ -114,7 +118,9 @@ internal class KotlinCDLoggerAnalyticsTest {
                 mapOf(
                     "testKey1" to listOf("testValue1", "testValue2"),
                     "testKey2" to listOf("testValue3", "testValue4"),
-                )))
+                )
+        )
+    )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -132,7 +138,9 @@ internal class KotlinCDLoggerAnalyticsTest {
                     ClasspathChangesParam.NO_CHANGES,
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
                     emptySet(),
-                )))
+                )
+        )
+    )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
@@ -150,7 +158,9 @@ internal class KotlinCDLoggerAnalyticsTest {
                     ClasspathChangesParam.NO_CHANGES,
                     emptySet(),
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
-                )))
+                )
+        )
+    )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }

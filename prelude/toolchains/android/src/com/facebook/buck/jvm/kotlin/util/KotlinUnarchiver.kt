@@ -51,7 +51,8 @@ fun getExpandedSourcePaths(
                     input.toString().endsWith(".kts") ||
                     input.toString().endsWith(".java"))
               }
-              .iterator())
+              .iterator()
+      )
     }
   }
   return sources.build()

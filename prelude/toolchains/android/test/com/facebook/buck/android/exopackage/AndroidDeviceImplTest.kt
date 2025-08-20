@@ -106,13 +106,15 @@ class AndroidDeviceImplTest {
             mockAdbUtils.executeAdbShellCommand(
                 "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'",
                 serialNumber,
-            ))
+            )
+        )
         .thenReturn("META-INF/CERT.SF")
     whenever(
             mockAdbUtils.executeAdbShellCommand(
                 "unzip -p $packagePath META-INF/CERT.SF | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
                 serialNumber,
-            ))
+            )
+        )
         .thenReturn("SHA1-Digest-Manifest: abcdef1234567890")
 
     val result = androidDevice.getSignature(packagePath)
@@ -161,7 +163,8 @@ class AndroidDeviceImplTest {
             mockAdbUtils.executeAdbShellCommand(
                 "df -h /data | awk '{print $2, $3, $4}'",
                 serialNumber,
-            ))
+            )
+        )
         .thenReturn("Size Used Available\n64G 32G 32G")
 
     val result = androidDevice.getDiskSpace()

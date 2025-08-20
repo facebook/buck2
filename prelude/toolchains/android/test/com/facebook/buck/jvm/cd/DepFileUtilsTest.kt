@@ -33,7 +33,8 @@ class DepFileUtilsTest {
                 "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
                 "/path/to/A.jar" to setOf("ClassA.class"),
                 "/path/to/B.jar" to setOf("ClassB.class"),
-            ))
+            )
+        )
     val depFileOutput = tempFolder.newFile("dep-file.txt").toPath()
 
     DepFileUtils.usedClassesToDepFile(
@@ -73,7 +74,8 @@ class DepFileUtilsTest {
                 "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
                 "/path/to/A.jar" to setOf("ClassA.class"),
                 "/path/to/D.jar" to setOf("ClassD.class"),
-            ))
+            )
+        )
     val depFileOutput = tempFolder.newFile("dep-file.txt").toPath()
 
     DepFileUtils.usedClassesToDepFile(
@@ -97,7 +99,8 @@ class DepFileUtilsTest {
                 "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
                 "/path/to/A.jar" to setOf("ClassZ.class"),
                 "/path/to/B.jar" to setOf("ClassB.class"),
-            ))
+            )
+        )
     val jarToJarDirMapPath = tempFolder.newFile("jar-to-dir-map.txt").toPath()
     Files.write(
         jarToJarDirMapPath,
@@ -131,7 +134,8 @@ class DepFileUtilsTest {
                 "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
                 "/path/to/A.jar" to setOf("ClassA.class"),
                 "/path/to/B.jar" to setOf("ClassB.class"),
-            ))
+            )
+        )
     val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
 
     DepFileUtils.usedClassesToUsedJars(listOf(usedClassesMapPath), usedJarsOutput, Optional.empty())
@@ -159,7 +163,8 @@ class DepFileUtilsTest {
                 "/path/to/C.jar" to setOf("Class3.class", "Class2.class"),
                 "/path/to/A.jar" to setOf("ClassA.class"),
                 "/path/to/B.jar" to setOf("ClassB.class"),
-            ))
+            )
+        )
     val prevUsedJarsOutput = tempFolder.newFile("prev-used-jars.txt").toPath()
 
     DepFileUtils.usedClassesToUsedJars(

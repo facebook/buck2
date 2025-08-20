@@ -262,7 +262,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val initialClassTimestamps = getClassModificationTimes()
 
@@ -287,7 +288,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
 
@@ -316,7 +318,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val initialClassTimestamps = getClassModificationTimes()
 
@@ -341,7 +344,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
 
@@ -370,7 +374,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val initialClassTimestamps = getClassModificationTimes()
 
@@ -395,7 +400,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
 
@@ -424,7 +430,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val initialClassTimestamps = getClassModificationTimes()
 
@@ -449,7 +456,8 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))),
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+            ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
 
@@ -470,7 +478,8 @@ internal class KotlinCompilationServiceTest {
                 .location
                 .toURI()
                 .toPath()
-                .absolute())
+                .absolute()
+        )
 
     return buildList {
       add("-no-reflect")

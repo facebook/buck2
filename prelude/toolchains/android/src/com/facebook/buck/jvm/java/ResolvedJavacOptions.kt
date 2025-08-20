@@ -181,7 +181,8 @@ data class ResolvedJavacOptions(
           bootclasspathList
               .stream()
               .map(RelPath::toString)
-              .collect(Collectors.joining(File.pathSeparator)))
+              .collect(Collectors.joining(File.pathSeparator))
+      )
     }
   }
 }

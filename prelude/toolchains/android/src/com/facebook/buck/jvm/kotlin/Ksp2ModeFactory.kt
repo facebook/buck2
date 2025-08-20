@@ -53,7 +53,8 @@ fun Ksp2Mode(
       if (hasClasspathChanged) {
         // TODO(ijurcikova) implement support for classpath changes and move the logic into Ksp2Step
         LOG.info(
-            "Non-incremental processing will be performed: Incremental processing after classpath change is not supported yet")
+            "Non-incremental processing will be performed: Incremental processing after classpath change is not supported yet"
+        )
         createCleanDirectory(cachesDir)
       }
 

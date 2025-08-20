@@ -84,13 +84,15 @@ class Ksp2Step(
         return StepExecutionResult(
             StepExecutionResults.ERROR_EXIT_CODE,
             Optional.of(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327"),
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327"
+            ),
         )
       } catch (e: Throwable) {
         return StepExecutionResult(
             StepExecutionResults.ERROR_EXIT_CODE,
             Optional.of(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}"),
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}"
+            ),
         )
       }
     }
@@ -111,7 +113,8 @@ class Ksp2Step(
     val processorProviders =
         ServiceLoader.load(
                 processorClassloader.loadClass(
-                    "com.google.devtools.ksp.processing.SymbolProcessorProvider"),
+                    "com.google.devtools.ksp.processing.SymbolProcessorProvider"
+                ),
                 processorClassloader,
             )
             .toList() as List<SymbolProcessorProvider>
@@ -198,7 +201,8 @@ class Ksp2Step(
               |  removedSources = ${kspConfig.removedSources.joinToString()}
               |  changedClasses = ${kspConfig.changedClasses.joinToString()}
               |]"""
-            .trimMargin())
+            .trimMargin()
+    )
     // Run!
     val kotlinSymbolProcessing = KotlinSymbolProcessing(kspConfig, processorProviders, logger)
     return kotlinSymbolProcessing.execute()
@@ -255,7 +259,8 @@ class Ksp2Step(
       } catch (exception: IOException) {
         logger.exception(exception)
         throw HumanReadableException(
-            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory")
+            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
+        )
       }
 
   companion object {

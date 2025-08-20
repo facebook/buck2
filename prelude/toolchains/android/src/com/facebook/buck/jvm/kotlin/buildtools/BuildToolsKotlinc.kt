@@ -64,12 +64,14 @@ class BuildToolsKotlinc : Kotlinc {
     LOG.info(
         "[KotlinC Toolchain Build Step from for target:${invokingRule.fullyQualifiedName} type:${invokingRule.type}] " +
             "Running ${CompilationService::class.java.name} ${getIncrementalInfoMessage(mode)} " +
-            "with arguments:[${compilerArgs.joinToString()}] ")
+            "with arguments:[${compilerArgs.joinToString()}] "
+    )
 
     val kotlinCompilationService =
         KotlinCompilationService(
             CompilationService.loadImplementation(
-                context.classLoaderCache.getClassLoader(kotlinHomeLibraries)),
+                context.classLoaderCache.getClassLoader(kotlinHomeLibraries)
+            ),
             kotlinCDLoggingContext,
         )
 
@@ -156,7 +158,8 @@ class BuildToolsKotlinc : Kotlinc {
       } catch (exception: IOException) {
         LOG.error(exception)
         throw HumanReadableException(
-            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory")
+            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
+        )
       }
 
   private fun getExpandedMultiPlatformSourcePathsOrThrow(
@@ -179,7 +182,8 @@ class BuildToolsKotlinc : Kotlinc {
 
                       if (fragmentSourceAbsPath == null) {
                         throw HumanReadableException(
-                            "Invalid fragment source path: $fragmentSourcePath")
+                            "Invalid fragment source path: $fragmentSourcePath"
+                        )
                       }
                       "$fragmentName:$fragmentSourceAbsPath"
                     }

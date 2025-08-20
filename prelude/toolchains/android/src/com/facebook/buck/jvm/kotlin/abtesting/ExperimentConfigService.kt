@@ -22,10 +22,12 @@ interface ExperimentConfigService {
       val implementations = ServiceLoader.load(ExperimentConfigService::class.java)
       implementations.firstOrNull()
           ?: error(
-              "The classpath contains no implementation for ${ExperimentConfigService::class.qualifiedName}")
+              "The classpath contains no implementation for ${ExperimentConfigService::class.qualifiedName}"
+          )
       return implementations.singleOrNull()
           ?: error(
-              "The classpath contains more than one implementation for ${ExperimentConfigService::class.qualifiedName}")
+              "The classpath contains more than one implementation for ${ExperimentConfigService::class.qualifiedName}"
+          )
     }
   }
 }
