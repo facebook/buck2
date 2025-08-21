@@ -1,0 +1,6 @@
+load(":rules.bzl", "write")
+
+write(
+    name = "test",
+    fail = read_config("test", "fail", default = "0") == "1",
+)
