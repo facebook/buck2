@@ -90,6 +90,7 @@ pub fn provider_callable_documentation(
             let docs = Some(DocString {
                 summary,
                 details: Some(details.iter().flatten().join("\n\n")),
+                examples: None,
             });
             DocItem::Member(DocMember::Function(DocFunction { docs, params, ret }))
         }

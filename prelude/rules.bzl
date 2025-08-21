@@ -73,6 +73,7 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
         # be what its expected to be in prelude.
         # TODO(cjhopman): Figure out something better here.
         if rule_spec.examples:
+            # NOTE: DocString needs 'Examples:' to render the sections properly, that code should be updated along with this
             doc += "\n{}Examples:\n{}".format(" " * 8, rule_spec.examples)
         if rule_spec.further:
             doc += "\n{}Additional notes:\n{}".format(" " * 8, rule_spec.further)

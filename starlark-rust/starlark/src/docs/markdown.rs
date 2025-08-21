@@ -37,7 +37,9 @@ enum DSOpts {
     Summary,
     /// Just the details (if present).
     Details,
-    /// Both the summary and the details, separated in an appropriate fashion.
+    /// Just the examples section (if present)
+    Examples,
+    /// Both the summary, details, and examples separated in an appropriate fashion.
     Combined,
 }
 
@@ -45,9 +47,14 @@ fn render_doc_string(opts: DSOpts, string: &Option<DocString>) -> Option<String>
     string.as_ref().and_then(|d| match opts {
         DSOpts::Summary => Some(d.summary.clone()),
         DSOpts::Details => d.details.clone(),
-        DSOpts::Combined => Some(match &d.details {
-            Some(details) => format!("{}\n\n{}", d.summary, details),
-            None => d.summary.clone(),
+        DSOpts::Examples => d.examples.clone(),
+        DSOpts::Combined => Some(match (&d.details, &d.examples) {
+            (Some(details), Some(examples)) => {
+                format!("{}\n\n{}\n\nExamples:\n{}", d.summary, details, examples)
+            }
+            (Some(details), None) => format!("{}\n\n{}", d.summary, details),
+            (None, Some(examples)) => format!("{}\n\nExamples:\n{}", d.summary, examples),
+            (None, None) => d.summary.clone(),
         }),
     })
 }
@@ -127,6 +134,7 @@ fn render_function(
     };
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
     let details = render_doc_string(DSOpts::Details, &function.docs);
+    let examples = render_doc_string(DSOpts::Examples, &function.docs);
 
     let parameter_docs =
         render_function_parameters(function.params.doc_params_with_starred_names());
@@ -154,6 +162,11 @@ fn render_function(
             body.push_str("\n\n");
         }
         body.push_str(details);
+    }
+
+    if let Some(examples) = &examples {
+        body.push_str("\n\n#### Examples\n\n");
+        body.push_str(examples);
     }
 
     body

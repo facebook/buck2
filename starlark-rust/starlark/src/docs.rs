@@ -49,6 +49,8 @@ pub struct DocString {
     /// The contents of a doc string that follow the summary, and a single blank line.
     /// This also has whitespace trimmed from it, and it is dedented.
     pub details: Option<String>,
+    /// Examples provided as a part of the doc string. It's separated by a 'Examples:' string
+    pub examples: Option<String>,
 }
 
 /// The documentation for a module/namespace.

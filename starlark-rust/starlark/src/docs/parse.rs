@@ -121,12 +121,25 @@ impl DocString {
         None
     }
 
-    fn split_summary_details(s: &str) -> Option<(&str, &str)> {
+    fn split_summary_details(s: &str) -> Option<(&str, &str, &str)> {
+        const EXAMPLES_STRING: &str = "Examples:\n";
+
         let mut summary_len = 0;
+        let examples = s.find(EXAMPLES_STRING);
+
         for line in s.split_inclusive('\n') {
             if line.trim().is_empty() {
                 let details_start = summary_len + line.len();
-                return Some((s[..summary_len].trim(), &s[details_start..]));
+
+                if let Some(example_start) = examples {
+                    return Some((
+                        s[..summary_len].trim(),
+                        &s[details_start..example_start],
+                        &s[example_start + EXAMPLES_STRING.len()..],
+                    ));
+                } else {
+                    return Some((s[..summary_len].trim(), &s[details_start..], ""));
+                }
             } else {
                 summary_len += line.len();
             }
@@ -153,26 +166,43 @@ impl DocString {
         if trimmed_docs.is_empty() {
             None
         } else {
-            let split: Option<(&str, &str)> = Self::split_summary_details(trimmed_docs);
-            let (summary, details) = match split {
-                Some((summary, details)) if !summary.is_empty() && !details.is_empty() => {
-                    // Dedent the details separately so that people can have the summary on the
-                    // same line as the opening quotes, and the details indented on subsequent
-                    // lines.
-                    let details = match kind {
-                        DocStringKind::Starlark => textwrap::dedent(details).trim().to_owned(),
-                        DocStringKind::Rust => {
-                            Self::remove_rust_comments(textwrap::dedent(details).trim())
-                        }
+            let split: Option<(&str, &str, &str)> = Self::split_summary_details(trimmed_docs);
+            let (summary, details, examples) = match split {
+                Some((summary, details, examples)) if !summary.is_empty() => {
+                    let details = match details.trim().is_empty() {
+                        true => None,
+                        // Dedent the details separately so that people can have the summary on the
+                        // same line as the opening quotes, and the details indented on subsequent
+                        // lines.
+                        false => Some(match kind {
+                            DocStringKind::Starlark => textwrap::dedent(details).trim().to_owned(),
+                            DocStringKind::Rust => {
+                                Self::remove_rust_comments(textwrap::dedent(details).trim())
+                            }
+                        }),
                     };
-                    (summary, Some(details))
+
+                    let examples = match examples.is_empty() {
+                        true => None,
+                        false => Some(match kind {
+                            DocStringKind::Starlark => textwrap::dedent(examples).trim().to_owned(),
+                            DocStringKind::Rust => {
+                                Self::remove_rust_comments(textwrap::dedent(examples).trim())
+                            }
+                        }),
+                    };
+                    (summary, details, examples)
                 }
-                _ => (trimmed_docs, None),
+                _ => (trimmed_docs, None, None),
             };
 
             let summary = Self::normalize_summary(summary);
 
-            Some(DocString { summary, details })
+            Some(DocString {
+                summary,
+                details,
+                examples,
+            })
         }
     }
 
@@ -276,6 +306,7 @@ impl DocString {
                 Self {
                     summary: self.summary,
                     details,
+                    examples: self.examples,
                 },
                 sections,
             )
@@ -414,6 +445,7 @@ mod tests {
             Some(DocString {
                 summary: "This should be the summary".to_owned(),
                 details: None,
+                examples: None,
             })
         );
         assert_eq!(
@@ -424,6 +456,7 @@ mod tests {
             Some(DocString {
                 summary: "This should be the summary".to_owned(),
                 details: None,
+                examples: None,
             })
         );
         assert_eq!(
@@ -434,6 +467,7 @@ mod tests {
             Some(DocString {
                 summary: "Summary line here".to_owned(),
                 details: Some("Details after some spaces\n\nand some more newlines".to_owned()),
+                examples: None,
             })
         );
         assert_eq!(
@@ -449,6 +483,9 @@ mod tests {
             - Trimmed
             - Split properly from the summary
 
+        Examples:
+        Some example code
+
 "#
             ),
             Some(DocString {
@@ -463,6 +500,7 @@ mod tests {
                     )
                     .to_owned()
                 ),
+                examples: Some("Some example code".to_owned()),
             })
         );
         assert_eq!(
@@ -486,6 +524,7 @@ mod tests {
                 )
                     .to_owned()
                 ),
+                examples: None,
             })
         );
     }
@@ -496,6 +535,7 @@ mod tests {
         This is the summary line
           that sometimes is split on two lines
 
+        Examples:
         This is the second part. It has some code blocks
 
         ```
@@ -516,26 +556,28 @@ mod tests {
         ```
         "#;
 
-        let parsed = DocString::from_docstring(DocStringKind::Rust, raw).unwrap();
         assert_eq!(
-            "This is the summary line that sometimes is split on two lines",
-            parsed.summary
-        );
-        assert_eq!(
-            concat!(
-                "This is the second part. It has some code blocks\n\n",
-                "```\n",
-                "\"bar\"\n",
-                "```\n\n",
-                "```python\n",
-                "# This is a python comment. Leave it be\n",
-                "print(1)\n",
-                "```\n\n",
-                "```rust\n",
-                "\"other_bar\"",
-                "\n```"
-            ),
-            parsed.details.unwrap()
+            DocString::from_docstring(DocStringKind::Rust, raw),
+            Some(DocString {
+                summary: "This is the summary line that sometimes is split on two lines".to_owned(),
+                details: None,
+                examples: Some(
+                    concat!(
+                        "This is the second part. It has some code blocks\n\n",
+                        "```\n",
+                        "\"bar\"\n",
+                        "```\n\n",
+                        "```python\n",
+                        "# This is a python comment. Leave it be\n",
+                        "print(1)\n",
+                        "```\n\n",
+                        "```rust\n",
+                        "\"other_bar\"",
+                        "\n```"
+                    )
+                    .to_owned()
+                ),
+            })
         );
     }
 
