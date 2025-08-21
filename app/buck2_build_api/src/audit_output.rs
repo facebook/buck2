@@ -26,7 +26,7 @@ pub enum AuditOutputResult {
     Match(ActionQueryNode),
     /// If the platform configuration of the buck-out path doesn't match the platform used when calling
     /// audit output, then we return the unconfigured target label.
-    MaybeRelevant(TargetLabel),
+    MaybeRelevantForConfigurationHashPath(TargetLabel),
 }
 
 pub static AUDIT_OUTPUT: LateBinding<

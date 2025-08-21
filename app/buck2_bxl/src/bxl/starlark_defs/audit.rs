@@ -146,7 +146,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                                 .buck_error_context("audit_output did not return an action")?
                                 .dupe(),
                         )),
-                        AuditOutputResult::MaybeRelevant(label) => {
+                        AuditOutputResult::MaybeRelevantForConfigurationHashPath(label) => {
                             heap.alloc(StarlarkTargetLabel::new(label))
                         }
                     })),

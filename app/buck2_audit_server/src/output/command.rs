@@ -69,7 +69,9 @@ async fn audit_output<'v>(
         Some(config_hash) => config_hash,
         // TODO(T235147686) In this case, we should have a content hash instead, so use that.
         None => {
-            return Ok(Some(AuditOutputResult::MaybeRelevant(target_label)));
+            return Ok(Some(
+                AuditOutputResult::MaybeRelevantForConfigurationHashPath(target_label),
+            ));
         }
     };
 
@@ -80,7 +82,9 @@ async fn audit_output<'v>(
     let command_config = configured_target_label.cfg();
     let command_config_hash = command_config.output_hash();
     if command_config_hash.as_str() != config_hash {
-        return Ok(Some(AuditOutputResult::MaybeRelevant(target_label)));
+        return Ok(Some(
+            AuditOutputResult::MaybeRelevantForConfigurationHashPath(target_label),
+        ));
     }
 
     let analysis = dice_ctx
@@ -150,7 +154,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
                             AuditOutputResult::Match(action) => {
                                 (PRINT_ACTION_NODE.get()?)(&mut stdout, action, self.json, &self.query_attributes.get()?, &cell_resolver).await?
                             },
-                            AuditOutputResult::MaybeRelevant(label) => {
+                            AuditOutputResult::MaybeRelevantForConfigurationHashPath(label) => {
                                 writeln!(
                                     stdout,
                                     "Platform configuration of the buck-out path did not match the one used to invoke this command. Returning the most relevant unconfigured target label for the buck-out path: {label}"
