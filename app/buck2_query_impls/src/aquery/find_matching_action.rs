@@ -61,7 +61,7 @@ async fn find_matching_action(
     working_dir: &ProjectRelativePath,
     global_cfg_options: &GlobalCfgOptions,
     analysis: &AnalysisResult,
-    path_after_target_name: ForwardRelativePathBuf,
+    short_path: ForwardRelativePathBuf,
 ) -> buck2_error::Result<Option<ActionQueryNode>> {
     ctx.with_linear_recompute(|ctx| async move {
         let dice_aquery_delegate =
@@ -92,7 +92,7 @@ async fn find_matching_action(
                 },
             ))
         {
-            match check_output_path(&build_artifact, &path_after_target_name)? {
+            match check_output_path(&build_artifact, &short_path)? {
                 Some(action_key_match) => match action_key_match {
                     ActionKeyMatch::Exact(key) => {
                         return Ok(Some(dice_aquery_delegate.get_action_node(key).await?));
@@ -124,13 +124,13 @@ async fn find_matching_action(
 
 pub(crate) fn init_find_matching_action() {
     FIND_MATCHING_ACTION.init(
-        |ctx, working_dir, global_cfg_options, analysis, path_after_target_name| {
+        |ctx, working_dir, global_cfg_options, analysis, short_path| {
             Box::pin(find_matching_action(
                 ctx,
                 working_dir,
                 global_cfg_options,
                 analysis,
-                path_after_target_name,
+                short_path,
             ))
         },
     );

@@ -478,7 +478,7 @@ pub static FIND_MATCHING_ACTION: LateBinding<
         // target cfg info (target platform, cli modifiers)
         &'c GlobalCfgOptions,
         &'c AnalysisResult,
-        // path_after_target_name
+        // short_path
         ForwardRelativePathBuf,
     ) -> Pin<
         Box<dyn Future<Output = buck2_error::Result<Option<ActionQueryNode>>> + Send + 'c>,

@@ -100,15 +100,12 @@ impl BuckOutPathTypePrinter {
             BuckOutPathType::RuleOutput {
                 path,
                 target_label,
-                path_after_target_name,
+                short_path,
                 common_attrs,
             } => {
                 attributes.insert("cell_path".to_owned(), path.to_string());
                 attributes.insert("target_label".to_owned(), target_label.to_string());
-                attributes.insert(
-                    "short_artifact_path".to_owned(),
-                    path_after_target_name.to_string(),
-                );
+                attributes.insert("short_artifact_path".to_owned(), short_path.to_string());
                 attributes.insert("config_hash".to_owned(), common_attrs.config_hash.clone());
                 attributes.insert(
                     "full_artifact_path_no_hash".to_owned(),

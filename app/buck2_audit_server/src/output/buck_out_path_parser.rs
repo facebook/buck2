@@ -68,7 +68,7 @@ pub(crate) enum BuckOutPathType {
         path: CellPath,
         target_label: TargetLabel,
         // This is the part of the buck-out after target name. For example, it would `artifact` in  `gen/path/to/__target_name__/artifact`
-        path_after_target_name: ForwardRelativePathBuf,
+        short_path: ForwardRelativePathBuf,
         common_attrs: BuckOutPathTypeCommon,
     },
     TestOutput {
@@ -351,7 +351,7 @@ impl BuckOutPathParser {
                         Ok(BuckOutPathType::RuleOutput {
                             path: buck_out_path_data.cell_path,
                             target_label,
-                            path_after_target_name,
+                            short_path: path_after_target_name,
                             common_attrs,
                         })
                     }
@@ -532,11 +532,11 @@ mod tests {
             BuckOutPathType::RuleOutput {
                 path,
                 target_label,
-                path_after_target_name,
+                short_path,
                 common_attrs,
             } => {
                 assert_eq!(
-                    path_after_target_name,
+                    short_path,
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
                 assert_eq!(target_label, expected_target_label);
@@ -573,11 +573,11 @@ mod tests {
             BuckOutPathType::RuleOutput {
                 path,
                 target_label,
-                path_after_target_name,
+                short_path,
                 common_attrs,
             } => {
                 assert_eq!(
-                    path_after_target_name,
+                    short_path,
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
                 assert_eq!(target_label, expected_target_label_with_slashes);
@@ -614,11 +614,11 @@ mod tests {
             BuckOutPathType::RuleOutput {
                 path,
                 target_label,
-                path_after_target_name,
+                short_path,
                 common_attrs,
             } => {
                 assert_eq!(
-                    path_after_target_name,
+                    short_path,
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
                 assert_eq!(target_label, expected_target_label_with_equal_sign);

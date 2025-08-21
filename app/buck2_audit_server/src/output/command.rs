@@ -53,17 +53,13 @@ async fn audit_output<'v>(
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
 
-    let (target_label, config_hash, path_after_target_name) = match parsed {
+    let (target_label, config_hash, short_path) = match parsed {
         BuckOutPathType::RuleOutput {
             target_label,
             common_attrs,
-            path_after_target_name,
+            short_path,
             ..
-        } => (
-            target_label,
-            common_attrs.config_hash,
-            path_after_target_name,
-        ),
+        } => (target_label, common_attrs.config_hash, short_path),
         _ => {
             return Err(AuditOutputError::UnsupportedPathType(output_path.to_owned()).into());
         }
@@ -89,7 +85,7 @@ async fn audit_output<'v>(
         working_dir,
         global_cfg_options,
         &analysis,
-        path_after_target_name,
+        short_path,
     )
     .await?
     .map(AuditOutputResult::Match))
