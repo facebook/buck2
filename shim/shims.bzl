@@ -355,7 +355,8 @@ def rust_protobuf_library(
         test_deps = None,
         doctests = True,
         build_env = None,
-        proto_srcs = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
+        proto_srcs = None,
+        crate_name = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
     build_name = name + "-build"
     proto_name = name + "-proto"
 
@@ -392,6 +393,7 @@ def rust_protobuf_library(
     rust_library(
         name = name,
         srcs = srcs,
+        crate = crate_name or name,
         doctests = doctests,
         env = {
             # This is where prost looks for generated .rs files
