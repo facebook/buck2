@@ -43,8 +43,8 @@ enum BuckOutPathParserError {
 
 /// The common attributes of each `buck-out` path type,
 pub(crate) struct BuckOutPathTypeCommon {
-    /// Configuration hash within the `buck-out` path.
-    pub(crate) config_hash: String,
+    /// Configuration hash within the `buck-out` path, if present.
+    pub(crate) config_hash: Option<String>,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
     /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
     pub(crate) raw_path_to_output: ForwardRelativePathBuf,
@@ -129,7 +129,7 @@ fn validate_buck_out_and_isolation_prefix<'v>(
 struct BuckOutPathData {
     // Cell path of the target label that created the artifact.
     cell_path: CellPath,
-    config_hash: String,
+    config_hash: Option<String>,
     anon_hash: Option<String>,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
     /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
@@ -195,7 +195,7 @@ fn get_cell_path<'v>(
 
         let buck_out_path_data = BuckOutPathData {
             cell_path,
-            config_hash: config_hash.to_string(),
+            config_hash: Some(config_hash.to_string()),
             anon_hash,
             raw_path_to_output: raw_path_to_output.to_buf(),
         };
@@ -206,7 +206,7 @@ fn get_cell_path<'v>(
     if is_test {
         let buck_out_path_data = BuckOutPathData {
             cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
-            config_hash: config_hash.to_string(),
+            config_hash: Some(config_hash.to_string()),
             anon_hash: None,
             raw_path_to_output: raw_path_to_output.to_buf(),
         };
@@ -541,7 +541,7 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label);
                 assert_eq!(path, expected_cell_path);
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/target/__target_name__/output"
@@ -582,7 +582,7 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label_with_slashes);
                 assert_eq!(path, expected_cell_path);
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/target/__target_name_start/target_name_end__/output"
@@ -623,7 +623,7 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label_with_equal_sign);
                 assert_eq!(path, expected_cell_path);
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/target/__target_name_eqsb_out__/output"
@@ -653,7 +653,7 @@ mod tests {
                 common_attrs,
             } => {
                 assert_eq!(path, expected_cell_path);
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(target_label, expected_target_label);
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
@@ -683,7 +683,7 @@ mod tests {
         match res {
             BuckOutPathType::TestOutput { path, common_attrs } => {
                 assert_eq!(path, expected_test_cell_path);
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/target/test/output"
@@ -716,7 +716,7 @@ mod tests {
                 assert_eq!(target_label, expected_target_label);
                 assert_eq!(path, expected_cell_path);
                 assert_eq!(attr_hash, "anon_hash");
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/target/anon_hash/__target_name__/output"
@@ -755,7 +755,7 @@ mod tests {
                 };
 
                 assert_eq!(bxl_function_label, expected_bxl_function_label);
-                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/function.bxl/__function_name__/output"

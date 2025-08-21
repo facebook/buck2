@@ -65,6 +65,14 @@ async fn audit_output<'v>(
         }
     };
 
+    let config_hash = match config_hash {
+        Some(config_hash) => config_hash,
+        // TODO(T235147686) In this case, we should have a content hash instead, so use that.
+        None => {
+            return Ok(Some(AuditOutputResult::MaybeRelevant(target_label)));
+        }
+    };
+
     let configured_target_label = dice_ctx
         .get_configured_target(&target_label, global_cfg_options)
         .await?;
