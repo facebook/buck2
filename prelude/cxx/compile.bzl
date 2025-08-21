@@ -300,23 +300,22 @@ def _compile_single_cxx(
     `src_compile_command` and other compilation options.
     """
     pic = CxxCompileFlavor("pic") in flavors
-    optimized = CxxCompileFlavor("optimized") in flavors
 
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
         short_path = short_path + "_" + str(src_compile_cmd.index)
 
-    filename_base = short_path + (".pic" if pic else "")
-    identifier = short_path + (" (pic)" if pic else "")
-
-    if optimized:
-        identifier += " (optimized)"
+    filename_base = short_path
+    identifier = short_path
 
     if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units:
         identifier += " (modular)"
 
-    filename_base = filename_base + (".optimized" if optimized else "")
+    for flavor in flavors:
+        filename_base = "{}.{}".format(filename_base, flavor.value)
+        identifier = "{} ({})".format(identifier, flavor.value)
+
     folder_name = "__objects__"
     object = ctx.actions.declare_output(
         folder_name,
