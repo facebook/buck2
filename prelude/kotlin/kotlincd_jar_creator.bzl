@@ -526,28 +526,31 @@ def _define_kotlincd_action(
         postBuildParams = post_build_params,
     )
 
-    # This is a little bit convoluted due to the way that content-based paths affect argfiles.
-    # If an unused tagged input changes, we don't want to re-run the action, but if it is a
-    # content-based input that is written to the argfile, then the argfile will also change
-    # and that would cause a re-run.
-    #
-    # We therefore write the argfile twice: the "real" argfile, which is used in the action
-    # and tagged as unused so that it is not used for dep-file comparison, and an argfile
-    # that uses placeholders instead of content-based paths, which is not tagged for dep-files
-    # and therefore causes a dep-file miss if it changes.
     uses_experimental_content_based_path_hashing = target_type != TargetType("library") and kotlin_toolchain.allow_experimental_content_based_path_hashing
     proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
-    proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    if dep_files:
+        # This is a little bit convoluted due to the way that content-based paths affect argfiles.
+        # If an unused tagged input changes, we don't want to re-run the action, but if it is a
+        # content-based input that is written to the argfile, then the argfile will also change
+        # and that would cause a re-run.
+        #
+        # We therefore write the argfile twice: the "real" argfile, which is used in the action
+        # and tagged as unused so that it is not used for dep-file comparison, and an argfile
+        # that uses placeholders instead of content-based paths, which is not tagged for dep-files
+        # and therefore causes a dep-file miss if it changes.
+        proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
-    proto_with_inputs = classpath_jars_tag.tag_artifacts(actions.write_json(proto, kotlin_build_command))
-    proto_with_inputs_for_dep_files = actions.write_json(proto_dep_files_placeholder, kotlin_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True)
-    args.add(cmd_args(hidden = proto_with_inputs_for_dep_files))
+        proto_for_args = classpath_jars_tag.tag_artifacts(actions.write_json(proto, kotlin_build_command))
+        proto_with_inputs_for_dep_files = actions.write_json(proto_dep_files_placeholder, kotlin_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True)
+        args.add(cmd_args(hidden = proto_with_inputs_for_dep_files))
+    else:
+        proto_for_args = actions.write_json(proto, kotlin_build_command, with_inputs = True)
 
     args.add(
         "--action-id",
         qualified_name,
         "--command-file",
-        proto_with_inputs,
+        proto_for_args,
     )
 
     if should_action_run_incrementally:
