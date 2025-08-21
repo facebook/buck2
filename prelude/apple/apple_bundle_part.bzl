@@ -87,6 +87,9 @@ def assemble_bundle(
     codesign_args = []
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
+    if ctx.attrs._codesign_command_override:
+        codesign_tool = ctx.attrs._codesign_command_override[RunInfo]
+
     code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("dry-run"):
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
