@@ -79,6 +79,9 @@ impl BuckOutPathTypePrinter {
                 if let Some(config_hash) = &common_attrs.config_hash {
                     attributes.insert("config_hash".to_owned(), config_hash.clone());
                 }
+                if let Some(content_hash) = &common_attrs.content_hash {
+                    attributes.insert("content_hash".to_owned(), content_hash.clone());
+                }
                 attributes.insert(
                     "full_artifact_path_no_hash".to_owned(),
                     common_attrs.raw_path_to_output.to_string(),
@@ -95,6 +98,9 @@ impl BuckOutPathTypePrinter {
                 attributes.insert("attr_hash".to_owned(), attr_hash.clone());
                 if let Some(config_hash) = &common_attrs.config_hash {
                     attributes.insert("config_hash".to_owned(), config_hash.clone());
+                }
+                if let Some(content_hash) = &common_attrs.content_hash {
+                    attributes.insert("content_hash".to_owned(), content_hash.clone());
                 }
                 attributes.insert(
                     "full_artifact_path_no_hash".to_owned(),
@@ -113,6 +119,9 @@ impl BuckOutPathTypePrinter {
                 if let Some(config_hash) = &common_attrs.config_hash {
                     attributes.insert("config_hash".to_owned(), config_hash.clone());
                 }
+                if let Some(content_hash) = &common_attrs.content_hash {
+                    attributes.insert("content_hash".to_owned(), content_hash.clone());
+                }
                 attributes.insert(
                     "full_artifact_path_no_hash".to_owned(),
                     common_attrs.raw_path_to_output.to_string(),
@@ -122,6 +131,9 @@ impl BuckOutPathTypePrinter {
                 attributes.insert("cell_path".to_owned(), path.to_string());
                 if let Some(config_hash) = &common_attrs.config_hash {
                     attributes.insert("config_hash".to_owned(), config_hash.clone());
+                }
+                if let Some(content_hash) = &common_attrs.content_hash {
+                    attributes.insert("content_hash".to_owned(), content_hash.clone());
                 }
                 attributes.insert(
                     "full_artifact_path_no_hash".to_owned(),
@@ -137,6 +149,9 @@ impl BuckOutPathTypePrinter {
                 attributes.insert("target_label".to_owned(), target_label.to_string());
                 if let Some(config_hash) = &common_attrs.config_hash {
                     attributes.insert("config_hash".to_owned(), config_hash.clone());
+                }
+                if let Some(content_hash) = &common_attrs.content_hash {
+                    attributes.insert("content_hash".to_owned(), content_hash.clone());
                 }
                 attributes.insert(
                     "full_artifact_path_no_hash".to_owned(),

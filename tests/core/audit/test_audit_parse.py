@@ -33,6 +33,7 @@ async def test_audit_parse(buck: Buck) -> None:
     assert result["target_label"] == "root//path/to/target:target_name"
     assert result["short_artifact_path"] == "output"
     assert result["config_hash"] == config_hash
+    assert "content_hash" not in result
     assert (
         result["full_artifact_path_no_hash"]
         == "root/path/to/target/__target_name__/output"
@@ -145,3 +146,40 @@ async def test_audit_parse(buck: Buck) -> None:
         result["full_artifact_path_no_hash"]
         == "root/path/to/target/__target_name__/output"
     )
+
+
+@buck_test()
+async def test_audit_parse_content_based(buck: Buck) -> None:
+    # random content hash
+    content_hash = "aaaabbbbccccdddd"
+
+    # json
+    result = await buck.audit(
+        "parse",
+        f"buck-out/v2/gen/root/path/to/target/__target_name__/{content_hash}/output",
+        "--json",
+    )
+
+    result = json.loads(result.stdout)
+    assert result["cell_path"] == "root//path/to/target"
+    assert result["target_label"] == "root//path/to/target:target_name"
+    assert result["short_artifact_path"] == "output"
+    assert result["content_hash"] == content_hash
+    assert "config_hash" not in result
+    assert (
+        result["full_artifact_path_no_hash"]
+        == "root/path/to/target/__target_name__/output"
+    )
+
+    # not json
+    result = await buck.audit(
+        "parse",
+        f"buck-out/v2/gen/root/path/to/target/__target_name__/{content_hash}/output",
+    )
+
+    result = result.stdout.splitlines()
+    assert result[0] == "root//path/to/target"
+    assert result[1] == "root//path/to/target:target_name"
+    assert result[2] == "output"
+    assert result[3] == content_hash
+    assert result[4] == "root/path/to/target/__target_name__/output"
