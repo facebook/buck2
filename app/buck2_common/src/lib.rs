@@ -49,7 +49,6 @@ pub mod liveliness_observer;
 pub mod local_resource_state;
 pub mod manifold;
 pub mod memory;
-pub mod memory_tracker;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
@@ -61,3 +60,14 @@ pub mod starlark_profiler;
 pub mod systemd;
 pub mod target_aliases;
 pub mod temp_path;
+
+#[cfg(not(unix))]
+pub mod memory_tracker {
+    use allocative::Allocative;
+
+    #[derive(Allocative)]
+    pub struct MemoryTracker {}
+}
+
+#[cfg(unix)]
+pub mod memory_tracker;
