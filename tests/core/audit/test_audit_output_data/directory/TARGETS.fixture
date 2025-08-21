@@ -1,5 +1,8 @@
 load(":defs.bzl", "empty_dir")
 
-empty_dir(name = "empty_dir")
+empty_dir(
+    name = "empty_dir",
+    uses_experimental_content_based_path_hashing = read_config("test", "uses_experimental_content_based_path_hashing", "False") in ["True", "true"],
+)
 
 trivial_build(name = "dummy")

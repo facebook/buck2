@@ -6,12 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def _impl(ctx):
-    out = ctx.actions.copied_dir("outputdir", {}, uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing)
-    return [DefaultInfo(default_output = out)]
+def _simple_rule(ctx):
+    return [DefaultInfo(default_output = ctx.actions.write("foo.txt", "abcd", uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing))]
 
-empty_dir = rule(
-    impl = _impl,
+simple_rule = rule(
+    impl = _simple_rule,
     attrs = {
         "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
     },

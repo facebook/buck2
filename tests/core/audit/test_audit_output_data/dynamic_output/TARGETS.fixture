@@ -1,3 +1,6 @@
 load(":defs.bzl", "dynamic_output")
 
-dynamic_output(name = "dynamic_output")
+dynamic_output(
+    name = "dynamic_output",
+    uses_experimental_content_based_path_hashing = read_config("test", "uses_experimental_content_based_path_hashing", "False") in ["True", "true"],
+)

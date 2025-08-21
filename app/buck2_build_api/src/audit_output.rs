@@ -27,6 +27,9 @@ pub enum AuditOutputResult {
     /// If the platform configuration of the buck-out path doesn't match the platform used when calling
     /// audit output, then we return the unconfigured target label.
     MaybeRelevantForConfigurationHashPath(TargetLabel),
+    /// If we were given a content-based path, we cannot tell which configured node(s) it came from,
+    /// so just return the unconfigured target label.
+    MatchContentBasedPath(TargetLabel),
 }
 
 pub static AUDIT_OUTPUT: LateBinding<

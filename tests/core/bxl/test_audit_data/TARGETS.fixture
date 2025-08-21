@@ -1,6 +1,8 @@
-trivial_build(
-    name = "with_output",
-)
+load(":defs.bzl", "simple_rule")
+
+simple_rule(name = "with_output")
+
+simple_rule(name = "with_content_based_output", uses_experimental_content_based_path_hashing = True)
 
 platform(
     name = "someplat",

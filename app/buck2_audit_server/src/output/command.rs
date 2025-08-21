@@ -41,6 +41,12 @@ pub(crate) enum AuditOutputError {
         "BXL, anonymous target, test, and tmp artifacts are not supported for audit output. Only rule output artifacts are supported. Path: `{0}`"
     )]
     UnsupportedPathType(String),
+    #[error(
+        "Invalid path {0} - failed to find either a configuration hash or a content hash in the path. Please make sure that the path is a buck-out path."
+    )]
+    InvalidPathNoHashFound(String),
+    #[error("Invalid path {0} - found both a configuration hash and a content hash in the path!")]
+    InvalidPathTwoHashesFound(String),
 }
 
 async fn audit_output<'v>(
@@ -53,7 +59,7 @@ async fn audit_output<'v>(
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
 
-    let (target_label, config_hash, _content_hash, short_path) = match parsed {
+    let (target_label, config_hash, content_hash, short_path) = match parsed {
         BuckOutPathType::RuleOutput {
             target_label,
             common_attrs,
@@ -70,13 +76,16 @@ async fn audit_output<'v>(
         }
     };
 
-    let config_hash = match config_hash {
-        Some(config_hash) => config_hash,
-        // TODO(T235147686) In this case, we should have a content hash instead, so use that.
-        None => {
-            return Ok(Some(
-                AuditOutputResult::MaybeRelevantForConfigurationHashPath(target_label),
-            ));
+    let config_hash = match (config_hash, content_hash) {
+        (Some(config_hash), None) => config_hash,
+        (None, Some(_content_hash)) => {
+            return Ok(Some(AuditOutputResult::MatchContentBasedPath(target_label)));
+        }
+        (None, None) => {
+            return Err(AuditOutputError::InvalidPathNoHashFound(output_path.to_owned()).into());
+        }
+        (Some(_), Some(_)) => {
+            return Err(AuditOutputError::InvalidPathTwoHashesFound(output_path.to_owned()).into());
         }
     };
 
@@ -164,7 +173,10 @@ impl ServerAuditSubcommand for AuditOutputCommand {
                                     stdout,
                                     "Platform configuration of the buck-out path did not match the one used to invoke this command. Returning the most relevant unconfigured target label for the buck-out path: {label}"
                                 )?;
-                            }
+                            },
+                            AuditOutputResult::MatchContentBasedPath(label) => {
+                                writeln!(stdout, "{label}")?;
+                            },
                         }
                     },
                     None => {

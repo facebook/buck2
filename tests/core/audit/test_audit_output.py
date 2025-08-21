@@ -17,6 +17,9 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
+DUMMY_CONTENT_HASH = "aaaabbbbccccdddd"
+
+
 @buck_test()
 async def test_audit_output_malformed_path(buck: Buck) -> None:
     await expect_failure(
@@ -104,6 +107,18 @@ async def test_audit_output_in_root_directory(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_audit_content_based_output_in_root_directory(buck: Buck) -> None:
+    target = "root//:dummy"
+    result = await buck.audit_output(
+        f"buck-out/v2/gen/root/__dummy__/{DUMMY_CONTENT_HASH}/foo.txt",
+        "-c",
+        "test.uses_experimental_content_based_path_hashing=true",
+    )
+
+    assert result.stdout.strip() == target
+
+
+@buck_test()
 async def test_non_root_cell(buck: Buck) -> None:
     target = "cell1//:dummy2"
     config_hash = await _get_config_hash(buck, target)
@@ -150,6 +165,20 @@ async def test_dynamic_output_declared_in_rule_bound_in_dynamic(buck: Buck) -> N
 
 
 @buck_test()
+async def test_content_based_dynamic_output_declared_in_rule_bound_in_dynamic(
+    buck: Buck,
+) -> None:
+    target = "root//dynamic_output:dynamic_output"
+
+    result = await buck.audit_output(
+        f"buck-out/v2/gen/root/dynamic_output/__dynamic_output__/{DUMMY_CONTENT_HASH}/bound_dynamic.txt",
+        "-c",
+        "test.uses_experimental_content_based_path_hashing=true",
+    )
+    assert result.stdout.strip() == target
+
+
+@buck_test()
 async def test_dynamic_output_declared_and_bound_in_dynamic(buck: Buck) -> None:
     target = "root//dynamic_output:dynamic_output"
     config_hash = await _get_config_hash(buck, target)
@@ -191,6 +220,19 @@ async def test_output_directory(buck: Buck) -> None:
     action = result.stdout
     assert target in action
     assert "id" in action
+
+
+@buck_test()
+async def test_content_based_output_directory(buck: Buck) -> None:
+    # Test a rule that outputs to a directory
+    target = "root//directory:empty_dir"
+    result = await buck.audit_output(
+        f"buck-out/v2/gen/root/directory/__empty_dir__/{DUMMY_CONTENT_HASH}/outputdir",
+        "-c",
+        "test.uses_experimental_content_based_path_hashing=true",
+    )
+
+    assert result.stdout.strip() == target
 
 
 # TODO(@wendyy) - remove this config hash hack

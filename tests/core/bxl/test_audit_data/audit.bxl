@@ -22,6 +22,21 @@ audit_output_action_exists = bxl_main(
     },
 )
 
+def _audit_content_based_output_action_exists_impl(ctx):
+    output = ctx.audit().output(ctx.cli_args.path)
+
+    asserts.true(isinstance(output, TargetLabel))
+
+    asserts.equals(str(output), ctx.cli_args.label)
+
+audit_content_based_output_action_exists = bxl_main(
+    impl = _audit_content_based_output_action_exists_impl,
+    cli_args = {
+        "label": cli_args.string(),
+        "path": cli_args.string(),
+    },
+)
+
 def _audit_output_config_not_match_impl(ctx):
     buck_out = "buck-out/v2/gen/root/aaaabbbbccccdddd/__with_output__/foo.txt"
     output = ctx.audit().output(buck_out, "root//:someplat")

@@ -149,6 +149,9 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                         AuditOutputResult::MaybeRelevantForConfigurationHashPath(label) => {
                             heap.alloc(StarlarkTargetLabel::new(label))
                         }
+                        AuditOutputResult::MatchContentBasedPath(label) => {
+                            heap.alloc(StarlarkTargetLabel::new(label))
+                        }
                     })),
                 }
             }
