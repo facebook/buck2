@@ -323,8 +323,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         impl_params.extra_exported_link_flags
     )
 
-    # ctx.attrs.binary_linker_flags should come after default link flags so it can be used to override default settings
-    own_exe_link_flags = impl_params.extra_binary_link_flags + own_link_flags + ctx.attrs.binary_linker_flags
+    own_exe_link_flags = impl_params.extra_binary_link_flags + own_link_flags
     deps_merged_link_infos = [d.merged_link_info for d in link_deps]
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
@@ -906,8 +905,16 @@ def _link_into_executable(
         ctx = ctx,
         output = output,
         result_type = CxxLinkResultType("executable"),
+        # ctx.attrs.binary_linker_flags should come after default link flags so it can be used to override default settings
         opts = merge_link_options(
             opts,
+            binary_links = [
+                LinkArgs(infos = [
+                    LinkInfo(
+                        pre_flags = ctx.attrs.binary_linker_flags,
+                    ),
+                ]),
+            ],
             links = [LinkArgs(flags = executable_args.extra_link_args)] + opts.links,
         ),
     )
