@@ -165,12 +165,6 @@ impl MaterializerStateSqliteDb {
                 })?;
             }
 
-            // Update "last_read_by" inside of the try block so that
-            // just in case it fails, we can create a new db and start over
-            tables
-                .last_read_by_table
-                .insert_all(current_instance_metadata.clone())?;
-
             let mut db = Self::new(tables)?;
 
             if let Some(reject_identity) = reject_identity {
@@ -208,9 +202,6 @@ impl MaterializerStateSqliteDb {
                 // Update both "last_read_by" and "created_by"
                 tables
                     .created_by_table
-                    .insert_all(current_instance_metadata.clone())?;
-                tables
-                    .last_read_by_table
                     .insert_all(current_instance_metadata)?;
 
                 Ok((Self::new(tables)?, Err(e.into())))
@@ -238,8 +229,6 @@ struct MaterializerStateTables {
     versions_table: KeyValueSqliteTable,
     /// Table for logging metadata associated with the buck2 that created the db.
     created_by_table: KeyValueSqliteTable,
-    /// Table for logging metadata associated with the buck2 that last updated the db.
-    last_read_by_table: KeyValueSqliteTable,
 }
 
 impl MaterializerStateTables {
@@ -275,13 +264,11 @@ impl MaterializerStateTables {
         let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
         let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
         let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
-        let last_read_by_table = KeyValueSqliteTable::new("last_read_by".to_owned(), connection);
 
         Ok(Self {
             materializer_state_table,
             versions_table,
             created_by_table,
-            last_read_by_table,
         })
     }
 
@@ -289,7 +276,6 @@ impl MaterializerStateTables {
         self.materializer_state_table.create_table()?;
         self.versions_table.create_table()?;
         self.created_by_table.create_table()?;
-        self.last_read_by_table.create_table()?;
         Ok(())
     }
 }
@@ -570,7 +556,6 @@ mod tests {
                 assert!(e.category_key().ends_with("PathDoesNotExist"));
             }
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
-            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[0]);
 
             db.materializer_state_table()
                 .insert(&path, &artifact_metadata, timestamp)
@@ -588,7 +573,6 @@ mod tests {
                 }
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
-            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[1]);
         }
 
         {
@@ -604,7 +588,6 @@ mod tests {
                 assert!(e.category_key().ends_with("VersionMismatch"));
             }
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
-            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[2]);
 
             db.materializer_state_table()
                 .insert(&path, &artifact_metadata, timestamp)
@@ -626,7 +609,6 @@ mod tests {
                 }
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
-            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[3]);
 
             db.identity
         };
@@ -644,7 +626,6 @@ mod tests {
                 assert!(e.category_key().ends_with("RejectedIdentity"));
             }
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[4]);
-            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[4]);
         }
 
         Ok(())
