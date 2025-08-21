@@ -127,6 +127,23 @@ fn render_function(
     include_header: bool,
     render_config: &RenderConfig,
 ) -> String {
+    // Render the layouts differently based on the configs provided
+    match render_config.layout_config {
+        LayoutRenderConfig::SignatureAtBottom => {
+            render_signature_at_bottom_layout(name, function, render_config)
+        }
+        LayoutRenderConfig::Default => {
+            render_default_layout(name, function, include_header, render_config)
+        }
+    }
+}
+
+fn render_default_layout(
+    name: &str,
+    function: &DocFunction,
+    include_header: bool,
+    render_config: &RenderConfig,
+) -> String {
     let prototype = render_code_block(
         &render_function_prototype(name, function, &render_config.type_config),
         &render_config.type_config,
@@ -136,6 +153,7 @@ fn render_function(
     } else {
         prototype
     };
+
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
     let details = render_doc_string(DSOpts::Details, &function.docs);
     let examples = render_doc_string(DSOpts::Examples, &function.docs);
@@ -167,7 +185,45 @@ fn render_function(
         }
         body.push_str(details);
     }
+    if let Some(examples) = &examples {
+        body.push_str("\n\n#### Examples\n\n");
+        body.push_str(examples);
+    }
 
+    body
+}
+
+fn render_signature_at_bottom_layout(
+    name: &str,
+    function: &DocFunction,
+    render_config: &RenderConfig,
+) -> String {
+    let prototype = render_code_block(
+        &render_function_prototype(name, function, &render_config.type_config),
+        &render_config.type_config,
+    );
+
+    let summary = render_doc_string(DSOpts::Summary, &function.docs);
+    let details = render_doc_string(DSOpts::Details, &function.docs);
+    let examples = render_doc_string(DSOpts::Examples, &function.docs);
+
+    let parameter_docs =
+        render_function_parameters(function.params.doc_params_with_starred_names());
+
+    let mut body = "".to_owned();
+    if let Some(summary) = &summary {
+        body.push_str(summary);
+    }
+    if let Some(details) = &details {
+        body.push_str("\n\n#### Details\n\n");
+        body.push_str(details);
+    }
+    body.push_str("\n\n");
+    body.push_str(&format!("#### Function Signature\n\n{prototype}"));
+    if let Some(parameter_docs) = &parameter_docs {
+        body.push_str("\n\n#### Parameters\n\n");
+        body.push_str(parameter_docs);
+    }
     if let Some(examples) = &examples {
         body.push_str("\n\n#### Examples\n\n");
         body.push_str(examples);

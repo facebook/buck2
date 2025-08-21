@@ -285,7 +285,7 @@ fn native_docs_module() {
     assert!(res.contains(r#"string_default: str = "my_default"#));
 }
 
-fn test_globals_docs_render(with_linked_type: bool) {
+fn test_globals_docs_render(with_linked_type: bool, render_signature_at_bottom: bool) {
     let global = get_globals().documentation();
     let modules_info = DocModuleInfo {
         module: &global,
@@ -295,15 +295,21 @@ fn test_globals_docs_render(with_linked_type: bool) {
     fn linked_ty_mapper(path: &str, type_name: &str) -> String {
         format!("<a to=\"/path/to/{path}\">{type_name}</a>")
     }
-    let res = if with_linked_type {
-        render_markdown_multipage(vec![modules_info], Some(linked_ty_mapper), false)
+    let linked_ty_mapper: Option<fn(&str, &str) -> String> = if with_linked_type {
+        Some(linked_ty_mapper)
     } else {
-        render_markdown_multipage(vec![modules_info], None, false)
+        None
     };
-    let subfolder_name = if with_linked_type {
-        "multipage_linked_type"
-    } else {
-        "multipage"
+    let res = render_markdown_multipage(
+        vec![modules_info],
+        linked_ty_mapper,
+        render_signature_at_bottom,
+    );
+    let subfolder_name = match (with_linked_type, render_signature_at_bottom) {
+        (true, true) => "multipage_linked_type_and_render_signature_at_bottom",
+        (true, false) => "multipage_linked_type",
+        (false, true) => "multipage_render_signature_at_bottom",
+        (false, false) => "multipage",
     };
     let expected_keys = vec!["", "Magic", "Obj", "submod"];
     assert_eq!(&res.keys().sorted().collect::<Vec<_>>(), &expected_keys);
@@ -317,18 +323,29 @@ fn test_globals_docs_render(with_linked_type: bool) {
 }
 
 #[test]
-fn globals_docs_render() {
-    test_globals_docs_render(false);
+fn globals_render_default() {
+    test_globals_docs_render(false, false);
 }
 
 #[test]
-fn globals_docs_render_with_linked_type() {
-    test_globals_docs_render(true);
+fn globals_render_default_with_linked_type() {
+    test_globals_docs_render(true, false);
+}
+
+#[test]
+fn globals_render_signature_at_bottom() {
+    test_globals_docs_render(false, true);
+}
+
+#[test]
+fn globals_render_signature_at_bottom_with_linked_type() {
+    test_globals_docs_render(true, true);
 }
 
 #[test]
 fn golden_docs_object() {
     let docs = DocType::from_starlark_value::<Obj>();
     let res = docs_golden_test("object.golden.md", DocItem::Type(docs));
-    assert!(res.contains(r#"name.\_\_exported\_\_"#));
+
+    assert!(res.contains(r#"name.__exported__"#));
 }
