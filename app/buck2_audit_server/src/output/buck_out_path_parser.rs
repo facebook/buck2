@@ -45,6 +45,8 @@ enum BuckOutPathParserError {
 pub(crate) struct BuckOutPathTypeCommon {
     /// Configuration hash within the `buck-out` path, if present.
     pub(crate) config_hash: Option<String>,
+    /// Content hash within the `buck-out` path, if present.
+    pub(crate) content_hash: Option<String>,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
     /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
     pub(crate) raw_path_to_output: ForwardRelativePathBuf,
@@ -130,10 +132,25 @@ struct BuckOutPathData {
     // Cell path of the target label that created the artifact.
     cell_path: CellPath,
     config_hash: Option<String>,
+    content_hash: Option<String>,
     anon_hash: Option<String>,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
     /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
     raw_path_to_output: ForwardRelativePathBuf,
+}
+
+fn is_hash(s: &str) -> bool {
+    if s.len() != 16 {
+        return false;
+    }
+
+    for c in s.chars() {
+        if !c.is_ascii_hexdigit() {
+            return false;
+        }
+    }
+
+    true
 }
 
 fn get_cell_path<'v>(
@@ -156,17 +173,48 @@ fn get_cell_path<'v>(
 
     cell_resolver.get(cell_name)?;
 
-    // Advance iterator to the config hash
-    let Some(config_hash) = iter.next() else {
+    let Some(potential_config_hash) = iter.peek() else {
         return Err(buck2_error!(
             buck2_error::ErrorTag::Input,
-            "Path does not have a platform configuration"
+            "Path does not have a platform configuration or content-based hash"
         ));
     };
 
+    let potential_config_hash_string = potential_config_hash.to_string();
+    let config_hash = if is_hash(potential_config_hash_string.as_str()) {
+        // Advance the iterator if it is a config hash
+        iter.next();
+        Some(potential_config_hash_string)
+    } else {
+        None
+    };
+
+    // If we found a config hash, then the raw_path_to_output is just the remaining path.
+    // If we didn't find a config hash, then there is a content hash in the remaining path.
+    // We need to (a) extract the content hash, and (b) construct the raw_path_to_output
+    // from all of the path segments except for the content hash.
+    let mut content_hash = None;
+    let mut found_hash = config_hash.is_some();
     iter.clone().for_each(|f| {
-        raw_path_to_output.push(f);
+        if found_hash {
+            raw_path_to_output.push(f);
+        } else {
+            let is_content_hash = is_hash(f.as_str());
+            if is_content_hash {
+                content_hash = Some(f.to_string());
+                found_hash = true;
+            } else {
+                raw_path_to_output.push(f);
+            }
+        }
     });
+
+    if !found_hash {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Path does not have a platform configuration or content-based hash"
+        ));
+    };
 
     // Get cell relative path and construct the cell path
     let mut cell_relative_path = CellRelativePath::unchecked_new("").to_owned();
@@ -195,7 +243,8 @@ fn get_cell_path<'v>(
 
         let buck_out_path_data = BuckOutPathData {
             cell_path,
-            config_hash: Some(config_hash.to_string()),
+            config_hash,
+            content_hash,
             anon_hash,
             raw_path_to_output: raw_path_to_output.to_buf(),
         };
@@ -206,7 +255,8 @@ fn get_cell_path<'v>(
     if is_test {
         let buck_out_path_data = BuckOutPathData {
             cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
-            config_hash: Some(config_hash.to_string()),
+            config_hash,
+            content_hash,
             anon_hash: None,
             raw_path_to_output: raw_path_to_output.to_buf(),
         };
@@ -313,6 +363,7 @@ impl BuckOutPathParser {
 
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
+                            content_hash: buck_out_path_data.content_hash,
                             raw_path_to_output: buck_out_path_data.raw_path_to_output,
                         };
 
@@ -328,6 +379,7 @@ impl BuckOutPathParser {
 
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
+                            content_hash: buck_out_path_data.content_hash,
                             raw_path_to_output: buck_out_path_data.raw_path_to_output,
                         };
 
@@ -341,10 +393,16 @@ impl BuckOutPathParser {
                             get_cell_path(&mut iter, &self.cell_resolver, "gen")?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                        if let Some(potential_config_hash) = iter.peek() {
+                            if is_hash(potential_config_hash.as_str()) {
+                                iter.next();
+                            }
+                        }
                         let path_after_target_name =
                             ForwardRelativePathBuf::new(iter.clone().join("/"))?;
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
+                            content_hash: buck_out_path_data.content_hash,
                             raw_path_to_output: buck_out_path_data.raw_path_to_output,
                         };
 
@@ -362,6 +420,7 @@ impl BuckOutPathParser {
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
+                            content_hash: buck_out_path_data.content_hash,
                             raw_path_to_output: buck_out_path_data.raw_path_to_output,
                         };
 
@@ -381,6 +440,7 @@ impl BuckOutPathParser {
                             get_bxl_function_label(&mut iter, buck_out_path_data.cell_path)?;
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
+                            content_hash: buck_out_path_data.content_hash,
                             raw_path_to_output: buck_out_path_data.raw_path_to_output,
                         };
 
@@ -554,6 +614,47 @@ mod tests {
     }
 
     #[test]
+    fn test_target_content_based_output() -> buck2_error::Result<()> {
+        let (buck_out_parser, _expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
+
+        let content_based_hash = "0123456789abcdef";
+        let rule_path = format!(
+            "buck-out/v2/gen/bar/path/to/target/__target_name__/{content_based_hash}/output"
+        );
+
+        let res = buck_out_parser.parse(&rule_path)?;
+
+        match res {
+            BuckOutPathType::RuleOutput {
+                path,
+                target_label,
+                short_path,
+                common_attrs,
+            } => {
+                assert_eq!(
+                    short_path,
+                    ForwardRelativePathBuf::new("output".to_owned())?,
+                );
+                assert_eq!(target_label, expected_target_label);
+                assert_eq!(path, expected_cell_path);
+                assert_eq!(common_attrs.config_hash, None);
+                assert_eq!(
+                    common_attrs.content_hash,
+                    Some(content_based_hash.to_owned())
+                );
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/__target_name__/output"
+                )
+            }
+            _ => panic!("Should have parsed buck-out path successfully"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_target_output_with_slashes() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
             get_test_data();
@@ -667,6 +768,43 @@ mod tests {
     }
 
     #[test]
+    fn test_tmp_content_based_output() -> buck2_error::Result<()> {
+        let (buck_out_parser, _expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
+
+        let content_based_hash = "0123456789abcdef";
+
+        let tmp_path = format!(
+            "buck-out/v2/tmp/bar/path/to/target/__target_name__/{content_based_hash}/output"
+        );
+
+        let res = buck_out_parser.parse(&tmp_path)?;
+
+        match res {
+            BuckOutPathType::TmpOutput {
+                path,
+                target_label,
+                common_attrs,
+            } => {
+                assert_eq!(path, expected_cell_path);
+                assert_eq!(common_attrs.config_hash, None);
+                assert_eq!(
+                    common_attrs.content_hash,
+                    Some(content_based_hash.to_owned())
+                );
+                assert_eq!(target_label, expected_target_label);
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/__target_name__/output"
+                )
+            }
+            _ => panic!("Should have parsed buck-out path successfully"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_test_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
@@ -729,6 +867,45 @@ mod tests {
     }
 
     #[test]
+    fn test_anon_content_based_output() -> buck2_error::Result<()> {
+        let (buck_out_parser, _expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
+
+        let content_based_hash = "0123456789abcdef";
+
+        let anon_path = format!(
+            "buck-out/v2/gen-anon/bar/path/to/target/anon_hash/__target_name__/{content_based_hash}/output"
+        );
+
+        let res = buck_out_parser.parse(&anon_path)?;
+
+        match res {
+            BuckOutPathType::AnonOutput {
+                path,
+                target_label,
+                attr_hash,
+                common_attrs,
+            } => {
+                assert_eq!(target_label, expected_target_label);
+                assert_eq!(path, expected_cell_path);
+                assert_eq!(attr_hash, "anon_hash");
+                assert_eq!(common_attrs.config_hash, None);
+                assert_eq!(
+                    common_attrs.content_hash,
+                    Some(content_based_hash.to_owned())
+                );
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/anon_hash/__target_name__/output"
+                )
+            }
+            _ => panic!("Should have parsed buck-out path successfully"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_bxl_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
@@ -756,6 +933,50 @@ mod tests {
 
                 assert_eq!(bxl_function_label, expected_bxl_function_label);
                 assert_eq!(common_attrs.config_hash, Some(expected_config_hash));
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/function.bxl/__function_name__/output"
+                )
+            }
+            _ => panic!("Should have parsed buck-out path successfully"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_bxl_content_based_output() -> buck2_error::Result<()> {
+        let (buck_out_parser, _, _, _) = get_test_data();
+        let content_based_hash = "0123456789abcdef";
+
+        let path = format!(
+            "buck-out/v2/gen-bxl/bar/path/to/function.bxl/__function_name__/{content_based_hash}/output"
+        );
+
+        let res = buck_out_parser.parse(&path)?;
+
+        match res {
+            BuckOutPathType::BxlOutput {
+                bxl_function_label,
+                common_attrs,
+            } => {
+                let path = CellPath::new(
+                    CellName::testing_new("bar"),
+                    CellRelativePath::unchecked_new("path/to/function.bxl").to_owned(),
+                );
+
+                let bxl_path = BxlFilePath::new(path)?;
+                let expected_bxl_function_label = BxlFunctionLabel {
+                    bxl_path,
+                    name: "function_name".to_owned(),
+                };
+
+                assert_eq!(bxl_function_label, expected_bxl_function_label);
+                assert_eq!(common_attrs.config_hash, None);
+                assert_eq!(
+                    common_attrs.content_hash,
+                    Some(content_based_hash.to_owned())
+                );
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/function.bxl/__function_name__/output"

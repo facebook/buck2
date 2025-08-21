@@ -166,7 +166,7 @@ async def test_wrong_config_hash(buck: Buck) -> None:
     target_platform = "root//:linux_platform"
     target_platforms_arg = f"--target-platforms={target_platform}"
     result = await buck.audit_output(
-        "buck-out/v2/gen/root/wrong_config_hash/directory/__dummy__/foo.txt",
+        "buck-out/v2/gen/root/aaaabbbbccccdddd/directory/__dummy__/foo.txt",
         target_platforms_arg,
     )
 

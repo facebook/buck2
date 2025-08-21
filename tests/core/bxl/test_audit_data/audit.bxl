@@ -23,7 +23,7 @@ audit_output_action_exists = bxl_main(
 )
 
 def _audit_output_config_not_match_impl(ctx):
-    buck_out = "buck-out/v2/gen/root/some_hash/__with_output__/foo.txt"
+    buck_out = "buck-out/v2/gen/root/aaaabbbbccccdddd/__with_output__/foo.txt"
     output = ctx.audit().output(buck_out, "root//:someplat")
     asserts.equals(str(output), "root//:with_output")
 
