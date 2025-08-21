@@ -14,7 +14,7 @@ TransitiveOutputsTSet = transitive_set(args_projections = {"artifacts": _artifac
 JsLibraryInfo = provider(
     fields = {
         "output": provider_field(typing.Any, default = None),  # "artifact"
-        "transitive_outputs": provider_field(typing.Any, default = None),  # ["TransitiveOutputsTSet", None]
+        "transitive_outputs": provider_field(typing.Any, default = None),  # "TransitiveOutputsTSet"
     },
 )
 
@@ -44,6 +44,6 @@ def get_transitive_outputs(
     if value:
         kwargs["value"] = value
     if deps:
-        kwargs["children"] = filter(None, [js_library_info.transitive_outputs for js_library_info in deps])
+        kwargs["children"] = [js_library_info.transitive_outputs for js_library_info in deps]
 
     return actions.tset(TransitiveOutputsTSet, **kwargs)

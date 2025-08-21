@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//:genrule.bzl", "genrule_attributes")
-load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//js:js_bundle.bzl", "js_bundle_impl")
@@ -86,7 +85,6 @@ extra_attributes = {
             attrs.string(),
             default = _select_asset_dest_path_resolver(),
         ),
-        "_build_only_native_code": attrs.bool(default = is_build_only_native_code()),
         "_is_release": attrs.bool(
             default = _is_release(),
         ),
