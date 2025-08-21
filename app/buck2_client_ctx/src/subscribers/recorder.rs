@@ -1088,8 +1088,17 @@ impl InvocationRecorder {
             .as_ref()
             .buck_error_context("Missing command data")?;
 
-        let build_count =
-            if let Some(buck2_data::BuildResult { build_completed }) = command.build_result {
+        let build_count = match command_data {
+            buck2_data::command_end::Data::Build(..)
+            | buck2_data::command_end::Data::Test(..)
+            | buck2_data::command_end::Data::Install(..) => {
+                let build_completed = if let Some(buck2_data::BuildResult { build_completed }) =
+                    command.build_result
+                {
+                    build_completed
+                } else {
+                    false
+                };
                 match self
                     .build_count(build_completed, command_data.variant_name())
                     .await
@@ -1101,10 +1110,10 @@ impl InvocationRecorder {
                         Default::default()
                     }
                 }
-            } else {
-                // only count builds for commands that set a build_result
-                Default::default()
-            };
+            }
+            // only count builds for commands that set a build_result
+            _ => Default::default(),
+        };
 
         self.min_attempted_build_count_since_rebase = build_count.attempted_build_count;
         self.min_build_count_since_rebase = build_count.successful_build_count;
