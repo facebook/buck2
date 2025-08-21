@@ -871,6 +871,23 @@ impl RunAction {
             self.prepare(&mut dep_file_visitor, ctx).await?;
         let input_files_bytes = prepared_run_action.paths.input_files_bytes();
 
+        let dep_file_bundle = make_dep_file_bundle(
+            ctx,
+            dep_file_visitor,
+            cmdline_digest_for_dep_files,
+            &prepared_run_action.paths,
+        )?;
+
+        // First, check in the local dep file cache if an identical action can be found there.
+        // Do this before checking the action cache as we can avoid a potentially large download.
+        // Once the action cache lookup misses, we will do the full dep file cache look up.
+        let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
+            .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
+            .await?;
+        if let Some((outputs, metadata)) = outputs {
+            return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
+        }
+
         let outputs_for_error_handler = self
             .starlark_values
             .outputs_for_error_handler
@@ -917,23 +934,6 @@ impl RunAction {
                     RunActionKey::from_action_execution_target(ctx.target()).to_string();
                 req = req.with_incremental_state(get_incremental_state(&run_action_key));
             }
-        }
-
-        let dep_file_bundle = make_dep_file_bundle(
-            ctx,
-            dep_file_visitor,
-            cmdline_digest_for_dep_files,
-            req.paths(),
-        )?;
-
-        // First, check in the local dep file cache if an identical action can be found there.
-        // Do this before checking the action cache as we can avoid a potentially large download.
-        // Once the action cache lookup misses, we will do the full dep file cache look up.
-        let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
-            .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
-            .await?;
-        if let Some((outputs, metadata)) = outputs {
-            return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
         }
 
         // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
