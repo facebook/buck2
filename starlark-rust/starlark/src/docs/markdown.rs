@@ -17,8 +17,10 @@
 
 use std::fmt::Write;
 use std::iter;
+use std::sync::LazyLock;
 
 use itertools::Itertools;
+use regex::Regex;
 
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
@@ -236,7 +238,10 @@ fn render_signature_at_bottom_layout(
     }
     if let Some(examples) = &examples {
         body.push_str("\n\n#### Examples\n\n");
-        body.push_str(examples);
+        body.push_str(&render_strings_with_code_blocks(
+            examples,
+            &render_config.type_config,
+        ));
     }
 
     body
@@ -377,6 +382,14 @@ fn render_function_prototype(
     } else {
         single_line_result
     }
+}
+
+fn render_strings_with_code_blocks(contents: &str, render_config: &TypeRenderConfig) -> String {
+    let re = LazyLock::new(|| Regex::new(r"```([\s\S]*?)```").unwrap());
+    re.replace_all(contents, |captures: &regex::Captures| {
+        render_code_block(&captures[1], render_config)
+    })
+    .to_string()
 }
 
 // For LikedType render in markdown, for code block ``` ``` we cannot contain the link in it
