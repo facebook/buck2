@@ -28,10 +28,22 @@ Summary line goes here
 
 #### Parameters
 
-* `a`: The docs for a
-* `b`: The docs for b
-* `c`: The docs for c, but these go onto two lines
-* `**kwargs`: Docs for the keyword args
+* `a`: (required)
+
+  The docs for a
+
+* `b`: (required)
+
+  The docs for b
+
+* `c`: (defaults to: `5`)
+
+  The docs for c, but these go onto two lines
+
+* `**kwargs`: (required)
+
+  Docs for the keyword args
+
 
 
 #### Returns
@@ -50,7 +62,10 @@ This is a function with *args, and no return type
 
 #### Parameters
 
-* `*args`: Only doc this arg
+* `*args`: (required)
+
+  Only doc this arg
+
 
 
 ---

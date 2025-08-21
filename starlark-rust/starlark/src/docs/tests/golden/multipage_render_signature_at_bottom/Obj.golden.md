@@ -46,7 +46,10 @@ def Obj.func1(foo: str) -> str
 
 #### Parameters
 
-* `foo`: Docs for foo
+* `foo`: (required)
+
+  Docs for foo
+
 
 
 ---

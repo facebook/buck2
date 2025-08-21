@@ -38,7 +38,10 @@ Docs for func1
 
 #### Parameters
 
-* `foo`: Docs for foo
+* `foo`: (required)
+
+  Docs for foo
+
 
 
 ---

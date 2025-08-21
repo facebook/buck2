@@ -97,7 +97,11 @@ fn render_function_parameters<'a>(
 ) -> Option<String> {
     let mut param_list: Option<String> = None;
     for (name, p) in params {
-        let DocParam { docs, .. } = p;
+        let DocParam {
+            docs,
+            default_value,
+            ..
+        } = p;
 
         if docs.is_none() {
             continue;
@@ -109,7 +113,13 @@ fn render_function_parameters<'a>(
 
         let mut lines_iter = docs.lines();
         if let Some(first_line) = lines_iter.next() {
-            let _ = writeln!(param_list, "* `{name}`: {first_line}");
+            let default = match default_value {
+                Some(v) => format!(" (defaults to: `{v}`)"),
+                None => " (required)".to_owned(),
+            };
+
+            let _ = writeln!(param_list, "* `{name}`:{default}\n");
+            let _ = writeln!(param_list, "  {first_line}\n");
             for line in lines_iter {
                 let _ = writeln!(param_list, "  {line}");
             }
