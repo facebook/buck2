@@ -1176,7 +1176,7 @@ def cxx_compile_srcs(
     pic_cxx_outs = compile_cxx(
         ctx = ctx,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
-        flavor = CxxCompileFlavor("pic"),
+        flavors = set([CxxCompileFlavor("pic")]),
         provide_syntax_only = True,
         use_header_units = impl_params.use_header_units,
     )
@@ -1193,7 +1193,7 @@ def cxx_compile_srcs(
         non_pic_cxx_outs = compile_cxx(
             ctx = ctx,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
-            flavor = CxxCompileFlavor("default"),
+            flavors = set(),
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
@@ -1210,7 +1210,7 @@ def cxx_compile_srcs(
             optimized_cxx_outs = compile_cxx(
                 ctx = ctx,
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
-                flavor = CxxCompileFlavor("pic_optimized"),
+                flavors = set([CxxCompileFlavor("pic"), CxxCompileFlavor("optimized")]),
                 # Diagnostics from the pic and non-pic compilation would be
                 # identical. We can avoid instantiating a second set of actions.
                 provide_syntax_only = False,

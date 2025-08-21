@@ -154,11 +154,9 @@ CxxCompileOutput = record(
 )
 
 CxxCompileFlavor = enum(
-    # Default compilation witout alterations
-    "default",
     # Produces position independent compile outputs
     "pic",
     # Produces position independent compile outputs
     # using optimization flags from toolchain
-    "pic_optimized",
+    "optimized",
 )

@@ -246,11 +246,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
-    compile_flavor = CxxCompileFlavor("pic") if link_strategy != LinkStrategy("static") else CxxCompileFlavor("default")
+    compile_flavors = set([CxxCompileFlavor("pic")]) if link_strategy != LinkStrategy("static") else set()
     cxx_outs = compile_cxx(
         ctx = ctx,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
-        flavor = compile_flavor,
+        flavors = compile_flavors,
         provide_syntax_only = True,
         use_header_units = impl_params.use_header_units,
     )

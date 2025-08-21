@@ -293,13 +293,14 @@ def _compile_single_cxx(
         bitcode_args: list,
         optimization_flags: list,
         src_compile_cmd: CxxSrcCompileCommand,
-        pic: bool,
+        flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
         use_header_units: bool) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
     """
+    pic = CxxCompileFlavor("pic") in flavors
 
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
@@ -583,7 +584,7 @@ def _get_base_compile_cmd(
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        flavor: CxxCompileFlavor,
+        flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
         use_header_units: bool = False) -> list[CxxCompileOutput]:
     """
@@ -610,7 +611,7 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
-    optimization_flags = toolchain.optimization_compiler_flags_EXPERIMENTAL if flavor == CxxCompileFlavor("pic_optimized") else []
+    optimization_flags = toolchain.optimization_compiler_flags_EXPERIMENTAL if CxxCompileFlavor("optimized") in flavors else []
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
             ctx = ctx,
@@ -619,7 +620,7 @@ def compile_cxx(
             bitcode_args = bitcode_args,
             optimization_flags = optimization_flags,
             src_compile_cmd = src_compile_cmd,
-            pic = flavor != CxxCompileFlavor("default"),
+            flavors = flavors,
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
         )
