@@ -82,12 +82,6 @@ def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode) -> [
 
     return None
 
-def get_pic_flags(compiler_type: str) -> list[str]:
-    if compiler_type in ["clang", "gcc"]:
-        return ["-fPIC"]
-    else:
-        return []
-
 def get_output_flags(compiler_type: str, output: Artifact) -> list[typing.Any]:
     if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
         return [cmd_args(output.as_output(), format = "/Fo{}")]

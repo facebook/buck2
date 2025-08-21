@@ -41,7 +41,6 @@ load(
     "get_flags_for_reproducible_build",
     "get_headers_dep_files_flags_factory",
     "get_output_flags",
-    "get_pic_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
@@ -293,6 +292,7 @@ def _compile_single_cxx(
         bitcode_args: list,
         src_compile_cmd: CxxSrcCompileCommand,
         flavors: set[CxxCompileFlavor],
+        flavor_flags: dict[str, list[str]],
         provide_syntax_only: bool,
         use_header_units: bool) -> CxxCompileOutput:
     """
@@ -331,12 +331,11 @@ def _compile_single_cxx(
     cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
-        pic = pic,
+        flavors = flavors,
+        flavor_flags = flavor_flags,
         use_header_units = use_header_units,
         output_args = output_args,
     )
-    if optimized:
-        cmd.add(toolchain.compiler_flavor_flags.get("optimized", []))
 
     action_dep_files = {}
 
@@ -460,7 +459,8 @@ def _compile_single_cxx(
     compile_index_store_cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
-        pic = pic,
+        flavors = flavors,
+        flavor_flags = toolchain.compiler_flavor_flags,
     )
 
     index_store = None
@@ -481,7 +481,8 @@ def _compile_single_cxx(
         assembly_cmd = _get_base_compile_cmd(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
-            pic = pic,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
             output_args = ["-S"] + get_output_flags(compiler_type, assembly),
         )
         ctx.actions.run(
@@ -503,7 +504,8 @@ def _compile_single_cxx(
         syntax_only_cmd = _get_base_compile_cmd(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
-            pic = pic,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
             output_args = ["-fsyntax-only"],
         )
         ctx.actions.run(
@@ -526,7 +528,13 @@ def _compile_single_cxx(
         "__preprocessed__",
         "{}.{}".format(filename_base, "i"),
     )
-    preproc_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, [COMMON_PREPROCESSOR_OUTPUT_ARGS, get_output_flags(compiler_type, preproc)])
+    preproc_cmd = _get_base_compile_cmd(
+        bitcode_args = bitcode_args,
+        src_compile_cmd = src_compile_cmd,
+        flavors = flavors,
+        flavor_flags = toolchain.compiler_flavor_flags,
+        output_args = [COMMON_PREPROCESSOR_OUTPUT_ARGS, get_output_flags(compiler_type, preproc)],
+    )
     ctx.actions.run(
         preproc_cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
@@ -556,7 +564,8 @@ def _compile_single_cxx(
 def _get_base_compile_cmd(
         bitcode_args: cmd_args | list,
         src_compile_cmd: CxxSrcCompileCommand,
-        pic: bool,
+        flavors: set[CxxCompileFlavor],
+        flavor_flags: dict[str, list[str]],
         output_args: list | None = None,
         use_header_units: bool = False) -> cmd_args:
     """
@@ -567,10 +576,10 @@ def _get_base_compile_cmd(
     if output_args:
         cmd.add(output_args)
 
-    compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-
-    if pic:
-        cmd.add(get_pic_flags(compiler_type))
+    for flavor in flavors:
+        flags = flavor_flags.get(flavor.value)
+        if flags:
+            cmd.add(flags)
 
     if use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
         cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
@@ -584,6 +593,15 @@ def _get_base_compile_cmd(
 
 def toolchain_supports_flavor(toolchain: CxxToolchainInfo, flavor: CxxCompileFlavor) -> bool:
     return toolchain.compiler_flavor_flags.get(flavor.value) != None
+
+def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -> dict[str, list[str]]:
+    if not flavor_flags and compiler_type in ["clang", "gcc"]:
+        # If there are no configured flavor flags for toolchain at all
+        # we fallback to default fPIC for clang and gcc. Ideally this should be default
+        # value in toolchain definition itself, but it is compiler-dependent so we can't have it there.
+        return {CxxCompileFlavor("pic").value: ["-fPIC"]}
+
+    return flavor_flags
 
 def compile_cxx(
         ctx: AnalysisContext,
@@ -623,6 +641,7 @@ def compile_cxx(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
             flavors = flavors,
+            flavor_flags = build_flavor_flags(toolchain.compiler_flavor_flags, src_compile_cmd.cxx_compile_cmd.compiler_type),
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
         )
