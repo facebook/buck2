@@ -237,7 +237,6 @@ CxxToolchainInfo = provider(
         "objc_compiler_info": provider_field([ObjcCompilerInfo, None], default = None),
         "objcxx_compiler_info": provider_field([ObjcxxCompilerInfo, None], default = None),
         "object_format": provider_field(typing.Any, default = None),
-        "optimization_compiler_flags_EXPERIMENTAL": provider_field(typing.Any, default = []),
         "pic_behavior": provider_field(typing.Any, default = None),
         "raw_headers_as_headers_mode": provider_field(typing.Any, default = None),
         "rc_compiler_info": provider_field(typing.Any, default = None),
@@ -304,7 +303,6 @@ def cxx_toolchain_infos(
         lipo = None,
         remap_cwd = False,
         compiler_flavor_flags = {},
-        optimization_compiler_flags_EXPERIMENTAL = [],
         objc_compiler_info = None,
         objcxx_compiler_info = None,
         cxx_error_handler = None):
@@ -374,7 +372,6 @@ def cxx_toolchain_infos(
         objc_compiler_info = objc_compiler_info,
         objcxx_compiler_info = objcxx_compiler_info,
         object_format = object_format,
-        optimization_compiler_flags_EXPERIMENTAL = optimization_compiler_flags_EXPERIMENTAL,
         compiler_flavor_flags = compiler_flavor_flags,
         pic_behavior = pic_behavior,
         raw_headers_as_headers_mode = raw_headers_as_headers_mode,

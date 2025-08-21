@@ -220,7 +220,6 @@ def cxx_toolchain_impl(ctx):
         objcxx_compiler_info = objcxx_info,
         object_format = CxxObjectFormat(object_format),
         compiler_flavor_flags = ctx.attrs.compiler_flavor_flags,
-        optimization_compiler_flags_EXPERIMENTAL = ctx.attrs.optimization_compiler_flags_EXPERIMENTAL,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior),
         platform_deps_aliases = ctx.attrs.platform_deps_aliases,
         platform_name = platform_name,
@@ -276,7 +275,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
         "objdump": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "object_format": attrs.enum(CxxObjectFormat.values(), default = "native"),
-        "optimization_compiler_flags_EXPERIMENTAL": attrs.list(attrs.string(), default = []),
         "pic_behavior": attrs.enum(PicBehavior.values(), default = "supported"),
         # A placeholder tool that can be used to set up toolchain constraints.
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
