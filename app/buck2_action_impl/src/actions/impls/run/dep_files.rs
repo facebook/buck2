@@ -445,6 +445,10 @@ impl IntoRemoteDepFile for DepFileBundle {
 }
 
 impl DepFileBundle {
+    pub(crate) fn has_dep_files(&self) -> bool {
+        !self.declared_dep_files.is_empty()
+    }
+
     pub(crate) async fn check_local_dep_file_cache_for_identical_action(
         &self,
         ctx: &mut dyn ActionExecutionCtx,

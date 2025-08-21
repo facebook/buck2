@@ -956,9 +956,11 @@ impl RunAction {
                     }
                 }
 
+                let supports_remote_dep_files =
+                    self.inner.allow_dep_file_cache_upload && dep_file_bundle.has_dep_files();
+
                 // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
-                let should_check_remote_cache = self.inner.allow_dep_file_cache_upload;
-                if should_check_remote_cache {
+                if supports_remote_dep_files {
                     let remote_dep_file_key = dep_file_bundle
                         .remote_dep_file_action(
                             ctx.digest_config(),
@@ -1287,12 +1289,13 @@ impl Action for RunAction {
             .inner
             .allow_cache_upload
             .unwrap_or_else(|| ctx.run_action_knobs().default_allow_cache_upload);
+        let supports_remote_dep_files =
+            self.inner.allow_dep_file_cache_upload && dep_file_bundle.has_dep_files();
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
-        let upload_dep_file = self.inner.allow_dep_file_cache_upload;
         if result.was_success()
             && !result.was_served_by_remote_dep_file_cache()
-            && (allow_cache_upload || upload_dep_file || force_cache_upload()?)
+            && (allow_cache_upload || supports_remote_dep_files || force_cache_upload()?)
         {
             let re_result = result.action_result.take();
             let upload_result = ctx
@@ -1301,7 +1304,7 @@ impl Action for RunAction {
                     &result,
                     re_result,
                     // match needed for coercion, https://github.com/rust-lang/rust/issues/108999
-                    if self.inner.allow_dep_file_cache_upload {
+                    if supports_remote_dep_files {
                         Some(&mut dep_file_bundle)
                     } else {
                         None
