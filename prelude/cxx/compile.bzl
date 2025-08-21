@@ -299,7 +299,6 @@ def _compile_single_cxx(
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
     """
-    pic = CxxCompileFlavor("pic") in flavors
 
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
@@ -464,7 +463,7 @@ def _compile_single_cxx(
 
     index_store = None
 
-    if pic:
+    if CxxCompileFlavor("pic") in flavors:
         index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd)
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
