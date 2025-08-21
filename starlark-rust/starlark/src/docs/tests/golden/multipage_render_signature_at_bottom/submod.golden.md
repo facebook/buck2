@@ -8,7 +8,7 @@
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def new_obj() -> obj
@@ -18,7 +18,7 @@ def new_obj() -> obj
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def notypes(a)
@@ -28,7 +28,7 @@ def notypes(a)
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def starlark_args(*args: str) -> None
@@ -38,7 +38,7 @@ def starlark_args(*args: str) -> None
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def starlark_kwargs(**kwargs: int) -> None

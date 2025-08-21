@@ -10,7 +10,7 @@ These are where the module docs go
 
 Needs to be escaped when rendered in markdown.
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def Obj.__exported__() -> None</code></pre>
 
@@ -32,11 +32,11 @@ Docs for attr1
 
 Docs for func1
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def Obj.func1(foo: str) -> str</code></pre>
 
-#### Parameters
+### Parameters
 
 * `foo`: (required)
 
@@ -48,6 +48,6 @@ Docs for func1
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def Obj.func2() -> str</code></pre>

@@ -14,11 +14,11 @@
 
 Docs for func1
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def func1(foo: str) -> str</code></pre>
 
-#### Parameters
+### Parameters
 
 * `foo`: (required)
 
@@ -30,7 +30,7 @@ Docs for func1
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def func2() -> str</code></pre>
 
@@ -38,7 +38,7 @@ Docs for func1
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def pos_either_named(
     a: int,
@@ -52,7 +52,7 @@ Docs for func1
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def with_defaults(
     explicit_default: list[str] = [],

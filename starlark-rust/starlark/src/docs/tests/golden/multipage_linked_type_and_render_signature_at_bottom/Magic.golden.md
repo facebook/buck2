@@ -8,7 +8,7 @@
 
 A function with only positional arguments.
 
-#### Details
+### Details
 
 And a slightly longer description. With some example code:
 
@@ -22,6 +22,6 @@ And some assertions:
 1 == 1
 ```
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def Magic(a1: int, a2: int = ..., step: int = 1, /) -> str</code></pre>

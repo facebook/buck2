@@ -227,17 +227,17 @@ fn render_signature_at_bottom_layout(
         body.push_str(summary);
     }
     if let Some(details) = &details {
-        body.push_str("\n\n#### Details\n\n");
+        body.push_str("\n\n### Details\n\n");
         body.push_str(details);
     }
     body.push_str("\n\n");
-    body.push_str(&format!("#### Function Signature\n\n{prototype}"));
+    body.push_str(&format!("### Function Signature\n\n{prototype}"));
     if let Some(parameter_docs) = &parameter_docs {
-        body.push_str("\n\n#### Parameters\n\n");
+        body.push_str("\n\n### Parameters\n\n");
         body.push_str(parameter_docs);
     }
     if let Some(examples) = &examples {
-        body.push_str("\n\n#### Examples\n\n");
+        body.push_str("\n\n### Examples\n\n");
         body.push_str(&render_strings_with_code_blocks(
             examples,
             &render_config.type_config,

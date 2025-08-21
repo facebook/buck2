@@ -8,7 +8,7 @@
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def new_obj() -> <a to="/path/to/Obj">obj</a></code></pre>
 
@@ -16,7 +16,7 @@
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def notypes(a)</code></pre>
 
@@ -24,7 +24,7 @@
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def starlark_args(\*args: str) -> None</code></pre>
 
@@ -32,6 +32,6 @@
 
 
 
-#### Function Signature
+### Function Signature
 
 <pre class="language-python"><code>def starlark_kwargs(\*\*kwargs: int) -> None</code></pre>

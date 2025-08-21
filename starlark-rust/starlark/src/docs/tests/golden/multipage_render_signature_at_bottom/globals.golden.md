@@ -16,13 +16,13 @@ MAGIC: int
 
 Docs for func1
 
-#### Function Signature
+### Function Signature
 
 ```python
 def func1(foo: str) -> str
 ```
 
-#### Parameters
+### Parameters
 
 * `foo`: (required)
 
@@ -34,7 +34,7 @@ def func1(foo: str) -> str
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def func2() -> str
@@ -44,7 +44,7 @@ def func2() -> str
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def pos_either_named(a: int, /, b: int, *, c: int) -> magic
@@ -54,7 +54,7 @@ def pos_either_named(a: int, /, b: int, *, c: int) -> magic
 
 
 
-#### Function Signature
+### Function Signature
 
 ```python
 def with_defaults(
