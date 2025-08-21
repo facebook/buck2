@@ -296,9 +296,9 @@ fn test_globals_docs_render(with_linked_type: bool) {
         format!("<a to=\"/path/to/{path}\">{type_name}</a>")
     }
     let res = if with_linked_type {
-        render_markdown_multipage(vec![modules_info], Some(linked_ty_mapper))
+        render_markdown_multipage(vec![modules_info], Some(linked_ty_mapper), false)
     } else {
-        render_markdown_multipage(vec![modules_info], None)
+        render_markdown_multipage(vec![modules_info], None, false)
     };
     let subfolder_name = if with_linked_type {
         "multipage_linked_type"

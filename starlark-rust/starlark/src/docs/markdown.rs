@@ -28,6 +28,7 @@ use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocType;
+use crate::docs::multipage::RenderConfig;
 use crate::typing::Ty;
 use crate::typing::ty::TypeRenderConfig;
 
@@ -65,10 +66,13 @@ fn escape_name(name: &str) -> String {
     name.replace('_', "\\_")
 }
 
-fn render_property(name: &str, property: &DocProperty, render_config: &TypeRenderConfig) -> String {
+fn render_property(name: &str, property: &DocProperty, render_config: &RenderConfig) -> String {
     let prototype = render_code_block(
-        &format!("{name}: {}", &property.typ.display_with(render_config)),
-        render_config,
+        &format!(
+            "{name}: {}",
+            &property.typ.display_with(&render_config.type_config)
+        ),
+        &render_config.type_config,
     );
     let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
@@ -121,11 +125,11 @@ fn render_function(
     name: &str,
     function: &DocFunction,
     include_header: bool,
-    render_config: &TypeRenderConfig,
+    render_config: &RenderConfig,
 ) -> String {
     let prototype = render_code_block(
-        &render_function_prototype(name, function, render_config),
-        render_config,
+        &render_function_prototype(name, function, &render_config.type_config),
+        &render_config.type_config,
     );
     let header = if include_header {
         format!("## {}\n\n{prototype}", escape_name(name))
@@ -178,7 +182,7 @@ pub(super) fn render_members<'a>(
     prefix: &str,
     members: impl IntoIterator<Item = (&'a str, DocMember)>,
     after_summary: Option<String>,
-    render_config: &TypeRenderConfig,
+    render_config: &RenderConfig,
 ) -> String {
     let summary = render_doc_string(DSOpts::Combined, docs)
         .map(|s| format!("\n\n{s}"))
@@ -206,7 +210,7 @@ pub(super) fn render_doc_type(
     name: &str,
     prefix: &str,
     t: &DocType,
-    render_config: &TypeRenderConfig,
+    render_config: &RenderConfig,
 ) -> String {
     let constructor = t
         .constructor
@@ -225,10 +229,17 @@ pub(super) fn render_doc_type(
 /// Used by LSP.
 /// It will not render the type signatures with link to types
 pub fn render_doc_item_no_link(name: &str, item: &DocItem) -> String {
-    render_doc_item(name, item, &TypeRenderConfig::Default)
+    render_doc_item(
+        name,
+        item,
+        &RenderConfig {
+            type_config: TypeRenderConfig::Default,
+            layout_config: LayoutRenderConfig::Default,
+        },
+    )
 }
 
-pub fn render_doc_item(name: &str, item: &DocItem, render_config: &TypeRenderConfig) -> String {
+pub fn render_doc_item(name: &str, item: &DocItem, render_config: &RenderConfig) -> String {
     match item {
         DocItem::Module(m) => render_members(
             name,
@@ -254,7 +265,7 @@ pub fn render_doc_item(name: &str, item: &DocItem, render_config: &TypeRenderCon
 }
 
 /// Used by LSP.
-pub fn render_doc_member(name: &str, item: &DocMember, render_config: &TypeRenderConfig) -> String {
+pub fn render_doc_member(name: &str, item: &DocMember, render_config: &RenderConfig) -> String {
     match item {
         DocMember::Function(f) => render_function(name, f, true, render_config),
         DocMember::Property(p) => render_property(name, p, render_config),
@@ -325,7 +336,7 @@ impl DocModule {
     pub(super) fn render_markdown_page_for_multipage_render(
         &self,
         name: &str,
-        render_config: &TypeRenderConfig,
+        render_config: &RenderConfig,
     ) -> String {
         render_members(
             name,
@@ -344,8 +355,15 @@ impl DocType {
     pub(super) fn render_markdown_page_for_multipage_render(
         &self,
         name: &str,
-        render_config: &TypeRenderConfig,
+        render_config: &RenderConfig,
     ) -> String {
         render_doc_type(&name, &format!("{name}."), self, render_config)
     }
+}
+
+/// Configuration for layout rendering.
+pub enum LayoutRenderConfig {
+    Default,
+    /// Renders the summary + detail above function signature.
+    SignatureAtBottom,
 }

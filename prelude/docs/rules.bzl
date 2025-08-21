@@ -8,6 +8,9 @@
 
 # We only want to document the rules in the prelude, so have a module that
 # only reexports those.
+#
+# NOTE: This file name is used to distinguish the Rules docs from API docs, if you change this file name,
+# please update the rendering code `render_function` in `starlark-rust/starlark/src/docs/markdown.rs`
 
 load("@prelude//:rules.bzl", _categorized_rules = "categorized_rules")
 

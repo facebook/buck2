@@ -22,10 +22,16 @@ use dupe::Dupe;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::docs::DocType;
+use crate::docs::markdown::LayoutRenderConfig;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TyStarlarkValue;
 use crate::typing::ty::TypeRenderConfig;
+
+pub struct RenderConfig {
+    pub type_config: TypeRenderConfig,
+    pub layout_config: LayoutRenderConfig,
+}
 
 pub struct DocModuleInfo<'a> {
     pub module: &'a DocModule,
@@ -96,7 +102,7 @@ struct PageRender<'a> {
 }
 
 impl<'a> PageRender<'a> {
-    fn render_markdown(&self, render_config: &TypeRenderConfig) -> String {
+    fn render_markdown(&self, render_config: &RenderConfig) -> String {
         match self.page {
             DocPageRef::Module(doc_module) => {
                 doc_module.render_markdown_page_for_multipage_render(&self.name, render_config)
@@ -115,8 +121,7 @@ impl<'a> PageRender<'a> {
 /// which will need consideration if this is to be materialized to a filesystem.
 struct MultipageRender<'a> {
     page_renders: Vec<PageRender<'a>>,
-    // used for the linkable type in the markdown
-    render_config: TypeRenderConfig,
+    render_config: RenderConfig,
 }
 
 impl<'a> MultipageRender<'a> {
@@ -126,12 +131,14 @@ impl<'a> MultipageRender<'a> {
     fn new(
         docs: Vec<DocModuleInfo<'a>>,
         linked_ty_mapper: Option<fn(&str, &str) -> String>,
+        render_signature_at_bottom: bool,
     ) -> Self {
         let mut res = vec![];
+
         for doc in docs {
             res.extend(doc.into_page_renders());
         }
-        let mut render_config = TypeRenderConfig::Default;
+        let mut type_render_config = TypeRenderConfig::Default;
         if let Some(linked_ty_mapper) = linked_ty_mapper {
             let mut ty_to_path_map = HashMap::new();
             for page in res.iter() {
@@ -148,13 +155,20 @@ impl<'a> MultipageRender<'a> {
                 }
             };
 
-            render_config = TypeRenderConfig::LinkedType {
+            type_render_config = TypeRenderConfig::LinkedType {
                 render_linked_ty_starlark_value: Box::new(render_linked_ty_starlark_value),
             };
         }
         Self {
             page_renders: res,
-            render_config,
+            render_config: RenderConfig {
+                type_config: type_render_config,
+                layout_config: if render_signature_at_bottom {
+                    LayoutRenderConfig::SignatureAtBottom
+                } else {
+                    LayoutRenderConfig::Default
+                },
+            },
         }
     }
 
@@ -178,7 +192,9 @@ impl<'a> MultipageRender<'a> {
 pub fn render_markdown_multipage(
     modules_infos: Vec<DocModuleInfo<'_>>,
     linked_ty_mapper: Option<fn(&str, &str) -> String>,
+    render_signature_at_bottom: bool,
 ) -> HashMap<String, String> {
-    let multipage_render = MultipageRender::new(modules_infos, linked_ty_mapper);
+    let multipage_render =
+        MultipageRender::new(modules_infos, linked_ty_mapper, render_signature_at_bottom);
     multipage_render.render_markdown_pages()
 }

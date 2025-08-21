@@ -33,11 +33,13 @@ pub(crate) fn write_docs_to_subdir(
     modules_infos: Vec<DocModuleInfo<'_>>,
     base_path: &str,
     linked_ty_mapper: Option<fn(&str, &str) -> String>,
+    render_signature_at_bottom: bool,
 ) -> buck2_error::Result<()> {
     let base_path = AbsPathBuf::new(base_path)?;
-    let mut docs: BTreeMap<_, _> = render_markdown_multipage(modules_infos, linked_ty_mapper)
-        .into_iter()
-        .collect();
+    let mut docs: BTreeMap<_, _> =
+        render_markdown_multipage(modules_infos, linked_ty_mapper, render_signature_at_bottom)
+            .into_iter()
+            .collect();
     while let Some((mut doc_path, rendered)) = docs.pop_first() {
         let mut path = base_path.clone();
         // Map:
@@ -119,7 +121,7 @@ pub(crate) async fn docs_starlark_builtins(
         format!("<Link to=\"/docs/api/{path}\">{type_name}</Link>")
     }
 
-    write_docs_to_subdir(modules_infos, &request.path, Some(linked_ty_mapper))?;
+    write_docs_to_subdir(modules_infos, &request.path, Some(linked_ty_mapper), false)?;
 
     Ok(DocsResponse { json_output: None })
 }
