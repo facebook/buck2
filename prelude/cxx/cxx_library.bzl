@@ -131,6 +131,7 @@ load(
     "create_compile_cmds",
     "cxx_objects_sub_targets",
     "precompile_cxx",
+    "toolchain_supports_flavor",
 )
 load(
     ":compile_types.bzl",
@@ -1187,6 +1188,8 @@ def cxx_compile_srcs(
         extra_link_input = impl_params.extra_link_input,
     )
 
+    toolchain = get_cxx_toolchain_info(ctx)
+
     non_pic = None
     pic_optimized = None
     if preferred_linkage != Linkage("shared"):
@@ -1206,7 +1209,7 @@ def cxx_compile_srcs(
             extra_link_input = impl_params.extra_link_input,
         )
 
-        if get_cxx_toolchain_info(ctx).optimization_compiler_flags_EXPERIMENTAL:
+        if toolchain_supports_flavor(toolchain, CxxCompileFlavor("optimized")):
             optimized_cxx_outs = compile_cxx(
                 ctx = ctx,
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,

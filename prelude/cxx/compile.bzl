@@ -291,7 +291,6 @@ def _compile_single_cxx(
         toolchain: CxxToolchainInfo,
         default_object_format: CxxObjectFormat,
         bitcode_args: list,
-        optimization_flags: list,
         src_compile_cmd: CxxSrcCompileCommand,
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
@@ -301,6 +300,7 @@ def _compile_single_cxx(
     `src_compile_command` and other compilation options.
     """
     pic = CxxCompileFlavor("pic") in flavors
+    optimized = CxxCompileFlavor("optimized") in flavors
 
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
@@ -310,13 +310,13 @@ def _compile_single_cxx(
     filename_base = short_path + (".pic" if pic else "")
     identifier = short_path + (" (pic)" if pic else "")
 
-    if optimization_flags:
+    if optimized:
         identifier += " (optimized)"
 
     if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units:
         identifier += " (modular)"
 
-    filename_base = filename_base + (".optimized" if optimization_flags else "")
+    filename_base = filename_base + (".optimized" if optimized else "")
     folder_name = "__objects__"
     object = ctx.actions.declare_output(
         folder_name,
@@ -335,7 +335,8 @@ def _compile_single_cxx(
         use_header_units = use_header_units,
         output_args = output_args,
     )
-    cmd.add(optimization_flags)
+    if optimized:
+        cmd.add(toolchain.compiler_flavor_flags.get("optimized", []))
 
     action_dep_files = {}
 
@@ -581,6 +582,9 @@ def _get_base_compile_cmd(
 
     return cmd
 
+def toolchain_supports_flavor(toolchain: CxxToolchainInfo, flavor: CxxCompileFlavor) -> bool:
+    return toolchain.compiler_flavor_flags.get(flavor.value) != None
+
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
@@ -611,14 +615,12 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
-    optimization_flags = toolchain.optimization_compiler_flags_EXPERIMENTAL if CxxCompileFlavor("optimized") in flavors else []
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
             ctx = ctx,
             toolchain = toolchain,
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
-            optimization_flags = optimization_flags,
             src_compile_cmd = src_compile_cmd,
             flavors = flavors,
             provide_syntax_only = provide_syntax_only,
