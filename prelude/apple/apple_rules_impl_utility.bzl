@@ -182,9 +182,11 @@ def apple_test_extra_attrs():
             Overrides a default selection mechanism.
         """),
         "_enable_library_evolution": get_enable_library_evolution(),
-        "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
-        "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
+        "_ipad_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ipad_simulator", providers = [LocalResourceInfo]),
+        "_iphone_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:iphone_booted_simulator", providers = [LocalResourceInfo]),
+        "_iphone_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:iphone_unbooted_simulator", providers = [LocalResourceInfo]),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
+        "_watch_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:watch_simulator", providers = [LocalResourceInfo]),
     } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())

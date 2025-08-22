@@ -26,8 +26,8 @@ class SimulatorState(str, Enum):
 
 
 class SimulatorType(str, Enum):
-    iphoneUnbooted = "ios_unbooted_simulator"
-    iphoneBooted = "ios_booted_simulator"
+    iphoneUnbooted = "iphone_unbooted_simulator"
+    iphoneBooted = "iphone_booted_simulator"
     ipad = "ipad_simulator"
     watch = "watch_simulator"
 

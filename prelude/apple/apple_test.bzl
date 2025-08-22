@@ -270,8 +270,12 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
         },
         local_resources = {
-            "ios_booted_simulator": ctx.attrs._ios_booted_simulator.label,
-            "ios_unbooted_simulator": ctx.attrs._ios_unbooted_simulator.label,
+            "ios_booted_simulator": ctx.attrs._iphone_booted_simulator.label,
+            "ios_unbooted_simulator": ctx.attrs._iphone_unbooted_simulator.label,
+            "ipad_simulator": ctx.attrs._ipad_simulator.label,
+            "iphone_booted_simulator": ctx.attrs._iphone_booted_simulator.label,
+            "iphone_unbooted_simulator": ctx.attrs._iphone_unbooted_simulator.label,
+            "watch_simulator": ctx.attrs._watch_simulator.label,
         },
     )
 
