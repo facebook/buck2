@@ -53,6 +53,7 @@
     "image-size": "^1.2.1",
     "shelljs": "^0.8.5",
     "ansi-html": "0.0.8",
-    "dompurify": "^3.2.4"
+    "dompurify": "^3.2.4",
+    "mermaid": "^11.10.0"
   }
 }
