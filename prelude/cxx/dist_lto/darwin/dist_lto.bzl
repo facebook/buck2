@@ -590,7 +590,7 @@ def cxx_darwin_dist_link(
             return c + "_" + opts.category_suffix
         return c
 
-    links = opts.links + opts.binary_links
+    links = opts.links
 
     link_infos = map_to_link_infos(links)
 

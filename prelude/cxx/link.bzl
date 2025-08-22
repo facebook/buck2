@@ -189,9 +189,9 @@ def cxx_link_into(
         )
 
     if linker_info.generate_linker_maps:
-        links_with_linker_map = opts.links + opts.binary_links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
+        links_with_linker_map = opts.links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
     else:
-        links_with_linker_map = opts.links + opts.binary_links
+        links_with_linker_map = opts.links
 
     link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
     all_link_args = cmd_args(link_cmd_parts.linker_flags)
@@ -235,7 +235,7 @@ def cxx_link_into(
         all_link_args.add("-Wl,-mllvm,-codegen-data-thinlto-two-rounds")
 
     bitcode_linkables = []
-    for link_item in (opts.links + opts.binary_links):
+    for link_item in opts.links:
         if link_item.infos == None:
             continue
         for link_info in link_item.infos:
@@ -251,7 +251,7 @@ def cxx_link_into(
 
     external_debug_info = link_external_debug_info(
         ctx = ctx,
-        links = opts.links + opts.binary_links,
+        links = opts.links,
         split_debug_output = split_debug_output,
         pdb = link_args_output.pdb_artifact,
     )
@@ -331,7 +331,7 @@ def cxx_link_into(
         if use_bolt:
             dwp_inputs.add([split_debug_output])
         else:
-            for link in (opts.links + opts.binary_links):
+            for link in opts.links:
                 dwp_inputs.add(unpack_link_args(link))
             dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
 
@@ -353,7 +353,7 @@ def cxx_link_into(
 
     linked_object = LinkedObject(
         output = output,
-        link_args = opts.links + opts.binary_links,
+        link_args = opts.links,
         bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,
         unstripped_output = unstripped_output,
