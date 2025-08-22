@@ -19,7 +19,6 @@
 pub mod artifact;
 pub mod artifact_utils;
 pub mod artifact_value;
-pub mod bxl;
 pub mod digest;
 pub mod digest_config;
 pub mod directory;
