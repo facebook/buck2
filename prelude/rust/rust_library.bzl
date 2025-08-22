@@ -172,6 +172,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
         )
+        param_subtargets.setdefault(params, {})
 
         if LinkageLang("rust") in langs:
             rust_param_artifact[params] = {
@@ -187,7 +188,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 MetadataKind("fast"): meta_fast,
             }
 
-            param_subtargets[params] = {
+            param_subtargets[params].update({
                 "llvm-ir": rust_compile(
                     ctx = ctx,
                     compile_ctx = compile_ctx,
@@ -196,11 +197,18 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     default_roots = _DEFAULT_ROOTS,
                     incremental_enabled = ctx.attrs.incremental_enabled,
                 ),
-            }
+                "mir": rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("mir"),
+                    params = params,
+                    default_roots = _DEFAULT_ROOTS,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                ),
+            })
 
         if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
             native_param_artifact[params] = link
-            param_subtargets[params] = {}
 
     rust_artifacts = _rust_artifacts(
         ctx = ctx,

@@ -405,6 +405,15 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
+    extra_compiled_targets["mir"] = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("mir"),
+        params = params,
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
 
     doc_output = generate_rustdoc(
         ctx = ctx,

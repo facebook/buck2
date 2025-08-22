@@ -1222,6 +1222,14 @@ def _explain(
     if emit == Emit("llvm-ir-noopt"):
         base = "llvm-ir-noopt"
 
+    if emit == Emit("mir"):
+        link_strategy_suffix = {
+            LinkStrategy("static"): " [static]",
+            LinkStrategy("static_pic"): " [pic]",
+            LinkStrategy("shared"): " [shared]",
+        }[link_strategy]
+        base = "mir" + link_strategy_suffix
+
     if base == None:
         fail("unrecognized rustc action:", crate_type, link_strategy, emit)
 
