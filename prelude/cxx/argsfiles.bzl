@@ -40,4 +40,4 @@ def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, Compil
 
     argsfiles_summary = ctx.actions.write(summary_name, argsfiles)
 
-    return DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = dependent_outputs)
+    return DefaultInfo(default_outputs = [argsfiles_summary], other_outputs = argsfiles + dependent_outputs)
