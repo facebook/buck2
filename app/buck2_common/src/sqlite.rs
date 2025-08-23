@@ -9,3 +9,4 @@
  */
 
 pub mod key_value_table;
+pub mod sqlite_db;
