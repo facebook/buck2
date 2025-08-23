@@ -66,7 +66,7 @@ def _set_buck2_dex_toolchain(**kwargs):
 def _set_versioned_java_srcs(**kwargs):
     if not kwargs.pop("versioned_java_srcs", False):
         return kwargs
-    java_version = native.read_config("java", "buck2_java_version", "21")
+    java_version = native.read_config("java", "buck2_java_version", "17")
     versioned_srcs = native.glob(["java{}/*.java".format(java_version)])
     kwargs["srcs"] = kwargs.get("srcs", []) + versioned_srcs
     return kwargs
