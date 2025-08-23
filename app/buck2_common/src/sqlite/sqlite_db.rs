@@ -234,3 +234,312 @@ impl<T: SqliteTable> SqliteTables<T> {
         Ok(Arc::new(Mutex::new(connection)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use dupe::Dupe;
+    use parking_lot::Mutex;
+    use rusqlite::Connection;
+
+    use super::*;
+
+    /// Test state type - simple vector of strings
+    type TestState = Vec<String>;
+
+    struct TestSqliteTable {
+        connection: Arc<Mutex<Connection>>,
+    }
+
+    impl TestSqliteTable {
+        fn new(connection: Arc<Mutex<Connection>>) -> Self {
+            Self { connection }
+        }
+
+        fn insert(&self, value: &str) -> buck2_error::Result<()> {
+            let sql = "INSERT INTO test_data (value) VALUES (?1)";
+            self.connection
+                .lock()
+                .execute(sql, [value])
+                .buck_error_context("Failed to insert test data")?;
+            Ok(())
+        }
+
+        fn read_all(&self) -> buck2_error::Result<TestState> {
+            let sql = "SELECT value FROM test_data ORDER BY id";
+            let connection = self.connection.lock();
+            let mut stmt = connection.prepare(sql)?;
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        }
+    }
+
+    impl SqliteTable for TestSqliteTable {
+        fn create_table(&self) -> buck2_error::Result<()> {
+            let sql = "CREATE TABLE test_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                value TEXT NOT NULL
+            )";
+            self.connection
+                .lock()
+                .execute(sql, [])
+                .buck_error_context("Failed to create test table")?;
+            Ok(())
+        }
+    }
+
+    struct TestSqliteDb {
+        tables: SqliteTables<TestSqliteTable>,
+        identity: SqliteIdentity,
+    }
+
+    impl SqliteDb for TestSqliteDb {
+        type StateType = TestState;
+        type TableType = TestSqliteTable;
+
+        fn db_filename() -> &'static str {
+            "test_db.sqlite"
+        }
+
+        fn new(tables: SqliteTables<Self::TableType>) -> buck2_error::Result<Self> {
+            let identity = tables.get_identity()?;
+            Ok(Self { tables, identity })
+        }
+
+        fn open_tables(path: &AbsNormPath) -> buck2_error::Result<SqliteTables<Self::TableType>> {
+            let connection = SqliteTables::<Self::TableType>::create_connection(path)?;
+            let test_table = TestSqliteTable::new(connection.dupe());
+            let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
+            let created_by_table =
+                KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
+
+            Ok(SqliteTables::new(
+                test_table,
+                versions_table,
+                created_by_table,
+            ))
+        }
+
+        fn identity(&self) -> &SqliteIdentity {
+            &self.identity
+        }
+    }
+
+    impl TestSqliteDb {
+        fn insert_test_data(&mut self, value: &str) -> buck2_error::Result<()> {
+            self.tables.domain_table.insert(value)
+        }
+    }
+
+    fn create_test_versions() -> HashMap<String, String> {
+        HashMap::from([
+            ("schema_version".to_owned(), "1".to_owned()),
+            ("app_version".to_owned(), "test".to_owned()),
+        ])
+    }
+
+    fn create_test_metadata() -> HashMap<String, String> {
+        HashMap::from([
+            ("created_by".to_owned(), "test_suite".to_owned()),
+            ("test_run".to_owned(), "true".to_owned()),
+        ])
+    }
+
+    #[test]
+    fn test_create_new_sqlite_db() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let db_dir = fs
+            .path()
+            .resolve(ProjectRelativePath::unchecked_new("test_db_dir"));
+
+        let versions = create_test_versions();
+        let metadata = create_test_metadata();
+
+        // Create a new database
+        let mut db = TestSqliteDb::create_sqlite_db(db_dir, versions.clone(), metadata.clone())?;
+
+        // Verify identity was set
+        assert!(!db.identity().to_string().is_empty());
+
+        // Verify tables exist and can be used
+        db.insert_test_data("test_value_1")?;
+        db.insert_test_data("test_value_2")?;
+
+        let state = db.tables.domain_table.read_all()?;
+        assert_eq!(state, vec!["test_value_1", "test_value_2"]);
+
+        // Verify version table was populated
+        let stored_versions = db.tables.versions_table.read_all()?;
+        assert_eq!(stored_versions, versions);
+
+        // Verify created_by table was populated (including auto-added timestamp)
+        let stored_metadata = db.tables.created_by_table.read_all()?;
+        assert!(stored_metadata.get("created_by").unwrap() == "test_suite");
+        assert!(stored_metadata.get("test_run").unwrap() == "true");
+        assert!(stored_metadata.contains_key("timestamp_on_initialization"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_existing_sqlite_db() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let db_dir = fs
+            .path()
+            .resolve(ProjectRelativePath::unchecked_new("test_db_dir"));
+
+        let versions = create_test_versions();
+        let metadata = create_test_metadata();
+
+        // Create a database and add some data
+        let mut db =
+            TestSqliteDb::create_sqlite_db(db_dir.clone(), versions.clone(), metadata.clone())?;
+        db.insert_test_data("persistent_value_1")?;
+        db.insert_test_data("persistent_value_2")?;
+
+        // Load the existing database
+        let mut loaded_db = TestSqliteDb::get_sqlite_db(db_dir, versions, metadata, None)?;
+
+        // Verify data persisted
+        let state = loaded_db.tables.domain_table.read_all()?;
+        assert_eq!(state, vec!["persistent_value_1", "persistent_value_2"]);
+
+        // Verify we can still add data
+        loaded_db.insert_test_data("new_value")?;
+        let updated_state = loaded_db.tables.domain_table.read_all()?;
+        assert_eq!(
+            updated_state,
+            vec!["persistent_value_1", "persistent_value_2", "new_value"]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_version_mismatch_error() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let db_dir = fs
+            .path()
+            .resolve(ProjectRelativePath::unchecked_new("test_db_dir"));
+
+        let v1_versions = HashMap::from([("schema_version".to_owned(), "1".to_owned())]);
+        let v2_versions = HashMap::from([("schema_version".to_owned(), "2".to_owned())]);
+        let metadata = create_test_metadata();
+
+        // Create database with version 1
+        let _db = TestSqliteDb::create_sqlite_db(db_dir.clone(), v1_versions, metadata.clone())?;
+
+        // Try to load with version 2
+        let result = TestSqliteDb::get_sqlite_db(db_dir.clone(), v2_versions, metadata, None);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(
+                e.to_string().contains("Expected versions {\"schema_version\": \"2\"}. Found versions {\"schema_version\": \"1\"} in sqlite db")
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rejected_identity() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let db_dir = fs
+            .path()
+            .resolve(ProjectRelativePath::unchecked_new("test_db_dir"));
+
+        let versions = create_test_versions();
+        let metadata = create_test_metadata();
+
+        // Create database and get its identity
+        let db =
+            TestSqliteDb::create_sqlite_db(db_dir.clone(), versions.clone(), metadata.clone())?;
+        let identity = db.identity().clone();
+
+        // Try to load the same database but reject its identity
+        let result = TestSqliteDb::get_sqlite_db(db_dir, versions, metadata, Some(&identity));
+        assert!(result.is_err());
+
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Sqlite identity was rejected"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_does_not_exist_error() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let nonexistent_db_dir = fs
+            .path()
+            .resolve(ProjectRelativePath::unchecked_new("nonexistent_db_dir"));
+
+        let versions = create_test_versions();
+        let metadata = create_test_metadata();
+
+        // Try to load from non-existent path
+        let result = TestSqliteDb::get_sqlite_db(nonexistent_db_dir, versions, metadata, None);
+        assert!(result.is_err());
+
+        if let Err(e) = result {
+            assert!(e.to_string().contains("does not exist"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sqlite_tables_functionality() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let db_path = fs
+            .path()
+            .resolve(ProjectRelativePath::unchecked_new("test.db"));
+
+        // Create tables manually
+        let connection = SqliteTables::<TestSqliteTable>::create_connection(&db_path)?;
+        let test_table = TestSqliteTable::new(connection.dupe());
+        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
+        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
+
+        let tables = SqliteTables::new(test_table, versions_table, created_by_table);
+
+        // Test table creation
+        tables.create_all_tables()?;
+
+        // Test version table functionality
+        let test_versions = HashMap::from([
+            ("key1".to_owned(), "value1".to_owned()),
+            ("key2".to_owned(), "value2".to_owned()),
+        ]);
+        tables.versions_table.insert_all(test_versions.clone())?;
+        let read_versions = tables.versions_table.read_all()?;
+        assert_eq!(read_versions, test_versions);
+
+        // Test created_by table functionality
+        let test_metadata = HashMap::from([
+            (
+                "timestamp_on_initialization".to_owned(),
+                "test_timestamp".to_owned(),
+            ),
+            ("meta_key".to_owned(), "meta_value".to_owned()),
+        ]);
+        tables.created_by_table.insert_all(test_metadata)?;
+
+        // Test identity retrieval
+        let identity = tables.get_identity()?;
+        assert_eq!(identity.to_string(), "test_timestamp");
+
+        // Test domain table functionality
+        tables.domain_table.insert("domain_value")?;
+        let domain_data = tables.domain_table.read_all()?;
+        assert_eq!(domain_data, vec!["domain_value"]);
+
+        Ok(())
+    }
+}
