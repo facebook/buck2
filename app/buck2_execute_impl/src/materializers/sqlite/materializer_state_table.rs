@@ -503,7 +503,7 @@ fn convert_non_directory_sqlite_entry_to_action_directory_member(
     })
 }
 
-pub(crate) struct MaterializerStateSqliteTable {
+pub struct MaterializerStateSqliteTable {
     connection: Arc<Mutex<Connection>>,
 }
 

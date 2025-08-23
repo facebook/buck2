@@ -12,15 +12,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::sqlite::key_value_table::KeyValueSqliteTable;
-use buck2_core::fs::fs_util;
+use buck2_common::sqlite::sqlite_db::SqliteDb;
+use buck2_common::sqlite::sqlite_db::SqliteIdentity;
+use buck2_common::sqlite::sqlite_db::SqliteTable;
+use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
@@ -28,8 +28,6 @@ use chrono::Utc;
 use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
-use parking_lot::Mutex;
-use rusqlite::Connection;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::sqlite::materializer_state_table::MaterializerStateSqliteTable;
@@ -40,14 +38,24 @@ pub(crate) mod materializer_state_table;
 #[derive(Display, Allocative, Clone, From, PartialEq, Eq, Debug)]
 pub struct MaterializerStateIdentity(String);
 
+impl From<SqliteIdentity> for MaterializerStateIdentity {
+    fn from(identity: SqliteIdentity) -> Self {
+        MaterializerStateIdentity(identity.to_string())
+    }
+}
+
+impl From<MaterializerStateIdentity> for SqliteIdentity {
+    fn from(identity: MaterializerStateIdentity) -> Self {
+        SqliteIdentity::from(identity.0)
+    }
+}
+
 /// Hand-maintained schema version for the materializer state sqlite db.
 /// PLEASE bump this version if you are making a breaking change to the
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
 pub const DB_SCHEMA_VERSION: u64 = 7;
-
-const IDENTITY_KEY: &str = "timestamp_on_initialization";
 
 #[derive(Debug)]
 pub struct MaterializerStateEntry {
@@ -58,48 +66,43 @@ pub struct MaterializerStateEntry {
 
 pub type MaterializerState = Vec<MaterializerStateEntry>;
 
-#[derive(buck2_error::Error, Debug, PartialEq, Eq)]
-#[buck2(tag = Input)]
-enum MaterializerStateSqliteDbError {
-    #[error("Path {} does not exist", .0)]
-    PathDoesNotExist(AbsNormPathBuf),
-
-    #[error("Expected versions {:?}. Found versions {:?} in sqlite db at {}", .expected, .found, .path)]
-    VersionMismatch {
-        expected: HashMap<String, String>,
-        found: HashMap<String, String>,
-        path: AbsNormPathBuf,
-    },
-
-    #[error("Materializer identity was rejected: {}", .identity)]
-    RejectedIdentity { identity: MaterializerStateIdentity },
+/// Concrete implementation of SqliteTable for MaterializerStateSqliteTable
+impl SqliteTable for MaterializerStateSqliteTable {
+    fn create_table(&self) -> buck2_error::Result<()> {
+        MaterializerStateSqliteTable::create_table(self)
+    }
 }
 
 /// DB that opens the sqlite connection to the materializer state db on disk and
 /// holds all the sqlite tables we need for storing/querying materializer state
 pub struct MaterializerStateSqliteDb {
-    tables: MaterializerStateTables,
+    tables: SqliteTables<MaterializerStateSqliteTable>,
     /// A unique ID identifying this particular instance of the database. This will reset when we
     /// recreate it.
-    identity: MaterializerStateIdentity,
+    identity: SqliteIdentity,
 }
 
-impl MaterializerStateSqliteDb {
-    const DB_FILENAME: &'static str = "db.sqlite";
+impl SqliteDb for MaterializerStateSqliteDb {
+    type StateType = MaterializerState;
+    type TableType = MaterializerStateSqliteTable;
 
-    fn new(tables: MaterializerStateTables) -> buck2_error::Result<Self> {
-        let identity = tables
-            .created_by_table
-            .get(IDENTITY_KEY)
-            .buck_error_context("Error reading creation metadata")?
-            .map(MaterializerStateIdentity)
-            .with_buck_error_context(|| {
-                format!("Identity key is missing in db: `{IDENTITY_KEY}`")
-            })?;
-
+    fn new(tables: SqliteTables<Self::TableType>) -> buck2_error::Result<Self> {
+        let identity = tables.get_identity()?;
         Ok(Self { tables, identity })
     }
 
+    fn open_tables(path: &AbsNormPath) -> buck2_error::Result<SqliteTables<Self::TableType>> {
+        let connection = SqliteTables::<Self::TableType>::create_connection(path)?;
+        let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
+        Ok(SqliteTables::new(materializer_state_table, connection))
+    }
+
+    fn identity(&self) -> &SqliteIdentity {
+        &self.identity
+    }
+}
+
+impl MaterializerStateSqliteDb {
     /// Given path to the sqlite DB, attempts to read `MaterializerState` from the DB. If we encounter
     /// any failure along the way, such as if the DB path does not exist, the sqlite read fails,
     /// or the DB has a different set of versions than the versions this buck2 expects, we
@@ -109,7 +112,6 @@ impl MaterializerStateSqliteDb {
     /// from the existing DB. These failures are expected if db doesn't exist or versions don't match.
     /// The outer `Result` captures any failure encountered when trying to delete the existing DB and
     /// create a new one.
-    /// TODO(scottcao): pull this method into a shared trait once we add a another sqlite DB
     pub async fn initialize(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
@@ -122,7 +124,7 @@ impl MaterializerStateSqliteDb {
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
         io_executor
             .execute_io_inline(|| {
-                Self::initialize_impl(
+                Self::initialize_materializer_sqlite_db(
                     materializer_state_dir,
                     versions,
                     current_instance_metadata,
@@ -133,150 +135,56 @@ impl MaterializerStateSqliteDb {
             .await
     }
 
-    fn initialize_impl(
+    /// Internal implementation that handles digest config
+    fn initialize_materializer_sqlite_db(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
-        mut current_instance_metadata: HashMap<String, String>,
+        current_instance_metadata: HashMap<String, String>,
         digest_config: DigestConfig,
         reject_identity: Option<&MaterializerStateIdentity>,
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
-        let timestamp_on_initialization = Utc::now().to_rfc3339();
-        current_instance_metadata.insert(IDENTITY_KEY.to_owned(), timestamp_on_initialization);
+        let reject_identity = reject_identity.map(|id| SqliteIdentity::from(id.clone()));
 
-        let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
-
-        let result: buck2_error::Result<(Self, MaterializerState)> = try {
-            // try reading the existing db, if it exists.
-            if !db_path.exists() {
-                Err(MaterializerStateSqliteDbError::PathDoesNotExist(
-                    db_path.clone(),
-                ))?
-            }
-
-            let tables = MaterializerStateTables::open(&db_path)?;
-
-            // First check that versions match
-            let read_versions = tables.versions_table.read_all()?;
-            if read_versions != versions {
-                Err(MaterializerStateSqliteDbError::VersionMismatch {
-                    expected: versions.clone(),
-                    found: read_versions,
-                    path: db_path.clone(),
-                })?;
-            }
-
-            let mut db = Self::new(tables)?;
-
-            if let Some(reject_identity) = reject_identity {
-                if db.identity == *reject_identity {
-                    Err(MaterializerStateSqliteDbError::RejectedIdentity {
-                        identity: db.identity.clone(),
-                    })?;
+        match Self::get_sqlite_db(
+            &materializer_state_dir,
+            &versions,
+            current_instance_metadata.clone(),
+            reject_identity.as_ref(),
+        ) {
+            Ok(db) => {
+                match db
+                    .tables
+                    .domain_table
+                    .read_materializer_state(digest_config)
+                {
+                    Ok(state) => Ok((db, Ok(state))),
+                    Err(e) => {
+                        let state = Self::create_sqlite_db(
+                            materializer_state_dir,
+                            versions,
+                            current_instance_metadata,
+                        )?;
+                        Ok((state, Err(e)))
+                    }
                 }
             }
-
-            let state = db
-                .materializer_state_table()
-                .read_materializer_state(digest_config)?;
-
-            (db, state)
-        };
-
-        match result {
-            Ok((db, state)) => Ok((db, Ok(state))),
             Err(e) => {
-                // Loading failed. Initialize a new db from scratch.
-
-                // Delete the existing materializer_state directory and create a new one.
-                // We delete the entire directory and not just the db file because sqlite
-                // can leave behind other files.
-                if materializer_state_dir.exists() {
-                    fs_util::remove_dir_all(&materializer_state_dir)?;
-                }
-                fs_util::create_dir_all(&materializer_state_dir)?;
-
-                // Initialize a new db
-                let tables = MaterializerStateTables::open(&db_path)?;
-                tables.create_all_tables()?;
-                tables.versions_table.insert_all(versions)?;
-                // Update both "last_read_by" and "created_by"
-                tables
-                    .created_by_table
-                    .insert_all(current_instance_metadata)?;
-
-                Ok((Self::new(tables)?, Err(e.into())))
+                let state = Self::create_sqlite_db(
+                    materializer_state_dir,
+                    versions,
+                    current_instance_metadata,
+                )?;
+                Ok((state, Err(e)))
             }
         }
     }
 
     pub(crate) fn materializer_state_table(&mut self) -> &MaterializerStateSqliteTable {
-        &self.tables.materializer_state_table
+        &self.tables.domain_table
     }
 
-    pub fn identity(&self) -> &MaterializerStateIdentity {
-        &self.identity
-    }
-}
-
-struct MaterializerStateTables {
-    /// Table storing actual materializer state
-    materializer_state_table: MaterializerStateSqliteTable,
-    /// Table for holding any metadata used to check version match. When loading
-    /// from an existing db, we check if the versions from this table match the
-    /// versions this buck2 binary expects. If the versions don't match, we throw
-    /// away the entire db and initialize a new one. If versions do match, then
-    /// we try to read all state from `materializer_state_table`.
-    versions_table: KeyValueSqliteTable,
-    /// Table for logging metadata associated with the buck2 that created the db.
-    created_by_table: KeyValueSqliteTable,
-}
-
-impl MaterializerStateTables {
-    /// Given path to sqlite DB, opens and returns a new connection to the DB.
-    fn open(path: &AbsNormPath) -> buck2_error::Result<Self> {
-        let connection = Connection::open(path)?;
-        // TODO: make this work on Windows too
-        if cfg!(unix) {
-            connection.pragma_update(None, "journal_mode", "WAL")?;
-        }
-
-        // Setting synchronous to anything but OFF prevents data corruption in case of power loss,
-        // but for the deferred materializer state, we are rather happy to run the risk of data
-        // corruption (which we recover from by just dropping the state and pretending we have
-        // none), rather than running a `fsync` at any point during a build, which tends to be
-        // *very* slow, because if we do a `fsync` from the deferred materializer, that will tend
-        // to occur after a lot of writes have been done, which means a lot of data needs syncing!
-        //
-        // Note that upon power loss there isn't really a guarantee of ordering of things written
-        // across different files anyway, so we always run some risk of having our state be
-        // incorrect if that happens, unless we fsync after every single write, but, that's
-        // definitely not an option.
-        //
-        // This problem notably manifests itself when routing writes through the deferred
-        // materializer on a benchmark build. This causes the set of operations done by the
-        // deferred materializer to exceed the WAL max size (which is 1000 pages that are 4KB each,
-        // so about 4MB of data), which causes SQLite to write the WAL to the database file, which
-        // is the only circumstance under which SQLite does a `fsync` when WAL is enabled, and then
-        // we completely stall I/O for a little while.
-        connection.pragma_update(None, "synchronous", "OFF")?;
-
-        let connection = Arc::new(Mutex::new(connection));
-        let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
-        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
-        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
-
-        Ok(Self {
-            materializer_state_table,
-            versions_table,
-            created_by_table,
-        })
-    }
-
-    fn create_all_tables(&self) -> buck2_error::Result<()> {
-        self.materializer_state_table.create_table()?;
-        self.versions_table.create_table()?;
-        self.created_by_table.create_table()?;
-        Ok(())
+    pub fn materializer_identity(&self) -> MaterializerStateIdentity {
+        MaterializerStateIdentity::from(self.identity.clone())
     }
 }
 
@@ -290,7 +198,7 @@ pub(crate) fn testing_materializer_state_sqlite_db(
     MaterializerStateSqliteDb,
     buck2_error::Result<MaterializerState>,
 )> {
-    MaterializerStateSqliteDb::initialize_impl(
+    MaterializerStateSqliteDb::initialize_materializer_sqlite_db(
         fs.resolve(ProjectRelativePath::unchecked_new(
             "buck-out/v2/cache/materializer_state",
         )),
@@ -318,6 +226,8 @@ mod tests {
     use buck2_execute::directory::new_symlink;
     use chrono::TimeZone;
     use itertools::Itertools;
+    use parking_lot::Mutex;
+    use rusqlite::Connection;
 
     use super::*;
     use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
@@ -522,7 +432,7 @@ mod tests {
             want: &HashMap<String, String>,
         ) {
             // Remove the key we inject (and check it's there).
-            have.remove(IDENTITY_KEY).unwrap();
+            have.remove("timestamp_on_initialization").unwrap();
             assert_eq!(have, *want);
         }
 
@@ -610,7 +520,7 @@ mod tests {
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
 
-            db.identity
+            db.materializer_identity()
         };
 
         {

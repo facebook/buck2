@@ -498,7 +498,7 @@ impl DaemonState {
                 .build();
 
             let materializer_state_identity =
-                materializer_db.as_ref().map(|d| d.identity().clone());
+                materializer_db.as_ref().map(|d| d.materializer_identity());
 
             let re_client_manager = Arc::new(ReConnectionManager::new(
                 fb,

@@ -20,6 +20,7 @@ use buck2_error::BuckErrorContext;
 use chrono::Utc;
 use derive_more::Display;
 use derive_more::From;
+use dupe::Dupe;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 
@@ -75,8 +76,8 @@ pub trait SqliteDb {
     fn identity(&self) -> &SqliteIdentity;
 
     fn get_sqlite_db(
-        db_dir: AbsNormPathBuf,
-        versions: HashMap<String, String>,
+        db_dir: &AbsNormPathBuf,
+        versions: &HashMap<String, String>,
         mut current_instance_metadata: HashMap<String, String>,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<Self>
@@ -97,7 +98,7 @@ pub trait SqliteDb {
 
         // First check that versions match
         let read_versions = tables.versions_table.read_all()?;
-        if read_versions != versions {
+        if read_versions != *versions {
             Err(SqliteDbError::VersionMismatch {
                 expected: versions.clone(),
                 found: read_versions,
@@ -169,11 +170,10 @@ pub struct SqliteTables<T: SqliteTable> {
 
 impl<T: SqliteTable> SqliteTables<T> {
     /// Create a new SqliteTables instance
-    pub fn new(
-        domain_table: T,
-        versions_table: KeyValueSqliteTable,
-        created_by_table: KeyValueSqliteTable,
-    ) -> Self {
+    pub fn new(domain_table: T, connection: Arc<Mutex<Connection>>) -> Self {
+        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
+        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
+
         Self {
             domain_table,
             versions_table,
@@ -315,15 +315,7 @@ mod tests {
         fn open_tables(path: &AbsNormPath) -> buck2_error::Result<SqliteTables<Self::TableType>> {
             let connection = SqliteTables::<Self::TableType>::create_connection(path)?;
             let test_table = TestSqliteTable::new(connection.dupe());
-            let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
-            let created_by_table =
-                KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
-
-            Ok(SqliteTables::new(
-                test_table,
-                versions_table,
-                created_by_table,
-            ))
+            Ok(SqliteTables::new(test_table, connection))
         }
 
         fn identity(&self) -> &SqliteIdentity {
@@ -404,7 +396,7 @@ mod tests {
         db.insert_test_data("persistent_value_2")?;
 
         // Load the existing database
-        let mut loaded_db = TestSqliteDb::get_sqlite_db(db_dir, versions, metadata, None)?;
+        let mut loaded_db = TestSqliteDb::get_sqlite_db(&db_dir, &versions, metadata, None)?;
 
         // Verify data persisted
         let state = loaded_db.tables.domain_table.read_all()?;
@@ -436,7 +428,7 @@ mod tests {
         let _db = TestSqliteDb::create_sqlite_db(db_dir.clone(), v1_versions, metadata.clone())?;
 
         // Try to load with version 2
-        let result = TestSqliteDb::get_sqlite_db(db_dir.clone(), v2_versions, metadata, None);
+        let result = TestSqliteDb::get_sqlite_db(&db_dir, &v2_versions, metadata, None);
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(
@@ -463,7 +455,7 @@ mod tests {
         let identity = db.identity().clone();
 
         // Try to load the same database but reject its identity
-        let result = TestSqliteDb::get_sqlite_db(db_dir, versions, metadata, Some(&identity));
+        let result = TestSqliteDb::get_sqlite_db(&db_dir, &versions, metadata, Some(&identity));
         assert!(result.is_err());
 
         if let Err(e) = result {
@@ -484,7 +476,7 @@ mod tests {
         let metadata = create_test_metadata();
 
         // Try to load from non-existent path
-        let result = TestSqliteDb::get_sqlite_db(nonexistent_db_dir, versions, metadata, None);
+        let result = TestSqliteDb::get_sqlite_db(&nonexistent_db_dir, &versions, metadata, None);
         assert!(result.is_err());
 
         if let Err(e) = result {
@@ -504,10 +496,7 @@ mod tests {
         // Create tables manually
         let connection = SqliteTables::<TestSqliteTable>::create_connection(&db_path)?;
         let test_table = TestSqliteTable::new(connection.dupe());
-        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
-        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
-
-        let tables = SqliteTables::new(test_table, versions_table, created_by_table);
+        let tables = SqliteTables::new(test_table, connection);
 
         // Test table creation
         tables.create_all_tables()?;
