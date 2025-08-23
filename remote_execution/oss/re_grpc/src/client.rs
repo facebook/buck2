@@ -71,6 +71,7 @@ use regex::Regex;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::broadcast;
 use tonic::codegen::InterceptedService;
 use tonic::metadata;
 use tonic::metadata::MetadataKey;
@@ -466,13 +467,26 @@ pub struct GRPCClients {
     bytestream_client: ByteStreamClient<GrpcService>,
 }
 
+#[derive(Debug, Copy, Clone)]
 enum DigestRemoteState {
     ExistsOnRemote,
     Missing,
 }
 
+#[derive(Debug)]
+enum FindMissingCacheState {
+    Finished(DigestRemoteState),
+    InFlight(broadcast::Receiver<Result<DigestRemoteState, ()>>),
+}
+
+#[derive(Debug)]
+enum FindMissingStartResult {
+    InCache(FindMissingCacheState),
+    Started(broadcast::Sender<Result<DigestRemoteState, ()>>),
+}
+
 struct FindMissingCache {
-    cache: LruCache<TDigest, DigestRemoteState>,
+    cache: LruCache<TDigest, FindMissingCacheState>,
     /// To avoid a situation where we cache that an artifact is available remotely, but the artifact then expires
     /// we clear our local cache once every `ttl`.
     ttl: Duration,
@@ -487,13 +501,32 @@ impl FindMissingCache {
         }
     }
 
+    pub fn get_or_start(&mut self, digest: &TDigest) -> FindMissingStartResult {
+        self.clear_if_ttl_expires();
+
+        let mut inserted_sender = None;
+        let cache_state = self.cache.get_or_insert(digest.clone(), || {
+            let (tx, rx) = broadcast::channel(1);
+            inserted_sender = Some(tx);
+            FindMissingCacheState::InFlight(rx)
+        });
+        if let Some(sender) = inserted_sender {
+            return FindMissingStartResult::Started(sender);
+        }
+        match cache_state {
+            FindMissingCacheState::Finished(drs) => {
+                FindMissingStartResult::InCache(FindMissingCacheState::Finished(*drs))
+            }
+            FindMissingCacheState::InFlight(rx) => {
+                FindMissingStartResult::InCache(FindMissingCacheState::InFlight(rx.resubscribe()))
+            }
+        }
+    }
+
     pub fn put(&mut self, digest: TDigest, state: DigestRemoteState) {
         self.clear_if_ttl_expires();
-        self.cache.put(digest, state);
-    }
-    pub fn get(&mut self, digest: &TDigest) -> Option<&DigestRemoteState> {
-        self.clear_if_ttl_expires();
-        self.cache.get(digest)
+        self.cache
+            .put(digest, FindMissingCacheState::Finished(state));
     }
 }
 
@@ -866,67 +899,125 @@ impl REClient {
         request: GetDigestsTtlRequest,
     ) -> anyhow::Result<GetDigestsTtlResponse> {
         let mut cas_client = self.grpc_clients.cas_client.clone();
-        let mut remote_ttl: HashMap<TDigest, DigestWithTtl> = HashMap::new();
+        let mut remote_results: HashMap<TDigest, DigestRemoteState> = HashMap::new();
+        let mut digests_waiting: HashMap<
+            TDigest,
+            broadcast::Receiver<Result<DigestRemoteState, ()>>,
+        > = HashMap::new();
+        let mut digests_to_check: Vec<(TDigest, broadcast::Sender<Result<DigestRemoteState, ()>>)> =
+            Vec::new();
 
-        for digest_chunk in request.digests.chunks(100) {
-            let mut digest_to_check: Vec<TDigest> = Vec::new();
+        let mut digest_iter = request.digests.iter();
+        while digest_iter.len() > 0 {
+            // Sort our blobs based on what action we need to take
             {
                 let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
-                for digest in digest_chunk {
-                    // Assume that all digests are present on the remote because the API
-                    // returns what is *not* present.
-                    remote_ttl.insert(
-                        digest.clone(),
-                        DigestWithTtl {
-                            digest: digest.clone(),
-                            ttl: self.runtime_opts.cas_ttl_secs,
-                        },
-                    );
-                    match find_missing_cache.get(digest) {
-                        Some(DigestRemoteState::Missing) | None => {
-                            digest_to_check.push(digest.clone());
+                for digest in digest_iter.by_ref() {
+                    match find_missing_cache.get_or_start(&digest) {
+                        // We have our final result already cached
+                        FindMissingStartResult::InCache(FindMissingCacheState::Finished(rs)) => {
+                            remote_results.insert(digest.clone(), rs);
                         }
-                        _ => {}
+                        // This blob is already being requested by another task
+                        FindMissingStartResult::InCache(FindMissingCacheState::InFlight(rx)) => {
+                            digests_waiting.insert(digest.clone(), rx);
+                        }
+                        // We can check this blob
+                        FindMissingStartResult::Started(tx) => {
+                            digests_to_check.push((digest.clone(), tx));
+                        }
+                    }
+                    if digests_to_check.len() >= 100 {
+                        break;
                     }
                 }
             }
 
-            if digest_to_check.is_empty() {
-                continue;
-            }
+            // Send a request and notify others of the result
+            if !digests_to_check.is_empty() {
+                tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
+                match cas_client
+                    .find_missing_blobs(with_re_metadata(
+                        FindMissingBlobsRequest {
+                            instance_name: self.instance_name.as_str().to_owned(),
+                            blob_digests: digests_to_check.map(|b| tdigest_to(b.0.clone())),
+                        },
+                        metadata.clone(),
+                        self.runtime_opts.use_fbcode_metadata,
+                    ))
+                    .await
+                {
+                    Err(e) => {
+                        // Notify others of the failure
+                        for (_, tx) in &*digests_to_check {
+                            let _ = tx.send(Err(()));
+                        }
+                        digests_to_check.clear();
+                        return Err(e)
+                            .context("Failed to request what blobs are not present on remote");
+                    }
+                    Ok(missing_blobs) => {
+                        let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
 
-            let missing_blobs = cas_client
-                .find_missing_blobs(with_re_metadata(
-                    FindMissingBlobsRequest {
-                        instance_name: self.instance_name.as_str().to_owned(),
-                        blob_digests: digest_to_check.map(|b| tdigest_to(b.clone())),
-                    },
-                    metadata.clone(),
-                    self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await
-                .context("Failed to request what blobs are not present on remote")?;
-            let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
-            let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
-            for digest in &digest_to_check {
-                find_missing_cache.put(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                        // Update the results and the cache
+                        {
+                            let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+                            for (digest, _) in &*digests_to_check {
+                                remote_results
+                                    .insert(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                                find_missing_cache
+                                    .put(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                            }
+                            for digest in
+                                &resp.missing_blob_digests.map(|d| tdigest_from(d.clone()))
+                            {
+                                // If it's present in the MissingBlobsResponse, it's expired on the remote and
+                                // needs to be refetched.
+                                remote_results.insert(digest.clone(), DigestRemoteState::Missing);
+                                find_missing_cache.put(digest.clone(), DigestRemoteState::Missing);
+                            }
+                        }
+
+                        // Notify others of the success
+                        for (digest, tx) in &*digests_to_check {
+                            let rem_state = remote_results.get(digest).unwrap();
+                            let _ = tx.send(Ok(*rem_state));
+                        }
+                        digests_to_check.clear();
+                    }
+                };
             }
-            for digest in &resp.missing_blob_digests.map(|d| tdigest_from(d.clone())) {
-                // If it's present in the MissingBlobsResponse, it's expired on the remote and
-                // needs to be refetched.
-                remote_ttl.insert(
-                    digest.clone(),
-                    DigestWithTtl {
-                        digest: digest.clone(),
-                        ttl: 0,
-                    },
-                );
-                find_missing_cache.put(digest.clone(), DigestRemoteState::Missing);
+        }
+
+        // Wait to receive results from others
+        for (digest, rx) in &mut digests_waiting {
+            if let Ok(rs) = rx
+                .recv()
+                .await
+                .context("Failed to receive FindMissingBlobs result from requesting task")?
+            {
+                remote_results.insert(digest.clone(), rs);
+            } else {
+                return Err(anyhow::anyhow!(
+                    "FindMissingBlobs request failed in other task"
+                ));
             }
         }
 
         Ok(GetDigestsTtlResponse {
-            digests_with_ttl: remote_ttl.values().cloned().collect::<Vec<DigestWithTtl>>(),
+            digests_with_ttl: remote_results
+                .iter()
+                .map(|(digest, rs)| match rs {
+                    DigestRemoteState::Missing => DigestWithTtl {
+                        digest: digest.clone(),
+                        ttl: 0,
+                    },
+                    DigestRemoteState::ExistsOnRemote => DigestWithTtl {
+                        digest: digest.clone(),
+                        ttl: self.runtime_opts.cas_ttl_secs,
+                    },
+                })
+                .collect::<Vec<DigestWithTtl>>(),
         })
     }
 
