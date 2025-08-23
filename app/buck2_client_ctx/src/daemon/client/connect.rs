@@ -96,8 +96,8 @@ pub(crate) enum ConstraintUnsatisfiedReason {
     RejectDaemonId,
     #[display("Trace IO mismatch")]
     TraceIo,
-    #[display("Materializer state identity mismatch")]
-    MaterializerStateIdentity,
+    #[display("Sqlite identity mismatch")]
+    SqliteIdentity,
 }
 
 impl ConstraintUnsatisfiedReason {
@@ -118,8 +118,8 @@ impl ConstraintUnsatisfiedReason {
             ConstraintUnsatisfiedReason::TraceIo => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchTraceIo
             }
-            ConstraintUnsatisfiedReason::MaterializerStateIdentity => {
-                buck2_data::DaemonWasStartedReason::ConstraintMismatchMaterializerStateIdentity
+            ConstraintUnsatisfiedReason::SqliteIdentity => {
+                buck2_data::DaemonWasStartedReason::ConstraintMismatchSqliteIdentity
             }
         }
     }
@@ -197,7 +197,7 @@ impl DaemonConstraintsRequest {
 
         if let Some(r) = &self.reject_materializer_state {
             if extra.materializer_state_identity.as_ref() == Some(r) {
-                return Err(ConstraintUnsatisfiedReason::MaterializerStateIdentity);
+                return Err(ConstraintUnsatisfiedReason::SqliteIdentity);
             }
         }
 
@@ -673,9 +673,7 @@ fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) 
         DaemonWasStartedReason::ConstraintMismatchStartupConfig => "Startup config mismatch",
         DaemonWasStartedReason::ConstraintRejectDaemonId => "Reject daemon id",
         DaemonWasStartedReason::ConstraintMismatchTraceIo => "Trace IO mismatch",
-        DaemonWasStartedReason::ConstraintMismatchMaterializerStateIdentity => {
-            "Materializer state identity mismatch"
-        }
+        DaemonWasStartedReason::ConstraintMismatchSqliteIdentity => "Sqlite identity mismatch",
         DaemonWasStartedReason::CouldNotConnectToDaemon => {
             // TODO(nga): get rid of this variant.
             "Could not connect to daemon"

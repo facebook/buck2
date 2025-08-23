@@ -11,7 +11,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use allocative::Allocative;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::sqlite::sqlite_db::SqliteTable;
@@ -25,7 +24,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
 use chrono::Utc;
-use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
 
@@ -34,21 +32,6 @@ use crate::materializers::sqlite::materializer_state_table::MaterializerStateSql
 
 pub(crate) mod artifact_type;
 pub(crate) mod materializer_state_table;
-
-#[derive(Display, Allocative, Clone, From, PartialEq, Eq, Debug)]
-pub struct MaterializerStateIdentity(String);
-
-impl From<SqliteIdentity> for MaterializerStateIdentity {
-    fn from(identity: SqliteIdentity) -> Self {
-        MaterializerStateIdentity(identity.to_string())
-    }
-}
-
-impl From<MaterializerStateIdentity> for SqliteIdentity {
-    fn from(identity: MaterializerStateIdentity) -> Self {
-        SqliteIdentity::from(identity.0)
-    }
-}
 
 /// Hand-maintained schema version for the materializer state sqlite db.
 /// PLEASE bump this version if you are making a breaking change to the
@@ -120,7 +103,7 @@ impl MaterializerStateSqliteDb {
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
         digest_config: DigestConfig,
-        reject_identity: Option<&MaterializerStateIdentity>,
+        reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
         io_executor
             .execute_io_inline(|| {
@@ -141,7 +124,7 @@ impl MaterializerStateSqliteDb {
         versions: HashMap<String, String>,
         current_instance_metadata: HashMap<String, String>,
         digest_config: DigestConfig,
-        reject_identity: Option<&MaterializerStateIdentity>,
+        reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
         let reject_identity = reject_identity.map(|id| SqliteIdentity::from(id.clone()));
 
@@ -182,10 +165,6 @@ impl MaterializerStateSqliteDb {
     pub(crate) fn materializer_state_table(&mut self) -> &MaterializerStateSqliteTable {
         &self.tables.domain_table
     }
-
-    pub fn materializer_identity(&self) -> MaterializerStateIdentity {
-        MaterializerStateIdentity::from(self.identity.clone())
-    }
 }
 
 #[allow(unused)] // Used by test modules
@@ -193,7 +172,7 @@ pub(crate) fn testing_materializer_state_sqlite_db(
     fs: &ProjectRoot,
     versions: HashMap<String, String>,
     metadata: HashMap<String, String>,
-    reject_identity: Option<&MaterializerStateIdentity>,
+    reject_identity: Option<&SqliteIdentity>,
 ) -> buck2_error::Result<(
     MaterializerStateSqliteDb,
     buck2_error::Result<MaterializerState>,
@@ -520,7 +499,7 @@ mod tests {
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
 
-            db.materializer_identity()
+            db.identity().clone()
         };
 
         {

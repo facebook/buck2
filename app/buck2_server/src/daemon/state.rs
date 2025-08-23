@@ -30,6 +30,8 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::memory_tracker::MemoryTracker;
+use buck2_common::sqlite::sqlite_db::SqliteDb;
+use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::systemd::SystemdCreationDecision;
 use buck2_common::systemd::SystemdRunner;
 use buck2_core::buck2_env;
@@ -61,7 +63,6 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
-use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_file_watcher::file_watcher::FileWatcher;
@@ -165,7 +166,7 @@ pub struct DaemonStateData {
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
 
     /// A unique identifier for the materializer state.
-    pub materializer_state_identity: Option<MaterializerStateIdentity>,
+    pub materializer_state_identity: Option<SqliteIdentity>,
 
     /// Whether to enable the restarter. This controls whether the client will attempt to restart
     /// the daemon when we hit an error.
@@ -498,7 +499,7 @@ impl DaemonState {
                 .build();
 
             let materializer_state_identity =
-                materializer_db.as_ref().map(|d| d.materializer_identity());
+                materializer_db.as_ref().map(|d| d.identity().clone());
 
             let re_client_manager = Arc::new(ReConnectionManager::new(
                 fb,

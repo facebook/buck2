@@ -38,6 +38,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::memory;
+use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
@@ -55,7 +56,6 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationMethod;
-use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_dropcancel;
@@ -163,7 +163,7 @@ impl DaemonShutdown {
 pub struct BuckdServerInitPreferences {
     pub detect_cycles: Option<DetectCycles>,
     pub enable_trace_io: bool,
-    pub reject_materializer_state: Option<MaterializerStateIdentity>,
+    pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
 }
 
