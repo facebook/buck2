@@ -567,6 +567,9 @@ def rust_compile(
             deferred_link_cmd.add(cmd_args(linker_argsfile, format = "@{}"))
             deferred_link_cmd.add(cmd_args(hidden = link_args_output.hidden))
 
+            if toolchain_info.sysroot_path:
+                deferred_link_cmd.add(cmd_args(hidden = toolchain_info.sysroot_path))
+
             # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
             # out in `extract_link_action.py` and provide our own output path here.
             deferred_link_cmd.add(get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output))
