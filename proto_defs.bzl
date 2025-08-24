@@ -8,7 +8,7 @@
 
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 load("@fbcode_macros//build_defs:native_rules.bzl", "alias", "buck_genrule")
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
 def rust_protobuf_library(
         name,
