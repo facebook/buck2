@@ -6,8 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs/lib:link_styles.bzl", "link_styles")
+load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 
 def buck_rust_binary(**kwargs):
     kwargs.setdefault("edition", "2021")
