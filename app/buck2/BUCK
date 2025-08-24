@@ -1,6 +1,6 @@
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 # @oss-disable[end= ]: load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 load(":transition.bzl", "buck2_client_transition_alias")
 
 oncall("build_infra")
