@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-PythonBuckConfigPackageStyle = ["standalone", "inplace", "inplace_lite"]
+PythonBuckConfigPackageStyle = ["standalone", "inplace", "inplace_lite", "outplace"]
 
 def _srcs_arg():
     return {

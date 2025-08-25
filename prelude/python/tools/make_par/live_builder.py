@@ -9,6 +9,7 @@
 # pyre-ignore-all-errors
 
 import os
+import shutil
 import sys
 
 from par_builder import ParBuilder
@@ -37,6 +38,7 @@ class LiveBuilder(ParBuilder):
             self.linktree = options.live_link_tree
         else:
             self.linktree = options.output.rsplit(".", 1)[0] + linktree_suffix
+        self.copy_files = options.copy_files is True
 
     def _postbuild(self):
         pass
@@ -65,15 +67,19 @@ class LiveBuilder(ParBuilder):
 
             if entry.src_data is None:
                 assert entry.src_path is not None
-                # Add a symlink to the source file
-                if entry.src_path.startswith("/"):
-                    # if src_path is absolute, use it as link_path (no need to calculate relative path).
-                    link_path = entry.src_path
+                if self.copy_files:
+                    shutil.copyfile(entry.src_path, dest_path)
+                    os.chmod(dest_path, os.stat(entry.src_path).st_mode)
                 else:
-                    link_path = os.path.relpath(
-                        entry.src_path, os.path.dirname(dest_path)
-                    )
-                os.symlink(link_path, dest_path)
+                    # Add a symlink to the source file
+                    if entry.src_path.startswith("/"):
+                        # if src_path is absolute, use it as link_path (no need to calculate relative path).
+                        link_path = entry.src_path
+                    else:
+                        link_path = os.path.relpath(
+                            entry.src_path, os.path.dirname(dest_path)
+                        )
+                    os.symlink(link_path, dest_path)
             else:
                 # For auto-generated files, write them out as
                 # regular files in the linktree.

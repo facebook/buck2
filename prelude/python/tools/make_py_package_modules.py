@@ -54,6 +54,7 @@ import argparse
 import errno
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Dict, Set, Tuple
 
@@ -144,6 +145,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="The link tree directory to write to",
     )
+    parser.add_argument(
+        "--copy-files",
+        default=False,
+        action="store_true",
+        help="Copy files instead of symlinking them",
+    )
 
     return parser.parse_args()
 
@@ -181,6 +188,7 @@ def add_path_mapping(
     src: Path,
     new_dest: Path,
     origin: str = "unknown",
+    copy_files: bool = False,
 ) -> None:
     """
     Add the mapping of a destination path into `path_mapping`, by getting the
@@ -194,9 +202,12 @@ def add_path_mapping(
             out += " (from {})".format(origin)
         return out
 
-    link_path = os.path.relpath(
-        os.path.realpath(src), os.path.realpath(new_dest.parent)
-    )
+    if copy_files:
+        link_path = os.path.realpath(src)
+    else:
+        link_path = os.path.relpath(
+            os.path.realpath(src), os.path.realpath(new_dest.parent)
+        )
     if new_dest in path_mapping:
         prev, prev_origin = path_mapping[new_dest]
         if prev != link_path and not (
@@ -266,6 +277,7 @@ def create_modules_dir(args: argparse.Namespace) -> None:
                     src,
                     args.modules_dir / dest,
                     origin=origin,
+                    copy_files=args.copy_files,
                 )
 
     for manifest in args.resource_manifests + args.native_library_manifests:
@@ -278,38 +290,47 @@ def create_modules_dir(args: argparse.Namespace) -> None:
                     src,
                     args.modules_dir / dest,
                     origin=origin,
+                    copy_files=args.copy_files,
                 )
 
     if args.native_library_srcs:
         for src, dest in zip(args.native_library_srcs, args.native_library_dests):
             new_dest = args.modules_dir / dest
-            add_path_mapping(path_mapping, dirs_to_create, src, new_dest)
+            add_path_mapping(
+                path_mapping, dirs_to_create, src, new_dest, copy_files=args.copy_files
+            )
 
     if args.dwp_srcs:
         for src, dest in zip(args.dwp_srcs, args.dwp_dests):
             new_dest = args.modules_dir / dest
-            add_path_mapping(path_mapping, dirs_to_create, src, new_dest)
+            add_path_mapping(
+                path_mapping, dirs_to_create, src, new_dest, copy_files=args.copy_files
+            )
 
     for d in dirs_to_create:
         d.mkdir(parents=True, exist_ok=True)
 
     for dest, (target, _origin) in path_mapping.items():
-        try:
-            os.symlink(target, dest)
-        except OSError:
-            if _lexists(dest):
-                if os.path.islink(dest):
-                    raise ValueError(
-                        "{} already exists, and is linked to {}. Cannot link to {}".format(
-                            dest, os.readlink(dest), target
+        if args.copy_files:
+            shutil.copyfile(target, dest)
+            os.chmod(dest, os.stat(target).st_mode)
+        else:
+            try:
+                os.symlink(target, dest)
+            except OSError:
+                if _lexists(dest):
+                    if os.path.islink(dest):
+                        raise ValueError(
+                            "{} already exists, and is linked to {}. Cannot link to {}".format(
+                                dest, os.readlink(dest), target
+                            )
                         )
-                    )
+                    else:
+                        raise ValueError(
+                            "{} already exists. Cannot link to {}".format(dest, target)
+                        )
                 else:
-                    raise ValueError(
-                        "{} already exists. Cannot link to {}".format(dest, target)
-                    )
-            else:
-                raise
+                    raise
 
     # Fill in __init__.py for sources that were provided by the user
     # These are filtered such that we only create this for sources specified

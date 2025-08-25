@@ -456,6 +456,7 @@ def _make_py_package_impl(
         allow_cache_upload: bool) -> PexProviders:
     name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
+    inplace = package_style in [PackageStyle("inplace"), PackageStyle("inplace_lite")]
 
     runtime_files = []
     sub_targets = {}
@@ -470,9 +471,21 @@ def _make_py_package_impl(
             hidden_resources = pex_modules.manifests.hidden_resources(standalone)
 
     if not (standalone or
+            package_style == PackageStyle("outplace") or
             package_style == PackageStyle("inplace") or
             package_style == PackageStyle("inplace_lite")):
         fail("unsupported package style: {}".format(package_style))
+
+    pyc_mode = PycInvalidationMode("unchecked_hash") if inplace else PycInvalidationMode("checked_hash")
+
+    # Accumulate all of the artifacts required by the build
+    runtime_artifacts = []
+    runtime_artifacts.extend(dep_artifacts)
+    runtime_artifacts.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)])
+    if pex_modules.compile:
+        runtime_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
+    if manifest_module:
+        runtime_artifacts.extend(manifest_module.artifacts)
 
     symlink_tree_path = None
     if standalone:
@@ -483,20 +496,8 @@ def _make_py_package_impl(
                 output_suffix,
                 "Python toolchain does not provide make_py_package_standalone",
             )
-
     else:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
-
-    pyc_mode = PycInvalidationMode("unchecked_hash") if symlink_tree_path == None else PycInvalidationMode("checked_hash")
-
-    # Accumulate all of the artifacts required by the build
-    runtime_artifacts = []
-    runtime_artifacts.extend(dep_artifacts)
-    runtime_artifacts.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)])
-    if pex_modules.compile:
-        runtime_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
-    if manifest_module:
-        runtime_artifacts.extend(manifest_module.artifacts)
 
     modules_args = _pex_modules_args(
         ctx,
@@ -545,6 +546,8 @@ def _make_py_package_impl(
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 cmd.add(cmd_args(["--passthrough", "--runtime_env={}={}".format(k, v)]))
+        if package_style == PackageStyle("outplace"):
+            cmd.add(cmd_args("--passthrough=--copy-files", hidden = runtime_artifacts))
 
         identifier_prefix = "standalone{}" if standalone else "inplace{}"
         ctx.actions.run(
@@ -559,6 +562,8 @@ def _make_py_package_impl(
     else:
         modules = cmd_args(python_internal_tools.make_py_package_modules)
         modules.add(modules_args)
+        if package_style == PackageStyle("outplace"):
+            modules.add(cmd_args("--copy-files", hidden = runtime_artifacts))
         ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
 
         bootstrap = cmd_args(python_internal_tools.make_py_package_inplace)
@@ -582,7 +587,7 @@ def _make_py_package_impl(
     if symlink_tree_path != None:
         sub_targets["link-tree"] = [DefaultInfo(
             default_output = symlink_tree_path,
-            other_outputs = runtime_files,
+            other_outputs = runtime_files + (hidden_resources if package_style == PackageStyle("outplace") else []),
             sub_targets = {},
         )]
 
@@ -767,7 +772,6 @@ def _make_py_package_live(
         ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False)
 
     hidden_resources = pex_modules.manifests.hidden_resources(False)
-
     sub_targets["link-tree"] = [DefaultInfo(
         default_output = symlink_tree_path,
         other_outputs = runtime_files + hidden_resources,
