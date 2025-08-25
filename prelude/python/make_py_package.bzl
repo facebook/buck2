@@ -243,6 +243,16 @@ def make_py_package(
     if pex_modules.extensions:
         srcs.append(pex_modules.extensions.manifest)
 
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("macos"):
+        # preload_deps might include additional shared libraries which macOS will
+        # not be able to load unless they're inside the PAR.
+        _, preload_deps_shared_libraries = gather_dep_libraries(ctx.attrs.preload_deps)
+        shared_libraries = shared_libraries + [
+            (lib, "")
+            for info in preload_deps_shared_libraries
+            for lib in traverse_shared_library_info(info)
+        ]
+
     preload_libraries = _preload_libraries_args(
         ctx = ctx,
         shared_libraries = [
@@ -279,17 +289,6 @@ def make_py_package(
         debuginfo_files = debuginfo_files,
     )
 
-    if ctx.attrs._exec_os_type[OsLookup].os == Os("macos"):
-        # preload_deps might include additional shared libraries which macOS will
-        # not be able to load unless they're inside the PAR.
-        _, preload_deps_shared_libraries = gather_dep_libraries(ctx.attrs.preload_deps)
-        shared_libraries.extend(
-            [
-                (lib, "")
-                for info in preload_deps_shared_libraries
-                for lib in traverse_shared_library_info(info)
-            ],
-        )
     default = _make_py_package_wrapper(
         ctx,
         python_toolchain,
