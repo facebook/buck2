@@ -1,0 +1,62 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+# Test that the command alias trampoline script has the expected name, both when
+# using and not using the `executable_name` parameter.
+
+oncall("build_infra")
+
+prelude = native
+
+prelude.genrule(
+    name = "noop-script",
+    out = select({
+        "DEFAULT": "noop.sh",
+        "ovr_config//os:windows": "noop.bat",
+    }),
+    cmd = 'echo "" > ${OUT}',
+)
+
+prelude.command_alias(
+    name = "noop-alias-without-executable-name",
+    exe = ":noop-script",
+    run_using_single_arg = True,
+)
+
+py_assertion(
+    name = "check-no-executable-name",
+    script = """
+import sys
+from pathlib import Path
+assert Path(sys.argv[1]).name == sys.argv[2]
+""",
+    script_args = [
+        "$(exe_target :noop-alias-without-executable-name)",
+        select({
+            "DEFAULT": "__command_alias_trampoline.sh",
+            "ovr_config//os:windows": "__command_alias_trampoline.bat",
+        }),
+    ],
+)
+
+prelude.command_alias(
+    name = "noop-alias-with-executable-name",
+    exe = ":noop-script",
+    executable_name = "custom-alias-name",
+    run_using_single_arg = True,
+)
+
+py_assertion(
+    name = "check-executable-name",
+    script = """
+import sys
+from pathlib import Path
+assert Path(sys.argv[1]).name == sys.argv[2]
+""",
+    script_args = [
+        "$(exe_target :noop-alias-with-executable-name)",
+        select({
+            "DEFAULT": "custom-alias-name",
+            "ovr_config//os:windows": "custom-alias-name.bat",
+        }),
+    ],
+)

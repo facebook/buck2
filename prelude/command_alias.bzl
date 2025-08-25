@@ -22,7 +22,7 @@ def command_alias_impl(ctx: AnalysisContext):
 
     output = command_alias(
         ctx,
-        "__command_alias_trampoline",
+        ctx.attrs.executable_name,
         target_os,
         base,
         cmd_args(ctx.attrs.args),
@@ -41,6 +41,7 @@ def command_alias_impl(ctx: AnalysisContext):
     # probably be easier if we just always went the `output.cmd` route
     if output.maybe_directly_runnable == None or \
        ctx.attrs.run_using_single_arg or \
+       ctx.attrs.executable_name != None or \
        (len(ctx.attrs.platform_exe) > 0 and target_os.script == ScriptLanguage("sh")):
         run_info = RunInfo(args = output.cmd)
     else:
@@ -88,7 +89,7 @@ CommandAliasOutput = record(
 def command_alias(
         ctx: AnalysisContext,
         # The path at which to write the output to, without an extension - that will be added
-        path: str,
+        path: str | None,
         # The target where this script should be able to run (this may actually be your exec platform)
         target_os: OsLookup,
         # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
@@ -96,10 +97,25 @@ def command_alias(
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
         env: dict[str, ArgLike]) -> CommandAliasOutput:
+    if path == "":
+        fail("Path cannot be empty string")
+
+    if path != None:
+        # Custom paths are usually provided for binaries that are searched for with a particular
+        # name. On Windows, the .bat extension is required, and well-behaved tools will respect the
+        # PATHEXT environment variable (which contains that extension). On Unix, no extension is
+        # expected for executables, and searches would likely fail if we added one.
+        unix_trampoline_path = path
+        windows_trampoline_path = path + ".bat"
+    else:
+        # Preserve the `.sh` extension in the default path, since many places have it hard-coded.
+        unix_trampoline_path = "__command_alias_trampoline.sh"
+        windows_trampoline_path = "__command_alias_trampoline.bat"
+
     if target_os.script == ScriptLanguage("sh"):
-        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, path + ".sh", base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, unix_trampoline_path, base, args, env)
     elif target_os.script == ScriptLanguage("bat"):
-        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, path + ".bat", base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, windows_trampoline_path, base, args, env)
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 

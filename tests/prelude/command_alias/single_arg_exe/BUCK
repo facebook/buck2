@@ -1,8 +1,9 @@
 load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
 
-# Test that the use of env vars, platform_exe, or run_using_single_arg don't
-# make `$(exe ...)` expand to multiple args. Even though this is technically
-# fine, a lot of use-cases expect expansions to a single arg.
+# Test that the use of env vars, platform_exe, executable_name, or
+# run_using_single_arg don't make `$(exe ...)` expand to multiple args. Even
+# though this is technically fine for env vars or platform_exe, a lot of
+# use-cases expect expansions to a single arg.
 
 oncall("build_infra")
 
@@ -102,5 +103,31 @@ assert subprocess.check_output(sys.argv[1]).decode().strip() == "hello world"
 """,
     script_args = [
         "$(exe_target :echo_using_single_arg)",
+    ],
+)
+
+prelude.command_alias(
+    name = "echo_using_executable_name",
+    args = [
+        "hello",
+        "world",
+    ],
+    exe = ":echo_args",
+    executable_name = "echo_hello_world",
+)
+
+py_assertion(
+    name = "check_echo_using_executable_name",
+    script = """
+import subprocess
+import sys
+from pathlib import Path
+
+assert len(sys.argv) - 1 == 1
+assert len(sys.argv[1].split(" ")) == 1
+assert subprocess.check_output(sys.argv[1]).decode().strip() == "hello world"
+""",
+    script_args = [
+        "$(exe_target :echo_using_executable_name)",
     ],
 )
