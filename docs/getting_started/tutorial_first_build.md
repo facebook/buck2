@@ -185,7 +185,7 @@ buck2 build :main --show-output
 ```
 ...
 BUILD SUCCEEDED
-fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main buck-out/v2/gen/fbcode/c32808b9d4f0fdd0/scripts/nero/buck2_lab/greeter_bin/__main__/main
+fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main buck-out/v2/gen/fbcode/c32808b9d4f0fdd0/scripts/<unixname>/buck2_lab/greeter_bin/__main__/main
 ```
 
 </FbInternalOnly>
