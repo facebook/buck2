@@ -54,6 +54,7 @@
     "shelljs": "^0.8.5",
     "ansi-html": "0.0.8",
     "dompurify": "^3.2.4",
-    "mermaid": "^11.10.0"
+    "mermaid": "^11.10.0",
+    "tmp": "^0.2.4"
   }
 }
