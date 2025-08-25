@@ -18,7 +18,7 @@ use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
-use buck2_client::commands::debug::DebugCommand;
+use buck2_client::commands::debug::DebugCommandFull;
 use buck2_client::commands::expand_external_cell::ExpandExternalCellsCommand;
 use buck2_client::commands::explain::ExplainCommand;
 use buck2_client::commands::help_env::HelpEnvCommand;
@@ -324,7 +324,7 @@ pub(crate) enum CommandKind {
     Ctargets(ConfiguredTargetsCommand),
     Uquery(UqueryCommand),
     #[clap(subcommand, hide = true)]
-    Debug(DebugCommand),
+    Debug(DebugCommandFull),
     #[clap(hide = true)]
     Complete(buck2_cmd_completion_client::complete::CompleteCommand),
     Completion(buck2_cmd_completion_client::completion::CompletionCommand),
