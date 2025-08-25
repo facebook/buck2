@@ -147,10 +147,9 @@ def get_basic_vs_settings(target: bxl.ConfiguredTargetNode, cli_args):
 
     return basic_vs_settings
 
-def get_vs_settings_for_toolchain(target: bxl.ConfiguredTargetNode, compiler_settings: dict, vs_settings_dict: dict, cli_args, buck_root, bxl_ctx):
+def get_vs_settings_for_toolchain(target: bxl.ConfiguredTargetNode, compiler_settings: dict, cli_args):
     log_debug("# Getting VS settings for toolchain {}", target.label.raw_target(), log_level = cli_args.log_level)
-    mode_files = cli_args.mode_files
-
+    
     vs_settings = get_basic_vs_settings(target, cli_args)
 
     vs_settings["Headers"] = []

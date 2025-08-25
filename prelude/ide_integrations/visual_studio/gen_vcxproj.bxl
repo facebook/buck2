@@ -158,7 +158,6 @@ def _main(bxl_ctx):
     dynamic = [attrs_outfile]
 
     cxx_toolchain_target = get_cxx_toolchain(target_node, bxl_ctx)
-    cxx_toolchain_info = None
     toolchain_settings_file_out = None
 
     if cxx_toolchain_target:

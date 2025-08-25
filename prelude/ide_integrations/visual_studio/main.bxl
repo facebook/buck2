@@ -143,7 +143,6 @@ def _main(bxl_ctx):
                 attrs_artifact_dict[cxx_toolchain_label] = settings_file_artifact
  
                 toolchain_dep_dict[cxx_toolchain_label] = (cxx_toolchain, cxx_toolchain_target_node)
-                cxx_toolchain_target_node_label = cxx_toolchain_target_node.label
 
         attrs_outfile = actions.write_json(get_project_file_path(dep.label, ".attrs.json"), attrs, pretty = True) 
         attrs_artifact_dict[dep.label] = attrs_outfile
@@ -180,16 +179,14 @@ def _main(bxl_ctx):
             for dep in deps
         }
 
-        for dep, node in toolchain_deps:
-            label = dep.label
+        for dep, _ in toolchain_deps:
             content = artifacts[attrs_artifact_dict[dep.label]].read_json()
             attrs_content_dict[dep.label] = content
 
         vs_settings_dict = {}  # target label => vs_settings.
         for dep, node in toolchain_deps:
-            td_label = dep.label
             attrs = attrs_content_dict[dep.label]
-            vs_settings = get_vs_settings_for_toolchain(node, attrs, vs_settings_dict, cli_args, buck_root, ctx)
+            vs_settings = get_vs_settings_for_toolchain(node, attrs, cli_args)
             vs_settings_dict[dep.label] = vs_settings
             
         for dep in deps:
