@@ -11,6 +11,7 @@
 use std::future::Future;
 
 use buck2_cli_proto::ClientContext;
+use buck2_cli_proto::client_context::ExitWhen as GrpcExitWhen;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
@@ -30,6 +31,7 @@ use tokio::runtime::Runtime;
 use crate::client_metadata::ClientMetadata;
 use crate::common::BuckArgMatches;
 use crate::common::CommonEventLogOptions;
+use crate::common::ExitWhen;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::common::PreemptibleWhen;
@@ -204,7 +206,6 @@ impl<'a> ClientCommandContext<'a> {
             skip_targets_with_duplicate_names: starlark_opts.skip_targets_with_duplicate_names,
             reuse_current_config: config_opts.reuse_current_config,
             sanitized_argv: cmd.sanitize_argv(self.argv.clone()).argv,
-            exit_when_different_state: config_opts.exit_when_different_state,
             preemptible: match config_opts.preemptible {
                 None => GrpcPreemptibleWhen::Never,
                 Some(PreemptibleWhen::Never) => GrpcPreemptibleWhen::Never,
@@ -220,6 +221,21 @@ impl<'a> ClientCommandContext<'a> {
                 .collect(),
             target_call_stacks: starlark_opts.target_call_stacks,
             representative_config_flags: arg_matches.get_representative_config_flags_by_source(),
+            exit_when: match config_opts.exit_when {
+                None => {
+                    // The --exit-when-different-state flag is deprecated, but still valid.
+                    // If no --exit-when= value is provided, we'll still respect the old flag.
+                    if config_opts.exit_when_different_state {
+                        GrpcExitWhen::ExitDifferentState
+                    } else {
+                        GrpcExitWhen::ExitNever
+                    }
+                }
+                Some(ExitWhen::Never) => GrpcExitWhen::ExitNever,
+                Some(ExitWhen::DifferentState) => GrpcExitWhen::ExitDifferentState,
+                Some(ExitWhen::NotIdle) => GrpcExitWhen::ExitNotIdle,
+            }
+            .into(),
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -254,7 +270,6 @@ impl<'a> ClientCommandContext<'a> {
             argfiles: Vec::new(),
             buck2_hard_error: buck2_hard_error_env()?.unwrap_or_default().to_owned(),
             command_name: command_name.to_owned(),
-            exit_when_different_state: false,
             client_metadata: self
                 .client_metadata
                 .iter()
@@ -262,6 +277,7 @@ impl<'a> ClientCommandContext<'a> {
                 .collect(),
             preemptible: Default::default(),
             representative_config_flags: Vec::new(),
+            exit_when: Default::default(),
         })
     }
 

@@ -48,9 +48,6 @@ Buckconfig Options:
           If there is no previous command but the flag was set, then the flag is ignored, the
           command behaves as if the flag was not set at all.
 
-      --exit-when-different-state
-          Used for exiting a concurrent command when a different state is detected
-
       --preemptible <PREEMPTIBLE>
           Used to configure when this command could be preempted by another command for the same
           isolation dir.
@@ -69,6 +66,16 @@ Buckconfig Options:
             slightly nicer superconsole output
           - ondifferentstate: When another command starts that cannot run in parallel with this one,
             interrupt this command
+
+      --exit-when <EXIT_WHEN>
+          Whether to proceed with or fail this invocation based on the daemon state
+
+          Possible values:
+          - never:          (default) Execute this command normally
+          - differentstate: Fail this command if another command is already running with a different
+            state
+          - notidle:        Fail this command if another command is already running (regardless of
+            daemon state)
 
 Starlark Options:
       --disable-starlark-types

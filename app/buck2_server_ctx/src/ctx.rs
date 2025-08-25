@@ -21,6 +21,7 @@ use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::EarlyCommandEntry;
 use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
+use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
@@ -158,9 +159,9 @@ pub struct DiceAccessor<'a> {
     pub setup: Box<dyn DiceUpdater + 'a>,
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
-    pub exit_when_different_state: bool,
     pub preemptible: PreemptibleWhen,
     pub build_signals: Box<dyn DeferredBuildSignals>,
+    pub exit_when: ExitWhen,
 }
 
 #[async_trait]
@@ -211,9 +212,9 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
             setup,
             is_nested_invocation,
             sanitized_argv,
-            exit_when_different_state,
             preemptible,
             build_signals,
+            exit_when,
         } = self.dice_accessor(PrivateStruct(())).await?;
 
         let events = self.events().dupe();
@@ -284,11 +285,11 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             is_nested_invocation,
                             sanitized_argv,
                             exclusive_cmd,
-                            exit_when_different_state,
                             self.cancellation_context(),
                             preemptible,
                             self.previous_command_data().into(),
                             self.project_root(),
+                            exit_when,
                         )
                         .await,
                     DiceCriticalSectionEnd {},

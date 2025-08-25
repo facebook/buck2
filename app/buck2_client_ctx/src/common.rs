@@ -99,6 +99,27 @@ pub enum PreemptibleWhen {
     Clone,
     Dupe,
     Copy,
+    clap::ValueEnum,
+    Default
+)]
+#[clap(rename_all = "lower")]
+pub enum ExitWhen {
+    /// (default) Execute this command normally.
+    #[default]
+    Never,
+    /// Fail this command if another command is already running with a different state.
+    DifferentState,
+    /// Fail this command if another command is already running (regardless of daemon state).
+    NotIdle,
+}
+
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    Copy,
     clap::ValueEnum
 )]
 #[clap(rename_all = "lower")]
@@ -205,7 +226,7 @@ pub struct CommonBuildConfigurationOptions {
     pub reuse_current_config: bool,
 
     /// Used for exiting a concurrent command when a different state is detected.
-    #[clap(long)]
+    #[clap(long, hide = true)]
     pub exit_when_different_state: bool,
 
     /// Used to configure when this command could be preempted by another command for the same isolation dir.
@@ -217,6 +238,9 @@ pub struct CommonBuildConfigurationOptions {
     /// first completes.
     #[clap(long, ignore_case = true, value_enum)]
     pub preemptible: Option<PreemptibleWhen>,
+    /// Whether to proceed with or fail this invocation based on the daemon state.
+    #[clap(long, ignore_case = true, value_enum)]
+    pub exit_when: Option<ExitWhen>,
 }
 
 impl CommonBuildConfigurationOptions {
@@ -330,6 +354,7 @@ impl CommonBuildConfigurationOptions {
             reuse_current_config: false,
             exit_when_different_state: false,
             preemptible: Some(PreemptibleWhen::Never),
+            exit_when: None,
         };
         &DEFAULT
     }
@@ -344,6 +369,7 @@ impl CommonBuildConfigurationOptions {
             reuse_current_config: true,
             exit_when_different_state: false,
             preemptible: Some(PreemptibleWhen::OnDifferentState),
+            exit_when: None,
         };
         &OPTS
     }

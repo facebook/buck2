@@ -21,6 +21,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
+use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_core::fs::project::ProjectRoot;
@@ -76,13 +77,17 @@ enum ConcurrencyHandlerError {
     )]
     #[buck2(input)]
     NestedInvocationWithDifferentStates(String, String),
-    #[error("`--exit-when-different-state` was set")]
+    #[error("`--exit-when=differentstate` was set")]
     #[buck2(tag = DaemonIsBusy)]
     ExitWhenDifferentState,
 
     #[error("`--preemptible` was set, and buck daemon preempted this command as another came in.")]
     #[buck2(tag = DaemonPreempted)]
     ExitOnPreemption,
+
+    #[error("`--exit-when=notidle` was set, and buck daemon is not idle.")]
+    #[buck2(tag = DaemonIsBusy)]
+    ExitOnDaemonNotIdle,
 }
 
 #[derive(Clone, Dupe, Copy, Debug)]
@@ -320,6 +325,17 @@ impl ExclusiveCommandLock {
 }
 
 impl ConcurrencyHandler {
+    /// Helper method to format active commands into a string
+    fn format_active_commands(data: &ConcurrencyHandlerData) -> String {
+        let active_commands: Vec<String> = data
+            .active_commands
+            .values()
+            .map(|d| TraceId::to_string(&d.trace_id))
+            .collect();
+
+        active_commands.join(", ")
+    }
+
     pub fn new(dice: Arc<Dice>) -> Arc<Self> {
         Arc::new(ConcurrencyHandler {
             data: Mutex::new(ConcurrencyHandlerData {
@@ -345,11 +361,11 @@ impl ConcurrencyHandler {
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
         exclusive_cmd: Option<String>,
-        exit_when_different_state: bool,
         cancellations: &CancellationContext,
         preemptible: PreemptibleWhen,
         previous_command_data: Arc<LockedPreviousCommandData>,
         project_root: &ProjectRoot,
+        exit_when: ExitWhen,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -384,10 +400,10 @@ impl ConcurrencyHandler {
                                 events,
                                 is_nested_invocation,
                                 sanitized_argv,
-                                exit_when_different_state,
                                 preemptible,
                                 previous_command_data,
                                 project_root,
+                                exit_when,
                             )
                         })
                         .await,
@@ -418,10 +434,10 @@ impl ConcurrencyHandler {
         event_dispatcher: EventDispatcher,
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
-        exit_when_different_state: bool,
         preemptible: PreemptibleWhen,
         previous_command_data: Arc<LockedPreviousCommandData>,
         project_root: &ProjectRoot,
+        exit_when: ExitWhen,
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
@@ -504,9 +520,10 @@ impl ConcurrencyHandler {
                     if let Some(active) = active {
                         let is_same_state = transaction.equivalent(&active.version);
 
-                        // If we have a different state, attempt to transition to cleanup. This will
-                        // succeed only if the current state is not in use.
-                        if !is_same_state {
+                        // If we have a different state and the incoming command is not immediately cancellable,
+                        // (i.e., --exit_when=notidle) attempt to transition to cleanup. This will succeed only
+                        // if the current state is not in use.
+                        if !is_same_state && !matches!(exit_when, ExitWhen::ExitNotIdle) {
                             // If the active commands are preemptible, preempt them.
                             self.cancel_preemptible_commands(&mut data, is_same_state);
 
@@ -536,19 +553,34 @@ impl ConcurrencyHandler {
                                 );
                             }
                             BypassSemaphore::Run(state) => {
+                                if matches!(exit_when, ExitWhen::ExitNotIdle)
+                                    && !data.active_commands.is_empty()
+                                {
+                                    return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
+                                        .with_buck_error_context(|| {
+                                            format!("Buck daemon is busy processing another command: {}", Self::format_active_commands(&data))
+                                        });
+                                }
                                 self.emit_logs(state, &data.active_commands, &command_data)?;
                                 self.cancel_preemptible_commands(&mut data, is_same_state);
                                 break (transaction, false);
                             }
                             BypassSemaphore::Block => {
-                                if exit_when_different_state {
-                                    let active_commands: Vec<String> = data
-                                        .active_commands
-                                        .values()
-                                        .map(|d| TraceId::to_string(&d.trace_id))
-                                        .collect();
-                                    return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
-                                        .with_buck_error_context(|| format!("Buck daemon is busy processing another command: {}", active_commands.join(", ")));
+                                let early_exit_error: Option<ConcurrencyHandlerError> =
+                                    if matches!(exit_when, ExitWhen::ExitDifferentState) {
+                                        Some(ConcurrencyHandlerError::ExitWhenDifferentState)
+                                    } else if matches!(exit_when, ExitWhen::ExitNotIdle) {
+                                        Some(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
+                                    } else {
+                                        None
+                                    };
+                                if let Some(early_exit_error) = early_exit_error {
+                                    return Err(early_exit_error).with_buck_error_context(|| {
+                                        format!(
+                                            "Buck daemon is busy processing another command: {}",
+                                            Self::format_active_commands(&data)
+                                        )
+                                    });
                                 }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.
@@ -866,11 +898,11 @@ mod tests {
             true,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -884,11 +916,11 @@ mod tests {
             true,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -902,11 +934,11 @@ mod tests {
             true,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -939,11 +971,11 @@ mod tests {
             true,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
 
         let fut2 = concurrency.enter(
@@ -958,11 +990,11 @@ mod tests {
             true,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -999,11 +1031,11 @@ mod tests {
             false,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -1017,11 +1049,11 @@ mod tests {
             false,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -1035,11 +1067,11 @@ mod tests {
             false,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -1086,11 +1118,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
                     )
                     .await
             }
@@ -1113,11 +1145,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
                     )
                     .await
             }
@@ -1142,11 +1174,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
                     )
                     .await
             }
@@ -1173,6 +1205,9 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
+        // NOTE: The --exit-when-different-state flag is deprecated in favor of the
+        // --exit-when=differentstate enum value. If a users passes the deprecated flag
+        // the client will catch it and set the enum value instead.
         let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
@@ -1209,11 +1244,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitDifferentState,
                     )
                     .await
             }
@@ -1236,11 +1271,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitDifferentState,
                     )
                     .await
             }
@@ -1265,11 +1300,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitDifferentState,
                     )
                     .await
             }
@@ -1337,11 +1372,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Always,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
                     )
                     .await
             }
@@ -1364,11 +1399,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
                     )
                     .await
             }
@@ -1393,11 +1428,11 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
-                        false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
                         ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
                     )
                     .await
             }
@@ -1498,11 +1533,11 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
-                false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
                 LockedPreviousCommandData::default().into(),
                 ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNever,
             )
             .await?;
 
@@ -1519,11 +1554,11 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
-                false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
                 LockedPreviousCommandData::default().into(),
                 ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNever,
             )
             .await?;
 
@@ -1539,11 +1574,11 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
-                false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
                 LockedPreviousCommandData::default().into(),
                 ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNever,
             )
             .await?;
 
@@ -1649,11 +1684,11 @@ mod tests {
                             false,
                             Vec::new(),
                             exclusive_cmd,
-                            false,
                             CancellationContext::testing(),
                             PreemptibleWhen::Never,
                             LockedPreviousCommandData::default().into(),
                             ProjectRootTemp::new().unwrap().path(),
+                            ExitWhen::ExitNever,
                         )
                         .await
                 }
@@ -1726,11 +1761,11 @@ mod tests {
                     false,
                     Vec::new(),
                     None,
-                    false,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
                     LockedPreviousCommandData::default().into(),
                     ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNever,
                 )
                 .await
         });
@@ -1786,11 +1821,11 @@ mod tests {
             false,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
         pin_mut!(fut1);
 
@@ -1809,11 +1844,11 @@ mod tests {
             false,
             Vec::new(),
             None,
-            false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
             project_root_temp.path(),
+            ExitWhen::ExitNever,
         );
         pin_mut!(fut2);
 
@@ -1839,6 +1874,578 @@ mod tests {
         let (a, b) = tokio::join!(fut1, fut2);
         a.unwrap();
         b.unwrap();
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exit_when_not_idle_with_same_state() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        // Start first command (same state, will run)
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
+                    )
+                    .await
+            }
+        });
+
+        barrier.wait().await;
+
+        // Start second command with --exit-when=notidle (same state, should fail)
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &NoChanges,
+                        |_| async move {
+                            // Should never reach here
+                            panic!("Command should have failed before execution");
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        // Second command should fail immediately
+        let fut2_result = fut2.await?;
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        assert!(
+            fut2_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy),
+            "Expected DaemonIsBusy error tag"
+        );
+
+        // Clean up first command
+        drop(blocked1);
+        fut1.await??;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exit_when_not_idle_with_different_state() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        // Start first command (different state)
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
+                    )
+                    .await
+            }
+        });
+
+        barrier.wait().await;
+
+        // Start second command with --exit-when=notidle (different state, should fail)
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &CtxDifferent, // Different state
+                        |_| async move {
+                            // Should never reach here
+                            panic!("Command should have failed before execution");
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        // Second command should fail immediately
+        let fut2_result = fut2.await?;
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        assert!(
+            fut2_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy),
+            "Expected DaemonIsBusy error tag"
+        );
+
+        // Clean up first command
+        drop(blocked1);
+        fut1.await??;
+
+        Ok(())
+    }
+
+    // This test was moved to the top of the file
+
+    #[tokio::test]
+    async fn test_multiple_exit_when_not_idle_commands_with_same_state() -> buck2_error::Result<()>
+    {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+        let traces3 = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        // Start first command with --exit-when=notidle
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        barrier.wait().await;
+
+        // Start second and third commands with --exit-when=notidle (should both fail)
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &NoChanges,
+                        |_| async move {
+                            panic!("Should not execute");
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        let fut3 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces3),
+                        &NoChanges,
+                        |_| async move {
+                            panic!("Should not execute");
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        // Both second and third commands should fail
+        let fut2_result = fut2.await?;
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        assert!(
+            fut2_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy)
+        );
+
+        let fut3_result = fut3.await?;
+        let fut3_error: buck2_error::Error = fut3_result.unwrap_err().into();
+        assert!(
+            fut3_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy)
+        );
+
+        // Clean up first command
+        drop(blocked1);
+        fut1.await??;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exit_when_not_idle_with_preemptible_command() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        // Start first command with --preemptible=always (could be preempted)
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Always, // This command is preemptible
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
+                    )
+                    .await
+            }
+        });
+
+        barrier.wait().await;
+
+        // Start second command with --exit-when=notidle (should fail)
+        // Even though the first command is preemptible, this should still fail
+        // because --exit-when=notidle means "only run if daemon is completely idle"
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &NoChanges,
+                        |_| async move {
+                            // Should never reach here
+                            panic!("Command should have failed before execution");
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        // Second command should fail immediately, even though first is preemptible
+        let fut2_result = fut2.await?;
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        assert!(
+            fut2_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy),
+            "Expected DaemonIsBusy error tag, even though previous command is preemptible"
+        );
+
+        // The first command should still be running (not preempted)
+        // because --exit-when=notidle doesn't preempt, it just fails
+        assert!(
+            block1.try_write().is_err(),
+            "First command should still be running"
+        );
+
+        // Clean up first command
+        drop(blocked1);
+        fut1.await??;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exit_when_not_idle_gets_preempted() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let barrier = Arc::new(Barrier::new(2));
+        let preempted = Arc::new(AtomicBool::new(false));
+
+        // Start first command with --exit-when=notidle
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let b = block1.dupe();
+            let preempted = preempted.dupe();
+
+            async move {
+                let result = concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            // This should never complete because we'll be preempted
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Always,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await;
+
+                // Check if we got preempted
+                if let Err(ref e) = result {
+                    let error: buck2_error::Error = e.clone().into();
+                    if error
+                        .tags()
+                        .contains(&buck2_error::ErrorTag::DaemonPreempted)
+                    {
+                        preempted.store(true, Ordering::Relaxed);
+                    }
+                }
+                result
+            }
+        });
+
+        barrier.wait().await;
+
+        // Start second command (without any preemptible flag)
+        // This should preempt the first command
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &NoChanges,
+                        |_| async move {
+                            // Just a quick task
+                            tokio::task::yield_now().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never, // Not preemptible
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNever,
+                    )
+                    .await
+            }
+        });
+
+        // Second command should succeed
+        fut2.await??;
+
+        // First command should have been preempted
+        let fut1_result = fut1.await?;
+        assert!(fut1_result.is_err(), "First command should have failed");
+        assert!(
+            preempted.load(Ordering::Relaxed),
+            "First command should have been preempted"
+        );
+
+        // Clean up
+        drop(blocked1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_multiple_exit_when_not_idle_commands_with_different_state()
+    -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        // Start first command with --exit-when=notidle
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        barrier.wait().await;
+
+        // Start second and third commands with --exit-when=notidle (should both fail)
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &CtxDifferent,
+                        |_| async move {
+                            // Just a quick task
+                            tokio::task::yield_now().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
+                        ExitWhen::ExitNotIdle,
+                    )
+                    .await
+            }
+        });
+
+        // Both second and third commands should fail
+        let fut2_result = fut2.await?;
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        assert!(
+            fut2_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy)
+        );
+
+        // Clean up first command
+        drop(blocked1);
+        fut1.await??;
 
         Ok(())
     }

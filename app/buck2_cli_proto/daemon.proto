@@ -138,8 +138,6 @@ message ClientContext {
   HostArchOverride host_arch = 13;
   repeated string argfiles = 14;
   optional string host_xcode_version = 15;
-  /// Error out concurrent commands after there is a state change.
-  bool exit_when_different_state = 16;
   // The name of the command the client thinks it's running.
   string command_name = 17;
   // Any --client-metadata passed by the user.
@@ -161,6 +159,15 @@ message ClientContext {
   PreemptibleWhen preemptible = 22;
   // Used for logging purposes; gives the config flags needed to repro the run
   repeated RepresentativeConfigFlag representative_config_flags = 23;
+
+  enum ExitWhen {
+    /// Default
+    EXIT_NEVER = 0;
+    EXIT_DIFFERENT_STATE = 1;
+    EXIT_NOT_IDLE = 2;
+  }
+  /// Whether to proceed with or fail this invocation based on the daemon state.
+  ExitWhen exit_when = 24;
 }
 
 message TargetsRequest {

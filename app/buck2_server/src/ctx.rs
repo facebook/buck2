@@ -38,6 +38,7 @@ use buck2_certs::validate::CertState;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::ConfigOverride;
+use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen;
@@ -228,8 +229,8 @@ pub struct ServerCommandContext<'a> {
 
     cancellations: &'a CancellationContext,
 
-    exit_when_different_state: bool,
     preemptible: PreemptibleWhen,
+    exit_when: ExitWhen,
 }
 
 impl<'a> ServerCommandContext<'a> {
@@ -344,8 +345,8 @@ impl<'a> ServerCommandContext<'a> {
             sanitized_argv: client_context.sanitized_argv.clone(),
             debugger_handle,
             cancellations,
-            exit_when_different_state: client_context.exit_when_different_state,
             preemptible: client_context.preemptible(),
+            exit_when: client_context.exit_when(),
         })
     }
 
@@ -970,9 +971,9 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             setup: Box::new(self.dice_updater(build_signals_installer).await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
-            exit_when_different_state: self.exit_when_different_state,
             preemptible: self.preemptible,
             build_signals: deferred_build_signals,
+            exit_when: self.exit_when,
         })
     }
 
