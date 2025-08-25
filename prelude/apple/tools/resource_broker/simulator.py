@@ -46,13 +46,14 @@ class SimulatorType(str, Enum):
             SimulatorType.watch: "Apple Watch Series 10 (46mm)",
         }[self]
 
-    def matches_identifier(self, identifier: str) -> bool:
-        return {
+    def matches_device_identifier(self, identifier: str) -> bool:
+        identifier_prefix = {
             SimulatorType.iphoneUnbooted: "iPhone",
             SimulatorType.iphoneBooted: "iPhone",
             SimulatorType.ipad: "iPad",
             SimulatorType.watch: "Apple-Watch",
         }[self]
+        return identifier_prefix in identifier
 
 
 @dataclass_json
@@ -65,7 +66,7 @@ class Simulator:
     state: SimulatorState = SimulatorState.shutdown
 
     def is_type(self, simulator_type: SimulatorType) -> bool:
-        return simulator_type.matches_identifier(self.device_type_identifier)
+        return simulator_type.matches_device_identifier(self.device_type_identifier)
 
     def is_valid(self):
         return self.os_version != "" and self.udid != ""

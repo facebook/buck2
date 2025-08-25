@@ -78,7 +78,7 @@ def _compatible_device_type_from_runtime(
     device_types = [
         device_type
         for device_type in device_types
-        if simulator_type.matches_identifier(device_type.identifier)
+        if simulator_type.matches_device_identifier(device_type.identifier)
     ]
     if device:
         device_types = [t for t in device_types if t.name == device]
@@ -105,7 +105,7 @@ def _select_simulator_spec(
         runtime
         for runtime in runtimes
         if any(
-            simulator_type.matches_identifier(device_type.identifier)
+            simulator_type.matches_device_identifier(device_type.identifier)
             for device_type in runtime.supported_device_types
         )
     ]
