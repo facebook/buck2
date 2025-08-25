@@ -115,7 +115,6 @@ pub struct LocalExecutor {
     forkserver: Option<ForkserverClient>,
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
-    #[allow(unused)]
     worker_pool: Option<Arc<WorkerPool>>,
 }
 
