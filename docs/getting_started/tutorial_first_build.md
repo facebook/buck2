@@ -204,7 +204,7 @@ export const TARGET_NAME = isInternal() ?
 <code>fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_bin:main</code> :
 <code>root//buck2_lab/greeter_bin:main</code>;
 
-- `BUILD SUCCEEDED` indicates that Buck2 successfully build our target.
+- `BUILD SUCCEEDED` indicates that Buck2 successfully built our target.
 - {TARGET_NAME} is the full target label name of our target.
 - Think of the `:main` we used in the step 2 as a relative path to the target
   from within its package (`greeter_bin`).
