@@ -212,7 +212,7 @@ export const TARGET_NAME = isInternal() ?
   target within your entire project (fbsource).
 - `buck-out/.../__main__/main` is the path of our binary output. It is the path
   relative path to fbsource. You can use `--show-full-output` instead of
-  `--show-output` to get the absulate path.
+  `--show-output` to get the absolute path.
 
 ## Step 5: Running Your Application with Buck2
 
