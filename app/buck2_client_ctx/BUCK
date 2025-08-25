@@ -36,6 +36,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-compression",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:bytes",

@@ -9,7 +9,6 @@ version = "0.1.0"
 [dependencies]
 allocative = { workspace = true }
 anyhow = { workspace = true }
-async-compression = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 bytesize = { workspace = true }

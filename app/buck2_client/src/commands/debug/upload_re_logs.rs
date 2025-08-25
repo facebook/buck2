@@ -8,17 +8,13 @@
  * above-listed licenses.
  */
 
-use async_compression::tokio::bufread::ZstdEncoder;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::upload_re_logs::upload_re_logs;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use tokio::io::BufReader;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "upload RE logs")]
@@ -51,25 +47,4 @@ impl BuckSubcommand for UploadReLogsCommand {
         .await?;
         ExitResult::success()
     }
-}
-
-pub(crate) async fn upload_re_logs(
-    manifold: &ManifoldClient,
-    bucket: Bucket,
-    re_logs_dir: &AbsNormPath,
-    session_id: &str,
-    bucket_path: &str,
-) -> buck2_error::Result<()> {
-    let logs_path = re_logs_dir
-        .join(ForwardRelativePath::new(session_id)?)
-        .join(ForwardRelativePath::new("REClientFolly.log")?);
-    let file = async_fs_util::open(&logs_path).await?;
-    let mut encoder =
-        ZstdEncoder::with_quality(BufReader::new(file), async_compression::Level::Default);
-
-    manifold
-        .read_and_upload(bucket, bucket_path, Default::default(), &mut encoder)
-        .await?;
-
-    Ok(())
 }

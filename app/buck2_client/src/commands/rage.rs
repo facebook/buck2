@@ -28,6 +28,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
+use buck2_client_ctx::upload_re_logs::upload_re_logs;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::manifold::Bucket;
@@ -61,8 +62,6 @@ use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
-
-use crate::commands::debug::upload_re_logs;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -542,8 +541,7 @@ async fn upload_re_logs_impl(
 ) -> buck2_error::Result<String> {
     let bucket = Bucket::RAGE_DUMPS;
     let filename = format!("flat/{}-re_logs.zst", &re_session_id);
-    upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
-        .await?;
+    upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename).await?;
 
     Ok(manifold_leads(&bucket, filename))
 }
