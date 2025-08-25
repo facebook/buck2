@@ -12,11 +12,10 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::thread_dump::thread_dump_command;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
-
-use crate::commands::rage::thread_dump::thread_dump_command;
 
 /// Prints a thread dump of the currently running buck daemon to stdout
 #[derive(Debug, clap::Parser)]

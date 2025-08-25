@@ -21,6 +21,7 @@ use std::time::SystemTime;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
@@ -40,8 +41,6 @@ use futures::TryStreamExt;
 use futures::stream::BoxStream;
 use serde::Serialize;
 use serde_json::json;
-
-use crate::commands::log::options::EventLogOptions;
 
 #[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {

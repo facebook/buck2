@@ -18,6 +18,7 @@ use std::path::Path;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -27,7 +28,6 @@ use tokio_stream::StreamExt;
 
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
-use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::transform_format;
 
 /// Outputs materializations from selected invocation.

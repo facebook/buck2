@@ -16,6 +16,7 @@ use std::time::SystemTimeError;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
@@ -34,8 +35,6 @@ use superconsole::DrawMode;
 use superconsole::Lines;
 use superconsole::components::DrawVertical;
 use tokio_stream::StreamExt;
-
-use crate::commands::log::options::EventLogOptions;
 
 /// Show the spans that were open when the log ended.
 #[derive(Debug, clap::Parser)]

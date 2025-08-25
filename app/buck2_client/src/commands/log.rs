@@ -13,7 +13,6 @@ pub(crate) mod debug_replay;
 pub(crate) mod debug_what_ran;
 mod diff;
 mod external_configs;
-pub(crate) mod options;
 pub(crate) mod path_log;
 mod replay;
 mod show_log;

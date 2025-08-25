@@ -15,6 +15,7 @@ use std::io::Write;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -39,7 +40,6 @@ use indexmap::IndexMap;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
 use crate::commands::log::OutputFormatWithWriter;
-use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::transform_format;
 /// Output everything Buck2 ran from selected invocation.
 ///

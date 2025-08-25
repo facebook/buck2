@@ -14,7 +14,6 @@ mod manifold;
 mod materializer;
 mod source_control;
 mod system_info;
-pub(crate) mod thread_dump;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -28,6 +27,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
+use buck2_client_ctx::thread_dump::thread_dump_command;
 use buck2_client_ctx::upload_re_logs::upload_re_logs;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
@@ -164,7 +164,7 @@ impl RageCommand {
         buck2_client_ctx::eprintln!("Collecting debug info...")?;
 
         let thread_dump = self.section("Thread dump", || {
-            thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
+            upload_thread_dump(&info, &manifold, &manifold_id)
         });
         let build_info_command = self.skippable_section(
             "Associated invocation info",
@@ -756,6 +756,30 @@ async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<Strin
     let ((), paste) = futures::future::try_join(writer, reader).await?;
 
     Ok(paste)
+}
+
+async fn upload_thread_dump(
+    buckd: &buck2_error::Result<BuckdProcessInfo<'_>>,
+    manifold: &ManifoldClient,
+    manifold_id: &String,
+) -> buck2_error::Result<String> {
+    let buckd = buckd.as_ref().map_err(|e| e.clone())?;
+    let command = thread_dump_command(buckd)?
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .buck_error_context("Failed to spawn lldb command")?
+        .wait_with_output()
+        .await?;
+
+    if command.status.success() {
+        let manifold_filename = format!("flat/{manifold_id}_thread_dump");
+        manifold::buf_to_manifold(manifold, &command.stdout, manifold_filename).await
+    } else {
+        let stderr = &command.stderr;
+        Ok(String::from_utf8_lossy(stderr).to_string())
+    }
 }
 
 async fn get_trace_id(

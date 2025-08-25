@@ -14,13 +14,12 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::ui::get_console_with_root;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::DaemonEventsCtx;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
-
-use crate::commands::log::options::EventLogOptions;
 
 /// Replay an event log.
 ///

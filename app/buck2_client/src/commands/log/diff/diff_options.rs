@@ -8,12 +8,12 @@
  * above-listed licenses.
  */
 
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::commands::log::ClientCommandContext;
-use crate::commands::log::options::EventLogOptions;
 
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::new("first").required(true))]

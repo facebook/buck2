@@ -10,8 +10,6 @@
 
 use std::process::Stdio;
 
-use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::init::LogDownloadMethod;
 use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
@@ -29,6 +27,9 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use rand::Rng;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::path_arg::PathArg;
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = LogCmd)]
 enum EventLogOptionsError {
@@ -40,30 +41,30 @@ enum EventLogOptionsError {
 
 #[derive(Debug, Clone, clap::Parser)]
 #[clap(group = clap::ArgGroup::new("event_log"))]
-pub(crate) struct EventLogOptions {
+pub struct EventLogOptions {
     /// Open the event-log file from a recent command.
     #[clap(long, group = "event_log", value_name = "NUMBER")]
-    pub(crate) recent: Option<usize>,
+    pub recent: Option<usize>,
 
     /// Show log by trace id.
     #[clap(long, group = "event_log", value_name = "ID")]
-    pub(crate) trace_id: Option<TraceId>,
+    pub trace_id: Option<TraceId>,
 
     /// This option does nothing.
     #[clap(long, requires = "trace_id")]
-    pub(crate) allow_remote: bool,
+    pub allow_remote: bool,
 
     /// Do not allow downloading the log from manifold if it's not found locally.
     #[clap(long, requires = "trace_id")]
-    pub(crate) no_remote: bool,
+    pub no_remote: bool,
 
     /// A path to an event-log file to read from.
     #[clap(group = "event_log", value_name = "PATH")]
-    pub(crate) path: Option<PathArg>,
+    pub path: Option<PathArg>,
 }
 
 impl EventLogOptions {
-    pub(crate) async fn get(
+    pub async fn get(
         &self,
         ctx: &ClientCommandContext<'_>,
     ) -> buck2_error::Result<EventLogPathBuf> {
@@ -137,7 +138,7 @@ impl EventLogOptions {
                         .to_str()
                         .buck_error_context("temp_path is not valid UTF-8")?,
                 ];
-                buck2_client_ctx::eprintln!("Spawning: manifold {}", args.join(" "))?;
+                crate::eprintln!("Spawning: manifold {}", args.join(" "))?;
                 (
                     "Manifold",
                     async_background_command("manifold")
@@ -162,7 +163,7 @@ impl EventLogOptions {
                         .to_str()
                         .buck_error_context("temp_path is not valid UTF-8")?,
                 ];
-                buck2_client_ctx::eprintln!("Spawning: curl {}", args.join(" "))?;
+                crate::eprintln!("Spawning: curl {}", args.join(" "))?;
                 (
                     "Curl",
                     async_background_command("curl")
@@ -194,7 +195,7 @@ impl EventLogOptions {
                 .buck_error_context("Error identifying log dir")?,
         )?;
         fs_util::rename(temp_path.path(), &log_path)?;
-        buck2_client_ctx::eprintln!("Downloaded event-log to `{}`", log_path.display())?;
+        crate::eprintln!("Downloaded event-log to `{}`", log_path.display())?;
 
         temp_path.close()?;
 

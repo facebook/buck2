@@ -17,6 +17,7 @@ use std::time::SystemTime;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::process_memory;
@@ -28,8 +29,6 @@ use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use tokio_stream::StreamExt;
-
-use crate::commands::log::options::EventLogOptions;
 
 #[derive(Default)]
 struct Stats {

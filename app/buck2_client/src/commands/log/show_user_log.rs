@@ -11,13 +11,12 @@
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::event_log_options::EventLogOptions;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdio;
 use buck2_event_log::user_event_types::try_get_user_event_for_read;
 use tokio_stream::StreamExt;
-
-use crate::commands::log::options::EventLogOptions;
 
 /// Converts the event log from a selected invocation into a user event log, in JSONL format.
 #[derive(Debug, clap::Parser)]
