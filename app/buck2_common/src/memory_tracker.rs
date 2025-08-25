@@ -17,7 +17,9 @@ use async_trait::async_trait;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use tokio::sync::watch;
@@ -217,8 +219,11 @@ impl MemoryTracker {
                     if let Some(ref backoff) = backoff_data
                         && backoff.exceeded_retry_attempts()
                     {
-                        tracing::warn!(
-                            "Consistently failed to track memory usage, stopping the tracker."
+                        let _unused = soft_error!(
+                            "memory_tracker_failed",
+                            internal_error!(
+                                "Consistently failed to track memory usage, stopping the tracker."
+                            ),
                         );
                         break;
                     }
