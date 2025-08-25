@@ -26,6 +26,10 @@ use tokio::sync::watch::Sender;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 
+use crate::init::ResourceControlConfig;
+use crate::systemd::SystemdCreationDecision;
+use crate::systemd::SystemdRunner;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
     Uninitialized,
@@ -103,6 +107,7 @@ pub struct MemoryTracker {
     memory_current_path: AbsPathBuf,
     #[allocative(skip)]
     sender: Sender<TrackedMemoryState>,
+    max_retries: u32,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -112,22 +117,53 @@ enum MemoryTrackerError {
     ParentSliceExpected(String),
 }
 
+async fn cgroup_memory_current_path() -> buck2_error::Result<AbsPathBuf> {
+    // This contains daemon cgroup scope path
+    // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
+    let info = CGroupInfo::read_async().await?;
+    // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
+    // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
+    let Some(daemon_and_forkserver_slice) = info.get_slice() else {
+        return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
+    };
+    Ok(AbsPathBuf::new(daemon_and_forkserver_slice)?.join("memory.current"))
+}
+
+pub async fn create_memory_tracker(
+    resource_control_config: &ResourceControlConfig,
+) -> buck2_error::Result<Option<Arc<MemoryTracker>>> {
+    if resource_control_config
+        .hybrid_execution_memory_limit_gibibytes
+        .is_none()
+    {
+        Ok(None)
+    } else {
+        let creation = SystemdRunner::creation_decision(&resource_control_config.status);
+        match creation {
+            SystemdCreationDecision::Create => {
+                const MAX_RETRIES: u32 = 5;
+                let memory_tracker =
+                    MemoryTracker::new(cgroup_memory_current_path().await?, MAX_RETRIES);
+                const TICK_DURATION: Duration = Duration::from_millis(300);
+                let timer = IntervalTimer::new(TICK_DURATION);
+                let memory_tracker = memory_tracker.spawn_task(timer).await?;
+                Ok(Some(memory_tracker))
+            }
+            SystemdCreationDecision::SkipNotNeeded
+            | SystemdCreationDecision::SkipPreferredButNotRequired { .. }
+            | SystemdCreationDecision::SkipRequiredButUnavailable { .. } => Ok(None),
+        }
+    }
+}
+
 impl MemoryTracker {
-    pub async fn start_tracking() -> buck2_error::Result<Arc<MemoryTracker>> {
-        const MAX_RETRIES: u32 = 5;
-        const TICK_DURATION: Duration = Duration::from_millis(300);
-        // This contains daemon cgroup scope path
-        // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
-        let info = CGroupInfo::read_async().await?;
-        // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
-        // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
-        let Some(daemon_and_forkserver_slice) = info.get_slice() else {
-            return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
-        };
-        let memory_current_path =
-            AbsPathBuf::new(daemon_and_forkserver_slice)?.join("memory.current");
-        let timer = IntervalTimer::new(TICK_DURATION);
-        Self::start_tracking_parametrized(memory_current_path, MAX_RETRIES, timer).await
+    fn new(memory_current_path: AbsPathBuf, max_retries: u32) -> Self {
+        let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
+        Self {
+            memory_current_path,
+            sender: tx,
+            max_retries,
+        }
     }
 
     pub async fn subscribe(&self) -> Receiver<TrackedMemoryState> {
@@ -135,12 +171,11 @@ impl MemoryTracker {
     }
 
     #[doc(hidden)]
-    pub(crate) async fn start_tracking_parametrized(
-        memory_current_path: AbsPathBuf,
-        max_retries: u32,
+    pub(crate) async fn spawn_task(
+        self,
         mut timer: impl Timer + Send + 'static,
     ) -> buck2_error::Result<Arc<MemoryTracker>> {
-        let tracker = Arc::new(MemoryTracker::new(memory_current_path));
+        let tracker = Arc::new(self);
         tokio::spawn({
             let tracker = tracker.dupe();
             async move {
@@ -175,7 +210,7 @@ impl MemoryTracker {
                                 .next_retry();
                         }
                         (_, TrackedMemoryState::Failure) => {
-                            _ = backoff_data.insert(BackoffData::new(max_retries))
+                            _ = backoff_data.insert(BackoffData::new(tracker.max_retries))
                         }
                         _ => _ = backoff_data.take(),
                     }
@@ -191,14 +226,6 @@ impl MemoryTracker {
             }
         });
         Ok(tracker)
-    }
-
-    fn new(memory_current_path: AbsPathBuf) -> Self {
-        let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
-        Self {
-            memory_current_path,
-            sender: tx,
-        }
     }
 
     async fn read_memory_current(path: &AbsPath) -> anyhow::Result<u64> {
@@ -267,7 +294,7 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::start_tracking_parametrized(abs_path, 0, timer).await?;
+        let tracker = MemoryTracker::new(abs_path, 0).spawn_task(timer).await?;
         let mut rx = tracker.subscribe().await;
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized => {
@@ -299,7 +326,7 @@ mod tests {
         let abs_path = AbsPathBuf::new(path.clone())?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::start_tracking_parametrized(abs_path, 3, timer).await?;
+        let tracker = MemoryTracker::new(abs_path, 3).spawn_task(timer).await?;
         let mut rx = tracker.subscribe().await;
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,

@@ -64,10 +64,20 @@ pub mod temp_path;
 
 #[cfg(not(unix))]
 pub mod memory_tracker {
+    use std::sync::Arc;
+
     use allocative::Allocative;
+
+    use crate::init::ResourceControlConfig;
 
     #[derive(Allocative)]
     pub struct MemoryTracker {}
+
+    pub async fn create_memory_tracker(
+        _resource_control_config: &ResourceControlConfig,
+    ) -> buck2_error::Result<Option<Arc<MemoryTracker>>> {
+        Ok(None)
+    }
 }
 
 #[cfg(unix)]
