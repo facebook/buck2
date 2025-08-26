@@ -910,7 +910,7 @@ impl LocalExecutor {
             .await
             .buck_error_context("Failed to cleanup output directory")?;
 
-        if let Some(state) = request.incremental_state() {
+        if let Some(state) = request.incremental_path_map() {
             let mut copy_futs = Vec::new();
 
             for output in declared_content_based_outputs {
@@ -1240,7 +1240,7 @@ async fn materialize_build_outputs(
         match output {
             CommandExecutionOutputRef::BuildArtifact { path, .. } => {
                 if path.is_content_based_path() {
-                    if let Some(state) = request.incremental_state() {
+                    if let Some(state) = request.incremental_path_map() {
                         let p = path.path().to_buf();
                         if let Some(content_path) = state.get(&p) {
                             paths.push(content_path.clone());

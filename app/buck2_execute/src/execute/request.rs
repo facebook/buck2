@@ -306,11 +306,11 @@ pub struct WorkerSpec {
 // Contains the declared short path name to the full content-based hash path
 
 #[derive(Allocative)]
-pub struct IncrementalState(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
+pub struct IncrementalPathMap(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
 
-impl IncrementalState {
+impl IncrementalPathMap {
     pub fn new(state: SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>) -> Self {
-        IncrementalState(state)
+        IncrementalPathMap(state)
     }
 
     pub fn get(&self, key: &ForwardRelativePathBuf) -> Option<&ProjectRelativePathBuf> {
@@ -372,8 +372,8 @@ pub struct CommandExecutionRequest {
     meta_internal_extra_params: MetaInternalExtraParams,
     /// Failed action outputs to materialize
     outputs_for_error_handler: Vec<BuildArtifactPath>,
-    /// Incremental state for the action, used by content-based incremental actions.
-    incremental_state: Option<Arc<IncrementalState>>,
+    /// Incremental state path mapping for the action, used by content-based incremental actions.
+    incremental_path_map: Option<Arc<IncrementalPathMap>>,
 }
 
 impl CommandExecutionRequest {
@@ -407,7 +407,7 @@ impl CommandExecutionRequest {
             remote_execution_custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
             outputs_for_error_handler: Vec::new(),
-            incremental_state: None,
+            incremental_path_map: None,
         }
     }
 
@@ -646,16 +646,16 @@ impl CommandExecutionRequest {
         &self.meta_internal_extra_params
     }
 
-    pub fn with_incremental_state(
+    pub fn with_incremental_path_map(
         mut self,
-        incremental_state: Option<Arc<IncrementalState>>,
+        incremental_path_map: Option<Arc<IncrementalPathMap>>,
     ) -> Self {
-        self.incremental_state = incremental_state;
+        self.incremental_path_map = incremental_path_map;
         self
     }
 
-    pub fn incremental_state(&self) -> &Option<Arc<IncrementalState>> {
-        &self.incremental_state
+    pub fn incremental_path_map(&self) -> &Option<Arc<IncrementalPathMap>> {
+        &self.incremental_path_map
     }
 }
 

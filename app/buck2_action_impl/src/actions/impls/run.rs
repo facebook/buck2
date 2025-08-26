@@ -76,7 +76,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
-use buck2_execute::execute::request::IncrementalState;
+use buck2_execute::execute::request::IncrementalPathMap;
 use buck2_execute::execute::request::RemoteWorkerSpec;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
@@ -133,9 +133,9 @@ pub(crate) mod dep_files;
 mod metadata;
 
 #[allocative::root]
-static INCREMENTAL: Lazy<DashMap<String, Arc<IncrementalState>>> = Lazy::new(DashMap::new);
+static INCREMENTAL: Lazy<DashMap<String, Arc<IncrementalPathMap>>> = Lazy::new(DashMap::new);
 
-fn get_incremental_state(key: &String) -> Option<Arc<IncrementalState>> {
+fn get_incremental_state(key: &String) -> Option<Arc<IncrementalPathMap>> {
     INCREMENTAL.get(key).map(|s| s.dupe())
 }
 
@@ -932,7 +932,7 @@ impl RunAction {
                 // Using string representation of run_action_key as it is going to be stored in db which requires it to be a string
                 let run_action_key =
                     RunActionKey::from_action_execution_target(ctx.target()).to_string();
-                req = req.with_incremental_state(get_incremental_state(&run_action_key));
+                req = req.with_incremental_path_map(get_incremental_state(&run_action_key));
             }
         }
 
@@ -1021,7 +1021,7 @@ fn save_content_based_incremental_state(
     ctx: &dyn ActionExecutionCtx,
     result: &CommandExecutionResult,
 ) -> buck2_error::Result<()> {
-    let mut incremental_state_map = SmallMap::new();
+    let mut incremental_path_map = SmallMap::new();
 
     for (k, v) in &result.outputs {
         if let CommandExecutionOutput::BuildArtifact { path, .. } = k
@@ -1032,18 +1032,18 @@ fn save_content_based_incremental_state(
                 .fs()
                 .resolve_build(&path, Some(&v.content_based_path_hash()))?;
 
-            incremental_state_map.insert(p, content_based_path);
+            incremental_path_map.insert(p, content_based_path);
         }
     }
 
     let run_action_key = RunActionKey::from_action_execution_target(ctx.target()).to_string();
     // Need to clear the state if there weren't any outputs to prevent stale outputs from being used
-    if incremental_state_map.is_empty() {
+    if incremental_path_map.is_empty() {
         INCREMENTAL.remove(&run_action_key);
     } else {
         INCREMENTAL.insert(
             run_action_key,
-            IncrementalState::new(incremental_state_map).into(),
+            IncrementalPathMap::new(incremental_path_map).into(),
         );
     }
 
