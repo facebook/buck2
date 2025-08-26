@@ -25,7 +25,7 @@ use crate::assert::Assert;
 #[test]
 fn test_go() {
     macro_rules! test_case {
-        ($name:expr_2021) => {
+        ($name:expr) => {
             include_str!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/testcases/eval/go/",

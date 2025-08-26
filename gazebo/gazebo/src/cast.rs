@@ -73,7 +73,7 @@ pub unsafe fn transmute_unchecked<A, B>(x: A) -> B {
 /// `transmute!(from-type, to-type, value)` will do a [`transmute`](std::mem::transmute),
 /// but the original and result types must be specified.
 macro_rules! transmute {
-    ($from:ty, $to:ty, $e:expr_2021) => {
+    ($from:ty, $to:ty, $e:expr) => {
         std::mem::transmute::<$from, $to>($e)
     };
 }

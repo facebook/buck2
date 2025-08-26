@@ -36,10 +36,10 @@
 /// ```
 #[macro_export]
 macro_rules! cmp_chain {
-    ($e:expr_2021) => {
+    ($e:expr) => {
         $e
     };
-    ($e:expr_2021, $($x:expr_2021),+ $(,)?) => {
+    ($e:expr, $($x:expr),+ $(,)?) => {
         match $e {
             std::cmp::Ordering::Equal => {
                 cmp_chain!($($x),+)
@@ -74,10 +74,10 @@ macro_rules! cmp_chain {
 /// ```
 #[macro_export]
 macro_rules! eq_chain {
-    ($e:expr_2021) => {
+    ($e:expr) => {
         $e
     };
-    ($e:expr_2021, $($x:expr_2021),+ $(,)?) => {
+    ($e:expr, $($x:expr),+ $(,)?) => {
         if $e {
             eq_chain!($($x),+)
         } else {

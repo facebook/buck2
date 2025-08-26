@@ -1024,10 +1024,10 @@ where
 #[macro_export]
 macro_rules! smallmap {
     (@single $($x:tt)*) => (());
-    (@count $($rest:expr_2021),*) => (<[()]>::len(&[$(smallmap!(@single $rest)),*]));
+    (@count $($rest:expr),*) => (<[()]>::len(&[$(smallmap!(@single $rest)),*]));
 
-    ($($key:expr_2021 => $value:expr_2021,)+) => { smallmap!($($key => $value),+) };
-    ($($key:expr_2021 => $value:expr_2021),*) => {
+    ($($key:expr => $value:expr,)+) => { smallmap!($($key => $value),+) };
+    ($($key:expr => $value:expr),*) => {
         {
             let cap = smallmap!(@count $($key),*);
             #[allow(unused_mut)]
