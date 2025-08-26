@@ -113,11 +113,9 @@ impl CommandExecutorFactory {
         materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
         memory_tracker: Option<Arc<MemoryTracker>>,
-        hybrid_execution_memory_limit_gibibytes: Option<u64>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
-        let local_actions_throttle =
-            LocalActionsThrottle::new(memory_tracker, hybrid_execution_memory_limit_gibibytes);
+        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),

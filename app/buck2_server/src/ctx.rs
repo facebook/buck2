@@ -48,7 +48,6 @@ use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::http::SetHttpClient;
-use buck2_common::init::ResourceControlConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
@@ -756,7 +755,6 @@ impl DiceCommandUpdater<'_, '_> {
         // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
         // We should not override the cas_artifact usecase or else the ttl may not match the action declaration.
         data.set_re_client(self.re_connection.get_client());
-        let resource_control_config = ResourceControlConfig::from_config(root_config)?;
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
@@ -776,7 +774,6 @@ impl DiceCommandUpdater<'_, '_> {
             self.materialize_failed_outputs,
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
-            resource_control_config.hybrid_execution_memory_limit_gibibytes,
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
