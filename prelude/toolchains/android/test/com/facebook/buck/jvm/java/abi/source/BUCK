@@ -8,6 +8,7 @@ source_listing()
 buck_java_test(
     name = "source",
     srcs = glob(["*Test.java"]),
+    _java_toolchain = "toolchains//:java_for_android",
     required_for_source_only_abi = True,
     vm_args = OPEN_JDK_COMPILER_ARGS,
     deps = [

@@ -439,7 +439,7 @@ public class TreeBackedTypeElementTest extends CompilerTreeApiParameterizedTest 
     compile(
         String.join(
             System.lineSeparator(),
-            "import java.io.IOException;;",
+            "import java.io.IOException;",
             "import java.io.InputStream;",
             "public class Foo { }"));
 
