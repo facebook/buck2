@@ -240,5 +240,5 @@ async def test_rust_test_coverage_of_cpp_file_filtering_by_header_with_cxx(
     ), str(paths)
     assert any_item_matches(
         paths,
-        r"fbcode/[a-z0-9]+/testing_frameworks/code_coverage/rust/__tests_with_code_in_cpp_header-bridge_generated.cc__/out/generated.cc",
+        r"fbcode/testing_frameworks/code_coverage/rust/__tests_with_code_in_cpp_header-bridge_generated.cc__/[a-z0-9]+/out/generated.cc",
     ), str(paths)
