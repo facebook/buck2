@@ -64,6 +64,7 @@ buck_java_test(
     srcs = glob(
         ["*Test.java"],
     ),
+    _java_toolchain = "toolchains//:java_for_android",
     java_version = "17",
     labels = [
         "long_running",

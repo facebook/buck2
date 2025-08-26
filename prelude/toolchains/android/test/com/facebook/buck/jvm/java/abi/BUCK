@@ -54,6 +54,7 @@ buck_java_library(
 
 standard_java_test(
     name = "abi",
+    _java_toolchain = "toolchains//:java_for_android",
     env = {
         "KOTLIN_VERSION": read_config("kotlin", "kotlin_version"),
     },
