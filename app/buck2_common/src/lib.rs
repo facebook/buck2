@@ -73,9 +73,11 @@ pub mod memory_tracker {
     #[derive(Allocative)]
     pub struct MemoryTracker {}
 
+    pub type TrackedMemorySender = Arc<MemoryTracker>;
+
     pub async fn create_memory_tracker(
         _resource_control_config: &ResourceControlConfig,
-    ) -> buck2_error::Result<Option<Arc<MemoryTracker>>> {
+    ) -> buck2_error::Result<Option<TrackedMemorySender>> {
         Ok(None)
     }
 }

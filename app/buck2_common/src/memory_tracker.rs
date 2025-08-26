@@ -15,7 +15,6 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
@@ -23,7 +22,6 @@ use buck2_error::internal_error;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use tokio::sync::watch;
-use tokio::sync::watch::Receiver;
 use tokio::sync::watch::Sender;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
@@ -31,6 +29,8 @@ use tokio::time::MissedTickBehavior;
 use crate::init::ResourceControlConfig;
 use crate::systemd::SystemdCreationDecision;
 use crate::systemd::SystemdRunner;
+
+pub type TrackedMemorySender = Arc<Sender<TrackedMemoryState>>;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
@@ -118,7 +118,7 @@ pub struct MemoryTracker {
     /// Path to `memory.current` file in cgroup of our process
     memory_current_path: AbsPathBuf,
     #[allocative(skip)]
-    sender: Sender<TrackedMemoryState>,
+    sender: Arc<Sender<TrackedMemoryState>>,
     max_retries: u32,
     memory_limit_bytes: u64,
 }
@@ -144,7 +144,7 @@ async fn cgroup_memory_current_path() -> buck2_error::Result<AbsPathBuf> {
 
 pub async fn create_memory_tracker(
     resource_control_config: &ResourceControlConfig,
-) -> buck2_error::Result<Option<Arc<MemoryTracker>>> {
+) -> buck2_error::Result<Option<TrackedMemorySender>> {
     let Some(memory_limit_gibibytes) =
         resource_control_config.hybrid_execution_memory_limit_gibibytes
     else {
@@ -161,10 +161,11 @@ pub async fn create_memory_tracker(
                 MAX_RETRIES,
                 memory_limit_bytes,
             );
+            let memory_sender = memory_tracker.sender.dupe();
             const TICK_DURATION: Duration = Duration::from_millis(300);
             let timer = IntervalTimer::new(TICK_DURATION);
-            let memory_tracker = memory_tracker.spawn_task(timer).await?;
-            Ok(Some(memory_tracker))
+            memory_tracker.spawn_task(timer).await;
+            Ok(Some(memory_sender))
         }
         SystemdCreationDecision::SkipNotNeeded
         | SystemdCreationDecision::SkipPreferredButNotRequired { .. }
@@ -177,24 +178,15 @@ impl MemoryTracker {
         let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         Self {
             memory_current_path,
-            sender: tx,
+            sender: Arc::new(tx),
             max_retries,
             memory_limit_bytes,
         }
     }
 
-    pub async fn subscribe(&self) -> Receiver<TrackedMemoryState> {
-        self.sender.subscribe()
-    }
-
     #[doc(hidden)]
-    pub(crate) async fn spawn_task(
-        self,
-        mut timer: impl Timer + Send + 'static,
-    ) -> buck2_error::Result<Arc<MemoryTracker>> {
-        let tracker = Arc::new(self);
+    pub(crate) async fn spawn_task(self, mut timer: impl Timer + Send + 'static) {
         tokio::spawn({
-            let tracker = tracker.dupe();
             async move {
                 let mut backoff_data: Option<BackoffData> = None;
                 loop {
@@ -206,10 +198,9 @@ impl MemoryTracker {
                     {
                         continue;
                     }
-                    let reading = Self::read_memory_current(&tracker.memory_current_path).await;
-                    let new_state = match reading {
+                    let new_state = match self.read_memory_current().await {
                         Ok(memory_current) => {
-                            let state = if memory_current < tracker.memory_limit_bytes {
+                            let state = if memory_current < self.memory_limit_bytes {
                                 MemoryState::BelowLimit
                             } else {
                                 MemoryState::AboveLimit
@@ -224,8 +215,8 @@ impl MemoryTracker {
                             TrackedMemoryState::Failure
                         }
                     };
-                    let old_state = *tracker.sender.borrow();
-                    tracker.sender.send_if_modified(|x| {
+                    let old_state = *self.sender.borrow();
+                    self.sender.send_if_modified(|x| {
                         *x = new_state;
                         old_state != new_state
                     });
@@ -237,7 +228,7 @@ impl MemoryTracker {
                                 .next_retry();
                         }
                         (_, TrackedMemoryState::Failure) => {
-                            _ = backoff_data.insert(BackoffData::new(tracker.max_retries))
+                            _ = backoff_data.insert(BackoffData::new(self.max_retries))
                         }
                         _ => _ = backoff_data.take(),
                     }
@@ -255,10 +246,10 @@ impl MemoryTracker {
                 }
             }
         });
-        Ok(tracker)
     }
 
-    async fn read_memory_current(path: &AbsPath) -> anyhow::Result<u64> {
+    async fn read_memory_current(&self) -> anyhow::Result<u64> {
+        let path = &self.memory_current_path;
         let content = async_fs_util::read_to_string(path)
             .await
             .with_buck_error_context(|| {
@@ -324,8 +315,9 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(abs_path, 0, 7).spawn_task(timer).await?;
-        let mut rx = tracker.subscribe().await;
+        let tracker = MemoryTracker::new(abs_path, 0, 7);
+        let mut rx = tracker.sender.subscribe();
+        tracker.spawn_task(timer).await;
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized => {
                 assert_eq!(counter.load(Ordering::Relaxed), 0);
@@ -362,8 +354,10 @@ mod tests {
         let abs_path = AbsPathBuf::new(path.clone())?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::new(abs_path, 3, 0).spawn_task(timer).await?;
-        let mut rx = tracker.subscribe().await;
+        let tracker = MemoryTracker::new(abs_path, 3, 0);
+        let sender = tracker.sender.dupe();
+        tracker.spawn_task(timer).await;
+        let mut rx = sender.subscribe();
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
             _ => unreachable!("Not expected"),

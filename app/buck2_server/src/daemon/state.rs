@@ -29,7 +29,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::memory_tracker;
-use buck2_common::memory_tracker::MemoryTracker;
+use buck2_common::memory_tracker::TrackedMemorySender;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
@@ -186,7 +186,8 @@ pub struct DaemonStateData {
     pub system_warning_config: SystemWarningConfig,
 
     /// Tracks memory usage. Used to make scheduling decisions.
-    pub memory_tracker: Option<Arc<MemoryTracker>>,
+    #[allocative(skip)]
+    pub memory_tracker: Option<TrackedMemorySender>,
 
     /// Tracks data about previous command (e.g. configs)
     pub previous_command_data: Arc<LockedPreviousCommandData>,

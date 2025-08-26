@@ -15,7 +15,7 @@ use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
-use buck2_common::memory_tracker::MemoryTracker;
+use buck2_common::memory_tracker::TrackedMemorySender;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -112,7 +112,7 @@ impl CommandExecutorFactory {
         materialize_failed_inputs: bool,
         materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
-        memory_tracker: Option<Arc<MemoryTracker>>,
+        memory_tracker: Option<TrackedMemorySender>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
