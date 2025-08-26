@@ -18,7 +18,6 @@ use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
-use buck2_client::commands::debug::DebugCommandFull;
 use buck2_client::commands::expand_external_cell::ExpandExternalCellsCommand;
 use buck2_client::commands::explain::ExplainCommand;
 use buck2_client::commands::help_env::HelpEnvCommand;
@@ -48,6 +47,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::version::BuckVersion;
+use buck2_cmd_debug_client::DebugCommand;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
@@ -324,7 +324,7 @@ pub(crate) enum CommandKind {
     Ctargets(ConfiguredTargetsCommand),
     Uquery(UqueryCommand),
     #[clap(subcommand, hide = true)]
-    Debug(DebugCommandFull),
+    Debug(DebugCommand),
     #[clap(hide = true)]
     Complete(buck2_cmd_completion_client::complete::CompleteCommand),
     Completion(buck2_cmd_completion_client::completion::CompletionCommand),

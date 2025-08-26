@@ -104,6 +104,7 @@ impl DebugCommand {
         ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
+        let matches = matches.unwrap_subcommand();
         match self {
             DebugCommand::DiceDump(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::Crash(cmd) => ctx.exec(cmd, matches, events_ctx),

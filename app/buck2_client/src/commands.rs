@@ -13,7 +13,6 @@ pub mod bxl;
 pub mod clean;
 pub mod clean_stale;
 pub mod ctargets;
-pub mod debug;
 pub mod expand_external_cell;
 pub mod explain;
 pub mod help_env;
