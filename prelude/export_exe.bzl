@@ -6,18 +6,39 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
+
 def _export_exe_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.src and ctx.attrs.exe:
         fail("Must supply one of src or exe to export_exe")
 
     src = ctx.attrs.src if ctx.attrs.src else ctx.attrs.exe
 
-    return [
-        DefaultInfo(),
-        RunInfo(
-            args = cmd_args(src),
-        ),
-    ]
+    providers = []
+    providers.append(DefaultInfo())
+    providers.append(RunInfo(args = cmd_args(src)))
+
+    if ctx.attrs.src != None:
+        providers.append(
+            create_unix_env_info(
+                actions = ctx.actions,
+                env = UnixEnv(
+                    label = ctx.label,
+                    binaries = [
+                        create_manifest_for_entries(
+                            ctx = ctx,
+                            name = "unix_env",
+                            entries = [
+                                (ctx.attrs.src.basename, ctx.attrs.src, ""),
+                            ],
+                        ),
+                    ],
+                ),
+            ),
+        )
+
+    return providers
 
 _export_exe = rule(
     doc = """Exports a file as an executable, for use in $(exe) macros or as a valid target for an exec_dep().
