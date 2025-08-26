@@ -339,6 +339,7 @@ def _as_raw_header(
     Return path to pass to `include_directories` to treat the given header as
     a raw header.
     """
+    name = paths.normalize(name)
 
     # We can't handle generated headers.
     if not header.is_source:
@@ -351,6 +352,7 @@ def _as_raw_header(
     # it needs to be a suffix of its original path, and we'll strip the include
     # name to get the include dir used to include it.
     path = paths.join(ctx.label.package, header.short_path)
+    path = paths.normalize(path)
     base = paths.strip_suffix(path, name)
     if base == None:
         if no_fail:
@@ -360,7 +362,7 @@ def _as_raw_header(
 
     # If the include dir is underneath our package, then just relativize to find
     # out package-relative path.
-    if len(base) > len(ctx.label.package):
+    if len(base) >= len(ctx.label.package):
         return paths.relativize(base, ctx.label.package)
 
     # Otherwise, this include dir needs to reference a parent dir.
