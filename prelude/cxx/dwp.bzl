@@ -23,15 +23,22 @@ def run_dwp_action(
         category_suffix: [str, None],
         referenced_objects: [ArgLike, list[Artifact]],
         dwp_output: Artifact,
-        local_only: bool):
+        local_only: bool,
+        from_exe = True):
     dwp = toolchain.binary_utilities_info.dwp
 
-    args = cmd_args(
-        [dwp, "-o", dwp_output.as_output(), "-e", obj],
-        # All object/dwo files referenced in the library/executable are implicitly
-        # processed by dwp.
-        hidden = referenced_objects,
-    )
+    if from_exe:
+        args = cmd_args(
+            [dwp, "-o", dwp_output.as_output(), "-e", obj],
+            # All object/dwo files referenced in the library/executable are implicitly
+            # processed by dwp.
+            hidden = referenced_objects,
+        )
+    else:
+        args = cmd_args(
+            [dwp, "-o", dwp_output.as_output()],
+        )
+        args.add(referenced_objects)
 
     category = "dwp"
     if category_suffix != None:
@@ -61,7 +68,8 @@ def dwp(
         # overspecification.
         referenced_objects: [ArgLike, list[Artifact]],
         name_suffix: str = "",
-        local_only: bool = False) -> Artifact:
+        local_only: bool = False,
+        from_exe = True) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp")
     run_dwp_action(
@@ -73,5 +81,6 @@ def dwp(
         referenced_objects,
         output,
         local_only = local_only,
+        from_exe = from_exe,
     )
     return output
