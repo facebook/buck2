@@ -285,7 +285,6 @@ ensure_initialized() ->
 
 -spec init_utility_apps() -> boolean().
 init_utility_apps() ->
-    _ = application:load(test_cli_lib),
     UtilityApps = application:get_env(test_cli_lib, utility_applications, []),
     RunningApps = proplists:get_value(running, application:info()),
     StartResults = [init_utility_app(RunningApps, UtilityApp) || UtilityApp <- UtilityApps],
