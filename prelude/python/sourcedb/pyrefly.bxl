@@ -17,6 +17,8 @@
 #   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L339-L341
 #   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L290-L306
 
+load("@prelude//python:typing.bzl", "DEFAULT_PY_VERSION")
+
 def _append_to_or_set_list(mapping: dict[str, list[typing.Any]], key: str, value: typing.Any) -> None:
     if key in mapping:
         mapping[key].append(value)
@@ -89,6 +91,11 @@ def _main(ctx: bxl.Context) -> None:
         deps = []
         entry["srcs"] = srcs
         entry["deps"] = deps
+        python_version = attrs.get("py_version_for_type_checking")
+        entry["python_version"] = python_version.value() if python_version != None and python_version.value() != None else DEFAULT_PY_VERSION
+
+        # TOOD(connernilsen): replace with actual platform later
+        entry["python_platform"] = "linux"
         if attrs.get("deps") == None:
             fail(x.rule_type)
         attr_deps = attrs.get("deps").value()
