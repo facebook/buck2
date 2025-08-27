@@ -68,9 +68,8 @@ def _main(ctx: bxl.Context) -> None:
             continue
 
         attrs = x.attrs_lazy()
-        srcs = {}
-        deps = []
-        entries[str(x.label.raw_target())] = {"deps": deps, "srcs": srcs}
+        entry = {}
+        entries[str(x.label.raw_target())] = entry
 
         base_module = attrs.get("base_module")
         if base_module != None and base_module.value() != None:
@@ -81,11 +80,15 @@ def _main(ctx: bxl.Context) -> None:
         if x.rule_type == "prelude//rules.bzl:alias":
             actual = attrs.get("actual")
             if actual != None and actual.value() != None:
-                deps.append(actual.value().raw_target())
+                entry["alias"] = actual.value().raw_target()
                 continue
             else:
                 fail("Alias has no actual target".format(x.label))
 
+        srcs = {}
+        deps = []
+        entry["srcs"] = srcs
+        entry["deps"] = deps
         if attrs.get("deps") == None:
             fail(x.rule_type)
         attr_deps = attrs.get("deps").value()
