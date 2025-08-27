@@ -197,11 +197,8 @@ def _build_erlang_test(
     # So we wrap everything in extra double-quotes to protect from spaces in the path
     test_info_file_arg = cmd_args(test_info_file, format = '"<<\\"${REPO_ROOT}/{}\\">>"')
 
-    preamble_arg = cmd_args(cmd_args(ctx.attrs.preamble, quote = "shell"), format = "<<{}>>", quote = "shell")
-
     additional_shell_args = cmd_args(
         cmd_args("-test_cli_lib", "test_info_file", test_info_file_arg, delimiter = " "),
-        cmd_args("-test_cli_lib", "preamble", preamble_arg, delimiter = " "),
         cmd_args("-eval", "test_cli_lib:start()", quote = "shell"),
         "-noshell",
     )

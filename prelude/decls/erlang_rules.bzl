@@ -264,8 +264,6 @@ rules_attributes = {
                 List of additional command line arguments given to the erl command invocation. These
                 arguments are added to the front of the argument list.
             """),
-        "preamble": attrs.string(default = read_root_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),test:start_shell()."), doc = """
-            """),
         "property_tests": attrs.list(attrs.dep(), default = [], doc = """
             """),
         "resources": attrs.list(attrs.dep(), default = [], doc = """
