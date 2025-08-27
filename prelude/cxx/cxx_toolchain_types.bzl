@@ -140,6 +140,7 @@ _compiler_fields = [
     # Controls cache upload for object files
     "allow_cache_upload",
     "supports_two_phase_compilation",
+    "compiler_with_wrapper",
 ]
 
 AsCompilerInfo = provider(fields = _compiler_fields)

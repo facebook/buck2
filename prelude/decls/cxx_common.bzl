@@ -463,6 +463,11 @@ def _runtime_dependency_handling_arg():
 """),
     }
 
+def _use_fbcc_rust_wrapper_arg():
+    return {
+        "use_fbcc_rust_wrapper": attrs.bool(default = False, doc = "Opt-in for the rust version of the fbcode C++ Compiler wrapper (replacing the existing fbcc.py)"),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -508,4 +513,5 @@ cxx_common = struct(
     public_system_include_directories_arg = _public_system_include_directories_arg,
     version_arg = _version_arg,
     runtime_dependency_handling_arg = _runtime_dependency_handling_arg,
+    use_fbcc_rust_wrapper_arg = _use_fbcc_rust_wrapper_arg,
 )

@@ -147,6 +147,7 @@ cxx_binary = prelude_rule(
         cxx_common.include_directories_arg() |
         cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.runtime_dependency_handling_arg() |
+        cxx_common.use_fbcc_rust_wrapper_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
@@ -608,6 +609,7 @@ cxx_library = prelude_rule(
         apple_common.uses_explicit_modules_arg() |
         apple_common.meta_apple_library_validation_enabled_arg() |
         cxx_common.version_arg() |
+        cxx_common.use_fbcc_rust_wrapper_arg() |
         {
             "archive_allow_cache_upload": attrs.bool(default = False),
             "bridging_header": attrs.option(attrs.source(), default = None),
@@ -798,6 +800,7 @@ cxx_precompiled_header = prelude_rule(
     """,
     further = None,
     attrs = (
+        cxx_common.use_fbcc_rust_wrapper_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -914,6 +917,7 @@ cxx_test = prelude_rule(
         cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.include_directories_arg() |
         cxx_common.runtime_dependency_handling_arg() |
+        cxx_common.use_fbcc_rust_wrapper_arg() |
         {
             "framework": attrs.option(attrs.enum(CxxTestType), default = None, doc = """
                 Unused.
