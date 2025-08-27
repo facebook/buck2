@@ -597,6 +597,10 @@ impl DaemonState {
                 })?
                 .unwrap_or(false);
 
+            let memory_tracker = memory_tracker::create_memory_tracker(
+                &init_ctx.daemon_startup_config.resource_control,
+            )
+            .await?;
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
@@ -617,13 +621,10 @@ impl DaemonState {
                     disable_eager_write_dispatch,
                 ),
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
+                format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
-            let memory_tracker = memory_tracker::create_memory_tracker(
-                &init_ctx.daemon_startup_config.resource_control,
-            )
-            .await?;
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
