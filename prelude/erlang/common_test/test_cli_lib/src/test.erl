@@ -486,15 +486,9 @@ do_plain_test_run(RegExOrId) ->
         ToRun -> do_plain_test_run(ToRun)
     end.
 
--spec start_shell() -> ok | {error, term()}.
+-spec start_shell() -> ok | {error, already_started}.
 start_shell() ->
-    case string:to_integer(erlang:system_info(otp_release)) of
-        {Version, _} when Version >= 26 ->
-            shell:start_interactive();
-        _ ->
-            user_drv:start(),
-            ok
-    end.
+    shell:start_interactive().
 
 -spec logs_impl() -> {ok, [file:filename_all()]} | {error, not_found}.
 logs_impl() ->
