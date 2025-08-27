@@ -118,6 +118,9 @@ def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_tar
             # Create a subtarget foo//bar:baz[index-store] that builds the
             # index store for foo//bar:baz.
             "index-store": [DefaultInfo(default_output = target_index_store)],
+            # Create a subtarget foo//bar:baz[swift-index-store] that builds the
+            # Swift index store for foo//bar:baz.
+            "swift-index-store": [DefaultInfo(default_output = target_swift_index_store)],
         }
 
         index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset, swift_tset = swift_index_store_tset)
