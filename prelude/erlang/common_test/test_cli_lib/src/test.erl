@@ -12,7 +12,8 @@ User-Facing library for quick-iteration testing of Common Test
 
   use test:help() for more information
 """.
--eqwalizer(ignore).
+-typing([eqwalizer]).
+-compile(warn_missing_spec_all).
 
 -include_lib("common/include/buck_ct_records.hrl").
 
@@ -42,7 +43,7 @@ User-Facing library for quick-iteration testing of Common Test
 -define(raw_file_access, prim_file).
 
 -type test_id() :: string() | non_neg_integer() | atom().
--type test_info() :: #{name := string(), suite := atom()}.
+-type test_info() :: #{name := string(), suite := module()}.
 -type run_spec() :: test_id() | [test_info()].
 -type run_result() :: {non_neg_integer(), non_neg_integer()}.
 
@@ -202,15 +203,20 @@ run(RegExOrId) ->
             case shell_buck2_utils:rebuild_modules(Suites) of
                 ok ->
                     io:format("Reloading all changed modules... "),
-                    Loaded = ct_daemon:load_changed(),
-                    case erlang:length(Loaded) of
-                        0 ->
-                            do_plain_test_run(ToRun);
-                        ChangedCount ->
-                            io:format("reloaded ~tp modules ~tP~n", [ChangedCount, Loaded, 10]),
-                            % There were some changes, so list the tests again, then run but without recompiling changes
-                            % Note that if called with the RegEx instead of ToRun test list like above, do_plain_test_run/1 will list the tests again
-                            do_plain_test_run(RegExOrId)
+                    case ct_daemon:load_changed() of
+                        Loaded when is_list(Loaded) ->
+                            case erlang:length(Loaded) of
+                                0 ->
+                                    do_plain_test_run(ToRun);
+                                ChangedCount ->
+                                    io:format("reloaded ~tp modules ~tP~n", [ChangedCount, Loaded, 10]),
+                                    % There were some changes, so list the tests again, then run but without recompiling changes
+                                    % Note that if called with the RegEx instead of ToRun test list like above, do_plain_test_run/1 will list the tests again
+                                    do_plain_test_run(RegExOrId)
+                            end;
+                        node_down ->
+                            io:format("Node down!~n"),
+                            error
                     end;
                 Error ->
                     Error
@@ -249,14 +255,17 @@ logs() ->
     end.
 
 %% internal
--spec list_impl(RegEx :: string()) -> {ok, string()} | {error, term()}.
+-spec list_impl(RegEx :: string()) -> {ok, string()} | {error, Error} when
+    Error :: node_down | {invalid_regex, {string(), non_neg_integer()}}.
 list_impl(RegEx) ->
     ensure_initialized(),
     case ct_daemon:list(RegEx) of
+        Tests when is_list(Tests) -> {ok, print_tests(Tests)};
         {invalid_regex, _} = Err -> {error, Err};
-        Tests -> {ok, print_tests(Tests)}
+        node_down -> {error, node_down}
     end.
 
+-spec ensure_initialized() -> ok.
 ensure_initialized() ->
     PrintInit = lists:foldl(
         fun(Fun, Acc) -> Fun() orelse Acc end,
@@ -393,7 +402,7 @@ is_debug_session() ->
             Value
     end.
 
--spec collect_results(#{module => [string()]}) -> #{string() => ct_daemon_core:run_result()}.
+-spec collect_results(#{module() => [string()]}) -> #{string() => ct_daemon_core:run_result()}.
 collect_results(PerSuite) ->
     maps:fold(
         fun(Suite, Tests, Acc) ->
@@ -406,6 +415,9 @@ collect_results(PerSuite) ->
             case ct_daemon:run({discovered, [#{suite => Suite, name => Test} || Test <- Tests]}) of
                 node_down ->
                     io:format("test node shut down during test execution, aborting~n", []),
+                    Acc;
+                {error, Reason} ->
+                    io:format("Error selecting tests to run: ~p~n", [Reason]),
                     Acc;
                 RunResult ->
                     maps:merge(
@@ -449,6 +461,9 @@ discover(RegExOrId) ->
             discover(RegExOrId);
         {error, Reason} ->
             io:format("cannot run tests ~0p: ~0p~n", [RegExOrId, Reason]),
+            [];
+        node_down ->
+            io:format("test node unexpectedly down~n"),
             [];
         [] ->
             io:format("no tests found for ~0p~n", [RegExOrId]),
