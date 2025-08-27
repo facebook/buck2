@@ -528,7 +528,7 @@ impl DaemonState {
                 materializer_db,
                 materializer_state,
                 http_client.dupe(),
-                daemon_dispatcher,
+                daemon_dispatcher.dupe(),
             )?;
 
             // Create this after the materializer because it'll want to write to buck-out, and an Eden

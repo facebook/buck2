@@ -183,6 +183,7 @@ impl RemoteEventSink {
 
                 match &s.data {
                     Some(Data::Command(..)) => true,
+                    Some(Data::MemoryPressure(..)) => true,
                     None => false,
                     _ => false,
                 }

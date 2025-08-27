@@ -58,6 +58,25 @@ async def test_no_local_action_when_full_hybrid_given_memory_pressure(
         "LocalCommand" in c or "OmittedLocalCommand" in c for c in commands
     ), "Actions should be forced to run on RE since memory limit is set to 0 and we are always under memory pressure"
 
+    pressure_starts = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanStart",
+        "data",
+        "MemoryPressure",
+    )
+    pressure_ends = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "MemoryPressure",
+    )
+    assert len(pressure_starts) == 1
+    assert len(pressure_ends) == 1
+
 
 @dataclass
 class _ActionExecution:

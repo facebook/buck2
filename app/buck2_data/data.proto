@@ -91,6 +91,7 @@ message SpanStartEvent {
     DepFileUploadStart dep_file_upload = 88;
     ComputeDetailedAggregatedMetricsStart compute_detailed_aggregated_metrics =
         89;
+    MemoryPressureStart memory_pressure = 90;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -144,6 +145,7 @@ message SpanEndEvent {
     DepFileUploadEnd dep_file_upload = 88;
     ComputeDetailedAggregatedMetricsEnd compute_detailed_aggregated_metrics =
         89;
+    MemoryPressureEnd memory_pressure = 90;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -319,6 +321,10 @@ message InstantEvent {
     StdoutStreamingOutput streaming_output = 51;
   }
 }
+
+message MemoryPressureStart {}
+
+message MemoryPressureEnd {}
 
 message PreviousCommandWithMismatchedConfig {
   repeated string sanitized_argv = 1;

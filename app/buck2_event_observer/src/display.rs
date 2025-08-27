@@ -400,6 +400,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             Data::ComputeDetailedAggregatedMetrics(..) => {
                 Ok("Computing detailed aggregated metrics".to_owned())
             }
+            Data::MemoryPressure(..) => Ok("Under memory pressure".to_owned()),
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(

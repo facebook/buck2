@@ -455,11 +455,9 @@ impl BuckdServer {
             version_control_revision::spawn_version_control_collector(dispatch.dupe(), repo_root);
 
         #[cfg(unix)]
-        let memory_reporter = daemon_state
-            .data
-            .memory_tracker
-            .as_ref()
-            .map(|t| buck2_common::memory_tracker::spawn_memory_reporter(t.dupe()));
+        let memory_reporter = daemon_state.data.memory_tracker.as_ref().map(|t| {
+            buck2_common::memory_tracker::spawn_memory_reporter(dispatch.dupe(), t.dupe())
+        });
         #[cfg(not(unix))]
         let memory_reporter: Option<bool> = None;
 

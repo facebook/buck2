@@ -19,8 +19,11 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::Span;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
+use parking_lot::Mutex;
 use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 use tokio::time::Interval;
@@ -143,24 +146,31 @@ async fn cgroup_memory_current_path() -> buck2_error::Result<AbsPathBuf> {
 }
 
 pub struct MemoryReporter {
+    pressure_span: Arc<Mutex<Option<Span>>>,
     pub handle: tokio::task::JoinHandle<()>,
 }
 
 // Per command task to listen to memory state changes and send events to the client.
-pub fn spawn_memory_reporter(memory_tracker: TrackedMemorySender) -> MemoryReporter {
+pub fn spawn_memory_reporter(
+    dispatcher: EventDispatcher,
+    memory_tracker: TrackedMemorySender,
+) -> MemoryReporter {
+    let pressure_span = Arc::new(Mutex::new(None));
+    let span = pressure_span.dupe();
     let handle = tokio::task::spawn(async move {
-        let mut under_pressure = false;
         let mut rx = memory_tracker.subscribe();
         loop {
             if let TrackedMemoryState::Reading(reading) = *rx.borrow() {
-                match (under_pressure, reading.state) {
+                let mut span = span.lock();
+                match (span.is_some(), reading.state) {
                     (false, MemoryState::AboveLimit) => {
-                        tracing::debug!("Above memory pressure limit");
-                        under_pressure = true;
+                        let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
+                        *span = Some(new_span);
                     }
                     (true, MemoryState::BelowLimit) => {
-                        tracing::debug!("Below memory pressure limit");
-                        under_pressure = false;
+                        if let Some(span) = span.take() {
+                            span.end(buck2_data::MemoryPressureEnd {});
+                        }
                     }
                     _ => {}
                 }
@@ -176,11 +186,17 @@ pub fn spawn_memory_reporter(memory_tracker: TrackedMemorySender) -> MemoryRepor
             }
         }
     });
-    MemoryReporter { handle }
+    MemoryReporter {
+        pressure_span,
+        handle,
+    }
 }
 
 impl Drop for MemoryReporter {
     fn drop(&mut self) {
+        if let Some(span) = self.pressure_span.lock().take() {
+            span.end(buck2_data::MemoryPressureEnd {})
+        }
         self.handle.abort();
     }
 }
