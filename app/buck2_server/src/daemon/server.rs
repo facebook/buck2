@@ -454,6 +454,15 @@ impl BuckdServer {
         let version_control_revision_collector =
             version_control_revision::spawn_version_control_collector(dispatch.dupe(), repo_root);
 
+        #[cfg(unix)]
+        let memory_reporter = daemon_state
+            .data
+            .memory_tracker
+            .as_ref()
+            .map(|t| buck2_common::memory_tracker::spawn_memory_reporter(t.dupe()));
+        #[cfg(not(unix))]
+        let memory_reporter: Option<bool> = None;
+
         let resp = streaming(
             req,
             events,
@@ -481,6 +490,7 @@ impl BuckdServer {
                     };
                     // Do not kill the process prematurely.
                     drop(version_control_revision_collector);
+                    drop(memory_reporter);
                     match result {
                         Ok(_) => dispatch.command_result(result_to_command_result(result)),
                         Err(e) => match check_cert_state(cert_state).await {

@@ -142,6 +142,49 @@ async fn cgroup_memory_current_path() -> buck2_error::Result<AbsPathBuf> {
     Ok(AbsPathBuf::new(daemon_and_forkserver_slice)?.join("memory.current"))
 }
 
+pub struct MemoryReporter {
+    pub handle: tokio::task::JoinHandle<()>,
+}
+
+// Per command task to listen to memory state changes and send events to the client.
+pub fn spawn_memory_reporter(memory_tracker: TrackedMemorySender) -> MemoryReporter {
+    let handle = tokio::task::spawn(async move {
+        let mut under_pressure = false;
+        let mut rx = memory_tracker.subscribe();
+        loop {
+            if let TrackedMemoryState::Reading(reading) = *rx.borrow() {
+                match (under_pressure, reading.state) {
+                    (false, MemoryState::AboveLimit) => {
+                        tracing::debug!("Above memory pressure limit");
+                        under_pressure = true;
+                    }
+                    (true, MemoryState::BelowLimit) => {
+                        tracing::debug!("Below memory pressure limit");
+                        under_pressure = false;
+                    }
+                    _ => {}
+                }
+            }
+
+            if let Some(error) = rx.changed().await.err() {
+                // this task should always be stopped before the memory tracker is killed
+                let _unused = soft_error!(
+                    "memory_reporter_failed",
+                    internal_error!("Error from memory tracker sender: {}", error),
+                );
+                break;
+            }
+        }
+    });
+    MemoryReporter { handle }
+}
+
+impl Drop for MemoryReporter {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
 pub async fn create_memory_tracker(
     resource_control_config: &ResourceControlConfig,
 ) -> buck2_error::Result<Option<TrackedMemorySender>> {
