@@ -7,7 +7,7 @@ title: Build Rule
 
 A _build rule_ is a procedure for producing output files from a set of input
 files in the context of a specified build configuration. Build rules are
-specified in [build file](build_file.md)s—typically named BUCK.
+specified in [build files](build_file.md)—typically named BUCK.
 
 > **Note:** A build rule must explicitly specify, in its arguments, all of its
 > required inputs in order for Buck2 to be able to build the rule's output in a
