@@ -356,6 +356,20 @@ impl DaemonCommand {
             let listener = tokio::net::TcpListener::from_std(listener)?;
             let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
+            // Patch socket options to include TCP_NODELAY for a material performance improvement
+            let listener = listener.map(|stream| {
+                stream.inspect(|stream| {
+                    match stream.set_nodelay(true) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            // Failing to set nodelay causes a performance penalty
+                            // but is still better than failing to set up the connection
+                            tracing::info!("Failed to set nodelay TCP option: {}", e);
+                        }
+                    }
+                })
+            });
+
             tracing::info!("Listening.");
             // `tracing::info` statements after this is dropped are not logged by default due to `[daemon_listener]=info` filter.
             drop(span_guard);
