@@ -622,8 +622,57 @@ impl Buck {
         deserialize_file_output(command.output(), &command)
     }
 
-    #[instrument(skip_all)]
+    /// Given a list of `targets`, find all the aliases in their transitive dependencies, and
+    /// expand all those aliases to the final target.
     pub(crate) fn query_aliased_libraries(
+        &self,
+        targets: &[Target],
+    ) -> anyhow::Result<FxHashMap<Target, AliasedTargetInfo>> {
+        let mut alias_map = self.query_aliased_dependencies(targets)?;
+
+        // Recursively expand aliases until we find a target that isn't an alias, or
+        // we've queried buck 5 times.
+        for _ in 0..5 {
+            let alias_destinations = alias_map
+                .values()
+                .map(|info| info.actual.clone())
+                .collect::<Vec<_>>();
+
+            let new_aliases = self.query_aliased_targets(&alias_destinations)?;
+            if new_aliases.is_empty() {
+                break;
+            }
+
+            for destination in alias_map.values_mut() {
+                if let Some(new_destination) = new_aliases.get(&destination.actual) {
+                    destination.actual = new_destination.actual.clone();
+                }
+            }
+        }
+
+        Ok(alias_map)
+    }
+
+    /// Given a list of targets, return a mapping for all targets that are aliases.
+    fn query_aliased_targets(
+        &self,
+        targets: &[Target],
+    ) -> anyhow::Result<FxHashMap<Target, AliasedTargetInfo>> {
+        let xplat_platforms = infer_xplat_platforms(targets);
+        let mut command = self.command(["cquery"], &xplat_platforms);
+
+        if let Some(mode) = &self.mode {
+            command.arg(mode);
+        }
+        command.args(["--output-attribute", "actual", "kind('^alias$', %Ss)"]);
+        command.args(targets);
+
+        info!("resolving aliased targets");
+        deserialize_output(command.output(), &command)
+    }
+
+    /// Return a mapping for all the transitive dependencies of `targets` that are aliases.
+    fn query_aliased_dependencies(
         &self,
         targets: &[Target],
     ) -> Result<FxHashMap<Target, AliasedTargetInfo>, anyhow::Error> {
@@ -641,10 +690,10 @@ impl Buck {
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
-        command.args(["--output-all-attributes", "kind('^alias$', deps(%Ss))"]);
+        command.args(["--output-attribute", "actual", "kind('^alias$', deps(%Ss))"]);
         command.args(targets);
 
-        info!("resolving aliased libraries");
+        info!("resolving aliased dependencies");
         let raw: FxHashMap<Target, AliasedTargetInfo> =
             deserialize_output(command.output(), &command)?;
 
