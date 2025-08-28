@@ -31,4 +31,4 @@ async def test_watchman_fallback(buck: Buck) -> None:
 )
 async def test_eden_fail(buck: Buck) -> None:
     res = await expect_failure(buck.targets("root//:"))
-    assert "Failed to connect to EdenFS" in res.stderr
+    assert "Couldn't initiate connection to Eden" in res.stderr

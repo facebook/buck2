@@ -79,11 +79,8 @@ impl dyn FileWatcher {
                 ignore_specs.clone(),
             ) {
                 Ok(edenfs) => return Ok(Arc::new(edenfs)),
-                Err(EdenFsWatcherError::NoEden) => {
-                    soft_error!(
-                        "edenfs_watcher_creation_failure",
-                        EdenFsWatcherError::NoEden.into()
-                    )?;
+                Err(EdenFsWatcherError::EdenConnectionError(e)) => {
+                    soft_error!("edenfs_watcher_creation_failure", e)?;
                     // fallback to watchman if failed to create edenfs watcher
                     "watchman"
                 }

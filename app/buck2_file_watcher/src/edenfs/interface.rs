@@ -65,8 +65,8 @@ const MAX_SAPLING_STATUS_CHANGES: usize = 10_000;
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum EdenFsWatcherError {
     #[buck2(tag = IoNotConnected)]
-    #[error("Failed to connect to EdenFS")]
-    NoEden,
+    #[error("Failed to connect to EdenFS {0}")]
+    EdenConnectionError(buck2_error::Error),
     #[buck2(tag = Input)]
     #[error("Eden mount point is not absolute normalized path")]
     NotAbsNormPath,
@@ -110,10 +110,18 @@ impl EdenFsFileWatcher {
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> Result<Self, EdenFsWatcherError> {
-        let manager =
-            EdenConnectionManager::new(fb, project_root, Some(semaphore::buck2_default()))
-                .map_err(|_| EdenFsWatcherError::NoEden)?
-                .ok_or(EdenFsWatcherError::NoEden)?;
+        let manager = EdenConnectionManager::new(
+            fb,
+            project_root,
+            Some(semaphore::buck2_default()),
+        )
+        .map_err(EdenFsWatcherError::EdenConnectionError)?
+        .ok_or(EdenFsWatcherError::EdenConnectionError(
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "Couldn't initiate connection to Eden. This is usually due to .eden dir missing"
+            ),
+        ))?;
 
         let mount_point = manager.get_mount_point();
         let eden_root = AbsNormPath::new(manager.get_mount_point_path())
