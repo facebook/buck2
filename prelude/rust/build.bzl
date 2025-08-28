@@ -13,6 +13,11 @@ load(
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:resources.bzl", "create_resource_db", "gather_resources")
+load(
+    "@prelude//apple:apple_frameworks.bzl",
+    "apple_build_link_args_with_deduped_flags",
+    "apple_get_link_info_by_deduping_link_infos",
+)
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
@@ -517,18 +522,33 @@ def rust_compile(
         # of that style.
 
         if rust_cxx_link_group_info:
-            inherited_link_args = LinkArgs(
-                infos = rust_cxx_link_group_info.filtered_links + [rust_cxx_link_group_info.symbol_files_info],
-            )
+            filtered_links = rust_cxx_link_group_info.filtered_links
 
-        else:
-            inherited_link_args = get_link_args_for_strategy(
+            # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
+            # for the resolved nodes in the graph.
+            # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
+            additional_links = apple_get_link_info_by_deduping_link_infos(
                 ctx,
-                inherited_merged_link_infos(
+                infos = filtered_links,
+                framework_linkable = None,
+                swiftmodule_linkable = None,
+            )
+            if additional_links:
+                filtered_links.append(additional_links)
+
+            inherited_link_args = LinkArgs(
+                infos = filtered_links + [rust_cxx_link_group_info.symbol_files_info],
+            )
+        else:
+            inherited_link_args = apple_build_link_args_with_deduped_flags(
+                ctx,
+                deps_merged_link_infos = inherited_merged_link_infos(
                     ctx,
                     compile_ctx.dep_ctx,
                 ).values(),
-                params.dep_link_strategy,
+                frameworks_linkable = None,
+                link_strategy = params.dep_link_strategy,
+                swiftmodule_linkable = None,
                 prefer_stripped = False,
             )
 
