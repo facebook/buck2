@@ -37,6 +37,7 @@ GoToolchainInfo = provider(
         "env_go_arm": provider_field(str | None, default = None),
         "env_go_root": provider_field(Artifact | None, default = None),
         "env_go_debug": provider_field(dict[str, str], default = {}),
+        "env_go_experiment": provider_field(list[str], default = []),
         "external_linker_flags": provider_field(typing.Any, default = None),
         "go": provider_field(RunInfo),
         "linker": provider_field(RunInfo),
@@ -49,7 +50,7 @@ GoToolchainInfo = provider(
 def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_args | Artifact]:
     env = {
         "GOARCH": toolchain.env_go_arch,
-        "GOEXPERIMENT": "",
+        "GOEXPERIMENT": ",".join(toolchain.env_go_experiment),
         "GOOS": toolchain.env_go_os,
     }
 
