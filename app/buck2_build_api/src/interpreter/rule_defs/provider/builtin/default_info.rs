@@ -100,6 +100,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 ///         "debug_info": attrs.output(),
 ///         "_cc": attrs.dep(default="//tools:cc", providers=[RunInfo]),
 ///         "_strip_script": attrs.dep(default="//tools:strip", providers=[RunInfo])
+///     }
 /// )
 ///
 /// def foo_binary_wrapper(name, srcs):
