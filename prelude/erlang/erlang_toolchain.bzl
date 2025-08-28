@@ -51,9 +51,14 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     """ rule for erlang toolchain
     """
 
-    # split the options string to get a list of options
-    erl_opts = ctx.attrs.erl_opts.split()
-    emu_flags = ctx.attrs.emu_flags.split()
+    erl_opts = ctx.attrs.erl_opts
+    emu_flags = ctx.attrs.emu_flags
+
+    # backwards compat: options could be given as a string
+    if isinstance(erl_opts, str):
+        erl_opts = erl_opts.split()
+    if isinstance(emu_flags, str):
+        emu_flags = emu_flags.split()
 
     # get otp binaries
     binaries_info = ctx.attrs.otp_binaries[ErlangOTPBinariesInfo]
@@ -240,9 +245,19 @@ erlang_toolchain = rule(
     impl = _erlang_toolchain_impl,
     attrs = {
         "core_parse_transforms": attrs.list(attrs.dep(), default = ["@prelude//erlang/toolchain:transform_project_root"]),
-        "emu_flags": attrs.string(default = ""),
+        "emu_flags": attrs.one_of(
+            attrs.list(attrs.string()),
+            # deprecated: list-of-strings are preferred (e.g. they are more easily selectable)
+            attrs.string(),
+            default = [],
+        ),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
-        "erl_opts": attrs.string(default = ""),
+        "erl_opts": attrs.one_of(
+            attrs.list(attrs.string()),
+            # deprecated: list-of-strings are preferred (e.g. they are more easily selectable)
+            attrs.string(),
+            default = [],
+        ),
         "otp_binaries": attrs.dep(),
         "parse_transforms": attrs.list(attrs.dep()),
         "parse_transforms_filters": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string())),
