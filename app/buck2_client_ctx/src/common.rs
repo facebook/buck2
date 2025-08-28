@@ -51,6 +51,13 @@ use crate::path_arg::PathArg;
 pub const EVENT_LOG: &str = "event-log";
 pub const NO_EVENT_LOG: &str = "no-event-log";
 
+#[derive(Debug, buck2_error::Error)]
+#[error("indices len is not equal to collection len for flag `{flag_name}`")]
+#[buck2(tag = buck2_error::ErrorTag::InternalError)]
+struct IndicesLengthMismatchError {
+    flag_name: String,
+}
+
 #[derive(
     Debug,
     serde::Serialize,
@@ -258,18 +265,18 @@ impl CommonBuildConfigurationOptions {
             collection: &'a [T],
             name: &str,
             matches: BuckArgMatches<'a>,
-        ) -> impl Iterator<Item = (usize, &'a T)> + use<'a, T> {
+        ) -> buck2_error::Result<impl Iterator<Item = (usize, &'a T)> + use<'a, T>> {
             let indices = matches.inner.indices_of(name);
             let indices = indices.unwrap_or_default();
-            assert_eq!(
-                indices.len(),
-                collection.len(),
-                "indices len is not equal to collection len for flag `{name}`"
-            );
-            indices.into_iter().zip(collection)
+            if indices.len() != collection.len() {
+                return Err(buck2_error::Error::from(IndicesLengthMismatchError {
+                    flag_name: name.to_owned(),
+                }));
+            }
+            Ok(indices.into_iter().zip(collection))
         }
 
-        let config_values_args = with_indices(&self.config_values, "config_values", matches)
+        let config_values_args = with_indices(&self.config_values, "config_values", matches)?
             .map(|(index, config_value)| {
                 let (cell, raw_arg) = match config_value.split_once("//") {
                     Some((cell, val)) if !cell.contains('=') => {
@@ -292,7 +299,7 @@ impl CommonBuildConfigurationOptions {
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
-        let config_file_args = with_indices(&self.config_files, "config_files", matches)
+        let config_file_args = with_indices(&self.config_files, "config_files", matches)?
             .map(|(index, file)| {
                 let (cell, path) = match file.split_once("//") {
                     Some((cell, val)) => {
