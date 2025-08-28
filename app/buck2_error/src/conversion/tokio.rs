@@ -51,3 +51,11 @@ impl From<tokio::sync::oneshot::error::RecvError> for crate::Error {
         from_any_with_tag(value, ErrorTag::Tokio)
     }
 }
+
+impl From<tokio::sync::watch::error::RecvError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: tokio::sync::watch::error::RecvError) -> Self {
+        from_any_with_tag(value, ErrorTag::Tokio)
+    }
+}

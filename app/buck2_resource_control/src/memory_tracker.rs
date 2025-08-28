@@ -12,13 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::systemd::SystemdCreationDecision;
 use buck2_common::systemd::SystemdRunner;
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
@@ -27,6 +24,9 @@ use buck2_events::dispatch::Span;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use parking_lot::Mutex;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncSeekExt;
 use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 use tokio::time::Interval;
@@ -117,8 +117,10 @@ impl BackoffData {
 
 #[derive(Allocative)]
 pub struct MemoryTracker {
-    /// Path to `memory.current` file in cgroup of our process
-    memory_current_path: AbsPathBuf,
+    /// Open `memory.current` file in cgroup of our process
+    #[allocative(skip)]
+    memory_current: File,
+
     #[allocative(skip)]
     sender: Arc<Sender<TrackedMemoryState>>,
     max_retries: u32,
@@ -132,7 +134,7 @@ enum MemoryTrackerError {
     ParentSliceExpected(String),
 }
 
-async fn cgroup_memory_current_path() -> buck2_error::Result<AbsPathBuf> {
+async fn open_daemon_memory_current() -> buck2_error::Result<File> {
     // This contains daemon cgroup scope path
     // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
     let info = CGroupInfo::read_async().await?;
@@ -141,7 +143,9 @@ async fn cgroup_memory_current_path() -> buck2_error::Result<AbsPathBuf> {
     let Some(daemon_and_forkserver_slice) = info.get_slice() else {
         return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
     };
-    Ok(AbsPathBuf::new(daemon_and_forkserver_slice)?.join("memory.current"))
+    File::open(daemon_and_forkserver_slice.to_owned() + "/memory.current")
+        .await
+        .map_err(|e| e.into())
 }
 
 pub struct MemoryReporter {
@@ -215,7 +219,7 @@ pub async fn create_memory_tracker(
             const MAX_RETRIES: u32 = 5;
             let memory_limit_bytes = memory_limit_gibibytes * 1024 * 1024 * 1024;
             let memory_tracker = MemoryTracker::new(
-                cgroup_memory_current_path().await?,
+                open_daemon_memory_current().await?,
                 MAX_RETRIES,
                 memory_limit_bytes,
             );
@@ -232,10 +236,10 @@ pub async fn create_memory_tracker(
 }
 
 impl MemoryTracker {
-    fn new(memory_current_path: AbsPathBuf, max_retries: u32, memory_limit_bytes: u64) -> Self {
+    fn new(memory_current: File, max_retries: u32, memory_limit_bytes: u64) -> Self {
         let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         Self {
-            memory_current_path,
+            memory_current,
             sender: Arc::new(tx),
             max_retries,
             memory_limit_bytes,
@@ -243,7 +247,7 @@ impl MemoryTracker {
     }
 
     #[doc(hidden)]
-    pub(crate) async fn spawn_task(self, mut timer: impl Timer + Send + 'static) {
+    pub(crate) async fn spawn_task(mut self, mut timer: impl Timer + Send + 'static) {
         tokio::spawn({
             async move {
                 let mut backoff_data: Option<BackoffData> = None;
@@ -306,26 +310,27 @@ impl MemoryTracker {
         });
     }
 
-    async fn read_memory_current(&self) -> anyhow::Result<u64> {
-        let path = &self.memory_current_path;
-        let content = async_fs_util::read_to_string(path)
+    async fn read_memory_current(&mut self) -> buck2_error::Result<u64> {
+        self.memory_current.rewind().await?;
+        // memory.current contains a byte count as a string which is at most u64::MAX (20 digits)
+        // using fixed buffer to avoid heap allocation
+        let mut data = vec![0u8; 24];
+        let read = self
+            .memory_current
+            .read(&mut data)
             .await
+            .with_buck_error_context(|| "Error reading cgroup current memory")?;
+        if read == 0 {
+            return Err(internal_error!("no bytes read"));
+        }
+        data.truncate(read);
+        let string = str::from_utf8(&data)?.trim();
+        string
+            .parse::<u64>()
+            .map_err(buck2_error::Error::from)
             .with_buck_error_context(|| {
-                format!(
-                    "Error reading cgroup current memory `{}`",
-                    path.as_path().display()
-                )
-            })?;
-        let value = content.lines().nth(0).ok_or_else(|| {
-            anyhow::anyhow!("Not expected `{}` to be empty.", path.as_path().display())
-        })?;
-        let reading = value.parse::<u64>().with_context(|| {
-            format!(
-                "Expected a numeric value in `{}` file.",
-                path.as_path().display()
-            )
-        })?;
-        Ok(reading)
+                format!("Expected a numeric value in cgroup file, found {}", string)
+            })
     }
 }
 
@@ -338,7 +343,7 @@ mod tests {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use buck2_core::fs::paths::abs_path::AbsPathBuf;
+    use tokio::fs::File;
     use tokio::sync::Notify;
 
     use super::*;
@@ -365,15 +370,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_changes_tracked() -> anyhow::Result<()> {
+    async fn test_changes_tracked() -> buck2_error::Result<()> {
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("current.memory");
         fs::write(&path, "6").unwrap();
-        let abs_path = AbsPathBuf::new(path.clone())?;
+        let memory_current = File::open(path.clone()).await?;
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(abs_path, 0, 7);
+        let tracker = MemoryTracker::new(memory_current, 0, 7);
         let mut rx = tracker.sender.subscribe();
         tracker.spawn_task(timer).await;
         let wait = rx.wait_for(|x| match x {
@@ -405,14 +410,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_backoff_stops_after_max_retries() -> anyhow::Result<()> {
+    async fn test_backoff_stops_after_max_retries() -> buck2_error::Result<()> {
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("current.memory");
         fs::write(&path, "abc").unwrap();
-        let abs_path = AbsPathBuf::new(path.clone())?;
+        let memory_current = File::open(path.clone()).await?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::new(abs_path, 3, 0);
+        let tracker = MemoryTracker::new(memory_current, 3, 0);
         let sender = tracker.sender.dupe();
         tracker.spawn_task(timer).await;
         let mut rx = sender.subscribe();
