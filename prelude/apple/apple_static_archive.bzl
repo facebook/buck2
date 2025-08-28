@@ -45,7 +45,7 @@ def _get_apple_library_info(ctx: AnalysisContext) -> AppleLibraryInfo:
     flat_public_framework_headers = []
     for apple_library_info in flat_apple_library_infos:
         tset = apple_library_info.public_framework_headers._tset
-        if tset != None:
+        if tset != None and tset.value:
             for headers in tset.value:
                 flat_public_framework_headers += headers.artifacts
 
