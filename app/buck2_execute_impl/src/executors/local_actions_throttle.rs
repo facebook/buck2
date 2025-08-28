@@ -58,6 +58,10 @@ impl LocalActionsThrottle {
                     TrackedMemoryState::Reading(MemoryReading {
                         state: MemoryState::BelowLimit,
                         ..
+                    })
+                    | TrackedMemoryState::Reading(MemoryReading {
+                        state: MemoryState::NoLimitSet,
+                        ..
                     }) => true,
                     TrackedMemoryState::Reading(MemoryReading {
                         state: MemoryState::AboveLimit,

@@ -43,6 +43,7 @@ pub enum TrackedMemoryState {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MemoryState {
+    NoLimitSet,
     BelowLimit,
     AboveLimit,
 }
@@ -124,7 +125,7 @@ pub struct MemoryTracker {
     #[allocative(skip)]
     sender: Arc<Sender<TrackedMemoryState>>,
     max_retries: u32,
-    memory_limit_bytes: u64,
+    memory_limit_bytes: Option<u64>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -207,36 +208,30 @@ impl Drop for MemoryReporter {
 pub async fn create_memory_tracker(
     resource_control_config: &ResourceControlConfig,
 ) -> buck2_error::Result<Option<TrackedMemorySender>> {
-    let Some(memory_limit_gibibytes) =
-        resource_control_config.hybrid_execution_memory_limit_gibibytes
-    else {
-        return Ok(None);
-    };
-
-    let creation = SystemdRunner::creation_decision(&resource_control_config.status);
-    match creation {
-        SystemdCreationDecision::Create => {
-            const MAX_RETRIES: u32 = 5;
-            let memory_limit_bytes = memory_limit_gibibytes * 1024 * 1024 * 1024;
-            let memory_tracker = MemoryTracker::new(
-                open_daemon_memory_current().await?,
-                MAX_RETRIES,
-                memory_limit_bytes,
-            );
-            let memory_sender = memory_tracker.sender.dupe();
-            const TICK_DURATION: Duration = Duration::from_millis(300);
-            let timer = IntervalTimer::new(TICK_DURATION);
-            memory_tracker.spawn_task(timer).await;
-            Ok(Some(memory_sender))
-        }
-        SystemdCreationDecision::SkipNotNeeded
-        | SystemdCreationDecision::SkipPreferredButNotRequired { .. }
-        | SystemdCreationDecision::SkipRequiredButUnavailable { .. } => Ok(None),
+    if let SystemdCreationDecision::Create =
+        SystemdRunner::creation_decision(&resource_control_config.status)
+    {
+        const MAX_RETRIES: u32 = 5;
+        let memory_limit_bytes = resource_control_config
+            .hybrid_execution_memory_limit_gibibytes
+            .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
+        let memory_tracker = MemoryTracker::new(
+            open_daemon_memory_current().await?,
+            MAX_RETRIES,
+            memory_limit_bytes,
+        );
+        let memory_sender = memory_tracker.sender.dupe();
+        const TICK_DURATION: Duration = Duration::from_millis(300);
+        let timer = IntervalTimer::new(TICK_DURATION);
+        memory_tracker.spawn_task(timer).await;
+        Ok(Some(memory_sender))
+    } else {
+        Ok(None)
     }
 }
 
 impl MemoryTracker {
-    fn new(memory_current: File, max_retries: u32, memory_limit_bytes: u64) -> Self {
+    fn new(memory_current: File, max_retries: u32, memory_limit_bytes: Option<u64>) -> Self {
         let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         Self {
             memory_current,
@@ -262,10 +257,14 @@ impl MemoryTracker {
                     }
                     let new_state = match self.read_memory_current().await {
                         Ok(memory_current) => {
-                            let state = if memory_current < self.memory_limit_bytes {
-                                MemoryState::BelowLimit
+                            let state = if let Some(memory_limit_bytes) = self.memory_limit_bytes {
+                                if memory_current < memory_limit_bytes {
+                                    MemoryState::BelowLimit
+                                } else {
+                                    MemoryState::AboveLimit
+                                }
                             } else {
-                                MemoryState::AboveLimit
+                                MemoryState::NoLimitSet
                             };
                             TrackedMemoryState::Reading(MemoryReading {
                                 state,
@@ -378,7 +377,7 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(memory_current, 0, 7);
+        let tracker = MemoryTracker::new(memory_current, 0, Some(7));
         let mut rx = tracker.sender.subscribe();
         tracker.spawn_task(timer).await;
         let wait = rx.wait_for(|x| match x {
@@ -417,7 +416,7 @@ mod tests {
         let memory_current = File::open(path.clone()).await?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::new(memory_current, 3, 0);
+        let tracker = MemoryTracker::new(memory_current, 3, Some(0));
         let sender = tracker.sender.dupe();
         tracker.spawn_task(timer).await;
         let mut rx = sender.subscribe();
