@@ -362,11 +362,10 @@ def _compile_single_cxx(
 
     clang_llvm_statistics = None
     if toolchain.clang_llvm_statistics and compiler_type == "clang":
-        cmd.add(["-mllvm", "-stats", "-mllvm", "-info-output-file", "-mllvm"])
         clang_llvm_statistics = ctx.actions.declare_output(
             paths.join("__objects__", "{}.stats".format(filename_base)),
         )
-        cmd.add(cmd_args(clang_llvm_statistics.as_output()))
+        cmd.add(["-mllvm", "-stats", "-mllvm", cmd_args(clang_llvm_statistics.as_output(), format = "-info-output-file={}")])
 
     clang_trace = None
     if toolchain.clang_trace and compiler_type == "clang":
