@@ -47,6 +47,7 @@ buck2_execute = { workspace = true }
 buck2_forkserver = { workspace = true }
 buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
+buck2_resource_control = { workspace = true }
 buck2_util = { workspace = true }
 buck2_worker_proto = { workspace = true }
 buck2_wrapper_common = { workspace = true }

@@ -456,7 +456,7 @@ impl BuckdServer {
 
         #[cfg(unix)]
         let memory_reporter = daemon_state.data.memory_tracker.as_ref().map(|t| {
-            buck2_common::memory_tracker::spawn_memory_reporter(dispatch.dupe(), t.dupe())
+            buck2_resource_control::memory_tracker::spawn_memory_reporter(dispatch.dupe(), t.dupe())
         });
 
         let resp = streaming(

@@ -15,7 +15,6 @@ use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
-use buck2_common::memory_tracker::TrackedMemorySender;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -60,6 +59,7 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_resource_control::memory_tracker::TrackedMemorySender;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 

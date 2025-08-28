@@ -61,26 +61,3 @@ pub mod starlark_profiler;
 pub mod systemd;
 pub mod target_aliases;
 pub mod temp_path;
-
-#[cfg(not(unix))]
-pub mod memory_tracker {
-    use std::sync::Arc;
-
-    use allocative::Allocative;
-
-    use crate::init::ResourceControlConfig;
-
-    #[derive(Allocative)]
-    pub struct MemoryTracker {}
-
-    pub type TrackedMemorySender = Arc<MemoryTracker>;
-
-    pub async fn create_memory_tracker(
-        _resource_control_config: &ResourceControlConfig,
-    ) -> buck2_error::Result<Option<TrackedMemorySender>> {
-        Ok(None)
-    }
-}
-
-#[cfg(unix)]
-pub mod memory_tracker;

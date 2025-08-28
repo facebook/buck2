@@ -14,6 +14,9 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::init::ResourceControlConfig;
+use buck2_common::systemd::SystemdCreationDecision;
+use buck2_common::systemd::SystemdRunner;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
@@ -28,10 +31,6 @@ use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
-
-use crate::init::ResourceControlConfig;
-use crate::systemd::SystemdCreationDecision;
-use crate::systemd::SystemdRunner;
 
 pub type TrackedMemorySender = Arc<Sender<TrackedMemoryState>>;
 

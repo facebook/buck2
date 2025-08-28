@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use buck2_common::memory_tracker::TrackedMemorySender;
+use buck2_resource_control::memory_tracker::TrackedMemorySender;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
@@ -46,9 +46,9 @@ impl LocalActionsThrottle {
     pub(crate) async fn ensure_low_memory_pressure(&self) {
         #[cfg(unix)]
         {
-            use buck2_common::memory_tracker::MemoryReading;
-            use buck2_common::memory_tracker::MemoryState;
-            use buck2_common::memory_tracker::TrackedMemoryState;
+            use buck2_resource_control::memory_tracker::MemoryReading;
+            use buck2_resource_control::memory_tracker::MemoryState;
+            use buck2_resource_control::memory_tracker::TrackedMemoryState;
 
             let mut rx = self.memory_tracker.subscribe();
             // If there is any problem with the tracker play it safe and don't block the execution.

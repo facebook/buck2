@@ -68,6 +68,7 @@ members = [
     "app/buck2_query_parser",
     "app/buck2_query_derive",
     "app/buck2_re_configuration",
+    "app/buck2_resource_control",
     "app/buck2_server",
     "app/buck2_server_commands",
     "app/buck2_server_ctx",
@@ -421,6 +422,7 @@ buck2_query_derive = { path = "app/buck2_query_derive" }
 buck2_query_impls = { path = "app/buck2_query_impls" }
 buck2_query_parser = { path = "app/buck2_query_parser" }
 buck2_re_configuration = { path = "app/buck2_re_configuration" }
+buck2_resource_control = { path = "app/buck2_resource_control" }
 buck2_server = { path = "app/buck2_server" }
 buck2_server_commands = { path = "app/buck2_server_commands" }
 buck2_server_ctx = { path = "app/buck2_server_ctx" }
