@@ -439,6 +439,12 @@ pub struct Buck2OssReConfiguration {
     pub max_concurrent_uploads_per_action: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     pub cas_ttl_secs: Option<i64>,
+    /// Interval in seconds for HTTP/2 ping frames to detect stale connections.
+    pub grpc_keepalive_time_secs: Option<u64>,
+    /// Timeout in seconds for receiving HTTP/2 ping acknowledgement.
+    pub grpc_keepalive_timeout_secs: Option<u64>,
+    /// Whether to send HTTP/2 pings when connection is idle.
+    pub grpc_keepalive_while_idle: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -543,6 +549,18 @@ impl Buck2OssReConfiguration {
             cas_ttl_secs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "cas_ttl_secs",
+            })?,
+            grpc_keepalive_time_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_keepalive_time_secs",
+            })?,
+            grpc_keepalive_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_keepalive_timeout_secs",
+            })?,
+            grpc_keepalive_while_idle: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_keepalive_while_idle",
             })?,
         })
     }
