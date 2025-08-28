@@ -71,37 +71,39 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 /// ```python
 /// # //foo_binary.bzl
 /// def impl(ctx):
-///     ctx.action.run([ctx.attrs._cc[RunInfo], "-o", ctx.attrs.out.as_output()] + ctx.attrs.srcs)
-///     ctx.action.run([
+///     out = ctx.actions.declare_output("out")
+///     ctx.actions.run([ctx.attrs._cc[RunInfo], "-o", out.as_output()] + ctx.attrs.srcs)
+///     stripped_out = ctx.actions.declare_output("stripped")
+///     debug_symbols_out = ctx.actions.declare_output("debug_info")
+///     ctx.actions.run([
 ///         ctx.attrs._strip[RunInfo],
 ///         "--binary",
-///         ctx.attrs.out,
+///         out,
 ///         "--stripped-out",
-///         ctx.attrs.stripped.as_output(),
+///         stripped_out.as_output(),
 ///         "--debug-symbols-out",
-///         ctx.attrs.debug_info.as_output(),
+///         debug_symbols_out.as_output(),
 ///     ])
 ///     return [
 ///         DefaultInfo(
 ///             sub_targets = {
 ///                 "stripped": [
-///                     DefaultInfo(default_outputs = [ctx.attrs.stripped, ctx.attrs.debug_info]),
+///                     DefaultInfo(default_outputs = [stripped_out, debug_symbols_out]),
 ///                 ],
 ///             },
-///             default_output = ctx.attrs.out,
+///             default_output = out,
+///         ),
 ///     ]
 ///
 /// foo_binary = rule(
-///     impl=impl,
-///     attrs={
+///     impl = impl,
+///     attrs = {
 ///         "srcs": attrs.list(attrs.source()),
-///         "out": attrs.output(),
-///         "stripped": attrs.output(),
-///         "debug_info": attrs.output(),
-///         "_cc": attrs.dep(default="//tools:cc", providers=[RunInfo]),
-///         "_strip_script": attrs.dep(default="//tools:strip", providers=[RunInfo])
-///     }
+///         "_cc": attrs.dep(default = "//tools:cc", providers = [RunInfo]),
+///         "_strip_script": attrs.dep(default = "//tools:strip", providers = [RunInfo]),
+///     },
 /// )
+///
 ///
 /// def foo_binary_wrapper(name, srcs):
 ///     foo_binary(
