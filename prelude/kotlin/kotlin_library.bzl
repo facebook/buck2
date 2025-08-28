@@ -114,6 +114,8 @@ def _create_kotlin_sources(
         args = classpath_args,
         allow_args = True,
     ))
+    if ctx.attrs.java_version:
+        kotlinc_cmd_args.add(["-Xjdk-release=" + str(ctx.attrs.java_version)])
 
     module_name = ctx.label.package.replace("/", ".") + "." + ctx.label.name
     kotlinc_cmd_args.add(
