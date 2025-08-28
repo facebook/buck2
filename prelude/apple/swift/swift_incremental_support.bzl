@@ -43,11 +43,11 @@ SwiftCompilationMode = enum(*SwiftCompilationModes)
 # The maxmium number of threads, we don't use
 # host_info to prevent cache misses across
 # different hardware models.
-_MAX_NUM_THREADS = 6
+INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS = 6
 
 # This is the default, but specifying it explicitly
 # is clearer.
-_SWIFT_BATCH_SIZE = 25
+INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE = 25
 
 def should_build_swift_incrementally(ctx: AnalysisContext) -> bool:
     toolchain = get_swift_toolchain_info(ctx)
@@ -76,8 +76,8 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
     if num_srcs == 0:
         return 1
 
-    src_threads = (num_srcs + _SWIFT_BATCH_SIZE - 1) // _SWIFT_BATCH_SIZE
-    return min(_MAX_NUM_THREADS, src_threads)
+    src_threads = (num_srcs + INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE - 1) // INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE
+    return min(INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS, src_threads)
 
 def _get_skip_swift_incremental_outputs(ctx: AnalysisContext):
     return getattr(ctx.attrs, "_skip_swift_incremental_outputs", False)
@@ -101,9 +101,9 @@ def _get_incremental_compilation_flags_and_objects(
             "-experimental-emit-module-separately",
             "-incremental",
             "-j",
-            str(_MAX_NUM_THREADS),
+            str(INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS),
             "-driver-batch-size-limit",
-            str(_SWIFT_BATCH_SIZE),
+            str(INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE),
             "-emit-objc-header",
             "-emit-objc-header-path",
             output_header.as_output(),

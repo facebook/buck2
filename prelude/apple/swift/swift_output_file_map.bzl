@@ -6,6 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(
+    "@prelude//cxx:cxx_sources.bzl",
+    "CxxSrcWithFlags",  # @unused Used as a type
+)
+
 def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str, inputs_tag: ArtifactTag) -> None:
     # Add a Makefile style dependency file output.
     dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d".format(ctx.attrs.name, category)).as_output()
@@ -42,3 +47,22 @@ def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: 
     )
     cmd.add("-output-file-map", output_file_map_json)
     return output_file_map_json
+
+def get_modularization_dependency_graph_output_map(
+        ctx: AnalysisContext,
+        srcs: list[CxxSrcWithFlags]):
+    output_file_map = {}
+    output_modularization_dependency_graph_shards = []
+    output_objects = []
+    for src in srcs:
+        file_name = src.file.basename
+        object_file_artifact = ctx.actions.declare_output("__swift_modularization___/objects/" + file_name + ".o")
+        modularization_dependency_graph_artifact = ctx.actions.declare_output("__swift_modularization___/dependency_graphs/" + file_name + ".modularizationdependencygraph")
+        output_file_map[src.file] = {
+            "modularization-dependency-graph": modularization_dependency_graph_artifact,
+            "object": object_file_artifact,
+        }
+        output_objects.append(object_file_artifact)
+        output_modularization_dependency_graph_shards.append(modularization_dependency_graph_artifact)
+
+    return output_file_map, output_objects, output_modularization_dependency_graph_shards

@@ -493,6 +493,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             ]
 
         subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
+        subtargets["modularization-dependency-graph"] = [DefaultInfo(default_output = swift_compile.modularization_dependency_graph)]
 
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,

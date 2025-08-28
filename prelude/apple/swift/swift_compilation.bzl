@@ -55,13 +55,15 @@ load(
 )
 load(
     ":swift_incremental_support.bzl",
+    "INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE",
+    "INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS",
     "IncrementalCompilationInput",
     "get_incremental_file_hashing_enabled",
     "get_incremental_object_compilation_flags",
     "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
-load(":swift_output_file_map.bzl", "add_dependencies_output")
+load(":swift_output_file_map.bzl", "add_dependencies_output", "get_modularization_dependency_graph_output_map")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
     ":swift_pcm_compilation_types.bzl",
@@ -140,6 +142,8 @@ SwiftCompilationOutput = record(
     # A list of artifacts of the swiftdeps files produced during incremental compilation.
     swiftdeps = field(list[Artifact]),
     compiled_underlying_pcm_artifact = field(Artifact | None),
+    # Modularization dependency dot graph
+    modularization_dependency_graph = field(Artifact | None),
 )
 
 SwiftDebugInfo = record(
@@ -413,6 +417,8 @@ def compile_swift(
         category = compile_category,
     )
 
+    modularization_dependency_graph = _compile_modularization_dependency_graph(ctx, toolchain, shared_flags, srcs)
+
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
@@ -479,6 +485,7 @@ def compile_swift(
         swift_library_for_distribution_output = swift_framework_output,
         index_store = index_store,
         swiftdeps = object_output.swiftdeps,
+        modularization_dependency_graph = modularization_dependency_graph,
     ), swift_interface_info)
 
 # We use separate actions for swiftmodule and object file output. This
@@ -714,6 +721,43 @@ def _compile_object(
         output_map_artifact = output_map_artifact,
         swiftdeps = swiftdeps,
     )
+
+def _compile_modularization_dependency_graph(ctx: AnalysisContext, toolchain: SwiftToolchainInfo, shared_flags: cmd_args, srcs: list[CxxSrcWithFlags]) -> Artifact:
+    modularization_dependecy_graph_output = ctx.actions.declare_output("__modularization_dependency_graph__/swift_{}.dot".format(get_module_name(ctx)))
+    cmd = cmd_args(
+        "-emit-modularization-dependency-dot-graph",
+        modularization_dependecy_graph_output.as_output(),
+        "-emit-object",
+        "-enable-batch-mode",
+        "-driver-batch-size-limit",
+        str(INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE),
+        "-j",
+        str(INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS),
+    )
+
+    category = "modularization_dependency_graph_compile"
+
+    output_file_map, output_objects, output_modularization_dependency_graph_shards = get_modularization_dependency_graph_output_map(ctx, srcs)
+    for object in output_objects:
+        cmd.add(cmd_args(hidden = object.as_output()))
+
+    for shard in output_modularization_dependency_graph_shards:
+        cmd.add(cmd_args(hidden = shard.as_output()))
+
+    _compile_with_argsfile(
+        ctx = ctx,
+        category = category,
+        extension = SWIFT_EXTENSION,
+        shared_flags = shared_flags,
+        srcs = srcs,
+        additional_flags = cmd,
+        toolchain = toolchain,
+        num_threads = INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS,
+        output_file_map = output_file_map,
+        skip_incremental_outputs = False,
+        objects = output_objects,
+    )
+    return modularization_dependecy_graph_output
 
 def _compile_index_store(
         ctx: AnalysisContext,
