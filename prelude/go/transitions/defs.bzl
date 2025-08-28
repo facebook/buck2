@@ -184,8 +184,8 @@ def _chain_transitions(transitions):
 
     return tr
 
-_all_level_tansitions = [_force_mingw_on_windows]
-_top_level_tansitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tags_transition] + _all_level_tansitions
+_all_level_transitions = [_force_mingw_on_windows]
+_top_level_transitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tags_transition] + _all_level_transitions
 
 _all_level_refs = {
     "abi_gnu": "prelude//abi/constraints:gnu",
@@ -207,13 +207,13 @@ _top_level_refs = {
 _attrs = ["asan", "cgo_enabled", "race", "build_tags"]
 
 go_binary_transition = transition(
-    impl = _chain_transitions(_top_level_tansitions),
+    impl = _chain_transitions(_top_level_transitions),
     refs = _top_level_refs,
     attrs = _attrs,
 )
 
 go_test_transition = transition(
-    impl = _chain_transitions(_top_level_tansitions + [_coverage_mode_transition]),
+    impl = _chain_transitions(_top_level_transitions + [_coverage_mode_transition]),
     refs = _top_level_refs | {
         "coverage_mode_atomic": "prelude//go/constraints:coverage_mode_atomic",
         "coverage_mode_count": "prelude//go/constraints:coverage_mode_count",
@@ -223,19 +223,19 @@ go_test_transition = transition(
 )
 
 go_exported_library_transition = transition(
-    impl = _chain_transitions(_top_level_tansitions),
+    impl = _chain_transitions(_top_level_transitions),
     refs = _top_level_refs,
     attrs = _attrs,
 )
 
 go_library_transition = transition(
-    impl = _chain_transitions(_all_level_tansitions),
+    impl = _chain_transitions(_all_level_transitions),
     refs = _all_level_refs,
     attrs = [],
 )
 
 go_stdlib_transition = transition(
-    impl = _chain_transitions(_all_level_tansitions),
+    impl = _chain_transitions(_all_level_transitions),
     refs = _all_level_refs,
     attrs = [],
 )
