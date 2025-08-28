@@ -38,7 +38,14 @@ def run_dwp_action(
         args = cmd_args(
             [dwp, "-o", dwp_output.as_output()],
         )
-        args.add(referenced_objects)
+        argsfile = ctx.actions.write(
+            "dwp{}{}.argsfile".format(
+                "_" + category_suffix if category_suffix else "",
+                "_" + identifier if identifier else "",
+            ),
+            referenced_objects,
+        )
+        args.add(cmd_args(argsfile, format = "@{}", hidden = referenced_objects))
 
     category = "dwp"
     if category_suffix != None:
