@@ -869,7 +869,7 @@ def precompile_cxx(
         return []
 
     def mk_base_cmd():
-        base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper = False)
+        base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper = True)
         ext = CxxExtension(".cpp")
         headers_tag = ctx.actions.artifact_tag()  # Currently ignored
         argsfile = _mk_argsfiles(
