@@ -458,8 +458,6 @@ impl BuckdServer {
         let memory_reporter = daemon_state.data.memory_tracker.as_ref().map(|t| {
             buck2_common::memory_tracker::spawn_memory_reporter(dispatch.dupe(), t.dupe())
         });
-        #[cfg(not(unix))]
-        let memory_reporter: Option<bool> = None;
 
         let resp = streaming(
             req,
@@ -488,6 +486,7 @@ impl BuckdServer {
                     };
                     // Do not kill the process prematurely.
                     drop(version_control_revision_collector);
+                    #[cfg(unix)]
                     drop(memory_reporter);
                     match result {
                         Ok(_) => dispatch.command_result(result_to_command_result(result)),
