@@ -122,7 +122,7 @@ using a `BUCK` file.
 <FbInternalOnly>
 
 ```python
-load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 
 rust_binary( name = "main", srcs = ["src/main.rs"], )
 
