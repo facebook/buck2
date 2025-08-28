@@ -37,6 +37,7 @@ static std::string indexFileOutputPath;
 static std::string linkPlanFileOutputPath;
 static std::string finalIndexFileOutputPath;
 static bool enablePreMerger = false;
+static bool dumpLinkerInvocation = false;
 static std::vector<std::string> linkerInvocationCommand;
 folly::coro::SharedMutex absorbedBitcodeFilesMutex;
 folly::coro::SharedMutex nonLTOObjectFilesMutex;
@@ -102,6 +103,9 @@ static void parseArgs(int argc, char** argv) {
       position += 2;
     } else if (strcmp(argv[position], "--enable-premerger") == 0) {
       enablePreMerger = true;
+      position += 1;
+    } else if (strcmp(argv[position], "--dump-linker-invocation") == 0) {
+      dumpLinkerInvocation = true;
       position += 1;
     } else if (strcmp(argv[position], "--") == 0) {
       for (position++; position < argc; position++) {
@@ -192,6 +196,14 @@ static void runThinLink(
     std::string preMergerMapFlag = "-Wl,-mllvm,-premerger-output-map=";
     preMergerMapFlag += preMergerOutputFileMappingFile.filename();
     linkerInvocationCommand.push_back((preMergerMapFlag));
+  }
+
+  if (dumpLinkerInvocation) {
+    for (const auto& argument : linkerInvocationCommand) {
+      std::cout << argument << " ";
+    }
+    std::cout << "\n";
+    return;
   }
 
   folly::Subprocess subprocess(
@@ -486,6 +498,9 @@ int main(int argc, char** argv) {
         objectFileRecordsMap, preMergeToPostMerge, postMergeToPreMerge);
   }
   runThinLink(preMergeToPostMerge);
+  if (dumpLinkerInvocation) {
+    return 0;
+  }
 
   std::unordered_set<std::string> loadedInputBitcodeFiles =
       parseLoadedInputBitcodeFiles();
