@@ -6,12 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("gen_filters.bxl", "gen_filters")
 load("gen_sln.bxl", "gen_sln")
 load("gen_vcxproj.bxl", "gen_vcxproj")
-load("get_attrs.bxl", "get_attrs")
+load("get_attrs.bxl", "get_attrs", "get_cxx_toolchain")
+load("get_compiler_settings.bxl", "materialize_compiler_settings_file")
 load("get_deps.bxl", "get_deps")
-load("get_vs_settings.bxl", "get_basic_vs_settings", "get_vs_settings")
+load("get_vs_settings.bxl", "get_basic_vs_settings", "get_vs_settings", "get_vs_settings_for_toolchain")
 load("utils.bxl", "basename", "get_project_file_path", "log_debug")
 
 def _match_recursive_target_types(target: bxl.ConfiguredTargetNode, recursive_target_types: list[str], bxl_ctx) -> bool:
@@ -116,9 +118,32 @@ def _main(bxl_ctx):
     attrs_artifact_dict = {}  # target label => attrs artifact
     vcxproj_artifact_dict = {}  # target label => vcxproj artifact
     filters_artifact_dict = {}  # target label => filters artifact
+    toolchain_dep_dict = {}
     for dep in deps:
         # Write the attrs to a json file so that all macros get resolved
         attrs = get_attrs(dep, bxl_ctx)
+
+        # Populate the compiler settings file for this target's cxx toolchain attribute.  Normally this is just toolchains//:cxx, and we need its settings file
+        # in order to parse the flags that were specified directly to its CxxCompilerInfo provider and get include directories and defines at the toolchain
+        # level.  However, it's not enough to simply parse `toolchains//:cxx`, because this can be overridden via a number of different methods (for example,
+        # via `cxx_toolchain_override` or by passing the `_cxx_toolchain` attribute to the cxx_library rule invocation).
+        cxx_toolchain = get_cxx_toolchain(dep, bxl_ctx)
+
+        # The target may not be a cxx library or related rule, in which case there will be no cxx toolchain.
+        if cxx_toolchain:
+            cxx_toolchain_label = cxx_toolchain.label
+            cxx_toolchain_artifact = attrs_artifact_dict.get(cxx_toolchain_label, None)
+
+            # Do this lazily.  Many targets can reference the same toolchain, but don't bother trying to run analysis or create the entry for the toolchain
+            # more than once.
+            if not cxx_toolchain_artifact:
+                cxx_toolchain_target_label = cxx_toolchain.label.configured_target()
+                cxx_toolchain_target_node = bxl_ctx.configured_targets(cxx_toolchain_target_label)
+                cxx_toolchain_info = bxl_ctx.analysis(cxx_toolchain_target_node).providers().get(CxxToolchainInfo)
+                settings_file_artifact = materialize_compiler_settings_file(cxx_toolchain_target_node, actions, cxx_toolchain_info, bxl_ctx)
+                attrs_artifact_dict[cxx_toolchain_label] = settings_file_artifact
+
+                toolchain_dep_dict[cxx_toolchain_label] = (cxx_toolchain, cxx_toolchain_target_node)
 
         attrs_outfile = actions.write_json(get_project_file_path(dep.label, ".attrs.json"), attrs, pretty = True)
         attrs_artifact_dict[dep.label] = attrs_outfile
@@ -134,6 +159,8 @@ def _main(bxl_ctx):
         # This is just for generating sln file since vs_settings_list is not available inside the lambda function
         # Sln file doesn't need any attr that involves macro so we're good here
         basic_vs_settings_list.append(get_basic_vs_settings(dep, bxl_ctx.cli_args))
+
+    toolchain_deps = toolchain_dep_dict.values()
 
     # This lambda function gets executed after attrs are written into the json files and then loads them back to get resolved macro values.
     # Params:
@@ -153,10 +180,20 @@ def _main(bxl_ctx):
             for dep in deps
         }
 
+        for dep, _ in toolchain_deps:
+            content = artifacts[attrs_artifact_dict[dep.label]].read_json()
+            attrs_content_dict[dep.label] = content
+
         vs_settings_dict = {}  # target label => vs_settings.
+        for dep, node in toolchain_deps:
+            attrs = attrs_content_dict[dep.label]
+            vs_settings = get_vs_settings_for_toolchain(node, attrs, cli_args)
+            vs_settings_dict[dep.label] = vs_settings
+
         for dep in deps:
             attrs = attrs_content_dict[dep.label]
-            vs_settings = get_vs_settings(dep, attrs, vs_settings_dict, cli_args, buck_root, ctx)
+            toolchain = get_cxx_toolchain(dep, ctx)
+            vs_settings = get_vs_settings(dep, toolchain, attrs, vs_settings_dict, cli_args, buck_root, ctx)
             vs_settings_dict[dep.label] = vs_settings
 
             if dep.label.raw_target() in deps_with_vcxproj:

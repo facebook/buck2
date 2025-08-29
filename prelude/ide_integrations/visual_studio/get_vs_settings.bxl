@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("constants.bxl", "ADDITIONAL_TARGETS", "BY_MODES", "DEBUG_ARGS", "DEBUG_CMD", "DEBUG_ENV", "DEBUG_PWD", "EXTRA_BUCK_OPTIONS", "IMMEDIATE_BUCK_OPTIONS")
-load("get_attrs.bxl", "get_attrs", "get_unified_value")
+load("get_attrs.bxl", "get_attrs", "get_cxx_toolchain", "get_unified_value")
 load("get_compiler_settings.bxl", "get_compiler_settings", "get_exported_compiler_settings")
 load("get_linker_settings.bxl", "get_exported_linker_settings", "get_linker_settings")
 load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "log_warn", "merge", "suffix")
@@ -147,7 +147,25 @@ def get_basic_vs_settings(target: bxl.ConfiguredTargetNode, cli_args):
 
     return basic_vs_settings
 
-def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_dict: dict, cli_args, buck_root, bxl_ctx):
+def get_vs_settings_for_toolchain(target: bxl.ConfiguredTargetNode, compiler_settings: dict, cli_args):
+    log_debug("# Getting VS settings for toolchain {}", target.label.raw_target(), log_level = cli_args.log_level)
+
+    vs_settings = get_basic_vs_settings(target, cli_args)
+
+    vs_settings["Headers"] = []
+    vs_settings["Sources"] = {}
+
+    vs_settings["ProjectConfigurations"] = []
+
+    vs_settings["CompilerSettings"] = {}
+    vs_settings["ExportedCompilerSettings"] = compiler_settings["exported_compiler_settings"]
+
+    vs_settings["LinkerSettings"] = {}
+    vs_settings["ExportedLinkerSettings"] = {}
+
+    return vs_settings
+
+def get_vs_settings(target: bxl.ConfiguredTargetNode, toolchain, attrs: dict, vs_settings_dict: dict, cli_args, buck_root, bxl_ctx):
     log_debug("# Getting VS settings for {}", target.label.raw_target(), log_level = cli_args.log_level)
     mode_files = cli_args.mode_files
 
@@ -208,6 +226,11 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_d
             aggregated_private_linker_settings,
             vs_settings_dict.get(dep, {}).get("ExportedLinkerSettings", {}),
         )
+
+    if toolchain:
+        toolchain_compiler_settings = vs_settings_dict.get(toolchain.label, {}).get("ExportedCompilerSettings", {})
+        aggregated_private_compiler_settings = merge(aggregated_private_compiler_settings, toolchain_compiler_settings)
+
     vs_settings["CompilerSettings"] = merge(
         aggregated_private_compiler_settings,
         get_compiler_settings(target, attrs),
@@ -231,12 +254,13 @@ def _main(bxl_ctx):
     actions = bxl_ctx.bxl_actions().actions
 
     attrs = get_attrs(target_node, bxl_ctx)
+    toolchain = get_cxx_toolchain(target_node, bxl_ctx)
     attrs_artifact = actions.write_json(get_project_file_path(target_node.label, ".attrs.json"), attrs, pretty = True)
     vs_settings_artifact = actions.declare_output(get_project_file_path(target_node.label, ".vs_settings.json"))
 
     def f(ctx, artifacts, outputs, cli_args = bxl_ctx.cli_args, root = bxl_ctx.root()):
         attrs = artifacts[attrs_artifact].read_json()
-        vs_settings = get_vs_settings(target_node, attrs, {}, cli_args, root, ctx)
+        vs_settings = get_vs_settings(target_node, toolchain, attrs, {}, cli_args, root, ctx)
         ctx.bxl_actions().actions.write_json(outputs[vs_settings_artifact].as_output(), vs_settings, pretty = True)
 
     actions.dynamic_output(

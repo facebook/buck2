@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("flags_parser_utils.bxl", "flatten_flag_lists", "get_compiler_settings_from_flags")
 load("get_attrs.bxl", "get_attrs")
 load("utils.bxl", "basename", "dedupe_by_value", "dirname", "escape_xml", "get_argsfiles_output_path", "get_project_file_path", "h", "normcase", "normpath")
@@ -109,28 +110,53 @@ def gen_compiler_settings(compiler_settings: dict):
         indent_level = 2,
     )
 
-def _main(bxl_ctx):
-    target = bxl_ctx.cli_args.target
-    target_node = bxl_ctx.configured_targets(target)
-    actions = bxl_ctx.bxl_actions().actions
+def materialize_compiler_settings_file(target_node, actions, cxx_toolchain_info, bxl_ctx):
     attrs = get_attrs(target_node, bxl_ctx)
+
+    cxxflags_artifact = None
+    if cxx_toolchain_info:
+        cxxflags_artifact, _ = actions.write(get_project_file_path(target_node.label, ".cxxflags"), cxx_toolchain_info.cxx_compiler_info.compiler_flags, allow_args = True)
+
     attrs_outfile = actions.write_json(get_project_file_path(target_node.label, ".attrs.json"), attrs, pretty = True)
     out = actions.declare_output(get_project_file_path(target_node.label, ".compiler_settings.json"))
 
     def f(ctx, artifacts, outputs, attrs_outfile = attrs_outfile, out = out, target = target_node):
         attrs_input = artifacts[attrs_outfile].read_json()
         settings = {}
-        settings["compiler_settings"] = get_compiler_settings(target, attrs_input)
-        settings["exported_compiler_settings"] = get_exported_compiler_settings(target, attrs_input, ctx)
+
+        if cxx_toolchain_info:
+            cxxflags = artifacts[cxxflags_artifact].read_string().splitlines()
+            exported_compiler_settings = get_compiler_settings_from_flags(cxxflags)
+        else:
+            exported_compiler_settings = get_exported_compiler_settings(target, attrs_input, ctx)
+
+        settings["compiler_settings"] = get_compiler_settings(target_node, attrs_input)
+        settings["exported_compiler_settings"] = exported_compiler_settings
 
         ctx.bxl_actions().actions.write_json(outputs[out].as_output(), settings, pretty = True)
 
+    dynamic = [attrs_outfile]
+    if cxxflags_artifact:
+        dynamic.append(cxxflags_artifact)
+
     actions.dynamic_output(
-        dynamic = [attrs_outfile],
+        dynamic = dynamic,
         inputs = [],
         outputs = [out.as_output()],
         f = f,
     )
+
+    return out
+
+def _main(bxl_ctx):
+    target = bxl_ctx.cli_args.target
+    target_node = bxl_ctx.configured_targets(target)
+    actions = bxl_ctx.bxl_actions().actions
+
+    cxx_toolchain_analysis_result = bxl_ctx.analysis(target_node)
+    cxx_toolchain_info = cxx_toolchain_analysis_result.providers().get(CxxToolchainInfo)
+
+    out = materialize_compiler_settings_file(target_node, actions, cxx_toolchain_info, bxl_ctx)
     bxl_ctx.output.print(bxl_ctx.output.ensure(out))
 
 main = bxl_main(

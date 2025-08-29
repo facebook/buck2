@@ -70,6 +70,10 @@ def get_unified_value(attrs, common_key: str, platform_key: str, toolchain = "wi
                 all_flags.extend(flags)
     return all_flags
 
+def get_cxx_toolchain(target: bxl.ConfiguredTargetNode, bxl_ctx) -> Dependency | None:
+    attrs = target.resolved_attrs_lazy(bxl_ctx)
+    return attrs.get("_cxx_toolchain")
+
 # TODO: Implement actual toolchain names
 def _platform_regex_match(plat, toolchain = "windows") -> bool:
     """Return if given platform entry matches specified toolchain"""
