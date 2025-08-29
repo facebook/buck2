@@ -116,7 +116,7 @@ def _create_kotlin_sources(
     ))
 
     # TODO(T222824773): Remove the 17 guard.
-    if ctx.attrs.java_version and int(ctx.attrs.java_version) <= 17:
+    if ctx.attrs.java_version and int(ctx.attrs.java_version) <= 17 and not ctx.attrs.no_x_jdk_release:
         kotlinc_cmd_args.add(["-Xjdk-release=" + str(ctx.attrs.java_version)])
 
     module_name = ctx.label.package.replace("/", ".") + "." + ctx.label.name
