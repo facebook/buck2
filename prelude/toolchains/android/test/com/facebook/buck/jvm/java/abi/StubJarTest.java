@@ -2654,7 +2654,7 @@ public class StubJarTest {
         .addExpectedCompileError(
             "A.java:4: error: cannot access com.example.buck.dependency.Dep2\n"
                 + "public abstract class A implements Dep.Inner, Runnable { }\n"
-                + "                ^\n"
+                + "                                      ^\n"
                 + "  class file for com.example.buck.dependency.Dep2 not found")
         .createStubJar();
   }
@@ -2692,7 +2692,7 @@ public class StubJarTest {
         .addExpectedCompileError(
             "A.java:4: error: cannot access com.example.buck.dependency.Dep2\n"
                 + "public class A extends Dep.Inner { }\n"
-                + "       ^\n"
+                + "                          ^\n"
                 + "  class file for com.example.buck.dependency.Dep2 not found")
         .createStubJar();
   }
@@ -6957,10 +6957,7 @@ public class StubJarTest {
             "// access flags 0x21",
             "public class com/example/buck/A {",
             "",
-            "JDK11:  NESTMEMBER com/example/buck/A$1",
             "JDK11:  NESTMEMBER com/example/buck/A$E",
-            "  // access flags 0x1008",
-            "  static synthetic INNERCLASS com/example/buck/A$1 null null",
             // Should not include this class
             "  // access flags 0x4018",
             "  final static enum INNERCLASS com/example/buck/A$E com/example/buck/A E",
