@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-#![expect(dead_code)]
 use std::fmt;
 use std::fs;
 use std::hash::Hash;

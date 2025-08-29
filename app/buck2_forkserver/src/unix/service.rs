@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use buck2_common::cgroup_pool::CgroupID;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::ParentSlice;
@@ -39,6 +40,7 @@ use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
 use buck2_util::process::background_command;
+use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::select;
 use futures::stream::Stream;
@@ -188,6 +190,7 @@ impl UnixForkserverService {
     fn setup_process_command(
         &self,
         validated_cmd: &ValidatedCommand,
+        cgroup_id: Option<CgroupID>,
     ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
         let resource_control_context = self
             .resource_control_runner
@@ -210,16 +213,27 @@ impl UnixForkserverService {
             // Uses systemd-run + miniperf for resource control + monitoring
             // systemd-run --scope --unit=<action_digest> miniperf <output_path> <user_executable>
             (_, Some(miniperf), Some((resource_control_runner, action_digest))) => {
-                let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
-                let mut cmd = resource_control_runner.cgroup_scoped_command(
-                    miniperf.miniperf.as_path(),
-                    &replace_unit_delimiter(action_digest),
-                    workding_dir,
-                );
-                let output_path = miniperf.allocate_output_path();
-                cmd.arg(output_path.as_path());
-                cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path))
+                if let Some(cgroup_id) = cgroup_id {
+                    let mut cmd = background_command(miniperf.miniperf.as_path());
+                    // safe to unwarp, because we have cgroup_id which means we have cgroup pool
+                    let cgroup_pool = resource_control_runner.cgroup_pool().unwrap();
+                    cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
+                    let output_path = miniperf.allocate_output_path();
+                    cmd.arg(output_path.as_path());
+                    cmd.arg(&validated_cmd.exe);
+                    (cmd, Some(output_path))
+                } else {
+                    let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
+                    let mut cmd = resource_control_runner.cgroup_scoped_command(
+                        miniperf.miniperf.as_path(),
+                        &replace_unit_delimiter(action_digest),
+                        workding_dir,
+                    );
+                    let output_path = miniperf.allocate_output_path();
+                    cmd.arg(output_path.as_path());
+                    cmd.arg(&validated_cmd.exe);
+                    (cmd, Some(output_path))
+                }
             }
             // Direct execution of the command
             _ => (background_command(&validated_cmd.exe), None),
@@ -285,6 +299,7 @@ impl UnixForkserverService {
             )?
             .right_stream(),
         };
+
         let stream = encode_event_stream(stream);
         Ok(Box::pin(stream) as _)
     }
@@ -298,7 +313,25 @@ impl Forkserver for UnixForkserverService {
         &self,
         req: Request<Streaming<RequestEvent>>,
     ) -> Result<Response<Self::RunStream>, Status> {
-        to_tonic(async move {
+        let cgroup_pool = self
+            .resource_control_runner
+            .as_ref()
+            .and_then(|r| r.cgroup_pool());
+
+        let cgroup_id = if let Some(cgroup_pool) = cgroup_pool {
+            Some(cgroup_pool.acquire().map_err(|e| {
+                Status::failed_precondition(format!(
+                    "Cannot acquire cgroup from cgroup pool: {}",
+                    e
+                ))
+            })?)
+        } else {
+            None
+        };
+
+        let cgroup_id_dup = cgroup_id.dupe();
+
+        let res = to_tonic(async move {
             let mut stream = req.into_inner();
 
             let cmd_request = Self::parse_command_request(&mut stream).await?;
@@ -315,7 +348,8 @@ impl Forkserver for UnixForkserverService {
                 Ok(GatherOutputStatus::Cancelled)
             };
 
-            let (mut cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
+            let (mut cmd, miniperf_output) =
+                self.setup_process_command(&validated_cmd, cgroup_id_dup)?;
             let process_group = cmd.spawn().map_err(buck2_error::Error::from);
 
             let timeout = timeout_into_cancellation(validated_cmd.timeout);
@@ -332,7 +366,14 @@ impl Forkserver for UnixForkserverService {
 
             Ok(stream)
         })
-        .await
+        .await;
+
+        if let Some(cgroup_id) = cgroup_id {
+            // safe to unwrap, since we have cgroup_id which means there is cgroup_pool
+            cgroup_pool.unwrap().release(cgroup_id)
+        }
+
+        res
     }
 
     async fn set_log_filter(
