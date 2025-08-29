@@ -38,12 +38,13 @@ def run_dwp_action(
         args = cmd_args(
             [dwp, "-o", dwp_output.as_output()],
         )
-        argsfile = ctx.actions.write(
+        argsfile, _ = ctx.actions.write(
             "dwp{}{}.argsfile".format(
                 "_" + category_suffix if category_suffix else "",
                 "_" + identifier if identifier else "",
             ),
             referenced_objects,
+            allow_args = True,
         )
         args.add(cmd_args(argsfile, format = "@{}", hidden = referenced_objects))
 
