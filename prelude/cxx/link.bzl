@@ -336,7 +336,7 @@ def cxx_link_into(
             dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
         else:
             for link in opts.links:
-                dwp_inputs.add(unpack_link_args(link))
+                dwp_inputs.add(cmd_args(hidden = unpack_link_args(link)))
             dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
@@ -350,7 +350,7 @@ def cxx_link_into(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
-            from_exe = not dwp_from_dwo,
+            from_exe = False,
         )
 
     if is_result_executable:
