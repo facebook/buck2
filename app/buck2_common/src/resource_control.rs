@@ -18,6 +18,8 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 use tracing::info;
 
+#[cfg(unix)]
+use crate::cgroup_pool::CgroupPool;
 use crate::init::ResourceControlConfig;
 use crate::init::ResourceControlStatus;
 
@@ -105,10 +107,12 @@ impl ResourceControlRunnerConfig {
 pub struct ResourceControlRunner {
     fixed_systemd_args: Vec<String>,
     memory_limit: Option<String>,
+    #[cfg(unix)]
+    cgroup_pool: Option<CgroupPool>,
 }
 
 impl ResourceControlRunner {
-    fn create(config: &ResourceControlRunnerConfig) -> Self {
+    fn create(config: &ResourceControlRunnerConfig) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -145,10 +149,25 @@ impl ResourceControlRunner {
                 args.push(format!("--slice={slice}"));
             }
         }
-        Self {
+
+        Ok(Self {
             fixed_systemd_args: args,
             memory_limit: config.memory_max.clone(),
-        }
+
+            #[cfg(unix)]
+            cgroup_pool: if config.enable_action_cgroup_pool {
+                // Right now, the capacity is not the hard limit, it would extend by needs.
+                // So set 32 for now.
+
+                use buck2_error::BuckErrorContext;
+                let capacity = buck2_util::threads::available_parallelism_fresh();
+                let cgroup_pool =
+                    CgroupPool::new(capacity).buck_error_context("Failed to create cgroup pool")?;
+                Some(cgroup_pool)
+            } else {
+                None
+            },
+        })
     }
 
     pub fn creation_decision(status: &ResourceControlStatus) -> SystemdCreationDecision {
@@ -185,7 +204,7 @@ impl ResourceControlRunner {
             SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
-            SystemdCreationDecision::Create => Ok(Some(Self::create(config))),
+            SystemdCreationDecision::Create => Ok(Some(Self::create(config)?)),
         }
     }
 
@@ -249,6 +268,11 @@ impl ResourceControlRunner {
         cmd.arg("stop").arg("--user").arg(scope);
         cmd.spawn()?.wait().await?;
         Ok(())
+    }
+
+    #[cfg(unix)]
+    pub fn cgroup_pool(&self) -> Option<&CgroupPool> {
+        self.cgroup_pool.as_ref()
     }
 }
 
