@@ -75,6 +75,8 @@ pub struct SystemdRunnerConfig {
     pub parent_slice: ParentSlice,
     /// Delegation of further resource control partitioning of cgroup unit
     pub delegation: CgroupDelegation,
+    /// Enable cgroup pool for action processes instead of using systemd scopes
+    pub enable_action_cgroup_pool: bool,
 }
 
 impl SystemdRunnerConfig {
@@ -84,6 +86,8 @@ impl SystemdRunnerConfig {
             memory_max: config.memory_max.clone(),
             parent_slice,
             delegation: CgroupDelegation::Disabled,
+            // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
+            enable_action_cgroup_pool: false,
         }
     }
 
@@ -93,6 +97,7 @@ impl SystemdRunnerConfig {
             memory_max: config.memory_max_per_action.clone(),
             parent_slice,
             delegation: CgroupDelegation::Enabled,
+            enable_action_cgroup_pool: config.enable_action_cgroup_pool.unwrap_or(false),
         }
     }
 }
