@@ -888,37 +888,8 @@ impl RunAction {
             return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
         }
 
-        let outputs_for_error_handler = self.outputs_for_error_handler()?;
-
-        let mut req = prepared_run_action
-            .into_command_execution_request()
-            .with_prefetch_lossy_stderr(true)
-            .with_executor_preference(self.inner.executor_preference)
-            .with_host_sharing_requirements(host_sharing_requirements.into())
-            .with_low_pass_filter(self.inner.low_pass_filter)
-            .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
-            .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
-            .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
-            .with_unique_input_inodes(self.inner.unique_input_inodes)
-            .with_remote_execution_dependencies(self.inner.remote_execution_dependencies.clone())
-            .with_remote_execution_custom_image(
-                self.inner.remote_execution_custom_image.clone().map(|s| *s),
-            )
-            .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
-            .with_outputs_for_error_handler(outputs_for_error_handler);
-
-        if self.inner.no_outputs_cleanup {
-            if self
-                .outputs
-                .iter()
-                .any(|o| o.get_path().is_content_based_path())
-            {
-                // Using string representation of run_action_key as it is going to be stored in db which requires it to be a string
-                let run_action_key =
-                    RunActionKey::from_action_execution_target(ctx.target()).to_string();
-                req = req.with_incremental_path_map(get_incremental_state(&run_action_key));
-            }
-        }
+        let req =
+            self.command_execution_request(ctx, prepared_run_action, host_sharing_requirements)?;
 
         // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let prepared_action = ctx.prepare_action(&req)?;
@@ -998,6 +969,46 @@ impl RunAction {
             prepared_action,
             input_files_bytes,
         })
+    }
+
+    fn command_execution_request(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        prepared_run_action: PreparedRunAction,
+        host_sharing_requirements: HostSharingRequirements,
+    ) -> buck2_error::Result<CommandExecutionRequest> {
+        let outputs_for_error_handler = self.outputs_for_error_handler()?;
+        let mut req = prepared_run_action
+            .into_command_execution_request()
+            .with_prefetch_lossy_stderr(true)
+            .with_executor_preference(self.inner.executor_preference)
+            .with_host_sharing_requirements(host_sharing_requirements.into())
+            .with_low_pass_filter(self.inner.low_pass_filter)
+            .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
+            .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
+            .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
+            .with_unique_input_inodes(self.inner.unique_input_inodes)
+            .with_remote_execution_dependencies(self.inner.remote_execution_dependencies.clone())
+            .with_remote_execution_custom_image(
+                self.inner.remote_execution_custom_image.clone().map(|s| *s),
+            )
+            .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
+            .with_outputs_for_error_handler(outputs_for_error_handler);
+
+        if self.inner.no_outputs_cleanup {
+            if self
+                .outputs
+                .iter()
+                .any(|o| o.get_path().is_content_based_path())
+            {
+                // Using string representation of run_action_key as it is going to be stored in db which requires it to be a string
+                let run_action_key =
+                    RunActionKey::from_action_execution_target(ctx.target()).to_string();
+                req = req.with_incremental_path_map(get_incremental_state(&run_action_key));
+            }
+        }
+
+        Ok(req)
     }
 
     fn outputs_for_error_handler(&self) -> buck2_error::Result<Vec<BuildArtifactPath>> {
