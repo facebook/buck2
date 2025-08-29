@@ -25,6 +25,8 @@ pub mod buckd_connection;
 pub mod build_count;
 pub mod buildfiles;
 pub mod cas_digest;
+#[cfg(unix)]
+pub mod cgroup_pool;
 pub mod chunk_reader;
 pub mod client_utils;
 pub mod convert;
