@@ -90,6 +90,7 @@ use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
 use indexmap::IndexMap;
 use tracing::info;
+use uuid::Uuid;
 
 use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
@@ -153,7 +154,7 @@ impl LocalExecutor {
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
-        action_digest: &'a str,
+        cgroup_command_id: &'a str,
     ) -> impl futures::future::Future<
         Output = buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
     > + Send
@@ -175,14 +176,14 @@ impl LocalExecutor {
                             env_inheritance,
                             liveliness_observer,
                             self.knobs.enable_miniperf && !disable_miniperf,
-                            action_digest,
+                            cgroup_command_id,
                         )
                         .await
                     }
 
                     #[cfg(not(unix))]
                     {
-                        let _unused = (forkserver, disable_miniperf, action_digest);
+                        let _unused = (forkserver, disable_miniperf, cgroup_command_id);
                         Err(buck2_error!(
                             buck2_error::ErrorTag::Input,
                             "Forkserver is not supported off-UNIX"
@@ -465,6 +466,7 @@ impl LocalExecutor {
                         .exec_cmd(request.args(), env, request.timeout())
                         .await)
                 } else {
+                    let cgroup_command_id = Uuid::new_v4().to_string();
                     self.exec(
                         &args[0],
                         &args[1..],
@@ -474,7 +476,7 @@ impl LocalExecutor {
                         request.local_environment_inheritance(),
                         liveliness_observer,
                         request.disable_miniperf(),
-                        &action_digest.to_string(),
+                        &cgroup_command_id,
                     )
                     .await
                 };
@@ -1385,7 +1387,7 @@ mod unix {
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
-        action_digest: &str,
+        cgroup_command_id: &str,
     ) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
@@ -1403,7 +1405,7 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            action_digest: Some(action_digest.to_owned()),
+            action_digest: Some(cgroup_command_id.to_owned()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
