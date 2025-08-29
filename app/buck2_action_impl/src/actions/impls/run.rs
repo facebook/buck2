@@ -888,23 +888,7 @@ impl RunAction {
             return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
         }
 
-        let outputs_for_error_handler = self
-            .starlark_values
-            .outputs_for_error_handler
-            .iter()
-            .map(|artifact| {
-                let a = artifact.inner().artifact();
-
-                match a.as_parts().0 {
-                    BaseArtifactKind::Source(s) => Err(buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Input,
-                        "Cannot use source artifact `{}` as output for error handler",
-                        s.get_path()
-                    )),
-                    BaseArtifactKind::Build(b) => Ok(b.get_path().dupe()),
-                }
-            })
-            .collect::<buck2_error::Result<Vec<_>>>()?;
+        let outputs_for_error_handler = self.outputs_for_error_handler()?;
 
         let mut req = prepared_run_action
             .into_command_execution_request()
@@ -1014,6 +998,25 @@ impl RunAction {
             prepared_action,
             input_files_bytes,
         })
+    }
+
+    fn outputs_for_error_handler(&self) -> buck2_error::Result<Vec<BuildArtifactPath>> {
+        self.starlark_values
+            .outputs_for_error_handler
+            .iter()
+            .map(|artifact| {
+                let a = artifact.inner().artifact();
+
+                match a.as_parts().0 {
+                    BaseArtifactKind::Source(s) => Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Cannot use source artifact `{}` as output for error handler",
+                        s.get_path()
+                    )),
+                    BaseArtifactKind::Build(b) => Ok(b.get_path().dupe()),
+                }
+            })
+            .collect()
     }
 }
 
