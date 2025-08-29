@@ -308,7 +308,7 @@ def _compile_single_cxx(
     filename_base = short_path
     identifier = short_path
 
-    if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units:
+    if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
         identifier += " (modular)"
 
     for flavor in flavors:
@@ -1409,6 +1409,8 @@ def _mk_header_units_argsfile(
     if _get_category(ext) != "cxx_compile":
         return None
     if not _compiler_supports_header_units(compiler_info):
+        return None
+    if not preprocessor.set.reduce("has_header_units_args"):
         return None
 
     file_name = "{}.{}header_units_args".format(ext.value, filename_prefix)

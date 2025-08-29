@@ -112,6 +112,13 @@ def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
                 args.add(["-include", h.import_include])
     return args
 
+def _cpreprocessor_has_header_units_args(children: list[bool], pres: [list[CPreprocessor], None]):
+    if pres:
+        for pre in pres:
+            if pre and pre.header_units and len(pre.header_units) > 0:
+                return True
+    return any(children)
+
 def _cpreprocessor_file_prefix_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
@@ -149,6 +156,7 @@ CPreprocessorTSet = transitive_set(
         "precompile_args": _cpreprocessor_precompile_args,
     },
     reductions = {
+        "has_header_units_args": _cpreprocessor_has_header_units_args,
         "uses_modules": _cpreprocessor_uses_modules,
     },
 )
