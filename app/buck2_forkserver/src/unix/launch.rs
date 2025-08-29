@@ -14,6 +14,10 @@ use std::os::unix::io::AsRawFd;
 use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
+use buck2_common::init::ResourceControlConfig;
+use buck2_common::resource_control::CgroupDelegation;
+use buck2_common::resource_control::ParentSlice;
+use buck2_common::resource_control::ResourceControlRunner;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -27,7 +31,7 @@ pub async fn launch_forkserver(
     exe: impl AsRef<OsStr>,
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
     state_dir: &AbsNormPath,
-    resource_control_arg: String,
+    resource_control: &ResourceControlConfig,
 ) -> buck2_error::Result<ForkserverClient> {
     let (client_io, server_io) =
         UnixStream::pair().buck_error_context("Failed to create fork server channel")?;
@@ -38,7 +42,21 @@ pub async fn launch_forkserver(
 
     let exe = exe.as_ref();
 
-    let mut command = background_command(exe);
+    let mut command = if resource_control.enable_action_cgroup_pool.unwrap_or(false) {
+        // When cgroup pool is enabled, we use systemd to start forkserver
+        let resource_control_runner = ResourceControlRunner::create(
+            None,
+            // we want to create forkserver daemon in the same hierarchy where buck-daemon scope
+            // for this we inherit slice
+            &ParentSlice::Inherit("forkserver_daemon".to_owned()),
+            CgroupDelegation::Enabled,
+            false,
+        )?;
+        resource_control_runner.cgroup_scoped_command(exe, "forkserver", state_dir)
+    } else {
+        background_command(exe)
+    };
+
     command
         .stdin(Stdio::null())
         .stdout(Stdio::inherit()) // TODO
@@ -50,7 +68,7 @@ pub async fn launch_forkserver(
         .arg("--state-dir")
         .arg(state_dir.as_path())
         .arg("--resource-control")
-        .arg(resource_control_arg);
+        .arg(resource_control.serialize()?);
 
     let fds = [server_io.as_raw_fd()];
 

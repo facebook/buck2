@@ -40,7 +40,7 @@ pub async fn maybe_launch_forkserver(
             exe,
             &["forkserver"],
             forkserver_state_dir,
-            resource_control.serialize()?,
+            resource_control,
         )
         .await,
     )

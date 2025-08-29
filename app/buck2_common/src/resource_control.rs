@@ -62,7 +62,7 @@ pub enum ParentSlice {
 /// Turns on delegation of further resource control partitioning to processes of the unit.
 /// Units where this is enabled may create and manage their own private subhierarchy
 /// of control groups below the control group of the unit itself.
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum CgroupDelegation {
     Enabled,
     Disabled,
@@ -112,7 +112,12 @@ pub struct ResourceControlRunner {
 }
 
 impl ResourceControlRunner {
-    fn create(config: &ResourceControlRunnerConfig) -> buck2_error::Result<Self> {
+    pub fn create(
+        memory_max: Option<String>,
+        parent_slice: &ParentSlice,
+        delegation: CgroupDelegation,
+        enable_action_cgroup_pool: bool,
+    ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -123,7 +128,7 @@ impl ResourceControlRunner {
             "--setenv=CHGDISABLE=1".to_owned(),
         ];
 
-        if let Some(memory_max) = &config.memory_max {
+        if let Some(memory_max) = &memory_max {
             args.push(format!("--property=MemoryMax={memory_max}"));
             // Without setting `MemorySwapMax`, the process starts using swap until it's
             // filled when the total memory usage reaches to `MemoryMax`. This may seem
@@ -136,11 +141,11 @@ impl ResourceControlRunner {
             args.push("--property=OOMPolicy=kill".to_owned());
         }
 
-        if config.delegation == CgroupDelegation::Enabled {
+        if delegation == CgroupDelegation::Enabled {
             args.push("--property=Delegate=yes".to_owned());
         }
 
-        match &config.parent_slice {
+        match &parent_slice {
             ParentSlice::Inherit(slice) => {
                 args.push(format!("--slice={slice}"));
                 args.push("--slice-inherit".to_owned());
@@ -152,12 +157,11 @@ impl ResourceControlRunner {
 
         Ok(Self {
             fixed_systemd_args: args,
-            memory_limit: config.memory_max.clone(),
+            memory_limit: memory_max.clone(),
 
             #[cfg(unix)]
-            cgroup_pool: if config.enable_action_cgroup_pool {
-                // Right now, the capacity is not the hard limit, it would extend by needs.
-                // So set 32 for now.
+            cgroup_pool: if enable_action_cgroup_pool {
+                // Use num_cpus to set the capacity of the cgroup pool.
 
                 use buck2_error::BuckErrorContext;
                 let capacity = buck2_util::threads::available_parallelism_fresh();
@@ -204,7 +208,12 @@ impl ResourceControlRunner {
             SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
-            SystemdCreationDecision::Create => Ok(Some(Self::create(config)?)),
+            SystemdCreationDecision::Create => Ok(Some(Self::create(
+                config.memory_max.clone(),
+                &config.parent_slice,
+                config.delegation,
+                config.enable_action_cgroup_pool,
+            )?)),
         }
     }
 
