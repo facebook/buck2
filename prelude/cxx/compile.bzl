@@ -722,11 +722,14 @@ def _create_precompile_cmd(
         if (_is_standalone_header(header) if header_group == None else regex_match(header_group, header.name))
     ]
 
+    input_header_contents = cmd_args(header_paths, format = "#include \"{}\"")
+
     module_name = _get_module_name(ctx, group_name)
     import_name = _get_import_filename(ctx, group_name)
+
     input_header = ctx.actions.write(
         module_name,
-        "",
+        cmd_args(input_header_contents, cmd_args(["\n"])),
         uses_experimental_content_based_path_hashing = True,
     )
 
@@ -788,16 +791,6 @@ module "{}" {{
             filename_prefix = "export{}_".format(group_name),
         )
 
-    include_args = cmd_args(header_paths, format = "-include{}", quote = "shell")
-
-    headers_argsfile, _ = ctx.actions.write(
-        "{}.header_unit_headers".format(group_name),
-        include_args,
-        allow_args = True,
-        uses_experimental_content_based_path_hashing = True,
-    )
-
-    args.extend([cmd_args(headers_argsfile, format = "@{}")])
     args.extend(["-xc++-user-header", "-fmodule-header"])
     args.extend(["-fmodule-name={}".format(module_name)])
     args.extend(["-Xclang", "-fmodule-file-home-is-cwd"])
