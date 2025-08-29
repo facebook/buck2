@@ -789,6 +789,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             cxx_headers = [propagated_preprocessor],
             shared_libs = shared_libs.libraries,
             deps = exported_deps + non_exported_deps,
+            project = ctx.attrs.third_party_project,
         )
         providers.append(third_party_build_info)
         sub_targets["third-party-build"] = [
