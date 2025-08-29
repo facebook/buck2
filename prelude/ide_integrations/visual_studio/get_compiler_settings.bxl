@@ -115,7 +115,7 @@ def materialize_compiler_settings_file(target_node, actions, cxx_toolchain_info,
 
     cxxflags_artifact = None
     if cxx_toolchain_info:
-        cxxflags_artifact, _ = actions.write("cxxflags", cxx_toolchain_info.cxx_compiler_info.compiler_flags, allow_args = True)
+        cxxflags_artifact, _ = actions.write(get_project_file_path(target_node.label, ".cxxflags"), cxx_toolchain_info.cxx_compiler_info.compiler_flags, allow_args = True)
 
     attrs_outfile = actions.write_json(get_project_file_path(target_node.label, ".attrs.json"), attrs, pretty = True)
     out = actions.declare_output(get_project_file_path(target_node.label, ".compiler_settings.json"))
