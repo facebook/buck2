@@ -365,7 +365,14 @@ def _compile_single_cxx(
         clang_llvm_statistics = ctx.actions.declare_output(
             paths.join("__objects__", "{}.stats".format(filename_base)),
         )
-        cmd.add(["-mllvm", "-stats", "-mllvm", cmd_args(clang_llvm_statistics.as_output(), format = "-info-output-file={}")])
+
+        # Use stderr_to_file to capture clang statistics output
+        cmd = cmd_args(
+            toolchain.internal_tools.stderr_to_file,
+            cmd_args(clang_llvm_statistics.as_output(), format = "--out={}"),
+            cmd,
+            ["-mllvm", "-stats"],
+        )
 
     clang_trace = None
     if toolchain.clang_trace and compiler_type == "clang":
