@@ -10,6 +10,7 @@
 
 package com.facebook.buck.jvm.cd;
 
+import java.io.File;
 import java.io.PrintStream;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -238,6 +239,18 @@ public class ErrorInterceptor extends PrintStream {
   // Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
   // Supports both VS Code and Android Studio links based on ANDROID_EDITOR environment variable.
   private static String createHyperlink(String file, int line, String text) {
+
+    boolean isVsCode =
+        "vscode".equals(System.getenv("TERM_PROGRAM"))
+            || "od".equals(System.getenv("FBVSCODE_REMOTE_ENV_NAME"));
+
+    boolean isHyperlinkDisabled =
+        new File(System.getProperty("user.home") + "/.disable_buck_jvm_path_hyperlink").exists();
+
+    if (isVsCode || isHyperlinkDisabled) {
+      return text;
+    }
+
     String OSC = "\033]";
     String ST = "\033\\";
     String uri;

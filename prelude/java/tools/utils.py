@@ -220,6 +220,19 @@ def _hyperlink(file: str, line: int, text: str) -> str:
     Returns:
         A string containing the hyperlinked text with terminal escape sequences
     """
+
+    isVsCode = (
+        os.environ.get("FBVSCODE_REMOTE_ENV_NAME") == "od"
+        or os.environ.get("TERM_PROGRAM") == "vscode"
+    )
+
+    isHyperlinkDisabled = os.path.exists(
+        os.path.expanduser("~/.disable_buck_jvm_path_hyperlink")
+    )
+
+    if isVsCode or isHyperlinkDisabled:
+        return text
+
     OSC = "\033]"
     ST = "\033\\"
 
