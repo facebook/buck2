@@ -116,7 +116,8 @@ impl ResourceControlRunner {
         memory_max: Option<String>,
         parent_slice: &ParentSlice,
         delegation: CgroupDelegation,
-        enable_action_cgroup_pool: bool,
+        // on windows, we don't have cgroup, so we don't need to this flag
+        #[allow(unused_variables)] enable_action_cgroup_pool: bool,
     ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
