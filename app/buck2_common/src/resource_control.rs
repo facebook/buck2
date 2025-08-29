@@ -66,7 +66,7 @@ pub enum CgroupDelegation {
     Disabled,
 }
 
-pub struct SystemdRunnerConfig {
+pub struct ResourceControlRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
     /// A memory threshold. Semantics (whether it is memory of a daemon or an action process) depend on the context.
@@ -79,7 +79,7 @@ pub struct SystemdRunnerConfig {
     pub enable_action_cgroup_pool: bool,
 }
 
-impl SystemdRunnerConfig {
+impl ResourceControlRunnerConfig {
     pub fn daemon_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
         Self {
             status: config.status.clone(),
@@ -102,13 +102,13 @@ impl SystemdRunnerConfig {
     }
 }
 
-pub struct SystemdRunner {
+pub struct ResourceControlRunner {
     fixed_systemd_args: Vec<String>,
     memory_limit: Option<String>,
 }
 
-impl SystemdRunner {
-    fn create(config: &SystemdRunnerConfig) -> Self {
+impl ResourceControlRunner {
+    fn create(config: &ResourceControlRunnerConfig) -> Self {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -169,7 +169,9 @@ impl SystemdRunner {
         }
     }
 
-    pub fn create_if_enabled(config: &SystemdRunnerConfig) -> buck2_error::Result<Option<Self>> {
+    pub fn create_if_enabled(
+        config: &ResourceControlRunnerConfig,
+    ) -> buck2_error::Result<Option<Self>> {
         let decision = Self::creation_decision(&config.status);
         match decision {
             SystemdCreationDecision::SkipNotNeeded => Ok(None),

@@ -27,10 +27,10 @@ use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_common::systemd::ParentSlice;
-use buck2_common::systemd::SystemdRunner;
-use buck2_common::systemd::SystemdRunnerConfig;
-use buck2_common::systemd::replace_unit_delimiter;
+use buck2_common::resource_control::ParentSlice;
+use buck2_common::resource_control::ResourceControlRunner;
+use buck2_common::resource_control::ResourceControlRunnerConfig;
+use buck2_common::resource_control::replace_unit_delimiter;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
@@ -386,16 +386,17 @@ impl<'a> BuckdLifecycle<'a> {
             replace_unit_delimiter(project_dir.name().unwrap_or("unknown_project")),
             replace_unit_delimiter(self.paths.isolation.as_str())
         );
-        let systemd_runner =
-            SystemdRunner::create_if_enabled(&SystemdRunnerConfig::daemon_runner_config(
+        let resource_control_runner = ResourceControlRunner::create_if_enabled(
+            &ResourceControlRunnerConfig::daemon_runner_config(
                 &daemon_startup_config.resource_control,
                 ParentSlice::Root(slice_name.clone()),
-            ))?;
-        let mut cmd = if let Some(systemd_runner) = &systemd_runner {
-            systemd_runner
+            ),
+        )?;
+        let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
+            resource_control_runner
                 .ensure_scope_stopped(&format!("{}.scope", &slice_name))
                 .await?;
-            systemd_runner
+            resource_control_runner
                 .cgroup_scoped_command(daemon_exe, &slice_name, &project_dir.root())
                 .into()
         } else {
@@ -497,10 +498,10 @@ impl<'a> BuckdLifecycle<'a> {
                     }
                     .into())
                 } else {
-                    if let Some(systemd_runner) = systemd_runner {
+                    if let Some(resource_control_runner) = resource_control_runner {
                         // set memory limits to buck2 daemon slice to control
                         // the buck memory including daemon, fork-server and all actions
-                        systemd_runner
+                        resource_control_runner
                             .set_slice_memory_limit(&format!("{slice_name}.slice"))
                             .await?;
                     }

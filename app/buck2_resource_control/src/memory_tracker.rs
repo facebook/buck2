@@ -14,8 +14,8 @@ use std::time::Duration;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::systemd::SystemdCreationDecision;
-use buck2_common::systemd::SystemdRunner;
+use buck2_common::resource_control::ResourceControlRunner;
+use buck2_common::resource_control::SystemdCreationDecision;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
@@ -209,7 +209,7 @@ pub async fn create_memory_tracker(
     resource_control_config: &ResourceControlConfig,
 ) -> buck2_error::Result<Option<TrackedMemorySender>> {
     if let SystemdCreationDecision::Create =
-        SystemdRunner::creation_decision(&resource_control_config.status)
+        ResourceControlRunner::creation_decision(&resource_control_config.status)
     {
         const MAX_RETRIES: u32 = 5;
         let memory_limit_bytes = resource_control_config

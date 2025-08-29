@@ -20,10 +20,10 @@ use std::sync::Arc;
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::systemd::ParentSlice;
-use buck2_common::systemd::SystemdRunner;
-use buck2_common::systemd::SystemdRunnerConfig;
-use buck2_common::systemd::replace_unit_delimiter;
+use buck2_common::resource_control::ParentSlice;
+use buck2_common::resource_control::ResourceControlRunner;
+use buck2_common::resource_control::ResourceControlRunnerConfig;
+use buck2_common::resource_control::replace_unit_delimiter;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -122,7 +122,7 @@ pub struct UnixForkserverService {
     miniperf: Option<MiniperfContainer>,
 
     /// Systemd runner for resource control
-    systemd_runner: Option<SystemdRunner>,
+    resource_control_runner: Option<ResourceControlRunner>,
 }
 
 impl UnixForkserverService {
@@ -132,17 +132,18 @@ impl UnixForkserverService {
         resource_control: ResourceControlConfig,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let systemd_runner =
-            SystemdRunner::create_if_enabled(&SystemdRunnerConfig::action_runner_config(
+        let resource_control_runner = ResourceControlRunner::create_if_enabled(
+            &ResourceControlRunnerConfig::action_runner_config(
                 &resource_control,
                 // we want to create forkserver in the same hierarchy where buck-daemon scope
                 // for this we inherit slice
                 ParentSlice::Inherit("forkserver".to_owned()),
-            ))?;
+            ),
+        )?;
         Ok(Self {
             log_reload_handle,
             miniperf,
-            systemd_runner,
+            resource_control_runner,
         })
     }
 
@@ -188,15 +189,15 @@ impl UnixForkserverService {
         &self,
         validated_cmd: &ValidatedCommand,
     ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
-        let systemd_context = self
-            .systemd_runner
+        let resource_control_context = self
+            .resource_control_runner
             .as_ref()
             .zip(validated_cmd.action_digest.as_ref());
 
         let (mut cmd, miniperf_output) = match (
             validated_cmd.enable_miniperf,
             &self.miniperf,
-            &systemd_context,
+            &resource_control_context,
         ) {
             // Wraps the user command with miniperf for performance monitoring
             (true, Some(miniperf), None) => {
@@ -208,9 +209,9 @@ impl UnixForkserverService {
             }
             // Uses systemd-run + miniperf for resource control + monitoring
             // systemd-run --scope --unit=<action_digest> miniperf <output_path> <user_executable>
-            (_, Some(miniperf), Some((systemd_runner, action_digest))) => {
+            (_, Some(miniperf), Some((resource_control_runner, action_digest))) => {
                 let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
-                let mut cmd = systemd_runner.cgroup_scoped_command(
+                let mut cmd = resource_control_runner.cgroup_scoped_command(
                     miniperf.miniperf.as_path(),
                     &replace_unit_delimiter(action_digest),
                     workding_dir,
@@ -237,7 +238,7 @@ impl UnixForkserverService {
             cmd.env("XDG_RUNTIME_DIR", value);
         }
 
-        if systemd_context.is_some() {
+        if resource_control_context.is_some() {
             // we set env var to enable reading peak memory from cgroup in miniperf
             cmd.env("MINIPERF_READ_CGROUP", "1");
         }
