@@ -46,29 +46,22 @@ impl LocalActionsThrottle {
     pub(crate) async fn ensure_low_memory_pressure(&self) {
         #[cfg(unix)]
         {
-            use buck2_resource_control::memory_tracker::MemoryReading;
             use buck2_resource_control::memory_tracker::MemoryState;
             use buck2_resource_control::memory_tracker::TrackedMemoryState;
 
-            let mut rx = self.memory_tracker.sender.subscribe();
-            // If there is any problem with the tracker play it safe and don't block the execution.
-            let _res = rx
-                .wait_for(|x| match x {
-                    TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => true,
-                    TrackedMemoryState::Reading(MemoryReading {
-                        state: MemoryState::BelowLimit,
-                        ..
-                    })
-                    | TrackedMemoryState::Reading(MemoryReading {
-                        state: MemoryState::NoLimitSet,
-                        ..
-                    }) => true,
-                    TrackedMemoryState::Reading(MemoryReading {
-                        state: MemoryState::AboveLimit,
-                        ..
-                    }) => false,
-                })
-                .await;
+            fn should_throttle(state: TrackedMemoryState) -> bool {
+                match state {
+                    // If there is any problem with the tracker play it safe and don't block the execution.
+                    TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
+                    TrackedMemoryState::Reading(MemoryState::BelowLimit)
+                    | TrackedMemoryState::Reading(MemoryState::NoLimitSet) => false,
+                    TrackedMemoryState::Reading(MemoryState::AboveLimit) => true,
+                }
+            }
+
+            let mut rx = self.memory_tracker.state_sender.subscribe();
+            // wait_for will run the closure before blocking so no need to check the value first.
+            let _res = rx.wait_for(|x| !should_throttle(*x)).await;
         }
     }
 }

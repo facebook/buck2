@@ -36,7 +36,7 @@ use tokio::time::MissedTickBehavior;
 pub enum TrackedMemoryState {
     Uninitialized,
     Failure,
-    Reading(MemoryReading),
+    Reading(MemoryState),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -48,7 +48,6 @@ pub enum MemoryState {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
-    pub state: MemoryState,
     /// `memory_current` contains value from `memory.current` file for cgroup covering
     /// all aspects of build (daemon, forkserver & local action processes).
     pub memory_current: u64,
@@ -118,13 +117,19 @@ pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
 
 pub struct MemoryTrackerHandleInner {
     // Written to by tracker, read by reporter, executors
-    pub sender: Sender<TrackedMemoryState>,
+    pub state_sender: Sender<TrackedMemoryState>,
+    // Written to by tracker, TODO read from snapshot collector
+    pub reading_sender: Sender<Option<MemoryReading>>,
 }
 
 impl MemoryTrackerHandleInner {
     fn new() -> Self {
-        let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
-        Self { sender: tx }
+        let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
+        let (reading_sender, _rx) = watch::channel(None);
+        Self {
+            state_sender,
+            reading_sender,
+        }
     }
 }
 
@@ -174,11 +179,11 @@ pub fn spawn_memory_reporter(
     let pressure_span = Arc::new(Mutex::new(None));
     let span = pressure_span.dupe();
     let handle = tokio::task::spawn(async move {
-        let mut rx = memory_tracker.sender.subscribe();
+        let mut rx = memory_tracker.state_sender.subscribe();
         loop {
-            if let TrackedMemoryState::Reading(reading) = *rx.borrow() {
+            if let TrackedMemoryState::Reading(state) = *rx.borrow() {
                 let mut span = span.lock();
-                match (span.is_some(), reading.state) {
+                match (span.is_some(), state) {
                     (false, MemoryState::AboveLimit) => {
                         let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
                         *span = Some(new_span);
@@ -266,7 +271,7 @@ impl MemoryTracker {
                     {
                         continue;
                     }
-                    let new_state = match self.read_memory_current().await {
+                    let (new_state, new_reading) = match self.read_memory_current().await {
                         Ok(memory_current) => {
                             let state = if let Some(memory_limit_bytes) = self.memory_limit_bytes {
                                 if memory_current < memory_limit_bytes {
@@ -277,21 +282,24 @@ impl MemoryTracker {
                             } else {
                                 MemoryState::NoLimitSet
                             };
-                            TrackedMemoryState::Reading(MemoryReading {
-                                state,
-                                memory_current,
-                            })
+                            (
+                                TrackedMemoryState::Reading(state),
+                                Some(MemoryReading { memory_current }),
+                            )
                         }
                         Err(error) => {
                             tracing::warn!("Failed to track memory usage: {}", error);
-                            TrackedMemoryState::Failure
+                            (TrackedMemoryState::Failure, None)
                         }
                     };
-                    let old_state = *self.handle.sender.borrow();
-                    self.handle.sender.send_if_modified(|x| {
+                    let old_state = *self.handle.state_sender.borrow();
+                    self.handle.state_sender.send_if_modified(|x| {
                         *x = new_state;
                         old_state != new_state
                     });
+
+                    self.handle.reading_sender.send_replace(new_reading);
+
                     match (old_state, new_state) {
                         (TrackedMemoryState::Failure, TrackedMemoryState::Failure) => {
                             backoff_data
@@ -389,33 +397,57 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
         let tracker = MemoryTracker::new(memory_current, 0, Some(7));
-        let mut rx = tracker.handle.sender.subscribe();
+        let mut state_rx = tracker.handle.state_sender.subscribe();
+        let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn_task(timer).await;
-        let wait = rx.wait_for(|x| match x {
-            TrackedMemoryState::Uninitialized => {
-                assert_eq!(counter.load(Ordering::Relaxed), 0);
-                notify.notify_one();
-                false
-            }
-            TrackedMemoryState::Reading(MemoryReading {
-                state: MemoryState::BelowLimit,
-                memory_current: x,
-            }) if *x == 6 => {
-                assert_eq!(counter.load(Ordering::Relaxed), 1);
-                fs::write(&path, "9").unwrap();
-                notify.notify_one();
-                false
-            }
-            TrackedMemoryState::Reading(MemoryReading {
-                state: MemoryState::AboveLimit,
-                memory_current: x,
-            }) if *x == 9 => {
-                assert_eq!(counter.load(Ordering::Relaxed), 2);
-                true
-            }
-            _ => unreachable!("Not expected"),
-        });
-        tokio::time::timeout(Duration::from_secs(5), wait).await??;
+
+        assert_eq!(
+            *state_rx.borrow_and_update(),
+            TrackedMemoryState::Uninitialized
+        );
+        assert_eq!(counter.load(Ordering::Relaxed), 0);
+        notify.notify_one();
+
+        state_rx.changed().await?;
+        assert_eq!(
+            *state_rx.borrow_and_update(),
+            TrackedMemoryState::Reading(MemoryState::BelowLimit)
+        );
+        assert_eq!(
+            *reading_rx.borrow_and_update(),
+            Some(MemoryReading { memory_current: 6 })
+        );
+        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        fs::write(&path, "9").unwrap();
+        notify.notify_one();
+
+        state_rx.changed().await?;
+        assert_eq!(
+            *state_rx.borrow_and_update(),
+            TrackedMemoryState::Reading(MemoryState::AboveLimit)
+        );
+        assert_eq!(
+            *reading_rx.borrow_and_update(),
+            Some(MemoryReading { memory_current: 9 })
+        );
+        assert_eq!(counter.load(Ordering::Relaxed), 2);
+
+        // change reading but not state
+        fs::write(&path, "10").unwrap();
+        notify.notify_one();
+        reading_rx.changed().await?;
+        assert_eq!(
+            *reading_rx.borrow_and_update(),
+            Some(MemoryReading { memory_current: 10 })
+        );
+        assert_eq!(counter.load(Ordering::Relaxed), 3);
+        // expect timeout error, no state change
+        assert!(
+            tokio::time::timeout(Duration::from_secs(2), state_rx.changed())
+                .await
+                .is_err()
+        );
+
         Ok(())
     }
 
@@ -430,7 +462,7 @@ mod tests {
         let tracker = MemoryTracker::new(memory_current, 3, Some(0));
         let handle = tracker.handle.dupe();
         tracker.spawn_task(timer).await;
-        let mut rx = handle.sender.subscribe();
+        let mut rx = handle.state_sender.subscribe();
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
             _ => unreachable!("Not expected"),
