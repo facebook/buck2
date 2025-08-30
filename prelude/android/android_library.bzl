@@ -30,6 +30,7 @@ load(
 load("@prelude//java/utils:java_utils.bzl", "CustomJdkInfo")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:label_provider.bzl", "LabelInfo")
 
 def get_custom_jdk_info(ctx: AnalysisContext) -> CustomJdkInfo:
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
@@ -76,7 +77,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             manifest = ctx.attrs.manifest,
         ),
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
-    ] + android_providers
+    ] + android_providers + [LabelInfo(labels = ctx.attrs.labels)]
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
     if not ctx.attrs.android_optional_jars:

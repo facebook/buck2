@@ -52,6 +52,7 @@ load("@prelude//jvm:cd_jar_creator_util.bzl", "postprocess_jar")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:label_provider.bzl", "LabelInfo")
 
 _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
@@ -564,7 +565,7 @@ def java_library_impl(ctx: AnalysisContext) -> list[Provider]:
         validation_deps_outputs = get_validation_deps_outputs(ctx),
     )
 
-    return to_list(java_providers) + [android_packageable_info]
+    return to_list(java_providers) + [android_packageable_info] + [LabelInfo(labels = ctx.attrs.labels)]
 
 def build_java_library(
         ctx: AnalysisContext,
