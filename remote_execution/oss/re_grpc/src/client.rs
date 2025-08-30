@@ -274,6 +274,17 @@ impl REClientBuilder {
                 channel = channel.tls_config(tls_config.clone())?;
             }
 
+            // Configure gRPC keepalive settings
+            if let Some(keepalive_time_secs) = opts.grpc_keepalive_time_secs {
+                channel = channel.http2_keep_alive_interval(Duration::from_secs(keepalive_time_secs));
+            }
+            if let Some(keepalive_timeout_secs) = opts.grpc_keepalive_timeout_secs {
+                channel = channel.keep_alive_timeout(Duration::from_secs(keepalive_timeout_secs));
+            }
+            if let Some(keepalive_while_idle) = opts.grpc_keepalive_while_idle {
+                channel = channel.keep_alive_while_idle(keepalive_while_idle);
+            }
+
             anyhow::Ok(
                 channel
                     .connect()
