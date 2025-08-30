@@ -68,7 +68,7 @@ use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_resource_control::memory_tracker;
-use buck2_resource_control::memory_tracker::TrackedMemorySender;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -187,7 +187,7 @@ pub struct DaemonStateData {
 
     /// Tracks memory usage. Used to make scheduling decisions.
     #[allocative(skip)]
-    pub memory_tracker: Option<TrackedMemorySender>,
+    pub memory_tracker: Option<MemoryTrackerHandle>,
 
     /// Tracks data about previous command (e.g. configs)
     pub previous_command_data: Arc<LockedPreviousCommandData>,

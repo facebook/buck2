@@ -32,8 +32,6 @@ use tokio::sync::watch::Sender;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 
-pub type TrackedMemorySender = Arc<Sender<TrackedMemoryState>>;
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
     Uninitialized,
@@ -116,6 +114,20 @@ impl BackoffData {
     }
 }
 
+pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
+
+pub struct MemoryTrackerHandleInner {
+    // Written to by tracker, read by reporter, executors
+    pub sender: Sender<TrackedMemoryState>,
+}
+
+impl MemoryTrackerHandleInner {
+    fn new() -> Self {
+        let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
+        Self { sender: tx }
+    }
+}
+
 #[derive(Allocative)]
 pub struct MemoryTracker {
     /// Open `memory.current` file in cgroup of our process
@@ -123,7 +135,7 @@ pub struct MemoryTracker {
     memory_current: File,
 
     #[allocative(skip)]
-    sender: Arc<Sender<TrackedMemoryState>>,
+    handle: MemoryTrackerHandle,
     max_retries: u32,
     memory_limit_bytes: Option<u64>,
 }
@@ -157,12 +169,12 @@ pub struct MemoryReporter {
 // Per command task to listen to memory state changes and send events to the client.
 pub fn spawn_memory_reporter(
     dispatcher: EventDispatcher,
-    memory_tracker: TrackedMemorySender,
+    memory_tracker: MemoryTrackerHandle,
 ) -> MemoryReporter {
     let pressure_span = Arc::new(Mutex::new(None));
     let span = pressure_span.dupe();
     let handle = tokio::task::spawn(async move {
-        let mut rx = memory_tracker.subscribe();
+        let mut rx = memory_tracker.sender.subscribe();
         loop {
             if let TrackedMemoryState::Reading(reading) = *rx.borrow() {
                 let mut span = span.lock();
@@ -207,7 +219,7 @@ impl Drop for MemoryReporter {
 
 pub async fn create_memory_tracker(
     resource_control_config: &ResourceControlConfig,
-) -> buck2_error::Result<Option<TrackedMemorySender>> {
+) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
     if let SystemdCreationDecision::Create =
         ResourceControlRunner::creation_decision(&resource_control_config.status)
     {
@@ -220,11 +232,11 @@ pub async fn create_memory_tracker(
             MAX_RETRIES,
             memory_limit_bytes,
         );
-        let memory_sender = memory_tracker.sender.dupe();
+        let tracker_handle = memory_tracker.handle.dupe();
         const TICK_DURATION: Duration = Duration::from_millis(300);
         let timer = IntervalTimer::new(TICK_DURATION);
         memory_tracker.spawn_task(timer).await;
-        Ok(Some(memory_sender))
+        Ok(Some(tracker_handle))
     } else {
         Ok(None)
     }
@@ -232,10 +244,9 @@ pub async fn create_memory_tracker(
 
 impl MemoryTracker {
     fn new(memory_current: File, max_retries: u32, memory_limit_bytes: Option<u64>) -> Self {
-        let (tx, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         Self {
             memory_current,
-            sender: Arc::new(tx),
+            handle: Arc::new(MemoryTrackerHandleInner::new()),
             max_retries,
             memory_limit_bytes,
         }
@@ -276,8 +287,8 @@ impl MemoryTracker {
                             TrackedMemoryState::Failure
                         }
                     };
-                    let old_state = *self.sender.borrow();
-                    self.sender.send_if_modified(|x| {
+                    let old_state = *self.handle.sender.borrow();
+                    self.handle.sender.send_if_modified(|x| {
                         *x = new_state;
                         old_state != new_state
                     });
@@ -378,7 +389,7 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
         let tracker = MemoryTracker::new(memory_current, 0, Some(7));
-        let mut rx = tracker.sender.subscribe();
+        let mut rx = tracker.handle.sender.subscribe();
         tracker.spawn_task(timer).await;
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized => {
@@ -417,9 +428,9 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
         let tracker = MemoryTracker::new(memory_current, 3, Some(0));
-        let sender = tracker.sender.dupe();
+        let handle = tracker.handle.dupe();
         tracker.spawn_task(timer).await;
-        let mut rx = sender.subscribe();
+        let mut rx = handle.sender.subscribe();
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
             _ => unreachable!("Not expected"),

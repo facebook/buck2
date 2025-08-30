@@ -10,18 +10,18 @@
 
 use std::sync::Arc;
 
-use buck2_resource_control::memory_tracker::TrackedMemorySender;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
 #[cfg_attr(windows, allow(dead_code))]
 pub struct LocalActionsThrottle {
-    memory_tracker: TrackedMemorySender,
+    memory_tracker: MemoryTrackerHandle,
     lock: Mutex<()>,
 }
 
 impl LocalActionsThrottle {
-    pub fn new(memory_tracker: Option<TrackedMemorySender>) -> Option<Arc<Self>> {
+    pub fn new(memory_tracker: Option<MemoryTrackerHandle>) -> Option<Arc<Self>> {
         memory_tracker.map(|memory_tracker| {
             Arc::new(Self {
                 memory_tracker,
@@ -50,7 +50,7 @@ impl LocalActionsThrottle {
             use buck2_resource_control::memory_tracker::MemoryState;
             use buck2_resource_control::memory_tracker::TrackedMemoryState;
 
-            let mut rx = self.memory_tracker.subscribe();
+            let mut rx = self.memory_tracker.sender.subscribe();
             // If there is any problem with the tracker play it safe and don't block the execution.
             let _res = rx
                 .wait_for(|x| match x {

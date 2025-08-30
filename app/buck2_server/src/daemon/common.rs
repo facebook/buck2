@@ -59,7 +59,7 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_resource_control::memory_tracker::TrackedMemorySender;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 
@@ -112,7 +112,7 @@ impl CommandExecutorFactory {
         materialize_failed_inputs: bool,
         materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
-        memory_tracker: Option<TrackedMemorySender>,
+        memory_tracker: Option<MemoryTrackerHandle>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
