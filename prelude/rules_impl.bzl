@@ -31,6 +31,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
+load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "TransformationResultProvider", "transformation_spec_impl")
 load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
 load("@prelude//decls:android_rules.bzl", "android_rules")
 load("@prelude//decls:common.bzl", "IncludeType", "buck")
@@ -191,6 +192,7 @@ extra_implemented_rules = struct(
     prebuilt_cxx_library = prebuilt_cxx_library_impl,
     prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
     windows_resource = windows_resource_impl,
+    transformation_spec = transformation_spec_impl,
 
     # C++ / LLVM
     llvm_link_bitcode = llvm_link_bitcode_impl,
@@ -314,7 +316,17 @@ cxx_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_is_building_android_binary": is_building_android_binary_attr(),
     } | apple_common.extra_xcode_sources(),
-    "cxx_test": re_test_common.test_args(),
+    "cxx_test": _merge_dictionaries(
+        [
+            re_test_common.test_args(),
+            {
+                "transformation_spec": attrs.option(
+                    attrs.dep(providers = [TransformationResultProvider]),
+                    default = None,
+                ),
+            },
+        ],
+    ),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
     "llvm_link_bitcode": {
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -346,6 +358,15 @@ cxx_extra_attributes = {
     },
     "prebuilt_cxx_library_group": {
         "_cxx_toolchain": toolchains_common.cxx(),
+    },
+    "transformation_spec": {
+        "transformations": attrs.list(
+            attrs.tuple(
+                attrs.one_of(attrs.dep(), attrs.string()),
+                attrs.enum(TransformationKind.values()),
+            ),
+            default = [],
+        ),
     },
     "windows_resource": {
         "_cxx_toolchain": toolchains_common.cxx(),
