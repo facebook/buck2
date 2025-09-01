@@ -17,8 +17,13 @@ TransformationResultProvider = provider(fields = {
 })
 
 def build_determine_transformation(
-        _transformations: list[tuple]) -> typing.Callable[[Label], TransformationKind | None]:
-    def callable(_label: Label) -> TransformationKind | None:
+        transformations: list[tuple]) -> typing.Callable[[Label], TransformationKind | None]:
+    def callable(label: Label) -> TransformationKind | None:
+        for transform in transformations:
+            dep = transform[0]  # str | Dependency
+            kind = transform[1]  # TransformationKind
+            if label == dep.label:
+                return TransformationKind(kind)
         return None
 
     return callable
