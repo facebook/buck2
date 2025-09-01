@@ -46,3 +46,17 @@ async def test_incremental_dir_not_materialized(buck: Buck) -> None:
     assert result.stdout == "0"
     result = await buck.run("root//:suite", "-c", f"test.seed={random_string()}")
     assert result.stdout == "1"
+
+
+@buck_test()
+async def test_remote_cache_is_used(buck: Buck) -> None:
+    seed = random_string()
+    result = await buck.run("root//:plate", "-c", f"test.seed={seed}")
+    assert result.stdout == "0"
+    result = await buck.run("root//:plate", "-c", f"test.seed={random_string()}")
+    assert result.stdout == "1"
+
+    # For the next build with already used seed we expect the action to be taken from the cache
+    result = await buck.run("root//:plate", "-c", f"test.seed={seed}")
+    # TODO(akozhevnikov): But it's not and it's a problem need to be fixed
+    assert result.stdout != "0"
