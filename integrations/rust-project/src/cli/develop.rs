@@ -314,7 +314,7 @@ pub(crate) fn develop_with_sysroot(
 
     info!(kind = "progress", "resolving aliased libraries");
     let aliased_libraries =
-        buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
+        buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets, &targets)?;
 
     info!(
         kind = "progress",
