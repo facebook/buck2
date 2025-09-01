@@ -1460,6 +1460,7 @@ def _form_library_outputs(
         if output:
             outputs[output_style] = output
         link_infos[output_style] = LinkInfos(
+            label = ctx.label,
             default = ldflags(info),
             optimized = ldflags(optimized_info) if optimized_info != None else None,
             debuggable = ldflags(debuggable_info) if debuggable_info != None else None,

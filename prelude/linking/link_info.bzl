@@ -326,6 +326,7 @@ def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFil
 # about debug info (for example, who is going to produce stripped output anyway), it can be significantly
 # cheaper to consume the pre-stripped LinkInfo.
 LinkInfos = record(
+    label = field(Label | None, None),
     # Link info to use by default.
     default = field(LinkInfo),
     # Link info for objects compiler with extra optimizations (EXPERIMENTAL)
