@@ -24,6 +24,7 @@ load(
 )
 load(
     "@prelude//cxx:transformation_spec.bzl",
+    "TransformationKind",
     "TransformationResultProvider",  # @unused Used as a type
 )
 load("@prelude//linking:types.bzl", "Linkage")
@@ -792,11 +793,14 @@ def get_link_args_for_strategy(
 
     if transformation_provider and not transformation_provider.is_empty:
         flattened_results = []
-        for all_info in infos.traverse():
-            info = all_info.default
-            if prefer_stripped:
-                info = all_info.stripped or all_info.default
-            flattened_results.append(info)
+        for link_infos in infos.traverse():
+            link_info = get_link_info_for_transformation(
+                transformation_provider,
+                link_infos,
+                link_infos.label,
+                prefer_stripped,
+            )
+            flattened_results.append(link_info)
         return LinkArgs(
             infos = flattened_results,
         )
@@ -808,6 +812,21 @@ def get_link_args_for_strategy(
             prefer_stripped = prefer_stripped,
         ),
     )
+
+def get_link_info_for_transformation(transformation_provider: TransformationResultProvider, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+    if prefer_stripped:
+        return link_infos.stripped or link_infos.default
+
+    info = link_infos.default
+    if label:
+        transformation_kind = transformation_provider.determine_transformation(label)
+        if transformation_kind:
+            if transformation_kind == TransformationKind("debug"):
+                info = link_infos.debuggable
+            elif transformation_kind == TransformationKind("optimized"):
+                info = link_infos.optimized
+
+    return info or link_infos.default
 
 def get_lib_output_style(
         requested_link_strategy: LinkStrategy,
