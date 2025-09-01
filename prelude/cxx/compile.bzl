@@ -256,6 +256,7 @@ def create_compile_cmds(
             args = src_args,
             index = src.index,
             is_header = src.is_header,
+            uses_experimental_content_based_path_hashing = False,
             index_store_factory = impl_params.index_store_factory,
             error_handler = impl_params.error_handler,
         )
@@ -315,10 +316,13 @@ def _compile_single_cxx(
         filename_base = "{}.{}".format(filename_base, flavor.value)
         identifier = "{} ({})".format(identifier, flavor.value)
 
+    content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
+
     folder_name = "__objects__"
     object = ctx.actions.declare_output(
         folder_name,
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
+        uses_experimental_content_based_path_hashing = content_based,
     )
 
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
@@ -357,6 +361,7 @@ def _compile_single_cxx(
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
         clang_remarks = ctx.actions.declare_output(
             paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
+            uses_experimental_content_based_path_hashing = content_based,
         )
         cmd.add(cmd_args(hidden = clang_remarks.as_output()))
 
@@ -364,6 +369,7 @@ def _compile_single_cxx(
     if toolchain.clang_llvm_statistics and compiler_type == "clang":
         clang_llvm_statistics = ctx.actions.declare_output(
             paths.join("__objects__", "{}.stats".format(filename_base)),
+            uses_experimental_content_based_path_hashing = content_based,
         )
 
         # Use stderr_to_file to capture clang statistics output
@@ -379,6 +385,7 @@ def _compile_single_cxx(
         cmd.add(["-ftime-trace"])
         clang_trace = ctx.actions.declare_output(
             paths.join("__objects__", "{}.json".format(filename_base)),
+            uses_experimental_content_based_path_hashing = content_based,
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
@@ -387,6 +394,7 @@ def _compile_single_cxx(
         cmd.add(["--coverage"])
         gcno_file = ctx.actions.declare_output(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
+            uses_experimental_content_based_path_hashing = content_based,
         )
         cmd.add(cmd_args(hidden = gcno_file.as_output()))
 
@@ -397,6 +405,7 @@ def _compile_single_cxx(
         external_debug_info = ctx.actions.declare_output(
             folder_name,
             "{}.{}".format(filename_base, "dwo"),
+            uses_experimental_content_based_path_hashing = content_based,
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
