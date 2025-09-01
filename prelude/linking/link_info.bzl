@@ -330,6 +330,8 @@ LinkInfos = record(
     default = field(LinkInfo),
     # Link info for objects compiler with extra optimizations (EXPERIMENTAL)
     optimized = field([LinkInfo, None], None),
+    # Link info for objects compiler with debug optimizations (-g2 + -O0)
+    debuggable = field([LinkInfo, None], None),
     # Link info stripped of debug symbols.
     stripped = field([LinkInfo, None], None),
 )
@@ -772,6 +774,7 @@ def get_link_args_for_strategy(
         children = filter(None, [x._infos.get(link_strategy) for x in deps_merged_link_infos]),
         **infos_kwargs
     )
+
     external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
