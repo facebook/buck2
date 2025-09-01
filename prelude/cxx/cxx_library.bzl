@@ -335,6 +335,8 @@ _CxxCompiledSourcesOutput = record(
     pic = field(_CxxLibraryCompileOutput),
     # PIC optimized compile outputs
     pic_optimized = field([_CxxLibraryCompileOutput, None]),
+    # PIC debuggable compile outputs
+    pic_debuggable = field([_CxxLibraryCompileOutput, None]),
     # Non PIC compile outputs
     non_pic = field([_CxxLibraryCompileOutput, None]),
     # Header unit outputs
@@ -1226,10 +1228,27 @@ def cxx_compile_srcs(
                 extra_link_input = impl_params.extra_link_input,
             )
 
+    pic_debuggable = None
+    if toolchain_supports_flavor(toolchain, CxxCompileFlavor("debug")):
+        debuggable_cxx_outs = compile_cxx(
+            ctx = ctx,
+            src_compile_cmds = compile_cmd_output.src_compile_cmds,
+            flavors = set([CxxCompileFlavor("pic"), CxxCompileFlavor("debug")]),
+            # Diagnostics from the pic and non-pic compilation would be
+            # identical. We can avoid instantiating a second set of actions.
+            provide_syntax_only = False,
+        )
+        pic_debuggable = _get_library_compile_output(
+            ctx = ctx,
+            src_compile_cmds = compile_cmd_output.src_compile_cmds,
+            outs = debuggable_cxx_outs,
+            extra_link_input = impl_params.extra_link_input,
+        )
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
         pic = pic,
         pic_optimized = pic_optimized,
+        pic_debuggable = pic_debuggable,
         non_pic = non_pic,
         header_unit_preprocessors = header_unit_preprocessors,
     )
