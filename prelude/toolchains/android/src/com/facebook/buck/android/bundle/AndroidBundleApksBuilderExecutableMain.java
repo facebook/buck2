@@ -16,12 +16,10 @@ import com.android.tools.build.bundletool.androidtools.P7ZipCommand;
 import com.android.tools.build.bundletool.commands.BuildApksCommand;
 import com.facebook.buck.android.apk.ApkSignerUtils;
 import com.facebook.buck.android.apk.KeystoreProperties;
+import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.util.zip.ZipScrubber;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.CharStreams;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.kohsuke.args4j.CmdLineException;
@@ -69,17 +67,9 @@ public class AndroidBundleApksBuilderExecutableMain {
 
     ZipScrubber.scrubZip(universalApkPath);
 
-    Process zipalignProcess =
-        new ProcessBuilder()
-            .command(zipalignTool, "-f", "4", universalApkPath.toString(), zipalignedApk.toString())
-            .start();
-    zipalignProcess.waitFor();
-    if (zipalignProcess.exitValue() != 0) {
-      try (Reader reader = new InputStreamReader(zipalignProcess.getErrorStream())) {
-        String errorMessage = CharStreams.toString(reader);
-        throw new RuntimeException("zipalign failed to process apk file:\n" + errorMessage);
-      }
-    }
+    ZipAlign zipAlign =
+        new ZipAlign(zipalignTool, universalApkPath.toString(), zipalignedApk.toString());
+    zipAlign.run();
 
     if (keystorePath != null && keystorePropertiesPath != null) {
       KeystoreProperties keystoreProperties =

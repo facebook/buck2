@@ -14,6 +14,7 @@ buck_java_library(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android/apk:apk",
         "prelude//toolchains/android/src/com/facebook/buck/android/apk/sdk:apk_builder",
+        "prelude//toolchains/android/src/com/facebook/buck/android/zipalign:zipalign",
         "prelude//toolchains/android/src/com/facebook/buck/core/build/execution/context:context",
         "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",

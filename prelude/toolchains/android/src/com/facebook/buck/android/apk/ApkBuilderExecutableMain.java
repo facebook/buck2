@@ -14,15 +14,13 @@ import com.android.apksig.ApkSigner;
 import com.facebook.buck.android.apk.sdk.ApkCreationException;
 import com.facebook.buck.android.apk.sdk.DuplicateFileException;
 import com.facebook.buck.android.apk.sdk.SealedApkException;
+import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.util.zip.RepackZipEntries;
 import com.facebook.buck.util.zip.ZipCompressionLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.CharStreams;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -147,26 +145,10 @@ public class ApkBuilderExecutableMain {
             ZipCompressionLevel.MAX);
         intermediateApk = intermediateApkWithCompressedResources;
       }
-      Process zipalignProcess =
-          new ProcessBuilder()
-              .command(zipalignTool, "-f", "4", intermediateApk.toString(), zipalignApk.toString())
-              .start();
-      zipalignProcess.waitFor();
-      if (zipalignProcess.exitValue() != 0) {
-        String errorMessage = null;
-        try (Reader reader = new InputStreamReader(zipalignProcess.getErrorStream())) {
-          errorMessage = CharStreams.toString(reader);
-        }
-        if (errorMessage.contains("Unable to open")) {
-          errorMessage =
-              errorMessage.concat(
-                  "\n"
-                      + "This issue is usually caused by having more than 2^^16 files in the APK."
-                      + " Try filtering out some resources.\n");
-        }
 
-        throw new RuntimeException("zipalign failed to process apk file:\n" + errorMessage);
-      }
+      ZipAlign zipAlign =
+          new ZipAlign(zipalignTool, intermediateApk.toString(), zipalignApk.toString());
+      zipAlign.run();
 
       ImmutableList<ApkSigner.SignerConfig> signerConfigs =
           ApkSignerUtils.getSignerConfigs(keystoreProperties, Files.newInputStream(keystorePath));

@@ -10,13 +10,11 @@
 
 package com.facebook.buck.android.resources;
 
+import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.google.common.hash.Hashing;
-import com.google.common.io.CharStreams;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -72,19 +70,11 @@ public class ExoResourcesRewriterExecutableMain {
         RelPath.get(newPrimaryApkResources),
         unalignedExoResources,
         RelPath.get(newRDotTxt));
-    Process zipalignProcess =
-        new ProcessBuilder()
-            .command(zipalignTool, "-f", "4", unalignedExoResources.toString(), exoResources)
-            .start();
 
     try {
-      zipalignProcess.waitFor();
-      if (zipalignProcess.exitValue() != 0) {
-        try (Reader reader = new InputStreamReader(zipalignProcess.getErrorStream())) {
-          String errorMessage = CharStreams.toString(reader);
-          throw new RuntimeException("zipalign failed to process apk file:\n" + errorMessage);
-        }
-      }
+      ZipAlign zipAlign =
+          new ZipAlign(zipalignTool, unalignedExoResources.toString(), exoResources.toString());
+      zipAlign.run();
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
