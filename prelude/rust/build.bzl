@@ -305,6 +305,7 @@ def generate_rustdoc_test(
                 )] + inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
                 params.dep_link_strategy,
                 prefer_stripped = False,
+                transformation_provider = None,
             ),
         ],
     )
@@ -550,6 +551,7 @@ def rust_compile(
                 link_strategy = params.dep_link_strategy,
                 swiftmodule_linkable = None,
                 prefer_stripped = False,
+                transformation_provider = None,
             )
 
         if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):

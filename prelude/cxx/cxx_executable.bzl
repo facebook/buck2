@@ -338,6 +338,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     labels_to_links = FinalLabelsToLinks(
         map = {},
     )
+    transformation_provider = None
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
@@ -350,6 +351,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             deps_merged_link_infos,
             frameworks_linkable,
             link_strategy,
+            transformation_provider,
             swiftmodule_linkable,
             prefer_stripped = impl_params.prefer_stripped_objects,
         )

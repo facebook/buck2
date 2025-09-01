@@ -9,6 +9,10 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags")
 load(
+    "@prelude//cxx:transformation_spec.bzl",
+    "TransformationResultProvider",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "FrameworksLinkable",
     "LinkArgs",
@@ -127,6 +131,7 @@ def apple_build_link_args_with_deduped_flags(
         deps_merged_link_infos: list[MergedLinkInfo],
         frameworks_linkable: [FrameworksLinkable, None],
         link_strategy: LinkStrategy,
+        transformation_provider: TransformationResultProvider | None,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
         prefer_stripped: bool = False) -> LinkArgs:
     frameworks_linkables = [x.frameworks[link_strategy] for x in deps_merged_link_infos] + [frameworks_linkable]
@@ -143,6 +148,7 @@ def apple_build_link_args_with_deduped_flags(
         deps_merged_link_infos,
         link_strategy,
         prefer_stripped,
+        transformation_provider,
         additional_link_info = link_info,
     )
 

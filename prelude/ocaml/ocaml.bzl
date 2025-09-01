@@ -752,6 +752,7 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             dep_link_infos,
             LinkStrategy("static_pic"),
             prefer_stripped = False,
+            transformation_provider = None,
         )],
     )
     ld_nat = _mk_ld(ctx, [link_args_output.link_args], "ld_native.sh")
@@ -850,6 +851,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
             dep_link_infos,
             LinkStrategy("static_pic"),
             prefer_stripped = False,
+            transformation_provider = None,
         )],
     )
     ld = _mk_ld(ctx, [link_args_output.link_args], "ld.sh")
@@ -955,6 +957,7 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
             dep_link_infos,
             LinkStrategy("static_pic"),
             prefer_stripped = False,
+            transformation_provider = None,
         )],
     )
 

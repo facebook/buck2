@@ -996,6 +996,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 [merged_native_link_info],
                 link_strategy,
                 prefer_stripped = False,
+                transformation_provider = None,
             )
             args.append(unpack_link_args(link_args))
             templ_vars[name] = cmd_args(args)
@@ -1563,6 +1564,7 @@ def _get_shared_library_links(
             #
             # For more info, check the PicBehavior docs.
             process_link_strategy_for_pic_behavior(link_strategy, pic_behavior),
+            None,
             swiftmodule_linkable,
         ), None, link_execution_preference, shared_interface_info
 
