@@ -1338,14 +1338,21 @@ def _form_library_outputs(
                     fail("output_style {} requires non_pic compiled srcs, but didn't have any in {}".format(output_style, compiled_srcs))
 
             gcno_files += lib_compile_output.gcno_files
-            if pic:
-                _, optimized_info = build_static_library(
-                    compile_output = compiled_srcs.pic_optimized,
-                    pic = pic,
-                    optimized = True,
-                    debuggable = False,
-                    stripped = False,
-                )
+
+            # FYI(patskovn): Note that we are using `pic` in optimized and debuggable transformations here.
+            #                Ideal way to set it up would be to expose whole matrix of debuggable/optimized/pic instead.
+            #                But it increases retained memory (not much really, but still) so in the mean time I decied
+            #                to not do it. As a downside, if transformation spec is used to build a binary statically
+            #                without -fPIE, we are still using pic objects for it. I haven't found any real world impact
+            #                of that though. Another point is: transformation specs are not used for building for production
+            #                and only affect local development so we can do this experiment first. I may revisit that decision.
+            _, optimized_info = build_static_library(
+                compile_output = compiled_srcs.pic_optimized,
+                pic = pic,
+                optimized = True,
+                debuggable = False,
+                stripped = False,
+            )
 
             _, debuggable_info = build_static_library(
                 compile_output = compiled_srcs.pic_debuggable,
