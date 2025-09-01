@@ -41,6 +41,7 @@ load(
     "@prelude//cxx:runtime_dependency_handling.bzl",
     "RuntimeDependencyHandling",
 )
+load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -338,7 +339,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     labels_to_links = FinalLabelsToLinks(
         map = {},
     )
-    transformation_provider = None
+    transformation_provider = ctx.attrs.transformation_spec[TransformationResultProvider] if (hasattr(ctx.attrs, "transformation_spec") and ctx.attrs.transformation_spec) else None
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
