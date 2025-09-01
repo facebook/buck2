@@ -772,10 +772,6 @@ def get_link_args_for_strategy(
     Derive the `LinkArgs` for a strategy and strip preference from a list of dependency's MergedLinkInfo.
     """
 
-    # TODO(patskovn): Used higher up the stack
-    if False:
-        pprint(transformation_provider)
-
     infos_kwargs = {}
     if additional_link_info:
         infos_kwargs = {"value": LinkInfos(default = additional_link_info, stripped = additional_link_info)}
@@ -793,6 +789,17 @@ def get_link_args_for_strategy(
             [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos] + ([additional_link_info.external_debug_info] if additional_link_info else []),
         ),
     )
+
+    if transformation_provider and not transformation_provider.is_empty:
+        flattened_results = []
+        for all_info in infos.traverse():
+            info = all_info.default
+            if prefer_stripped:
+                info = all_info.stripped or all_info.default
+            flattened_results.append(info)
+        return LinkArgs(
+            infos = flattened_results,
+        )
 
     return LinkArgs(
         tset = LinkArgsTSet(
