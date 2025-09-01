@@ -161,4 +161,7 @@ CxxCompileFlavor = enum(
     # Produces position independent compile outputs
     # using optimization flags from toolchain
     "optimized",
+    # Produces position independent compile outputs
+    # using debug flags from toolchain
+    "debug",
 )
