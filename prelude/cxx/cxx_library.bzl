@@ -1268,6 +1268,35 @@ def _form_library_outputs(
             post_flags = exported_post_flags,
         )
 
+    def build_static_library(
+            compile_output: _CxxLibraryCompileOutput | None,
+            pic: bool,
+            optimized: bool,
+            stripped: bool) -> (CxxLibraryOutput | None, LinkInfo | None):
+        if not compile_output:
+            return (None, None)
+        objects = compile_output.stripped_objects if stripped else compile_output.objects
+        if not objects:
+            return (None, None)
+
+        return _static_library(
+            ctx,
+            impl_params,
+            objects,
+            objects_have_external_debug_info = compile_output.objects_have_external_debug_info,
+            external_debug_info = make_artifact_tset(
+                ctx.actions,
+                label = ctx.label,
+                artifacts = compile_output.external_debug_info,
+                children = impl_params.additional.static_external_debug_info,
+            ),
+            pic = pic,
+            optimized = optimized,
+            stripped = stripped,
+            extra_linkables = extra_static_linkables,
+            bitcode_objects = compile_output.bitcode_objects,
+        )
+
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         output = None
@@ -1286,44 +1315,21 @@ def _form_library_outputs(
                     fail("output_style {} requires non_pic compiled srcs, but didn't have any in {}".format(output_style, compiled_srcs))
 
             gcno_files += lib_compile_output.gcno_files
-
-            if pic and compiled_srcs.pic_optimized and compiled_srcs.pic_optimized.objects:
-                _, optimized_info = _static_library(
-                    ctx,
-                    impl_params,
-                    compiled_srcs.pic_optimized.objects,
-                    objects_have_external_debug_info = compiled_srcs.pic_optimized.objects_have_external_debug_info,
-                    external_debug_info = make_artifact_tset(
-                        ctx.actions,
-                        label = ctx.label,
-                        artifacts = compiled_srcs.pic_optimized.external_debug_info,
-                        children = impl_params.additional.static_external_debug_info,
-                    ),
+            if pic:
+                _, optimized_info = build_static_library(
+                    compile_output = compiled_srcs.pic_optimized,
                     pic = pic,
                     optimized = True,
                     stripped = False,
-                    extra_linkables = extra_static_linkables,
-                    bitcode_objects = compiled_srcs.pic_optimized.bitcode_objects,
                 )
 
             # Only generate an archive if we have objects to include
             if lib_compile_output.objects:
-                output, info = _static_library(
-                    ctx,
-                    impl_params,
-                    lib_compile_output.objects,
-                    objects_have_external_debug_info = lib_compile_output.objects_have_external_debug_info,
-                    external_debug_info = make_artifact_tset(
-                        ctx.actions,
-                        label = ctx.label,
-                        artifacts = lib_compile_output.external_debug_info,
-                        children = impl_params.additional.static_external_debug_info,
-                    ),
+                output, info = build_static_library(
+                    compile_output = lib_compile_output,
                     pic = pic,
-                    stripped = False,
                     optimized = False,
-                    extra_linkables = extra_static_linkables,
-                    bitcode_objects = lib_compile_output.bitcode_objects,
+                    stripped = False,
                 )
                 _, stripped = _static_library(
                     ctx,
