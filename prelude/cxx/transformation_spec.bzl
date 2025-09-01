@@ -13,6 +13,7 @@ TransformationKind = enum(
 
 TransformationResultProvider = provider(fields = {
     "determine_transformation": provider_field(typing.Callable[[Label], TransformationKind | None]),
+    "is_empty": provider_field(bool),
 })
 
 def build_determine_transformation(
@@ -26,6 +27,7 @@ def transformation_spec_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         TransformationResultProvider(
+            is_empty = len(ctx.attrs.transformations) == 0,
             determine_transformation = build_determine_transformation(ctx.attrs.transformations),
         ),
     ]
