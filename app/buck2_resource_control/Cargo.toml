@@ -9,7 +9,6 @@ version = "0.1.0"
 async-trait = { workspace = true }
 parking_lot = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 
 
 allocative = { workspace = true }

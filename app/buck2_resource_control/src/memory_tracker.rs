@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -38,21 +39,47 @@ use tokio::time::MissedTickBehavior;
 pub enum TrackedMemoryState {
     Uninitialized,
     Failure,
-    Reading(MemoryState),
+    Reading(MemoryStates),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MemoryState {
+pub enum MemoryCurrentState {
     NoLimitSet,
     BelowLimit,
     AboveLimit,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MemoryPressureState {
+    BelowPressureLimit,
+    AbovePressureLimit,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct MemoryStates {
+    pub memory_current_state: MemoryCurrentState,
+    pub memory_pressure_state: MemoryPressureState,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct PressureReading {
+    /// Contains value extracted from `memory.pressure` file for cgroup covering
+    /// The extracted value is the `total` value from the `some` line which is the
+    /// # of microseconds since the start of the cgroup that was under memory pressure
+    /// More details: <https://facebookmicrosites.github.io/cgroup2/docs/pressure-metrics.html>
+    pub total_pressure: u128,
+    /// % of time memory is under pressure since the last reading
+    pub pressure_percent: u64,
+    /// Instant at which the pressure reading happened, this is used to calculate time elapsed since last reading
+    pub timestamp: Instant,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
-    /// `memory_current` contains value from `memory.current` file for cgroup covering
+    /// Contains value from `memory.current` file for cgroup covering
     /// all aspects of build (daemon, forkserver & local action processes).
     pub memory_current: u64,
+    pub memory_pressure: PressureReading,
 }
 
 #[async_trait]
@@ -190,12 +217,12 @@ pub fn spawn_memory_reporter(
         loop {
             if let TrackedMemoryState::Reading(state) = *rx.borrow() {
                 let mut span = span.lock();
-                match (span.is_some(), state) {
-                    (false, MemoryState::AboveLimit) => {
+                match (span.is_some(), state.memory_current_state) {
+                    (false, MemoryCurrentState::AboveLimit) => {
                         let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
                         *span = Some(new_span);
                     }
-                    (true, MemoryState::BelowLimit) => {
+                    (true, MemoryCurrentState::BelowLimit) => {
                         if let Some(span) = span.take() {
                             span.end(buck2_data::MemoryPressureEnd {});
                         }
@@ -289,28 +316,64 @@ impl MemoryTracker {
                     {
                         continue;
                     }
-                    let (new_state, new_reading) = match self.read_memory_current().await {
-                        Ok(memory_current) => {
-                            let state = if let Some(memory_limit_bytes) = self.memory_limit_bytes {
-                                if memory_current < memory_limit_bytes {
-                                    MemoryState::BelowLimit
+
+                    let old_state = *self.handle.state_sender.borrow();
+                    let old_reading = *self.handle.reading_sender.borrow();
+                    let (new_state, new_reading) = match (
+                        self.read_memory_current().await,
+                        self.read_some_pressure_stall_total_value_in_us().await,
+                    ) {
+                        (Ok(memory_current), Ok(total_pressure)) => {
+                            let memory_current_state =
+                                if let Some(memory_limit_bytes) = self.memory_limit_bytes {
+                                    if memory_current < memory_limit_bytes {
+                                        MemoryCurrentState::BelowLimit
+                                    } else {
+                                        MemoryCurrentState::AboveLimit
+                                    }
                                 } else {
-                                    MemoryState::AboveLimit
+                                    MemoryCurrentState::NoLimitSet
+                                };
+
+                            // The total field in memory.pressure is the number of microseconds since the start of the cgroup so goes up continuously,
+                            // So we compute the % by comparing the currently parsed value and the last parsed value and divide by microseconds elapsed since
+                            // the last reading to compute the % of time the cgroup was under memory pressure.
+                            let pressure_percent: u64 = match old_reading {
+                                Some(old) => {
+                                    let diff = total_pressure - old.memory_pressure.total_pressure;
+                                    let pressure_percent = (diff * 100)
+                                        / old.memory_pressure.timestamp.elapsed().as_micros();
+                                    pressure_percent as u64
                                 }
-                            } else {
-                                MemoryState::NoLimitSet
+                                // We can't get a % if we can't read the previous state, we only log this if
+                                // it's over the threshold we set so just set it as 0 so it's not logged
+                                None => 0,
                             };
+
+                            let memory_pressure_state =
+                                if pressure_percent < self.memory_pressure_threshold {
+                                    MemoryPressureState::BelowPressureLimit
+                                } else {
+                                    MemoryPressureState::AbovePressureLimit
+                                };
+
                             (
-                                TrackedMemoryState::Reading(state),
-                                Some(MemoryReading { memory_current }),
+                                TrackedMemoryState::Reading(MemoryStates {
+                                    memory_current_state,
+                                    memory_pressure_state,
+                                }),
+                                Some(MemoryReading {
+                                    memory_current,
+                                    memory_pressure: PressureReading {
+                                        total_pressure,
+                                        pressure_percent,
+                                        timestamp: Instant::now(),
+                                    },
+                                }),
                             )
                         }
-                        Err(error) => {
-                            tracing::warn!("Failed to track memory usage: {}", error);
-                            (TrackedMemoryState::Failure, None)
-                        }
+                        _ => (TrackedMemoryState::Failure, None),
                     };
-                    let old_state = *self.handle.state_sender.borrow();
                     self.handle.state_sender.send_if_modified(|x| {
                         *x = new_state;
                         old_state != new_state
@@ -375,7 +438,7 @@ impl MemoryTracker {
     //  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
     //  ```
     // 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
-    async fn _read_some_pressure_stall_total_value_in_us(&mut self) -> buck2_error::Result<u128> {
+    async fn read_some_pressure_stall_total_value_in_us(&mut self) -> buck2_error::Result<u128> {
         self.memory_pressure.rewind().await?;
         let mut reader = BufReader::new(&mut self.memory_pressure);
         // First line should always be for 'some' so just parsing it should be enough
@@ -441,13 +504,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_changes_tracked() -> buck2_error::Result<()> {
+    async fn test_current_memory_changes_tracked() -> buck2_error::Result<()> {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
         let memory_current = File::open(current.clone()).await?;
         let pressure = dir.path().join("current.pressure");
-        fs::write(&pressure, "some avg10=0.00 avg60=0.00 avg300=0.00 total=8").unwrap();
+        fs::write(
+            &pressure,
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=200000",
+        )
+        .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
@@ -467,12 +534,15 @@ mod tests {
         state_rx.changed().await?;
         assert_eq!(
             *state_rx.borrow_and_update(),
-            TrackedMemoryState::Reading(MemoryState::BelowLimit)
+            TrackedMemoryState::Reading(MemoryStates {
+                memory_current_state: MemoryCurrentState::BelowLimit,
+                memory_pressure_state: MemoryPressureState::BelowPressureLimit
+            })
         );
-        assert_eq!(
-            *reading_rx.borrow_and_update(),
-            Some(MemoryReading { memory_current: 6 })
-        );
+        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(actual.memory_current, 6);
+        assert_eq!(actual.memory_pressure.total_pressure, 200000);
+        assert_eq!(actual.memory_pressure.pressure_percent, 0);
         assert_eq!(counter.load(Ordering::Relaxed), 1);
         fs::write(&current, "9").unwrap();
         notify.notify_one();
@@ -480,22 +550,108 @@ mod tests {
         state_rx.changed().await?;
         assert_eq!(
             *state_rx.borrow_and_update(),
-            TrackedMemoryState::Reading(MemoryState::AboveLimit)
+            TrackedMemoryState::Reading(MemoryStates {
+                memory_current_state: MemoryCurrentState::AboveLimit,
+                memory_pressure_state: MemoryPressureState::BelowPressureLimit
+            })
         );
-        assert_eq!(
-            *reading_rx.borrow_and_update(),
-            Some(MemoryReading { memory_current: 9 })
-        );
+        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(actual.memory_current, 9);
+        assert_eq!(actual.memory_pressure.total_pressure, 200000);
+        assert_eq!(actual.memory_pressure.pressure_percent, 0);
         assert_eq!(counter.load(Ordering::Relaxed), 2);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
         notify.notify_one();
         reading_rx.changed().await?;
-        assert_eq!(
-            *reading_rx.borrow_and_update(),
-            Some(MemoryReading { memory_current: 10 })
+        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(actual.memory_current, 10);
+        assert_eq!(actual.memory_pressure.total_pressure, 200000);
+        assert_eq!(actual.memory_pressure.pressure_percent, 0);
+        assert_eq!(counter.load(Ordering::Relaxed), 3);
+        // expect timeout error, no state change
+        assert!(
+            tokio::time::timeout(Duration::from_secs(2), state_rx.changed())
+                .await
+                .is_err()
         );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_current_pressure_changes_tracked() -> buck2_error::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let current = dir.path().join("current.memory");
+        fs::write(&current, "6").unwrap();
+        let memory_current = File::open(current.clone()).await?;
+        let pressure = dir.path().join("current.pressure");
+        fs::write(
+            &pressure,
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=200000",
+        )
+        .unwrap();
+        let memory_pressure = File::open(pressure.clone()).await?;
+        let notify = Arc::new(Notify::new());
+        let counter = Arc::new(AtomicUsize::new(0));
+        let timer = MockTimer::new(Some(notify.clone()), counter.clone());
+        let tracker = MemoryTracker::new(memory_current, memory_pressure, 0, Some(7), 10);
+        let mut state_rx = tracker.handle.state_sender.subscribe();
+        let mut reading_rx = tracker.handle.reading_sender.subscribe();
+        tracker.spawn_task(timer).await;
+
+        assert_eq!(
+            *state_rx.borrow_and_update(),
+            TrackedMemoryState::Uninitialized
+        );
+        assert_eq!(counter.load(Ordering::Relaxed), 0);
+        notify.notify_one();
+
+        state_rx.changed().await?;
+        assert_eq!(
+            *state_rx.borrow_and_update(),
+            TrackedMemoryState::Reading(MemoryStates {
+                memory_current_state: MemoryCurrentState::BelowLimit,
+                memory_pressure_state: MemoryPressureState::BelowPressureLimit
+            })
+        );
+        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(actual.memory_current, 6);
+        assert_eq!(actual.memory_pressure.total_pressure, 200000);
+        assert_eq!(actual.memory_pressure.pressure_percent, 0);
+        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        fs::write(
+            &pressure,
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=440000",
+        )
+        .unwrap();
+        notify.notify_one();
+
+        state_rx.changed().await?;
+        assert_eq!(
+            *state_rx.borrow_and_update(),
+            TrackedMemoryState::Reading(MemoryStates {
+                memory_current_state: MemoryCurrentState::BelowLimit,
+                memory_pressure_state: MemoryPressureState::AbovePressureLimit
+            })
+        );
+        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(actual.memory_current, 6);
+        assert_eq!(actual.memory_pressure.total_pressure, 440000);
+        assert_eq!(counter.load(Ordering::Relaxed), 2);
+
+        // change reading but not state
+        fs::write(
+            &pressure,
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=600000",
+        )
+        .unwrap();
+        notify.notify_one();
+        reading_rx.changed().await?;
+        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(actual.memory_current, 6);
+        assert_eq!(actual.memory_pressure.total_pressure, 600000);
         assert_eq!(counter.load(Ordering::Relaxed), 3);
         // expect timeout error, no state change
         assert!(

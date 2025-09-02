@@ -46,16 +46,17 @@ impl LocalActionsThrottle {
     pub(crate) async fn ensure_low_memory_pressure(&self) {
         #[cfg(unix)]
         {
-            use buck2_resource_control::memory_tracker::MemoryState;
+            use buck2_resource_control::memory_tracker::MemoryCurrentState;
+            use buck2_resource_control::memory_tracker::MemoryStates;
             use buck2_resource_control::memory_tracker::TrackedMemoryState;
 
             fn should_throttle(state: TrackedMemoryState) -> bool {
                 match state {
-                    // If there is any problem with the tracker play it safe and don't block the execution.
-                    TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
-                    TrackedMemoryState::Reading(MemoryState::BelowLimit)
-                    | TrackedMemoryState::Reading(MemoryState::NoLimitSet) => false,
-                    TrackedMemoryState::Reading(MemoryState::AboveLimit) => true,
+                    TrackedMemoryState::Reading(MemoryStates {
+                        memory_current_state: MemoryCurrentState::AboveLimit,
+                        ..
+                    }) => true,
+                    _ => false,
                 }
             }
 
