@@ -20,6 +20,12 @@ buck2_bundle(
 )
 
 # For backcompat with bash aliases and so forth
+# You can use this target to test custom builds of buck2.
+#
+# Step 1: `buck2 build @fbcode//mode/opt fbcode//buck2:symlinked_buck2_and_tpx --out ~/buck2`
+# Step 2: Use the buck2 binary from `~/buck2/buck2`
+#
+# If you're testing on macOS, use `@fbcode//mode/opt-mac-arm64`
 alias(
     name = "symlinked_buck2_and_tpx",
     actual = ":buck2_bundle",
