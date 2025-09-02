@@ -22,6 +22,7 @@ LATE_BINDING_ONLY_CRATES = [
 # These crates may only be depended on from `app/buck2`
 TOP_LEVEL_ONLY_CRATES = [
     _app("buck2_cmd_debug_client"),
+    _app("buck2_cmd_log_client"),
 ]
 
 # Unordered pairs where neither crate may depend on the other

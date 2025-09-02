@@ -7,21 +7,17 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 bytesize = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-csv = { workspace = true }
 derive_more = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 humantime = { workspace = true }
-indexmap = { workspace = true }
 libc = { workspace = true }
-linked-hash-map = { workspace = true }
 lsp-server = { workspace = true }
 maplit = { workspace = true }
 multimap = { workspace = true }
@@ -49,7 +45,6 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_event_log = { workspace = true }
-buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_subscription_proto = { workspace = true }

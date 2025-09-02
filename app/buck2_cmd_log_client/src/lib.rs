@@ -8,6 +8,17 @@
  * above-listed licenses.
  */
 
+use std::fmt::Debug;
+
+use buck2_client_ctx::client_ctx::BuckSubcommand;
+use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ExitResult;
+use buck2_common::argv::Argv;
+use buck2_common::argv::SanitizedArgv;
+use dupe::Dupe;
+
 mod critical_path;
 mod diff;
 mod external_configs;
@@ -22,17 +33,6 @@ mod what_materialized;
 pub(crate) mod what_ran;
 mod what_up;
 mod what_uploaded;
-
-use std::fmt::Debug;
-
-use buck2_client_ctx::client_ctx::BuckSubcommand;
-use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::events_ctx::EventsCtx;
-use buck2_client_ctx::exit_result::ExitResult;
-use buck2_common::argv::Argv;
-use buck2_common::argv::SanitizedArgv;
-use dupe::Dupe;
 
 #[derive(
     Debug,

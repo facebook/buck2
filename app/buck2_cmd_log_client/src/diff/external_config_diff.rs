@@ -21,7 +21,7 @@ use futures::Stream;
 use futures::TryStreamExt;
 use serde::Serialize;
 
-use crate::commands::log::diff::diff_options::DiffEventLogOptions;
+use crate::diff::diff_options::DiffEventLogOptions;
 
 const PROJECT_ROOT: &str = "";
 

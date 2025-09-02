@@ -26,9 +26,9 @@ use buck2_event_log::stream_value::StreamValue;
 use serde::Serialize;
 use tokio_stream::StreamExt;
 
-use crate::commands::log::LogCommandOutputFormat;
-use crate::commands::log::LogCommandOutputFormatWithWriter;
-use crate::commands::log::transform_format;
+use crate::LogCommandOutputFormat;
+use crate::LogCommandOutputFormatWithWriter;
+use crate::transform_format;
 
 /// Outputs materializations from selected invocation.
 ///

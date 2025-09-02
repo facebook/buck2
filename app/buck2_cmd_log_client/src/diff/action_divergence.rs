@@ -23,7 +23,7 @@ use futures::Stream;
 use futures::TryStreamExt;
 use linked_hash_map::LinkedHashMap;
 
-use crate::commands::log::diff::diff_options::DiffEventLogOptions;
+use crate::diff::diff_options::DiffEventLogOptions;
 
 /// Identifies the first divergent action between two builds.
 /// Divergence is identified by the same action having differing outputs. Useful for identifying non-determinism.

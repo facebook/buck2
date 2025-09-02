@@ -13,8 +13,8 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 
-use crate::commands::log::what_ran::WhatRanCommand;
-use crate::commands::log::what_ran::WhatRanCommandCommon;
+use crate::what_ran::WhatRanCommand;
+use crate::what_ran::WhatRanCommandCommon;
 
 /// Outputs every command that failed in the selected invocation.
 ///

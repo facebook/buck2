@@ -20,7 +20,6 @@ pub mod init;
 pub mod install;
 pub mod kill;
 pub mod killall;
-pub mod log;
 pub mod lsp;
 pub mod profile;
 pub mod query;

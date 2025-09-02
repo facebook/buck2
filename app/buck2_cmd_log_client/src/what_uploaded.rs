@@ -26,9 +26,9 @@ use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use tokio_stream::StreamExt;
 
-use crate::commands::log::LogCommandOutputFormat;
-use crate::commands::log::LogCommandOutputFormatWithWriter;
-use crate::commands::log::transform_format;
+use crate::LogCommandOutputFormat;
+use crate::LogCommandOutputFormatWithWriter;
+use crate::transform_format;
 
 /// Outputs stats about uploads to RE from the selected invocation.
 #[derive(Debug, clap::Parser)]

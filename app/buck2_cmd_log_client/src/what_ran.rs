@@ -37,10 +37,10 @@ use futures::TryStreamExt;
 use futures::stream::Stream;
 use indexmap::IndexMap;
 
-use crate::commands::log::LogCommandOutputFormat;
-use crate::commands::log::LogCommandOutputFormatWithWriter;
-use crate::commands::log::OutputFormatWithWriter;
-use crate::commands::log::transform_format;
+use crate::LogCommandOutputFormat;
+use crate::LogCommandOutputFormatWithWriter;
+use crate::OutputFormatWithWriter;
+use crate::transform_format;
 /// Output everything Buck2 ran from selected invocation.
 ///
 /// The output is presented as a series of tab-delimited records with the following structure:
