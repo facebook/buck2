@@ -129,6 +129,7 @@ def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_tar
             "full-index-store": [DefaultInfo(default_output = None)],
             "full-swift-index-store": [DefaultInfo(default_output = None)],
             "index-store": [DefaultInfo(default_output = None)],
+            "swift-index-store": [DefaultInfo(default_output = None)],
         }
 
         index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = ctx.actions.tset(IndexStoreTSet), swift_tset = ctx.actions.tset(IndexStoreTSet))
