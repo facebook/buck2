@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 # @oss-disable[end= ]: load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
-load(":rules.bzl", "BANNED_DEP_PATHS", "LATE_BINDING_ONLY_CRATES")
+load(":rules.bzl", "BANNED_DEP_PATHS", "LATE_BINDING_ONLY_CRATES", "TOP_LEVEL_ONLY_CRATES")
 
 platform_utils = None # @oss-enable
 
@@ -32,6 +32,17 @@ def _check_late_binding_only(ctx: AnalysisContext):
             m += "".join(["\n" + str(p.label) for p in all_paths])
             fail(m)
 
+def _check_top_level_only(ctx: AnalysisContext):
+    for all_paths in ctx.attrs.top_level_only_paths:
+        all_paths = list(all_paths)
+        target = all_paths.pop()
+        remainder = filter(lambda t: not str(t.label).startswith("fbcode//buck2/app/buck2:"), all_paths)
+
+        if len(remainder) != 0:
+            m = "Top-level-only crate `" + str(target.label) + "` may not be depended on by:"
+            m += "".join(["\n" + str(p.label) for p in remainder])
+            fail(m)
+
 def _check_banned_dep_paths(ctx: AnalysisContext):
     for path in ctx.attrs.banned_dep_paths:
         if len(path) > 0:
@@ -44,6 +55,7 @@ def _check_banned_dep_paths(ctx: AnalysisContext):
 def _impl(ctx: AnalysisContext):
     _check_client_to_re_path(ctx)
     _check_late_binding_only(ctx)
+    _check_top_level_only(ctx)
     _check_banned_dep_paths(ctx)
     return [DefaultInfo()]
 
@@ -53,10 +65,12 @@ _test_buck2_dep_graph = rule(
         "banned_dep_paths": attrs.list(attrs.query()),
         "client_to_re_path": attrs.query(),
         "late_binding_only_paths": attrs.list(attrs.query()),
+        "top_level_only_paths": attrs.list(attrs.query()),
     },
 )
 
 _CLIENT_BIN = "fbcode//buck2/app/buck2:buck2_client-bin"
+
 _BUCK2_BIN = "fbcode//buck2/app/buck2:buck2-bin"
 
 _RE_CLIENT_TARGET = "//remote_execution/client_lib/wrappers/rust:re_client_lib"
@@ -77,8 +91,9 @@ def test_buck2_dep_graph(name):
 
     _test_buck2_dep_graph(
         name = name,
-        client_to_re_path = _CLIENT_TO_RE,
-        late_binding_only_paths = ["allpaths({}, {})".format(_BUCK2_BIN, c) for c in LATE_BINDING_ONLY_CRATES],
         banned_dep_paths = banned_dep_paths,
+        client_to_re_path = _CLIENT_TO_RE,
         default_target_platform = _dtp(),
+        late_binding_only_paths = ["allpaths({}, {})".format(_BUCK2_BIN, c) for c in LATE_BINDING_ONLY_CRATES],
+        top_level_only_paths = ["allpaths({}, {})".format(_BUCK2_BIN, c) for c in TOP_LEVEL_ONLY_CRATES],
     )

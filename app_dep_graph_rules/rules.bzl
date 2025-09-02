@@ -19,6 +19,11 @@ LATE_BINDING_ONLY_CRATES = [
     _app("buck2_query_impls"),
 ]
 
+# These crates may only be depended on from `app/buck2`
+TOP_LEVEL_ONLY_CRATES = [
+    _app("buck2_cmd_debug_client"),
+]
+
 # Unordered pairs where neither crate may depend on the other
 BANNED_DEP_PATHS = [
     (_app("buck2_common"), _app("buck2_directory")),
