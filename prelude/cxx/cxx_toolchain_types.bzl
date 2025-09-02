@@ -141,6 +141,7 @@ _compiler_fields = [
     "allow_cache_upload",
     "supports_two_phase_compilation",
     "compiler_with_wrapper",
+    "supports_content_based_paths",
 ]
 
 AsCompilerInfo = provider(fields = _compiler_fields)

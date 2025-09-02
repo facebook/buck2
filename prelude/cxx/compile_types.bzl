@@ -86,6 +86,7 @@ CxxCompileCommand = record(
     # The action category
     category = field(str),
     allow_cache_upload = field(bool),
+    allow_content_based_paths = field(bool),
 )
 
 # Information about how to compile a source file.

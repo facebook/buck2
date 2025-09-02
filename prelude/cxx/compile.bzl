@@ -910,6 +910,7 @@ def precompile_cxx(
             compiler_type = compiler_info.compiler_type,
             category = "cxx_modules_precompile",
             allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
+            allow_content_based_paths = True,  # Unused: we always use content-based paths for precompile
         )
 
     cmd = mk_base_cmd()
@@ -1531,4 +1532,5 @@ def _generate_base_compile_command(
         compiler_type = compiler_info.compiler_type,
         category = category,
         allow_cache_upload = allow_cache_upload,
+        allow_content_based_paths = compiler_info.supports_content_based_paths == True,
     )
