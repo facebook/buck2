@@ -321,6 +321,7 @@ impl IncrementalPathMap {
 pub struct RemoteWorkerSpec {
     pub id: WorkerId,
     pub init: Vec<String>,
+    pub env: SortedVectorMap<String, String>,
     pub input_paths: CommandExecutionPaths,
     pub concurrency: Option<usize>,
 }

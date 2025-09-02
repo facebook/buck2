@@ -287,6 +287,14 @@ fn re_create_action(
             arguments: worker.init.clone(),
             platform: Some(platform.clone()),
             working_directory: working_directory.as_str().to_owned(),
+            environment_variables: worker
+                .env
+                .iter()
+                .map(|(k, v)| RE::EnvironmentVariable {
+                    name: (*k).clone(),
+                    value: (*v).clone(),
+                })
+                .collect(),
             ..Default::default()
         };
         let input_digest = worker.input_paths.input_directory().fingerprint();

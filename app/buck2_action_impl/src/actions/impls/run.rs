@@ -354,6 +354,7 @@ impl FrozenStarlarkRunActionValues {
 
 struct UnpackedWorkerValues<'v> {
     exe: &'v dyn CommandLineArgLike<'v>,
+    env: Vec<(&'v str, &'v dyn CommandLineArgLike<'v>)>,
     id: WorkerId,
     concurrency: Option<usize>,
     streaming: bool,
@@ -424,6 +425,7 @@ impl RunAction {
 
         let worker = worker.map(|worker| UnpackedWorkerValues {
             exe: worker.exe_command_line(),
+            env: worker.env(),
             id: WorkerId(worker.id),
             concurrency: worker.concurrency(),
             streaming: worker.streaming(),
@@ -435,6 +437,7 @@ impl RunAction {
 
         let remote_worker = remote_worker.map(|remote_worker| UnpackedWorkerValues {
             exe: remote_worker.exe_command_line(),
+            env: remote_worker.env(),
             id: WorkerId(remote_worker.id),
             concurrency: remote_worker.concurrency(),
             streaming: false,
@@ -537,6 +540,22 @@ impl RunAction {
                 .exe
                 .visit_artifacts(&mut remote_worker_init_visitor)?;
 
+            let remote_worker_env: buck2_error::Result<SortedVectorMap<_, _>> = remote_worker
+                .env
+                .into_iter()
+                .map(|(k, v)| {
+                    let mut env = String::new();
+                    let mut ctx = DefaultCommandLineContext::new(fs);
+                    v.add_to_command_line(
+                        &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
+                        &mut ctx,
+                        &artifact_path_mapping,
+                    )?;
+                    v.visit_artifacts(&mut remote_worker_init_visitor)?;
+                    Ok((k.to_owned(), env))
+                })
+                .collect();
+
             let artifact_inputs: Vec<&ArtifactGroupValues> = remote_worker_init_visitor
                 .inputs()
                 .map(|group| action_execution_ctx.artifact_values(group))
@@ -552,9 +571,10 @@ impl RunAction {
                 action_execution_ctx.digest_config(),
             )?;
             Some(RemoteWorkerSpec {
-                init: remote_worker_init_rendered,
-                input_paths,
                 id: remote_worker.id,
+                init: remote_worker_init_rendered,
+                env: remote_worker_env?,
+                input_paths,
                 concurrency: remote_worker.concurrency,
             })
         } else {
@@ -1139,6 +1159,9 @@ impl Action for RunAction {
         }
         if let Some(remote_worker) = values.remote_worker {
             remote_worker.exe.visit_artifacts(&mut artifact_visitor)?;
+            for (_, v) in remote_worker.env.iter() {
+                v.visit_artifacts(&mut artifact_visitor)?;
+            }
         }
         for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
