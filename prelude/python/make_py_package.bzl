@@ -755,6 +755,7 @@ def _make_py_package_live(
 
     state = ctx.actions.declare_output("{}-state.json".format(name))
     cmd.add(cmd_args(state.as_output(), format = "--state={}"))
+    runtime_files.append(state)
     sub_targets["state"] = [DefaultInfo(default_output = state)]
 
     if ctx.attrs.use_rust_make_par_incremental:
