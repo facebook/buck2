@@ -143,6 +143,7 @@ pub struct MemoryTracker {
     handle: MemoryTrackerHandle,
     max_retries: u32,
     memory_limit_bytes: Option<u64>,
+    memory_pressure_threshold: u64,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -236,6 +237,9 @@ pub async fn create_memory_tracker(
             open_daemon_memory_file("memory.current").await?,
             MAX_RETRIES,
             memory_limit_bytes,
+            resource_control_config
+                .memory_pressure_threshold_percent
+                .unwrap_or(10),
         );
         let tracker_handle = memory_tracker.handle.dupe();
         const TICK_DURATION: Duration = Duration::from_millis(300);
@@ -247,12 +251,18 @@ pub async fn create_memory_tracker(
     }
 }
 impl MemoryTracker {
-    fn new(memory_current: File, max_retries: u32, memory_limit_bytes: Option<u64>) -> Self {
+    fn new(
+        memory_current: File,
+        max_retries: u32,
+        memory_limit_bytes: Option<u64>,
+        memory_pressure_threshold: u64,
+    ) -> Self {
         Self {
             memory_current,
             handle: Arc::new(MemoryTrackerHandleInner::new()),
             max_retries,
             memory_limit_bytes,
+            memory_pressure_threshold,
         }
     }
 
@@ -395,7 +405,7 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(memory_current, 0, Some(7));
+        let tracker = MemoryTracker::new(memory_current, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn_task(timer).await;
@@ -458,7 +468,7 @@ mod tests {
         let memory_current = File::open(path.clone()).await?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::new(memory_current, 3, Some(0));
+        let tracker = MemoryTracker::new(memory_current, 3, Some(0), 0);
         let handle = tracker.handle.dupe();
         tracker.spawn_task(timer).await;
         let mut rx = handle.state_sender.subscribe();
