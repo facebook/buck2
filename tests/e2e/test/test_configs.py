@@ -106,6 +106,25 @@ async def test_multi_mode_file(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
+async def test_multi_mode_file_deduplication(buck: Buck) -> None:
+    all_configs_to_test = [
+        ["@fbcode//mode/opt", "@fbcode//mode/dev", "@fbcode//mode/dev"],
+        ["@fbcode//mode/opt", "@fbcode//mode/opt", "@fbcode//mode/dev"],
+        ["@fbcode//mode/dev", "@fbcode//mode/opt", "@fbcode//mode/dev"],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config, target=FBCODE_TARGET)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "@fbcode//mode/opt;@fbcode//mode/dev",
+                "config": "",
+                "host": "linux",
+            },
+        )
+
+
+@buck_test(inplace=True)
 async def test_config(buck: Buck) -> None:
     # certain config makes it to the buck config
     all_configs_to_test = [
@@ -140,6 +159,43 @@ async def test_config(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
+async def test_config_deduplication(buck: Buck) -> None:
+    # certain config makes it to the buck config
+    all_configs_to_test = [
+        [
+            "--config=fbcode.use_link_groups_in_dev=True",
+            "--config=fbcode.split-dwarf=false",
+        ],
+        [
+            "--config=fbcode.use_link_groups_in_dev=True",
+            "--config=fbcode.split-dwarf=true",
+            "--config=fbcode.split-dwarf=false",
+        ],
+        [
+            "--config=fbcode.use_link_groups_in_dev=False",
+            "--config=fbcode.use_link_groups_in_dev=True",
+            "--config=fbcode.split-dwarf=false",
+        ],
+        [
+            "--config=fbcode.use_link_groups_in_dev=False",
+            "--config=fbcode.use_link_groups_in_dev=True",
+            "--config=fbcode.split-dwarf=true",
+            "--config=fbcode.split-dwarf=false",
+        ],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config, target=FBCODE_TARGET)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "@fbcode//mode/dev",
+                "config": "fbcode.split-dwarf=false;fbcode.use_link_groups_in_dev=True",
+                "host": "linux",
+            },
+        )
+
+
+@buck_test(inplace=True)
 async def test_modifier(buck: Buck) -> None:
     all_configs_to_test = [
         ["--modifier", "dev"],
@@ -156,6 +212,24 @@ async def test_modifier(buck: Buck) -> None:
                 "config": "",
                 "host": "linux",
                 "modifier": "dev",
+            },
+        )
+
+
+@buck_test(inplace=True)
+async def test_modifier_deduplication(buck: Buck) -> None:
+    all_configs_to_test = [
+        ["-m", "dev", "-m", "opt", "-m", "dev"],
+    ]
+    for config in all_configs_to_test:
+        buck_config = await execute_test_with_args(buck, config, target=FBCODE_TARGET)
+        assert_buck_args_config_equal(
+            buck_config,
+            {
+                "mode": "@fbcode//mode/dev",
+                "config": "",
+                "host": "linux",
+                "modifier": "opt;dev",
             },
         )
 
