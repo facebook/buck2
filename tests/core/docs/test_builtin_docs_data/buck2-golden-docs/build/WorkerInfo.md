@@ -2,6 +2,7 @@
 
 # WorkerInfo
 ## WorkerInfo.concurrency
+## WorkerInfo.env
 ## WorkerInfo.exe
 ## WorkerInfo.streaming
 ## WorkerInfo.supports\_bazel\_remote\_persistent\_worker\_protocol
