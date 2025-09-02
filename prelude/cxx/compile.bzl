@@ -346,7 +346,10 @@ def _compile_single_cxx(
     # Distributed NVCC compilation doesn't support dep files because we'll
     # dryrun cmd and the dep files won't be materialized.
     # TODO (T219249723): investigate if dep files are needed for dist nvcc.
-    if headers_dep_files and src_compile_cmd.src.extension != ".cu":
+    if src_compile_cmd.src.extension == ".cu":
+        headers_dep_files = None
+
+    if headers_dep_files:
         cmd = add_headers_dep_files(
             ctx,
             cmd,
@@ -521,6 +524,16 @@ def _compile_single_cxx(
             flavor_flags = toolchain.compiler_flavor_flags,
             output_args = ["-fsyntax-only"],
         )
+        diagnostics_dep_files = {}
+        if headers_dep_files:
+            syntax_only_cmd = add_headers_dep_files(
+                ctx = ctx,
+                cmd = syntax_only_cmd,
+                headers_dep_files = headers_dep_files,
+                src = src_compile_cmd.src,
+                filename_base = "{}.check".format(filename_base),
+                action_dep_files = diagnostics_dep_files,
+            )
         ctx.actions.run(
             [
                 toolchain.internal_tools.stderr_to_file,
@@ -529,6 +542,7 @@ def _compile_single_cxx(
             ],
             category = "check",
             identifier = short_path,
+            dep_files = diagnostics_dep_files,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
