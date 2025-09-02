@@ -393,6 +393,7 @@ impl HealthCheckConfig {
 /// before parsing DaemonStartupConfig).
 #[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DaemonStartupConfig {
+    pub num_tokio_workers: Option<usize>,
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
@@ -442,6 +443,12 @@ impl DaemonStartupConfig {
         }?;
 
         Ok(Self {
+            num_tokio_workers: config
+                .parse(BuckconfigKeyRef {
+                    section: "build",
+                    property: "num_tokio_workers",
+                })
+                .unwrap_or(Some(0)),
             daemon_buster: config
                 .get(BuckconfigKeyRef {
                     section: "buck2",
@@ -484,6 +491,7 @@ impl DaemonStartupConfig {
 
     pub fn testing_empty() -> Self {
         Self {
+            num_tokio_workers: None,
             daemon_buster: None,
             digest_algorithms: None,
             source_digest_algorithm: None,

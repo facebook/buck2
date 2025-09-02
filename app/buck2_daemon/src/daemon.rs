@@ -304,8 +304,14 @@ impl DaemonCommand {
         let mut builder = new_tokio_runtime("buck2-rt");
         builder.enable_all();
 
-        if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
-            builder.worker_threads(threads);
+        if let Some(num_tokio_workers) = server_init_ctx
+            .daemon_startup_config
+            .num_tokio_workers
+            .or(buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)?)
+        {
+            if num_tokio_workers > 0 {
+                builder.worker_threads(num_tokio_workers);
+            }
         }
 
         if let Some(threads) = buck2_env!("BUCK2_MAX_BLOCKING_THREADS", type=usize)? {
