@@ -138,6 +138,7 @@ pub enum ActionExecutionKind {
         eligible_for_full_hybrid: bool,
         dep_file_key: Option<DepFileDigest>,
         scheduling_mode: Option<SchedulingMode>,
+        incremental_kind: buck2_data::IncrementalKind,
     },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display("simple")]
@@ -165,6 +166,7 @@ pub struct CommandExecutionRef<'a> {
     pub eligible_for_full_hybrid: bool,
     pub scheduling_mode: Option<SchedulingMode>,
     pub dep_file_key: &'a Option<DepFileDigest>,
+    pub incremental_kind: buck2_data::IncrementalKind,
 }
 
 impl ActionExecutionKind {
@@ -193,6 +195,7 @@ impl ActionExecutionKind {
                 dep_file_key,
                 eligible_for_full_hybrid,
                 scheduling_mode,
+                incremental_kind,
                 ..
             } => Some(CommandExecutionRef {
                 kind,
@@ -205,6 +208,7 @@ impl ActionExecutionKind {
                 dep_file_key,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
                 scheduling_mode: *scheduling_mode.dupe(),
+                incremental_kind: *incremental_kind,
             }),
             Self::Simple | Self::Deferred | Self::LocalDepFile | Self::LocalActionCache => None,
         }
@@ -481,6 +485,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         allows_cache_upload: bool,
         allows_dep_file_cache_upload: bool,
         input_files_bytes: Option<u64>,
+        incremental_kind: buck2_data::IncrementalKind,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let CommandExecutionResult {
             outputs,
@@ -519,6 +524,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                             dep_file_key,
                             eligible_for_full_hybrid,
                             scheduling_mode,
+                            incremental_kind,
                         },
                         timing: report.timing.into(),
                         input_files_bytes,
@@ -967,6 +973,7 @@ mod tests {
                     false,
                     false,
                     None,
+                    buck2_data::IncrementalKind::NonIncremental,
                 )?;
                 let outputs = self
                     .outputs

@@ -166,6 +166,7 @@ impl Action for SimpleAction {
             false,
             false,
             None,
+            buck2_data::IncrementalKind::NonIncremental,
         )?;
 
         Ok((outputs, meta))

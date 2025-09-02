@@ -260,6 +260,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         allows_cache_upload: bool,
         allows_dep_file_cache_upload: bool,
         input_files_bytes: Option<u64>,
+        incremental_kind: buck2_data::IncrementalKind,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 
     /// Clean up all the output directories for this action. This requires a mutable reference

@@ -257,6 +257,7 @@ async fn build_action_inner(
     let mut hostname = None;
     let mut input_files_bytes = None;
     let mut scheduling_mode = None;
+    let mut incremental_kind = None;
     let error_diagnostics = match execute_result {
         Ok((outputs, meta)) => {
             output_size = outputs.calc_output_count_and_bytes().bytes;
@@ -276,6 +277,7 @@ async fn build_action_inner(
                 dep_file_key = *command.dep_file_key;
                 eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
                 scheduling_mode = command.scheduling_mode;
+                incremental_kind = Some(command.incremental_kind);
             }
 
             None
@@ -419,6 +421,7 @@ async fn build_action_inner(
             target_rule_type_name,
             action_inputs_hash: None,
             scheduling_mode: scheduling_mode.map(|h| h as i32),
+            incremental_kind: incremental_kind.map(|k| k as i32),
         }),
     )
 }

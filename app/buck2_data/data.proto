@@ -1544,6 +1544,17 @@ message ActionExecutionEnd {
   // Description of why an action ran locally, remotely, or both (currently only
   // set by hybrid executor)
   optional SchedulingMode scheduling_mode = 43;
+
+  // Whether the action was incremental or not, and if it is, if it's
+  // incremental locally or if it's incremental remotely
+  optional IncrementalKind incremental_kind = 44;
+}
+
+enum IncrementalKind {
+  NON_INCREMENTAL = 0;
+  INCREMENTAL_LOCAL = 1;
+  INCREMENTAL_REMOTE = 2;
+  INCREMENTAL_LOCAL_AND_REMOTE = 3;
 }
 
 enum SchedulingMode {

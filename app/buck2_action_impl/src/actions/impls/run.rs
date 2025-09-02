@@ -1328,6 +1328,15 @@ impl Action for RunAction {
             .unwrap_or_else(|| ctx.run_action_knobs().default_allow_cache_upload);
         let supports_remote_dep_files =
             self.inner.allow_dep_file_cache_upload && dep_file_bundle.has_dep_files();
+        let incremental_kind = match (
+            self.inner.no_outputs_cleanup,
+            self.inner.incremental_remote_outputs,
+        ) {
+            (true, true) => buck2_data::IncrementalKind::IncrementalLocalAndRemote,
+            (false, true) => buck2_data::IncrementalKind::IncrementalRemote,
+            (true, false) => buck2_data::IncrementalKind::IncrementalLocal,
+            (false, false) => buck2_data::IncrementalKind::NonIncremental,
+        };
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         if result.was_success()
@@ -1361,6 +1370,7 @@ impl Action for RunAction {
             allow_cache_upload,
             self.inner.allow_dep_file_cache_upload,
             Some(input_files_bytes),
+            incremental_kind,
         )?;
 
         populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
