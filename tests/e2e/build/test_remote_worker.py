@@ -20,8 +20,6 @@ async def test_remote_worker(buck: Buck) -> None:
     result = await buck.build(
         target,
         "-c",
-        "buck2.fat_mac_linux_enable_remote_persistent_workers=True",
-        "-c",
         f"test.cache_buster={random_string()}",
     )
 
@@ -43,8 +41,6 @@ async def test_remote_worker_caches(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/rules/remote_worker:run_remote_worker_1"
     args = [
         target,
-        "-c",
-        "buck2.fat_mac_linux_enable_remote_persistent_workers=True",
     ]
     await buck.build(*args)
 
