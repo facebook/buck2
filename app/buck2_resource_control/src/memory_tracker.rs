@@ -25,8 +25,10 @@ use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use parking_lot::Mutex;
 use tokio::fs::File;
+use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
+use tokio::io::BufReader;
 use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 use tokio::time::Interval;
@@ -139,6 +141,10 @@ pub struct MemoryTracker {
     #[allocative(skip)]
     memory_current: File,
 
+    /// Open `memory.pressure` file in cgroup of our process
+    #[allocative(skip)]
+    memory_pressure: File,
+
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
     max_retries: u32,
@@ -235,6 +241,7 @@ pub async fn create_memory_tracker(
             .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
         let memory_tracker = MemoryTracker::new(
             open_daemon_memory_file("memory.current").await?,
+            open_daemon_memory_file("memory.pressure").await?,
             MAX_RETRIES,
             memory_limit_bytes,
             resource_control_config
@@ -253,12 +260,14 @@ pub async fn create_memory_tracker(
 impl MemoryTracker {
     fn new(
         memory_current: File,
+        memory_pressure: File,
         max_retries: u32,
         memory_limit_bytes: Option<u64>,
         memory_pressure_threshold: u64,
     ) -> Self {
         Self {
             memory_current,
+            memory_pressure,
             handle: Arc::new(MemoryTrackerHandleInner::new()),
             max_retries,
             memory_limit_bytes,
@@ -348,7 +357,7 @@ impl MemoryTracker {
             .await
             .with_buck_error_context(|| "Error reading cgroup current memory")?;
         if read == 0 {
-            return Err(internal_error!("no bytes read"));
+            return Err(internal_error!("no bytes read from memory.current"));
         }
         data.truncate(read);
         let string = str::from_utf8(&data)?.trim();
@@ -358,6 +367,41 @@ impl MemoryTracker {
             .with_buck_error_context(|| {
                 format!("Expected a numeric value in cgroup file, found {}", string)
             })
+    }
+
+    // The content should consistently have the following format:
+    //  ```
+    //  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
+    //  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
+    //  ```
+    // 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
+    async fn _read_some_pressure_stall_total_value_in_us(&mut self) -> buck2_error::Result<u128> {
+        self.memory_pressure.rewind().await?;
+        let mut reader = BufReader::new(&mut self.memory_pressure);
+        // First line should always be for 'some' so just parsing it should be enough
+        let mut first_line = String::new();
+        let read = reader
+            .read_line(&mut first_line)
+            .await
+            .with_buck_error_context(|| "Error reading cgroup memory pressure")?;
+        if read == 0 {
+            return Err(internal_error!("no bytes read from memory.pressure"));
+        } else if !first_line.starts_with("some") {
+            return Err(internal_error!(
+                "unexpected memory.pressure format, first line doesn't start with 'some="
+            ));
+        }
+
+        let total_part = first_line.split_whitespace().last().ok_or(internal_error!(
+            "unexpected memory.pressure format, no whitespaces found"
+        ))?;
+        let string_value = total_part.strip_prefix("total=").ok_or(internal_error!(
+            "unexpected memory.pressure format, last value doesn't start with 'total='"
+        ))?;
+        string_value
+            .parse::<u128>()
+            .map_err(buck2_error::Error::from)
+            .with_buck_error_context(|| format!("Expected a numeric value, found {}", string_value))
     }
 }
 
@@ -399,13 +443,16 @@ mod tests {
     #[tokio::test]
     async fn test_changes_tracked() -> buck2_error::Result<()> {
         let dir = tempfile::tempdir()?;
-        let path = dir.path().join("current.memory");
-        fs::write(&path, "6").unwrap();
-        let memory_current = File::open(path.clone()).await?;
+        let current = dir.path().join("current.memory");
+        fs::write(&current, "6").unwrap();
+        let memory_current = File::open(current.clone()).await?;
+        let pressure = dir.path().join("current.pressure");
+        fs::write(&pressure, "some avg10=0.00 avg60=0.00 avg300=0.00 total=8").unwrap();
+        let memory_pressure = File::open(pressure.clone()).await?;
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(memory_current, 0, Some(7), 10);
+        let tracker = MemoryTracker::new(memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn_task(timer).await;
@@ -427,7 +474,7 @@ mod tests {
             Some(MemoryReading { memory_current: 6 })
         );
         assert_eq!(counter.load(Ordering::Relaxed), 1);
-        fs::write(&path, "9").unwrap();
+        fs::write(&current, "9").unwrap();
         notify.notify_one();
 
         state_rx.changed().await?;
@@ -442,7 +489,7 @@ mod tests {
         assert_eq!(counter.load(Ordering::Relaxed), 2);
 
         // change reading but not state
-        fs::write(&path, "10").unwrap();
+        fs::write(&current, "10").unwrap();
         notify.notify_one();
         reading_rx.changed().await?;
         assert_eq!(
@@ -463,12 +510,15 @@ mod tests {
     #[tokio::test]
     async fn test_backoff_stops_after_max_retries() -> buck2_error::Result<()> {
         let dir = tempfile::tempdir()?;
-        let path = dir.path().join("current.memory");
-        fs::write(&path, "abc").unwrap();
-        let memory_current = File::open(path.clone()).await?;
+        let current = dir.path().join("current.memory");
+        fs::write(&current, "abc").unwrap();
+        let pressure = dir.path().join("current.pressure");
+        fs::write(&pressure, "idk").unwrap();
+        let memory_current = File::open(current.clone()).await?;
+        let memory_pressure = File::open(pressure.clone()).await?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::new(memory_current, 3, Some(0), 0);
+        let tracker = MemoryTracker::new(memory_current, memory_pressure, 3, Some(0), 0);
         let handle = tracker.handle.dupe();
         tracker.spawn_task(timer).await;
         let mut rx = handle.state_sender.subscribe();
