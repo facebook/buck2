@@ -395,6 +395,10 @@ impl EdenFsFileWatcher {
                     ProcessChangeStatus::LargeOrUnknown
                 }
             },
+            ChangeNotification::stateChange(_) => {
+                // Ignored
+                ProcessChangeStatus::Processed
+            }
             ChangeNotification::UnknownField(_) => {
                 soft_error!(
                     "edenfs_change_unknown",
