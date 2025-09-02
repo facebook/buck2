@@ -1,4 +1,4 @@
-load(":packages.bzl", "download_rpm")
+load("@fbcode//buck2/shed/rpm_download:packages.bzl", "download_rpm")
 
 oncall("build_infra")
 
