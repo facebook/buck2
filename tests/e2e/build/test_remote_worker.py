@@ -31,7 +31,11 @@ async def test_remote_worker(buck: Buck) -> None:
     with open(output_path, "r") as f:
         output_lines = f.readlines()
         assert len(output_lines) == 2
-        assert output_lines[0].strip() == output_lines[1].strip()
+        # We would like to check that both lines are the same, as that means that
+        # both actions used the same persistent worker.
+        # However, RE just does a best effort to use the same persistent worker,
+        # so we can't guarantee this is the case.
+        # assert output_lines[0].strip() == output_lines[1].strip()
 
 
 @buck_test(inplace=True)
