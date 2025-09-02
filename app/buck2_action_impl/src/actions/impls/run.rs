@@ -64,12 +64,12 @@ use buck2_error::buck2_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -384,7 +384,7 @@ enum ExecuteResult {
         result: CommandExecutionResult,
         dep_file_bundle: DepFileBundle,
         executor_preference: ExecutorPreference,
-        prepared_action: PreparedAction,
+        action_and_blobs: ActionDigestAndBlobs,
         input_files_bytes: u64,
     },
 }
@@ -966,7 +966,7 @@ impl RunAction {
             dep_file_bundle,
             // Dropping rest of req to avoid holding paths longer than necessary.
             executor_preference: req.executor_preference,
-            prepared_action,
+            action_and_blobs: prepared_action.action_and_blobs,
             input_files_bytes,
         })
     }
@@ -1278,7 +1278,7 @@ impl Action for RunAction {
             mut result,
             mut dep_file_bundle,
             executor_preference,
-            prepared_action,
+            action_and_blobs,
             input_files_bytes,
         ) = match self.execute_inner(ctx).await? {
             ExecuteResult::LocalDepFileHit(outputs, metadata) => {
@@ -1288,13 +1288,13 @@ impl Action for RunAction {
                 result,
                 dep_file_bundle,
                 executor_preference,
-                prepared_action,
+                action_and_blobs,
                 input_files_bytes,
             } => (
                 result,
                 dep_file_bundle,
                 executor_preference,
-                prepared_action,
+                action_and_blobs,
                 input_files_bytes,
             ),
         };
@@ -1314,7 +1314,7 @@ impl Action for RunAction {
             let re_result = result.action_result.take();
             let upload_result = ctx
                 .cache_upload(
-                    &prepared_action.action_and_blobs,
+                    &action_and_blobs,
                     &result,
                     re_result,
                     // match needed for coercion, https://github.com/rust-lang/rust/issues/108999
