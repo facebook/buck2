@@ -152,7 +152,7 @@ enum MemoryTrackerError {
     ParentSliceExpected(String),
 }
 
-async fn open_daemon_memory_current() -> buck2_error::Result<File> {
+async fn open_daemon_memory_file(file_name: &str) -> buck2_error::Result<File> {
     // This contains daemon cgroup scope path
     // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
     let info = CGroupInfo::read_async().await?;
@@ -161,7 +161,7 @@ async fn open_daemon_memory_current() -> buck2_error::Result<File> {
     let Some(daemon_and_forkserver_slice) = info.get_slice() else {
         return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
     };
-    File::open(daemon_and_forkserver_slice.to_owned() + "/memory.current")
+    File::open(daemon_and_forkserver_slice.to_owned() + "/" + file_name)
         .await
         .map_err(|e| e.into())
 }
@@ -233,7 +233,7 @@ pub async fn create_memory_tracker(
             .hybrid_execution_memory_limit_gibibytes
             .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
         let memory_tracker = MemoryTracker::new(
-            open_daemon_memory_current().await?,
+            open_daemon_memory_file("memory.current").await?,
             MAX_RETRIES,
             memory_limit_bytes,
         );
@@ -246,7 +246,6 @@ pub async fn create_memory_tracker(
         Ok(None)
     }
 }
-
 impl MemoryTracker {
     fn new(memory_current: File, max_retries: u32, memory_limit_bytes: Option<u64>) -> Self {
         Self {
