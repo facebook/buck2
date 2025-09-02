@@ -25,6 +25,12 @@ def parse_arguments() -> Namespace:
     parser.add_argument(
         "-c", "--config", action="append", help="Buck configuration flags"
     )
+    parser.add_argument(
+        "-s",
+        "--subtarget",
+        type=str,
+        help="Subtarget to build (e.g., swift-index-store)",
+    )
     return parser.parse_args()
 
 
@@ -40,17 +46,16 @@ def parse_targets(target_args: list[str]) -> list[str]:
 
 
 def run_bxl_and_merge_index(
-    targets: list[str], dest: str, configs: list[str] = None
+    targets: list[str], dest: str, configs: list[str] = None, subtarget: str = None
 ) -> None:
     targets_str = " ".join(targets)
     config_flags = ""
+    subtarget_arg = f" --subtarget {subtarget}" if subtarget else ""
     if configs:
         config_flags = " ".join([f"-c {config}" for config in configs])
-        command = f"buck2 --isolation-dir bxl_build_index bxl {config_flags} {BXL} -- --target {targets_str}"
+        command = f"buck2 --isolation-dir bxl_build_index bxl {config_flags} {BXL} -- --target {targets_str}{subtarget_arg}"
     else:
-        command = (
-            f"buck2 --isolation-dir bxl_build_index bxl {BXL} -- --target {targets_str}"
-        )
+        command = f"buck2 --isolation-dir bxl_build_index bxl {BXL} -- --target {targets_str}{subtarget_arg}"
     process = subprocess.Popen(
         command,
         shell=True,
@@ -88,7 +93,7 @@ def main() -> None:
     args = parse_arguments()
     Path(args.dest).mkdir(parents=True, exist_ok=True)
     targets = parse_targets(args.target)
-    run_bxl_and_merge_index(targets, args.dest, args.config)
+    run_bxl_and_merge_index(targets, args.dest, args.config, args.subtarget)
 
 
 if __name__ == "__main__":

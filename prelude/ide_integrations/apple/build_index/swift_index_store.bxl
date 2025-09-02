@@ -28,13 +28,19 @@ def _hash_bucket_index_stores(index_stores: list[Artifact]) -> dict[int, list[Ar
 
 def _main(ctx: bxl.Context):
     targets = ctx.cli_args.target
+    subtarget = getattr(ctx.cli_args, "subtarget", "full-swift-index-store")
     configured_nodes = batch_apply_lazy(ctx, ctx.lazy.configured_target_node, targets)
     analysis_results = batch_apply_lazy(ctx, ctx.lazy.analysis, configured_nodes)
 
     index_stores = []
     for analysis_res in analysis_results:
         index_store_info = analysis_res.providers()[IndexStoreInfo]
-        index_stores.extend(list(index_store_info.swift_tset.traverse()))
+        if subtarget == "swift-index-store":
+            # Only get the Swift index store for this target (not transitive dependencies)
+            index_stores.append(index_store_info.swift_tset.value)
+        else:
+            # Default behavior: get all Swift index stores including transitive dependencies
+            index_stores.extend(list(index_store_info.swift_tset.traverse()))
 
     merge_tool_target = ctx.unconfigured_sub_targets(MERGE_TOOL_TARGET)
     bxl_actions = ctx.bxl_actions(
@@ -56,6 +62,7 @@ def _main(ctx: bxl.Context):
 main = bxl_main(
     impl = _main,
     cli_args = {
+        "subtarget": cli_args.option(cli_args.string()),
         "target": cli_args.list(cli_args.string()),
     },
 )
