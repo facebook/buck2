@@ -381,31 +381,42 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Allow third-party-build rules to depend on Python rules.
     tp_prefix = prefix_from_label(ctx.label)
-    providers.append(
-        third_party_build_info(
-            actions = ctx.actions,
-            build = ThirdPartyBuild(
-                prefix = tp_prefix,
-                root = create_third_party_build_root(
-                    ctx = ctx,
-                    # TODO(agallagher): use constraints to get py version.
-                    manifests = (
-                        [("lib/python", src_manifest)] if src_manifest != None else []
-                    ) + (
-                        [("lib/python", default_resource_manifest[0])] if default_resource_manifest != None else []
-                    ),
-                ),
-                manifest = ctx.actions.write_json(
-                    "third_party_build_manifest.json",
-                    dict(
-                        prefix = tp_prefix,
-                        py_lib_paths = ["lib/python"],
-                    ),
+    third_party_build = third_party_build_info(
+        actions = ctx.actions,
+        build = ThirdPartyBuild(
+            prefix = tp_prefix,
+            root = create_third_party_build_root(
+                ctx = ctx,
+                # TODO(agallagher): use constraints to get py version.
+                manifests = (
+                    [("lib/python", src_manifest)] if src_manifest != None else []
+                ) + (
+                    [("lib/python", default_resource_manifest[0])] if default_resource_manifest != None else []
                 ),
             ),
-            deps = raw_deps,
+            manifest = ctx.actions.write_json(
+                "third_party_build_manifest.json",
+                dict(
+                    prefix = tp_prefix,
+                    py_lib_paths = ["lib/python"],
+                    bin_paths = [],
+                    lib_paths = [],
+                    runtime_lib_paths = [],
+                    libs = [],
+                ),
+            ),
         ),
+        deps = raw_deps,
     )
+    providers.append(third_party_build)
+    sub_targets["third-party-build"] = [
+        DefaultInfo(
+            default_output = third_party_build.build.root.artifact,
+            sub_targets = dict(
+                manifest = [DefaultInfo(default_output = third_party_build.build.manifest)],
+            ),
+        ),
+    ]
 
     providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 
