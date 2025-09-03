@@ -889,7 +889,6 @@ impl RunAction {
         let mut dep_file_visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
         let (prepared_run_action, cmdline_digest_for_dep_files, host_sharing_requirements) =
             self.prepare(&mut dep_file_visitor, ctx).await?;
-        let input_files_bytes = prepared_run_action.paths.input_files_bytes();
 
         let dep_file_bundle = make_dep_file_bundle(
             ctx,
@@ -987,7 +986,7 @@ impl RunAction {
             // Dropping rest of req to avoid holding paths longer than necessary.
             executor_preference: req.executor_preference,
             action_and_blobs: prepared_action.action_and_blobs,
-            input_files_bytes,
+            input_files_bytes: req.paths().input_files_bytes(),
         })
     }
 
