@@ -66,6 +66,7 @@ load(
     "@prelude//linking:types.bzl",
     "Linkage",  # @unused Used as a type
 )
+load("@prelude//third-party:providers.bzl", "ThirdPartyBuildInfo")
 load(
     "@prelude//utils:type_defs.bzl",
     "is_dict",
@@ -169,6 +170,7 @@ RustLinkInfo = provider(
         "merged_link_infos": dict[ConfiguredTargetLabel, MergedLinkInfo],
         "linkable_graphs": list[LinkableGraph],
         "shared_libs": SharedLibraryInfo,
+        "third_party_build_infos": list[ThirdPartyBuildInfo],
         # LinkGroupLibInfo intentionally omitted because the Rust -> Rust version
         # never needs to be different from the Rust -> native version
         #
@@ -394,6 +396,17 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
             deps[dep.label] = dep
 
     return deps.values()
+
+def inherited_third_party_builds(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[ThirdPartyBuildInfo]:
+    infos = []
+    infos.extend([
+        d[ThirdPartyBuildInfo]
+        for d in _native_link_dependencies(ctx, dep_ctx)
+        if ThirdPartyBuildInfo in d
+    ])
+    for dep in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
+        infos.extend(dep.third_party_build_infos)
+    return infos
 
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,

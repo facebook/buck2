@@ -12,6 +12,7 @@ load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
@@ -227,6 +228,7 @@ cxx_python_extension = prelude_rule(
         cxx_common.linker_flags_arg() |
         cxx_common.local_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
+        third_party_common.create_third_party_build_root_attrs() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
@@ -271,7 +273,6 @@ cxx_python_extension = prelude_rule(
             "suffix_all": attrs.bool(default = True),
             "suffix_exclude_rtti": attrs.bool(default = False),
             "support_shlib_interfaces": attrs.bool(default = True),
-            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
             "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
             "_cxx_toolchain": toolchains_common.cxx(),
             # Copied from python_library.
@@ -345,6 +346,7 @@ prebuilt_python_library = prelude_rule(
         } |
         python_common.deps_arg() |
         python_common.exclude_deps_from_merged_linking_arg() |
+        third_party_common.create_third_party_build_root_attrs() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
@@ -361,7 +363,6 @@ prebuilt_python_library = prelude_rule(
                     native extension is imported.
                 """,
             ),
-            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
             "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
@@ -503,6 +504,7 @@ python_library = prelude_rule(
         python_common.base_module_arg() |
         python_common.deps_arg() |
         python_common.exclude_deps_from_merged_linking_arg() |
+        third_party_common.create_third_party_build_root_attrs() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -515,7 +517,6 @@ python_library = prelude_rule(
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
             "_cxx_toolchain": toolchains_common.cxx(),
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),

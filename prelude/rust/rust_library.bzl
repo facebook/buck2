@@ -62,6 +62,14 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
+load(
+    "@prelude//third-party:build.bzl",
+    "create_third_party_build_info",
+)
+load(
+    "@prelude//third-party:providers.bzl",
+    "ThirdPartyBuildInfo",  # @unused Used as a type
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(
     ":build.bzl",
@@ -100,6 +108,7 @@ load(
     "inherited_linkable_graphs",
     "inherited_merged_link_infos",
     "inherited_shared_libs",
+    "inherited_third_party_builds",
     "resolve_deps",
     "resolve_rust_deps",
     "strategy_info",
@@ -700,6 +709,7 @@ def _proc_macro_link_providers(
         merged_link_infos = {},
         exported_link_deps = [],
         shared_libs = merge_shared_libraries(ctx.actions),
+        third_party_build_infos = [],
         linkable_graphs = [],
     )]
 
@@ -722,6 +732,7 @@ def _advanced_unstable_link_providers(
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
     inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
+    inherited_third_party = inherited_third_party_builds(ctx, dep_ctx)
 
     # Native link provider.
     merged_link_info = create_merged_link_info(
@@ -764,6 +775,13 @@ def _advanced_unstable_link_providers(
         inherited_shlibs,
     )
     providers.append(shared_library_info)
+
+    third_party_build_info = create_third_party_build_info(
+        ctx = ctx,
+        shared_libs = shared_libs.libraries,
+        children = inherited_third_party,
+    )
+    providers.append(third_party_build_info)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -819,6 +837,7 @@ def _advanced_unstable_link_providers(
         merged_link_infos = inherited_link_infos | {ctx.label.configured_target(): merged_link_info},
         exported_link_deps = inherited_exported_deps,
         shared_libs = shared_library_info,
+        third_party_build_infos = [third_party_build_info],
         linkable_graphs = inherited_graphs + [linkable_graph],
     ))
 
@@ -846,7 +865,7 @@ def _stable_link_providers(
 
     crate = attr_crate(ctx)
 
-    merged_link_infos, shared_libs, linkable_graphs, exported_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx)
+    merged_link_infos, shared_libs, linkable_graphs, exported_link_deps, third_party_builds = _rust_link_providers(ctx, compile_ctx.dep_ctx)
 
     # Create rust library provider.
     rust_link_info = RustLinkInfo(
@@ -855,6 +874,7 @@ def _stable_link_providers(
         merged_link_infos = merged_link_infos,
         exported_link_deps = exported_link_deps,
         shared_libs = shared_libs,
+        third_party_build_infos = third_party_builds,
         linkable_graphs = linkable_graphs,
     )
 
@@ -869,17 +889,19 @@ def _rust_link_providers(
     SharedLibraryInfo,
     list[LinkableGraph],
     list[Dependency],
+    list[ThirdPartyBuildInfo],
 ):
     inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
     inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
+    inherited_third_party = inherited_third_party_builds(ctx, dep_ctx)
 
     shared_libs = merge_shared_libraries(
         ctx.actions,
         deps = inherited_shlibs,
     )
-    return (inherited_link_infos, shared_libs, inherited_graphs, inherited_exported_deps)
+    return (inherited_link_infos, shared_libs, inherited_graphs, inherited_exported_deps, inherited_third_party)
 
 def _native_link_providers(
         ctx: AnalysisContext,
@@ -898,6 +920,7 @@ def _native_link_providers(
     inherited_shlibs = [rust_link_info.shared_libs]
     inherited_link_graphs = rust_link_info.linkable_graphs
     inherited_exported_deps = rust_link_info.exported_link_deps
+    inherited_third_party = rust_link_info.third_party_build_infos
 
     providers = []
 
@@ -939,6 +962,13 @@ def _native_link_providers(
         shared_libs,
         inherited_shlibs,
     ))
+
+    third_party_build_info = create_third_party_build_info(
+        ctx = ctx,
+        shared_libs = shared_libs.libraries,
+        children = inherited_third_party,
+    )
+    providers.append(third_party_build_info)
 
     # Omnibus root provider.
     linkable_root = create_linkable_root(

@@ -105,6 +105,7 @@ def create_third_party_build_info(
         cxx_headers: list[CPreprocessorInfo] = [],
         cxx_header_dirs: list[str] = [],
         paths: list[(str, Artifact)] = [],
+        children: list[ThirdPartyBuildInfo] = [],
         deps: list[Dependency] = []) -> ThirdPartyBuildInfo:
     if prefix == None:
         prefix = prefix_from_label(ctx.label)
@@ -165,4 +166,5 @@ def create_third_party_build_info(
             manifest = manifest,
         ),
         deps = deps,
+        children = children,
     )

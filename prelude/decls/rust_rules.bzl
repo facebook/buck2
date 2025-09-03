@@ -9,6 +9,7 @@
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
@@ -205,7 +206,8 @@ rust_library = prelude_rule(
         _rust_binary_attrs_group(prefix = "doc_") |
         rust_common.cxx_toolchain_arg() |
         rust_common.rust_toolchain_arg() |
-        rust_common.workspaces_arg()
+        rust_common.workspaces_arg() |
+        third_party_common.create_third_party_build_root_attrs()
     ),
     uses_plugins = [RustProcMacroPlugin],
 )
