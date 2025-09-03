@@ -514,7 +514,7 @@ def rust_compile(
 
     import_library = None
     pdb_artifact = None
-    dwp_inputs = cmd_args()
+    dwp_inputs = []
     if crate_type_linked(params.crate_type) and common_args.emit_requires_linking:
         subdir = common_args.subdir
         tempfile = common_args.tempfile
@@ -581,7 +581,7 @@ def rust_compile(
         )
 
         pdb_artifact = link_args_output.pdb_artifact
-        dwp_inputs = cmd_args(hidden = [link_args_output.link_args])
+        dwp_inputs = [link_args_output.link_args]
 
         # If we are deferring the real link to a separate action, we no longer pass the linker
         # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
@@ -664,7 +664,7 @@ def rust_compile(
             dwo_output_directory = dwo_output_directory,
             dep_link_strategy = params.dep_link_strategy,
         )
-        dwp_inputs.add(project_artifacts(ctx.actions, [all_external_debug_info]))
+        dwp_inputs.extend(project_artifacts(ctx.actions, [all_external_debug_info]))
     else:
         dwo_output_directory = None
         extra_external_debug_info = []
@@ -682,7 +682,6 @@ def rust_compile(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = dwp_inputs,
-            from_exe = False,
         )
     else:
         dwp_output = None
