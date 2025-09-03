@@ -50,6 +50,10 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
+load(
+    "@prelude//third-party:build.bzl",
+    "create_third_party_build_info",
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten_dict")
@@ -268,6 +272,7 @@ def _get_shared_link_infos(
 #
 def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
+    sub_targets = {}
 
     deps = ctx.attrs.deps
     exported_deps = ctx.attrs.exported_deps
@@ -327,10 +332,6 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     # This code is already compiled, so, the argument (probably) has little/no value.
     pic_behavior = PicBehavior("supported")
 
-    # prebuilt_cxx_library_group default output is always the output used for the "static" link strategy.
-    static_output_style = get_lib_output_style(LinkStrategy("static"), preferred_linkage, pic_behavior)
-    providers.append(DefaultInfo(default_outputs = outputs[static_output_style]))
-
     # Provider for native link.
     providers.append(create_merged_link_info(
         ctx,
@@ -385,5 +386,27 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = deps + exported_deps,
         ),
     )
+
+    # Third-party provider.
+    third_party_build_info = create_third_party_build_info(
+        ctx = ctx,
+        #cxx_headers = [propagated_preprocessor],
+        shared_libs = shared_libs.libraries,
+        cxx_header_dirs = [inc_dir.short_path for inc_dir in ctx.attrs.include_dirs],
+        deps = deps + exported_deps,
+    )
+    providers.append(third_party_build_info)
+    sub_targets["third-party-build"] = [
+        DefaultInfo(
+            default_output = third_party_build_info.build.root.artifact,
+            sub_targets = dict(
+                manifest = [DefaultInfo(default_output = third_party_build_info.build.manifest)],
+            ),
+        ),
+    ]
+
+    # prebuilt_cxx_library_group default output is always the output used for the "static" link strategy.
+    static_output_style = get_lib_output_style(LinkStrategy("static"), preferred_linkage, pic_behavior)
+    providers.append(DefaultInfo(default_outputs = outputs[static_output_style], sub_targets = sub_targets))
 
     return providers

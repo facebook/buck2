@@ -363,6 +363,7 @@ control how the dependencies of this library are linked, use `link_style` instea
         third_party_common.create_third_party_build_root_attrs()
     ),
     "prebuilt_cxx_library_group": {
+        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
         "_cxx_toolchain": toolchains_common.cxx(),
     },
     "transformation_spec": {
