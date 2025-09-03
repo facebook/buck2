@@ -210,12 +210,14 @@ pub fn spawn_memory_reporter(
     dispatcher: EventDispatcher,
     memory_tracker: MemoryTrackerHandle,
 ) -> MemoryReporter {
+    let peak_memory_pressure = Arc::new(Mutex::new(0));
     let pressure_span = Arc::new(Mutex::new(None));
     let span = pressure_span.dupe();
     let handle = tokio::task::spawn(async move {
-        let mut rx = memory_tracker.state_sender.subscribe();
+        let mut state_receiver = memory_tracker.state_sender.subscribe();
+        let mut reading_receiver = memory_tracker.reading_sender.subscribe();
         loop {
-            if let TrackedMemoryState::Reading(state) = *rx.borrow() {
+            if let TrackedMemoryState::Reading(state) = *state_receiver.borrow() {
                 let mut span = span.lock();
                 match (span.is_some(), state.memory_current_state) {
                     (false, MemoryCurrentState::AboveLimit) => {
@@ -231,13 +233,31 @@ pub fn spawn_memory_reporter(
                 }
             }
 
-            if let Some(error) = rx.changed().await.err() {
-                // this task should always be stopped before the memory tracker is killed
-                let _unused = soft_error!(
-                    "memory_reporter_failed",
-                    internal_error!("Error from memory tracker sender: {}", error),
-                );
-                break;
+            if let Some(reading) = *reading_receiver.borrow() {
+                let mut peak_pressure = peak_memory_pressure.lock();
+                if reading.memory_pressure.pressure_percent > *peak_pressure {
+                    *peak_pressure = reading.memory_pressure.pressure_percent;
+                    // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
+                    // and can't be more than 100). We should always limit this as sending more can overload scribe
+                    dispatcher.instant_event(buck2_data::MemoryPressure {
+                        peak_pressure: *peak_pressure,
+                    });
+                }
+            }
+
+            match (
+                state_receiver.changed().await.err(),
+                reading_receiver.changed().await.err(),
+            ) {
+                (Some(err), _) | (_, Some(err)) => {
+                    // this task should always be stopped before the memory tracker is killed
+                    let _unused = soft_error!(
+                        "memory_reporter_failed",
+                        internal_error!("Error from memory tracker sender: {}", err),
+                    );
+                    break;
+                }
+                _ => {}
             }
         }
     });
