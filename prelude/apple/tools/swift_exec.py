@@ -269,6 +269,10 @@ def main():
         f"{os.getcwd()}/=",
         "-file-prefix-map",
         f"{os.getcwd()}=.",
+        # The module cache path ends up serialized in the DWARF, s we need to
+        # debug prefix it here for deterministic output.
+        "-file-prefix-map",
+        f"{env["CLANG_MODULE_CACHE_PATH"]}/=/tmp/buck-module-cache/",
     ]
 
     # Apply a coverage prefix map for the current directory
