@@ -1,6 +1,6 @@
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
-oncall("ios_devxx")
+oncall("ios_devx")
 
 source_listing()
 
