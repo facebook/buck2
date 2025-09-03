@@ -271,6 +271,7 @@ cxx_python_extension = prelude_rule(
             "suffix_all": attrs.bool(default = True),
             "suffix_exclude_rtti": attrs.bool(default = False),
             "support_shlib_interfaces": attrs.bool(default = True),
+            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
             "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
             "_cxx_toolchain": toolchains_common.cxx(),
             # Copied from python_library.
