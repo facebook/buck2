@@ -991,6 +991,10 @@ def _get_shared_flags(
             "-fmodule-format=obj",
         ])
         cmd.add(get_disable_pch_validation_flags())
+    else:
+        # Clang module breadcrumbs include module hashes and temporary paths
+        # and need to be excluded for deterministic build output.
+        cmd.add("-Xfrontend", "-no-clang-module-breadcrumbs")
 
     if toolchain.resource_dir:
         cmd.add([
