@@ -138,8 +138,13 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 manifest = ctx.actions.write_json(
                     "third_party_build_manifest.json",
                     dict(
+                        c_include_paths = [],
+                        cxx_include_paths = [],
+                        lib_paths = [],
+                        libs = [],
                         prefix = tp_prefix,
                         py_lib_paths = ["lib/python"],
+                        runtime_lib_paths = [],
                     ),
                 ),
             ),
