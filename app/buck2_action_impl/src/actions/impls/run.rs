@@ -687,27 +687,7 @@ impl RunAction {
             artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
 
         if self.inner.incremental_remote_outputs {
-            let output_paths = {
-                let mut output_paths = Vec::new();
-                for output in &self.outputs {
-                    // TODO(T219919866): support content based paths
-                    let path = fs.resolve_build(output.get_path(), None)?;
-                    output_paths.push(path);
-                }
-                output_paths
-            };
-            let entries = ctx
-                .materializer()
-                .get_artifact_entries_for_materialized_paths(output_paths)
-                .await?;
-            // Only proceed with incremental outputs if every output is present
-            if let Some(entries) = entries.into_iter().collect::<Option<Vec<_>>>() {
-                inputs.extend(
-                    entries
-                        .into_iter()
-                        .map(|(p, e)| CommandExecutionInput::IncrementalRemoteOutput(p, e)),
-                );
-            };
+            inputs.extend(self.output_paths_as_inputs(ctx).await?);
         }
 
         let mut extra_env = Vec::new();
@@ -988,6 +968,33 @@ impl RunAction {
             action_and_blobs: prepared_action.action_and_blobs,
             input_files_bytes: req.paths().input_files_bytes(),
         })
+    }
+
+    async fn output_paths_as_inputs(
+        &self,
+        ctx: &dyn ActionExecutionCtx,
+    ) -> buck2_error::Result<Vec<CommandExecutionInput>> {
+        let executor_fs = ctx.executor_fs();
+        let fs = executor_fs.fs();
+        let output_paths = {
+            let mut output_paths = Vec::new();
+            for output in &self.outputs {
+                // TODO(T219919866): support content based paths
+                let path = fs.resolve_build(output.get_path(), None)?;
+                output_paths.push(path);
+            }
+            output_paths
+        };
+        let entries = ctx
+            .materializer()
+            .get_artifact_entries_for_materialized_paths(output_paths)
+            .await?;
+        // Only proceed with incremental outputs if every output is present
+        Ok(entries
+            .into_iter()
+            .map(|entry| entry.map(|(p, e)| CommandExecutionInput::IncrementalRemoteOutput(p, e)))
+            .collect::<Option<Vec<_>>>()
+            .unwrap_or_default())
     }
 
     fn command_execution_request(
