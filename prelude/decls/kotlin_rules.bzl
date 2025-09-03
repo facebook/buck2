@@ -17,6 +17,13 @@ load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "LogLevel",
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 
+_no_x_jdk_release_doc = """
+        By default, classic kotlin adds -Xjdk-release=java_version to the kotlinc arguments.
+        Set this to True to not add -Xjdk-release=java_version to the kotlinc arguments.
+        This is helpful if the -Xjdk-release= brings trouble since it is not 100% guaranteed to work as expected.
+        See the [doc of kotlinc](https://kotlinlang.org/docs/compiler-reference.html#xjdk-release-version) for more detail.
+"""
+
 kotlin_library = prelude_rule(
     name = "kotlin_library",
     docs = """
@@ -131,12 +138,7 @@ kotlin_library = prelude_rule(
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-            "no_x_jdk_release": attrs.option(attrs.bool(), default = None, doc = """
-                By default, classic kotlin adds -Xjdk-release=java_version to the kotlinc arguments.
-                Set this to True to not add -Xjdk-release=java_version to the kotlinc arguments.
-                This is helpful if the -Xjdk-release= brings trouble since it is not 100% guaranteed to work as expected.
-                See the doc of kotlinc for more detail.
-            """),
+            "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
             "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
@@ -238,6 +240,7 @@ kotlin_test = prelude_rule(
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
+            "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
             "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "provided_deps": attrs.list(attrs.dep(), default = []),
