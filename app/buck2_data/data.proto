@@ -319,12 +319,21 @@ message InstantEvent {
 
     // Event that used for emitting streaming std output
     StdoutStreamingOutput streaming_output = 51;
+
+    // Event used to track the % of memory pressure experienced
+    MemoryPressure memory_pressure = 52;
   }
 }
 
 message MemoryPressureStart {}
 
 message MemoryPressureEnd {}
+
+message MemoryPressure {
+  // Peak % memory pressure experienced during the build if it exceeded the
+  // threshold
+  uint64 peak_pressure = 1;
+}
 
 message PreviousCommandWithMismatchedConfig {
   repeated string sanitized_argv = 1;
@@ -2336,8 +2345,6 @@ message InvocationRecord {
   google.protobuf.Duration install_duration = 86;
   // Peak process memory which is max of RSS and malloc-active bytes
   optional uint64 peak_process_memory_bytes = 87;
-  // Number of memory pressure events fired by the memory tracker.
-  optional uint64 memory_tracker_pressure_events = 400;
   optional uint64 event_log_manifold_ttl_s = 90;
   optional uint64 peak_used_disk_space_bytes = 92;
   optional uint64 total_disk_space_bytes = 93;
@@ -2465,6 +2472,12 @@ message InvocationRecord {
   optional uint64 time_to_first_skip_test_result_ms = 301;
   // Time elapsed from a build's start until first unknown test result.
   optional uint64 time_to_first_unknown_test_result_ms = 302;
+
+  // Number of memory pressure events fired by the memory tracker.
+  optional uint64 memory_tracker_pressure_events = 400;
+
+  // Peak % memory pressure percentage over the lifetime of the command.
+  optional uint64 peak_memory_pressure_percentage = 401;
 }
 
 enum InvocationOutcome {

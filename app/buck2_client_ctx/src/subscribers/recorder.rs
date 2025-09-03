@@ -246,6 +246,7 @@ pub struct InvocationRecorder {
     initial_local_cache_lookups: Option<i64>,
     initial_local_cache_lookup_latency_microseconds: Option<i64>,
     memory_tracker_pressure_events: u64,
+    peak_memory_pressure_percentage: u64,
 }
 
 impl InvocationRecorder {
@@ -407,6 +408,7 @@ impl InvocationRecorder {
             initial_local_cache_lookups: None,
             initial_local_cache_lookup_latency_microseconds: None,
             memory_tracker_pressure_events: 0,
+            peak_memory_pressure_percentage: 0,
         }
     }
 
@@ -953,6 +955,7 @@ impl InvocationRecorder {
             installer_log_url: self.installer_log_url.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             memory_tracker_pressure_events: Some(self.memory_tracker_pressure_events),
+            peak_memory_pressure_percentage: Some(self.peak_memory_pressure_percentage),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
@@ -1430,6 +1433,15 @@ impl InvocationRecorder {
 
     fn handle_memory_pressure_start(&mut self) -> buck2_error::Result<()> {
         self.memory_tracker_pressure_events += 1;
+        Ok(())
+    }
+
+    fn handle_memory_pressure(
+        &mut self,
+        pressure_info: buck2_data::MemoryPressure,
+    ) -> buck2_error::Result<()> {
+        self.peak_memory_pressure_percentage = pressure_info.peak_pressure;
+
         Ok(())
     }
 
@@ -1921,6 +1933,9 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::TestResult(result) => {
                         self.handle_test_result(result)
+                    }
+                    buck2_data::instant_event::Data::MemoryPressure(memory_pressure) => {
+                        self.handle_memory_pressure(*memory_pressure)
                     }
                     _ => Ok(()),
                 }
