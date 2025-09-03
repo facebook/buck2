@@ -128,17 +128,20 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               EnvironmentConfigFiles.JVM_CONFIG_FILES,
               configuration.messageCollector,
           )
-      if (configuration.messageCollector.hasErrors()) {
+      if (updatedConfiguration.messageCollector.hasErrors()) {
         return false
       }
-      val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+      val messageCollector =
+          updatedConfiguration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
       val module =
-          configuration[JVMConfigurationKeys.MODULES]?.single()
-              ?: error("Single module expected: ${configuration[JVMConfigurationKeys.MODULES]}")
+          updatedConfiguration[JVMConfigurationKeys.MODULES]?.single()
+              ?: error(
+                  "Single module expected: ${updatedConfiguration[JVMConfigurationKeys.MODULES]}"
+              )
 
       val sourceFiles =
           createSourceFilesFromSourceRoots(
-              configuration,
+              updatedConfiguration,
               projectEnvironment.project,
               configuration.kotlinSourceRoots,
           )
@@ -149,7 +152,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       val analysisResults =
           runFrontendForKosabi(
               projectEnvironment,
-              configuration,
+              updatedConfiguration,
               messageCollector,
               sourceFiles,
               module,
@@ -157,7 +160,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       runBackendForKosabi(
           messageCollector,
           projectEnvironment,
-          configuration,
+          updatedConfiguration,
           module,
           analysisResults,
       )
