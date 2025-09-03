@@ -120,14 +120,11 @@ def _rewrite_dependency_file(command, out_path):
                 break
 
     # Sanity check that we only track relative paths
-    cwd = os.getcwd()
     relative_paths = []
     for path in dependencies:
-        if path.startswith(cwd):
-            # The driver passes the host plugins path as an absolute path.
-            # Until that is fixed upstream we need to remove the prefix
-            # from any macro library dependencies.
-            relative_paths.append(path[len(cwd) + 1 :])
+        if "/usr/lib/swift/host/" in path:
+            # We don't track toolchain internal paths.
+            continue
         elif path.startswith("/"):
             # This can occur for Xcode toolchain plugins like libSwiftUIMacros.dylib
             print(f"Dependency file contains absolute path: {path}", file=sys.stderr)

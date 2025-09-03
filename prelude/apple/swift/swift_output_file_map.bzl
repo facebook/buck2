@@ -12,15 +12,15 @@ load(
 )
 
 def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str, inputs_tag: ArtifactTag) -> None:
-    # Add a Makefile style dependency file output.
-    dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d".format(ctx.attrs.name, category)).as_output()
+    # Add a Makefile style dependency file output. This output is not tracked,
+    # we need to process it first.
+    buck_dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d".format(ctx.attrs.name, category)).as_output()
     map = output_file_map.setdefault("", {})
-    map["dependencies"] = cmd_args(dep_file, delimiter = "")
-    map["emit-module-dependencies"] = cmd_args(dep_file, delimiter = "")
-    cmd.add(cmd_args("-emit-dependencies", hidden = [dep_file]))
+    map["dependencies"] = cmd_args(buck_dep_file, delimiter = "", format = "{}.raw")
+    map["emit-module-dependencies"] = cmd_args(buck_dep_file, delimiter = "", format = "{}.raw")
+    cmd.add("-emit-dependencies")
 
     # Add the flags for the wrapper to process the dependency file to Buck format.
-    buck_dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d.buck".format(ctx.attrs.name, category)).as_output()
     cmd.add(
         "-Xwrapper",
         cmd_args(inputs_tag.tag_artifacts(buck_dep_file), format = "-dependencies-file-output={}"),
