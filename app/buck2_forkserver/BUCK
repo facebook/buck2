@@ -1,5 +1,5 @@
-load("@fbcode_macros//build_defs:rust_linkable_symbol.bzl", "rust_linkable_symbol")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:rust_linkable_symbol.bzl", "rust_linkable_symbol")
 
 oncall("build_infra")
 
