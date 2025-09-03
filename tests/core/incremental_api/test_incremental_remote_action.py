@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import json
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
@@ -58,5 +60,11 @@ async def test_remote_cache_is_used(buck: Buck) -> None:
 
     # For the next build with already used seed we expect the action to be taken from the cache
     result = await buck.run("root//:plate", "-c", f"test.seed={seed}")
-    # TODO(akozhevnikov): But it's not and it's a problem need to be fixed
-    assert result.stdout != "0"
+    assert result.stdout == "0"
+
+    out = await buck.log("what-ran", "--format", "json")
+    out = [line.strip() for line in out.stdout.splitlines()]
+    out = [json.loads(line) for line in out if line]
+    assert len(out) == 1, "out should have 1 line: `{}`".format(out)
+    repro = out[0]
+    assert repro["reproducer"]["executor"] == "Cache"

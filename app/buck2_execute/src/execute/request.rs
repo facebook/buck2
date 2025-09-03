@@ -284,6 +284,23 @@ impl CommandExecutionPaths {
         input_files_bytes
     }
 
+    pub fn add_outputs_as_inputs(
+        self,
+        output_paths: impl IntoIterator<Item = CommandExecutionInput>,
+        fs: &ArtifactFs,
+        digest_config: DigestConfig,
+    ) -> buck2_error::Result<Self> {
+        let Self {
+            mut inputs,
+            outputs,
+            input_directory: _,
+            output_paths: _,
+            input_files_bytes: _,
+        } = self;
+        inputs.extend(output_paths);
+        Self::new(inputs, outputs, fs, digest_config)
+    }
+
     pub fn input_directory(&self) -> &ActionImmutableDirectory {
         &self.input_directory
     }
@@ -420,6 +437,21 @@ impl CommandExecutionRequest {
 
     pub fn paths(&self) -> &CommandExecutionPaths {
         &self.paths
+    }
+
+    pub fn with_outputs_paths_added_as_inputs(
+        self,
+        output_paths: impl IntoIterator<Item = CommandExecutionInput>,
+        fs: &ArtifactFs,
+        digest_config: DigestConfig,
+    ) -> buck2_error::Result<Self> {
+        let override_paths = self
+            .paths
+            .add_outputs_as_inputs(output_paths, fs, digest_config)?;
+        Ok(Self {
+            paths: override_paths,
+            ..self
+        })
     }
 
     pub fn with_timeout(mut self, timeout: Duration) -> Self {

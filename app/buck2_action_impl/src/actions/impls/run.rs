@@ -686,10 +686,6 @@ impl RunAction {
         let mut inputs: Vec<CommandExecutionInput> =
             artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
 
-        if self.inner.incremental_remote_outputs {
-            inputs.extend(self.output_paths_as_inputs(ctx).await?);
-        }
-
         let mut extra_env = Vec::new();
         let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
         self.prepare_action_metadata(
@@ -951,21 +947,46 @@ impl RunAction {
         };
 
         // If the cache queries did not yield to a result, then we need to execute the action.
-        let result = match result {
-            ControlFlow::Break(res) => res,
-            ControlFlow::Continue(manager) => ctx.exec_cmd(manager, &req, &prepared_action).await,
+        let (result, req, action_and_blobs) = match result {
+            ControlFlow::Break(res) => (res, req, prepared_action.action_and_blobs),
+            ControlFlow::Continue(manager) => {
+                let (req, prepared_action) = if self.inner.incremental_remote_outputs {
+                    // For the case of incremental remote outputs, we checked the caches using the action which
+                    // does not include the outputs as inputs.
+                    // To execute such action we first prepare a different action with the outputs added as inputs.
+                    let output_paths_as_inputs = self.output_paths_as_inputs(ctx).await?;
+                    if !output_paths_as_inputs.is_empty() {
+                        let executor_fs = ctx.executor_fs();
+                        let fs = executor_fs.fs();
+                        let digest_config = ctx.digest_config();
+                        let override_req = req.with_outputs_paths_added_as_inputs(
+                            output_paths_as_inputs,
+                            fs,
+                            digest_config,
+                        )?;
+                        let override_prepared_action = ctx.prepare_action(&override_req)?;
+                        (override_req, override_prepared_action)
+                    } else {
+                        (req, prepared_action)
+                    }
+                } else {
+                    (req, prepared_action)
+                };
+                let execution_result = ctx.exec_cmd(manager, &req, &prepared_action).await;
+                (execution_result, req, prepared_action.action_and_blobs)
+            }
         };
 
         if self.inner.no_outputs_cleanup {
             save_content_based_incremental_state(ctx, &result)?;
         }
 
+        // Dropping rest of req to avoid holding paths longer than necessary.
         Ok(ExecuteResult::ExecutedOrReHit {
             result,
             dep_file_bundle,
-            // Dropping rest of req to avoid holding paths longer than necessary.
             executor_preference: req.executor_preference,
-            action_and_blobs: prepared_action.action_and_blobs,
+            action_and_blobs,
             input_files_bytes: req.paths().input_files_bytes(),
         })
     }
