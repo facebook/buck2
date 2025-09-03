@@ -27,12 +27,16 @@ def is_target_alias(target):
 
 
 def get_mode_hashes(
-    sample_target, explicit_targets, mode_files, extra_buck_options, debug
+    sample_target,
+    explicit_targets,
+    mode_files,
+    extra_buck_options,
+    debug,
+    subprocess_cwd=None,
 ):
     # Resolve sample_target to full target label to match the BXL script output.
     sample_target = subprocess.check_output(
-        ["buck2", "targets", sample_target],
-        text=True,
+        ["buck2", "targets", sample_target], text=True, cwd=subprocess_cwd
     ).strip()
 
     mode_hashes = {}
@@ -59,9 +63,7 @@ def get_mode_hashes(
         try:
             output = json.loads(
                 subprocess.check_output(
-                    bxl_cmds,
-                    text=True,
-                    stderr=subprocess.PIPE,
+                    bxl_cmds, text=True, stderr=subprocess.PIPE, cwd=subprocess_cwd
                 )
             )
             # Change the key 'sample_target' to 'default' in the output JSON
@@ -90,7 +92,7 @@ def _escape_arg(arg):
     return arg
 
 
-def gen_mode_configs(bxl_path, mode_files, fbsource, debug):
+def gen_mode_configs(bxl_path, mode_files, fbsource, debug, subprocess_cwd=None):
     mode_config_paths = []
     default_mode_file = mode_files[0]
     for mode_file in mode_files:
@@ -113,7 +115,11 @@ def gen_mode_configs(bxl_path, mode_files, fbsource, debug):
             print("Running BXL command:", " ".join(bxl_cmds))
         try:
             bxl_process = subprocess.run(
-                bxl_cmds, text=True, capture_output=True, check=True
+                bxl_cmds,
+                text=True,
+                capture_output=True,
+                check=True,
+                cwd=subprocess_cwd,
             )
         except subprocess.CalledProcessError as e:
             print("\nstdout:\n" + e.stdout, file=sys.stderr)
@@ -138,8 +144,11 @@ def main(
     bxl_path,
     sample_target,
     debug,
+    subprocess_cwd=None,
 ):
-    mode_configs = gen_mode_configs(bxl_path, mode_files, fbsource, debug)
+    mode_configs = gen_mode_configs(
+        bxl_path, mode_files, fbsource, debug, subprocess_cwd
+    )
 
     if len(mode_files) > 1:
         explicit_targets = [target for target in targets if is_explicit_target(target)]
@@ -149,6 +158,7 @@ def main(
             mode_files,
             extra_bxl_options,
             debug,
+            subprocess_cwd,
         )
     else:
         mode_hashes = {}
@@ -198,7 +208,7 @@ def main(
     # Capture both stdout and stderr to "tee" to both console and remote error logs.
     try:
         bxl_process = subprocess.run(
-            bxl_cmds, text=True, capture_output=True, check=True
+            bxl_cmds, text=True, capture_output=True, check=True, cwd=subprocess_cwd
         )
     except subprocess.CalledProcessError as e:
         print("\nstdout:\n" + e.stdout, file=sys.stderr)
