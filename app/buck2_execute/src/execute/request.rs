@@ -258,6 +258,18 @@ impl CommandExecutionPaths {
 
         let input_directory = builder.fingerprint(digest_config.as_directory_serializer());
 
+        let input_files_bytes = Self::calculate_inputs_size_bytes(&input_directory);
+
+        Ok(Self {
+            inputs,
+            outputs,
+            input_directory,
+            output_paths,
+            input_files_bytes,
+        })
+    }
+
+    fn calculate_inputs_size_bytes(input_directory: &ActionImmutableDirectory) -> u64 {
         let mut input_files_bytes = 0;
 
         for entry in input_directory.unordered_walk_leaves().without_paths() {
@@ -269,13 +281,7 @@ impl CommandExecutionPaths {
             };
         }
 
-        Ok(Self {
-            inputs,
-            outputs,
-            input_directory,
-            output_paths,
-            input_files_bytes,
-        })
+        input_files_bytes
     }
 
     pub fn input_directory(&self) -> &ActionImmutableDirectory {
