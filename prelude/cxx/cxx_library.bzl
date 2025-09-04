@@ -1221,6 +1221,7 @@ def cxx_compile_srcs(
                 # Diagnostics from the pic and non-pic compilation would be
                 # identical. We can avoid instantiating a second set of actions.
                 provide_syntax_only = False,
+                use_header_units = impl_params.use_header_units,
             )
             pic_optimized = _get_library_compile_output(
                 ctx = ctx,
@@ -1238,6 +1239,7 @@ def cxx_compile_srcs(
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
+            use_header_units = impl_params.use_header_units,
         )
         pic_debuggable = _get_library_compile_output(
             ctx = ctx,
