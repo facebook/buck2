@@ -69,6 +69,7 @@ load(
 load(
     "@prelude//third-party:providers.bzl",
     "ThirdPartyBuildInfo",  # @unused Used as a type
+    "third_party_build_info",
 )
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(
@@ -709,7 +710,7 @@ def _proc_macro_link_providers(
         merged_link_infos = {},
         exported_link_deps = [],
         shared_libs = merge_shared_libraries(ctx.actions),
-        third_party_build_infos = [],
+        third_party_build_info = third_party_build_info(actions = ctx.actions),
         linkable_graphs = [],
     )]
 
@@ -837,7 +838,7 @@ def _advanced_unstable_link_providers(
         merged_link_infos = inherited_link_infos | {ctx.label.configured_target(): merged_link_info},
         exported_link_deps = inherited_exported_deps,
         shared_libs = shared_library_info,
-        third_party_build_infos = [third_party_build_info],
+        third_party_build_info = third_party_build_info,
         linkable_graphs = inherited_graphs + [linkable_graph],
     ))
 
@@ -874,7 +875,10 @@ def _stable_link_providers(
         merged_link_infos = merged_link_infos,
         exported_link_deps = exported_link_deps,
         shared_libs = shared_libs,
-        third_party_build_infos = third_party_builds,
+        third_party_build_info = third_party_build_info(
+            actions = ctx.actions,
+            children = third_party_builds,
+        ),
         linkable_graphs = linkable_graphs,
     )
 
@@ -920,7 +924,7 @@ def _native_link_providers(
     inherited_shlibs = [rust_link_info.shared_libs]
     inherited_link_graphs = rust_link_info.linkable_graphs
     inherited_exported_deps = rust_link_info.exported_link_deps
-    inherited_third_party = rust_link_info.third_party_build_infos
+    inherited_third_party = rust_link_info.third_party_build_info
 
     providers = []
 
@@ -966,7 +970,7 @@ def _native_link_providers(
     third_party_build_info = create_third_party_build_info(
         ctx = ctx,
         shared_libs = shared_libs.libraries,
-        children = inherited_third_party,
+        children = [inherited_third_party],
     )
     providers.append(third_party_build_info)
 
