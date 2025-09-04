@@ -114,7 +114,7 @@ def _get_package(ctx: AnalysisContext, package: [str, None], manifest: Artifact 
         return extract_package_from_manifest(ctx, manifest)
 
 def extract_package_from_manifest(ctx: AnalysisContext, manifest: Artifact) -> Artifact:
-    r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME)
+    r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME, uses_experimental_content_based_path_hashing = True)
     extract_package_cmd = cmd_args(
         ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo],
         "--manifest-path",
