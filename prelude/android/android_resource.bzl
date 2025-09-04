@@ -37,7 +37,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     default_output = None
 
     res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res", uses_experimental_content_based_path_hashing = True)
-    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets", uses_experimental_content_based_path_hashing = False)
+    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets", uses_experimental_content_based_path_hashing = True)
 
     if res:
         aapt2_compile_output = aapt2_compile(ctx, res, ctx.attrs._android_toolchain[AndroidToolchainInfo])
