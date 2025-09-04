@@ -83,7 +83,7 @@ impl CGroupInfo {
 
     // Returns the path to the closest slice in a cgroup path,
     // or None if there is no slice in the path
-    fn get_slice_name(&self) -> Option<&str> {
+    pub fn get_slice_name(&self) -> Option<&str> {
         let slice = self.get_slice()?;
         let name_start = slice.rfind(MAIN_SEPARATOR)?;
         Some(&slice[name_start + 1..slice.len() - SLICE_EXT.len()])

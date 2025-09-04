@@ -21,6 +21,7 @@ use buck2_common::resource_control::ResourceControlRunner;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
 use tokio::process::Command;
@@ -52,7 +53,15 @@ pub async fn launch_forkserver(
             CgroupDelegation::Enabled,
             false,
         )?;
-        resource_control_runner.cgroup_scoped_command(exe, "forkserver", state_dir)
+
+        let info = CGroupInfo::read_async().await?;
+        let unit_name = format!(
+            "{}.forkserver",
+            info.get_slice_name()
+                .buck_error_context("Can't find slice in cgroup path")?
+        );
+
+        resource_control_runner.cgroup_scoped_command(exe, &unit_name, state_dir)
     } else {
         background_command(exe)
     };
