@@ -29,14 +29,14 @@ def run_dwp_action(
 
     if from_exe:
         args = cmd_args(
-            [dwp, "-o", dwp_output.as_output(), "-e", obj],
+            [dwp, "-o", dwp_output.as_output(), "-e", obj] + getattr(ctx.attrs, "extra_dwp_flags", []),
             # All object/dwo files referenced in the library/executable are implicitly
             # processed by dwp.
             hidden = referenced_objects,
         )
     else:
         args = cmd_args(
-            [dwp, "-o", dwp_output.as_output()],
+            [dwp, "-o", dwp_output.as_output()] + getattr(ctx.attrs, "extra_dwp_flags", []),
         )
         argsfile, _ = ctx.actions.write(
             "dwp{}{}.argsfile".format(

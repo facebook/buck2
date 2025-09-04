@@ -265,6 +265,7 @@ cxx_python_extension = prelude_rule(
             "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
             "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
             "exported_needs_coverage_instrumentation": attrs.bool(default = False),
+            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
             "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
             "link_whole": attrs.default_only(attrs.bool(default = True)),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
