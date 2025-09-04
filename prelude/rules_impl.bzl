@@ -96,6 +96,7 @@ load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage
 load("@prelude//python:python_runtime_bundle.bzl", "python_runtime_bundle_impl")
 load("@prelude//python:python_test.bzl", "python_test_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
+load("@prelude//third-party:providers.bzl", "ThirdPartyBuildInfo")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
@@ -356,6 +357,7 @@ control how the dependencies of this library are linked, use `link_style` instea
             "stub": attrs.bool(default = False),
             "supports_lto": attrs.bool(default = False),
             "supports_python_dlopen": attrs.bool(default = True),
+            "third_party_build": attrs.option(attrs.dep(providers = [ThirdPartyBuildInfo]), default = None),
             "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
             "_cxx_toolchain": toolchains_common.cxx(),
             "_target_os_type": buck.target_os_type_arg(),

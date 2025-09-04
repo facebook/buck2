@@ -82,6 +82,10 @@ load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_info",
 )
+load(
+    "@prelude//third-party:providers.bzl",
+    "ThirdPartyBuildInfo",
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load(
@@ -489,6 +493,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     libraries = {}
     solibs = []
     sub_targets = {}
+    generated_shared_lib = False  # whether the shared lib is created via a link rule
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         out = None
         linkable = None
@@ -552,6 +557,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             ),
                         )
                         shared_lib = link_result.linked_object
+                        generated_shared_lib = True
 
                 if shared_lib:
                     out = shared_lib.output
@@ -670,14 +676,22 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Third-party provider.
-    third_party_build_info = create_third_party_build_info(
-        ctx = ctx,
-        paths = [] if header_dirs == None else [(d.short_path, d) for d in header_dirs],
-        cxx_headers = [propagated_preprocessor],
-        shared_libs = shared_libs.libraries,
-        cxx_header_dirs = ["include"] + ([] if header_dirs == None else [d.short_path for d in header_dirs]),
-        deps = ctx.attrs.deps + cxx_attr_exported_deps(ctx),
-    )
+    if ctx.attrs.third_party_build != None:
+        third_party_build_info = create_third_party_build_info(
+            ctx = ctx,
+            shared_libs = shared_libs.libraries if generated_shared_lib else [],
+            children = [ctx.attrs.third_party_build[ThirdPartyBuildInfo]],
+            deps = ctx.attrs.deps + cxx_attr_exported_deps(ctx),
+        )
+    else:
+        third_party_build_info = create_third_party_build_info(
+            ctx = ctx,
+            paths = [] if header_dirs == None else [(d.short_path, d) for d in header_dirs],
+            cxx_headers = [propagated_preprocessor],
+            shared_libs = shared_libs.libraries,
+            cxx_header_dirs = ["include"] + ([] if header_dirs == None else [d.short_path for d in header_dirs]),
+            deps = ctx.attrs.deps + cxx_attr_exported_deps(ctx),
+        )
     providers.append(third_party_build_info)
     sub_targets["third-party-build"] = [
         DefaultInfo(
