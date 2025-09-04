@@ -44,7 +44,7 @@ load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
-load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
+load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_info_json", "get_deps_debuggable_infos")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_tests")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -187,6 +187,17 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             output_path_override = get_bundle_dir_name(ctx) + ".dSYM",
         )
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
+
+        deps_debuggable_infos = get_deps_debuggable_infos(ctx)
+        dep_dsym_artifacts = []
+        for debuggable_info in deps_debuggable_infos:
+            dep_dsym_artifacts.extend(debuggable_info.dsyms)
+
+        dsym_json_info = get_apple_dsym_info_json([dsym_artifact], dep_dsym_artifacts)
+        dsym_info = ctx.actions.write_json("extended-dsym-info.json", dsym_json_info.json_object, pretty = True)
+        sub_targets[EXTENDED_DSYM_INFO_SUBTARGET] = [
+            DefaultInfo(default_output = dsym_info, other_outputs = dsym_json_info.outputs),
+        ]
 
         # If the test has a test host and a ui test target, add the subtargets to build the app bundles.
         sub_targets["test-host"] = [DefaultInfo(default_output = test_host_app_bundle)] if test_host_app_bundle else [DefaultInfo()]

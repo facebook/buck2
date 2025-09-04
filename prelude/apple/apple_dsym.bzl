@@ -8,7 +8,7 @@
 
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
-load(":debug.bzl", "AppleSelectiveDebuggableMetadata")  # @unused Used as a type
+load(":debug.bzl", "AppleDebuggableInfo", "AppleSelectiveDebuggableMetadata")  # @unused Used as a type
 
 DSYM_SUBTARGET = "dsym"
 DSYM_INFO_SUBTARGET = "dsym-info"
@@ -86,3 +86,13 @@ def get_apple_dsym_info_json(
         json_object = dsym_info,
         outputs = binary_dsyms + dep_dsyms + metadata_dsym_outputs,
     )
+
+def get_deps_debuggable_infos(ctx: AnalysisContext) -> list[AppleDebuggableInfo]:
+    binary_labels = filter(None, [getattr(binary_dep, "label", None) for binary_dep in (ctx.attrs.binary.values() if ctx.attrs.binary else {})])
+    deps_debuggable_infos = filter(
+        None,
+        # It's allowed for `ctx.attrs.binary` to appear in `ctx.attrs.deps` as well,
+        # in this case, do not duplicate the debugging info for the binary coming from two paths.
+        [dep.get(AppleDebuggableInfo) for dep in ctx.attrs.deps if dep.label not in binary_labels],
+    )
+    return deps_debuggable_infos

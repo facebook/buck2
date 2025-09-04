@@ -65,7 +65,7 @@ load(
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "get_code_signing_configuration_attr_value")
-load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json")
+load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json", "get_deps_debuggable_infos")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -254,16 +254,6 @@ def _get_deps_selective_metadata(deps_debuggable_infos: list[AppleDebuggableInfo
         all_metadatas.extend(debuggable_info.selective_metadata)
     return all_metadatas
 
-def _get_deps_debuggable_infos(ctx: AnalysisContext) -> list[AppleDebuggableInfo]:
-    binary_labels = filter(None, [getattr(binary_dep, "label", None) for binary_dep in get_flattened_binary_deps(ctx.attrs.binary)])
-    deps_debuggable_infos = filter(
-        None,
-        # It's allowed for `ctx.attrs.binary` to appear in `ctx.attrs.deps` as well,
-        # in this case, do not duplicate the debugging info for the binary coming from two paths.
-        [dep.get(AppleDebuggableInfo) for dep in ctx.attrs.deps if dep.label not in binary_labels],
-    )
-    return deps_debuggable_infos
-
 def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, executable_arg: ArgLike) -> list[Artifact]:
     if not ctx.attrs.split_arch_dsym:
         # Calling `dsymutil` on the correctly named binary in the _final bundle_ to yield dsym files
@@ -343,7 +333,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     binary_outputs = _get_binary(ctx)
 
-    deps_debuggable_infos = _get_deps_debuggable_infos(ctx)
+    deps_debuggable_infos = get_deps_debuggable_infos(ctx)
     aggregated_debug_info = _get_all_agg_debug_info(ctx, binary_outputs, deps_debuggable_infos)
 
     binary_parts = _get_binary_bundle_parts(ctx, binary_outputs, aggregated_debug_info)
