@@ -141,6 +141,7 @@ AppleLibraryForDistributionInfo = provider(
     fields = {
         "module_name": str,
         "private_swiftinterface": [Artifact, None],
+        "provider_type": provider_field(str, default = "AppleLibraryForDistributionInfo"),
         "swiftdoc": [Artifact, None],
         "swiftinterface": [Artifact, None],
         "target_triple": str,
@@ -188,9 +189,13 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         return output.providers + _make_mockingbird_library_info_provider(ctx)
 
     if uses_explicit_modules(ctx):
-        return get_swift_anonymous_targets(ctx, get_apple_library_providers)
+        providers = get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
-        return get_apple_library_providers([])
+        providers = get_apple_library_providers([])
+    if hasattr(ctx.attrs, "distribution_dep"):
+        # Rule is apple_library_for_distribution
+        providers = _create_apple_library_for_distribution_providers(ctx, providers)
+    return providers
 
 def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     identifier = src_compile_cmd.src.short_path
@@ -518,6 +523,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             additional_providers_factory = additional_providers_factory,
             external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
         ),
+        build_empty_so = hasattr(ctx.attrs, "distribution_dep"),
         output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(extra_apple_providers),
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
@@ -651,3 +657,24 @@ def _xcode_populate_attributes(
     # Overwrite the product name
     data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name, contains_swift_sources = contains_swift_sources)
     return data
+
+def _create_apple_library_for_distribution_providers(ctx: AnalysisContext, providers: list[Provider]) -> list[Provider]:
+    appleLibraryForDistributionInfo = ctx.attrs.distribution_dep.get(AppleLibraryForDistributionInfo)
+    appleLibraryInfo = ctx.attrs.distribution_dep.get(AppleLibraryInfo)
+
+    merged_providers = [appleLibraryForDistributionInfo]
+
+    for provider in providers:
+        if not getattr(provider, "provider_type", "") == "AppleLibraryForDistributionInfo":
+            if getattr(provider, "provider_type", "") == "AppleLibraryInfo":
+                merged_provider = AppleLibraryInfo(
+                    labels = provider.labels,
+                    public_framework_headers = appleLibraryInfo.public_framework_headers,
+                    swift_header = appleLibraryInfo.swift_header,
+                    target = provider.target,
+                )
+                merged_providers.append(merged_provider)
+            else:
+                merged_providers.append(provider)
+
+    return merged_providers

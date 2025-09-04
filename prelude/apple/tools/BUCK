@@ -107,3 +107,8 @@ python_binary(
     main = "spm_packager.py",
     visibility = ["PUBLIC"],
 )
+
+export_file(
+    name = "empty.c",
+    visibility = ["PUBLIC"],
+)

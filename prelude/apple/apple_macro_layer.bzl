@@ -129,6 +129,9 @@ def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     apple_library_rule(**kwargs)
 
+def apple_library_for_distribution_macro_impl(apple_library_for_distribution_rule = None, **kwargs):
+    apple_library_macro_impl(apple_library_rule = apple_library_for_distribution_rule, **kwargs)
+
 def prebuilt_apple_framework_macro_impl(prebuilt_apple_framework_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     prebuilt_apple_framework_rule(**kwargs)

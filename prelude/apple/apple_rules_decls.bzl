@@ -499,7 +499,7 @@ apple_bundle = prelude_rule(
             "binary": attrs.option(attrs.dep(), default = None, doc = """
                 A `build target` identifying
                  an `apple_binary()` rule or
-                 an `apple_library()` rule whose output will
+                 an `apple_library()` or `apple_libary_for_distribution()` rule whose output will
                  be used as the main executable binary of the generated bundle. The required rule type depends
                  on the value in the `extension` attribute. For example, application bundles expect
                  a binary (e.g. `'//Apps/MyApp:MyApp'`), application extension bundles expect a shared
@@ -713,6 +713,25 @@ apple_library = prelude_rule(
         apple_dsymutil_attrs() |
         get_swift_incremental_file_hashing_attrs() |
         get_skip_swift_incremental_outputs_attrs()
+    ),
+    uses_plugins = [SwiftMacroPlugin],
+    impl = apple_library_impl,
+    cfg = target_sdk_version_transition,
+)
+
+apple_library_for_distribution = prelude_rule(
+    name = "apple_library_for_distribution",
+    docs = """
+        An `apple_library_for_distribution()` rule creates a library for distribution
+        (for instance via a Framework or Xcframework) with link group support.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        apple_library.attrs |
+        {
+            "distribution_dep": attrs.dep(),
+        }
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
@@ -1554,6 +1573,7 @@ apple_rules = struct(
     apple_bundle = apple_bundle,
     apple_info_plist = apple_info_plist,
     apple_library = apple_library,
+    apple_library_for_distribution = apple_library_for_distribution,
     apple_macos_bundle = apple_macos_bundle,
     apple_package = apple_package,
     apple_ipa_package = apple_ipa_package,
