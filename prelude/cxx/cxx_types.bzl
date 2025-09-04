@@ -149,7 +149,6 @@ CxxRuleConstructorParams = record(
     extra_exported_link_flags = field(list[typing.Any], []),
     # Additional hidden inputs for link or archive actions.
     extra_hidden = field(list[Artifact], []),
-    extra_dwp_flags = field(list[typing.Any], []),
     # Additional flags used _only_ when linking the target itself.
     # These flags are _not_ propagated up the dep tree.
     extra_link_flags = field(list[typing.Any], []),

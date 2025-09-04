@@ -228,7 +228,6 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         export_header_unit = ctx.attrs.export_header_unit,
         export_header_unit_filter = ctx.attrs.export_header_unit_filter,
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
-        extra_dwp_flags = ctx.attrs.extra_dwp_flags,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -296,7 +295,6 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         use_header_units = ctx.attrs.use_header_units,
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
-        extra_dwp_flags = ctx.attrs.extra_dwp_flags,
     )
     output = cxx_executable(ctx, params)
 
@@ -825,7 +823,6 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         use_header_units = ctx.attrs.use_header_units,
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
-        extra_dwp_flags = ctx.attrs.extra_dwp_flags,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

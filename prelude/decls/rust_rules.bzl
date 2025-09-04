@@ -52,7 +52,6 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     "auto_link_groups": attrs.bool(default = True),
     # TODO: enable distributed thinlto
     "enable_distributed_thinlto": attrs.bool(default = False),
-    "extra_dwp_flags": attrs.list(attrs.string(), default = []),
     # Required by the rules but not supported, since Rust is auto-link groups only
     "link_group": attrs.default_only(attrs.option(attrs.string(), default = None)),
     "link_group_map": LINK_GROUP_MAP_ATTR,
