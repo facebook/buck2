@@ -138,7 +138,7 @@ def get_aapt2_link(
 
         aapt2_command.add(additional_aapt2_params)
 
-        ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = identifier)
+        ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = identifier, error_handler = aapt_link_error_handler)
 
         # The normal resource filtering apparatus is super slow, because it extracts the whole apk,
         # strips files out of it, then repackages it.
@@ -184,7 +184,7 @@ def get_module_manifest_in_proto_format(
     aapt2_command.add(["-I", primary_resources_apk])
     aapt2_command.add("--proto-format")
 
-    ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = module_name)
+    ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = module_name, error_handler = aapt_link_error_handler)
 
     proto_manifest_dir = ctx.actions.declare_output("{}/proto_format_manifest".format(module_name))
     proto_manifest = proto_manifest_dir.project("AndroidManifest.xml")
@@ -195,3 +195,13 @@ def get_module_manifest_in_proto_format(
     )
 
     return proto_manifest
+
+def aapt_link_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    errors = []
+    lowercase_stderr = ctx.stderr.lower()
+    if regex(r"failed to write .* to archive").match(lowercase_stderr):
+        errors.append(ctx.new_sub_error(
+            category = "aapt2_link",
+            message = "Most probably there are too many res files in the apk (over 65535). Try filtering out some resources.",
+        ))
+    return errors
