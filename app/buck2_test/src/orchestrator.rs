@@ -1921,9 +1921,25 @@ impl<'a> Execute2RequestExpander<'a> {
                     &mut ctx,
                     &artifact_path_mapping,
                 )?;
+                let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
+                    .env()
+                    .into_iter()
+                    .map(|(k, v)| {
+                        let mut env = String::new();
+                        let mut ctx = DefaultCommandLineContext::new(fs);
+                        v.add_to_command_line(
+                            &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
+                            &mut ctx,
+                            &artifact_path_mapping,
+                        )?;
+                        Ok((k.to_owned(), env))
+                    })
+                    .collect();
+
                 Some(WorkerSpec {
                     exe: worker_rendered,
                     id: WorkerId(worker.id),
+                    env: worker_env?,
                     concurrency: worker.concurrency(),
                     streaming: worker.streaming(),
                     remote_key: None,

@@ -807,11 +807,13 @@ impl LocalExecutor {
             self.forkserver.dupe(),
             cfg!(unix),
         ) {
-            // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
-            let env = request
-                .env()
-                .iter()
-                .map(|(k, v)| (OsString::from(k), OsString::from(v)));
+            let env = if !worker_spec.env.is_empty() {
+                &worker_spec.env
+            } else {
+                request.env()
+            }
+            .iter()
+            .map(|(k, v)| (OsString::from(k), OsString::from(v)));
             let (new_worker, worker_fut) = worker_pool.get_or_create_worker(
                 worker_spec,
                 env,

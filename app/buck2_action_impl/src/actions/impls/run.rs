@@ -492,6 +492,22 @@ impl RunAction {
                 &artifact_path_mapping,
             )?;
             worker.exe.visit_artifacts(artifact_visitor)?;
+            let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
+                .env
+                .into_iter()
+                .map(|(k, v)| {
+                    let mut env = String::new();
+                    let mut ctx = DefaultCommandLineContext::new(fs);
+                    v.add_to_command_line(
+                        &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
+                        &mut ctx,
+                        &artifact_path_mapping,
+                    )?;
+                    v.visit_artifacts(artifact_visitor)?;
+                    Ok((k.to_owned(), env))
+                })
+                .collect();
+
             let worker_key = if worker.supports_bazel_remote_persistent_worker_protocol {
                 let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
                 worker.exe.visit_artifacts(&mut worker_visitor)?;
@@ -520,6 +536,7 @@ impl RunAction {
             Some(WorkerSpec {
                 exe: worker_rendered,
                 id: worker.id,
+                env: worker_env?,
                 concurrency: worker.concurrency,
                 streaming: worker.streaming,
                 remote_key: worker_key,

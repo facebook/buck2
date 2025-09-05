@@ -321,6 +321,7 @@ pub struct WorkerId(pub u64);
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
+    pub env: SortedVectorMap<String, String>,
     pub concurrency: Option<usize>,
     pub streaming: bool,
     pub remote_key: Option<TrackedFileDigest>,
