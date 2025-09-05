@@ -639,7 +639,15 @@ impl Buck {
                 .map(|info| info.actual.clone())
                 .collect::<Vec<_>>();
 
-            let new_aliases = self.query_aliased_targets(&alias_destinations, &universe_targets)?;
+            let new_aliases =
+                match self.query_aliased_targets(&alias_destinations, &universe_targets) {
+                    Ok(new_aliases) => new_aliases,
+                    Err(_) => {
+                        warn!("buck cquery failed, falling back to best-effort uquery");
+                        self.query_aliased_targets_lossy(&alias_destinations)
+                    }
+                };
+
             if new_aliases.is_empty() {
                 break;
             }
@@ -682,6 +690,30 @@ impl Buck {
 
         info!("resolving aliased targets");
         deserialize_output(command.output(), &command)
+    }
+
+    fn query_aliased_targets_lossy(
+        &self,
+        targets: &[Target],
+    ) -> FxHashMap<Target, AliasedTargetInfo> {
+        let mut command = self.command(["uquery"], &[]);
+
+        if let Some(mode) = &self.mode {
+            command.arg(mode);
+        }
+        command.args(["--output-attribute", "actual", "kind('^alias$', %Ss)"]);
+        command.args(targets);
+
+        let Ok(output) = command.output() else {
+            warn!("Buck uquery failed");
+            return FxHashMap::default();
+        };
+
+        let Ok(v) = serde_json::from_slice::<serde_json::Value>(&output.stdout) else {
+            warn!("Failed to parse buck uquery output");
+            return FxHashMap::default();
+        };
+        deserialize_uquery_alias_info(v)
     }
 
     /// Return a mapping for all the transitive dependencies of `targets` that are aliases.
@@ -919,6 +951,66 @@ fn remove_duplicates_preserve_order(paths: Vec<PathBuf>) -> Vec<PathBuf> {
     }
 
     uniq_paths
+}
+
+fn deserialize_uquery_alias_info(v: serde_json::Value) -> FxHashMap<Target, AliasedTargetInfo> {
+    let serde_json::Value::Object(v_items) = v else {
+        return FxHashMap::default();
+    };
+
+    let mut map = FxHashMap::default();
+    for (target_str, alias_info) in v_items {
+        let Some(actual) = alias_info.get("actual") else {
+            continue;
+        };
+        let Some(actual_str) = unwrap_selector_best_effort(actual) else {
+            continue;
+        };
+        let actual = Target::new(actual_str);
+        map.insert(Target::new(target_str), AliasedTargetInfo { actual });
+    }
+
+    map
+}
+
+/// If this JSON value is a plain string, return it. If it's a selector, try to guess
+/// the best value to return.
+fn unwrap_selector_best_effort(v: &serde_json::Value) -> Option<String> {
+    match v {
+        serde_json::Value::String(s) => Some(s.clone()),
+        serde_json::Value::Object(map) => {
+            let map_type = map.get("__type")?;
+            if map_type != "selector" {
+                return None;
+            }
+
+            let entries = map.get("entries")?;
+            let serde_json::Value::Object(entries_map) = entries else {
+                return None;
+            };
+
+            // If the selector has a DEFAULT value, use that.
+            //
+            // {
+            //   "__type": "selector",
+            //   "entries": {
+            //     "DEFAULT": "some-value",
+            //     "platform-specific": "other-value"
+            //   }
+            // }
+            if let Some(v) = entries_map.get("DEFAULT") {
+                return unwrap_selector_best_effort(v);
+            };
+
+            // Otherwise, arbitrarily pick the first value.
+            if let Some(v) = entries_map.values().next() {
+                return unwrap_selector_best_effort(v);
+            };
+
+            None
+        }
+        _ => None,
+    }
 }
 
 /// When we merge targets with their tests, we shouldn't end up
