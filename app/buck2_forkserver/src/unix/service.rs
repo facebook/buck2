@@ -53,6 +53,7 @@ use tonic::Status;
 use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
+use crate::run::CommandEvent;
 use crate::run::DefaultKillProcess;
 use crate::run::GatherOutputStatus;
 use crate::run::maybe_absolutize_exe;
@@ -276,6 +277,7 @@ impl UnixForkserverService {
         miniperf_output: Option<AbsNormPathBuf>,
         graceful_shutdown_timeout_s: Option<u32>,
         stream_stdio: bool,
+        on_exit: Option<Box<dyn FnOnce() + Send + 'static>>,
     ) -> buck2_error::Result<RunStream> {
         let stream = match miniperf_output {
             Some(out) => stream_command_events(
@@ -298,6 +300,23 @@ impl UnixForkserverService {
                 stream_stdio,
             )?
             .right_stream(),
+        };
+
+        let stream = if on_exit.is_some() {
+            stream
+                .inspect({
+                    let mut on_exit = on_exit;
+                    move |event| {
+                        if let Ok(CommandEvent::Exit(_status)) = event {
+                            if let Some(cleanup) = on_exit.take() {
+                                cleanup();
+                            }
+                        }
+                    }
+                })
+                .left_stream()
+        } else {
+            stream.right_stream()
         };
 
         let stream = encode_event_stream(stream);
@@ -329,9 +348,11 @@ impl Forkserver for UnixForkserverService {
             None
         };
 
+        let cgroup_pool_state = cgroup_pool.map(|cgroup_pool| cgroup_pool.state.dupe());
+
         let cgroup_id_dup = cgroup_id.dupe();
 
-        let res = to_tonic(async move {
+        to_tonic(async move {
             let mut stream = req.into_inner();
 
             let cmd_request = Self::parse_command_request(&mut stream).await?;
@@ -356,24 +377,30 @@ impl Forkserver for UnixForkserverService {
             let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
 
             let stream_stdio = validated_cmd.std_redirects.is_none();
+
+            let on_exit = cgroup_id.map(|cgroup_id| {
+                Box::new(move || {
+                    // realse cgroup on exit
+                    let cgroup_pool_state_arc = cgroup_pool_state
+                        .expect("Cgroup Pool should be present when we have cgroup id");
+                    let mut cgroup_pool_state_mutex =
+                        cgroup_pool_state_arc.lock().expect("Mutex poisoned");
+                    cgroup_pool_state_mutex.release(cgroup_id);
+                }) as Box<dyn FnOnce() + Send>
+            });
+
             let stream = Self::create_command_stream(
                 process_group,
                 cancellation,
                 miniperf_output,
                 validated_cmd.graceful_shutdown_timeout_s,
                 stream_stdio,
+                on_exit,
             )?;
 
             Ok(stream)
         })
-        .await;
-
-        if let Some(cgroup_id) = cgroup_id {
-            // safe to unwrap, since we have cgroup_id which means there is cgroup_pool
-            cgroup_pool.unwrap().release(cgroup_id)
-        }
-
-        res
+        .await
     }
 
     async fn set_log_filter(

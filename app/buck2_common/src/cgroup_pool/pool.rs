@@ -23,15 +23,22 @@ use crate::cgroup_pool::cgroup::Cgroup;
 use crate::cgroup_pool::cgroup::CgroupError;
 use crate::cgroup_pool::cgroup::CgroupID;
 
-struct PoolState {
+pub struct PoolState {
     cgroups: HashMap<CgroupID, Cgroup>,
     available: VecDeque<CgroupID>,
     in_use: HashSet<CgroupID>,
 }
 
+impl PoolState {
+    pub fn release(&mut self, cgroup_id: CgroupID) {
+        self.in_use.remove(&cgroup_id);
+        self.available.push_back(cgroup_id);
+    }
+}
+
 pub struct CgroupPool {
     pool_cgroup: Cgroup,
-    state: Arc<Mutex<PoolState>>,
+    pub state: Arc<Mutex<PoolState>>,
 }
 
 impl CgroupPool {
@@ -160,7 +167,6 @@ impl CgroupPool {
         // As Jakob said: it's possible for someone to spawn a persistent daemon from a test.
         // We needs a broader announcement/rollout for this change.
         let mut state = self.state.lock().expect("Mutex poisoned");
-        state.in_use.remove(&cgroup_id);
-        state.available.push_back(cgroup_id.dupe());
+        state.release(cgroup_id);
     }
 }
