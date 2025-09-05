@@ -233,7 +233,7 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, toolchain, attrs: dict, vs
 
     vs_settings["CompilerSettings"] = merge(
         aggregated_private_compiler_settings,
-        get_compiler_settings(target, attrs),
+        get_compiler_settings(target, attrs, bxl_ctx),
     )
     vs_settings["LinkerSettings"] = merge(
         aggregated_private_linker_settings,
