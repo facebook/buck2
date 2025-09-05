@@ -79,6 +79,8 @@ pub struct ResourceControlRunnerConfig {
     pub delegation: CgroupDelegation,
     /// Enable cgroup pool for action processes instead of using systemd scopes
     pub enable_action_cgroup_pool: bool,
+    /// Size of cgroup pool for action processes
+    pub cgroup_pool_size: Option<u64>,
 }
 
 impl ResourceControlRunnerConfig {
@@ -90,6 +92,7 @@ impl ResourceControlRunnerConfig {
             delegation: CgroupDelegation::Disabled,
             // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
             enable_action_cgroup_pool: false,
+            cgroup_pool_size: None,
         }
     }
 
@@ -100,6 +103,7 @@ impl ResourceControlRunnerConfig {
             parent_slice,
             delegation: CgroupDelegation::Enabled,
             enable_action_cgroup_pool: config.enable_action_cgroup_pool.unwrap_or(false),
+            cgroup_pool_size: config.cgroup_pool_size,
         }
     }
 }
@@ -118,6 +122,7 @@ impl ResourceControlRunner {
         delegation: CgroupDelegation,
         // on windows, we don't have cgroup, so we don't need to this flag
         #[allow(unused_variables)] enable_action_cgroup_pool: bool,
+        #[allow(unused_variables)] cgroup_pool_size: Option<u64>,
     ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
@@ -165,7 +170,10 @@ impl ResourceControlRunner {
                 // Use num_cpus to set the capacity of the cgroup pool.
 
                 use buck2_error::BuckErrorContext;
-                let capacity = buck2_util::threads::available_parallelism_fresh();
+                // if cgroup pool size is not set, use the number of available cpus
+                let capacity = cgroup_pool_size
+                    .map(|x| x as usize)
+                    .unwrap_or(buck2_util::threads::available_parallelism_fresh());
                 let cgroup_pool =
                     CgroupPool::new(capacity).buck_error_context("Failed to create cgroup pool")?;
                 Some(cgroup_pool)
@@ -214,6 +222,7 @@ impl ResourceControlRunner {
                 &config.parent_slice,
                 config.delegation,
                 config.enable_action_cgroup_pool,
+                config.cgroup_pool_size,
             )?)),
         }
     }
