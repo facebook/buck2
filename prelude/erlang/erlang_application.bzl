@@ -51,6 +51,7 @@ StartSpec = record(
 BuiltApplication = record(
     build_environment = field(BuildEnvironment),
     app_file = field(Artifact),
+    src_dir = field(Artifact),
     priv_dir = field(Artifact),
 )
 
@@ -116,6 +117,10 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
     # build generated inputs
     generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain, name)
 
+    # Put all sources in a src folder, both for hermeticity (erlc will try to load .hrl files next to the .erl file)
+    # and to ultimately put it in the app folder
+    src_dir = _link_src_dir(ctx, extra_srcs = generated_source_artifacts.values())
+
     # collect all inputs
     src_artifacts = [
         src
@@ -161,6 +166,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
         build_environment,
         name,
         src_artifacts,
+        src_dir,
     )
 
     # create <appname>.app file
@@ -177,6 +183,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
     return BuiltApplication(
         build_environment = build_environment,
         app_file = app_file,
+        src_dir = src_dir,
         priv_dir = priv_dir,
     )
 
@@ -291,28 +298,29 @@ def link_output(
         for ebin_file in ebin
     }
 
-    srcs = _link_srcs_folder(ctx)
-
     link_spec = {}
     link_spec.update(ebin)
-    link_spec.update(srcs)
+    if ctx.attrs.include_src:
+        link_spec["src"] = built.src_dir
     link_spec["priv"] = built.priv_dir
     if name in build_environment.include_dirs:
         link_spec["include"] = build_environment.include_dirs[name]
 
     return ctx.actions.symlinked_dir(link_path, link_spec)
 
-def _link_srcs_folder(ctx: AnalysisContext) -> dict[str, Artifact]:
-    """Build mapping for the src folder if erlang.include_src is set"""
-    if not ctx.attrs.include_src:
-        return {}
+def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifact:
+    """Link all sources in a src folder"""
     srcs = {
-        paths.join("src", src_file.basename): src_file
+        src_file.basename: src_file
         for src_file in ctx.attrs.srcs
     }
     if ctx.attrs.app_src:
-        srcs[paths.join("src", ctx.attrs.app_src.basename)] = ctx.attrs.app_src
-    return srcs
+        srcs[ctx.attrs.app_src.basename] = ctx.attrs.app_src
+
+    for extra_srcs in extra_srcs:
+        srcs[extra_srcs.basename] = extra_srcs
+
+    return ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), srcs)
 
 def _build_start_dependencies(ctx: AnalysisContext) -> list[StartDependencySet]:
     return build_apps_start_dependencies(

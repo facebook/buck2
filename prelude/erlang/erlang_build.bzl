@@ -186,7 +186,8 @@ def _generate_beam_artifacts(
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
         name: str,
-        src_artifacts: list[Artifact]):
+        src_artifacts: list[Artifact],
+        hermetic_src_dir: Artifact):
     if not src_artifacts:
         return
 
@@ -218,7 +219,7 @@ def _generate_beam_artifacts(
     )
 
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, small_build_environment, deps_files, dep_info_file, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, small_build_environment, deps_files, dep_info_file, hermetic_src_dir, erl, beam_mapping[module_name(erl)])
 
 def _get_deps_files(
         ctx: AnalysisContext,
@@ -268,6 +269,7 @@ def _build_erl(
         build_environment: SmallBuildEnvironment,
         beam_deps_files: PathArtifactMapping,
         dep_info_file: WriteJsonCliArgs,
+        hermetic_src_dir: Artifact,
         src: Artifact,
         output: Artifact) -> None:
     """Compile erl files into beams."""
@@ -282,6 +284,11 @@ def _build_erl(
         identifier = src.basename,
     )
 
+    # src points to the original file, but erlc will try to find .hrl files on that directory,
+    # so we build the version in hermetic_src_dir, that contains symlinks to declared src (we
+    # use the `+{source, _}` option to ensure paths still point to the actual src)
+    hermetic_src = hermetic_src_dir.project(src.basename)
+
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
         trampoline = toolchain.erlc_trampoline
         erlc = toolchain.otp_binaries.erlc
@@ -293,7 +300,7 @@ def _build_erl(
             erl_opts,
             deps_args,
             cmd_args(outputs[output].as_output(), parent = 1, format = "-o{}"),
-            src,
+            hermetic_src,
         )
         mapping_file = ctx.actions.write_json(_dep_mapping_name(src), mapping)
         _run_with_env(
@@ -306,7 +313,7 @@ def _build_erl(
             always_print_stderr = True,
         )
 
-    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [src], outputs = [output.as_output()], f = dynamic_lambda)
+    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [hermetic_src], outputs = [output.as_output()], f = dynamic_lambda)
     return None
 
 def _dependencies_to_args(

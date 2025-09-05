@@ -162,6 +162,7 @@ def _build_erlang_test(
 
     suite = ctx.attrs.suite
     suite_name = module_name(suite)
+    hermetic_src_dir = ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), {suite.basename: suite})
 
     erlang_build.build_steps.generate_beam_artifacts(
         ctx,
@@ -169,6 +170,7 @@ def _build_erlang_test(
         build_environment,
         "tests",
         [suite],
+        hermetic_src_dir,
     )
 
     beam = build_environment.beams["tests"][suite_name]
