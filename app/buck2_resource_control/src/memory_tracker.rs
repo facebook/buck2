@@ -245,19 +245,25 @@ pub fn spawn_memory_reporter(
                 }
             }
 
-            match (
-                state_receiver.changed().await.err(),
-                reading_receiver.changed().await.err(),
-            ) {
-                (Some(err), _) | (_, Some(err)) => {
-                    // this task should always be stopped before the memory tracker is killed
-                    let _unused = soft_error!(
-                        "memory_reporter_failed",
-                        internal_error!("Error from memory tracker sender: {}", err),
-                    );
-                    break;
+            tokio::select! {
+                state = state_receiver.changed() => {
+                    if let Err(e) = state {
+                        soft_error!(
+                            "memory_reporter_failed",
+                            internal_error!("Error receiving state from memory tracker: {}", e),
+                        ).unwrap();
+                        break;
+                    }
+                },
+                reading = reading_receiver.changed() => {
+                    if let Err(e) = reading {
+                        soft_error!(
+                            "memory_reporter_failed",
+                            internal_error!("Error receiving reading from memory tracker =: {}", e),
+                        ).unwrap();
+                        break;
+                    }
                 }
-                _ => {}
             }
         }
     });
