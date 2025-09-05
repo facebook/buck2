@@ -20,19 +20,37 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_forkserver_proto::forkserver_server;
 use buck2_grpc::DuplexChannel;
+use tokio::net::UnixListener;
 use tokio::net::UnixStream;
 
 use super::service::UnixForkserverService;
 
 pub async fn run_forkserver(
-    fd: RawFd,
+    fd: Option<RawFd>,
+    socket_path: Option<String>,
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     state_dir: AbsNormPathBuf,
     resource_control: ResourceControlConfig,
 ) -> buck2_error::Result<()> {
-    // SAFETY: At worst, we just read (or close) the wrong FD.
-    let io = UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(fd) })
-        .expect("Failed to create io");
+    let io = match (fd, socket_path) {
+        (Some(fd), None) => {
+            // SAFETY: At worst, we just read (or close) the wrong FD.
+            UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(fd) })
+                .expect("Failed to create io")
+        }
+        (None, Some(socket_path)) => {
+            let listener =
+                UnixListener::bind(socket_path).buck_error_context("Failed to bind unix socket")?;
+            let (stream, _addr) = listener
+                .accept()
+                .await
+                .buck_error_context("Failed to accept unix socket")?;
+            stream
+        }
+        _ => {
+            unreachable!("Either fd or socket_path must be provided");
+        }
+    };
 
     let io = {
         let (read, write) = tokio::io::split(io);

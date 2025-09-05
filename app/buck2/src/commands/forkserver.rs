@@ -17,6 +17,7 @@ use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use clap::ArgGroup;
 
 #[cfg(unix)]
 type RawFd = std::os::unix::io::RawFd;
@@ -26,9 +27,17 @@ type RawFd = String;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "run the forkserver")]
+#[clap(group(
+    ArgGroup::new("comm_channel").required(true).args(["fd", "socket_path"]),  // can only accept one of the two for the communication channel
+))]
 pub(crate) struct ForkserverCommand {
+    /// File descriptor to use for the communication channel.
     #[clap(long)]
-    fd: RawFd,
+    fd: Option<RawFd>,
+
+    /// Path to the socket to use for the communication channel.
+    #[clap(long)]
+    socket_path: Option<String>,
 
     #[clap(long)]
     state_dir: String,
@@ -53,7 +62,9 @@ impl ForkserverCommand {
         {
             // For us to get this FD it must be non-CLOEXEC but we don't want our children to
             // inherit it.
-            set_cloexec(self.fd)?;
+            if let Some(fd) = self.fd {
+                set_cloexec(fd)?;
+            }
 
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -61,6 +72,7 @@ impl ForkserverCommand {
 
             Ok(rt.block_on(buck2_forkserver::unix::run_forkserver(
                 self.fd,
+                self.socket_path,
                 log_reload_handle,
                 state_dir,
                 self.resource_control,
