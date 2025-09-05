@@ -842,6 +842,26 @@ class Buck(Executable):
         client = await SubscribeClient.create(process)
         return client
 
+    def construct_buck_command(
+        self,
+        cmd: str,
+        *argv: str,
+    ) -> list[str]:
+        """
+        Returns a list of strings representing the buck command
+        """
+        cmd_to_run = [str(self.path_to_executable), cmd]
+        if self.isolation_prefix:
+            cmd_to_run = [
+                cmd_to_run[0],
+                "--isolation-dir",
+                str(self.isolation_prefix),
+                *cmd_to_run[1:],
+            ]
+        cmd_to_run.extend(argv)
+        cmd_to_run = self._get_windows_cmd_options() + cmd_to_run
+        return cmd_to_run
+
     def _run_buck_command(
         self,
         cmd: str,
@@ -863,16 +883,8 @@ class Buck(Executable):
         if "BUCK_WRAPPER_UUID" not in command_env:
             command_env["BUCK_WRAPPER_UUID"] = buck_build_id
 
-        cmd_to_run = [str(self.path_to_executable), cmd]
-        if self.isolation_prefix:
-            cmd_to_run = [
-                cmd_to_run[0],
-                "--isolation-dir",
-                str(self.isolation_prefix),
-                *cmd_to_run[1:],
-            ]
-        cmd_to_run.extend(argv)
-        cmd_to_run = self._get_windows_cmd_options() + cmd_to_run
+        cmd_to_run = self.construct_buck_command(cmd, *argv)
+
         stderr = subprocess.PIPE if intercept_stderr else None
         return Process(
             cmd_to_run=cmd_to_run,

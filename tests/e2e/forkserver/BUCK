@@ -1,0 +1,36 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+oncall("build_infra")
+
+python_library(
+    name = "forkserver_client",
+    srcs = [
+        "forkserver_client.py",
+    ],
+    deps = [
+        "fbcode//buck2/app/buck2_forkserver_proto:forkserver-py",
+        "fbsource//third-party/grpc/src/python/grpcio/grpc:grpcio",
+    ],
+)
+
+python_library(
+    name = "cgroup_v2",
+    srcs = [
+        "cgroup_v2.py",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_forkserver_cgroup_pool",
+    srcs = ["test_forkserver_cgroup_pool.py"],
+    skip_for_os = [
+        "windows",
+        "darwin",
+    ],
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+        ":cgroup_v2",
+        ":forkserver_client",
+    ],
+)
