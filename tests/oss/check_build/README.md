@@ -1,0 +1,1 @@
+This directory contains targets that should always build cleanly. A CI job calls `buck2 build //...` in here.

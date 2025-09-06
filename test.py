@@ -391,6 +391,20 @@ def test(package_args: List[str]) -> None:
     print_running("cargo test --doc")
     run(["cargo", "test", "--doc", *extra_args, *package_args], timeout=timeout_sec)
 
+@contextmanager
+def chdir(target: Path) -> Generator[None, None, None]:
+    prev_dir = os.getcwd()
+    os.chdir(target)
+    try:
+        yield
+    finally:
+        os.chdir(prev_dir)
+
+def check_targets(buck2_dir: Path, buck2: str) -> None:
+    print_running("check_build targets")
+    with chdir(buck2_dir / "tests/oss/check_build"):
+        run([buck2, "build", "--no-buckd", "//..."])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -487,6 +501,9 @@ def main() -> None:
 
         with timing():
             test(package_args)
+
+        with timing():
+            check_targets(buck2_dir, args.buck2)
 
     # On CI, check to make sure our test doesn't overwrite existing files
     if args.ci:
