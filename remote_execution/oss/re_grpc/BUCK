@@ -10,6 +10,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:http-1",
         "fbsource//third-party/rust:lru",
