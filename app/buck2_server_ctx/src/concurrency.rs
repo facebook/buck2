@@ -518,12 +518,25 @@ impl ConcurrencyHandler {
                     .await?;
 
                     if let Some(active) = active {
+                        // If the --exit-when=notidle option is set for the current command and there is
+                        // another command running already, exit immediately with a "daemon is busy" error.
+                        if matches!(exit_when, ExitWhen::ExitNotIdle)
+                            && !data.active_commands.is_empty()
+                        {
+                            return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
+                                .with_buck_error_context(|| {
+                                    format!(
+                                        "Buck daemon is busy processing another command: {}",
+                                        Self::format_active_commands(&data)
+                                    )
+                                });
+                        }
+
                         let is_same_state = transaction.equivalent(&active.version);
 
-                        // If we have a different state and the incoming command is not immediately cancellable,
-                        // (i.e., --exit_when=notidle) attempt to transition to cleanup. This will succeed only
-                        // if the current state is not in use.
-                        if !is_same_state && !matches!(exit_when, ExitWhen::ExitNotIdle) {
+                        // If we have a different state, attempt to transition to cleanup. This will
+                        // succeed only if the current state is not in use.
+                        if !is_same_state {
                             // If the active commands are preemptible, preempt them.
                             self.cancel_preemptible_commands(&mut data, is_same_state);
 
@@ -553,14 +566,6 @@ impl ConcurrencyHandler {
                                 );
                             }
                             BypassSemaphore::Run(state) => {
-                                if matches!(exit_when, ExitWhen::ExitNotIdle)
-                                    && !data.active_commands.is_empty()
-                                {
-                                    return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
-                                        .with_buck_error_context(|| {
-                                            format!("Buck daemon is busy processing another command: {}", Self::format_active_commands(&data))
-                                        });
-                                }
                                 self.emit_logs(state, &data.active_commands, &command_data)?;
                                 self.cancel_preemptible_commands(&mut data, is_same_state);
                                 break (transaction, false);
@@ -569,8 +574,6 @@ impl ConcurrencyHandler {
                                 let early_exit_error: Option<ConcurrencyHandlerError> =
                                     if matches!(exit_when, ExitWhen::ExitDifferentState) {
                                         Some(ConcurrencyHandlerError::ExitWhenDifferentState)
-                                    } else if matches!(exit_when, ExitWhen::ExitNotIdle) {
-                                        Some(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
                                     } else {
                                         None
                                     };
@@ -2446,6 +2449,134 @@ mod tests {
         // Clean up first command
         drop(blocked1);
         fut1.await??;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exit_when_not_idle_allows_command_when_daemon_idle_with_same_state()
+    -> buck2_error::Result<()> {
+        // This test verifies that when the daemon is idle (no command is currently running),
+        // a command with --exit-when=notidle should succeed if it has the same state as the
+        // previous command that has finished.
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        // First command runs to completion
+        concurrency
+            .enter(
+                EventDispatcher::null_sink_with_trace(traces1),
+                &NoChanges,
+                |_| async move {
+                    // Quick task that finishes
+                    tokio::task::yield_now().await;
+                },
+                false,
+                Vec::new(),
+                None,
+                CancellationContext::testing(),
+                PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNever,
+            )
+            .await?;
+
+        // Wait for a moment to let async cleanup processes finish.
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Daemon should now be idle
+        // Second command with --exit-when=notidle and same state should succeed
+        let result = concurrency
+            .enter(
+                EventDispatcher::null_sink_with_trace(traces2),
+                &NoChanges, // Same state as first command
+                |_| async move {
+                    // Quick task
+                    tokio::task::yield_now().await;
+                    "success"
+                },
+                false,
+                Vec::new(),
+                None,
+                CancellationContext::testing(),
+                PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNotIdle,
+            )
+            .await;
+
+        // Should succeed since daemon is idle
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "success");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_exit_when_not_idle_allows_command_when_daemon_idle_with_different_state()
+    -> buck2_error::Result<()> {
+        // This test verifies that when the daemon is idle (no command is currently running),
+        // a command with --exit-when=notidle should succeed even if it has a different state
+        // than previous commands.
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        // First command runs to completion with NoChanges state
+        concurrency
+            .enter(
+                EventDispatcher::null_sink_with_trace(traces1),
+                &NoChanges,
+                |_| async move {
+                    // Quick task that finishes
+                    tokio::task::yield_now().await;
+                },
+                false,
+                Vec::new(),
+                None,
+                CancellationContext::testing(),
+                PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNever,
+            )
+            .await?;
+
+        // Wait for a moment to let async cleanup processes finish.
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Daemon should now be idle
+        // Second command with --exit-when=notidle and different state should succeed
+        let result = concurrency
+            .enter(
+                EventDispatcher::null_sink_with_trace(traces2),
+                &CtxDifferent, // Different state than first command
+                |_| async move {
+                    // Quick task
+                    tokio::task::yield_now().await;
+                    "success"
+                },
+                false,
+                Vec::new(),
+                None,
+                CancellationContext::testing(),
+                PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
+                ExitWhen::ExitNotIdle,
+            )
+            .await;
+
+        // Should succeed since daemon is idle, regardless of state difference
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "success");
 
         Ok(())
     }

@@ -20,3 +20,18 @@ test = rule(
     impl = _test_impl,
     attrs = {},
 )
+
+def _short_test_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        ["fbpython", "-c", "import time, sys; time.sleep(0.1); open(sys.argv[1],'w')", out.as_output()],
+        category = "test",
+        identifier = "id",
+    )
+
+    return [DefaultInfo(out)]
+
+short_test = rule(
+    impl = _short_test_impl,
+    attrs = {},
+)

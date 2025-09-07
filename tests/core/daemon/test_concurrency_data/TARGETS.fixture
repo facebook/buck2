@@ -1,3 +1,4 @@
-load(":defs.bzl", "test")
+load(":defs.bzl", "short_test", "test")
 
 test(name = "long_running_target")
+short_test(name = "short_running_target")

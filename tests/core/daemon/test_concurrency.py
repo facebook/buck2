@@ -350,7 +350,6 @@ async def test_multiple_exit_when_not_idle_commands(
         p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
-        # result = await p
         return (result.process.returncode, result.stderr)
 
     a = buck.build(
@@ -391,3 +390,56 @@ async def test_multiple_exit_when_not_idle_commands(
         exit_code, stderr = task.result()
         assert "daemon is busy" in stderr
         assert exit_code == 4
+
+
+@buck_test()
+@pytest.mark.parametrize("same_state", [True, False])
+async def test_exit_when_not_idle_after_command_exits(
+    buck: Buck, same_state: bool
+) -> None:
+    """ """
+
+    # create a coroutine that can return a result
+    async def process(
+        p: Process[BuildResult, BuckException],
+    ) -> Tuple[Optional[int], str]:
+        result = await p
+        return (result.process.returncode, result.stderr)
+
+    a = buck.build(
+        "-c",
+        "foo.bar=1",
+        ":short_running_target",
+        "--local-only",
+        "--no-remote-cache",
+    )
+    # Start the first command
+    task_a = asyncio.create_task(process(a))
+
+    # Wait a short time to ensure the first command has finished
+    await asyncio.sleep(0.5)
+
+    b = buck.build(
+        "-c",
+        "foo.bar=1" if same_state else "foo.bar=2",
+        "--exit-when=notidle",
+        ":short_running_target",
+        "--local-only",
+        "--no-remote-cache",
+    )
+    task_b = asyncio.create_task(process(b))
+
+    done, pending = await asyncio.wait(
+        [task_a, task_b],
+        timeout=10,
+        return_when=asyncio.ALL_COMPLETED,
+    )
+
+    assert len(done) == 2
+    assert len(pending) == 0
+
+    # these are sets, so can't index them.
+    for task in done:
+        exit_code, stderr = task.result()
+        assert "daemon is busy" not in stderr
+        assert exit_code == 0
