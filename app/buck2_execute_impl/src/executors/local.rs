@@ -70,6 +70,7 @@ use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_forkserver::run::CommandResult;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_forkserver::run::gather_output;
 use buck2_forkserver::run::maybe_absolutize_exe;
@@ -155,10 +156,7 @@ impl LocalExecutor {
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
         cgroup_command_id: &'a str,
-    ) -> impl futures::future::Future<
-        Output = buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
-    > + Send
-    + 'a {
+    ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             let working_directory = self.root.join_cow(working_directory);
 
@@ -500,7 +498,11 @@ impl LocalExecutor {
         .boxed()
         .await;
 
-        let (status, stdout, stderr) = match res {
+        let CommandResult {
+            status,
+            stdout,
+            stderr,
+        } = match res {
             Ok(res) => res,
             Err(e) => {
                 return manager.error("exec_failed", e);
@@ -1390,7 +1392,7 @@ mod unix {
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
         cgroup_command_id: &str,
-    ) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+    ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
         let mut req = buck2_forkserver_proto::CommandRequest {
@@ -1518,7 +1520,7 @@ mod tests {
         let (executor, root, _tmpdir) = test_executor()?;
 
         let interpreter = if cfg!(windows) { "powershell" } else { "sh" };
-        let (status, stdout, _) = executor
+        let CommandResult { status, stdout, .. } = executor
             .exec(
                 interpreter,
                 ["-c", "echo $PWD; pwd"],
@@ -1554,7 +1556,7 @@ mod tests {
         let (executor, _, _tmpdir) = test_executor()?;
 
         let interpreter = if cfg!(windows) { "powershell" } else { "sh" };
-        let (status, _, _) = executor
+        let CommandResult { status, .. } = executor
             .exec(
                 interpreter,
                 ["-c", "sleep 2s"],
@@ -1579,7 +1581,7 @@ mod tests {
 
         let (executor, _root, _tmpdir) = test_executor()?;
 
-        let (status, stdout, _) = executor
+        let CommandResult { status, stdout, .. } = executor
             .exec(
                 "sh",
                 ["-c", "echo $USER"],

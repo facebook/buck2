@@ -27,7 +27,7 @@ use tonic::Request;
 use tonic::transport::Channel;
 
 use crate::convert::decode_event_stream;
-use crate::run::GatherOutputStatus;
+use crate::run::CommandResult;
 use crate::run::decode_command_event_stream;
 
 #[derive(Clone, Dupe, Allocative)]
@@ -92,7 +92,7 @@ impl ForkserverClient {
         &self,
         req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
-    ) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+    ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
     {

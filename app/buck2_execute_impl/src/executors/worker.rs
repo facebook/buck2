@@ -34,6 +34,7 @@ use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_forkserver::run::CommandResult;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
@@ -172,7 +173,7 @@ fn spawn_via_forkserver(
         let res = forkserver
             .execute(req, async move { liveliness_observer.while_alive().await })
             .await
-            .map(|(status, _, _)| status);
+            .map(|CommandResult { status, .. }| status);
 
         // Socket is created by worker so won't exist if initialization fails.
         if fs_util::try_exists(&socket_path)? {
@@ -569,7 +570,7 @@ impl WorkerHandle {
         args: &[String],
         env: Vec<(OsString, OsString)>,
         timeout: Option<Duration>,
-    ) -> (GatherOutputStatus, Vec<u8>, Vec<u8>) {
+    ) -> CommandResult {
         tracing::info!(
             "Sending worker command:\nExecuteCommand {{ argv: {:?}, env: {:?} }}\n",
             args,
@@ -585,7 +586,7 @@ impl WorkerHandle {
         };
 
         let mut client = self.client.clone();
-        tokio::select! {
+        let (status, stdout, stderr) = tokio::select! {
             response = client.execute(request) => {
                 match response {
                     Ok(exec_response) => {
@@ -630,6 +631,12 @@ impl WorkerHandle {
                     vec![],
                 )
             }
+        };
+
+        CommandResult {
+            status,
+            stdout,
+            stderr,
         }
     }
 }

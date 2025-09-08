@@ -283,9 +283,13 @@ where
     Ok(CommandEventStream::new(status, stdio, cgroup).right_stream())
 }
 
-pub(crate) async fn decode_command_event_stream<S>(
-    stream: S,
-) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+pub struct CommandResult {
+    pub status: GatherOutputStatus,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+}
+
+pub(crate) async fn decode_command_event_stream<S>(stream: S) -> buck2_error::Result<CommandResult>
 where
     S: Stream<Item = buck2_error::Result<CommandEvent>>,
 {
@@ -298,7 +302,13 @@ where
         match event {
             CommandEvent::Stdout(bytes) => stdout.extend(&bytes),
             CommandEvent::Stderr(bytes) => stderr.extend(&bytes),
-            CommandEvent::Exit(exit) => return Ok((exit, stdout, stderr)),
+            CommandEvent::Exit(exit) => {
+                return Ok(CommandResult {
+                    status: exit,
+                    stdout,
+                    stderr,
+                });
+            }
             CommandEvent::Cgroup(path) => {
                 let path = PathBuf::from(path);
                 tracing::debug!("cgroup path {path:?}");
@@ -312,10 +322,7 @@ where
     ))
 }
 
-pub async fn gather_output<T>(
-    cmd: Command,
-    cancellation: T,
-) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+pub async fn gather_output<T>(cmd: Command, cancellation: T) -> buck2_error::Result<CommandResult>
 where
     T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
 {
@@ -451,7 +458,11 @@ mod tests {
         };
         cmd.args(["-c", "echo hello"]);
 
-        let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
+        let CommandResult {
+            status,
+            stdout,
+            stderr,
+        } = gather_output(cmd, futures::future::pending()).await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -477,7 +488,11 @@ mod tests {
         }
 
         let timeout = if cfg!(windows) { 9 } else { 1 };
-        let (status, stdout, stderr) = gather_output(
+        let CommandResult {
+            status,
+            stdout,
+            stderr,
+        } = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
@@ -507,7 +522,7 @@ mod tests {
         };
 
         let timeout = if cfg!(windows) { 5 } else { 3 };
-        let (status, stdout, _stderr) = gather_output(
+        let CommandResult { status, stdout, .. } = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
@@ -600,7 +615,7 @@ mod tests {
 
         // On windows we need more time to run powershell
         let timeout = if cfg!(windows) { 7 } else { 1 };
-        let (_status, stdout, _stderr) = gather_output(
+        let CommandResult { stdout, .. } = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
@@ -658,7 +673,7 @@ mod tests {
 
         let mut cmd = background_command("sh");
         cmd.arg("-c").arg("kill -KILL \"$$\"");
-        let (status, _stdout, _stderr) = gather_output(cmd, futures::future::pending()).await?;
+        let CommandResult { status, .. } = gather_output(cmd, futures::future::pending()).await?;
 
         assert_matches!(
             status,
@@ -732,7 +747,7 @@ mod tests {
             true,
         )?;
 
-        let (status, _stdout, _stderr) = decode_command_event_stream(stream).await?;
+        let CommandResult { status, .. } = decode_command_event_stream(stream).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
 
         assert!(*killed.lock().unwrap());
