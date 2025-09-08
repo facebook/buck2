@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::fmt;
 use std::ops::Deref;
 
 use dupe::Dupe;
@@ -77,5 +78,11 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
 impl<'v, T: UnpackValue<'v>> AllocValue<'v> for ValueOf<'v, T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.value
+    }
+}
+
+impl<'v, T: fmt::Display + UnpackValue<'v>> fmt::Display for ValueOf<'v, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.typed, f)
     }
 }
