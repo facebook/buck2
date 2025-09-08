@@ -27,5 +27,32 @@ pub mod memory_tracker {
     }
 }
 
+#[cfg(not(unix))]
+pub mod action_cgroups {
+    use std::path::PathBuf;
+
+    use crate::memory_tracker::MemoryTrackerHandle;
+
+    pub struct ActionCgroupSession {}
+    impl ActionCgroupSession {
+        pub fn maybe_create(_tracker: &Option<MemoryTrackerHandle>) -> Option<Self> {
+            None
+        }
+
+        pub async fn command_started(&mut self, _cgroup_path: PathBuf) {}
+
+        pub async fn command_finished(&mut self) -> ActionCgroupResult {
+            unreachable!("not supported");
+        }
+    }
+
+    pub struct ActionCgroupResult {
+        pub memory_peak: Option<u64>,
+        pub error: Option<buck2_error::Error>,
+    }
+}
+
+#[cfg(unix)]
+pub mod action_cgroups;
 #[cfg(unix)]
 pub mod memory_tracker;

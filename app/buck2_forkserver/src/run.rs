@@ -26,6 +26,8 @@ use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::action_cgroups::ActionCgroupResult;
+use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use bytes::Bytes;
 use futures::future::Future;
@@ -288,11 +290,12 @@ pub struct CommandResult {
     pub status: GatherOutputStatus,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
+    pub cgroup_result: Option<ActionCgroupResult>,
 }
 
 pub(crate) async fn decode_command_event_stream<S>(
     stream: S,
-    _memory_tracker: &Option<MemoryTrackerHandle>,
+    memory_tracker: &Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<CommandResult>
 where
     S: Stream<Item = buck2_error::Result<CommandEvent>>,
@@ -302,20 +305,29 @@ where
     let mut stdout = Vec::<u8>::new();
     let mut stderr = Vec::<u8>::new();
 
+    let mut cgroup_session = ActionCgroupSession::maybe_create(&memory_tracker);
+
     while let Some(event) = stream.try_next().await? {
         match event {
             CommandEvent::Stdout(bytes) => stdout.extend(&bytes),
             CommandEvent::Stderr(bytes) => stderr.extend(&bytes),
             CommandEvent::Exit(exit) => {
+                let cgroup_result = if let Some(session) = cgroup_session.as_mut() {
+                    Some(session.command_finished().await)
+                } else {
+                    None
+                };
                 return Ok(CommandResult {
                     status: exit,
                     stdout,
                     stderr,
+                    cgroup_result,
                 });
             }
             CommandEvent::Cgroup(path) => {
-                let path = PathBuf::from(path);
-                tracing::debug!("cgroup path {path:?}");
+                if let Some(session) = cgroup_session.as_mut() {
+                    session.command_started(PathBuf::from(path)).await;
+                }
             }
         }
     }
@@ -466,6 +478,7 @@ mod tests {
             status,
             stdout,
             stderr,
+            ..
         } = gather_output(cmd, futures::future::pending()).await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
@@ -496,6 +509,7 @@ mod tests {
             status,
             stdout,
             stderr,
+            ..
         } = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),

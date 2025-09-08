@@ -502,6 +502,7 @@ impl LocalExecutor {
             status,
             stdout,
             stderr,
+            cgroup_result,
         } = match res {
             Ok(res) => res,
             Err(e) => {
@@ -528,6 +529,15 @@ impl LocalExecutor {
                 };
 
                 timing.execution_stats = execution_stats;
+                if let Some(cgroup_result) = cgroup_result {
+                    if let Some(mut stats) = execution_stats {
+                        stats.memory_peak = cgroup_result.memory_peak;
+                    }
+                    if let Some(e) = cgroup_result.error {
+                        let _unused = soft_error!("action_cgroup_error", e);
+                    }
+                }
+
                 timing.hashing_duration = hashing_time.hashing_duration;
                 timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
 

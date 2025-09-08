@@ -36,14 +36,16 @@ use tokio::sync::watch::Sender;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+use crate::action_cgroups::ActionCgroups;
+
+#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
     Uninitialized,
     Failure,
     Reading(MemoryStates),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum MemoryCurrentState {
     NoLimitSet,
     BelowLimit,
@@ -56,7 +58,7 @@ pub enum MemoryPressureState {
     AbovePressureLimit,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub struct MemoryStates {
     pub memory_current_state: MemoryCurrentState,
     pub memory_pressure_state: MemoryPressureState,
@@ -153,15 +155,19 @@ pub struct MemoryTrackerHandleInner {
     // Written to by tracker, TODO read from snapshot collector
     #[allocative(skip)]
     pub reading_sender: Sender<Option<MemoryReading>>,
+    // Written to by executors and tracker, read by executors
+    #[allocative(skip)]
+    pub(crate) action_cgroups: Option<Arc<tokio::sync::Mutex<ActionCgroups>>>,
 }
 
 impl MemoryTrackerHandleInner {
-    fn new() -> Self {
+    fn new(action_cgroups: Option<ActionCgroups>) -> Self {
         let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         let (reading_sender, _rx) = watch::channel(None);
         Self {
             state_sender,
             reading_sender,
+            action_cgroups: action_cgroups.map(|c| Arc::new(tokio::sync::Mutex::new(c))),
         }
     }
 }
@@ -292,11 +298,14 @@ pub async fn create_memory_tracker(
     if let SystemdCreationDecision::Create =
         ResourceControlRunner::creation_decision(&resource_control_config.status)
     {
+        let action_cgroups = ActionCgroups::init(resource_control_config);
+        let handle = MemoryTrackerHandleInner::new(action_cgroups);
         const MAX_RETRIES: u32 = 5;
         let memory_limit_bytes = resource_control_config
             .hybrid_execution_memory_limit_gibibytes
             .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
         let memory_tracker = MemoryTracker::new(
+            handle,
             open_daemon_memory_file("memory.current").await?,
             open_daemon_memory_file("memory.pressure").await?,
             MAX_RETRIES,
@@ -316,6 +325,7 @@ pub async fn create_memory_tracker(
 }
 impl MemoryTracker {
     fn new(
+        handle: MemoryTrackerHandleInner,
         memory_current: File,
         memory_pressure: File,
         max_retries: u32,
@@ -323,9 +333,9 @@ impl MemoryTracker {
         memory_pressure_threshold: u64,
     ) -> Self {
         Self {
+            handle: Arc::new(handle),
             memory_current,
             memory_pressure,
-            handle: Arc::new(MemoryTrackerHandleInner::new()),
             max_retries,
             memory_limit_bytes,
             memory_pressure_threshold,
@@ -359,7 +369,7 @@ impl MemoryTracker {
             let old_state = *self.handle.state_sender.borrow();
             let old_reading = *self.handle.reading_sender.borrow();
             let (new_state, new_reading) = match (
-                self.read_memory_current().await,
+                read_memory_current(&mut self.memory_current).await,
                 self.read_some_pressure_stall_total_value_in_us().await,
             ) {
                 (Ok(memory_current), Ok(total_pressure)) => {
@@ -395,6 +405,11 @@ impl MemoryTracker {
                     } else {
                         MemoryPressureState::AbovePressureLimit
                     };
+
+                    if let Some(action_cgroups) = self.handle.action_cgroups.as_ref() {
+                        let mut action_cgroups = action_cgroups.lock().await;
+                        action_cgroups.update().await;
+                    }
 
                     (
                         TrackedMemoryState::Reading(MemoryStates {
@@ -446,29 +461,6 @@ impl MemoryTracker {
         }
     }
 
-    async fn read_memory_current(&mut self) -> buck2_error::Result<u64> {
-        self.memory_current.rewind().await?;
-        // memory.current contains a byte count as a string which is at most u64::MAX (20 digits)
-        // using fixed buffer to avoid heap allocation
-        let mut data = vec![0u8; 24];
-        let read = self
-            .memory_current
-            .read(&mut data)
-            .await
-            .with_buck_error_context(|| "Error reading cgroup current memory")?;
-        if read == 0 {
-            return Err(internal_error!("no bytes read from memory.current"));
-        }
-        data.truncate(read);
-        let string = str::from_utf8(&data)?.trim();
-        string
-            .parse::<u64>()
-            .map_err(buck2_error::Error::from)
-            .with_buck_error_context(|| {
-                format!("Expected a numeric value in cgroup file, found {}", string)
-            })
-    }
-
     // The content should consistently have the following format:
     //  ```
     //  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
@@ -503,6 +495,29 @@ impl MemoryTracker {
             .map_err(buck2_error::Error::from)
             .with_buck_error_context(|| format!("Expected a numeric value, found {}", string_value))
     }
+}
+
+pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
+    memory_current.rewind().await?;
+    // memory.current contains a byte count as a string which is at most u64::MAX (20 digits)
+    // using fixed buffer to avoid heap allocation
+    let mut data = vec![0u8; 24];
+    let read = memory_current
+        .read(&mut data)
+        .await
+        .with_buck_error_context(|| "Error reading cgroup current memory")?;
+    if read == 0 {
+        return Err(internal_error!("no bytes read from memory.current"));
+    }
+
+    data.truncate(read);
+    let string = str::from_utf8(&data)?.trim();
+    string
+        .parse::<u64>()
+        .map_err(buck2_error::Error::from)
+        .with_buck_error_context(|| {
+            format!("Expected a numeric value in cgroup file, found {}", string)
+        })
 }
 
 #[cfg(test)]
@@ -556,7 +571,8 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(memory_current, memory_pressure, 0, Some(7), 10);
+        let handle = MemoryTrackerHandleInner::new(None);
+        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn(timer).await?;
@@ -633,7 +649,8 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(Some(notify.clone()), counter.clone());
-        let tracker = MemoryTracker::new(memory_current, memory_pressure, 0, Some(7), 10);
+        let handle = MemoryTrackerHandleInner::new(None);
+        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn(timer).await?;
@@ -711,7 +728,8 @@ mod tests {
         let memory_pressure = File::open(pressure.clone()).await?;
         let counter = Arc::new(AtomicUsize::new(0));
         let timer = MockTimer::new(None, counter.clone());
-        let tracker = MemoryTracker::new(memory_current, memory_pressure, 3, Some(0), 0);
+        let handle = MemoryTrackerHandleInner::new(None);
+        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 3, Some(0), 0);
         let handle = tracker.handle.dupe();
         tracker.spawn(timer).await?;
         let mut rx = handle.state_sender.subscribe();

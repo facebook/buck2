@@ -637,6 +637,7 @@ impl WorkerHandle {
             status,
             stdout,
             stderr,
+            cgroup_result: None,
         }
     }
 }
