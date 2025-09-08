@@ -12,12 +12,14 @@ use buck2_common::init::ResourceControlConfig;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 
 #[cfg(unix)]
 pub async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
     forkserver_state_dir: &AbsNormPath,
     resource_control: &ResourceControlConfig,
+    memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<Option<ForkserverClient>> {
     use buck2_common::legacy_configs::key::BuckconfigKeyRef;
     use buck2_core::rollout_percentage::RolloutPercentage;
@@ -41,6 +43,7 @@ pub async fn maybe_launch_forkserver(
             &["forkserver"],
             forkserver_state_dir,
             resource_control,
+            memory_tracker,
         )
         .await,
     )
@@ -52,6 +55,7 @@ pub async fn maybe_launch_forkserver(
     _root_config: &LegacyBuckConfig,
     _forkserver_state_dir: &AbsNormPath,
     _resource_control: &ResourceControlConfig,
+    _memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<Option<ForkserverClient>> {
     Ok(None)
 }

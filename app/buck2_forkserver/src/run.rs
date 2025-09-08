@@ -26,6 +26,7 @@ use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -289,7 +290,10 @@ pub struct CommandResult {
     pub stderr: Vec<u8>,
 }
 
-pub(crate) async fn decode_command_event_stream<S>(stream: S) -> buck2_error::Result<CommandResult>
+pub(crate) async fn decode_command_event_stream<S>(
+    stream: S,
+    _memory_tracker: &Option<MemoryTrackerHandle>,
+) -> buck2_error::Result<CommandResult>
 where
     S: Stream<Item = buck2_error::Result<CommandEvent>>,
 {
@@ -338,7 +342,7 @@ where
         DefaultKillProcess::default(),
         true,
     )?;
-    decode_command_event_stream(stream).await
+    decode_command_event_stream(stream, &None).await
 }
 
 /// Dependency injection for kill. We use this in testing.
@@ -747,7 +751,7 @@ mod tests {
             true,
         )?;
 
-        let CommandResult { status, .. } = decode_command_event_stream(stream).await?;
+        let CommandResult { status, .. } = decode_command_event_stream(stream, &None).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
 
         assert!(*killed.lock().unwrap());

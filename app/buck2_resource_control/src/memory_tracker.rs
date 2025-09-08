@@ -49,7 +49,7 @@ pub enum MemoryCurrentState {
     AboveLimit,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum MemoryPressureState {
     BelowPressureLimit,
     AbovePressureLimit,
@@ -144,10 +144,13 @@ impl BackoffData {
 
 pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
 
+#[derive(Allocative)]
 pub struct MemoryTrackerHandleInner {
     // Written to by tracker, read by reporter, executors
+    #[allocative(skip)]
     pub state_sender: Sender<TrackedMemoryState>,
     // Written to by tracker, TODO read from snapshot collector
+    #[allocative(skip)]
     pub reading_sender: Sender<Option<MemoryReading>>,
 }
 

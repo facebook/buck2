@@ -531,12 +531,18 @@ impl DaemonState {
                 daemon_dispatcher.dupe(),
             )?;
 
+            let memory_tracker = memory_tracker::create_memory_tracker(
+                &init_ctx.daemon_startup_config.resource_control,
+            )
+            .await?;
+
             // Create this after the materializer because it'll want to write to buck-out, and an Eden
             // materializer would create buck-out now.
             let forkserver = maybe_launch_forkserver(
                 root_config,
                 &paths.forkserver_state_dir(),
                 &init_ctx.daemon_startup_config.resource_control,
+                memory_tracker.dupe(),
             )
             .await?;
 
@@ -597,10 +603,6 @@ impl DaemonState {
                 })?
                 .unwrap_or(false);
 
-            let memory_tracker = memory_tracker::create_memory_tracker(
-                &init_ctx.daemon_startup_config.resource_control,
-            )
-            .await?;
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 // TODO(scottcao): Delete this tag since now hash all commands is always enabled.

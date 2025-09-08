@@ -16,6 +16,7 @@ use allocative::Allocative;
 use arc_swap::ArcSwapOption;
 use buck2_core::tag_error;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -33,6 +34,7 @@ use crate::run::decode_command_event_stream;
 #[derive(Clone, Dupe, Allocative)]
 pub struct ForkserverClient {
     inner: Arc<ForkserverClientInner>,
+    memory_tracker: Option<MemoryTrackerHandle>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -56,7 +58,11 @@ struct ForkserverClientInner {
 
 impl ForkserverClient {
     #[allow(unused)] // Unused on Windows
-    pub(crate) fn new(mut child: Child, channel: Channel) -> Self {
+    pub(crate) fn new(
+        mut child: Child,
+        channel: Channel,
+        memory_tracker: Option<MemoryTrackerHandle>,
+    ) -> Self {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX);
@@ -81,6 +87,7 @@ impl ForkserverClient {
 
         Self {
             inner: Arc::new(ForkserverClientInner { error, pid, rpc }),
+            memory_tracker,
         }
     }
 
@@ -125,7 +132,7 @@ impl ForkserverClient {
             .buck_error_context("Error dispatching command to Forkserver")?
             .into_inner();
         let stream = decode_event_stream(stream);
-        decode_command_event_stream(stream).await
+        decode_command_event_stream(stream, &self.memory_tracker).await
     }
 
     pub async fn set_log_filter(&self, log_filter: String) -> buck2_error::Result<()> {
