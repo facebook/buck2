@@ -80,6 +80,7 @@ message CommandEvent {
     StreamEvent stderr = 5;
     CancelEvent cancel = 6;
     SpawnFailedEvent spawn_failed = 7;
+    Cgroup cgroup = 8;
   }
 }
 
@@ -102,6 +103,10 @@ message CancelRequest {}
 
 message SpawnFailedEvent {
   string reason = 1;
+}
+
+message Cgroup {
+  string path = 1;
 }
 
 message RequestEvent {

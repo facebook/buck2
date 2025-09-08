@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -123,18 +124,19 @@ impl CgroupPool {
         self.pool_cgroup.path()
     }
 
-    pub fn setup_command<'c>(
+    pub fn setup_command(
         &self,
         cgroup_id: CgroupID,
-        command: &'c mut Command,
-    ) -> Result<&'c mut Command, CgroupError> {
+        command: &mut Command,
+    ) -> Result<PathBuf, CgroupError> {
         let mut state = self.state.lock().expect("Mutex poisoned");
         let cgroup = state
             .cgroups
             .get_mut(&cgroup_id)
             .ok_or(CgroupError::CgroupIDNotFound { id: cgroup_id })?;
 
-        cgroup.setup_command(command)
+        cgroup.setup_command(command)?;
+        Ok(cgroup.path().to_owned())
     }
 
     /// Acquire a worker cgroup from the pool. If no available worker cgroup, create a new one.

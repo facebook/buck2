@@ -178,10 +178,7 @@ impl Cgroup {
     /// Child process: pre_exec() closure runs (cgroup migration)
     ///                  ↓
     /// Child process: exec() run the command
-    pub fn setup_command<'a>(
-        &self,
-        command: &'a mut Command,
-    ) -> Result<&'a mut Command, CgroupError> {
+    pub fn setup_command(&self, command: &mut Command) -> Result<(), CgroupError> {
         let procs_fd_raw = self.procs_fd.as_raw_fd();
 
         // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
@@ -189,7 +186,7 @@ impl Cgroup {
         // 1. We only call async-signal-safe functions (write to file)
         // 2. No memory allocation or complex operations that could deadlock
         // 3. The raw FD remains valid post-fork since file descriptors are inherited
-        Ok(unsafe {
+        unsafe {
             command.pre_exec(move || {
                 let pid = std::process::id();
 
@@ -216,8 +213,9 @@ impl Cgroup {
                 }
 
                 Ok(())
-            })
-        })
+            });
+        }
+        Ok(())
     }
 
     pub(super) fn move_process_to(&self, cgroup: &Cgroup) -> Result<(), CgroupError> {

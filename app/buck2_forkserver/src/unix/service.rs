@@ -198,7 +198,7 @@ impl UnixForkserverService {
             .as_ref()
             .zip(validated_cmd.action_digest.as_ref());
 
-        let (mut cmd, miniperf_output) = match (
+        let (mut cmd, miniperf_output, cgroup_path) = match (
             validated_cmd.enable_miniperf,
             &self.miniperf,
             &resource_control_context,
@@ -209,7 +209,7 @@ impl UnixForkserverService {
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path))
+                (cmd, Some(output_path), None)
             }
             // Uses systemd-run + miniperf for resource control + monitoring
             // systemd-run --scope --unit=<action_digest> miniperf <output_path> <user_executable>
@@ -218,11 +218,11 @@ impl UnixForkserverService {
                     let mut cmd = background_command(miniperf.miniperf.as_path());
                     // safe to unwarp, because we have cgroup_id which means we have cgroup pool
                     let cgroup_pool = resource_control_runner.cgroup_pool().unwrap();
-                    cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
+                    let cgroup_path = cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
                     let output_path = miniperf.allocate_output_path();
                     cmd.arg(output_path.as_path());
                     cmd.arg(&validated_cmd.exe);
-                    (cmd, Some(output_path))
+                    (cmd, Some(output_path), Some(cgroup_path))
                 } else {
                     let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
                     let mut cmd = resource_control_runner.cgroup_scoped_command(
@@ -233,11 +233,11 @@ impl UnixForkserverService {
                     let output_path = miniperf.allocate_output_path();
                     cmd.arg(output_path.as_path());
                     cmd.arg(&validated_cmd.exe);
-                    (cmd, Some(output_path))
+                    (cmd, Some(output_path), None)
                 }
             }
             // Direct execution of the command
-            _ => (background_command(&validated_cmd.exe), None),
+            _ => (background_command(&validated_cmd.exe), None, None),
         };
 
         cmd.current_dir(&validated_cmd.cwd);
@@ -258,7 +258,7 @@ impl UnixForkserverService {
             cmd.env("MINIPERF_READ_CGROUP", "1");
         }
 
-        let mut cmd = ProcessCommand::new(cmd);
+        let mut cmd = ProcessCommand::new(cmd, cgroup_path);
         if let Some(std_redirects) = &validated_cmd.std_redirects {
             cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
             cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);

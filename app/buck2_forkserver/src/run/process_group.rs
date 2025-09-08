@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 use std::process::Stdio;
@@ -46,23 +47,25 @@ impl From<io::Error> for SpawnError {
 
 pub(crate) struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
+    cgroup: Option<PathBuf>,
 }
 
 impl ProcessCommand {
-    pub(crate) fn new(mut cmd: StdCommand) -> Self {
+    pub(crate) fn new(mut cmd: StdCommand, cgroup: Option<PathBuf>) -> Self {
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         Self {
             inner: imp::ProcessCommandImpl::new(cmd),
+            cgroup,
         }
     }
 
     pub(crate) fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
         let child = self.inner.spawn()?;
-        Ok(ProcessGroup {
-            inner: imp::ProcessGroupImpl::new(child)?,
-        })
+        let inner = imp::ProcessGroupImpl::new(child)?;
+        let cgroup = self.cgroup.take();
+        Ok(ProcessGroup { inner, cgroup })
     }
 
     #[allow(dead_code)]
@@ -80,6 +83,7 @@ impl ProcessCommand {
 
 pub(crate) struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
+    pub(crate) cgroup: Option<PathBuf>,
 }
 
 impl ProcessGroup {
@@ -127,7 +131,7 @@ mod tests {
         }
         cmd.arg("exit 2");
 
-        let mut cmd = ProcessCommand::new(cmd);
+        let mut cmd = ProcessCommand::new(cmd, None);
         let mut child = cmd.spawn().unwrap();
 
         let id = child.id().expect("missing id");

@@ -51,6 +51,7 @@ where
             CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason)) => {
                 Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason })
             }
+            CommandEvent::Cgroup(path) => Data::Cgroup(buck2_forkserver_proto::Cgroup { path }),
         };
 
         buck2_forkserver_proto::CommandEvent { data: Some(data) }
@@ -98,6 +99,7 @@ where
             Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason }) => {
                 CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason))
             }
+            Data::Cgroup(buck2_forkserver_proto::Cgroup { path }) => CommandEvent::Cgroup(path),
         };
 
         Ok(event)
