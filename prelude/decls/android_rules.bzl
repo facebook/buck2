@@ -1441,6 +1441,7 @@ robolectric_test = prelude_rule(
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
+            "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
