@@ -18,6 +18,7 @@ use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::CgroupDelegation;
 use buck2_common::resource_control::ParentSlice;
 use buck2_common::resource_control::ResourceControlRunner;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -64,6 +65,7 @@ pub async fn launch_forkserver(
                 .buck_error_context("Can't find slice in cgroup path")?
         );
 
+        fs_util::create_dir_all(state_dir).map_err(buck2_error::Error::from)?;
         resource_control_runner.cgroup_scoped_command(exe, &unit_name, state_dir)
     } else {
         background_command(exe)
