@@ -1,0 +1,6 @@
+load(":defs.bzl", "output_artifact_in_relative_to")
+
+output_artifact_in_relative_to(
+    name = "output_artifact_in_relative_to",
+    source = "defs.bzl",
+)

@@ -44,12 +44,16 @@ use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
@@ -449,6 +453,7 @@ where
 // because upcasting is not stable).
 #[derive(Display, StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum RelativeOrigin<'v> {
+    OutputArtifact(ValueOf<'v, &'v StarlarkOutputArtifact<'v>>),
     Artifact(&'v dyn StarlarkArtifactLike<'v>),
     CellRoot(&'v CellRoot),
     /// Bit of a useless variant since this is simply the default, but we allow it for consistency.
@@ -497,6 +502,15 @@ impl<'v> RelativeOrigin<'v> {
         C: CommandLineContext + ?Sized,
     {
         let loc = match self {
+            Self::OutputArtifact(artifact) => {
+                let value = artifact
+                    .value
+                    .downcast_ref_err::<FrozenStarlarkOutputArtifact>()
+                    // FIXME(JakobDegen): This is not the only place where we do it, but it's
+                    // nonetheless an extremely non-local assertion
+                    .internal_error("Non-frozen output artifacts can't be added to CLIs")?;
+                ctx.resolve_output_artifact(&value.inner().artifact)?
+            }
             Self::Artifact(artifact) => {
                 // Shame we require the artifact to be bound here, we really just needs its
                 // path even if it is unbound.
