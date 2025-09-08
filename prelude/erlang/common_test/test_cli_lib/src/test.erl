@@ -297,7 +297,8 @@ init_utility_app(StartedApps, UtilityApp) ->
             false;
         _ ->
             io:format("starting utility application ~ts...~n", [UtilityApp]),
-            case application:ensure_all_started(UtilityApp) of
+            {Mod, Fun} = application:get_env(test_cli_lib, application_starter, {application, ensure_all_started}),
+            case Mod:Fun(UtilityApp) of
                 {ok, _} ->
                     true;
                 Error ->
