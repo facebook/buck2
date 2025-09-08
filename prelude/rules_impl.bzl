@@ -292,6 +292,7 @@ cxx_extra_attributes = {
             "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
             "deps_query": attrs.option(attrs.query(), default = None),
             "exported_needs_coverage_instrumentation": attrs.bool(default = False),
+            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
             "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_execution_preference": link_execution_preference_attr(),

@@ -53,6 +53,7 @@ def _cxx_binary_and_test_attrs():
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "exported_needs_coverage_instrumentation": attrs.bool(default = False),
+        "extra_dwp_flags": attrs.list(attrs.string(), default = []),
         "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
@@ -678,6 +679,7 @@ cxx_library = prelude_rule(
                 be included textually. If no filter is specified, the rule excludes
                 inline headers based on a name heuristics (e.g. "-inl.h").
             """),
+            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
         } |
         buck.allow_cache_upload_arg()
     ),
