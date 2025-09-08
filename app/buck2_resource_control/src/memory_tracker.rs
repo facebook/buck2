@@ -23,6 +23,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::Span;
 use buck2_util::cgroup_info::CGroupInfo;
+use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 use parking_lot::Mutex;
 use tokio::fs::File;
@@ -307,7 +308,7 @@ pub async fn create_memory_tracker(
         let tracker_handle = memory_tracker.handle.dupe();
         const TICK_DURATION: Duration = Duration::from_millis(300);
         let timer = IntervalTimer::new(TICK_DURATION);
-        memory_tracker.spawn_task(timer).await;
+        memory_tracker.spawn(timer).await?;
         Ok(Some(tracker_handle))
     } else {
         Ok(None)
@@ -332,110 +333,117 @@ impl MemoryTracker {
     }
 
     #[doc(hidden)]
-    pub(crate) async fn spawn_task(mut self, mut timer: impl Timer + Send + 'static) {
-        tokio::spawn({
-            async move {
-                let mut backoff_data: Option<BackoffData> = None;
-                loop {
-                    timer.tick().await;
-                    // We might need to wait for extra ticks due to backoff
-                    if backoff_data
-                        .as_mut()
-                        .is_some_and(|backoff| backoff.should_skip_tick())
-                    {
-                        continue;
-                    }
+    pub(crate) async fn spawn(self, timer: impl Timer + Send + 'static) -> buck2_error::Result<()> {
+        thread_spawn("memory-tracker", move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(self.run(timer));
+        })?;
+        Ok(())
+    }
 
-                    let old_state = *self.handle.state_sender.borrow();
-                    let old_reading = *self.handle.reading_sender.borrow();
-                    let (new_state, new_reading) = match (
-                        self.read_memory_current().await,
-                        self.read_some_pressure_stall_total_value_in_us().await,
-                    ) {
-                        (Ok(memory_current), Ok(total_pressure)) => {
-                            let memory_current_state =
-                                if let Some(memory_limit_bytes) = self.memory_limit_bytes {
-                                    if memory_current < memory_limit_bytes {
-                                        MemoryCurrentState::BelowLimit
-                                    } else {
-                                        MemoryCurrentState::AboveLimit
-                                    }
-                                } else {
-                                    MemoryCurrentState::NoLimitSet
-                                };
-
-                            // The total field in memory.pressure is the number of microseconds since the start of the cgroup so goes up continuously,
-                            // So we compute the % by comparing the currently parsed value and the last parsed value and divide by microseconds elapsed since
-                            // the last reading to compute the % of time the cgroup was under memory pressure.
-                            let pressure_percent: u64 = match old_reading {
-                                Some(old) => {
-                                    let diff = total_pressure - old.memory_pressure.total_pressure;
-                                    let pressure_percent = (diff * 100)
-                                        / old.memory_pressure.timestamp.elapsed().as_micros();
-                                    pressure_percent as u64
-                                }
-                                // We can't get a % if we can't read the previous state, we only log this if
-                                // it's over the threshold we set so just set it as 0 so it's not logged
-                                None => 0,
-                            };
-
-                            let memory_pressure_state =
-                                if pressure_percent < self.memory_pressure_threshold {
-                                    MemoryPressureState::BelowPressureLimit
-                                } else {
-                                    MemoryPressureState::AbovePressureLimit
-                                };
-
-                            (
-                                TrackedMemoryState::Reading(MemoryStates {
-                                    memory_current_state,
-                                    memory_pressure_state,
-                                }),
-                                Some(MemoryReading {
-                                    memory_current,
-                                    memory_pressure: PressureReading {
-                                        total_pressure,
-                                        pressure_percent,
-                                        timestamp: Instant::now(),
-                                    },
-                                }),
-                            )
-                        }
-                        _ => (TrackedMemoryState::Failure, None),
-                    };
-                    self.handle.state_sender.send_if_modified(|x| {
-                        *x = new_state;
-                        old_state != new_state
-                    });
-
-                    self.handle.reading_sender.send_replace(new_reading);
-
-                    match (old_state, new_state) {
-                        (TrackedMemoryState::Failure, TrackedMemoryState::Failure) => {
-                            backoff_data
-                                .as_mut()
-                                .expect("Backoff data should be present when `Failure` state")
-                                .next_retry();
-                        }
-                        (_, TrackedMemoryState::Failure) => {
-                            _ = backoff_data.insert(BackoffData::new(self.max_retries))
-                        }
-                        _ => _ = backoff_data.take(),
-                    }
-                    if let Some(ref backoff) = backoff_data
-                        && backoff.exceeded_retry_attempts()
-                    {
-                        let _unused = soft_error!(
-                            "memory_tracker_failed",
-                            internal_error!(
-                                "Consistently failed to track memory usage, stopping the tracker."
-                            ),
-                        );
-                        break;
-                    }
-                }
+    async fn run(mut self, mut timer: impl Timer + Send + 'static) {
+        let mut backoff_data: Option<BackoffData> = None;
+        loop {
+            timer.tick().await;
+            // We might need to wait for extra ticks due to backoff
+            if backoff_data
+                .as_mut()
+                .is_some_and(|backoff| backoff.should_skip_tick())
+            {
+                continue;
             }
-        });
+
+            let old_state = *self.handle.state_sender.borrow();
+            let old_reading = *self.handle.reading_sender.borrow();
+            let (new_state, new_reading) = match (
+                self.read_memory_current().await,
+                self.read_some_pressure_stall_total_value_in_us().await,
+            ) {
+                (Ok(memory_current), Ok(total_pressure)) => {
+                    let memory_current_state =
+                        if let Some(memory_limit_bytes) = self.memory_limit_bytes {
+                            if memory_current < memory_limit_bytes {
+                                MemoryCurrentState::BelowLimit
+                            } else {
+                                MemoryCurrentState::AboveLimit
+                            }
+                        } else {
+                            MemoryCurrentState::NoLimitSet
+                        };
+
+                    // The total field in memory.pressure is the number of microseconds since the start of the cgroup so goes up continuously,
+                    // So we compute the % by comparing the currently parsed value and the last parsed value and divide by microseconds elapsed since
+                    // the last reading to compute the % of time the cgroup was under memory pressure.
+                    let pressure_percent: u64 = match old_reading {
+                        Some(old) => {
+                            let diff = total_pressure - old.memory_pressure.total_pressure;
+                            let pressure_percent =
+                                (diff * 100) / old.memory_pressure.timestamp.elapsed().as_micros();
+                            pressure_percent as u64
+                        }
+                        // We can't get a % if we can't read the previous state, we only log this if
+                        // it's over the threshold we set so just set it as 0 so it's not logged
+                        None => 0,
+                    };
+
+                    let memory_pressure_state = if pressure_percent < self.memory_pressure_threshold
+                    {
+                        MemoryPressureState::BelowPressureLimit
+                    } else {
+                        MemoryPressureState::AbovePressureLimit
+                    };
+
+                    (
+                        TrackedMemoryState::Reading(MemoryStates {
+                            memory_current_state,
+                            memory_pressure_state,
+                        }),
+                        Some(MemoryReading {
+                            memory_current,
+                            memory_pressure: PressureReading {
+                                total_pressure,
+                                pressure_percent,
+                                timestamp: Instant::now(),
+                            },
+                        }),
+                    )
+                }
+                _ => (TrackedMemoryState::Failure, None),
+            };
+            self.handle.state_sender.send_if_modified(|x| {
+                *x = new_state;
+                old_state != new_state
+            });
+
+            self.handle.reading_sender.send_replace(new_reading);
+
+            match (old_state, new_state) {
+                (TrackedMemoryState::Failure, TrackedMemoryState::Failure) => {
+                    backoff_data
+                        .as_mut()
+                        .expect("Backoff data should be present when `Failure` state")
+                        .next_retry();
+                }
+                (_, TrackedMemoryState::Failure) => {
+                    _ = backoff_data.insert(BackoffData::new(self.max_retries))
+                }
+                _ => _ = backoff_data.take(),
+            }
+            if let Some(ref backoff) = backoff_data
+                && backoff.exceeded_retry_attempts()
+            {
+                let _unused = soft_error!(
+                    "memory_tracker_failed",
+                    internal_error!(
+                        "Consistently failed to track memory usage, stopping the tracker."
+                    ),
+                );
+                break;
+            }
+        }
     }
 
     async fn read_memory_current(&mut self) -> buck2_error::Result<u64> {
@@ -551,7 +559,7 @@ mod tests {
         let tracker = MemoryTracker::new(memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
-        tracker.spawn_task(timer).await;
+        tracker.spawn(timer).await?;
 
         assert_eq!(
             *state_rx.borrow_and_update(),
@@ -628,7 +636,7 @@ mod tests {
         let tracker = MemoryTracker::new(memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
-        tracker.spawn_task(timer).await;
+        tracker.spawn(timer).await?;
 
         assert_eq!(
             *state_rx.borrow_and_update(),
@@ -705,7 +713,7 @@ mod tests {
         let timer = MockTimer::new(None, counter.clone());
         let tracker = MemoryTracker::new(memory_current, memory_pressure, 3, Some(0), 0);
         let handle = tracker.handle.dupe();
-        tracker.spawn_task(timer).await;
+        tracker.spawn(timer).await?;
         let mut rx = handle.state_sender.subscribe();
         let wait = rx.wait_for(|x| match x {
             TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
