@@ -26,6 +26,7 @@ load(
 _BUILD_DIR = "__build"
 _DEP_FILES_DIR = paths.join(_BUILD_DIR, "__dep_files")
 _DEP_INFO_FILE = paths.join(_DEP_FILES_DIR, "app.info.dep")
+_GENERATED_DIR = paths.join(_BUILD_DIR, "__generated")
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
@@ -86,21 +87,16 @@ def _prepare_build_environment(
         beams = beams,
     )
 
-def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
+def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain) -> list[Artifact]:
     """Generate source output artifacts and build actions for generated erl files."""
 
-    def build(src, custom_include_opt):
-        return _build_xyrl(
-            ctx,
-            toolchain,
-            src,
-            custom_include_opt,
-            ctx.actions.declare_output(generated_erl_path(name, src)),
-        )
-
-    yrl_outputs = {module_name(src): build(src, "yrl_includefile") for src in ctx.attrs.srcs if _is_yrl(src)}
-    xrl_outputs = {module_name(src): build(src, "xrl_includefile") for src in ctx.attrs.srcs if _is_xrl(src)}
-    return yrl_outputs | xrl_outputs
+    results = []
+    for src in ctx.attrs.srcs:
+        if _is_yrl(src):
+            results.append(_build_xyrl(ctx, toolchain, src, "yrl_includefile"))
+        elif _is_xrl(src):
+            results.append(_build_xyrl(ctx, toolchain, src, "xrl_includefile"))
+    return results
 
 # mutates build_environment in place
 def _generate_include_artifacts(
@@ -245,9 +241,9 @@ def _build_xyrl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         xyrl: Artifact,
-        custom_include_opt: str,
-        output: Artifact) -> Artifact:
+        custom_include_opt: str) -> Artifact:
     """Generate an erl file out of an xrl or yrl input file."""
+    output = ctx.actions.declare_output(_GENERATED_DIR, "{}.erl".format(module_name(xyrl)))
     erlc = toolchain.otp_binaries.erlc
     custom_include = getattr(ctx.attrs, custom_include_opt, None)
     cmd = cmd_args(erlc)
@@ -445,14 +441,6 @@ def _preserved_opts(opts: list[str]) -> cmd_args:
 
     joined = cmd_args(preserved, delimiter = ", ")
     return cmd_args(joined, format = "{options, [{}]}")
-
-def generated_erl_path(appname: str, src: Artifact) -> str:
-    """The output path for generated erl files."""
-    return paths.join(
-        _BUILD_DIR,
-        "__generated_%s" % (appname,),
-        "%s.erl" % (module_name(src),),
-    )
 
 def module_name(in_file: Artifact) -> str:
     """ Returns the basename of the artifact without extension """

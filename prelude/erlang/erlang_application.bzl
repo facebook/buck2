@@ -115,18 +115,18 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
     build_environment = erlang_build.prepare_build_environment(dep_info, include_info)
 
     # build generated inputs
-    generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain, name)
+    generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain)
 
     # Put all sources in a src folder, both for hermeticity (erlc will try to load .hrl files next to the .erl file)
     # and to ultimately put it in the app folder
-    src_dir = _link_src_dir(ctx, extra_srcs = generated_source_artifacts.values())
+    src_dir = _link_src_dir(ctx, extra_srcs = generated_source_artifacts)
 
     # collect all inputs
     src_artifacts = [
         src
         for src in ctx.attrs.srcs
-        if erlang_build.utils.is_erl(src) and erlang_build.utils.module_name(src) not in generated_source_artifacts
-    ] + generated_source_artifacts.values()
+        if erlang_build.utils.is_erl(src)
+    ] + generated_source_artifacts
 
     private_header_artifacts = [header for header in ctx.attrs.srcs if erlang_build.utils.is_hrl(header)]
 
