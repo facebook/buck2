@@ -36,11 +36,6 @@ def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
     for target in targets.values():
         res += target
 
-    # TODO(connernilsen): when is the fileter applied? Does this actually provide us just
-    # with alias targets and python libraries?
-    # What was the `first_order_deps()` that was here for? Is it also worth having
-    # the `target_deps()` filter here too?
-    # It's a lot slower now, but we can come back to that later.
     return cquery.deps(res, filter = "kind('python_library|alias', target_deps())")
 
 def _clean_module(base_module: str, module: str) -> str:
@@ -115,8 +110,6 @@ def _main(ctx: bxl.Context) -> None:
                         _clean_module(base_module, v.short_path),
                         fs.project_rel_path(v),
                     )
-                    # TODO(connernilsen): not sure if this is reasonable to do
-
                 elif type(v) != "Label" and getattr(v, "short_path"):
                     to_build.append(v)
                     to_insert.append((srcs, _clean_module(base_module, v.short_path), v))
