@@ -286,16 +286,16 @@ ensure_initialized() ->
 -spec init_utility_apps() -> boolean().
 init_utility_apps() ->
     UtilityApps = application:get_env(test_cli_lib, utility_applications, []),
-    RunningApps = proplists:get_value(running, application:info()),
-    StartResults = [init_utility_app(RunningApps, UtilityApp) || UtilityApp <- UtilityApps],
+    StartedApps = #{App => true || {App, _} <- proplists:get_value(started, application:info())},
+    StartResults = [init_utility_app(StartedApps, UtilityApp) || UtilityApp <- UtilityApps],
     lists:any(fun(B) when is_boolean(B) -> B end, StartResults).
 
--spec init_utility_app(RunningApps :: [atom()], UtilityApp :: atom()) -> boolean().
-init_utility_app(RunningApps, UtilityApp) ->
-    case proplists:is_defined(UtilityApp, RunningApps) of
-        true ->
+-spec init_utility_app(StartedApps :: #{atom() => term()}, UtilityApp :: atom()) -> boolean().
+init_utility_app(StartedApps, UtilityApp) ->
+    case StartedApps of
+        #{UtilityApp := _} ->
             false;
-        false ->
+        _ ->
             io:format("starting utility application ~ts...~n", [UtilityApp]),
             case application:ensure_all_started(UtilityApp) of
                 {ok, _} ->
