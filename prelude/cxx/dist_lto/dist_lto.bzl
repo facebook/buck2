@@ -296,11 +296,11 @@ def cxx_gnu_dist_link(
                 add_linkable(idx, linkable)
                 index_link_data.append(None)
 
-    index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
-    final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
-    pre_flags_argsfile = ctx.actions.declare_output(output.basename + ".thinlto_pre_flags_argsfile")
-    linkables_argsfile = ctx.actions.declare_output(output.basename + ".thinlto_linkables_argsfile")
-    post_flags_argsfile = ctx.actions.declare_output(output.basename + ".thinlto_post_flags_argsfile")
+    index_argsfile_out = ctx.actions.declare_output(output.short_path + ".thinlto_index_argsfile")
+    final_link_index = ctx.actions.declare_output(output.short_path + ".final_link_index")
+    pre_flags_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_pre_flags_argsfile")
+    linkables_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_linkables_argsfile")
+    post_flags_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_post_flags_argsfile")
 
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact, pre_flags_argsfile: Artifact, linkables_argsfile: Artifact, post_flags_argsfile: Artifact) -> None:
         def plan(ctx: AnalysisContext, artifacts, outputs):
@@ -429,7 +429,7 @@ def cxx_gnu_dist_link(
             # Terminate the index file with a newline.
             index_meta.add("")
             index_meta_file = ctx.actions.write(
-                output.basename + ".thinlto.meta",
+                output.short_path + ".thinlto.meta",
                 index_meta,
             )
 
@@ -491,11 +491,11 @@ def cxx_gnu_dist_link(
         # However, buck2 disallows `dynamic_output` with a empty input list. We also can't call our `plan` function
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
-        plan_inputs.append(ctx.actions.write(output.basename + ".plan_hack.txt", ""))
+        plan_inputs.append(ctx.actions.write(output.short_path + ".plan_hack.txt", ""))
         plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output(), pre_flags_argsfile.as_output(), linkables_argsfile.as_output(), post_flags_argsfile.as_output(), post_flags_argsfile.as_output()])
         ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
 
-    link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
+    link_plan_out = ctx.actions.declare_output(output.short_path + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index, pre_flags_argsfile = pre_flags_argsfile, linkables_argsfile = linkables_argsfile, post_flags_argsfile = post_flags_argsfile)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
@@ -515,7 +515,7 @@ def cxx_gnu_dist_link(
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
     # for the entire link unit will do.
-    opt_argsfile = ctx.actions.declare_output(output.basename + ".lto_opt_argsfile")
+    opt_argsfile = ctx.actions.declare_output(output.short_path + ".lto_opt_argsfile")
     ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
 
     # We declare a separate dynamic_output for every object file. It would
