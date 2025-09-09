@@ -917,7 +917,9 @@ def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules
         # enable, regardless if this is a mixed library or not
         return get_swift_toolchain_info(ctx).supports_explicit_module_debug_serialization
 
-    return True
+    # Serialized debugging options contain absolute paths until
+    # https://github.com/swiftlang/swift/pull/84112
+    return False
 
 def _get_shared_flags(
         ctx: AnalysisContext,
