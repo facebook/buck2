@@ -258,6 +258,8 @@ def buck2_e2e_test(
 
     if test_with_compiled_buck2:
         compiled_env = dict(env)
+
+        # TODO(ctolliday) use BUCK2_HARD_ERROR=panic
         compiled_env["BUCK2_HARD_ERROR"] = "true"
         compiled_env["BUCK2_TPX"] = "$BUCK2_BINARY_DIR/buck2-tpx"
 

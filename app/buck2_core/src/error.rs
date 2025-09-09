@@ -17,6 +17,7 @@ use std::sync::atomic::Ordering;
 
 use arc_swap::ArcSwapOption;
 use buck2_error::BuckErrorContext;
+use once_cell::sync::Lazy;
 use starlark_map::small_set::SmallSet;
 
 use crate::env::__macro_refs::buck2_env;
@@ -40,6 +41,9 @@ static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
 };
 
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
+
+static HARD_ERROR_PANIC_ALLOWLIST: Lazy<SmallSet<String>> =
+    Lazy::new(|| SmallSet::from_iter(["spawn_version_control_collector_failed".to_owned()]));
 
 /// Throw a "soft_error" ie. a non-fatal error logged to logview.
 /// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.
@@ -197,6 +201,12 @@ pub fn handle_soft_error(
         }
     }
 
+    if hard_error_config()?.should_panic(category) {
+        panic!(
+            "Upgraded warning to panic via $BUCK2_HARD_ERROR\n {category}: {:?}",
+            err
+        );
+    }
     if hard_error_config()?.should_hard_error(category) {
         return Err(err
             .context("Upgraded warning to failure via $BUCK2_HARD_ERROR")
@@ -234,13 +244,22 @@ pub fn initialize(handler: StructuredErrorHandler) -> buck2_error::Result<()> {
 enum HardErrorConfig {
     Bool(bool),
     Selected(SmallSet<String>),
+    Panic,
 }
 
 impl HardErrorConfig {
+    fn should_panic(&self, category: &str) -> bool {
+        match self {
+            Self::Panic => !HARD_ERROR_PANIC_ALLOWLIST.contains(category),
+            _ => false,
+        }
+    }
+
     fn should_hard_error(&self, category: &str) -> bool {
         match self {
             Self::Bool(v) => *v,
             Self::Selected(s) => s.contains(category),
+            Self::Panic => true, // category is in HARD_ERROR_PANIC_ALLOWLIST, make it a normal hard error
         }
     }
 }
@@ -251,6 +270,10 @@ impl FromStr for HardErrorConfig {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
             return Ok(Self::Bool(false));
+        }
+
+        if s == "panic" {
+            return Ok(Self::Panic);
         }
 
         if let Ok(v) = s.parse() {

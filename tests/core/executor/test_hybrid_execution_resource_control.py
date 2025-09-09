@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import filter_events, timestamp_ms
 
 
@@ -39,6 +39,7 @@ def configure_freezing_with_pressure(buck: Buck) -> None:
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
+@env("BUCK2_HARD_ERROR", "panic")
 async def test_no_local_action_when_full_hybrid_given_memory_pressure(
     buck: Buck,
 ) -> None:
@@ -107,6 +108,7 @@ class _ActionExecution:
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
+@env("BUCK2_HARD_ERROR", "panic")
 async def test_local_actions_throttled_when_limited_hybrid_given_memory_pressure(
     buck: Buck,
 ) -> None:
@@ -176,6 +178,7 @@ def _get(data: Dict[str, Any], *key: str) -> Any:
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
+@env("BUCK2_HARD_ERROR", "panic")
 async def test_action_freezing(
     buck: Buck,
 ) -> None:
