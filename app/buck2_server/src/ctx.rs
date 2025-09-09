@@ -672,19 +672,12 @@ impl DiceCommandUpdater<'_, '_> {
                 property: "remote_execution_fallback_on_estimated_queue_time_exceeds_s",
             })?
             .map(Duration::from_secs);
-        let re_use_new_queue_estimate = root_config
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "build",
-                property: "remote_execution_use_new_queue_estimate",
-            })?
-            .unwrap_or(false);
 
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
             re_cancel_on_estimated_queue_time_exceeds,
             re_fallback_on_estimated_queue_time_exceeds,
-            re_use_new_queue_estimate,
         };
 
         let host_sharing_broker =
@@ -805,7 +798,6 @@ impl DiceCommandUpdater<'_, '_> {
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
-            format!("re-use-new-queue-estimate:{}", re_use_new_queue_estimate),
         ];
         self.cmd_ctx
             .events()

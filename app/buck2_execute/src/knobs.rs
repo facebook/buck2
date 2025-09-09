@@ -27,7 +27,4 @@ pub struct ExecutorGlobalKnobs {
     /// Maximum duration in seconds that an execution can remain in the RE queue state before local execution is unblocked.
     /// Note this overrides, and should possibly replace, `remote_execution_queue_time_threshold_s` configured per executor.
     pub re_fallback_on_estimated_queue_time_exceeds: Option<Duration>,
-
-    /// Can be removed along with TaskInfo.new_estimated_queue_time_ms after effect is measured.
-    pub re_use_new_queue_estimate: bool,
 }
