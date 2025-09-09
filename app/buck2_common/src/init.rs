@@ -250,6 +250,8 @@ pub struct ResourceControlConfig {
     /// If provided and above the threshold, the cgroups will enforce this memory pressure and will freeze/kill actions
     /// to stay under this pressure limit. (Currently only used for logging purposes and doesn't actually do the above)
     pub memory_pressure_threshold_percent: Option<u64>,
+    /// Enable action freezing when memory pressure is high.
+    pub enable_action_freezing: Option<bool>,
 }
 
 #[derive(
@@ -328,6 +330,10 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_pressure_threshold_percent",
             })?;
+            let enable_action_freezing = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "enable_action_freezing",
+            })?;
             Ok(Self {
                 status,
                 memory_max,
@@ -336,6 +342,7 @@ impl ResourceControlConfig {
                 enable_action_cgroup_pool,
                 cgroup_pool_size,
                 memory_pressure_threshold_percent,
+                enable_action_freezing,
             })
         }
     }

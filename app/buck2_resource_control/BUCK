@@ -7,6 +7,20 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:nix",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:nix",
+            ],
+        ),
+    ],
     test_deps = [
         "fbsource//third-party/rust:tempfile",
     ],
@@ -14,6 +28,7 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

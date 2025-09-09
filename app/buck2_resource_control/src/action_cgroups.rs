@@ -9,16 +9,26 @@
  */
 
 use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::os::fd::AsFd;
+use std::os::fd::OwnedFd;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_common::init::ResourceControlConfig;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use dupe::Dupe;
+use nix::dir::Dir;
+use nix::fcntl::OFlag;
+use nix::fcntl::openat;
+use nix::sys::stat::Mode;
+use nix::unistd;
 use tokio::fs::File;
 use tokio::sync::Mutex;
 
+use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
 
@@ -26,6 +36,7 @@ use crate::memory_tracker::read_memory_current;
 pub struct ActionCgroupResult {
     pub memory_peak: Option<u64>,
     pub error: Option<buck2_error::Error>,
+    pub was_frozen: bool,
 }
 
 impl ActionCgroupResult {
@@ -33,6 +44,7 @@ impl ActionCgroupResult {
         Self {
             memory_peak: Some(cgroup_info.memory_peak),
             error: cgroup_info.error,
+            was_frozen: cgroup_info.was_frozen,
         }
     }
 
@@ -40,6 +52,7 @@ impl ActionCgroupResult {
         Self {
             memory_peak: None,
             error: Some(e),
+            was_frozen: false,
         }
     }
 }
@@ -52,10 +65,14 @@ struct ActionCgroup {
     memory_peak: u64,
     memory_current: u64,
     error: Option<buck2_error::Error>,
+    was_frozen: bool,
+    freeze_file: Option<OwnedFd>,
 }
 
 pub(crate) struct ActionCgroups {
+    enable_freezing: bool,
     active_cgroups: HashMap<PathBuf, ActionCgroup>,
+    frozen_cgroups: VecDeque<PathBuf>,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -104,16 +121,21 @@ impl ActionCgroups {
         let enable_action_cgroup_pool = resource_control_config
             .enable_action_cgroup_pool
             .unwrap_or(false);
+        let enable_freezing = resource_control_config
+            .enable_action_freezing
+            .unwrap_or(false);
 
         if !enable_action_cgroup_pool {
             return None;
         }
-        Some(Self::new())
+        Some(Self::new(enable_freezing))
     }
 
-    pub fn new() -> Self {
+    pub fn new(enable_freezing: bool) -> Self {
         Self {
+            enable_freezing,
             active_cgroups: HashMap::new(),
+            frozen_cgroups: VecDeque::new(),
         }
     }
 
@@ -133,6 +155,8 @@ impl ActionCgroups {
                 memory_current: memory_initial,
                 memory_peak: 0,
                 error: None,
+                was_frozen: false,
+                freeze_file: None,
             },
         );
         if let Some(existing) = existing {
@@ -146,7 +170,15 @@ impl ActionCgroups {
     }
 
     pub fn command_finished(&mut self, cgroup_path: &PathBuf) -> ActionCgroupResult {
-        if let Some(cgroup) = self.active_cgroups.remove(cgroup_path) {
+        if let Some(mut cgroup) = self.active_cgroups.remove(cgroup_path) {
+            // Command can finish after freezing a cgroup either because freezing may take some time
+            // or because we started freezing after the command finished.
+            // In this case we need to unfreeze the cgroup for the next command.
+            if let Some(freeze_file) = cgroup.freeze_file.take() {
+                unfreeze_cgroup(freeze_file);
+                self.frozen_cgroups
+                    .retain(|frozen_cgroup_path| cgroup_path != frozen_cgroup_path);
+            }
             ActionCgroupResult::from_info(cgroup)
         } else {
             ActionCgroupResult::from_error(internal_error!(
@@ -156,7 +188,7 @@ impl ActionCgroups {
         }
     }
 
-    pub async fn update(&mut self) {
+    pub async fn update(&mut self, pressure_state: MemoryPressureState) {
         for cgroup in self.active_cgroups.values_mut() {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
             // in kernels older than 6.12.
@@ -175,6 +207,106 @@ impl ActionCgroups {
                 }
             }
         }
+
+        if pressure_state == MemoryPressureState::AbovePressureLimit {
+            self.maybe_freeze();
+        }
+
+        self.maybe_unfreeze();
+    }
+
+    // Currently we freeze the largest cgroup and we keep freezing until only one action is executing.
+    // What we really want is to freeze the cgroup that will have the least impact on the critical path,
+    // may be better to freeze at random, or freeze the cgroup with the most pressure stalls.
+    fn maybe_freeze(&mut self) {
+        let running_actions = self.active_cgroups.len() - self.frozen_cgroups.len();
+        // Don't freeze if there's only one action
+        if running_actions <= 1 {
+            return;
+        }
+
+        let largest_cgroup = self
+            .active_cgroups
+            .values_mut()
+            .filter(|cgroup| cgroup.freeze_file.is_none())
+            .max_by_key(|cgroup| cgroup.memory_current);
+
+        if let Some(cgroup) = largest_cgroup {
+            if self.enable_freezing {
+                match freeze_cgroup(&cgroup.path) {
+                    Ok(freeze_file) => {
+                        tracing::debug!("Froze action: {:?}", cgroup.path);
+                        cgroup.freeze_file = Some(freeze_file);
+                        self.frozen_cgroups.push_back(cgroup.path.clone());
+                    }
+                    Err(e) => {
+                        cgroup.error = Some(e);
+                    }
+                }
+            }
+        }
+    }
+
+    fn maybe_unfreeze(&mut self) {
+        // Wait until no actions are running to unfreeze
+        // TODO start unfreezing earlier, after memory pressure drops and resuming a cgroup is unlikely to cause pressure
+        let cgroup_to_unfreeze = if self.active_cgroups.len() - self.frozen_cgroups.len() == 0 {
+            self.frozen_cgroups.pop_front()
+        } else {
+            None
+        };
+
+        if let Some(frozen_cgroup_path) = cgroup_to_unfreeze {
+            tracing::debug!("Unfreezing action: {:?}", frozen_cgroup_path);
+            let frozen_cgroup = self
+                .active_cgroups
+                .get_mut(&frozen_cgroup_path)
+                .expect("frozen cgroups must be in active cgroups");
+            frozen_cgroup.was_frozen = true;
+            let freeze_file = frozen_cgroup
+                .freeze_file
+                .take()
+                .expect("frozen cgroups must have a freeze file");
+            unfreeze_cgroup(freeze_file);
+        }
+    }
+}
+
+// From https://docs.kernel.org/admin-guide/cgroup-v2.html
+// Writing “1” to 'cgroup.freeze' causes freezing of the cgroup and all descendant cgroups. This means
+// that all belonging processes will be stopped and will not run until the cgroup will be explicitly unfrozen.
+fn freeze_cgroup(cgroup_path: &PathBuf) -> buck2_error::Result<OwnedFd> {
+    // Using nix APIs in case more precise control is needed for control file IO.
+    let dir: Dir = Dir::open(cgroup_path, OFlag::O_CLOEXEC, Mode::empty())
+        .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup directory"))?;
+    let freeze_file: OwnedFd = openat(
+        &dir,
+        "cgroup.freeze",
+        OFlag::O_CLOEXEC | OFlag::O_RDWR,
+        Mode::empty(),
+    )
+    .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup.freeze file"))?;
+
+    static ONE: [u8; 1] = ["1".as_bytes()[0]];
+    let bytes_written = unistd::write(freeze_file.as_fd(), &ONE)?;
+    if bytes_written != 1 {
+        return Err(internal_error!("Failed to write to cgroup.freeze file"));
+    }
+    Ok(freeze_file)
+}
+
+fn unfreeze_cgroup(freeze_file: OwnedFd) {
+    fn unfreeze(freeze_file: OwnedFd) -> buck2_error::Result<()> {
+        static ZERO: [u8; 1] = ["0".as_bytes()[0]];
+        let bytes_written = unistd::write(freeze_file.as_fd(), &ZERO)?;
+        if bytes_written != 1 {
+            return Err(internal_error!("Failed to write to cgroup.freeze file"));
+        }
+        Ok(())
+    }
+
+    if let Err(e) = unfreeze(freeze_file) {
+        let _unused = soft_error!("cgroup_unfreeze_failed", e);
     }
 }
 
@@ -194,19 +326,57 @@ mod tests {
         fs::write(cgroup_1.join("memory.current"), "10")?;
         fs::write(cgroup_2.join("memory.current"), "10")?;
 
-        let mut action_cgroups = ActionCgroups::new();
+        let mut action_cgroups = ActionCgroups::new(false);
         action_cgroups.command_started(cgroup_1.clone()).await?;
         action_cgroups.command_started(cgroup_2.clone()).await?;
 
         fs::write(cgroup_1.join("memory.current"), "20")?;
         fs::write(cgroup_2.join("memory.current"), "5")?;
 
-        action_cgroups.update().await;
+        action_cgroups
+            .update(MemoryPressureState::AbovePressureLimit)
+            .await;
 
         let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
         let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
         assert_eq!(cgroup_1_res.memory_peak, Some(10));
         assert_eq!(cgroup_2_res.memory_peak, Some(0));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_freeze() -> buck2_error::Result<()> {
+        let cgroup_1 = tempfile::tempdir()?;
+        let cgroup_2 = tempfile::tempdir()?;
+        let cgroup_1 = cgroup_1.path().to_path_buf();
+        let cgroup_2 = cgroup_2.path().to_path_buf();
+
+        fs::write(cgroup_1.join("memory.current"), "0")?;
+        fs::write(cgroup_2.join("memory.current"), "0")?;
+        fs::write(cgroup_1.join("cgroup.freeze"), "0")?;
+        fs::write(cgroup_2.join("cgroup.freeze"), "0")?;
+
+        let mut action_cgroups = ActionCgroups::new(true);
+        action_cgroups.command_started(cgroup_1.clone()).await?;
+        action_cgroups.command_started(cgroup_2.clone()).await?;
+
+        fs::write(cgroup_1.join("memory.current"), "1")?;
+        fs::write(cgroup_2.join("memory.current"), "2")?;
+
+        action_cgroups
+            .update(MemoryPressureState::AbovePressureLimit)
+            .await;
+
+        let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
+        assert_eq!(cgroup_1_res.was_frozen, false);
+
+        action_cgroups
+            .update(MemoryPressureState::BelowPressureLimit)
+            .await;
+
+        let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
+        assert_eq!(cgroup_2_res.was_frozen, true);
 
         Ok(())
     }
