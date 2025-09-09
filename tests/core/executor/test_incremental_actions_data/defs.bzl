@@ -25,3 +25,42 @@ basic_incremental_action = rule(impl = _basic_incremental_actions_impl, attrs = 
     "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
     "use_incremental": attrs.bool(default = (read_config("test", "use_incremental", True) == True)),
 })
+
+def _incremental_action_with_metadata_optout_impl(ctx) -> list[Provider]:
+    out = ctx.actions.declare_output("out")
+    input_not_in_metadata = ctx.actions.write("input_not_in_metadata", "input_not_in_metadata")
+    input_in_metadata = ctx.actions.write("input_in_metadata", "input_in_metadata")
+
+    script = """
+import json
+import os
+import sys
+
+with open(os.environ["METADATA"], "r") as f:
+    metadata_digests = json.load(f)['digests']
+    assert len(metadata_digests) == 1
+    assert "input_in_metadata" in metadata_digests[0]['path']
+
+with open(sys.argv[1], "w") as f:
+    f.write("output")
+"""
+    artifact_tag = ctx.actions.artifact_tag()
+
+    script = artifact_tag.tag_artifacts(ctx.actions.write("script.py", script, is_executable = True))
+
+    ctx.actions.run(
+        cmd_args(["fbpython", script, out.as_output()], hidden = [artifact_tag.tag_artifacts(input_not_in_metadata), input_in_metadata]),
+        category = "incremental",
+        no_outputs_cleanup = True,
+        local_only = True,
+        metadata_env_var = "METADATA",
+        metadata_path = "metadata.json",
+    )
+    return [
+        DefaultInfo(out),
+    ]
+
+incremental_action_with_metadata_optout = rule(
+    impl = _incremental_action_with_metadata_optout_impl,
+    attrs = {},
+)

@@ -11,6 +11,7 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
 
@@ -350,3 +351,13 @@ async def test_incremental_action_interleave_platforms_abba_with_content_based_p
         buck, "root//:p_default", use_content_based_path=True
     )
     assert result.stdout == "foo bar"
+
+
+@buck_test()
+async def test_incremental_action_with_metadata_opt_out(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.build("root//:incremental_action_with_metadata_optout"),
+        stderr_regex=r"len\(metadata_digests\) == 1",
+    )
