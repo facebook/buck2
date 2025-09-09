@@ -8,12 +8,17 @@
 
 prefer_local = read_root_config("test", "prefer_local", "false").lower() == "true"
 
-def _impl(ctx) -> list[Provider]:
+def _merge_outputs_impl(ctx) -> list[Provider]:
     outputs = []
-    for i in range(1, 100):
+    for i in range(1, ctx.attrs.num_actions):
         output = ctx.actions.declare_output("output{}.txt".format(i))
         outputs.append(output)
-        ctx.actions.run(["sh", "-c", 'head -c 10 /dev/urandom > "$1"', "--", output.as_output()], category = "my_action{}".format(i), prefer_local = prefer_local)
+
+        sh_cmd = 'head -c 10 /dev/urandom > "$1"'
+        if ctx.attrs.sleep > 0:
+            sh_cmd = "sleep {} && {}".format(ctx.attrs.sleep, sh_cmd)
+
+        ctx.actions.run(["sh", "-c", sh_cmd, "--", output.as_output()], category = "my_action{}".format(i), prefer_local = prefer_local)
 
     merged = ctx.actions.declare_output("output.txt")
     cmd = cmd_args("cat", outputs, ">", merged.as_output(), delimiter = " ")
@@ -23,7 +28,13 @@ def _impl(ctx) -> list[Provider]:
         DefaultInfo(merged),
     ]
 
-china = rule(impl = _impl, attrs = {})
+merge_outputs = rule(
+    impl = _merge_outputs_impl,
+    attrs = {
+        "num_actions": attrs.int(default = 100),
+        "sleep": attrs.int(default = 0),
+    },
+)
 
 def _execution_platform(ctx):
     return [

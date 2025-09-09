@@ -49,6 +49,7 @@ pub mod action_cgroups {
     pub struct ActionCgroupResult {
         pub memory_peak: Option<u64>,
         pub error: Option<buck2_error::Error>,
+        pub was_frozen: bool,
     }
 }
 

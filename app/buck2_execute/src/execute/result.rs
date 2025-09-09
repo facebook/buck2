@@ -158,6 +158,9 @@ pub struct CommandExecutionMetadata {
 
     /// How long this command spent waiting to run
     pub queue_duration: Option<Duration>,
+
+    // Whether this command was frozen due to memory pressure.
+    pub was_frozen: bool,
 }
 
 impl CommandExecutionMetadata {
@@ -176,6 +179,7 @@ impl CommandExecutionMetadata {
             hashing_duration: metadata.hashing_duration.try_into().ok(),
             hashed_artifacts_count: metadata.hashed_artifacts_count.try_into().ok().unwrap_or(0),
             queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
+            was_frozen: Some(metadata.was_frozen),
         }
     }
 }
@@ -191,6 +195,7 @@ impl Default for CommandExecutionMetadata {
             hashing_duration: Duration::default(),
             hashed_artifacts_count: 0,
             queue_duration: None,
+            was_frozen: false,
         }
     }
 }
@@ -460,6 +465,7 @@ mod tests {
             hashing_duration: Duration::from_secs(7),
             hashed_artifacts_count: 8,
             queue_duration: Some(Duration::from_secs(9)),
+            was_frozen: false,
         };
         let std_streams = CommandStdStreams::Local {
             stdout: [65, 66, 67].to_vec(), // ABC
@@ -535,6 +541,7 @@ mod tests {
                 seconds: 9,
                 nanos: 0,
             }),
+            was_frozen: Some(false),
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),

@@ -1399,6 +1399,9 @@ message CommandExecutionMetadata {
 
   /// How long this command spent waiting to run
   optional google.protobuf.Duration queue_duration = 8;
+
+  /// Whether this command was frozen due to memory pressure
+  optional bool was_frozen = 9;
 }
 
 message CommandOutputsMissing {

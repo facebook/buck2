@@ -24,13 +24,31 @@ def test_dummy() -> None:
     pass
 
 
+def configure_memory_limit(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("hybrid_execution_memory_limit_gibibytes = 0\n")
+
+
+def configure_freezing_with_pressure(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("enable_action_cgroup_pool = true\n")
+        f.write("enable_action_freezing = true\n")
+        f.write("memory_pressure_threshold_percent = 0\n")
+
+
 @buck_test(skip_for_os=["darwin", "windows"])
 async def test_no_local_action_when_full_hybrid_given_memory_pressure(
     buck: Buck,
 ) -> None:
+    configure_memory_limit(buck)
     # Also configs for `buck2_resource_control` section are passed vis `.buckconfig`
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("hybrid_execution_memory_limit_gibibytes = 0\n")
     await buck.build(
-        ":plate",
+        ":merge_100",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=False",
@@ -92,9 +110,9 @@ class _ActionExecution:
 async def test_local_actions_throttled_when_limited_hybrid_given_memory_pressure(
     buck: Buck,
 ) -> None:
-    # Also configs for `buck2_resource_control` section are passed vis `.buckconfig`
+    configure_memory_limit(buck)
     await buck.build(
-        ":plate",
+        ":merge_100",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=True",
@@ -155,3 +173,57 @@ def _get(data: Dict[str, Any], *key: str) -> Any:
             return None
 
     return data
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_action_freezing(
+    buck: Buck,
+) -> None:
+    configure_freezing_with_pressure(buck)
+    await buck.build(
+        ":sleep_merge",
+        "--no-remote-cache",
+        "-c",
+        "build.use_limited_hybrid=True",
+        "-c",
+        "build.execution_platforms=//:platforms",
+        "-c",
+        "test.prefer_local=True",
+        "--local-only",
+    )
+
+    result = await buck.log("show")
+    frozen_count = 0
+    for line in result.stdout.splitlines():
+        json_object = json.loads(line)
+        action_end: Optional[Dict[str, Any]] = _get(
+            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
+        )
+        if action_end is not None:
+            action_commands = _get(action_end, "commands")
+            assert len(action_commands) == 1
+
+            metadata = _get(action_commands[0], "details", "metadata")
+            was_frozen = metadata["was_frozen"]
+            if was_frozen:
+                frozen_count += 1
+
+    # Check that at least one action was frozen (and the command didn't block indefinitely)
+    assert frozen_count > 0
+
+    # concurrent tests with enable_action_cgroup_pool=true hit this error:
+    #     Failed to start transient scope unit: Unit buck2-daemon.project.v2.scope was already loaded or has a fragment file.
+    # TODO fix that and make the rest of this a separate test
+
+    # Stress test that nothing breaks with fast running actions (faster than memory tracker ticks)
+    await buck.build(
+        ":merge_100",
+        "--no-remote-cache",
+        "-c",
+        "build.use_limited_hybrid=True",
+        "-c",
+        "build.execution_platforms=//:platforms",
+        "-c",
+        "test.prefer_local=True",
+        "--local-only",
+    )

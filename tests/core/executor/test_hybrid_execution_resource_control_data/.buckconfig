@@ -6,5 +6,4 @@
     prelude = .
 
 [buck2_resource_control]
-    hybrid_execution_memory_limit_gibibytes = 0
     status = required

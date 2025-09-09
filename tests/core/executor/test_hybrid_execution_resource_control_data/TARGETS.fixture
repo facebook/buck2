@@ -7,6 +7,13 @@ execution_platforms(
     platforms = [":platform"],
 )
 
-china(
-    name = "plate",
+merge_outputs(
+    name = "merge_100",
+    num_actions = 100,
+)
+
+merge_outputs(
+    name = "sleep_merge",
+    sleep = 1,
+    num_actions = 10,
 )
