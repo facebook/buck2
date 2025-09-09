@@ -19,7 +19,6 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::is_open_source;
 #[cfg(fbcode_build)]
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
@@ -53,12 +52,15 @@ impl dyn FileWatcher {
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
-        let default = if is_open_source() {
-            "notify"
+        #[cfg(fbcode_build)]
+        let default = if detect_eden::is_eden(project_root.root().to_path_buf())? {
+            "edenfs"
         } else {
-            // TODO: On EdenFS mount use "edenfs", on non-EdenFS use "watchman"
             "watchman"
         };
+
+        #[cfg(not(fbcode_build))]
+        let default = "notify";
 
         let _allow_unused = fb;
 
