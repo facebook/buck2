@@ -381,9 +381,26 @@ impl<'a> BuckdLifecycle<'a> {
         let timeout_secs = buckd_startup_timeout()?;
 
         let daemon_exe = get_daemon_exe()?;
+
+        // create a unique slice/scope name by converting the full project path to a underscore-separated string
+        // This ensures different projects with the same directory name (e.g., /path/to/proj and /other/proj)
+        // get distinct systemd scope units, avoiding "Unit was already loaded" conflictss
+        let project_dir_underscore_string = project_dir
+            .root()
+            .as_path()
+            .components()
+            .filter_map(|comp| {
+                if let std::path::Component::Normal(n) = comp {
+                    Some(n.to_string_lossy())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("_");
         let slice_name = format!(
             "buck2-daemon.{}.{}",
-            replace_unit_delimiter(project_dir.name().unwrap_or("unknown_project")),
+            replace_unit_delimiter(&project_dir_underscore_string),
             replace_unit_delimiter(self.paths.isolation.as_str())
         );
         let resource_control_runner = ResourceControlRunner::create_if_enabled(
