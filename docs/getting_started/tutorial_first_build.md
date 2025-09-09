@@ -21,10 +21,10 @@ with Buck2.
 5. Run our compiled program using Buck2.
 6. Briefly inspect the build targets we created.
 
-## Preqrequisites:
+## Prerequisites:
 
 For this tutorial, we will use Rust. You don't need to know how to write Rust.
-We will only use a few basic of Rust.
+We will only use a few basics of Rust.
 
 <OssOnly>
 - [Follow the previous section to set up Buck2](../install)
