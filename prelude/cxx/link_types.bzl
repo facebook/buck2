@@ -26,9 +26,6 @@ ExtraLinkerOutputCategory = enum(
 )
 
 LinkOptions = record(
-    # link args for binary link step
-    binary_links = field(list[LinkArgs] | None),
-    # common link args
     links = list[LinkArgs],
     link_execution_preference = LinkExecutionPreference,
     link_weight = int,
@@ -59,7 +56,6 @@ def link_options(
         links: list[LinkArgs],
         link_execution_preference: LinkExecutionPreference,
         link_weight: int = 1,
-        binary_links: list[LinkArgs] = [],
         link_ordering: [LinkOrdering, None] = None,
         enable_distributed_thinlto: bool = False,
         category_suffix: [str, None] = None,
@@ -78,7 +74,6 @@ def link_options(
     constructors aren't typed.
     """
     return LinkOptions(
-        binary_links = binary_links,
         links = links,
         link_execution_preference = link_execution_preference,
         link_weight = link_weight,
@@ -105,7 +100,6 @@ _NOT_PROVIDED = _NotProvided()
 
 def merge_link_options(
         base: LinkOptions,
-        binary_links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
         links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
         link_execution_preference: [LinkExecutionPreference, _NotProvided] = _NOT_PROVIDED,
         link_weight: [int, _NotProvided] = _NOT_PROVIDED,
@@ -124,7 +118,6 @@ def merge_link_options(
     """
 
     return LinkOptions(
-        binary_links = base.binary_links if binary_links == _NOT_PROVIDED else binary_links,
         links = base.links if links == _NOT_PROVIDED else links,
         link_execution_preference = base.link_execution_preference if link_execution_preference == _NOT_PROVIDED else link_execution_preference,
         link_weight = base.link_weight if link_weight == _NOT_PROVIDED else link_weight,
