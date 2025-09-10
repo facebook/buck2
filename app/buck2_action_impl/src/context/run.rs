@@ -212,6 +212,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named)] dep_files: Option<SmallMap<&'v str, &'v ArtifactTag>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        incremental_metadata_ignore_tags: UnpackListOrTuple<&'v ArtifactTag>,
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] incremental_remote_outputs: bool,
@@ -446,7 +448,14 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
                 this.state()?.claim_output_path(eval, &path)?;
-                buck2_error::Ok(Some(MetadataParameter { env_var, path }))
+                buck2_error::Ok(Some(MetadataParameter {
+                    env_var,
+                    path,
+                    ignore_tags: incremental_metadata_ignore_tags
+                        .into_iter()
+                        .map(|x| x.dupe())
+                        .collect(),
+                }))
             }
             (Some(_), None) => Err(RunActionError::MetadataPathMissing.into()),
             (None, Some(_)) => Err(RunActionError::MetadataEnvVarMissing.into()),

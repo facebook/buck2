@@ -11,7 +11,6 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
 
@@ -396,10 +395,7 @@ async def test_incremental_action_interleave_platforms_abba_with_content_based_p
 async def test_incremental_action_with_metadata_opt_out(
     buck: Buck,
 ) -> None:
-    await expect_failure(
-        buck.build("root//:incremental_action_with_metadata_optout"),
-        stderr_regex=r"len\(metadata_digests\) == 1",
-    )
+    await buck.build("root//:incremental_action_with_metadata_optout")
 
 
 # We shouldn't lose the state from killing the daemon in between invocations

@@ -92,6 +92,7 @@ use indexmap::indexmap;
 use itertools::Itertools;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
+use starlark::collections::SmallSet;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -136,6 +137,9 @@ pub(crate) struct MetadataParameter {
     pub(crate) env_var: String,
     /// User-defined path in the output directory of the metadata file.
     pub(crate) path: ForwardRelativePathBuf,
+    /// An artifact that is 'tagged' with any of these tags is ignored
+    /// when computing the metadata.
+    pub(crate) ignore_tags: SmallSet<ArtifactTag>,
 }
 
 impl Display for MetadataParameter {
@@ -143,6 +147,7 @@ impl Display for MetadataParameter {
         let json = json!({
             "env_var": self.env_var,
             "path": self.path,
+            "ignore_tags": self.ignore_tags.iter().map(|t| t.to_string()).collect::<Vec<_>>(),
         });
         write!(f, "{json}")
     }
@@ -695,14 +700,7 @@ impl RunAction {
 
         let mut extra_env = Vec::new();
         let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
-        self.prepare_action_metadata(
-            ctx,
-            &cli_ctx,
-            fs,
-            &artifact_inputs,
-            &mut inputs,
-            &mut extra_env,
-        )?;
+        self.prepare_action_metadata(ctx, &cli_ctx, fs, visitor, &mut inputs, &mut extra_env)?;
 
         let mut shared_content_based_paths = Vec::new();
         self.prepare_scratch_path(
@@ -772,7 +770,7 @@ impl RunAction {
         ctx: &dyn ActionExecutionCtx,
         cli_ctx: &DefaultCommandLineContext,
         fs: &ArtifactFs,
-        artifact_inputs: &[&ArtifactGroupValues],
+        visitor: &mut RunActionVisitor<'_>,
         inputs: &mut Vec<CommandExecutionInput>,
         extra_env: &mut Vec<(String, String)>,
     ) -> buck2_error::Result<()> {
@@ -785,7 +783,12 @@ impl RunAction {
             let env = cli_ctx
                 .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path, None)?)?
                 .into_string();
-            let (data, digest) = metadata_content(fs, artifact_inputs, ctx.digest_config())?;
+            let artifact_inputs: Vec<&ArtifactGroupValues> = visitor
+                .incremental_metadata_inputs
+                .iter()
+                .map(|group| ctx.artifact_values(group))
+                .collect();
+            let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
                 data,
                 digest,
@@ -869,7 +872,13 @@ impl RunAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<ExecuteResult, ExecuteError> {
-        let mut run_action_visitor = RunActionVisitor::new(&self.inner.dep_files);
+        let incremental_action_ignore_tags = self
+            .inner
+            .metadata_param
+            .as_ref()
+            .map(|metadata_param| &metadata_param.ignore_tags);
+        let mut run_action_visitor =
+            RunActionVisitor::new(&self.inner.dep_files, incremental_action_ignore_tags);
         let (prepared_run_action, cmdline_digest_for_dep_files, host_sharing_requirements) =
             self.prepare(&mut run_action_visitor, ctx).await?;
 
@@ -1112,12 +1121,19 @@ impl PreparedRunAction {
 
 pub struct RunActionVisitor<'a> {
     pub(crate) dep_files_visitor: DepFilesCommandLineVisitor<'a>,
+    pub(crate) incremental_metadata_inputs: Vec<ArtifactGroup>,
+    incremental_metadata_ignore_tags: Option<&'a SmallSet<ArtifactTag>>,
 }
 
 impl<'a> RunActionVisitor<'a> {
-    pub(crate) fn new(dep_files: &'a RunActionDepFiles) -> Self {
+    pub(crate) fn new(
+        dep_files: &'a RunActionDepFiles,
+        incremental_metadata_ignore_tags: Option<&'a SmallSet<ArtifactTag>>,
+    ) -> Self {
         Self {
             dep_files_visitor: DepFilesCommandLineVisitor::new(dep_files),
+            incremental_metadata_inputs: Vec::new(),
+            incremental_metadata_ignore_tags,
         }
     }
 
@@ -1128,6 +1144,17 @@ impl<'a> RunActionVisitor<'a> {
 
 impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
     fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+        match self.incremental_metadata_ignore_tags {
+            Some(ignore_tags) => {
+                if !tags.iter().any(|t| ignore_tags.contains(*t)) {
+                    self.incremental_metadata_inputs.push(input.dupe());
+                }
+            }
+            // If incremental_metadata_ignore_tags is None, then we're not going to produce
+            // incremental metadata at all, so there's nothing to do here.
+            None => {}
+        }
+
         self.dep_files_visitor.visit_input(input, tags);
     }
 

@@ -55,6 +55,7 @@ with open(sys.argv[1], "w") as f:
         local_only = True,
         metadata_env_var = "METADATA",
         metadata_path = "metadata.json",
+        incremental_metadata_ignore_tags = [artifact_tag],
     )
     return [
         DefaultInfo(out),
