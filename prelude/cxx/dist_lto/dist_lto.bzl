@@ -490,7 +490,7 @@ def cxx_gnu_dist_link(
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
         plan_inputs.append(ctx.actions.write(output.short_path + ".plan_hack.txt", ""))
-        plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output(), pre_flags_argsfile.as_output(), linkables_argsfile.as_output(), post_flags_argsfile.as_output(), post_flags_argsfile.as_output()])
+        plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output(), pre_flags_argsfile.as_output(), linkables_argsfile.as_output(), post_flags_argsfile.as_output()])
         ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
 
     link_plan_out = ctx.actions.declare_output(output.short_path + ".link-plan.json")
