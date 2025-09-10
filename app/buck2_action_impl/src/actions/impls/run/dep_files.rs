@@ -1567,6 +1567,10 @@ impl<'a> DepFilesCommandLineVisitor<'a> {
             dep_files,
         }
     }
+
+    pub fn inputs(&self) -> impl Iterator<Item = &ArtifactGroup> {
+        self.inputs.iter().flat_map(|g| g.iter())
+    }
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {

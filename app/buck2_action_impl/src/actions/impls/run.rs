@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -34,6 +35,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -457,7 +459,7 @@ impl RunAction {
     fn expand_command_line_and_worker<'v>(
         &'v self,
         action_execution_ctx: &dyn ActionExecutionCtx,
-        artifact_visitor: &mut impl CommandLineArtifactVisitor<'v>,
+        artifact_visitor: &mut RunActionVisitor<'v>,
     ) -> buck2_error::Result<(
         ExpandedCommandLine,
         ExpandedCommandLineDigestForDepFiles,
@@ -680,7 +682,7 @@ impl RunAction {
 
     async fn prepare<'v>(
         &'v self,
-        visitor: &mut impl RunActionVisitor<'v>,
+        visitor: &mut RunActionVisitor<'v>,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> buck2_error::Result<(
         PreparedRunAction,
@@ -879,13 +881,13 @@ impl RunAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<ExecuteResult, ExecuteError> {
-        let mut dep_file_visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
+        let mut run_action_visitor = RunActionVisitor::new(&self.inner.dep_files);
         let (prepared_run_action, cmdline_digest_for_dep_files, host_sharing_requirements) =
-            self.prepare(&mut dep_file_visitor, ctx).await?;
+            self.prepare(&mut run_action_visitor, ctx).await?;
 
         let dep_file_bundle = make_dep_file_bundle(
             ctx,
-            dep_file_visitor,
+            run_action_visitor.dep_files_visitor,
             cmdline_digest_for_dep_files,
             &prepared_run_action.paths,
         )?;
@@ -1157,22 +1159,34 @@ impl PreparedRunAction {
     }
 }
 
-trait RunActionVisitor<'v>: CommandLineArtifactVisitor<'v> {
-    type Iter<'a>: Iterator<Item = &'a ArtifactGroup>
-    where
-        Self: 'a;
-
-    fn inputs<'a>(&'a self) -> Self::Iter<'a>;
+pub struct RunActionVisitor<'a> {
+    pub(crate) dep_files_visitor: DepFilesCommandLineVisitor<'a>,
 }
 
-impl<'v> RunActionVisitor<'v> for DepFilesCommandLineVisitor<'_> {
-    type Iter<'a>
-        = impl Iterator<Item = &'a ArtifactGroup>
-    where
-        Self: 'a;
+impl<'a> RunActionVisitor<'a> {
+    pub(crate) fn new(dep_files: &'a RunActionDepFiles) -> Self {
+        Self {
+            dep_files_visitor: DepFilesCommandLineVisitor::new(dep_files),
+        }
+    }
 
-    fn inputs<'a>(&'a self) -> Self::Iter<'a> {
-        self.inputs.iter().flat_map(|g| g.iter())
+    pub(crate) fn inputs(&self) -> impl Iterator<Item = &ArtifactGroup> {
+        self.dep_files_visitor.inputs()
+    }
+}
+
+impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
+    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+        self.dep_files_visitor.visit_input(input, tags);
+    }
+
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>) {
+        self.dep_files_visitor
+            .visit_declared_output(_artifact, tags);
+    }
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>) {
+        self.dep_files_visitor.visit_frozen_output(artifact, tags);
     }
 }
 
