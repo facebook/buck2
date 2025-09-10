@@ -500,6 +500,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
         subtargets["modularization-dependency-graph"] = [DefaultInfo(default_output = swift_compile.modularization_dependency_graph)]
 
+    # Always provide the subtarget, so that clients don't need to handle conditional existence
+    subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),

@@ -17,7 +17,7 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "create_modulemap")
-load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "uses_explicit_modules")
+load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_explicit_modules")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
@@ -113,6 +113,8 @@ SwiftCompilationOutput = record(
     object_format = field(SwiftObjectFormat),
     # The swiftmodule file output from compilation.
     swiftmodule = field(Artifact),
+    # Stderr output when running `-typecheck`
+    typecheck_file = field(Artifact),
     # The dependency info provider that contains the swiftmodule
     # search paths required for compilation and linking.
     dependency_info = field(SwiftDependencyInfo),
@@ -417,6 +419,13 @@ def compile_swift(
         category = compile_category,
     )
 
+    typecheck_file = _compile_typecheck_diagnostics(
+        ctx = ctx,
+        toolchain = toolchain,
+        shared_flags = shared_flags,
+        srcs = srcs,
+    )
+
     modularization_dependency_graph = _compile_modularization_dependency_graph(ctx, toolchain, shared_flags, srcs)
 
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
@@ -459,6 +468,7 @@ def compile_swift(
         object_files = object_output.object_files,
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
+        typecheck_file = typecheck_file,
         compiled_underlying_pcm_artifact = exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
         dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, swiftinterface_output, deps_providers, is_macro),
         pre = pre,
@@ -642,6 +652,52 @@ def _compile_swiftmodule(
         ctx.actions.run(extract_cmd, category = "extract_tbd_symbols", error_handler = apple_build_error_handler)
 
     return ret
+
+def _compile_typecheck_diagnostics(
+        ctx: AnalysisContext,
+        toolchain: SwiftToolchainInfo,
+        shared_flags: cmd_args,
+        srcs: list[CxxSrcWithFlags]) -> Artifact:
+    category = "swift_typecheck"
+    if uses_explicit_modules(ctx):
+        category += "_with_explicit_mods"
+
+    additional_flags = cmd_args([
+        "-typecheck",
+        "-wmo",
+    ])
+
+    swift_cmd_output = compile_with_argsfile_cmd(
+        ctx = ctx,
+        category = category,
+        shared_flags = shared_flags,
+        srcs = srcs,
+        additional_flags = additional_flags,
+        toolchain = toolchain,
+        output_file_map = {},
+        supports_output_file_map = True,
+        supports_serialized_errors = False,
+        skip_incremental_outputs = True,
+        incremental_remote_outputs = False,
+        objects = [],
+        incremental_artifacts = None,
+    )
+
+    typecheck_file = ctx.actions.declare_output("swift-typecheck-stderr")
+
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    typecheck_cmd = cmd_args([
+        cxx_toolchain.internal_tools.stderr_to_file,
+        cmd_args(typecheck_file.as_output(), format = "--out={}"),
+        swift_cmd_output.cmd,
+    ])
+
+    ctx.actions.run(
+        typecheck_cmd,
+        category = category,
+    )
+
+    return typecheck_file
 
 def _compile_object(
         ctx: AnalysisContext,
