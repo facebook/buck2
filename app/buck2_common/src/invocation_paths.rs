@@ -146,6 +146,12 @@ impl InvocationPaths {
             .join(self.materializer_state_dir_name())
     }
 
+    /// Subdirectory of `cache_dir` responsible for storing content-based incremental path state
+    pub fn incremental_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path()
+            .join(self.incremental_state_dir_name())
+    }
+
     /// This is used by the forkserver to write the miniperf wrapper binary (if used), as well as
     /// temporary files used by miniperf. We put this in buck-out because that directory gets
     /// allowlisted for execution (because we write lots of tools there).
@@ -154,12 +160,19 @@ impl InvocationPaths {
             .join(ForwardRelativePath::unchecked_new("forkserver"))
     }
 
-    pub fn materializer_state_dir_name(&self) -> &FileName {
+    fn materializer_state_dir_name(&self) -> &FileName {
         FileName::unchecked_new("materializer_state")
     }
 
+    fn incremental_state_dir_name(&self) -> &FileName {
+        FileName::unchecked_new("incremental_state")
+    }
+
     pub fn valid_cache_dirs(&self) -> Vec<&FileName> {
-        vec![self.materializer_state_dir_name()]
+        vec![
+            self.materializer_state_dir_name(),
+            self.incremental_state_dir_name(),
+        ]
     }
 
     /// This is used by the health check server and client to preserve states across runs, and for temporary files.
