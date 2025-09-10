@@ -119,6 +119,9 @@ def _abi_snapshot_json(entry: JavaClasspathEntry):
 
     return None
 
+def _abi_dirs(entry: JavaClasspathEntry):
+    return entry.abi_as_dir or []
+
 def _abi_to_abi_dir(entry: JavaClasspathEntry):
     if entry.abi_as_dir:
         return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
@@ -138,6 +141,7 @@ JavaCompilingDepsTSetWrapper = transitive_set()
 
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
+        "abi_dirs": _abi_dirs,
         "abi_to_abi_dir": _abi_to_abi_dir,
         "args_for_ast_dumper": _args_for_ast_dumper,
         "args_for_compiling": _args_for_compiling,
