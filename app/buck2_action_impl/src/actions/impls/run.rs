@@ -1165,17 +1165,6 @@ trait RunActionVisitor<'v>: CommandLineArtifactVisitor<'v> {
     fn inputs<'a>(&'a self) -> Self::Iter<'a>;
 }
 
-impl<'v> RunActionVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
-    type Iter<'a>
-        = impl Iterator<Item = &'a ArtifactGroup>
-    where
-        Self: 'a;
-
-    fn inputs<'a>(&'a self) -> Self::Iter<'a> {
-        self.inputs.iter()
-    }
-}
-
 impl<'v> RunActionVisitor<'v> for DepFilesCommandLineVisitor<'_> {
     type Iter<'a>
         = impl Iterator<Item = &'a ArtifactGroup>

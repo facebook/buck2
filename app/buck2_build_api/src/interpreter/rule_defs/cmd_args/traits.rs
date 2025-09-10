@@ -83,6 +83,10 @@ impl SimpleCommandLineArtifactVisitor<'_> {
             frozen_outputs: IndexSet::new(),
         }
     }
+
+    pub fn inputs(&self) -> impl Iterator<Item = &ArtifactGroup> {
+        self.inputs.iter()
+    }
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
