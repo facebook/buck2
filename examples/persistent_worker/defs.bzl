@@ -15,6 +15,10 @@ def _worker_impl(ctx: AnalysisContext) -> list[Provider]:
             exe = ctx.attrs.worker[RunInfo].args,
             concurrency = None,
             supports_bazel_remote_persistent_worker_protocol = True,
+            # TODO(T155351378): Remove this once the WorkerInfo env is passed unconditionally to the worker.
+            env = {
+                "UNUSED": "unused",
+            },
         ),
     ]
 
