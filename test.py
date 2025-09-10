@@ -15,6 +15,7 @@ import argparse
 import importlib.machinery
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -93,11 +94,13 @@ def run(
     If error is specified, print error on stderr when there is a CalledProcessError.
     """
     # On Ci stderr gets out of order with stdout. To avoid this, we need to flush stdout/stderr first.
+    args = tuple(args)
+    print(f"Running {shlex.join(args)}", file=sys.stdout)
     sys.stdout.flush()
     sys.stderr.flush()
     try:
         result = subprocess.run(
-            tuple(args),
+            args,
             # We'd like to use the capture_output argument,
             # but that isn't available in Python 3.6 which we use on Windows
             stdout=subprocess.PIPE if capture_output else sys.stdout,
