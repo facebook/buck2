@@ -429,7 +429,12 @@ impl PreparedCommandExecutor for ReExecutor {
         if let Some(run_action_key) = request.run_action_key()
             && !request.outputs_cleanup
         {
-            save_content_based_incremental_state(run_action_key.clone(), &self.artifact_fs, &res);
+            save_content_based_incremental_state(
+                run_action_key.clone(),
+                &self.incremental_db_state,
+                &self.artifact_fs,
+                &res,
+            );
         }
 
         res

@@ -16,21 +16,20 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::result::CommandExecutionResult;
-use dashmap::DashMap;
-use dupe::Dupe;
-use once_cell::sync::Lazy;
 use starlark_map::small_map::SmallMap;
 
-#[allocative::root]
-static INCREMENTAL: Lazy<DashMap<String, Arc<IncrementalPathMap>>> = Lazy::new(DashMap::new);
+use crate::sqlite::incremental_state_db::IncrementalDbState;
 
-pub(crate) fn get_incremental_path_map(key: &Option<String>) -> Option<Arc<IncrementalPathMap>> {
-    match key {
-        Some(key) => INCREMENTAL.get(key).map(|s| s.dupe()),
-        None => None,
+pub(crate) fn get_incremental_path_map(
+    incremental_db_state: &Arc<IncrementalDbState>,
+    key: &Option<String>,
+) -> Option<Arc<IncrementalPathMap>> {
+    if let Some(key) = key {
+        incremental_db_state.get(key)
+    } else {
+        None
     }
 }
-
 // Contains the declared short path name to the full content-based hash path
 #[derive(Allocative, Clone)]
 pub struct IncrementalPathMap(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
@@ -59,6 +58,7 @@ impl IncrementalPathMap {
 
 pub(crate) fn save_content_based_incremental_state(
     run_action_key: String,
+    incremental_db_state: &Arc<IncrementalDbState>,
     artifact_fs: &ArtifactFs,
     result: &CommandExecutionResult,
 ) {
@@ -79,11 +79,11 @@ pub(crate) fn save_content_based_incremental_state(
 
     // Need to clear the state if there weren't any outputs to prevent stale outputs from being used
     if incremental_path_map.is_empty() {
-        INCREMENTAL.remove(&run_action_key);
+        incremental_db_state.delete(&run_action_key);
     } else {
-        INCREMENTAL.insert(
-            run_action_key,
-            IncrementalPathMap::new(incremental_path_map).into(),
+        incremental_db_state.insert(
+            &run_action_key,
+            IncrementalPathMap::new(incremental_path_map),
         );
     }
 }

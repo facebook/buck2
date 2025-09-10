@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -22,6 +20,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::soft_error;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
 use chrono::Utc;
@@ -55,6 +54,61 @@ impl IncrementalDbState {
             db: None,
             state: DashMap::new(),
         }
+    }
+}
+
+impl IncrementalDbState {
+    pub(crate) fn get(&self, key: &str) -> Option<Arc<IncrementalPathMap>> {
+        self.state.get(key).map(|s| s.dupe())
+    }
+
+    pub(crate) fn insert(&self, key: &str, value: IncrementalPathMap) {
+        match &self.db {
+            Some(db) => {
+                // (run_action_key, short_path) combination is the primary key so it should replace the current entry,
+                // but let's delete it beforehand just in case so it doesn't keep on inserting more entries. We don't need
+                // to do this without db because a map will automatically rewrite the current entry
+                self.delete(key);
+
+                self.state.insert(key.to_owned(), value.clone().into());
+                if let Err(e) = db.incremental_state_table().insert(key.to_owned(), value) {
+                    soft_error!(
+                        "insert_to_incremental_db",
+                        buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Tier0,
+                            "Failed to insert {} into sqlite db. {}",
+                            key, e
+                        ),
+                        quiet: true
+                    )
+                    .unwrap();
+                };
+            }
+            None => {
+                self.state.insert(key.to_owned(), value.clone().into());
+            }
+        }
+    }
+
+    pub(crate) fn delete(&self, key: &str) {
+        if let Some(db) = &self.db
+            && let Err(e) = db.incremental_state_table().delete(key.to_owned())
+        {
+            // This should be converted into a real error later, marking as a soft error for now as the row not existing
+            // might show up as an error but doesn't actually matter in reality.
+            soft_error!(
+                "delete_from_incremental_db",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Failed to remove incremental path map from sqlite db. {}",
+                    e
+                ),
+                quiet: true
+            )
+            .unwrap();
+        }
+
+        self.state.remove(key);
     }
 }
 

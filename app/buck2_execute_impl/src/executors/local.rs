@@ -113,7 +113,6 @@ enum LocalExecutionError {
 pub struct LocalExecutor {
     artifact_fs: ArtifactFs,
     materializer: Arc<dyn Materializer>,
-    #[allow(unused)]
     incremental_db_state: Arc<IncrementalDbState>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     pub(crate) host_sharing_broker: Arc<HostSharingBroker>,
@@ -262,6 +261,7 @@ impl LocalExecutor {
                             // input during current run (e.g. extra output which is an incremental state describing the actual output).
                             materialize_build_outputs(
                                 &self.artifact_fs,
+                                &self.incremental_db_state,
                                 self.materializer.as_ref(),
                                 request,
                             )
@@ -643,6 +643,7 @@ impl LocalExecutor {
         {
             save_content_based_incremental_state(
                 run_action_key.clone(),
+                &self.incremental_db_state,
                 &self.artifact_fs,
                 &result,
             );
@@ -947,7 +948,9 @@ impl LocalExecutor {
             .await
             .buck_error_context("Failed to cleanup output directory")?;
 
-        if let Some(state) = get_incremental_path_map(request.run_action_key()) {
+        if let Some(state) =
+            get_incremental_path_map(&self.incremental_db_state, &request.run_action_key())
+        {
             let mut copy_futs = Vec::new();
 
             for output in declared_content_based_outputs {
@@ -1268,12 +1271,12 @@ async fn check_inputs(
 /// Such incremental state in fact serves as the input while being output as well.
 async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
+    incremental_db_state: &Arc<IncrementalDbState>,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
-
-    let path_map = get_incremental_path_map(request.run_action_key());
+    let path_map = get_incremental_path_map(incremental_db_state, request.run_action_key());
     for output in request.outputs() {
         match output {
             CommandExecutionOutputRef::BuildArtifact { path, .. } => {
