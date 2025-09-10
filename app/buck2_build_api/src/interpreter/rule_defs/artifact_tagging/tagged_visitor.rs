@@ -39,24 +39,34 @@ impl<'a, 'b, 'v> TaggedVisitor<'a, 'b, 'v> {
 impl<'a, 'b, 'v> CommandLineArtifactVisitor<'v> for TaggedVisitor<'a, 'b, 'v> {
     /// Ignore the inner tag, set our own. Nesting input groups generally isn't a great idea, but
     /// we can't statically prevent it.
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-        self.inner.visit_input(input, vec![self.tag])
+    fn visit_input(&mut self, input: ArtifactGroup, existing_tags: Vec<&ArtifactTag>) {
+        let mut tags = vec![self.tag];
+        tags.extend(existing_tags);
+        self.inner.visit_input(input, tags)
     }
 
-    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, _tags: Vec<&ArtifactTag>) {
+    fn visit_declared_output(
+        &mut self,
+        artifact: OutputArtifact<'v>,
+        existing_tags: Vec<&ArtifactTag>,
+    ) {
         let tags = if self.inputs_only {
-            vec![]
+            existing_tags
         } else {
-            vec![self.tag]
+            let mut tags = vec![self.tag];
+            tags.extend(existing_tags);
+            tags
         };
         self.inner.visit_declared_output(artifact, tags)
     }
 
-    fn visit_frozen_output(&mut self, artifact: Artifact, _tags: Vec<&ArtifactTag>) {
+    fn visit_frozen_output(&mut self, artifact: Artifact, existing_tags: Vec<&ArtifactTag>) {
         let tags = if self.inputs_only {
-            vec![]
+            existing_tags
         } else {
-            vec![self.tag]
+            let mut tags = vec![self.tag];
+            tags.extend(existing_tags);
+            tags
         };
         self.inner.visit_frozen_output(artifact, tags)
     }

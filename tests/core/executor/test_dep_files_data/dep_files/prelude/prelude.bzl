@@ -44,6 +44,9 @@ def _c_binary_impl(ctx):
         headers_tag.tag_artifacts(dep_file.as_output()),
     ], hidden = [headers_dir_written, headers_dir_written_with_dep_files_placeholder])
 
+    unused_wrapping_tag = ctx.actions.artifact_tag()
+    cmd = unused_wrapping_tag.tag_artifacts(cmd)
+
     ctx.actions.run(
         cmd,
         category = "cxx_link",

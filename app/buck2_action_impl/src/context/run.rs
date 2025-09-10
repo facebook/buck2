@@ -38,6 +38,7 @@ use either::Either;
 use gazebo::prelude::SliceClonedExt;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
+use starlark::collections::SmallSet;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -74,6 +75,11 @@ pub(crate) enum RunActionError {
     InvalidDepFileOutputs { key: String, count: usize },
     #[error("`dep_files` with keys `{}` and `{}` are using the same tag", .first, .second)]
     ConflictingDepFiles { first: String, second: String },
+    #[error("Dep-files input `{}` is tagged with multiple tags relevant for dep-files: `{}` and `{}`", .input, .tags[0], .tags[1])]
+    ConflictingDepFileInputTags {
+        input: ArtifactGroup,
+        tags: Vec<String>,
+    },
     #[error(
         "missing `metadata_path` parameter which is required when `metadata_env_var` parameter is present"
     )]
@@ -241,20 +247,51 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             inner: SimpleCommandLineArtifactVisitor<'v>,
             tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact<'v>>>,
             depth: u64,
+            dep_file_artifact_tags: Option<SmallSet<&'v ArtifactTag>>,
+            inputs_with_multiple_tags_for_dep_files: Vec<(ArtifactGroup, Vec<ArtifactTag>)>,
         }
 
-        impl RunCommandArtifactVisitor<'_> {
-            fn new() -> Self {
+        impl<'v> RunCommandArtifactVisitor<'v> {
+            fn new(dep_files: &Option<SmallMap<&'v str, &'v ArtifactTag>>) -> Self {
+                let dep_file_artifact_tags = if let Some(dep_files) = dep_files {
+                    let mut tags = SmallSet::with_capacity(dep_files.len());
+                    for (_key, tag) in dep_files {
+                        tags.insert(tag.dupe());
+                    }
+                    Some(tags)
+                } else {
+                    None
+                };
                 Self {
                     inner: SimpleCommandLineArtifactVisitor::new(),
                     tagged_outputs: HashMap::new(),
                     depth: 0,
+                    dep_file_artifact_tags,
+                    inputs_with_multiple_tags_for_dep_files: Vec::new(),
                 }
             }
         }
 
         impl<'v> CommandLineArtifactVisitor<'v> for RunCommandArtifactVisitor<'v> {
             fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+                if let Some(ref dep_file_artifact_tags) = self.dep_file_artifact_tags {
+                    let dep_file_tags: Vec<&ArtifactTag> = tags
+                        .iter()
+                        .filter_map(|t| {
+                            if dep_file_artifact_tags.contains(*t) {
+                                Some(*t)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    if dep_file_tags.len() > 1 {
+                        self.inputs_with_multiple_tags_for_dep_files.push((
+                            input.dupe(),
+                            dep_file_tags.into_iter().map(|t| t.dupe()).collect(),
+                        ));
+                    }
+                }
                 self.inner.visit_input(input, tags);
             }
 
@@ -263,14 +300,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 artifact: OutputArtifact<'v>,
                 tags: Vec<&ArtifactTag>,
             ) {
-                match tags.first() {
-                    None => {}
-                    Some(tag) => {
-                        self.tagged_outputs
-                            .entry((*tag).dupe())
-                            .or_default()
-                            .push(artifact.dupe());
-                    }
+                for tag in tags.iter() {
+                    self.tagged_outputs
+                        .entry((*tag).dupe())
+                        .or_default()
+                        .push(artifact.dupe());
                 }
 
                 self.inner.visit_declared_output(artifact, tags);
@@ -295,7 +329,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         let executor_preference = new_executor_preference(local_only, prefer_local, prefer_remote)?;
 
-        let mut artifact_visitor = RunCommandArtifactVisitor::new();
+        let mut artifact_visitor = RunCommandArtifactVisitor::new(&dep_files);
 
         let starlark_args = StarlarkCmdArgs::try_from_value_typed(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
@@ -353,7 +387,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let RunCommandArtifactVisitor {
             inner: artifacts,
             tagged_outputs,
-            depth: _,
+            inputs_with_multiple_tags_for_dep_files,
+            ..
         } = artifact_visitor;
 
         if let Some(frozen) = { artifacts.frozen_outputs }.pop() {
@@ -392,6 +427,19 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     }
                 }
             }
+        }
+
+        if let Some((input, conflicting_tags)) = inputs_with_multiple_tags_for_dep_files.first() {
+            return Err(
+                buck2_error::Error::from(RunActionError::ConflictingDepFileInputTags {
+                    input: input.dupe(),
+                    tags: conflicting_tags
+                        .iter()
+                        .map(|t| (**dep_files_configuration.labels.get(t).unwrap()).to_owned())
+                        .collect(),
+                })
+                .into(),
+            );
         }
 
         let metadata_param = match (metadata_env_var, metadata_path) {

@@ -11,3 +11,6 @@ n_outputs_tagged_as_dep_file(
 same_tag_for_multiple_labels(
     name = "same_tag_for_multiple_labels",
 )
+input_tagged_multiple_times(
+    name = "input_tagged_multiple_times",
+)

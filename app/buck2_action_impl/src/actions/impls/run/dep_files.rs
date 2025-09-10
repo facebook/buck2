@@ -1106,20 +1106,18 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
         tags: Vec<&ArtifactTag>,
         dep_files: &RunActionDepFiles,
     ) {
-        let input_group = match tags.first() {
-            None => &mut self.untagged,
-            Some(tag) => {
-                // NOTE: If an input has a tag that doesn't match a dep file, we don't care about
-                // it.
-                match dep_files.labels.get(*tag) {
-                    None => &mut self.untagged,
-                    // The tagged inputs have prepopulated keys on creation to ensure sorted keys, so the label must exist.
-                    Some(label) => self.tagged.get_mut(label).unwrap(),
+        for tag in tags {
+            match dep_files.labels.get(tag) {
+                None => {}
+                Some(label) => {
+                    self.tagged.get_mut(label).unwrap().push(input);
+                    // We already verified that there is only one relevant dep-file tag per input, so we are done.
+                    return;
                 }
             }
-        };
+        }
 
-        input_group.push(input);
+        self.untagged.push(input);
     }
 
     /// Produce Directories from this set of PartitionedInputs. One directory will be produced for
@@ -1581,17 +1579,15 @@ impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
     }
 
     fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>) {
-        match tags.first() {
-            Some(tag) => {
-                // NOTE: We have validated tags earlier, so we know that if a tag does not point to
-                // a dep file here, it's safe to ignore it. We also know that we'll have exactly 1
-                // dep file per tag.
-                if let Some((_label, output)) = self.tagged_outputs.get_mut(*tag) {
-                    // NOTE: analysis has been done so we know inputs are bound now.
-                    *output = Some(artifact);
-                }
+        for tag in tags {
+            // NOTE: We have validated tags earlier, so we know that if a tag does not point to
+            // a dep file here, it's safe to ignore it. We also know that we'll have exactly 1
+            // dep file per tag.
+            if let Some((_label, output)) = self.tagged_outputs.get_mut(tag) {
+                // NOTE: analysis has been done so we know inputs are bound now.
+                *output = Some(artifact);
+                return;
             }
-            None => (),
         }
     }
 }

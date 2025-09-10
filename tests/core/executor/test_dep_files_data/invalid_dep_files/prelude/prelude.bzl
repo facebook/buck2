@@ -106,3 +106,43 @@ same_tag_for_multiple_labels = rule(
     },
     impl = _same_tag_for_multiple_labels_impl,
 )
+
+def _input_tagged_multiple_times_impl(ctx):
+    app = ctx.actions.declare_output("app")
+
+    tag1 = ctx.actions.artifact_tag()
+    tag2 = ctx.actions.artifact_tag()
+
+    dep_file1 = ctx.actions.declare_output("depfile1")
+    dep_file2 = ctx.actions.declare_output("depfile2")
+
+    input = tag1.tag_artifacts(tag2.tag_artifacts(ctx.actions.write("input_tagged_multiple_times.txt", "input")))
+
+    args = cmd_args([
+        "sh",
+        "-c",
+        "never_executed",
+        "--",
+        app.as_output(),
+        tag1.tag_artifacts(dep_file1.as_output()),
+        tag2.tag_artifacts(dep_file2.as_output()),
+        input,
+    ])
+
+    ctx.actions.run(
+        args,
+        category = "test",
+        dep_files = {"deps1": tag1, "deps2": tag2},
+    )
+
+    return [
+        DefaultInfo(
+            default_output = app,
+        ),
+    ]
+
+input_tagged_multiple_times = rule(
+    attrs = {
+    },
+    impl = _input_tagged_multiple_times_impl,
+)

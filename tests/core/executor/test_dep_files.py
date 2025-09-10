@@ -799,3 +799,11 @@ async def test_same_tag_for_multiple_labels(buck: Buck) -> None:
         buck.build("root//:same_tag_for_multiple_labels"),
         stderr_regex="`dep_files` with keys `deps` and `deps2` are using the same tag",
     )
+
+
+@buck_test(data_dir="invalid_dep_files")
+async def test_input_tagged_multiple_times(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("root//:input_tagged_multiple_times"),
+        stderr_regex="Dep-files input.*input_tagged_multiple_times.txt.*is tagged with multiple tags relevant for dep-files: `deps1` and `deps2`",
+    )
