@@ -507,14 +507,19 @@ def _define_kotlincd_action(
             cmd_args(output_paths.jar.as_output(), format = "{}/kotlin-used-classes.json", parent = 1),
         ]
         used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_experimental_content_based_path_hashing = False)
-        args = setup_dep_files(
+        if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset:
+            abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
+            args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_to_abi_dir"))))
+        else:
+            abi_to_abi_dir_map = None
+        setup_dep_files(
             actions,
             actions_identifier,
             post_build_params,
             classpath_jars_tag,
             used_classes_json_outputs,
             used_jars_json_output,
-            compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
+            abi_to_abi_dir_map,
             uses_experimental_content_based_path_hashing = False,
         )
 

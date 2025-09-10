@@ -316,17 +316,17 @@ def _define_javacd_action(
     used_jars_json_output = None
     if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
         abi_to_abi_dir_map = None
-        hidden = []
         if java_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
                 abi_as_dir_deps = [dep for dep in source_only_abi_compiling_deps if dep.abi_as_dir]
                 abi_to_abi_dir_map = [cmd_args(dep.abi, dep.abi_as_dir, delimiter = " ") for dep in abi_as_dir_deps]
-                hidden = [dep.abi_as_dir for dep in abi_as_dir_deps]
+                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = [dep.abi_as_dir for dep in abi_as_dir_deps])))
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
+                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_to_abi_dir"))))
         used_classes_json_outputs = [cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1)]
         used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_experimental_content_based_path_hashing)
-        args = setup_dep_files(
+        setup_dep_files(
             actions,
             actions_identifier,
             post_build_params,
@@ -335,7 +335,6 @@ def _define_javacd_action(
             used_jars_json_output,
             abi_to_abi_dir_map,
             uses_experimental_content_based_path_hashing,
-            hidden = hidden,
         )
 
         dep_files["classpath_jars"] = classpath_jars_tag
