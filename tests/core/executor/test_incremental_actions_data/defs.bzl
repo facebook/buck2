@@ -64,3 +64,23 @@ incremental_action_with_metadata_optout = rule(
     impl = _incremental_action_with_metadata_optout_impl,
     attrs = {},
 )
+
+def _incremental_action_with_multiple_outputs_impl(ctx) -> list[Provider]:
+    out1 = ctx.actions.declare_output("out1", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    out2 = ctx.actions.declare_output("out2", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    ctx.actions.run(
+        cmd_args(["fbpython", ctx.attrs.script] + ["--out1", out1.as_output(), "--out2", out2.as_output()]),
+        category = "incremental",
+        no_outputs_cleanup = True,
+        env = {"INVALIDATE_ACTION": ctx.attrs.invalidate},
+    )
+    return [
+        DefaultInfo(default_outputs = [out1, out2]),
+        RunInfo(args = ["cat", out1, out2]),
+    ]
+
+incremental_action_with_multiple_outputs = rule(impl = _incremental_action_with_multiple_outputs_impl, attrs = {
+    "invalidate": attrs.string(),
+    "script": attrs.source(),
+    "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
+})

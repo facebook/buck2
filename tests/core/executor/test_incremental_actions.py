@@ -16,6 +16,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
 
 
+# Incremental actions use the output of previous actions, mimic this behavior by
+# appending a string - Note that this is not how incremental actions behave in practice
 async def basic_incremental_action_local_only_helper(
     buck: Buck, use_content_based_path: bool
 ) -> None:
@@ -398,3 +400,168 @@ async def test_incremental_action_with_metadata_opt_out(
         buck.build("root//:incremental_action_with_metadata_optout"),
         stderr_regex=r"len\(metadata_digests\) == 1",
     )
+
+
+# We shouldn't lose the state from killing the daemon in between invocations
+async def incremental_action_persist_between_daemon_restart_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    await buck.kill()
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo bar"
+
+
+@buck_test()
+async def test_incremental_action_persist_between_daemon_restart(
+    buck: Buck,
+) -> None:
+    await incremental_action_persist_between_daemon_restart_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_incremental_action_persist_between_daemon_restart_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await incremental_action_persist_between_daemon_restart_helper(
+        buck, use_content_based_path=True
+    )
+
+
+# Clean wipes buck-out, which should reset everything so incremental actions should start anew
+async def incremental_action_clean_resets_state_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    await buck.clean()
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+
+@buck_test()
+async def test_incremental_action_clean_resets_state(
+    buck: Buck,
+) -> None:
+    await incremental_action_clean_resets_state_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_incremental_action_clean_resets_state_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await incremental_action_clean_resets_state_helper(
+        buck, use_content_based_path=True
+    )
+
+
+# In practice, there will be multiple actions with multiple outputs running. This test
+# mimics that behavior a bit to ensure the states don't step over each other.
+async def incremental_action_multi_outputs_with_daemon_restart_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    await buck.kill()
+
+    result = await buck.run(
+        "root//:incremental_action_with_multiple_outputs",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "ab"
+
+    await buck.kill()
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo bar"
+
+    await buck.kill()
+
+    result = await buck.run(
+        "root//:incremental_action_with_multiple_outputs",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "aabb"
+
+
+@buck_test()
+async def test_incremental_action_multi_outputs_with_daemon_restart(
+    buck: Buck,
+) -> None:
+    await incremental_action_multi_outputs_with_daemon_restart_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_incremental_action_multi_outputs_with_daemon_restart_and_content_based_path(
+    buck: Buck,
+) -> None:
+    await incremental_action_multi_outputs_with_daemon_restart_helper(
+        buck, use_content_based_path=True
+    )
+
+
+@buck_test(
+    extra_buck_config={"buck2": {"sqlite_incremental_state": "false"}},
+)
+async def test_incremental_action_db_disabled(
+    buck: Buck,
+) -> None:
+    await basic_incremental_action_local_only_helper(buck, use_content_based_path=True)

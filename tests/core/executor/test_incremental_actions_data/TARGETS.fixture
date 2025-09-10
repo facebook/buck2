@@ -1,4 +1,4 @@
-load(":defs.bzl", "basic_incremental_action", "incremental_action_with_metadata_optout")
+load(":defs.bzl", "basic_incremental_action", "incremental_action_with_metadata_optout", "incremental_action_with_multiple_outputs")
 
 basic_incremental_action(
     name = "basic_incremental_action",
@@ -8,6 +8,12 @@ basic_incremental_action(
 
 incremental_action_with_metadata_optout(
     name = "incremental_action_with_metadata_optout",
+)
+
+incremental_action_with_multiple_outputs(
+    name = "incremental_action_with_multiple_outputs",
+    script = "multi_incremental_script.py",
+    invalidate = read_config("test", "seed", "42"),
 )
 
 platform(
