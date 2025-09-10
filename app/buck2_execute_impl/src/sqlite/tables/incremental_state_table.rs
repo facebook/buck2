@@ -23,9 +23,9 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 use starlark_map::small_map::SmallMap;
 
-const STATE_TABLE_NAME: &str = "incremental_state";
+use crate::sqlite::incremental_state_db::IncrementalState;
 
-pub type IncrementalState = DashMap<String, Arc<IncrementalPathMap>>;
+const STATE_TABLE_NAME: &str = "incremental_state";
 
 /// Representation of row in sqlite table.
 /// A row uses 2 keys 'run_action_key' and 'short_path' to uniquely identify the content_path
