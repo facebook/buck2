@@ -587,6 +587,12 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 15, 0),
     },
+    "LiveCommunicationKit": {
+        "iphoneos": (17, 4, 0),
+        "maccatalyst": (17, 4, 0),
+        "visionos": (1, 1, 0),
+        "watchos": (10, 4, 0),
+    },
     "LocalAuthentication": {
         "iphoneos": (8, 0, 0),
         "maccatalyst": (13, 0, 0),
