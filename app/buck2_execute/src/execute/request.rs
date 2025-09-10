@@ -22,7 +22,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -38,7 +37,6 @@ use itertools::Itertools;
 use prost::Message;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
-use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_set::SortedSet;
 
 use super::dep_file_digest::DepFileDigest;
@@ -327,33 +325,6 @@ pub struct WorkerSpec {
     pub remote_key: Option<TrackedFileDigest>,
 }
 
-// Contains the declared short path name to the full content-based hash path
-
-#[derive(Allocative, Clone)]
-pub struct IncrementalPathMap(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
-
-impl IncrementalPathMap {
-    pub fn new(state: SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>) -> Self {
-        IncrementalPathMap(state)
-    }
-
-    pub fn get(&self, key: &ForwardRelativePathBuf) -> Option<&ProjectRelativePathBuf> {
-        self.0.get(key)
-    }
-
-    pub fn insert(
-        &mut self,
-        key: ForwardRelativePathBuf,
-        value: ProjectRelativePathBuf,
-    ) -> Option<ProjectRelativePathBuf> {
-        self.0.insert(key, value)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&ForwardRelativePathBuf, &ProjectRelativePathBuf)> {
-        self.0.iter()
-    }
-}
-
 pub struct RemoteWorkerSpec {
     pub id: WorkerId,
     pub init: Vec<String>,
@@ -409,8 +380,8 @@ pub struct CommandExecutionRequest {
     meta_internal_extra_params: MetaInternalExtraParams,
     /// Failed action outputs to materialize
     outputs_for_error_handler: Vec<BuildArtifactPath>,
-    /// Incremental state path mapping for the action, used by content-based incremental actions.
-    incremental_path_map: Option<Arc<IncrementalPathMap>>,
+    /// String representation of a key that uniquely identifies a RunAction
+    run_action_key: Option<String>,
 }
 
 impl CommandExecutionRequest {
@@ -444,7 +415,7 @@ impl CommandExecutionRequest {
             remote_execution_custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
             outputs_for_error_handler: Vec::new(),
-            incremental_path_map: None,
+            run_action_key: None,
         }
     }
 
@@ -698,16 +669,13 @@ impl CommandExecutionRequest {
         &self.meta_internal_extra_params
     }
 
-    pub fn with_incremental_path_map(
-        mut self,
-        incremental_path_map: Option<Arc<IncrementalPathMap>>,
-    ) -> Self {
-        self.incremental_path_map = incremental_path_map;
+    pub fn with_run_action_key(mut self, run_action_key: Option<String>) -> Self {
+        self.run_action_key = run_action_key;
         self
     }
 
-    pub fn incremental_path_map(&self) -> &Option<Arc<IncrementalPathMap>> {
-        &self.incremental_path_map
+    pub fn run_action_key(&self) -> &Option<String> {
+        &self.run_action_key
     }
 }
 

@@ -23,13 +23,13 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::execute::blocking::BlockingExecutor;
-use buck2_execute::execute::request::IncrementalPathMap;
 use chrono::DateTime;
 use chrono::Utc;
 use dashmap::DashMap;
 use derive_more::From;
 use dupe::Dupe;
 
+use crate::incremental_actions_helper::IncrementalPathMap;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::sqlite::tables::incremental_state_table::IncrementalStateSqliteTable;
 
@@ -42,7 +42,7 @@ use crate::sqlite::tables::incremental_state_table::IncrementalStateSqliteTable;
 /// buckconfig in the project root's .buckconfig.
 pub const INCREMENTAL_DB_SCHEMA_VERSION: u64 = 0;
 
-pub type IncrementalState = DashMap<String, Arc<IncrementalPathMap>>;
+pub(crate) type IncrementalState = DashMap<String, Arc<IncrementalPathMap>>;
 
 pub struct IncrementalDbState {
     pub db: IncrementalStateSqliteDb,
@@ -193,10 +193,10 @@ pub(crate) fn testing_incremental_state_sqlite_db(
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
-    use buck2_execute::execute::request::IncrementalPathMap;
     use starlark_map::small_map::SmallMap;
 
     use super::*;
+    use crate::incremental_actions_helper::IncrementalPathMap;
 
     #[test]
     fn test_initialize_incremental_sqlite_db() -> buck2_error::Result<()> {

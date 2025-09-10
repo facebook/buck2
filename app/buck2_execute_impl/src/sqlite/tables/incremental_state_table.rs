@@ -16,13 +16,13 @@ use std::sync::Arc;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_execute::execute::request::IncrementalPathMap;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use starlark_map::small_map::SmallMap;
 
+use crate::incremental_actions_helper::IncrementalPathMap;
 use crate::sqlite::incremental_state_db::IncrementalState;
 
 const STATE_TABLE_NAME: &str = "incremental_state";

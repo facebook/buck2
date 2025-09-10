@@ -55,6 +55,7 @@ use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
 use tracing::info;
 
+use crate::incremental_actions_helper::save_content_based_incremental_state;
 use crate::re::download::DownloadResult;
 use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
@@ -422,6 +423,13 @@ impl PreparedCommandExecutor for ReExecutor {
 
         let DownloadResult::Result(mut res) = res;
         res.action_result = Some(response.action_result);
+
+        if let Some(run_action_key) = request.run_action_key()
+            && !request.outputs_cleanup
+        {
+            save_content_based_incremental_state(run_action_key.clone(), &self.artifact_fs, &res);
+        }
+
         res
     }
 

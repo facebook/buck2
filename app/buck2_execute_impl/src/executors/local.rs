@@ -95,6 +95,8 @@ use uuid::Uuid;
 
 use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
+use crate::incremental_actions_helper::get_incremental_path_map;
+use crate::incremental_actions_helper::save_content_based_incremental_state;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -513,7 +515,7 @@ impl LocalExecutor {
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
 
-        match status {
+        let result = match status {
             GatherOutputStatus::Finished {
                 exit_code,
                 execution_stats,
@@ -629,7 +631,19 @@ impl LocalExecutor {
                 )
             }
             GatherOutputStatus::Cancelled => manager.cancel_claim(),
+        };
+
+        if let Some(run_action_key) = request.run_action_key()
+            && !request.outputs_cleanup
+        {
+            save_content_based_incremental_state(
+                run_action_key.clone(),
+                &self.artifact_fs,
+                &result,
+            );
         }
+
+        result
     }
 
     async fn calculate_and_declare_output_values(
@@ -928,7 +942,7 @@ impl LocalExecutor {
             .await
             .buck_error_context("Failed to cleanup output directory")?;
 
-        if let Some(state) = request.incremental_path_map() {
+        if let Some(state) = get_incremental_path_map(request.run_action_key()) {
             let mut copy_futs = Vec::new();
 
             for output in declared_content_based_outputs {
@@ -1254,11 +1268,12 @@ async fn materialize_build_outputs(
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
 
+    let path_map = get_incremental_path_map(request.run_action_key());
     for output in request.outputs() {
         match output {
             CommandExecutionOutputRef::BuildArtifact { path, .. } => {
                 if path.is_content_based_path() {
-                    if let Some(state) = request.incremental_path_map() {
+                    if let Some(ref state) = path_map {
                         let p = path.path().to_buf();
                         if let Some(content_path) = state.get(&p) {
                             paths.push(content_path.clone());
