@@ -350,22 +350,90 @@ def rust_protobuf_library(
         name,
         srcs,
         build_script,
-        protos = None,  # Pass a list of files. Thye'll be placed in the cwd. Prefer using proto_srcs.
+        protos = None,  # Pass a list of files. They'll be placed in the cwd. Prefer using proto_srcs.
         deps = None,
         test_deps = None,
         doctests = True,
         build_env = None,
-        proto_srcs = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
+        proto_srcs = None,
+        crate_name = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
+    _rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        "buck2_protoc_dev",
+        "prost",
+        "prost-types",
+        "tonic",
+        protos,
+        deps,
+        test_deps,
+        doctests,
+        build_env,
+        proto_srcs,
+        crate_name,
+    )
+
+def rust_protobuf_library_prost_0134(
+        name,
+        srcs,
+        build_script,
+        protos = None,  # Pass a list of files. They'll be placed in the cwd. Prefer using proto_srcs.
+        deps = None,
+        test_deps = None,
+        doctests = True,
+        build_env = None,
+        proto_srcs = None,
+        crate_name = None):
+    # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
+    _rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        "buck2_protoc_dev-tonic-0-12-3",
+        "prost-0-13-4",
+        "prost-types-0-13-4",
+        "tonic-0-12-3",
+        protos,
+        deps,
+        test_deps,
+        doctests,
+        build_env,
+        proto_srcs,
+        crate_name,
+    )
+
+def _rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        buck2_protoc_dev,
+        versioned_prost_target,
+        versioned_prost_types_target,
+        versioned_tonic_target,
+        protos,  # Pass a list of files. They'll be placed in the cwd. Prefer using proto_srcs.
+        deps,
+        test_deps,
+        doctests,
+        build_env,
+        proto_srcs,
+        crate_name):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
     build_name = name + "-build"
     proto_name = name + "-proto"
+
+    deps = (deps or []) + [
+        "fbsource//third-party/rust:" + versioned_prost_target,
+        "fbsource//third-party/rust:" + versioned_prost_types_target,
+        "fbsource//third-party/rust:" + versioned_tonic_target,
+    ]
 
     rust_binary(
         name = build_name,
         srcs = [build_script],
         crate_root = build_script,
         deps = [
-            "fbsource//third-party/rust:tonic-build",
-            "//buck2/app/buck2_protoc_dev:buck2_protoc_dev",
+            "fbsource//third-party/rust:" + versioned_tonic_target,
+            "//buck2/app/buck2_protoc_dev:" + buck2_protoc_dev,
         ],
     )
 
@@ -398,11 +466,8 @@ def rust_protobuf_library(
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
         test_deps = test_deps,
-        deps = [
-            "fbsource//third-party/rust:prost",
-            "fbsource//third-party/rust:prost-types",
-            "fbsource//third-party/rust:tonic",
-        ] + (deps or []),
+        deps = deps,
+        crate = crate_name or name,
     )
 
 ProtoSrcsInfo = provider(fields = ["srcs"])
