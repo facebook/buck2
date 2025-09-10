@@ -59,6 +59,7 @@ use crate::incremental_actions_helper::save_content_based_incremental_state;
 use crate::re::download::DownloadResult;
 use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
+use crate::sqlite::incremental_state_db::IncrementalDbState;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
 #[derive(Debug, buck2_error::Error)]
@@ -72,6 +73,7 @@ pub struct ReExecutor {
     pub artifact_fs: ArtifactFs,
     pub project_fs: ProjectRoot,
     pub materializer: Arc<dyn Materializer>,
+    pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_action_key: Option<String>,
     pub knobs: ExecutorGlobalKnobs,

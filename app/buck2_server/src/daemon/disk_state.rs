@@ -24,7 +24,10 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
-use buck2_execute_impl::sqlite::materializer_db::DB_SCHEMA_VERSION;
+use buck2_execute_impl::sqlite::incremental_state_db::INCREMENTAL_DB_SCHEMA_VERSION;
+use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
+use buck2_execute_impl::sqlite::incremental_state_db::IncrementalStateSqliteDb;
+use buck2_execute_impl::sqlite::materializer_db::MATERIALIZER_DB_SCHEMA_VERSION;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 
@@ -58,6 +61,36 @@ impl DiskStateOptions {
     }
 }
 
+fn sqlite_db_setup_metadata_and_versions(
+    root_config: &LegacyBuckConfig,
+    schema_version: String,
+    version_config: &str,
+    deferred_materializer_config: Option<&DeferredMaterializerConfigs>,
+) -> buck2_error::Result<(HashMap<String, String>, HashMap<String, String>)> {
+    let metadata = buck2_events::metadata::collect();
+
+    let mut versions = HashMap::from([("schema_version".to_owned(), schema_version)]);
+
+    if let Some(config) = deferred_materializer_config {
+        versions.insert(
+            "defer_write_actions".to_owned(),
+            config.defer_write_actions.to_string(),
+        );
+    }
+
+    if let Some(buckconfig_version) = root_config.parse(BuckconfigKeyRef {
+        section: "buck2",
+        property: version_config,
+    })? {
+        versions.insert("buckconfig_version".to_owned(), buckconfig_version);
+    }
+    if let Some(hostname) = metadata.get("hostname") {
+        versions.insert("hostname".to_owned(), hostname.to_owned());
+    }
+
+    Ok((metadata, versions))
+}
+
 pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     options: &DiskStateOptions,
     paths: InvocationPaths,
@@ -79,26 +112,12 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         return Ok((None, None));
     }
 
-    let metadata = buck2_events::metadata::collect();
-
-    let mut versions = HashMap::from([
-        ("schema_version".to_owned(), DB_SCHEMA_VERSION.to_string()),
-        (
-            "defer_write_actions".to_owned(),
-            deferred_materializer_configs
-                .defer_write_actions
-                .to_string(),
-        ),
-    ]);
-    if let Some(buckconfig_version) = root_config.parse(BuckconfigKeyRef {
-        section: "buck2",
-        property: "sqlite_materializer_state_version",
-    })? {
-        versions.insert("buckconfig_version".to_owned(), buckconfig_version);
-    }
-    if let Some(hostname) = metadata.get("hostname") {
-        versions.insert("hostname".to_owned(), hostname.to_owned());
-    }
+    let (metadata, versions) = sqlite_db_setup_metadata_and_versions(
+        root_config,
+        MATERIALIZER_DB_SCHEMA_VERSION.to_string(),
+        "sqlite_materializer_state_version",
+        Some(deferred_materializer_configs),
+    )?;
 
     // Most things in the rest of `metadata` should go in the metadata sqlite table.
     // TODO(scottcao): Narrow down what metadata we need and and insert them into the
@@ -118,6 +137,50 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     // errors to log
     let materializer_state = load_result.ok();
     Ok((Some(db), materializer_state))
+}
+
+pub(crate) async fn maybe_initialize_incremental_sqlite_db(
+    paths: InvocationPaths,
+    io_executor: Arc<dyn BlockingExecutor>,
+    root_config: &LegacyBuckConfig,
+) -> buck2_error::Result<IncrementalDbState> {
+    // Rolling it out by default, but giving an option to disable in case something goes horribly wrong
+    if !root_config
+        .parse(BuckconfigKeyRef {
+            section: "buck2",
+            property: "sqlite_incremental_state",
+        })?
+        .unwrap_or(true)
+    {
+        // When sqlite incremental state is disabled, we should always delete the db to
+        // prevent futures invocations from potentially using stale entries
+        io_executor
+            .execute_io_inline(|| {
+                fs_util::remove_all(paths.incremental_state_path())
+                    .map_err(buck2_error::Error::from)
+            })
+            .await?;
+        return Ok(IncrementalDbState::db_disabled());
+    }
+
+    let (metadata, versions) = sqlite_db_setup_metadata_and_versions(
+        root_config,
+        INCREMENTAL_DB_SCHEMA_VERSION.to_string(),
+        "sqlite_incremental_state_version",
+        None,
+    )?;
+
+    let incremental_db_state = IncrementalStateSqliteDb::initialize(
+        paths.incremental_state_path(),
+        versions,
+        metadata,
+        io_executor,
+        // TODO(minglunli): I'm not convinced we need reject_identity for incremental state. iiuc, this is only used by restarter
+        // but incremental state isn't as widely used as materializer so we prob shouldn't restart daemon even if that's out of sync?
+        None,
+    )
+    .await?;
+    Ok(incremental_db_state)
 }
 
 // Once we start storing disk state in the cache directory, we need to make sure

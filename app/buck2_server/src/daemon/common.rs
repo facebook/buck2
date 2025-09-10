@@ -58,6 +58,7 @@ use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
+use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use dupe::Dupe;
@@ -91,6 +92,7 @@ pub struct CommandExecutorFactory {
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
+    incremental_db_state: Arc<IncrementalDbState>,
 }
 
 impl CommandExecutorFactory {
@@ -113,6 +115,7 @@ impl CommandExecutorFactory {
         materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
         memory_tracker: Option<MemoryTrackerHandle>,
+        incremental_db_state: Arc<IncrementalDbState>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
@@ -137,6 +140,7 @@ impl CommandExecutorFactory {
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             local_actions_throttle,
+            incremental_db_state,
         }
     }
 
@@ -167,6 +171,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             LocalExecutor::new(
                 artifact_fs.clone(),
                 self.materializer.dupe(),
+                self.incremental_db_state.dupe(),
                 self.blocking_executor.dupe(),
                 self.host_sharing_broker.dupe(),
                 self.project_root.root().to_owned(),
@@ -209,6 +214,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     artifact_fs: artifact_fs.clone(),
                     project_fs: self.project_root.clone(),
                     materializer: self.materializer.dupe(),
+                    incremental_db_state: self.incremental_db_state.dupe(),
                     re_client: self.get_prepared_re_client(*re_use_case),
                     re_action_key: re_action_key.clone(),
                     re_max_queue_time: options.re_max_queue_time,

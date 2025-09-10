@@ -59,6 +59,7 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
+use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::file_watcher::FileWatcher;
@@ -85,6 +86,7 @@ use crate::ctx::BaseServerCommandContext;
 use crate::daemon::check_working_dir;
 use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::disk_state::delete_unknown_disk_state;
+use crate::daemon::disk_state::maybe_initialize_incremental_sqlite_db;
 use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::io_provider::create_io_provider;
@@ -191,6 +193,10 @@ pub struct DaemonStateData {
 
     /// Tracks data about previous command (e.g. configs)
     pub previous_command_data: Arc<LockedPreviousCommandData>,
+
+    /// State of the Incremental Action DB for content-based hash paths
+    #[allocative(skip)]
+    pub incremental_db_state: Arc<IncrementalDbState>,
 }
 
 impl DaemonStateData {
@@ -465,37 +471,47 @@ impl DaemonState {
                 })?
                 .unwrap_or(cfg!(any(target_os = "macos", target_os = "windows")));
 
-            let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
-                create_io_provider(
-                    fb,
-                    fs.dupe(),
-                    root_config,
-                    digest_config.cas_digest_config(),
-                    init_ctx.enable_trace_io,
-                    use_eden_thrift_read,
-                ),
-                (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
-                    // Using `execute_io_inline` is just out of convenience.
-                    // It doesn't really matter what's used here since there's no IO-heavy
-                    // operations on daemon startup
-                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs)
-                }),
-                maybe_initialize_materializer_sqlite_db(
-                    &disk_state_options,
-                    paths.clone(),
-                    blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
-                    root_config,
-                    &deferred_materializer_configs,
-                    digest_config,
-                    &init_ctx,
-                ),
-            )
-            .await?;
+            let (io, _, (materializer_db, materializer_state), incremental_db_state) =
+                futures::future::try_join4(
+                    create_io_provider(
+                        fb,
+                        fs.dupe(),
+                        root_config,
+                        digest_config.cas_digest_config(),
+                        init_ctx.enable_trace_io,
+                        use_eden_thrift_read,
+                    ),
+                    (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(
+                        || {
+                            // Using `execute_io_inline` is just out of convenience.
+                            // It doesn't really matter what's used here since there's no IO-heavy
+                            // operations on daemon startup
+                            delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs)
+                        },
+                    ),
+                    maybe_initialize_materializer_sqlite_db(
+                        &disk_state_options,
+                        paths.clone(),
+                        blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+                        root_config,
+                        &deferred_materializer_configs,
+                        digest_config,
+                        &init_ctx,
+                    ),
+                    maybe_initialize_incremental_sqlite_db(
+                        paths.clone(),
+                        blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+                        root_config,
+                    ),
+                )
+                .await?;
 
             let http_client = http_client_from_startup_config(&init_ctx.daemon_startup_config)
                 .await
                 .buck_error_context("Error creating HTTP client")?
                 .build();
+
+            let incremental_db_state = Arc::new(incremental_db_state);
 
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());
@@ -653,6 +669,7 @@ impl DaemonState {
                 system_warning_config,
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
+                incremental_db_state,
             }))
         })
         .await?

@@ -97,6 +97,7 @@ use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
 use crate::incremental_actions_helper::get_incremental_path_map;
 use crate::incremental_actions_helper::save_content_based_incremental_state;
+use crate::sqlite::incremental_state_db::IncrementalDbState;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -112,6 +113,8 @@ enum LocalExecutionError {
 pub struct LocalExecutor {
     artifact_fs: ArtifactFs,
     materializer: Arc<dyn Materializer>,
+    #[allow(unused)]
+    incremental_db_state: Arc<IncrementalDbState>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     pub(crate) host_sharing_broker: Arc<HostSharingBroker>,
     root: AbsNormPathBuf,
@@ -126,6 +129,7 @@ impl LocalExecutor {
     pub fn new(
         artifact_fs: ArtifactFs,
         materializer: Arc<dyn Materializer>,
+        incremental_db_state: Arc<IncrementalDbState>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         host_sharing_broker: Arc<HostSharingBroker>,
         root: AbsNormPathBuf,
@@ -136,6 +140,7 @@ impl LocalExecutor {
         Self {
             artifact_fs,
             materializer,
+            incremental_db_state,
             blocking_executor,
             host_sharing_broker,
             root,
@@ -1526,6 +1531,7 @@ mod tests {
         let executor = LocalExecutor::new(
             artifact_fs,
             Arc::new(NoDiskMaterializer),
+            Arc::new(IncrementalDbState::db_disabled()),
             Arc::new(DummyBlockingExecutor {
                 fs: project_fs.dupe(),
             }),

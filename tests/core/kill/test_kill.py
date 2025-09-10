@@ -20,12 +20,15 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 _BUCK_TEST_DECORATOR = buck_test(
     # On windows, we get an error of form
     # "The process cannot access the file because it is being used by another process"
-    # when trying to kill the daemon with sqlite materializer state enabled. This is most
+    # when trying to kill the daemon with sqlite states enabled. This is most
     # likely because we don't kill all child processes of the daemon and so the sqlite process
     # is still running and accessing the sqlite db file when being killed. Given this is a
-    # pre-existing issue, we disable sqlite materializer state on windows for now.
+    # pre-existing issue, we disable sqlite state on windows for now.
     extra_buck_config={
-        "buck2": {"sqlite_materializer_state": "false"},
+        "buck2": {
+            "sqlite_materializer_state": "false",
+            "sqlite_incremental_state": "false",
+        },
     }
     if platform.system() == "Windows"
     else {},

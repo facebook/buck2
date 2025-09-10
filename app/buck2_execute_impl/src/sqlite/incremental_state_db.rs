@@ -45,8 +45,17 @@ pub const INCREMENTAL_DB_SCHEMA_VERSION: u64 = 0;
 pub(crate) type IncrementalState = DashMap<String, Arc<IncrementalPathMap>>;
 
 pub struct IncrementalDbState {
-    pub db: IncrementalStateSqliteDb,
+    pub db: Option<IncrementalStateSqliteDb>,
     pub state: IncrementalState,
+}
+
+impl IncrementalDbState {
+    pub fn db_disabled() -> Self {
+        Self {
+            db: None,
+            state: DashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -153,7 +162,10 @@ impl IncrementalStateSqliteDb {
         };
 
         match state {
-            Ok(state) => Ok(IncrementalDbState { db, state }),
+            Ok(state) => Ok(IncrementalDbState {
+                db: Some(db),
+                state,
+            }),
             Err(e) => {
                 tracing::debug!(
                     "Failed to read/load incremental state. Build will continue as if the state is empty.  {}",
@@ -161,7 +173,7 @@ impl IncrementalStateSqliteDb {
                 );
 
                 Ok(IncrementalDbState {
-                    db,
+                    db: Some(db),
                     state: DashMap::new(),
                 })
             }
@@ -243,6 +255,7 @@ mod tests {
                 None,
             )
             .unwrap();
+            let db = db.unwrap();
             assert!(state.is_empty());
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
 
@@ -260,7 +273,10 @@ mod tests {
             assert!(state.contains_key(&run_action_key));
             let action_state = state.get(&run_action_key).unwrap();
             assert_eq!(action_state.iter().count(), 1);
-            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
+            assert_metadata_matches(
+                db.unwrap().tables.created_by_table.read_all()?,
+                &metadatas[0],
+            );
         }
 
         // Load with different version (should recreate DB)
@@ -272,6 +288,7 @@ mod tests {
                 None,
             )
             .unwrap();
+            let db = db.unwrap();
             assert!(state.is_empty());
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
 
@@ -289,6 +306,7 @@ mod tests {
                 None,
             )
             .unwrap();
+            let db = db.unwrap();
             assert_eq!(state.len(), 1);
             assert!(state.contains_key(&run_action_key));
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
@@ -306,7 +324,10 @@ mod tests {
             )
             .unwrap();
             assert!(state.is_empty());
-            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[4]);
+            assert_metadata_matches(
+                db.unwrap().tables.created_by_table.read_all()?,
+                &metadatas[4],
+            );
         }
 
         Ok(())

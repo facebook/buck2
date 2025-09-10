@@ -115,22 +115,24 @@ async def test_cache_directory_cleanup(buck: Buck) -> None:
     # sqlite materializer state is already enabled
     cache_dir = Path(buck.cwd, "buck-out", "v2", "cache")
     materializer_state_dir = cache_dir / "materializer_state"
-    command_hashes_dir = cache_dir / "command_hashes"
     materializer_state_dir.mkdir(parents=True)
+    incremental_state_dir = cache_dir / "incremental_state"
+    incremental_state_dir.mkdir(parents=True)
+    command_hashes_dir = cache_dir / "command_hashes"
     command_hashes_dir.mkdir(parents=True)
 
     # Need to run a command to start the daemon.
     await buck.audit_config()
 
-    cache_dir_listing = list(cache_dir.iterdir())
-    assert cache_dir_listing == [materializer_state_dir]
+    cache_dir_listing = sorted(list(cache_dir.iterdir()))
+    assert cache_dir_listing == [incremental_state_dir, materializer_state_dir]
 
     await buck.kill()
     disable_sqlite_materializer_state(buck)
     await buck.audit_config()
 
     cache_dir_listing = list(cache_dir.iterdir())
-    assert cache_dir_listing == []
+    assert cache_dir_listing == [incremental_state_dir]
 
 
 @buck_test(

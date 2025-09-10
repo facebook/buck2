@@ -767,6 +767,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.materialize_failed_outputs,
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
+            self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
