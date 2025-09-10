@@ -72,7 +72,7 @@ pub(crate) enum RunActionError {
     DuplicateWeightsSpecified,
     #[error("`dep_files` value with key `{}` has an invalid count of associated outputs. Expected 1, got {}.", .key, .count)]
     InvalidDepFileOutputs { key: String, count: usize },
-    #[error("`dep_files` with keys `{}` and {} are using the same tag", .first, .second)]
+    #[error("`dep_files` with keys `{}` and `{}` are using the same tag", .first, .second)]
     ConflictingDepFiles { first: String, second: String },
     #[error(
         "missing `metadata_path` parameter which is required when `metadata_env_var` parameter is present"

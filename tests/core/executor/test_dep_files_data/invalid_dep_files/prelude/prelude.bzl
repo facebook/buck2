@@ -75,3 +75,34 @@ n_outputs_tagged_as_dep_file = rule(
     },
     impl = _n_outputs_tagged_as_dep_file_impl,
 )
+
+def _same_tag_for_multiple_labels_impl(ctx):
+    app = ctx.actions.declare_output("app")
+    tag = ctx.actions.artifact_tag()
+    dep_file = ctx.actions.declare_output("depfile")
+    args = cmd_args([
+        "sh",
+        "-c",
+        "never_executed",
+        "--",
+        app.as_output(),
+        tag.tag_artifacts(dep_file.as_output()),
+    ])
+
+    ctx.actions.run(
+        args,
+        category = "test",
+        dep_files = {"deps": tag, "deps2": tag},
+    )
+
+    return [
+        DefaultInfo(
+            default_output = app,
+        ),
+    ]
+
+same_tag_for_multiple_labels = rule(
+    attrs = {
+    },
+    impl = _same_tag_for_multiple_labels_impl,
+)

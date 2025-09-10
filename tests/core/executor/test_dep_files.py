@@ -791,3 +791,11 @@ async def test_no_outputs_tagged_as_dep_file(buck: Buck) -> None:
         buck.build("root//:no_outputs_tagged_as_dep_file"),
         stderr_regex="`dep_files` value with key `deps` has an invalid count of associated outputs. Expected 1, got 0",
     )
+
+
+@buck_test(data_dir="invalid_dep_files")
+async def test_same_tag_for_multiple_labels(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("root//:same_tag_for_multiple_labels"),
+        stderr_regex="`dep_files` with keys `deps` and `deps2` are using the same tag",
+    )

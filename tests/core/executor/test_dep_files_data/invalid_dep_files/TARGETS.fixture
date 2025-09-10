@@ -8,3 +8,6 @@ n_outputs_tagged_as_dep_file(
     name = "no_outputs_tagged_as_dep_file",
     num_dep_files = 0,
 )
+same_tag_for_multiple_labels(
+    name = "same_tag_for_multiple_labels",
+)
