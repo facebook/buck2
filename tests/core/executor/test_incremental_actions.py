@@ -12,7 +12,7 @@
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
 
 
@@ -50,13 +50,11 @@ async def basic_incremental_action_local_only_helper(
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_basic_incremental_action_local_only(buck: Buck) -> None:
     await basic_incremental_action_local_only_helper(buck, use_content_based_path=False)
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_basic_incremental_action_local_only_with_content_based_path(
     buck: Buck,
 ) -> None:
@@ -87,20 +85,14 @@ async def incremental_action_from_remote_action_helper(
     assert result.stdout == "foo bar"
 
 
-@buck_test(
-    extra_buck_config={"buck2": {"materializations": "deferred"}},
-)
-@env("BUCK2_HARD_ERROR", "false")
+@buck_test()
 async def test_incremental_action_from_remote_action(buck: Buck) -> None:
     await incremental_action_from_remote_action_helper(
         buck, use_content_based_path=False
     )
 
 
-@buck_test(
-    extra_buck_config={"buck2": {"materializations": "deferred"}},
-)
-@env("BUCK2_HARD_ERROR", "false")
+@buck_test()
 async def test_incremental_action_from_remote_action_with_content_based_path(
     buck: Buck,
 ) -> None:
@@ -109,25 +101,13 @@ async def test_incremental_action_from_remote_action_with_content_based_path(
     )
 
 
-async def incremental_action_with_non_incremental_inbetween_helper(
+async def incremental_action_with_non_incremental_remote_action_inbetween_helper(
     buck: Buck, use_content_based_path: bool
 ) -> None:
     result = await buck.run(
         "root//:basic_incremental_action",
         "-c",
         f"test.seed={random_string()}",
-        "-c",
-        f"test.use_content_based_path={use_content_based_path}",
-    )
-    assert result.stdout == "foo"
-
-    result = await buck.run(
-        "root//:basic_incremental_action",
-        "--local-only",
-        "-c",
-        f"test.seed={random_string()}",
-        "-c",
-        "test.use_incremental=false",
         "-c",
         f"test.use_content_based_path={use_content_based_path}",
     )
@@ -157,21 +137,72 @@ async def incremental_action_with_non_incremental_inbetween_helper(
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
-# Note that the test scenario below should not actually happen in the real world, it's set up
-# this way to ensure that incremental actions are cached properly instead of being re-executed
-async def test_incremental_action_with_non_incremental_inbetween(buck: Buck) -> None:
-    await incremental_action_with_non_incremental_inbetween_helper(
+async def test_incremental_action_with_non_incremental_remote_action_inbetween(
+    buck: Buck,
+) -> None:
+    await incremental_action_with_non_incremental_remote_action_inbetween_helper(
         buck, use_content_based_path=False
     )
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
-async def test_incremental_action_with_non_incremental_inbetween_with_content_based_path(
+async def test_incremental_action_with_non_incremental_remote_action_inbetween_with_content_based_path(
     buck: Buck,
 ) -> None:
-    await incremental_action_with_non_incremental_inbetween_helper(
+    await incremental_action_with_non_incremental_remote_action_inbetween_helper(
+        buck, use_content_based_path=True
+    )
+
+
+async def incremental_action_with_non_incremental_local_action_inbetween_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        "test.use_incremental=false",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo bar"
+
+
+@buck_test()
+async def test_incremental_action_with_non_incremental_local_action_inbetween(
+    buck: Buck,
+) -> None:
+    await incremental_action_with_non_incremental_local_action_inbetween_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_incremental_action_with_non_incremental_local_action_inbetween_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await incremental_action_with_non_incremental_local_action_inbetween_helper(
         buck, use_content_based_path=True
     )
 
@@ -207,13 +238,11 @@ async def basic_incremental_action_cached_helper(
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_basic_incremental_action_cached(buck: Buck) -> None:
     await basic_incremental_action_cached_helper(buck, use_content_based_path=False)
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_basic_incremental_action_cached_with_content_based_path(
     buck: Buck,
 ) -> None:
@@ -236,7 +265,6 @@ async def incremental_action_interleave_platforms_helper(
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_incremental_action_interleave_platforms_aabb(buck: Buck) -> None:
     result = await incremental_action_interleave_platforms_helper(
         buck, "root//:p_default", use_content_based_path=False
@@ -257,7 +285,6 @@ async def test_incremental_action_interleave_platforms_aabb(buck: Buck) -> None:
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_incremental_action_different_platforms_abab(buck: Buck) -> None:
     result = await incremental_action_interleave_platforms_helper(
         buck, "root//:p_default", use_content_based_path=False
@@ -278,7 +305,6 @@ async def test_incremental_action_different_platforms_abab(buck: Buck) -> None:
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_incremental_action_different_platforms_abba(buck: Buck) -> None:
     result = await incremental_action_interleave_platforms_helper(
         buck, "root//:p_default", use_content_based_path=False
@@ -299,7 +325,6 @@ async def test_incremental_action_different_platforms_abba(buck: Buck) -> None:
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_incremental_action_interleave_platforms_aabb_with_content_based_path(
     buck: Buck,
 ) -> None:
@@ -322,7 +347,6 @@ async def test_incremental_action_interleave_platforms_aabb_with_content_based_p
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_incremental_action_interleave_platforms_abab_with_content_based_path(
     buck: Buck,
 ) -> None:
@@ -345,7 +369,6 @@ async def test_incremental_action_interleave_platforms_abab_with_content_based_p
 
 
 @buck_test()
-@env("BUCK2_HARD_ERROR", "false")
 async def test_incremental_action_interleave_platforms_abba_with_content_based_path(
     buck: Buck,
 ) -> None:
