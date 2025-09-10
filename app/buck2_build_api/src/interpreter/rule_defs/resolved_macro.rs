@@ -149,7 +149,7 @@ impl<'v> ResolvedMacro<'v> {
     ) -> buck2_error::Result<()> {
         match self {
             Self::Location(info) => {
-                info.for_each_output(&mut |i| visitor.visit_input(i, None))?;
+                info.for_each_output(&mut |i| visitor.visit_input(i, vec![]))?;
             }
             Self::ArgLike(command_line_like) => {
                 command_line_like
@@ -158,7 +158,7 @@ impl<'v> ResolvedMacro<'v> {
             }
             Self::Query(value) => value.visit_artifacts(visitor)?,
             Self::Source(artifact) => {
-                visitor.visit_input(ArtifactGroup::Artifact(artifact.dupe()), None)
+                visitor.visit_input(ArtifactGroup::Artifact(artifact.dupe()), vec![])
             }
         }
         Ok(())

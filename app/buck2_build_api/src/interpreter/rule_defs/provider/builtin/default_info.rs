@@ -334,18 +334,18 @@ impl FrozenDefaultInfo {
         struct Visitor<'x>(&'x mut dyn FnMut(ArtifactGroup));
 
         impl<'v> CommandLineArtifactVisitor<'v> for Visitor<'_> {
-            fn visit_input(&mut self, input: ArtifactGroup, _: Option<&ArtifactTag>) {
+            fn visit_input(&mut self, input: ArtifactGroup, _: Vec<&ArtifactTag>) {
                 (self.0)(input);
             }
 
             fn visit_declared_output(
                 &mut self,
                 _artifact: OutputArtifact<'v>,
-                _tag: Option<&ArtifactTag>,
+                _tags: Vec<&ArtifactTag>,
             ) {
             }
 
-            fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
+            fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
         }
 
         self.for_each_in_list(self.other_outputs.get(), |value| {

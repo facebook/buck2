@@ -277,7 +277,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
             }
 
             impl<'v> CommandLineArtifactVisitor<'v> for IgnoredArtifactsVisitor {
-                fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+                fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
                     let is_content_based = match input {
                         ArtifactGroup::Artifact(ref x) => x.has_content_based_path(),
                         ArtifactGroup::TransitiveSetProjection(ref p) => p.uses_content_based_paths,
@@ -293,7 +293,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                 fn visit_declared_artifact(
                     &mut self,
                     declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
-                    _tag: Option<&ArtifactTag>,
+                    _tags: Vec<&ArtifactTag>,
                 ) -> buck2_error::Result<()> {
                     if declared_artifact.has_content_based_path() {
                         self.content_based_artifacts
@@ -306,12 +306,11 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                 fn visit_declared_output(
                     &mut self,
                     _artifact: OutputArtifact<'v>,
-                    _tag: Option<&ArtifactTag>,
+                    _tags: Vec<&ArtifactTag>,
                 ) {
                 }
 
-                fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {
-                }
+                fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
             }
             let mut ignored_artifacts_visitor = IgnoredArtifactsVisitor::new();
             for item in self.0.items().iter().chain(self.0.hidden().iter()) {

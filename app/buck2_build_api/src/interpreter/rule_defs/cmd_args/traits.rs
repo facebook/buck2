@@ -42,11 +42,11 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 
 pub trait CommandLineArtifactVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);
+    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>);
 
-    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>);
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>);
 
-    fn visit_frozen_output(&mut self, artifact: Artifact, tag: Option<&ArtifactTag>);
+    fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>);
 
     /// Those two functions can be used to keep track of recursion when visiting artifacts.
     fn push_frame(&mut self) -> buck2_error::Result<()> {
@@ -58,11 +58,11 @@ pub trait CommandLineArtifactVisitor<'v> {
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: DeclaredArtifact<'v>,
-        tag: Option<&ArtifactTag>,
+        tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         self.visit_input(
             ArtifactGroup::Artifact(declared_artifact.ensure_bound()?.into_artifact()),
-            tag,
+            tags,
         );
         Ok(())
     }
@@ -86,15 +86,15 @@ impl SimpleCommandLineArtifactVisitor<'_> {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
         self.inputs.insert(input);
     }
 
-    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, _tags: Vec<&ArtifactTag>) {
         self.declared_outputs.insert(artifact);
     }
 
-    fn visit_frozen_output(&mut self, artifact: Artifact, _tag: Option<&ArtifactTag>) {
+    fn visit_frozen_output(&mut self, artifact: Artifact, _tags: Vec<&ArtifactTag>) {
         self.frozen_outputs.insert(artifact);
     }
 }

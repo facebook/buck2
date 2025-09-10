@@ -249,10 +249,10 @@ impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_input(ArtifactGroup::Artifact(self.artifact.dupe()), None);
+        visitor.visit_input(ArtifactGroup::Artifact(self.artifact.dupe()), vec![]);
         self.associated_artifacts
             .iter()
-            .for_each(|ag| visitor.visit_input(ag.dupe(), None));
+            .for_each(|ag| visitor.visit_input(ag.dupe(), vec![]));
         Ok(())
     }
 

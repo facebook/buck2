@@ -430,7 +430,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                 fn visit_input(
                                     &mut self,
                                     input: ArtifactGroup,
-                                    _tag: Option<&ArtifactTag>,
+                                    _tags: Vec<&ArtifactTag>,
                                 ) {
                                     self.0.push_back((self.1.dupe(), input));
                                 }
@@ -438,14 +438,14 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                 fn visit_declared_output(
                                     &mut self,
                                     _artifact: OutputArtifact<'v>,
-                                    _tag: Option<&ArtifactTag>,
+                                    _tags: Vec<&ArtifactTag>,
                                 ) {
                                 }
 
                                 fn visit_frozen_output(
                                     &mut self,
                                     _artifact: Artifact,
-                                    _tag: Option<&ArtifactTag>,
+                                    _tags: Vec<&ArtifactTag>,
                                 ) {
                                 }
                             }

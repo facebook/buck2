@@ -264,7 +264,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectio
                     .get(self.projection)
                     .expect("by construction"),
             })),
-            None,
+            vec![],
         );
 
         Ok(())

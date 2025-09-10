@@ -39,19 +39,19 @@ fn test_tagging() -> anyhow::Result<()> {
     }
 
     impl<'v> CommandLineArtifactVisitor<'v> for AssertVisitor {
-        fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>) {
-            assert_eq!(tag, Some(&self.tag));
+        fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+            assert_eq!(tags, vec![&self.tag]);
             assert_eq!(input, ArtifactGroup::Artifact(self.artifact.dupe()));
         }
 
         fn visit_declared_output(
             &mut self,
             _artifact: OutputArtifact<'v>,
-            _tag: Option<&ArtifactTag>,
+            _tags: Vec<&ArtifactTag>,
         ) {
         }
 
-        fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
+        fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
     }
 
     #[starlark_module]

@@ -254,30 +254,30 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         }
 
         impl<'v> CommandLineArtifactVisitor<'v> for RunCommandArtifactVisitor<'v> {
-            fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>) {
-                self.inner.visit_input(input, tag);
+            fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+                self.inner.visit_input(input, tags);
             }
 
             fn visit_declared_output(
                 &mut self,
                 artifact: OutputArtifact<'v>,
-                tag: Option<&ArtifactTag>,
+                tags: Vec<&ArtifactTag>,
             ) {
-                match tag {
+                match tags.first() {
                     None => {}
                     Some(tag) => {
                         self.tagged_outputs
-                            .entry(tag.dupe())
+                            .entry((*tag).dupe())
                             .or_default()
                             .push(artifact.dupe());
                     }
                 }
 
-                self.inner.visit_declared_output(artifact, tag);
+                self.inner.visit_declared_output(artifact, tags);
             }
 
-            fn visit_frozen_output(&mut self, artifact: Artifact, tag: Option<&ArtifactTag>) {
-                self.inner.visit_frozen_output(artifact, tag)
+            fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>) {
+                self.inner.visit_frozen_output(artifact, tags)
             }
 
             fn push_frame(&mut self) -> buck2_error::Result<()> {

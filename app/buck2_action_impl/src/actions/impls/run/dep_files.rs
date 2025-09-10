@@ -1103,15 +1103,15 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
     fn visit_input(
         &mut self,
         input: ArtifactGroup,
-        tag: Option<&ArtifactTag>,
+        tags: Vec<&ArtifactTag>,
         dep_files: &RunActionDepFiles,
     ) {
-        let input_group = match tag {
+        let input_group = match tags.first() {
             None => &mut self.untagged,
             Some(tag) => {
                 // NOTE: If an input has a tag that doesn't match a dep file, we don't care about
                 // it.
-                match dep_files.labels.get(tag) {
+                match dep_files.labels.get(*tag) {
                     None => &mut self.untagged,
                     // The tagged inputs have prepopulated keys on creation to ensure sorted keys, so the label must exist.
                     Some(label) => self.tagged.get_mut(label).unwrap(),
@@ -1572,21 +1572,21 @@ impl<'a> DepFilesCommandLineVisitor<'a> {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
-    fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>) {
-        self.inputs.visit_input(input, tag, self.dep_files);
+    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+        self.inputs.visit_input(input, tags, self.dep_files);
     }
 
-    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tags: Vec<&ArtifactTag>) {
         unreachable!("Dep files visitors are run after freezing")
     }
 
-    fn visit_frozen_output(&mut self, artifact: Artifact, tag: Option<&ArtifactTag>) {
-        match tag {
+    fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>) {
+        match tags.first() {
             Some(tag) => {
                 // NOTE: We have validated tags earlier, so we know that if a tag does not point to
                 // a dep file here, it's safe to ignore it. We also know that we'll have exactly 1
                 // dep file per tag.
-                if let Some((_label, output)) = self.tagged_outputs.get_mut(tag) {
+                if let Some((_label, output)) = self.tagged_outputs.get_mut(*tag) {
                     // NOTE: analysis has been done so we know inputs are bound now.
                     *output = Some(artifact);
                 }
@@ -1650,13 +1650,13 @@ mod tests {
         };
 
         let mut visitor = DepFilesCommandLineVisitor::new(&dep_files);
-        visitor.visit_frozen_output(artifact3, Some(&tag3));
-        visitor.visit_frozen_output(artifact2, Some(&tag2));
-        visitor.visit_frozen_output(artifact1, Some(&tag1));
+        visitor.visit_frozen_output(artifact3, vec![&tag3]);
+        visitor.visit_frozen_output(artifact2, vec![&tag2]);
+        visitor.visit_frozen_output(artifact1, vec![&tag1]);
         // This should be ignored as it's not included in RunActionDepFiles
-        visitor.visit_frozen_output(artifact4, Some(&tag4));
+        visitor.visit_frozen_output(artifact4, vec![&tag4]);
         // This should be ignored as it does not have a tag
-        visitor.visit_frozen_output(artifact5, None);
+        visitor.visit_frozen_output(artifact5, vec![]);
 
         // Assert that the order is preserved between the two maps
         let x: Vec<_> = visitor.tagged_outputs.keys().collect();

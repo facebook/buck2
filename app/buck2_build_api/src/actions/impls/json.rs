@@ -362,7 +362,7 @@ pub fn visit_json_artifacts<'v>(
         }
         JsonUnpack::TransitiveSetJsonProjection(x) => visitor.visit_input(
             ArtifactGroup::TransitiveSetProjection(Arc::new(x.to_projection_key()?)),
-            None,
+            vec![],
         ),
         JsonUnpack::Artifact(_x) => {
             // The _x function requires that the artifact is already bound, but we may need to visit artifacts

@@ -279,7 +279,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_input(self.as_artifact(), None);
+        visitor.visit_input(self.as_artifact(), vec![]);
         Ok(())
     }
 

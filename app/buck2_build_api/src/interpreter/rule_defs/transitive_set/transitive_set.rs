@@ -497,7 +497,7 @@ impl<'v> TransitiveSet<'v> {
         }
 
         impl<'v> CommandLineArtifactVisitor<'v> for HasContentBasedInputVisitor {
-            fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+            fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
                 let is_content_based_input = match input {
                     ArtifactGroup::Artifact(a) => a.has_content_based_path(),
                     // Promised artifacts are not allowed to use content-based paths
@@ -514,16 +514,16 @@ impl<'v> TransitiveSet<'v> {
             fn visit_declared_output(
                 &mut self,
                 _artifact: OutputArtifact<'v>,
-                _tag: Option<&ArtifactTag>,
+                _tags: Vec<&ArtifactTag>,
             ) {
             }
 
-            fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
+            fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
 
             fn visit_declared_artifact(
                 &mut self,
                 declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
-                _tag: Option<&ArtifactTag>,
+                _tags: Vec<&ArtifactTag>,
             ) -> buck2_error::Result<()> {
                 if declared_artifact.has_content_based_path() {
                     self.has_content_based_input = true;

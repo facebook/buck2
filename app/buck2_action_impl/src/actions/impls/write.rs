@@ -71,7 +71,7 @@ impl CommandLineContentBasedInputVisitor {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
         let is_content_based_input = match input {
             ArtifactGroup::Artifact(ref artifact) => artifact.has_content_based_path(),
             // Promised artifacts are not allowed to use content-based paths
@@ -86,19 +86,18 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
         }
     }
 
-    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
-    }
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tags: Vec<&ArtifactTag>) {}
 
-    fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
+    fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
 
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
-        tag: Option<&ArtifactTag>,
+        tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         if declared_artifact.has_content_based_path() {
             let artifact = declared_artifact.ensure_bound()?.into_artifact();
-            self.visit_input(ArtifactGroup::Artifact(artifact), tag);
+            self.visit_input(ArtifactGroup::Artifact(artifact), tags);
         }
 
         Ok(())
