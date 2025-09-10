@@ -336,7 +336,6 @@ def encode_base_jar_command(
 def setup_dep_files(
         actions: AnalysisActions,
         actions_identifier: [str, None],
-        cmd: cmd_args,
         post_build_params: dict,
         classpath_jars_tag: ArtifactTag,
         used_classes_json_outputs: list[cmd_args],
@@ -346,9 +345,7 @@ def setup_dep_files(
         hidden: list[Artifact] = []) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "jar/dep-file.txt", uses_experimental_content_based_path_hashing)
 
-    new_cmd_args = []
     new_cmd_hidden = []
-    new_cmd_args.append(cmd)
     post_build_params["usedClasses"] = used_classes_json_outputs
     post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
     post_build_params["usedJarsFile"] = used_jars_json_output.as_output()

@@ -510,7 +510,6 @@ def _define_kotlincd_action(
         args = setup_dep_files(
             actions,
             actions_identifier,
-            args,
             post_build_params,
             classpath_jars_tag,
             used_classes_json_outputs,
