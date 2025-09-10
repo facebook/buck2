@@ -8,4 +8,5 @@
  * above-listed licenses.
  */
 
+pub(crate) mod incremental_state_table;
 pub(crate) mod materializer_state_table;

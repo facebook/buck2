@@ -27,6 +27,7 @@ prost = { workspace = true }
 regex = { workspace = true }
 remote_execution = { workspace = true }
 rusqlite = { workspace = true }
+starlark_map = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }

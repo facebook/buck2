@@ -329,7 +329,7 @@ pub struct WorkerSpec {
 
 // Contains the declared short path name to the full content-based hash path
 
-#[derive(Allocative)]
+#[derive(Allocative, Clone)]
 pub struct IncrementalPathMap(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
 
 impl IncrementalPathMap {
@@ -339,6 +339,18 @@ impl IncrementalPathMap {
 
     pub fn get(&self, key: &ForwardRelativePathBuf) -> Option<&ProjectRelativePathBuf> {
         self.0.get(key)
+    }
+
+    pub fn insert(
+        &mut self,
+        key: ForwardRelativePathBuf,
+        value: ProjectRelativePathBuf,
+    ) -> Option<ProjectRelativePathBuf> {
+        self.0.insert(key, value)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&ForwardRelativePathBuf, &ProjectRelativePathBuf)> {
+        self.0.iter()
     }
 }
 
