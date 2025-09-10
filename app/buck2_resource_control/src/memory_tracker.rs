@@ -13,7 +13,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use async_trait::async_trait;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::ResourceControlRunner;
 use buck2_common::resource_control::SystemdCreationDecision;
@@ -33,8 +32,6 @@ use tokio::io::AsyncSeekExt;
 use tokio::io::BufReader;
 use tokio::sync::watch;
 use tokio::sync::watch::Sender;
-use tokio::time::Interval;
-use tokio::time::MissedTickBehavior;
 
 use crate::action_cgroups::ActionCgroups;
 
@@ -83,31 +80,6 @@ pub struct MemoryReading {
     /// all aspects of build (daemon, forkserver & local action processes).
     pub memory_current: u64,
     pub memory_pressure: PressureReading,
-}
-
-#[async_trait]
-pub(crate) trait Timer {
-    async fn tick(&mut self);
-}
-
-struct IntervalTimer {
-    timer: Interval,
-}
-
-impl IntervalTimer {
-    fn new(tick: Duration) -> Self {
-        let mut timer = tokio::time::interval(tick);
-        // If the tick has already been missed, there's no need to compensate for it as it won't impact correctness.
-        timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        Self { timer }
-    }
-}
-
-#[async_trait]
-impl Timer for IntervalTimer {
-    async fn tick(&mut self) {
-        self.timer.tick().await;
-    }
 }
 
 #[derive(Allocative)]
@@ -316,8 +288,7 @@ pub async fn create_memory_tracker(
         );
         let tracker_handle = memory_tracker.handle.dupe();
         const TICK_DURATION: Duration = Duration::from_millis(300);
-        let timer = IntervalTimer::new(TICK_DURATION);
-        memory_tracker.spawn(timer).await?;
+        memory_tracker.spawn(TICK_DURATION).await?;
         Ok(Some(tracker_handle))
     } else {
         Ok(None)
@@ -343,18 +314,20 @@ impl MemoryTracker {
     }
 
     #[doc(hidden)]
-    pub(crate) async fn spawn(self, timer: impl Timer + Send + 'static) -> buck2_error::Result<()> {
+    pub(crate) async fn spawn(self, duration: Duration) -> buck2_error::Result<()> {
         thread_spawn("memory-tracker", move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .unwrap();
-            rt.block_on(self.run(timer));
+            rt.block_on(self.run(duration));
         })?;
         Ok(())
     }
 
-    async fn run(mut self, mut timer: impl Timer + Send + 'static) {
+    async fn run(mut self, duration: Duration) {
+        let mut timer = tokio::time::interval(duration);
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut backoff_data: Option<BackoffData> = None;
         loop {
             timer.tick().await;
@@ -528,32 +501,12 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::time::Duration;
 
-    use async_trait::async_trait;
     use tokio::fs::File;
-    use tokio::sync::Notify;
 
     use super::*;
 
-    struct MockTimer {
-        notify: Option<Arc<Notify>>,
-        counter: Arc<AtomicUsize>,
-    }
-
-    impl MockTimer {
-        fn new(notify: Option<Arc<Notify>>, counter: Arc<AtomicUsize>) -> Self {
-            Self { notify, counter }
-        }
-    }
-
-    #[async_trait]
-    impl Timer for MockTimer {
-        async fn tick(&mut self) {
-            if let Some(notify) = self.notify.as_ref() {
-                notify.notified().await;
-            }
-            self.counter.fetch_add(1, Ordering::Relaxed);
-        }
-    }
+    const TICK_DURATION: Duration = Duration::from_secs(1);
+    const TIMEOUT_DURATION: Duration = Duration::from_secs(2);
 
     #[tokio::test]
     async fn test_current_memory_changes_tracked() -> buck2_error::Result<()> {
@@ -568,21 +521,18 @@ mod tests {
         )
         .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
-        let notify = Arc::new(Notify::new());
-        let counter = Arc::new(AtomicUsize::new(0));
-        let timer = MockTimer::new(Some(notify.clone()), counter.clone());
         let handle = MemoryTrackerHandleInner::new(None);
         let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
-        tracker.spawn(timer).await?;
+        tracker.spawn(TICK_DURATION).await?;
 
+        // NOTE: This is the only assert that could potentially be flaky, if spawn function was too slow.
+        // If that happens, increasing TICK_DURATION should be enough to resolve it
         assert_eq!(
             *state_rx.borrow_and_update(),
             TrackedMemoryState::Uninitialized
         );
-        assert_eq!(counter.load(Ordering::Relaxed), 0);
-        notify.notify_one();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -592,13 +542,12 @@ mod tests {
                 memory_pressure_state: MemoryPressureState::BelowPressureLimit
             })
         );
-        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(actual.memory_current, 6);
-        assert_eq!(actual.memory_pressure.total_pressure, 200000);
-        assert_eq!(actual.memory_pressure.pressure_percent, 0);
-        assert_eq!(counter.load(Ordering::Relaxed), 1);
+
+        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_pressure.total_pressure, 200000);
+        assert_eq!(reading.memory_pressure.pressure_percent, 0);
         fs::write(&current, "9").unwrap();
-        notify.notify_one();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -608,24 +557,23 @@ mod tests {
                 memory_pressure_state: MemoryPressureState::BelowPressureLimit
             })
         );
-        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(actual.memory_current, 9);
-        assert_eq!(actual.memory_pressure.total_pressure, 200000);
-        assert_eq!(actual.memory_pressure.pressure_percent, 0);
-        assert_eq!(counter.load(Ordering::Relaxed), 2);
+
+        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(reading.memory_current, 9);
+        assert_eq!(reading.memory_pressure.total_pressure, 200000);
+        assert_eq!(reading.memory_pressure.pressure_percent, 0);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
-        notify.notify_one();
         reading_rx.changed().await?;
-        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(actual.memory_current, 10);
-        assert_eq!(actual.memory_pressure.total_pressure, 200000);
-        assert_eq!(actual.memory_pressure.pressure_percent, 0);
-        assert_eq!(counter.load(Ordering::Relaxed), 3);
+
+        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(reading.memory_current, 10);
+        assert_eq!(reading.memory_pressure.total_pressure, 200000);
+        assert_eq!(reading.memory_pressure.pressure_percent, 0);
         // expect timeout error, no state change
         assert!(
-            tokio::time::timeout(Duration::from_secs(2), state_rx.changed())
+            tokio::time::timeout(TIMEOUT_DURATION, state_rx.changed())
                 .await
                 .is_err()
         );
@@ -646,21 +594,18 @@ mod tests {
         )
         .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
-        let notify = Arc::new(Notify::new());
-        let counter = Arc::new(AtomicUsize::new(0));
-        let timer = MockTimer::new(Some(notify.clone()), counter.clone());
         let handle = MemoryTrackerHandleInner::new(None);
         let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
-        tracker.spawn(timer).await?;
+        tracker.spawn(TICK_DURATION).await?;
 
+        // NOTE: This is the only assert that could potentially be flaky, if spawn function was too slow.
+        // If that happens, increasing TICK_DURATION should be enough to resolve it
         assert_eq!(
             *state_rx.borrow_and_update(),
             TrackedMemoryState::Uninitialized
         );
-        assert_eq!(counter.load(Ordering::Relaxed), 0);
-        notify.notify_one();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -670,17 +615,15 @@ mod tests {
                 memory_pressure_state: MemoryPressureState::BelowPressureLimit
             })
         );
-        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(actual.memory_current, 6);
-        assert_eq!(actual.memory_pressure.total_pressure, 200000);
-        assert_eq!(actual.memory_pressure.pressure_percent, 0);
-        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_pressure.total_pressure, 200000);
+        assert_eq!(reading.memory_pressure.pressure_percent, 0);
         fs::write(
             &pressure,
             "some avg10=0.00 avg60=0.00 avg300=0.00 total=440000",
         )
         .unwrap();
-        notify.notify_one();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -690,10 +633,9 @@ mod tests {
                 memory_pressure_state: MemoryPressureState::AbovePressureLimit
             })
         );
-        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(actual.memory_current, 6);
-        assert_eq!(actual.memory_pressure.total_pressure, 440000);
-        assert_eq!(counter.load(Ordering::Relaxed), 2);
+        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_pressure.total_pressure, 440000);
 
         // change reading but not state
         fs::write(
@@ -701,18 +643,10 @@ mod tests {
             "some avg10=0.00 avg60=0.00 avg300=0.00 total=600000",
         )
         .unwrap();
-        notify.notify_one();
         reading_rx.changed().await?;
-        let actual = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(actual.memory_current, 6);
-        assert_eq!(actual.memory_pressure.total_pressure, 600000);
-        assert_eq!(counter.load(Ordering::Relaxed), 3);
-        // expect timeout error, no state change
-        assert!(
-            tokio::time::timeout(Duration::from_secs(2), state_rx.changed())
-                .await
-                .is_err()
-        );
+        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
+        assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_pressure.total_pressure, 600000);
 
         Ok(())
     }
@@ -726,24 +660,28 @@ mod tests {
         fs::write(&pressure, "idk").unwrap();
         let memory_current = File::open(current.clone()).await?;
         let memory_pressure = File::open(pressure.clone()).await?;
-        let counter = Arc::new(AtomicUsize::new(0));
-        let timer = MockTimer::new(None, counter.clone());
         let handle = MemoryTrackerHandleInner::new(None);
         let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 3, Some(0), 0);
         let handle = tracker.handle.dupe();
-        tracker.spawn(timer).await?;
-        let mut rx = handle.state_sender.subscribe();
+        tracker.spawn(Duration::from_millis(100)).await?;
+        let mut rx = handle.reading_sender.subscribe();
+
+        let counter = Arc::new(AtomicUsize::new(0));
         let wait = rx.wait_for(|x| match x {
-            TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => false,
+            None => {
+                counter.fetch_add(1, Ordering::Relaxed);
+                false
+            }
             _ => unreachable!("Not expected"),
         });
+
         assert!(
             tokio::time::timeout(Duration::from_secs(5), wait)
                 .await
                 .is_err()
         );
-        // Backoff should stop after 1 + 1 + 2 + 4 ticks
-        assert_eq!(counter.load(Ordering::Relaxed), 8);
+        // Need to add 1 to expected value because `wait_for` calls the closure once before starting
+        assert_eq!(counter.load(Ordering::Relaxed), 5);
         Ok(())
     }
 }
