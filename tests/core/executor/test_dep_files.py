@@ -775,3 +775,19 @@ async def test_input_cannot_be_normalized_and_hard_error(buck: Buck) -> None:
 @buck_test(data_dir="upload_dep_files", allow_soft_errors=True)
 async def test_input_cannot_be_normalized(buck: Buck) -> None:
     await run_test_input_cannot_be_normalized(buck, True)
+
+
+@buck_test(data_dir="invalid_dep_files")
+async def test_two_outputs_tagged_as_dep_file(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("root//:two_outputs_tagged_as_dep_file"),
+        stderr_regex="`dep_files` value with key `deps` has an invalid count of associated outputs. Expected 1, got 2",
+    )
+
+
+@buck_test(data_dir="invalid_dep_files")
+async def test_no_outputs_tagged_as_dep_file(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("root//:no_outputs_tagged_as_dep_file"),
+        stderr_regex="`dep_files` value with key `deps` has an invalid count of associated outputs. Expected 1, got 0",
+    )

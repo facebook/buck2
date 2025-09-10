@@ -41,3 +41,37 @@ test = rule(
     },
     impl = _test_impl,
 )
+
+def _n_outputs_tagged_as_dep_file_impl(ctx):
+    app = ctx.actions.declare_output("app")
+    args = cmd_args([
+        "sh",
+        "-c",
+        "never_executed",
+        "--",
+        app.as_output(),
+    ])
+
+    tag = ctx.actions.artifact_tag()
+    for i in range(ctx.attrs.num_dep_files):
+        dep_file = ctx.actions.declare_output("depfile{}".format(i))
+        args.add(tag.tag_artifacts(dep_file.as_output()))
+
+    ctx.actions.run(
+        args,
+        category = "test",
+        dep_files = {"deps": tag},
+    )
+
+    return [
+        DefaultInfo(
+            default_output = app,
+        ),
+    ]
+
+n_outputs_tagged_as_dep_file = rule(
+    attrs = {
+        "num_dep_files": attrs.int(),
+    },
+    impl = _n_outputs_tagged_as_dep_file_impl,
+)

@@ -1,2 +1,10 @@
 test(name = "eager")
 test(name = "lazy", seed = read_config("test", "seed"))
+n_outputs_tagged_as_dep_file(
+    name = "two_outputs_tagged_as_dep_file",
+    num_dep_files = 2,
+)
+n_outputs_tagged_as_dep_file(
+    name = "no_outputs_tagged_as_dep_file",
+    num_dep_files = 0,
+)
