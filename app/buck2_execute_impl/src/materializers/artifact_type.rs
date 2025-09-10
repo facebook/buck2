@@ -20,13 +20,13 @@ use rusqlite::types::FromSqlResult;
 use rusqlite::types::ToSqlOutput;
 use rusqlite::types::ValueRef;
 
-pub(super) const ARTIFACT_TYPE_DIRECTORY: &str = "directory";
-pub(super) const ARTIFACT_TYPE_FILE: &str = "file";
-pub(super) const ARTIFACT_TYPE_SYMLINK: &str = "symlink";
-pub(super) const ARTIFACT_TYPE_EXTERNAL_SYMLINK: &str = "external_symlink";
+pub(crate) const ARTIFACT_TYPE_DIRECTORY: &str = "directory";
+pub(crate) const ARTIFACT_TYPE_FILE: &str = "file";
+pub(crate) const ARTIFACT_TYPE_SYMLINK: &str = "symlink";
+pub(crate) const ARTIFACT_TYPE_EXTERNAL_SYMLINK: &str = "external_symlink";
 
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq)]
-pub(super) enum ArtifactType {
+pub(crate) enum ArtifactType {
     Directory,
     File,
     Symlink,

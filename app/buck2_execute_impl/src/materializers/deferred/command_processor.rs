@@ -91,7 +91,7 @@ use crate::materializers::deferred::join_all_existing_futs;
 use crate::materializers::deferred::materialize_stack::MaterializeStack;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
-use crate::materializers::sqlite::MaterializerStateSqliteDb;
+use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     pub(super) io: Arc<T>,

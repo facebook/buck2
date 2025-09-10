@@ -41,15 +41,15 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 
+use crate::materializers::artifact_type::ARTIFACT_TYPE_DIRECTORY;
+use crate::materializers::artifact_type::ARTIFACT_TYPE_EXTERNAL_SYMLINK;
+use crate::materializers::artifact_type::ARTIFACT_TYPE_FILE;
+use crate::materializers::artifact_type::ARTIFACT_TYPE_SYMLINK;
+use crate::materializers::artifact_type::ArtifactType;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
-use crate::materializers::sqlite::MaterializerState;
-use crate::materializers::sqlite::MaterializerStateEntry;
-use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_DIRECTORY;
-use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_EXTERNAL_SYMLINK;
-use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_FILE;
-use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_SYMLINK;
-use crate::materializers::sqlite::artifact_type::ArtifactType;
+use crate::sqlite::materializer_db::MaterializerState;
+use crate::sqlite::materializer_db::MaterializerStateEntry;
 
 const STATE_TABLE_NAME: &str = "materializer_state";
 

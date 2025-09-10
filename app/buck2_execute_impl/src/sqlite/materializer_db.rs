@@ -28,10 +28,7 @@ use derive_more::From;
 use dupe::Dupe;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
-use crate::materializers::sqlite::materializer_state_table::MaterializerStateSqliteTable;
-
-pub(crate) mod artifact_type;
-pub(crate) mod materializer_state_table;
+use crate::sqlite::tables::materializer_state_table::MaterializerStateSqliteTable;
 
 /// Hand-maintained schema version for the materializer state sqlite db.
 /// PLEASE bump this version if you are making a breaking change to the

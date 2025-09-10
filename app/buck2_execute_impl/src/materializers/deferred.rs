@@ -92,8 +92,8 @@ use crate::materializers::deferred::command_processor::MaterializerCommand;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
-use crate::materializers::sqlite::MaterializerState;
-use crate::materializers::sqlite::MaterializerStateSqliteDb;
+use crate::sqlite::materializer_db::MaterializerState;
+use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 /// Materializer implementation that defers materialization of declared
 /// artifacts until they are needed (i.e. `ensure_materialized` is called).

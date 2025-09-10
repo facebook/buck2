@@ -52,7 +52,7 @@ use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
-use crate::materializers::sqlite::MaterializerStateSqliteDb;
+use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 #[derive(Debug, Clone)]
 pub struct CleanStaleArtifactsCommand {

@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
+pub mod artifact_type;
 pub mod deferred;
 pub mod immediate;
 pub mod io;
-pub mod sqlite;

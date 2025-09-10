@@ -36,9 +36,9 @@ use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
 use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::materializers::deferred::file_tree::FileTree;
-use crate::materializers::sqlite::MaterializerState;
-use crate::materializers::sqlite::MaterializerStateEntry;
-use crate::materializers::sqlite::MaterializerStateSqliteDb;
+use crate::sqlite::materializer_db::MaterializerState;
+use crate::sqlite::materializer_db::MaterializerStateEntry;
+use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 /// A future that is materializing on a separate task spawned by the materializer
 pub(crate) type MaterializingFuture =

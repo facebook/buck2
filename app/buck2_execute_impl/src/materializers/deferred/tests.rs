@@ -123,7 +123,7 @@ mod state_machine {
     use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
     use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
     use crate::materializers::deferred::subscriptions::SubscriptionHandle;
-    use crate::materializers::sqlite::testing_materializer_state_sqlite_db;
+    use crate::sqlite::materializer_db::testing_materializer_state_sqlite_db;
 
     #[derive(Debug, Eq, PartialEq, Allocative)]
     enum Op {
