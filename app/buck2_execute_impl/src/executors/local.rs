@@ -841,13 +841,10 @@ impl LocalExecutor {
             self.forkserver.dupe(),
             cfg!(unix),
         ) {
-            let env = if !worker_spec.env.is_empty() {
-                &worker_spec.env
-            } else {
-                request.env()
-            }
-            .iter()
-            .map(|(k, v)| (OsString::from(k), OsString::from(v)));
+            let env = worker_spec
+                .env
+                .iter()
+                .map(|(k, v)| (OsString::from(k), OsString::from(v)));
             let (new_worker, worker_fut) = worker_pool.get_or_create_worker(
                 worker_spec,
                 env,
@@ -867,8 +864,8 @@ impl LocalExecutor {
                         buck2_data::WorkerInit {
                             command: Some(buck2_data::WorkerInitCommand {
                                 argv: worker_spec.exe.clone(),
-                                env: request
-                                    .env()
+                                env: worker_spec
+                                    .env
                                     .iter()
                                     .map(|(k, v)| buck2_data::EnvironmentEntry {
                                         key: k.to_owned(),
