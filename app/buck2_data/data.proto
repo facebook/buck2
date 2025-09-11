@@ -1551,7 +1551,7 @@ message ActionExecutionEnd {
   // Name of the rule type that was executed by this action
   optional string target_rule_type_name = 41;
 
-  optional string action_inputs_hash = 42;
+  reserved 42;
 
   // Description of why an action ran locally, remotely, or both (currently only
   // set by hybrid executor)

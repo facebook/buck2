@@ -419,7 +419,6 @@ async fn build_action_inner(
             input_files_bytes,
             invalidation_info,
             target_rule_type_name,
-            action_inputs_hash: None,
             scheduling_mode: scheduling_mode.map(|h| h as i32),
             incremental_kind: incremental_kind.map(|k| k as i32),
         }),
