@@ -16,11 +16,11 @@ import com.facebook.kotlin.compilercompat.FirAnalysisHandlerExtensionCompat
 import java.io.File
 import kotlin.collections.component1
 import kotlin.collections.component2
-import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
+import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.psi.KtFile
 
 @SuppressWarnings("PackageLocationMismatch")
 class StubsCodegenK2FirAnalysisHandlerExtension(
@@ -34,27 +34,22 @@ class StubsCodegenK2FirAnalysisHandlerExtension(
   }
 
   override fun doAnalysis(project: Project, configuration: CompilerConfiguration): Boolean {
-
     val projectDisposable = Disposer.newDisposable("kosabi_stubgen")
     try {
-      val session =
-          buildStandaloneAnalysisAPISession(
-              projectDisposable = projectDisposable,
-              classLoader =
-                  requireNotNull(StubsCodegenK2FirAnalysisHandlerExtension::class.java.classLoader),
-          ) {
-            buildKtModuleProviderByCompilerConfiguration(configuration)
-          }
-
-      val (module, files) = session.modulesWithFiles.entries.single()
-      val ktFiles = files.filterIsInstance<KtFile>()
+      val environment =
+          KotlinCoreEnvironment.createForProduction(
+              projectDisposable,
+              configuration,
+              EnvironmentConfigFiles.JVM_CONFIG_FILES,
+          )
+      val ktFiles = environment.getSourceFiles()
       StubsGenAPI( // @oss-enable
       // @oss-disable: StubsGenApiImpl(
               stubsDumpDir,
               stubsClassOutputDir,
               classPaths,
           )
-          .generateStubs(ktFiles, configuration, session.project)
+          .generateStubs(ktFiles, configuration, project)
     } finally {
       Disposer.dispose(projectDisposable)
       throw RuntimeException("Terminating compilation. We're done with Stubgen.")
