@@ -22,6 +22,10 @@ load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/validation:debug_artifacts.bzl", "get_debug_artifacts_validators")
 load(
+    "@prelude//cxx:cxx_transitive_diagnostics.bzl",
+    "cxx_transitive_diagnostics_combine",
+)
+load(
     "@prelude//cxx:index_store.bzl",
     "IndexStoreInfo",  # @unused Used as a type
     "create_index_store_subtargets_and_provider",
@@ -445,6 +449,17 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         aggregated_debug_info.debug_info.debug_info_tset,
     )
     sub_targets.update(validation_subtargets)
+
+    diagnostics_info = cxx_transitive_diagnostics_combine(
+        ctx = ctx,
+        diagnostics = [],
+        deps = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary),
+    )
+    transitive_diagnostic_artifacts = project_artifacts(
+        actions = ctx.actions,
+        tsets = [diagnostics_info.transitive_diagnostics],
+    )
+    sub_targets["check"] = [DefaultInfo(default_output = None, other_outputs = transitive_diagnostic_artifacts)]
 
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
