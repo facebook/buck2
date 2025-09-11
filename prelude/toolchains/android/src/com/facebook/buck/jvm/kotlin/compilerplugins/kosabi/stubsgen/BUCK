@@ -1,0 +1,138 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "kosabi-common",
+    srcs = glob(
+        ["**/*.kt"],
+        exclude = [
+            "plugin/**",
+        ],
+    ),
+    labels = ["codegen_rule"],
+    provided_deps = [
+        "prelude//toolchains/android/third-party:kotlin-compiler",
+        "prelude//toolchains/android/third-party:kotlin-reflect",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:kotlin-stdlib",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/kosabi/common:common",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/kosabi/common/stub:stub",
+    ],
+)
+
+buck_kotlin_library(
+    name = "stubsgen-plugin",
+    srcs = glob(
+        [
+            "plugin/stubsgen/*.kt",
+            "plugin/model/*.kt",
+        ],
+    ),
+    labels = ["codegen_rule"],
+    provided_deps = [
+        "prelude//toolchains/android/third-party:kotlin-compiler",
+    ],
+    resources = glob(["plugin/stubsgen/resources/**"]),
+    resources_root = "plugin/stubsgen/resources",
+    tests = [
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/integrationtest:integration-test",
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/stubsgen:stubsgen",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    exported_deps = [":kosabi-common"],
+)
+
+buck_kotlin_library(
+    name = "stubsgen-k2-plugin",
+    srcs = glob(
+        [
+            "plugin/stubsgen_k2/*.kt",
+            "plugin/model/*.kt",
+        ],
+    ),
+    labels = ["codegen_rule"],
+    provided_deps = [
+        "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",
+    ],
+    resources = glob(["plugin/stubsgen_k2/resources/**"]),
+    resources_root = "plugin/stubsgen_k2/resources",
+    tests = [
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/integrationtest:integration-test",
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/stubsgen:stubsgen",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat",
+        "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat_with_ka",
+        "fbsource//third-party/java/com/google/guava/guava:guava",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:analysis-api-standalone-for-ide",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:high-level-api-fir-for-ide",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:high-level-api-for-ide",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:high-level-api-impl-base-for-ide",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:low-level-api-fir-for-ide",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:platform-interface-for-ide",
+        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:symbol-light-classes-for-ide",
+        "fbsource//third-party/jetbrains/trove4j:trove4j",
+        "prelude//toolchains/android/third-party:kotlin-metadata-jvm",
+        "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
+    ],
+    exported_deps = [
+        ":kosabi-common",
+    ],
+)
+
+buck_kotlin_library(
+    name = "sourcemodifier-plugin",
+    srcs = glob(
+        [
+            "plugin/source_modifier/**/*.kt",
+            "plugin/model/*.kt",
+        ],
+    ),
+    labels = ["codegen_rule"],
+    provided_deps = [
+        "prelude//toolchains/android/third-party:kotlin-compiler",
+    ],
+    resources = glob(["plugin/source_modifier/resources/**"]),
+    resources_root = "plugin/source_modifier/resources",
+    tests = [
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/integrationtest:integration-test",
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/stubsgen:stubsgen",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    exported_deps = [":kosabi-common"],
+)
+
+buck_java_binary(
+    name = "stubsgen",
+    visibility = ["PUBLIC"],
+    deps = [":stubsgen-plugin"],
+)
+
+buck_java_binary(
+    name = "stubsgen_k2",
+    visibility = ["PUBLIC"],
+    deps = [":stubsgen-k2-plugin"],
+)
+
+buck_java_binary(
+    name = "kosabi-sourcemodifier",
+    visibility = ["PUBLIC"],
+    deps = [":sourcemodifier-plugin"],
+)
