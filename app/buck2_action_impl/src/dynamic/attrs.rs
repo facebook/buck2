@@ -20,6 +20,7 @@ use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use starlark::collections::SmallSet;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -216,24 +217,24 @@ impl<'v> DynamicAttrValues<Value<'v>, BoundBuildArtifact> {
         outputs
     }
 
-    pub(crate) fn artifact_values(&self) -> IndexSet<Artifact> {
+    pub(crate) fn artifact_values(&self) -> Box<[Artifact]> {
         let mut artifact_values = IndexSet::new();
         self.for_each_node(&mut |value| {
             if let DynamicAttrValue::ArtifactValue(artifact) = value {
                 artifact_values.insert(artifact.dupe());
             }
         });
-        artifact_values
+        artifact_values.into_iter().collect()
     }
 
-    pub(crate) fn dynamic_values(&self) -> IndexSet<DynamicValue> {
-        let mut dynamic_values = IndexSet::new();
+    pub(crate) fn dynamic_values(&self) -> Box<[DynamicValue]> {
+        let mut dynamic_values = SmallSet::new();
         self.for_each_node(&mut |value| {
             if let DynamicAttrValue::DynamicValue(dynamic_value) = value {
                 dynamic_values.insert(dynamic_value.dupe());
             }
         });
-        dynamic_values
+        dynamic_values.into_iter().collect()
     }
 }
 

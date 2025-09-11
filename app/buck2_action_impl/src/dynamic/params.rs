@@ -18,7 +18,6 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
-use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -43,9 +42,9 @@ pub(crate) struct DynamicLambdaStaticFields {
     /// the owner that defined this lambda
     pub(crate) owner: BaseDeferredKey,
     /// Input artifacts required to be materialized by the lambda.
-    pub(crate) artifact_values: IndexSet<Artifact>,
+    pub(crate) artifact_values: Box<[Artifact]>,
     /// Dynamic values I depend on.
-    pub(crate) dynamic_values: IndexSet<DynamicValue>,
+    pub(crate) dynamic_values: Box<[DynamicValue]>,
     /// Things I produce
     pub(crate) outputs: Box<[BoundBuildArtifact]>,
     /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs

@@ -190,7 +190,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
                 artifact_values,
-                dynamic_values: IndexSet::new(),
+                dynamic_values: Box::new([]),
                 outputs,
                 execution_platform,
             },

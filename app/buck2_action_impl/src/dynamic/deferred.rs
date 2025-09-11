@@ -55,7 +55,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexMap;
-use indexmap::IndexSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValue;
@@ -361,7 +360,7 @@ pub(crate) async fn prepare_and_execute_lambda(
 }
 
 async fn ensure_artifacts_built(
-    materialized_artifacts: &IndexSet<Artifact>,
+    materialized_artifacts: &[Artifact],
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Vec<ArtifactGroupValues>> {
     if materialized_artifacts.is_empty() {
@@ -417,7 +416,7 @@ async fn materialize_inputs(
 }
 
 async fn resolve_dynamic_values(
-    dynamic_values: &IndexSet<DynamicValue>,
+    dynamic_values: &[DynamicValue],
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<HashMap<DynamicValue, FrozenProviderCollectionValue>> {
     if dynamic_values.is_empty() {
