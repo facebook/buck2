@@ -106,6 +106,17 @@ async def test_cpp_test(buck: Buck) -> None:
         stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/cxx:cpp_test_fail - Simple\.Fail",
     )
 
+    await buck.test("fbcode//buck2/tests/targets/rules/cxx:cpp_test_local_only", mode)
+
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/cxx:cpp_test_local_only",
+            mode,
+            "--remote-only",
+        ),
+        stderr_regex=r"The desired execution strategy \(.RemoteOnly.\) is incompatible with the executor config that was selected",
+    )
+
 
 @buck_test(inplace=True, skip_for_os=["darwin"])
 async def test_cpp_test_fdb_message(buck: Buck) -> None:

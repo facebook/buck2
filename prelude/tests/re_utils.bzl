@@ -8,10 +8,12 @@
 
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect_non_none")
+load("@prelude//utils:type_defs.bzl", "type_utils")
 
 ReArg = record(
-    re_props = field(dict | None),
-    default_run_as_bundle = field(bool | None),
+    disabled = field(bool | None, default = None),
+    re_props = field(dict | None, default = None),
+    default_run_as_bundle = field(bool | None, default = None),
 )
 
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
@@ -25,8 +27,10 @@ def _get_re_arg(ctx: AnalysisContext) -> ReArg:
         return ReArg(re_props = None, default_run_as_bundle = False)
 
     if ctx.attrs.remote_execution != None:
-        # If this is a string, look up the re_props on the RE toolchain.
-        if type(ctx.attrs.remote_execution) == type(""):
+        if ctx.attrs.remote_execution == "disabled":
+            return ReArg(disabled = True)
+        elif type_utils.is_string(ctx.attrs.remote_execution):
+            # If this is a string, look up the re_props on the RE toolchain.
             expect_non_none(ctx.attrs._remote_test_execution_toolchain)
             return ReArg(
                 re_props =
@@ -61,7 +65,13 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     Returns (default_executor, executor_overrides).
     """
 
-    re_props = _get_re_arg(ctx).re_props
+    re_arg = _get_re_arg(ctx)
+
+    if re_arg.disabled:
+        executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False)
+        return executor, {}
+
+    re_props = re_arg.re_props
     if re_props == None:
         return None, {}
 
