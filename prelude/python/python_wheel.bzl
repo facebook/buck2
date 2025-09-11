@@ -216,6 +216,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             extra_root_ldflags = {
                 dep.label: (
                     python_toolchain.extension_linker_flags +
+                    python_toolchain.wheel_extension_linker_flags +
                     [
                         "-Wl,-rpath,{}".format(_rpath(extension, rpath))
                         for rpath in rpaths

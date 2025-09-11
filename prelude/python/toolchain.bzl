@@ -60,6 +60,7 @@ PythonToolchainInfo = provider(
         "linker_flags": provider_field(ArgLike, default = []),
         "binary_linker_flags": provider_field(ArgLike, default = []),
         "extension_linker_flags": provider_field(ArgLike, default = []),
+        "wheel_extension_linker_flags": provider_field(ArgLike, default = []),
         "wheel_linker_flags": provider_field(ArgLike, default = []),
         # site-packages-relative rpaths to emebed into libs/bins in the wheel
         "wheel_rpaths": provider_field(ArgLike, default = []),
