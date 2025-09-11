@@ -23,7 +23,7 @@ buck_kotlin_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/common:common",
-        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/meta_only/kosabi/common/stub:stub",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/kosabi/common/stub:stub",
         "prelude//toolchains/android/third-party:kotlin-metadata-jvm",
         "prelude//toolchains/android/third-party:kotlin-stdlib",
         "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
