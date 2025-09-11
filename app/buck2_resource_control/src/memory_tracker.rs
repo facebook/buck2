@@ -10,7 +10,6 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
@@ -62,24 +61,14 @@ pub struct MemoryStates {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct PressureReading {
-    /// Contains value extracted from `memory.pressure` file for cgroup covering
-    /// The extracted value is the `total` value from the `some` line which is the
-    /// # of microseconds since the start of the cgroup that was under memory pressure
-    /// More details: <https://facebookmicrosites.github.io/cgroup2/docs/pressure-metrics.html>
-    pub total_pressure: u128,
-    /// % of time memory is under pressure since the last reading
-    pub pressure_percent: u64,
-    /// Instant at which the pressure reading happened, this is used to calculate time elapsed since last reading
-    pub timestamp: Instant,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
     /// Contains value from `memory.current` file for cgroup covering
     /// all aspects of build (daemon, forkserver & local action processes).
     pub memory_current: u64,
-    pub memory_pressure: PressureReading,
+    /// Contains the avg10 value from the 'some' role of `memory.pressure` file.
+    /// This is a sliding window average of the % where any action is under memory pressure
+    /// over the last 10 seconds
+    pub memory_pressure: u64,
 }
 
 #[derive(Allocative)]
@@ -217,8 +206,8 @@ pub fn spawn_memory_reporter(
 
             if let Some(reading) = *reading_receiver.borrow() {
                 let mut peak_pressure = peak_memory_pressure.lock();
-                if reading.memory_pressure.pressure_percent > *peak_pressure {
-                    *peak_pressure = reading.memory_pressure.pressure_percent;
+                if reading.memory_pressure > *peak_pressure {
+                    *peak_pressure = reading.memory_pressure;
                     // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
                     // and can't be more than 100). We should always limit this as sending more can overload scribe
                     dispatcher.instant_event(buck2_data::MemoryPressure {
@@ -340,12 +329,11 @@ impl MemoryTracker {
             }
 
             let old_state = *self.handle.state_sender.borrow();
-            let old_reading = *self.handle.reading_sender.borrow();
             let (new_state, new_reading) = match (
                 read_memory_current(&mut self.memory_current).await,
-                self.read_some_pressure_stall_total_value_in_us().await,
+                self.read_some_memory_pressure_avg10().await,
             ) {
-                (Ok(memory_current), Ok(total_pressure)) => {
+                (Ok(memory_current), Ok(avg_mem_pressure)) => {
                     let memory_current_state =
                         if let Some(memory_limit_bytes) = self.memory_limit_bytes {
                             if memory_current < memory_limit_bytes {
@@ -357,21 +345,7 @@ impl MemoryTracker {
                             MemoryCurrentState::NoLimitSet
                         };
 
-                    // The total field in memory.pressure is the number of microseconds since the start of the cgroup so goes up continuously,
-                    // So we compute the % by comparing the currently parsed value and the last parsed value and divide by microseconds elapsed since
-                    // the last reading to compute the % of time the cgroup was under memory pressure.
-                    let pressure_percent: u64 = match old_reading {
-                        Some(old) => {
-                            let diff = total_pressure - old.memory_pressure.total_pressure;
-                            let pressure_percent =
-                                (diff * 100) / old.memory_pressure.timestamp.elapsed().as_micros();
-                            pressure_percent as u64
-                        }
-                        // We can't get a % if we can't read the previous state, we only log this if
-                        // it's over the threshold we set so just set it as 0 so it's not logged
-                        None => 0,
-                    };
-
+                    let pressure_percent = avg_mem_pressure.round() as u64;
                     let memory_pressure_state = if pressure_percent < self.memory_pressure_threshold
                     {
                         MemoryPressureState::BelowPressureLimit
@@ -391,11 +365,7 @@ impl MemoryTracker {
                         }),
                         Some(MemoryReading {
                             memory_current,
-                            memory_pressure: PressureReading {
-                                total_pressure,
-                                pressure_percent,
-                                timestamp: Instant::now(),
-                            },
+                            memory_pressure: pressure_percent,
                         }),
                     )
                 }
@@ -440,33 +410,30 @@ impl MemoryTracker {
     //  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
     //  ```
     // 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
-    async fn read_some_pressure_stall_total_value_in_us(&mut self) -> buck2_error::Result<u128> {
+    async fn read_some_memory_pressure_avg10(&mut self) -> buck2_error::Result<f32> {
         self.memory_pressure.rewind().await?;
-        let mut reader = BufReader::new(&mut self.memory_pressure);
-        // First line should always be for 'some' so just parsing it should be enough
-        let mut first_line = String::new();
-        let read = reader
-            .read_line(&mut first_line)
-            .await
-            .with_buck_error_context(|| "Error reading cgroup memory pressure")?;
-        if read == 0 {
-            return Err(internal_error!("no bytes read from memory.pressure"));
-        } else if !first_line.starts_with("some") {
-            return Err(internal_error!(
-                "unexpected memory.pressure format, first line doesn't start with 'some="
-            ));
+        let reader = BufReader::new(&mut self.memory_pressure);
+        let mut lines = reader.lines();
+        while let Some(line) = lines.next_line().await? {
+            if line.starts_with("some") {
+                let parts = line.split_whitespace().collect::<Vec<_>>();
+                let avg10 = parts.get(1).ok_or(internal_error!(
+                    "unexpected memory.pressure format, could not parse 2nd value"
+                ))?;
+                let string_value = avg10.strip_prefix("avg10=").ok_or(internal_error!(
+                    "unexpected memory.pressure format, 2nd value doesn't start with 'avg10='"
+                ))?;
+
+                return string_value
+                    .parse::<f32>()
+                    .map_err(buck2_error::Error::from)
+                    .with_buck_error_context(|| {
+                        format!("Expected a numeric value, found {}", string_value)
+                    });
+            }
         }
 
-        let total_part = first_line.split_whitespace().last().ok_or(internal_error!(
-            "unexpected memory.pressure format, no whitespaces found"
-        ))?;
-        let string_value = total_part.strip_prefix("total=").ok_or(internal_error!(
-            "unexpected memory.pressure format, last value doesn't start with 'total='"
-        ))?;
-        string_value
-            .parse::<u128>()
-            .map_err(buck2_error::Error::from)
-            .with_buck_error_context(|| format!("Expected a numeric value, found {}", string_value))
+        Err(internal_error!("no 'some' line found in memory.pressure"))
     }
 }
 
@@ -517,7 +484,7 @@ mod tests {
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
-            "some avg10=0.00 avg60=0.00 avg300=0.00 total=200000",
+            "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
         )
         .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
@@ -545,8 +512,7 @@ mod tests {
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure.total_pressure, 200000);
-        assert_eq!(reading.memory_pressure.pressure_percent, 0);
+        assert_eq!(reading.memory_pressure, 1);
         fs::write(&current, "9").unwrap();
 
         state_rx.changed().await?;
@@ -560,8 +526,7 @@ mod tests {
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 9);
-        assert_eq!(reading.memory_pressure.total_pressure, 200000);
-        assert_eq!(reading.memory_pressure.pressure_percent, 0);
+        assert_eq!(reading.memory_pressure, 1);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
@@ -569,8 +534,7 @@ mod tests {
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 10);
-        assert_eq!(reading.memory_pressure.total_pressure, 200000);
-        assert_eq!(reading.memory_pressure.pressure_percent, 0);
+        assert_eq!(reading.memory_pressure, 1);
         // expect timeout error, no state change
         assert!(
             tokio::time::timeout(TIMEOUT_DURATION, state_rx.changed())
@@ -590,7 +554,7 @@ mod tests {
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
-            "some avg10=0.00 avg60=0.00 avg300=0.00 total=200000",
+            "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
         )
         .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
@@ -617,11 +581,10 @@ mod tests {
         );
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure.total_pressure, 200000);
-        assert_eq!(reading.memory_pressure.pressure_percent, 0);
+        assert_eq!(reading.memory_pressure, 1);
         fs::write(
             &pressure,
-            "some avg10=0.00 avg60=0.00 avg300=0.00 total=440000",
+            "some avg10=15.95 avg60=0.00 avg300=0.00 total=440000",
         )
         .unwrap();
 
@@ -635,18 +598,18 @@ mod tests {
         );
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure.total_pressure, 440000);
+        assert_eq!(reading.memory_pressure, 16);
 
         // change reading but not state
         fs::write(
             &pressure,
-            "some avg10=0.00 avg60=0.00 avg300=0.00 total=600000",
+            "some avg10=18.3 avg60=0.00 avg300=0.00 total=600000",
         )
         .unwrap();
         reading_rx.changed().await?;
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure.total_pressure, 600000);
+        assert_eq!(reading.memory_pressure, 18);
 
         Ok(())
     }
