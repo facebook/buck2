@@ -174,14 +174,12 @@ impl<'v> DynamicAttrValue<Value<'v>, OutputArtifact<'v>> {
             DynamicAttrValue::DynamicValue(v) => Ok(DynamicAttrValue::DynamicValue(v)),
             DynamicAttrValue::Value(v) => Ok(DynamicAttrValue::Value(v)),
             DynamicAttrValue::List(xs) => Ok(DynamicAttrValue::List(
-                xs.into_vec()
-                    .into_iter()
+                xs.into_iter()
                     .map(|x| x.bind(bind))
                     .collect::<buck2_error::Result<_>>()?,
             )),
             DynamicAttrValue::Tuple(xs) => Ok(DynamicAttrValue::Tuple(
-                xs.into_vec()
-                    .into_iter()
+                xs.into_iter()
                     .map(|x| x.bind(bind))
                     .collect::<buck2_error::Result<_>>()?,
             )),
@@ -247,7 +245,6 @@ impl<'v> DynamicAttrValues<Value<'v>, OutputArtifact<'v>> {
         let mut bind = DynamicActionsOutputArtifactBinder::new(key);
         Ok(DynamicAttrValues {
             values: values
-                .into_vec()
                 .into_iter()
                 .map(|v| v.bind(&mut bind))
                 .collect::<buck2_error::Result<_>>()?,
