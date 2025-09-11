@@ -179,6 +179,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
                     omnibus_root = False,
                     # We generate a provider on our own, disable to avoid several providers of same type.
                     cxx_resources_as_apple_resources = False,
+                    transitive_diagnostics = True,
                 ),
                 shared_library_flags = shared_library_flags_overrides,
             ),
@@ -556,6 +557,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         error_handler = cxx_error_handler if cxx_error_deserializer(ctx) else apple_build_error_handler,
         index_store_factory = _compile_index_store,
         index_stores = [swift_compile.index_store] if swift_compile else None,
+        extra_transitive_diagnostics = [swift_compile.typecheck_file] if swift_compile else [],
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:

@@ -99,6 +99,7 @@ CxxRuleProviderParams = record(
     template_placeholders = field(bool, True),
     preprocessor_for_tests = field(bool, True),
     third_party_build = field(bool, False),
+    transitive_diagnostics = field(bool, False),
 )
 
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
@@ -265,4 +266,6 @@ CxxRuleConstructorParams = record(
     # The calling context is allowed to use `AnalysisActions#anon_target` API.
     # This is not allowed in the context of the `dynamic_outputs` callback.
     anon_targets_allowed = field(bool, True),
+    # Any extra diagnostics to include in transitive diagnostics provider
+    extra_transitive_diagnostics = field(list[Artifact], []),
 )

@@ -170,6 +170,10 @@ load(
     "is_bitcode_format",
 )
 load(
+    ":cxx_transitive_diagnostics.bzl",
+    "cxx_transitive_diagnostics_combine",
+)
+load(
     ":cxx_types.bzl",
     "CxxLibraryInfo",
     "CxxRuleConstructorParams",  # @unused Used as a type
@@ -479,13 +483,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 default_outputs = compiled_srcs.pic.clang_traces,
             )]
 
+    all_diagnostics = None
     if impl_params.generate_sub_targets.objects:
         objects_sub_targets = compiled_srcs.pic.objects_sub_targets
         if compiled_srcs.non_pic:
             objects_sub_targets = objects_sub_targets | compiled_srcs.non_pic.objects_sub_targets
         sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = objects_sub_targets)]
         if len(compiled_srcs.pic.diagnostics) > 0:
-            sub_targets["check"] = check_sub_target(ctx, compiled_srcs.pic.diagnostics)
+            sub_targets["check"], all_diagnostics = check_sub_target(ctx, compiled_srcs.pic.diagnostics)
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
@@ -1057,6 +1062,13 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 deps = exported_deps + non_exported_deps,
             ),
         )
+
+    if impl_params.generate_providers.transitive_diagnostics:
+        providers.append(cxx_transitive_diagnostics_combine(
+            ctx = ctx,
+            diagnostics = filter(None, [all_diagnostics]) + impl_params.extra_transitive_diagnostics,
+            deps = exported_deps + non_exported_deps,
+        ))
 
     if getattr(ctx.attrs, "_meta_apple_library_validation_enabled", False):
         providers.append(

@@ -193,6 +193,7 @@ CxxExecutableOutput = record(
     binary = Artifact,
     unstripped_binary = Artifact,
     bitcode_bundle = field(Artifact | None, None),
+    diagnostics = field(Artifact | None),
     dwp = field(Artifact | None),
     # Files that must be present for the executable to run successfully. These
     # are always materialized, whether the executable is the output of a build
@@ -265,8 +266,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         for compile_cmd, out in zip(compile_cmd_output.src_compile_cmds, cxx_outs)
         if out.diagnostics != None
     }
+    all_diagnostics = None
     if len(diagnostics) > 0:
-        sub_targets["check"] = check_sub_target(ctx, diagnostics)
+        sub_targets["check"], all_diagnostics = check_sub_target(ctx, diagnostics)
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds, "compilation-database")
@@ -864,6 +866,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         ),
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
         index_stores = index_stores,
+        diagnostics = all_diagnostics,
     )
 
 _CxxLinkExecutableResult = record(
