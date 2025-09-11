@@ -34,6 +34,10 @@ load(
     "get_srcs_with_flags",
 )
 load(
+    "@prelude//cxx:cxx_transitive_diagnostics.bzl",
+    "cxx_transitive_diagnostics_combine",
+)
+load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleAdditionalParams",
     "CxxRuleConstructorParams",
@@ -240,6 +244,20 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         validation_specs = get_attrs_validation_specs(ctx)
         validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
 
+        all_diagnostics = []
+        if swift_compile:
+            all_diagnostics.append(swift_compile.typecheck_file)
+        if cxx_output.diagnostics:
+            all_diagnostics.append(cxx_output.diagnostics)
+
+        diagnostics_providers = [
+            cxx_transitive_diagnostics_combine(
+                ctx = ctx,
+                diagnostics = all_diagnostics,
+                deps = exported_deps + non_exported_deps,
+            ),
+        ]
+
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
@@ -250,7 +268,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             merge_bundle_linker_maps_info(bundle_infos),
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
             index_store_info,
-        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers
+        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers + diagnostics_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)
