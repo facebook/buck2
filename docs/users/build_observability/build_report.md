@@ -29,6 +29,9 @@ BuildReport {
     # True if all requested targets built successfully
     success: bool,
 
+    # The error category for the build, in case it failed. One of "USER", "INFRA", "ENVIRONMENT".
+    error_category: str,
+
     # The absolute path to the project root
     project_root: Path,
 

@@ -49,6 +49,9 @@ use buck2_data::ErrorReport;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::UniqueRootId;
+use buck2_error::classify::ErrorLike;
+use buck2_error::classify::Tier;
+use buck2_error::classify::best_error;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -110,6 +113,8 @@ pub struct BuildReport {
     total_configured_graph_unconfigured_sketch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     per_configuration_data: Option<HashMap<String, PerConfigurationEntry>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error_category: Option<String>,
 }
 
 /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
@@ -341,6 +346,10 @@ impl<'a> BuildReportCollector<'a> {
                 );
             }
         }
+
+        // Collect all ErrorReports to find the best (most severe) one
+        let mut all_error_reports = Vec::new();
+
         // The `BuildTargetResult` doesn't group errors by their unconfigured target, so we need
         // to do a little iterator munging to achieve that ourselves
         let results_by_unconfigured = configured
@@ -398,6 +407,8 @@ impl<'a> BuildReportCollector<'a> {
                 results_by_modifiers.insert(Modifiers::new(None), Vec::new());
             }
 
+            all_error_reports.extend(errors.iter().map(ErrorReport::from));
+
             for (modifiers, modifiers_results) in results_by_modifiers {
                 let target_with_modifiers = TargetLabelWithModifiers {
                     target_label: label.dupe(),
@@ -409,6 +420,7 @@ impl<'a> BuildReportCollector<'a> {
                     modifiers_results,
                     errors,
                     &mut metrics_by_configured,
+                    &mut all_error_reports,
                 )?;
 
                 entries.insert(EntryLabel::Target(target_with_modifiers), entry);
@@ -421,6 +433,15 @@ impl<'a> BuildReportCollector<'a> {
         let total_configured_graph_unconfigured_sketch = this
             .total_configured_graph_unconfigured_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
+
+        // Determine error category using existing Buck2 error classification
+        let error_category = if let Some(best_error_report) = best_error(&all_error_reports) {
+            Some(best_error_report.category().to_string())
+        } else if this.overall_success {
+            None // No errors = no error category
+        } else {
+            Some(Tier::Tier0.to_string()) // Default when build failed but no specific error tracked
+        };
 
         Ok(BuildReport {
             trace_id: trace_id.dupe(),
@@ -437,6 +458,7 @@ impl<'a> BuildReportCollector<'a> {
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
             per_configuration_data,
+            error_category,
         })
     }
 
@@ -496,6 +518,7 @@ impl<'a> BuildReportCollector<'a> {
         >,
         errors: &[buck2_error::Error],
         metrics: &mut HashMap<&'b ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        all_error_reports: &mut Vec<ErrorReport>,
     ) -> buck2_error::Result<BuildReportEntry> {
         // NOTE: if we're actually building a thing, then the package path must exist, but be
         // conservative and don't crash the overall processing if that happens.
@@ -524,6 +547,7 @@ impl<'a> BuildReportCollector<'a> {
                 target_with_modifiers.dupe(),
                 results,
                 metrics,
+                all_error_reports,
             )?;
 
             if let Some(report) = unconfigured_report.as_mut() {
@@ -580,6 +604,7 @@ impl<'a> BuildReportCollector<'a> {
             ),
         >,
         metrics: &mut HashMap<&'b ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        all_error_reports: &mut Vec<ErrorReport>,
     ) -> buck2_error::Result<ConfiguredBuildReportEntry> {
         let mut configured_report = ConfiguredBuildReportEntry::default();
         let mut errors = Vec::new();
@@ -610,10 +635,16 @@ impl<'a> BuildReportCollector<'a> {
                         }
                     }
                 }
-                Err(e) => errors.push(e.dupe()),
+                Err(e) => {
+                    errors.push(e.dupe());
+                    // Collect errors into all_error_reports for global error categorization
+                    all_error_reports.push(ErrorReport::from(e));
+                }
             });
 
             errors.extend(result.errors.iter().cloned());
+            // Collect result errors into all_error_reports for global error categorization
+            all_error_reports.extend(errors.iter().map(ErrorReport::from));
 
             if let Some(Ok(MaybeCompatible::Compatible(graph_properties))) =
                 &result.graph_properties

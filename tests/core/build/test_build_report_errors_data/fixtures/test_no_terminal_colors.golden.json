@@ -1,6 +1,7 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 {
+  "error_category": "USER",
   "failures": {
     "root//terminal_colors:terminal_colors": "Action failed: root//terminal_colors:terminal_colors (<unspecified>) (run)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout:\nHello\nStderr: <empty>\n"
   },

@@ -1,6 +1,7 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 {
+  "error_category": "USER",
   "failures": {
     "root//fail_load:first": "Error evaluating build file: `root//fail_load:TARGETS.fixture`\nCaused by:\n    Traceback (most recent call last):\n      * fail_load/TARGETS.fixture:1, in <module>\n          fail(\"Non-specific load failure\")\n    error: fail: Non-specific load failure\n     --> fail_load/TARGETS.fixture:1:1\n      |\n    1 | fail(\"Non-specific load failure\")\n      |\n      |\n    ",
     "root//fail_load:second": "Error evaluating build file: `root//fail_load:TARGETS.fixture`\nCaused by:\n    Traceback (most recent call last):\n      * fail_load/TARGETS.fixture:1, in <module>\n          fail(\"Non-specific load failure\")\n    error: fail: Non-specific load failure\n     --> fail_load/TARGETS.fixture:1:1\n      |\n    1 | fail(\"Non-specific load failure\")\n      |\n      |\n    "

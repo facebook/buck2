@@ -38,6 +38,17 @@ pub enum Tier {
     Tier0,
 }
 
+impl std::fmt::Display for Tier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Tier::Environment => "ENVIRONMENT",
+            Tier::Tier0 => "INFRA",
+            Tier::Input => "USER",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 struct TagMetadata {
     category: Option<Tier>,
     rank: u32,
