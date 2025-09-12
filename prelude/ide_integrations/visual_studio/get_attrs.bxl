@@ -70,9 +70,31 @@ def get_unified_value(attrs, common_key: str, platform_key: str, toolchain = "wi
                 all_flags.extend(flags)
     return all_flags
 
-def get_cxx_toolchain(target: bxl.ConfiguredTargetNode, bxl_ctx) -> Dependency | None:
+def get_cxx_toolchain(target: bxl.ConfiguredTargetNode, bxl_ctx, preferred_arch: str | None = None) -> Dependency | None:
     attrs = target.resolved_attrs_lazy(bxl_ctx)
-    return attrs.get("_cxx_toolchain")
+    cxx_toolchain = attrs.get("_cxx_toolchain")
+
+    # Handle multi-platform toolchains (e.g., Android targets) where _cxx_toolchain is a dict
+    if isinstance(cxx_toolchain, dict):
+        if not cxx_toolchain:
+            return None
+
+        # If a preferred architecture was specified, try that first
+        if preferred_arch and preferred_arch in cxx_toolchain:
+            return cxx_toolchain[preferred_arch]
+
+        # Try common fallback keys that might be present
+        common_keys = ["default", "host", "target"]
+        for key in common_keys:
+            if key in cxx_toolchain:
+                return cxx_toolchain[key]
+
+        # Final fallback: pick the first available toolchain
+        # Note: This gives a stable, deterministic result since dict iteration order
+        # is guaranteed in Python 3.7+ (which Buck2 uses)
+        return list(cxx_toolchain.values())[0]
+
+    return cxx_toolchain
 
 # TODO: Implement actual toolchain names
 def _platform_regex_match(plat, toolchain = "windows") -> bool:
