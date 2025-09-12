@@ -499,6 +499,7 @@ def _define_kotlincd_action(
     if incremental_state_dir:
         post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
 
+    incremental_metadata_ignored_inputs = actions.artifact_tag()
     dep_files = {}
     used_jars_json_output = None
     if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
@@ -509,7 +510,7 @@ def _define_kotlincd_action(
         used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_experimental_content_based_path_hashing = False)
         if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset:
             abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
-            args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_dirs"))))
+            args.add(incremental_metadata_ignored_inputs.tag_artifacts(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_dirs")))))
         else:
             abi_to_abi_dir_map = None
         setup_dep_files(
@@ -564,6 +565,7 @@ def _define_kotlincd_action(
         )
 
     incremental_run_params = {
+        "incremental_metadata_ignore_tags": [incremental_metadata_ignored_inputs],
         "metadata_env_var": "ACTION_METADATA",
         "metadata_path": "action_metadata.json",
         "no_outputs_cleanup": True,
