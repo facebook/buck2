@@ -7,52 +7,108 @@
 # above-listed licenses.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//:paths.bzl", "paths")
 load("flags_parser_utils.bxl", "flatten_flag_lists", "get_compiler_settings_from_flags")
 load("get_attrs.bxl", "get_attrs")
-load("utils.bxl", "basename", "dedupe_by_value", "dirname", "escape_xml", "get_argsfiles_output_path", "get_project_file_path", "h", "normcase", "normpath")
+load("utils.bxl", "dedupe_by_value", "dirname", "escape_xml", "get_argsfiles_output_path", "get_project_file_path", "h", "normcase", "normcase_backwards")
 
-def _get_additional_include_directories(target: bxl.ConfiguredTargetNode, attrs: dict) -> list:
-    dirs = attrs["include_directories"]
-    dirs = [target.label.package + "/" + d for d in dirs]
+def _get_package_folder_relative_to_root(target: bxl.ConfiguredTargetNode, bxl_ctx) -> str:
+    cell = target.label.cell
+    package = target.label.package
+    cell_map = bxl_ctx.audit().cell([cell, "root"])
 
+    root_path = cell_map["root"].replace("\\", "/")
+    cell_path = cell_map[cell].replace("\\", "/")
+
+    result = paths.relativize(cell_path, root_path)
+    if package:
+        if result:
+            result += "/"
+        result += package
+
+    return result
+
+def _get_include_directories_from_attributes(target: bxl.ConfiguredTargetNode, attrs: dict, fields: list[str], bxl_ctx) -> list:
+    package_folder_relative_to_root = _get_package_folder_relative_to_root(target, bxl_ctx)
+
+    dirs = []
+    for f in fields:
+        dirs += attrs[f]
+
+    dirs = [normcase("$(RepoRoot)\\" + package_folder_relative_to_root + "/" + d) for d in dirs]
+    return dirs
+
+def _get_additional_include_directories(target: bxl.ConfiguredTargetNode, attrs: dict, bxl_ctx) -> list:
     # Headers shall not be directly added to additional include directories.
 
-    dirs = ["$(RepoRoot)\\" + d for d in dirs]
-    return dedupe_by_value(dirs)
+    dirs = _get_include_directories_from_attributes(target, attrs, ["include_directories"], bxl_ctx)
+    dirs = dedupe_by_value(dirs)
+
+    return dirs
+
+
+def _as_raw_header(
+        label,
+        # The full name used to include the header.
+        name: str,
+        header: Artifact):
+    """
+    Return path to pass to `include_directories` to treat the given header as
+    a raw header.
+    """
+    name = paths.normalize(name)
+
+    
+    if not header.is_source:
+        return None
+
+    # To include the header via its name using raw headers and include dirs,
+    # it needs to be a suffix of its original path, and we'll strip the include
+    # name to get the include dir used to include it.
+    path = paths.join(label.package, header.short_path)
+    path = paths.normalize(path)
+    base = paths.strip_suffix(path, name)
+    if base == None:
+        return None
+
+    # If the include dir is underneath our package, then just relativize to find
+    # out package-relative path.
+    if len(base) >= len(label.package):
+        return paths.relativize(base, label.package)
+
+    # Otherwise, this include dir needs to reference a parent dir.
+    num_parents = (
+        len(label.package.split("/")) -
+        (0 if not base else len(base.split("/")))
+    )
+    return "/".join([".."] * num_parents)
+
 
 def _get_exported_additional_include_directories(target: bxl.ConfiguredTargetNode, attrs: dict, bxl_ctx) -> list:
-    dirs = attrs["public_include_directories"] + attrs["public_system_include_directories"]
-    dirs = [target.label.package + "/" + d for d in dirs]
+    label = target.label
 
     # header_dirs is used in prebuilt_cxx_library (legacy Buck rule, still widely used for third-party code)
     # e.g., //third-party/gsl:gsl
-    dirs += attrs["header_dirs"]
+    attr_fields = [
+        "public_include_directories",
+        "public_system_include_directories",
+    ]
 
-    # TODO: handle header files with header_path_prefix
+    dirs_by_attribute = _get_include_directories_from_attributes(target, attrs, attr_fields, bxl_ctx)
+    dirs_by_attribute += [normcase_backwards(d) for d in attrs["header_dirs"]]
+
+    dirs = []
+
+    package_root = _get_package_folder_relative_to_root(target, bxl_ctx)
     for name, path in attrs["exported_headers"].items():
-        header_namespace = attrs["header_namespace"]
-        if header_namespace != None:
-            if name == path:
-                # Assuming exported_header is a list and no customized export name specified.
-                # e.g.,
-                # header: arvr/projects/xrtech/resources/FaceTracker/models:FaceWaveBinaryResources  https://fburl.com/code/ee9ewpv7
-                # usage: arvr/projects/facetracking/FaceWave:OVRLipSyncCommon  https://fburl.com/code/76zx2fmw
-                name = header_namespace + "/" + basename(name)
-            else:
-                # e.g.,
-                # header: xplat/ocean/impl/ocean/base:base  https://fburl.com/code/uiyr5ay9
-                # usage: xplat/ocean/impl/ocean/math:math  https://fburl.com/code/ebtcvn44
-                name = header_namespace + "/" + name
-        name = normcase(name)
-
-        # If file path is in generated buck-out, the file will be either not available or more correct form buck-headers exists.
-        if "buck-out" not in path and path.endswith(name):
-            # e.g.,
-            # header: xplat/ocean/impl/ocean/base:base  https://fburl.com/code/uiyr5ay9
-            # usage: xplat/ocean/impl/ocean/math:math  https://fburl.com/code/ebtcvn44
-            include_dir = path.removesuffix(name)
-            if include_dir:
-                dirs.append(include_dir)
+        if not "buck-out" in path:
+            source_artifact = bxl_ctx.fs.source(path.replace("\\", "/"))
+            as_raw = _as_raw_header(label, name, source_artifact)
+            if as_raw != None:
+                include_dir = package_root
+                if as_raw:
+                    include_dir += "/" + as_raw
+                dirs.append(normcase_backwards(include_dir))
         else:
             # Header tree created by buck. This is the most correct form but depends on previous local build to materialize.
             # e.g.,
@@ -60,13 +116,11 @@ def _get_exported_additional_include_directories(target: bxl.ConfiguredTargetNod
             # usage: xplat/mobileconfig/FBMobileConfigCore:FBMobileConfigCore  https://fburl.com/code/p4qw1cx3
             argsfiles_output_path = get_argsfiles_output_path(target, bxl_ctx)
             if argsfiles_output_path:
-                dirs.append(dirname(argsfiles_output_path) + "/buck-headers")
+                include_dir = dirname(argsfiles_output_path) + "/buck-headers"
+                dirs.append(normcase_backwards(include_dir))
 
-    dirs = [normpath(d) for d in dirs]
-    dirs = dedupe_by_value(dirs)
-    dirs = ["$(RepoRoot)\\" + d for d in dirs]
-
-    return dirs
+    dirs = [normcase("$(RepoRoot)\\" + d) for d in dirs]
+    return dedupe_by_value(dirs + dirs_by_attribute)
 
 def _format_compiler_settings(compiler_settings: dict) -> dict:
     # Starlark passed in reference of dict. We don't want to accidentally override values, thus creating hard copy.
@@ -80,11 +134,11 @@ def _format_compiler_settings(compiler_settings: dict) -> dict:
     concat_compiler_settings["ForcedIncludeFiles"] = ";".join(compiler_settings["ForcedIncludeFiles"] + ["%(ForcedIncludeFiles)"])
     return concat_compiler_settings
 
-def get_compiler_settings(target: bxl.ConfiguredTargetNode, attrs: dict) -> dict:
+def get_compiler_settings(target: bxl.ConfiguredTargetNode, attrs: dict, bxl_ctx) -> dict:
     """return private compiler settings to be written to .vcxproj for given buck target"""
     compiler_flags = flatten_flag_lists(attrs["preprocessor_flags"] + attrs["compiler_flags"])
     compiler_settings = get_compiler_settings_from_flags(compiler_flags)
-    compiler_settings["AdditionalIncludeDirectories"].extend(_get_additional_include_directories(target, attrs))
+    compiler_settings["AdditionalIncludeDirectories"].extend(_get_additional_include_directories(target, attrs, bxl_ctx))
 
     return compiler_settings
 
@@ -130,7 +184,7 @@ def materialize_compiler_settings_file(target_node, actions, cxx_toolchain_info,
         else:
             exported_compiler_settings = get_exported_compiler_settings(target, attrs_input, ctx)
 
-        settings["compiler_settings"] = get_compiler_settings(target_node, attrs_input)
+        settings["compiler_settings"] = get_compiler_settings(target_node, attrs_input, ctx)
         settings["exported_compiler_settings"] = exported_compiler_settings
 
         ctx.bxl_actions().actions.write_json(outputs[out].as_output(), settings, pretty = True)
