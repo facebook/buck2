@@ -38,6 +38,11 @@ load("@prelude//utils:utils.bzl", "flatten")
 # `dex_compression` attribute:
 # 1) `raw` compression. This means that we create `classes2.dex`, `classes3.dex`, ...,
 #    `classesN.dex` and store each of them in the root directory of the APK.
+# 2) `raw_subdir` compression. We store each secondary DEX file uncompressed at
+#    `assets/secondary-program-dex-jars/secondary-I.dex`. This is like `raw` in
+#    the sense that secondary DEX files are included in the APK without
+#    additional compression. However, those raw DEXes are written to the
+#    secondary dex subdirectory instead of to the root directory of the APK.
 # 2) `jar` compression. For each secondary DEX file, we put a `classes.dex` entry into a
 #    JAR file, and store it as an asset at `assets/secondary-program-dex-jars/secondary-I.dex.jar`
 # 3) `xz` compression. This is the same as `jar` compression, except that we run `xz` on the
@@ -74,8 +79,8 @@ def _get_dex_compression(ctx: AnalysisContext) -> str:
     default_dex_compression = "jar" if is_exopackage_enabled_for_secondary_dexes else "raw"
     dex_compression = getattr(ctx.attrs, "dex_compression", None) or default_dex_compression
     expect(
-        dex_compression in ["raw", "jar", "xz", "xzs"],
-        "Only 'raw', 'jar', 'xz' and 'xzs' dex compression are supported at this time!",
+        dex_compression in ["raw", "raw_subdir", "jar", "xz", "xzs"],
+        "Only 'raw', 'raw_subdir', 'jar', 'xz' and 'xzs' dex compression are supported at this time!",
     )
 
     return dex_compression
@@ -564,13 +569,13 @@ def merge_to_split_dex(
             secondary_dex_inputs = sorted_pre_dexed_input.secondary_dex_inputs
             raw_secondary_dexes_for_compressing = {}
             for i in range(len(secondary_dex_inputs)):
-                if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
+                if split_dex_merge_config.dex_compression in ["jar", "raw", "raw_subdir"]:
                     if split_dex_merge_config.dex_compression == "jar":
                         secondary_dex_path = _get_secondary_dex_subdir_path(i, module)
                         secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, module_to_canary_class_name_function, i)
                         secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
                     else:
-                        secondary_dex_path = _get_raw_secondary_dex_path(i, module, base_apk_dex_files_count, is_exopackage_enabled_for_secondary_dex)
+                        secondary_dex_path = _get_raw_secondary_dex_path(i, module, base_apk_dex_files_count, is_exopackage_enabled_for_secondary_dex or split_dex_merge_config.dex_compression == "raw_subdir")
                         secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, module_to_canary_class_name_function, i)
 
                     secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
@@ -599,7 +604,7 @@ def merge_to_split_dex(
                     secondary_dex_metadata_config = secondary_dex_metadata_config,
                 )
 
-            if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
+            if split_dex_merge_config.dex_compression in ["jar", "raw", "raw_subdir"]:
                 metadata_dot_txt_path = "{}/metadata.txt".format(_get_secondary_dex_subdir(module))
                 metadata_dot_txt_file = ctx.actions.declare_output(metadata_dot_txt_path)
                 secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
@@ -893,9 +898,9 @@ def _get_raw_secondary_dex_name(index: int, module: str, base_apk_dex_count: int
     else:
         return "classes{}.dex".format(index + 1)
 
-def _get_raw_secondary_dex_path(index: int, module: str, base_apk_dex_count: int, is_exopackage_enabled_for_secondary_dex: bool):
+def _get_raw_secondary_dex_path(index: int, module: str, base_apk_dex_count: int, store_raw_secondary_dexes_in_secondary_dex_subdir: bool):
     if is_root_module(module):
-        if is_exopackage_enabled_for_secondary_dex:
+        if store_raw_secondary_dexes_in_secondary_dex_subdir:
             return _get_secondary_dex_subdir_path(index, module, "dex")
         return _get_raw_secondary_dex_name(index, module, base_apk_dex_count)
     else:

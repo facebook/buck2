@@ -24,7 +24,7 @@ load(":re_test_common.bzl", "re_test_common")
 
 CompressionAlgorithm = ["xz", "zstd"]
 
-DexStore = ["raw", "jar", "xz", "xzs"]
+DexStore = ["raw", "raw_subdir", "jar", "xz", "xzs"]
 
 DuplicateResourceBehaviour = ["allow_by_default", "ban_by_default"]
 
