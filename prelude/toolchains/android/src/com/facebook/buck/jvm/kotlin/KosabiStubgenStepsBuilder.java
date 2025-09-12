@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Level;
 
@@ -99,14 +98,6 @@ public class KosabiStubgenStepsBuilder {
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(stubgenOutputDir));
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(stubsOutputZipDir));
 
-      ImmutableList.Builder<AbsPath> kotlinHomeLibrariesBuilder =
-          ImmutableList.<AbsPath>builder()
-              .addAll(extraParams.getKotlinHomeLibraries())
-              .add(
-                  Objects.requireNonNull(
-                      allKosabiPluginOptionPath.get(
-                          KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_EXTRA_KOTLIN_HOME_LIBRARY)));
-
       steps.add(
           new KosabiStubgenStep(
               invokingRule,
@@ -114,7 +105,7 @@ public class KosabiStubgenStepsBuilder {
               sourceFilePaths,
               pathToSrcsList,
               allClasspaths,
-              kotlinHomeLibrariesBuilder.build(),
+              extraParams.getKotlinHomeLibraries(),
               reportsOutput,
               kotlinc,
               ImmutableList.of(),
