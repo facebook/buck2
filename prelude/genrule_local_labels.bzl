@@ -154,6 +154,9 @@ _GENRULE_LOCAL_LABELS = set([
     # Perform makes compilation in situ.
     "uses_make",
 
+    # Like uses_make but for windows
+    "uses_msbuild",
+
     # Like it says in the label
     "uses_mkscratch",
 
