@@ -21,6 +21,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     input_android_apk_under_test_info = None
     input_unstripped_shared_libraries = None
     input_android_apk_subtargets = None
+    input_android_apk_template_placeholder_info = None
     input_android_aab_subtargets = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
@@ -32,6 +33,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_unstripped_shared_libraries = input_android_apk_info.unstripped_shared_libraries
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
         input_android_apk_subtargets = ctx.attrs.apk[DefaultInfo].sub_targets
+        input_android_apk_template_placeholder_info = ctx.attrs.apk[TemplatePlaceholderInfo].keyed_variables
 
         env_vars = {
             "APK": cmd_args(input_apk),
@@ -134,6 +136,13 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
             "unstripped_native_libraries_files": [input_android_apk_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
             "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
         })
+        expect(len(filter(lambda x: isinstance(x, TemplatePlaceholderInfo), genrule_providers)) == 0, "TemplatePlaceholderInfo from genrule_providers needs to be merged")
+        templace_placeholder_info = TemplatePlaceholderInfo(
+            keyed_variables = {
+                "classpath": input_android_apk_template_placeholder_info["classpath"],
+                "classpath_including_targets_with_no_output": input_android_apk_template_placeholder_info["classpath_including_targets_with_no_output"],
+            },
+        )
         expect(genrule_default_output_is_apk, "apk_genrule output must end in '.apk'")
         output_apk = genrule_default_output
         output_aab_info = None
@@ -143,6 +152,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 other_outputs = genrule_default_info[0].other_outputs,
                 sub_targets = sub_targets,
             ),
+            templace_placeholder_info,
         ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
 
     class_to_src_map = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if (ctx.attrs.apk and JavaClassToSourceMapInfo in ctx.attrs.apk) else []
