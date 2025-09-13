@@ -202,6 +202,35 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     /// New version of `dynamic_output`.
     ///
     /// This is work in progress, and will eventually replace the old `dynamic_output`.
+    /// In contrast to the old `dynamic_output`, `dynamic_output_new()` allows calling dynamic
+    /// actions similarly to normal rules as function calls.
+    ///
+    /// This function allows defining deferred analysis actions that are executed in the action
+    /// graph on demand rather than at normal analysis time. Using `dynamic_output_new`, one can
+    /// write rules which can read the contents of artifacts built by other rules while determining
+    /// which actions to register.
+    ///
+    /// It takes as input a `DynamicActions` obtained from calling a dynamic action defined with
+    /// [`dynamic_actions()`](../#dynamic_actions) or
+    /// [`bxl.dynamic_actions()`](../../bxl/#dynamic_actions).
+    ///
+    /// This function is typically used in two distinct ways:
+    /// - Binding an artifact: passing in an unbound artifact to a
+    ///   [`dynattrs.output()`](../dynattrs#output) attr of a dynamic action. That dynamic action is
+    ///   then analyzed at build time when the artifact is required by another rule, then the
+    ///   actions bound to the artifact are executed. In this case, the return value of
+    ///   `dynamic_output_new()` is not used.
+    /// - Using the returned opaque [`DynamicValue`](../DynamicValue) as input to other dynamic
+    ///   actions' [`dynattrs.dynamic_value()`](../dynattrs/#dynamic_value) attrs.
+    ///
+    /// The invoked dynamic actions will be analyzed at build time when a dependency requires them
+    /// through an artifact bound by [`dynattrs.output()`](../dynattrs#output) or if they are
+    /// required by other dynamic actions that use the returned `DynamicValue`.
+    ///
+    /// See [Dynamic Dependencies](../../../rule_authors/dynamic_dependencies) for an overall
+    /// overview of dynamic dependencies in buck2.
+    ///
+    /// For a guide on using this with BXL, see [How to run actions based on the content of artifacts](../../../bxl/how_tos/how_to_run_actions_based_on_the_content_of_artifact).
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
