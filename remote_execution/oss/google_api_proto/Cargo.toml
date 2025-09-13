@@ -1,17 +1,16 @@
 [package]
-description = "A library providing gRPC client for Bazel remote execution"
+description = "Protobuf definitions for Google APIs"
+name = "google_api_proto"
+version = "0.1.0"
 edition = "2024"
 license = { workspace = true }
-name = "re_grpc_proto"
 repository = { workspace = true }
-version = "0.1.0"
 
 [dependencies]
 prost = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tonic = { workspace = true }
-google_api_proto = { path = "../google_api_proto" }
 
 buck2_data = { workspace = true }
 
