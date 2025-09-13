@@ -25,7 +25,6 @@ rust_library(
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
-        "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
