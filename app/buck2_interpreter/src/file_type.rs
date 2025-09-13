@@ -19,6 +19,7 @@ pub enum StarlarkFileType {
     Buck,
     Package,
     Json,
+    Toml,
 }
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
@@ -83,7 +84,7 @@ impl StarlarkFileType {
             Self::Buck => buck_dialect,
             Self::Package => package_dialect,
             Self::Bxl => bxl_dialect,
-            Self::Json => Dialect::Standard,
+            Self::Json | Self::Toml => Dialect::Standard,
         }
     }
 }

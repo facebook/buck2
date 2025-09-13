@@ -65,6 +65,28 @@ use crate::interpreter::interpreter_for_dir::ParseData;
 use crate::interpreter::interpreter_for_dir::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
+fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
+    match value {
+        toml::Value::String(s) => serde_json::Value::String(s),
+        toml::Value::Integer(i) => serde_json::Value::Number(i.into()),
+        toml::Value::Float(f) => match serde_json::Number::from_f64(f) {
+            Some(n) => serde_json::Value::Number(n),
+            None => serde_json::Value::Null,
+        },
+        toml::Value::Boolean(b) => serde_json::Value::Bool(b),
+        toml::Value::Datetime(dt) => serde_json::Value::String(dt.to_string()),
+        toml::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(toml_value_to_json).collect())
+        }
+        toml::Value::Table(table) => serde_json::Value::Object(
+            table
+                .into_iter()
+                .map(|(k, v)| (k, toml_value_to_json(v)))
+                .collect(),
+        ),
+    }
+}
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum DiceCalculationDelegateError {
@@ -246,6 +268,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     ) -> buck2_error::Result<LoadedModule> {
         match starlark_file {
             StarlarkModulePath::JsonFile(_) => self.eval_json_module_uncached(starlark_file).await,
+            StarlarkModulePath::TomlFile(_) => self.eval_toml_file_uncached(starlark_file).await,
             _ => {
                 self.eval_starlark_module_uncached(starlark_file, cancellation)
                     .await
@@ -267,6 +290,29 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         let module = starlark::environment::Module::new();
         module.set("value", module.heap().alloc(value));
+        let frozen = module.freeze().map_err(from_freeze_error)?;
+        Ok(LoadedModule::new(
+            OwnedStarlarkModulePath::new(starlark_file),
+            Default::default(),
+            frozen,
+        ))
+    }
+
+    async fn eval_toml_file_uncached(
+        &mut self,
+        starlark_file: StarlarkModulePath<'_>,
+    ) -> buck2_error::Result<LoadedModule> {
+        let path = starlark_file.path();
+        let contents = DiceFileComputations::read_file(self.ctx, path.as_ref())
+            .await
+            .with_package_context_information(path.path().to_string())?;
+
+        let value: toml::Value =
+            toml::from_str(&contents).with_buck_error_context(|| format!("Parsing {path}"))?;
+        let json_value = toml_value_to_json(value);
+
+        let module = starlark::environment::Module::new();
+        module.set("value", module.heap().alloc(json_value));
         let frozen = module.freeze().map_err(from_freeze_error)?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
