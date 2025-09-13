@@ -462,11 +462,12 @@ def _post_native_lib_graph_finalization_steps(
         non_root_module_metadata_assets: Artifact,
         non_root_module_lib_assets: Artifact) -> dict[str, dict[str, SharedLibrary]]:
     bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
+    pre_bolt_libs_by_platform = {}
     if bolt_args and len(bolt_args) != 0:
-        final_shared_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
+        final_shared_libs_by_platform, pre_bolt_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
 
     unstripped_libs = {}
-    for platform, libs in final_shared_libs_by_platform.items():
+    for platform, libs in final_shared_libs_by_platform.items() + pre_bolt_libs_by_platform.items():
         for lib in libs.values():
             unstripped_libs[lib.lib.output] = platform
     ctx.actions.write(unstripped_native_libraries, unstripped_libs.keys())
@@ -1659,16 +1660,45 @@ def _create_merged_link_args(
 def _bolt_libraries(
         ctx: AnalysisContext,
         libraries_by_platform: dict[str, dict[str, SharedLibrary]],
-        bolt_args: dict[str, ArgLike]) -> dict[str, dict[str, SharedLibrary]]:
+        bolt_args: dict[str, ArgLike]) -> (
+    dict[str, dict[str, SharedLibrary]],
+    dict[str, dict[str, SharedLibrary]],
+):
     bolted_libraries_by_platform = {}
+    pre_bolt_libraries_by_platform = {}
+
     for platform, shared_libraries in libraries_by_platform.items():
         cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
         bolted_libraries = bolted_libraries_by_platform.setdefault(platform, {})
+        pre_bolt_libraries = pre_bolt_libraries_by_platform.setdefault(platform, {})
+
         for soname, _ in shared_libraries.items():
             original_shared_library = shared_libraries[soname]
             if not soname in bolt_args:
                 bolted_libraries[soname] = original_shared_library
                 continue
+
+            # Create pre-BOLT copy with .pre_bolt.so suffix
+            pre_bolt_soname = soname.removesuffix(".so") + ".pre_bolt.so"
+            pre_bolt_output_path = "pre-bolt-libs/{}/{}".format(platform, pre_bolt_soname)
+            pre_bolt_copy = ctx.actions.copy_file(pre_bolt_output_path, original_shared_library.lib.output)
+
+            # Create pre-BOLT SharedLibrary object
+            pre_bolt_linked_object = LinkedObject(
+                output = pre_bolt_copy,
+                unstripped_output = pre_bolt_copy,
+            )
+
+            pre_bolt_shared_lib = create_shlib(
+                lib = pre_bolt_linked_object,
+                stripped_lib = strip_lib(ctx, cxx_toolchain, pre_bolt_linked_object.output),
+                can_be_asset = original_shared_library.can_be_asset,
+                for_primary_apk = False,
+                soname = pre_bolt_soname,
+                label = original_shared_library.label,
+            )
+
+            pre_bolt_libraries[pre_bolt_soname] = pre_bolt_shared_lib
 
             output_path = "bolt-libs/{}/{}".format(platform, soname)
 
@@ -1680,7 +1710,7 @@ def _bolt_libraries(
                 bolt_args = bolt_args[soname],
             )
 
-    return bolted_libraries_by_platform
+    return bolted_libraries_by_platform, pre_bolt_libraries_by_platform
 
 # When linking shared libraries, by default, all symbols are exported from the library. In a
 # particular application, though, many of those symbols may never be used. Ideally, in each apk,
