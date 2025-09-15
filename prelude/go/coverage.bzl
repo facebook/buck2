@@ -29,7 +29,7 @@ def cover_srcs(
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
-    cover_meta_file = ctx.actions.declare_output("cover_meta.json")
+    cover_meta_file = ctx.actions.declare_output("cover_meta.bin")
     out_config_file = ctx.actions.declare_output("out_config.json")
 
     # Based on https://pkg.go.dev/cmd/internal/cov/covcmd#CoverPkgConfig
