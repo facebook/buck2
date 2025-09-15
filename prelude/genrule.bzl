@@ -272,20 +272,28 @@ def process_genrule(
 
     # Create required directories.
     if is_windows:
-        out = ".\\{}\\..\\..\\output_artifact\\out" if content_based else ".\\{}\\..\\out"
+        if content_based:
+            outs_to_create = [".\\{}\\..\\..\\output_artifact\\out", ".\\{}\\..\\..\\output_artifacts\\out"]
+        else:
+            outs_to_create = [".\\{}\\..\\out"]
         script = [
             cmd_args(
                 srcs_artifact,
                 format = "if not exist {0} mkdir {0}".format(out),
-            ),
-            cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\""),
-        ]
+            )
+            for out in outs_to_create
+        ] + [cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\"")]
         script_extension = "bat"
     else:
-        out = "./{}/../../output_artifact/out" if content_based else "./{}/../out"
+        if content_based:
+            outs_to_create = ["./{}/../../output_artifact/out", "./{}/../../output_artifacts/out"]
+        else:
+            outs_to_create = ["./{}/../out"]
         script = [
             # Use a somewhat unique exit code so this can get retried on RE (T99656531).
-            cmd_args(srcs_artifact, format = "mkdir -p {} || exit 99".format(out)),
+            cmd_args(srcs_artifact, format = "mkdir -p {} || exit 99".format(out))
+            for out in outs_to_create
+        ] + [
             cmd_args("export TMP=${TMPDIR:-/tmp}"),
         ]
         script_extension = "sh"
