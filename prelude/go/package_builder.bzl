@@ -66,6 +66,9 @@ def build_package(
     def f(ctx: AnalysisContext, artifacts, outputs, go_list_out = go_list_out):
         go_list = parse_go_list_out(srcs, package_root, artifacts[go_list_out])
 
+        if len(go_list.x_test_go_files) > 0:
+            fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, ctx.label)
+
         # A go package can can contain CGo or Go ASM files, but not both.
         # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
         # The `go build` command does additional check here and throws an error if both CGo and Go-ASM files are present.
@@ -78,10 +81,6 @@ def build_package(
         # Generate CGO and C sources.
         cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, c_files, go_list.cgo_cflags, go_list.cgo_cppflags, anon_targets_allowed = False)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
-
-        is_x_test_pkg = len(go_list.x_test_go_files) > 0
-        if is_x_test_pkg:
-            fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, ctx.label)
 
         ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((go_list.test_go_files if with_tests else []), ""))
 
