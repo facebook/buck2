@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_format_target_triple")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 
 def version_is_greater(left: str, right: str) -> bool:
@@ -62,27 +63,9 @@ def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     else:
         return toolchain_target_sdk_version
 
-_PLATFORM_TARGET_TRIPLE_MAP = {
-    "appletvos": "{architecture}-apple-tvos{version}",
-    "appletvsimulator": "{architecture}-apple-tvos{version}-simulator",
-    "iphoneos": "{architecture}-apple-ios{version}",
-    "iphonesimulator": "{architecture}-apple-ios{version}-simulator",
-    "maccatalyst": "{architecture}-apple-ios{version}-macabi",
-    "macosx": "{architecture}-apple-macosx{version}",
-    "visionos": "{architecture}-apple-xros{version}",
-    "visionsimulator": "{architecture}-apple-xros{version}-simulator",
-    "watchos": "{architecture}-apple-watchos{version}",
-    "watchsimulator": "{architecture}-apple-watchos{version}-simulator",
-}
-
 def _format_target_triple(ctx: AnalysisContext, version: str) -> str:
     platform_info = get_cxx_platform_info(ctx)
-    platform_components = platform_info.name.split("-")
-    if platform_components[0] not in _PLATFORM_TARGET_TRIPLE_MAP:
-        fail("missing target triple for {}".format(platform_components[0]))
-
-    triple_format_str = _PLATFORM_TARGET_TRIPLE_MAP[platform_components[0]]
-    return triple_format_str.format(architecture = platform_components[1], version = version)
+    return apple_format_target_triple(platform_info.name, version)
 
 def get_target_triple(ctx: AnalysisContext) -> [None, str]:
     target_sdk_version = get_target_sdk_version(ctx)
