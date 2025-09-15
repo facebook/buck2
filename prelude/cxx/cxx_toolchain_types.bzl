@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_extra_darwin_linker_flags", "apple_format_target_triple", "is_valid_apple_platform_name")
 load("@prelude//cxx:cxx_error_handler.bzl", "cxx_generic_error_handler")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
@@ -387,6 +388,16 @@ def cxx_toolchain_infos(
         cxx_error_handler = cxx_combined_error_handler,
     )
 
+    ldflags_shared_extra = None
+    if linker_info.type == LinkerType("darwin") and is_valid_apple_platform_name(platform_name):
+        # These flags are used in `cxx_genrule()`, using the toolchain's target sdk version is
+        # the best we can do, as there's no target sdk on the rule itself.
+        #
+        # Without target triple, the linker will use the host OS as the target
+        # which is almost always incorrect.
+        apple_target_triple = apple_format_target_triple(platform_name, target_sdk_version or "")
+        ldflags_shared_extra = apple_extra_darwin_linker_flags(apple_target_triple)
+
     # Provide placeholder mappings, used primarily by cxx_genrule.
     # We don't support these buck1 placeholders since we can't take an argument.
     # $(ldflags-pic-filter <pattern>)
@@ -404,7 +415,7 @@ def cxx_toolchain_infos(
         # NOTE(agallagher): The arg-less variants of the ldflags macro are
         # identical, and are just separate to match v1's behavior (ideally,
         # we just have a single `ldflags` macro for this case).
-        "ldflags-shared": _shell_quote(linker_info.linker_flags or []),
+        "ldflags-shared": _shell_quote(linker_info.linker_flags or [], ldflags_shared_extra),
         "ldflags-static": _shell_quote(linker_info.linker_flags or []),
         "ldflags-static-pic": _shell_quote(linker_info.linker_flags or []),
         "objcopy": binary_utilities_info.objcopy,
@@ -423,8 +434,8 @@ def cxx_toolchain_infos(
     placeholders_info = TemplatePlaceholderInfo(unkeyed_variables = unkeyed_variables)
     return [toolchain_info, placeholders_info, CxxPlatformInfo(name = platform_name, deps_aliases = platform_deps_aliases)]
 
-def _shell_quote(xs):
-    return cmd_args(xs, quote = "shell")
+def _shell_quote(xs, extra = None):
+    return cmd_args(xs, extra or [], quote = "shell")
 
 # export these things under a single "cxx" struct
 cxx = struct(

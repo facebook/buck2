@@ -19,10 +19,14 @@ _PLATFORM_TARGET_TRIPLE_MAP = {
     "watchsimulator": "{architecture}-apple-watchos{version}-simulator",
 }
 
+def is_valid_apple_platform_name(platform_name: str | None) -> bool:
+    platform_components = (platform_name or "").split("-")
+    return platform_components[0] in _PLATFORM_TARGET_TRIPLE_MAP and len(platform_components) == 2
+
 def apple_format_target_triple(platform_name: str, version: str) -> str:
     platform_components = platform_name.split("-")
     if platform_components[0] not in _PLATFORM_TARGET_TRIPLE_MAP:
-        fail("missing target triple for {}".format(platform_components[0]))
+        fail("missing target triple for {} ({})".format(platform_components[0], platform_name))
 
     triple_format_str = _PLATFORM_TARGET_TRIPLE_MAP[platform_components[0]]
     return triple_format_str.format(architecture = platform_components[1], version = version)
