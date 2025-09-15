@@ -44,7 +44,10 @@ def cover_srcs(
     }
     pkgcfg_file = ctx.actions.write_json("pkg.cfg", pkgcfg)
 
-    var = "Var_" + sha256(pkg_import_path)
+    # Grab the first 16 characters of sha256.
+    # This is sufficient to make the coverage variable unique enough
+    # while keeping the instrumented file a bit more readable.
+    var = "GoCover_" + sha256(pkg_import_path)[:16]
     instrum_vars_file = ctx.actions.declare_output("with_instrumentation", "instrum_vars.go")
     instrum_go_files = [
         ctx.actions.declare_output("with_instrumentation", go_file.short_path)
