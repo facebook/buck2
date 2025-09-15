@@ -44,10 +44,6 @@ async def test_no_local_action_when_full_hybrid_given_memory_pressure(
     buck: Buck,
 ) -> None:
     configure_memory_limit(buck)
-    # Also configs for `buck2_resource_control` section are passed vis `.buckconfig`
-    with open(buck.cwd / ".buckconfig.local", "w") as f:
-        f.write("[buck2_resource_control]\n")
-        f.write("hybrid_execution_memory_limit_gibibytes = 0\n")
     await buck.build(
         ":merge_100",
         "--no-remote-cache",
