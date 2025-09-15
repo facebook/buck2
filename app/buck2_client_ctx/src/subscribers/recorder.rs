@@ -247,6 +247,8 @@ pub struct InvocationRecorder {
     initial_local_cache_lookup_latency_microseconds: Option<i64>,
     memory_tracker_pressure_events: u64,
     peak_memory_pressure_percentage: u64,
+    max_dice_in_progress_keys: u64,
+    max_dice_compute_keys: u64,
 }
 
 impl InvocationRecorder {
@@ -409,6 +411,8 @@ impl InvocationRecorder {
             initial_local_cache_lookup_latency_microseconds: None,
             memory_tracker_pressure_events: 0,
             peak_memory_pressure_percentage: 0,
+            max_dice_in_progress_keys: 0,
+            max_dice_compute_keys: 0,
         }
     }
 
@@ -1445,6 +1449,35 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    fn handle_dice_state_snapshot(
+        &mut self,
+        dice_state_snapshot: &buck2_data::DiceStateSnapshot,
+    ) -> buck2_error::Result<()> {
+        // Calculate the total in-progress keys and compute keys across all key types
+        let mut total_in_progress = 0u64;
+        let mut total_compute = 0u64;
+
+        for key_state in dice_state_snapshot.key_states.values() {
+            // In-progress keys are those that have been started but not finished
+            let started = u64::from(key_state.started);
+            let finished = u64::from(key_state.finished);
+            let in_progress = started.saturating_sub(finished);
+            total_in_progress = total_in_progress.saturating_add(in_progress);
+
+            // Compute keys are those in the computation phase
+            let compute_started = u64::from(key_state.compute_started);
+            let compute_finished = u64::from(key_state.compute_finished);
+            let compute_in_progress = compute_started.saturating_sub(compute_finished);
+            total_compute = total_compute.saturating_add(compute_in_progress);
+        }
+
+        // Track the maximum values seen across all snapshots
+        self.max_dice_in_progress_keys = max(self.max_dice_in_progress_keys, total_in_progress);
+        self.max_dice_compute_keys = max(self.max_dice_compute_keys, total_compute);
+
+        Ok(())
+    }
+
     fn handle_build_graph_info(
         &mut self,
         info: &buck2_data::BuildGraphExecutionInfo,
@@ -1936,6 +1969,9 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::MemoryPressure(memory_pressure) => {
                         self.handle_memory_pressure(*memory_pressure)
+                    }
+                    buck2_data::instant_event::Data::DiceStateSnapshot(dice_state_snapshot) => {
+                        self.handle_dice_state_snapshot(dice_state_snapshot)
                     }
                     _ => Ok(()),
                 }
