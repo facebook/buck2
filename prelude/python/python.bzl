@@ -178,12 +178,6 @@ def _get_hidden_resources(standalone: bool, manifests: PythonLibraryManifestsTSe
     else:
         return [manifests.project_as_args("hidden_resources")]
 
-def _get_resource_artifacts_with_path(standalone: bool, manifests: PythonLibraryManifestsTSet) -> list[(ArgLike, ArgLike)]:
-    if standalone:
-        return [(a, p) for m in manifests.traverse() if m != None and m.standalone_resources != None for a, p in m.standalone_resources[0].artifacts]
-    else:
-        return [(a, p) for m in manifests.traverse() if m != None and m.default_resources != None for a, p in m.default_resources[0].artifacts]
-
 def _get_has_hidden_resources(standalone: bool, manifests: PythonLibraryManifestsTSet) -> bool:
     if standalone:
         return manifests.reduce("standalone_has_hidden_resources")
@@ -195,16 +189,12 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibra
         sources_simple = lambda: manifests.project_as_args("sources_simple"),
         src_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
-        src_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.srcs != None for a, p in m.srcs.artifacts],
         src_type_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_type_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
-        src_type_artifacts_with_path = lambda: [(a, p) for m in manifests.traverse() if m != None and m.src_types != None for a, p in m.src_types.artifacts],
         bytecode_manifests = lambda mode: [manifests.project_as_args("{}_manifests".format(_BYTECODE_PROJ_PREFIX[mode]))],
         bytecode_artifacts = lambda mode: [manifests.project_as_args("{}_artifacts".format(_BYTECODE_PROJ_PREFIX[mode]))],
-        bytecode_artifacts_with_paths = lambda mode: [(a, p) for m in manifests.traverse() if m != None and m.bytecode != None for a, p in m.bytecode[mode].artifacts],
         resource_manifests = lambda standalone = False: _get_resource_manifests(standalone, manifests),
         resource_artifacts = lambda standalone = False: _get_resource_artifacts(standalone, manifests),
-        resource_artifacts_with_paths = lambda standalone = False: _get_resource_artifacts_with_path(standalone, manifests),
         resource_artifacts_simple = lambda: manifests.project_as_args("resource_artifacts_simple"),
         has_hidden_resources = lambda standalone = False: _get_has_hidden_resources(standalone, manifests),
         hidden_resources = lambda standalone = False: _get_hidden_resources(standalone, manifests),

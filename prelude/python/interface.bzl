@@ -15,7 +15,6 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
     src_artifacts = field(typing.Callable),
-    src_artifacts_with_paths = field(typing.Callable),
 
     # Returns the source manifests for this Python library.
     # [_arglike] of source manifests
@@ -24,7 +23,6 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
     src_type_artifacts = field(typing.Callable),
-    src_type_artifacts_with_path = field(typing.Callable),
 
     # Returns the bytecode manifests for this Python library, given a PycInvalidationMode.
     # PycInvalidationMode -> [_arglike] of bytecode manifests (compiled with that mode)
@@ -33,8 +31,6 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by bytecode manifests for this Python library.
     # PycInvalidationMode -> [_arglike] of bytecode artifacts
     bytecode_artifacts = field(typing.Callable),
-    # PycInvalidationMode -> [[artifact, _path]]
-    bytecode_artifacts_with_paths = field(typing.Callable),
 
     # Returns the resources manifests for this Python library.
     # [_arglike] of resource manifests
@@ -43,7 +39,6 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by resource manifests for this Python library.
     # [_arglike] of resource artifacts
     resource_artifacts = field(typing.Callable),
-    resource_artifacts_with_paths = field(typing.Callable),
     resource_artifacts_simple = field(typing.Callable),
     hidden_resources = field(typing.Callable),
     has_hidden_resources = field(typing.Callable),

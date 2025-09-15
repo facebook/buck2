@@ -481,9 +481,9 @@ def _make_py_package_impl(
     # Accumulate all of the artifacts required by the build
     runtime_artifacts = []
     runtime_artifacts.extend(dep_artifacts)
-    runtime_artifacts.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)])
+    runtime_artifacts.extend(pex_modules.manifests.resource_artifacts(standalone))
     if pex_modules.compile:
-        runtime_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
+        runtime_artifacts.extend(pex_modules.manifests.bytecode_artifacts(pyc_mode))
     if manifest_module:
         runtime_artifacts.extend(manifest_module.artifacts)
 
@@ -886,25 +886,25 @@ def _pex_modules_common_args(
     debug_artifacts = []
 
     srcs.extend(pex_modules.manifests.src_manifests())
-    src_artifacts.extend(pex_modules.manifests.src_artifacts_with_paths())
+    src_artifacts.extend(pex_modules.manifests.src_artifacts())
 
     if pex_modules.extensions:
         srcs.append(pex_modules.extensions.manifest)
-        src_artifacts.extend(pex_modules.extensions.artifacts)
+        src_artifacts.extend([a[0] for a in pex_modules.extensions.artifacts])
 
     if pex_modules.extra_manifests:
         srcs.append(pex_modules.extra_manifests.manifest)
-        src_artifacts.extend(pex_modules.extra_manifests.artifacts)
+        src_artifacts.extend([a[0] for a in pex_modules.extra_manifests.artifacts])
 
     if pex_modules.repl_manifests:
         srcs.extend(pex_modules.repl_manifests.src_manifests())
-        src_artifacts.extend(pex_modules.repl_manifests.src_artifacts_with_paths())
+        src_artifacts.extend(pex_modules.repl_manifests.src_artifacts())
 
     if extra_manifests:
         srcs.extend(extra_manifests)
         deps.extend(extra_manifests)
 
-    deps.extend([a[0] for a in src_artifacts])
+    deps.extend(src_artifacts)
 
     src_manifests_path = ctx.actions.write(
         "__src_manifests{}.txt".format(suffix),
