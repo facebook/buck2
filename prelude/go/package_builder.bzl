@@ -94,7 +94,13 @@ def build_package(
 
         go_list_pkg_name = go_list.name
         go_files_to_cover = go_list.go_files + cgo_go_files + (go_list.test_go_files if with_tests else [])
-        covered_go_files, coverage_vars_out, coveragecfg = cover_srcs(ctx, go_list_pkg_name, pkg_name, go_files_to_cover, coverage_mode)
+        covered_go_files, coverage_vars_out, coveragecfg = cover_srcs(
+            ctx = ctx,
+            pkg_name = go_list_pkg_name,
+            pkg_import_path = pkg_name,
+            go_files = go_files_to_cover,
+            coverage_mode = coverage_mode,
+        )
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
         symabis = _symabis(ctx, pkg_name, main, s_files, go_list.h_files, assembler_flags)
