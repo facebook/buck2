@@ -2487,6 +2487,9 @@ message InvocationRecord {
 
   // Maximum DICE key evaluations in compute phase tracked during the command.
   optional uint64 max_dice_compute_keys = 403;
+
+  // Maximum in-progress actions tracked during the command.
+  optional uint64 max_in_progress_actions = 404;
 }
 
 enum InvocationOutcome {

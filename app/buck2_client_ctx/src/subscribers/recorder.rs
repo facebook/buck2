@@ -249,6 +249,8 @@ pub struct InvocationRecorder {
     peak_memory_pressure_percentage: u64,
     max_dice_in_progress_keys: u64,
     max_dice_compute_keys: u64,
+    current_in_progress_actions: u64,
+    max_in_progress_actions: u64,
 }
 
 impl InvocationRecorder {
@@ -413,6 +415,8 @@ impl InvocationRecorder {
             peak_memory_pressure_percentage: 0,
             max_dice_in_progress_keys: 0,
             max_dice_compute_keys: 0,
+            current_in_progress_actions: 0,
+            max_in_progress_actions: 0,
         }
     }
 
@@ -1010,6 +1014,7 @@ impl InvocationRecorder {
                 .flatten(),
             max_dice_in_progress_keys: Some(self.max_dice_in_progress_keys),
             max_dice_compute_keys: Some(self.max_dice_compute_keys),
+            max_in_progress_actions: Some(self.max_in_progress_actions),
         };
 
         let event = BuckEvent::new(
@@ -1159,6 +1164,16 @@ impl InvocationRecorder {
         if self.time_to_first_action_execution.is_none() {
             self.time_to_first_action_execution = Some(elapsed_since(self.start_time));
         }
+
+        // Increment current in-progress actions counter
+        self.current_in_progress_actions = self.current_in_progress_actions.saturating_add(1);
+
+        // Track the maximum in-progress actions
+        self.max_in_progress_actions = max(
+            self.max_in_progress_actions,
+            self.current_in_progress_actions,
+        );
+
         Ok(())
     }
     fn handle_action_execution_end(
@@ -1166,6 +1181,9 @@ impl InvocationRecorder {
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
+        // Decrement current in-progress actions counter
+        self.current_in_progress_actions = self.current_in_progress_actions.saturating_sub(1);
+
         if action.kind == buck2_data::ActionKind::Run as i32 {
             if action_stats::was_fallback_action(action) {
                 self.run_fallback_count += 1;
