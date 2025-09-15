@@ -135,9 +135,8 @@ public class SecondaryDexCompressionExecutableMain {
             Files.exists(rawSecondaryDexPath), "Expected file to exist at: " + rawSecondaryDexPath);
         Path secondaryDexOutputJarPath =
             compression.equals("xzs")
-                ? secondaryDexSubdir.resolve(
-                    String.format("%s.xzs.tmp~", getSecondaryDexJarName(module, i)))
-                : secondaryDexSubdir.resolve(getSecondaryDexJarName(module, i));
+                ? secondaryDexSubdir.resolve(getSecondaryDexName(module, i, ".jar.xzs.tmp~"))
+                : secondaryDexSubdir.resolve(getSecondaryDexName(module, i, ".jar"));
         secondaryDexJarPaths.add(secondaryDexOutputJarPath);
 
         Path metadataPath =
@@ -185,9 +184,9 @@ public class SecondaryDexCompressionExecutableMain {
     }
   }
 
-  private String getSecondaryDexJarName(String module, int index) {
+  private String getSecondaryDexName(String module, int index, String suffix) {
     return String.format(
-        "%s-%d.dex.jar", APKModule.isRootModule(module) ? "secondary" : module, index + 1);
+        "%s-%d.dex%s", APKModule.isRootModule(module) ? "secondary" : module, index + 1, suffix);
   }
 
   private Path doXzCompression(Path secondaryDexOutputJarPath) throws IOException {
