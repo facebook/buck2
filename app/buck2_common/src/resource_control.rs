@@ -73,6 +73,8 @@ pub struct ResourceControlRunnerConfig {
     pub status: ResourceControlStatus,
     /// A memory threshold. Semantics (whether it is memory of a daemon or an action process) depend on the context.
     pub memory_max: Option<String>,
+    /// The memory limit before tasks start to be throttled, OOMd won't begin killing tasks until memory_max is reached.
+    pub memory_high: Option<String>,
     /// Parent slice behaviour
     pub parent_slice: ParentSlice,
     /// Delegation of further resource control partitioning of cgroup unit
@@ -88,6 +90,7 @@ impl ResourceControlRunnerConfig {
         Self {
             status: config.status.clone(),
             memory_max: config.memory_max.clone(),
+            memory_high: config.memory_high.clone(),
             parent_slice,
             delegation: CgroupDelegation::Disabled,
             // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
@@ -100,6 +103,7 @@ impl ResourceControlRunnerConfig {
         Self {
             status: config.status.clone(),
             memory_max: config.memory_max_per_action.clone(),
+            memory_high: config.memory_high_per_action.clone(),
             parent_slice,
             delegation: CgroupDelegation::Enabled,
             enable_action_cgroup_pool: config.enable_action_cgroup_pool.unwrap_or(false),
@@ -111,6 +115,7 @@ impl ResourceControlRunnerConfig {
 pub struct ResourceControlRunner {
     fixed_systemd_args: Vec<String>,
     memory_limit: Option<String>,
+    memory_high: Option<String>,
     #[cfg(unix)]
     cgroup_pool: Option<CgroupPool>,
 }
@@ -118,6 +123,7 @@ pub struct ResourceControlRunner {
 impl ResourceControlRunner {
     pub fn create(
         memory_max: Option<String>,
+        memory_high: Option<String>,
         parent_slice: &ParentSlice,
         delegation: CgroupDelegation,
         // on windows, we don't have cgroup, so we don't need to this flag
@@ -147,6 +153,10 @@ impl ResourceControlRunner {
             args.push("--property=OOMPolicy=kill".to_owned());
         }
 
+        if let Some(memory_high) = &memory_high {
+            args.push(format!("--property=MemoryHigh={memory_high}"));
+        }
+
         if delegation == CgroupDelegation::Enabled {
             args.push("--property=Delegate=yes".to_owned());
         }
@@ -164,6 +174,7 @@ impl ResourceControlRunner {
         Ok(Self {
             fixed_systemd_args: args,
             memory_limit: memory_max.clone(),
+            memory_high: memory_high.clone(),
 
             #[cfg(unix)]
             cgroup_pool: if enable_action_cgroup_pool {
@@ -219,6 +230,7 @@ impl ResourceControlRunner {
             }
             SystemdCreationDecision::Create => Ok(Some(Self::create(
                 config.memory_max.clone(),
+                config.memory_high.clone(),
                 &config.parent_slice,
                 config.delegation,
                 config.enable_action_cgroup_pool,
@@ -243,17 +255,26 @@ impl ResourceControlRunner {
         cmd
     }
 
-    pub async fn set_slice_memory_limit(&self, slice: &str) -> buck2_error::Result<()> {
-        let Some(memory_limit) = &self.memory_limit else {
+    pub async fn set_slice_memory_info(&self, slice: &str) -> buck2_error::Result<()> {
+        if self.memory_limit.is_none() && self.memory_high.is_none() {
             return Ok(());
-        };
+        }
+
         let mut cmd = process::async_background_command("systemctl");
         cmd.arg("--user");
         cmd.arg("set-property");
         cmd.arg(slice);
-        cmd.arg(format!("MemoryMax={memory_limit}"));
-        cmd.arg("MemorySwapMax=0");
-        cmd.arg("ManagedOOMMemoryPressure=kill");
+
+        if let Some(memory_limit) = &self.memory_limit {
+            cmd.arg(format!("MemoryMax={memory_limit}"));
+            cmd.arg("MemorySwapMax=0");
+            cmd.arg("ManagedOOMMemoryPressure=kill");
+        }
+
+        if let Some(memory_high) = &self.memory_high {
+            cmd.arg(format!("MemoryHigh={memory_high}"));
+        }
+
         let result = cmd.output().await?;
         if !result.status.success() {
             let stderr = String::from_utf8(result.stderr)?;

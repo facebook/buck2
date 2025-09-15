@@ -37,6 +37,7 @@ def start_buck_forkserver(
     resource_control = {
         "status": "Required",
         "memory_max": None,
+        "memory_high": None,
         "memory_max_per_action": None,
         "hybrid_execution_memory_limit_gibibytes": None,
         "enable_action_cgroup_pool": True,

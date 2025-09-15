@@ -234,8 +234,15 @@ pub struct ResourceControlConfig {
     /// is that all the processes are killed by OOMKiller.
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
     pub memory_max: Option<String>,
+    /// Memory threshold that buck2 daemon and workers can reach before getting throttled. can take in
+    /// the same units as `memory_max`. Processes won't be OOM killed if this threshold is exceeded, but
+    /// will be throttled to keep memory under control.
+    /// The corresponding buckconfig is `buck2_resource_control.memory_high`.
+    pub memory_high: Option<String>,
     /// A memory threshold that any action is allowed to allocate.
     pub memory_max_per_action: Option<String>,
+    /// A memory threshold that any action is allowed to reach before being throttled.
+    pub memory_high_per_action: Option<String>,
     /// If provided and above the threshold, hybrid executor will stop scheduling local actions.
     /// The corresponding buckconfig is `buck2_resource_control.hybrid_execution_memory_limit_gibibytes`.
     pub hybrid_execution_memory_limit_gibibytes: Option<u64>,
@@ -310,9 +317,17 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_max",
             })?;
+            let memory_high = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_high",
+            })?;
             let memory_max_per_action = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "memory_max_per_action",
+            })?;
+            let memory_high_per_action = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_high_per_action",
             })?;
             let hybrid_execution_memory_limit_gibibytes = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
@@ -337,7 +352,9 @@ impl ResourceControlConfig {
             Ok(Self {
                 status,
                 memory_max,
+                memory_high,
                 memory_max_per_action,
+                memory_high_per_action,
                 hybrid_execution_memory_limit_gibibytes,
                 enable_action_cgroup_pool,
                 cgroup_pool_size,
