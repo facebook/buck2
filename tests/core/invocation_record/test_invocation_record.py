@@ -392,3 +392,23 @@ async def test_version_control_collector_fast(buck: Buck, tmp_path: Path) -> Non
 
     assert "has_local_changes" in record and "hg_revision" in record
     assert record["hg_revision"] is not None
+
+
+@buck_test()
+async def test_peak_stats(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    await buck.build(
+        ":run",
+        "--unstable-write-invocation-record",
+        str(record),
+        "--no-remote-cache",
+        "--local-only",
+    )
+
+    record = read_invocation_record(record)
+    assert record
+    assert record["max_in_progress_actions"] == 1
+    assert record["max_in_progress_local_actions"] == 1
+    assert record["max_in_progress_remote_actions"] == 0
+    assert record["max_in_progress_remote_uploads"] == 0

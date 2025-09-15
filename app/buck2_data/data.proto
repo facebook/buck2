@@ -2490,6 +2490,15 @@ message InvocationRecord {
 
   // Maximum in-progress actions tracked during the command.
   optional uint64 max_in_progress_actions = 404;
+
+  // Maximum in-progress local actions tracked during the command.
+  optional uint64 max_in_progress_local_actions = 405;
+
+  // Maximum in-progress remote actions tracked during the command.
+  optional uint64 max_in_progress_remote_actions = 406;
+
+  // Maximum in-progress remote uploads tracked during the command.
+  optional uint64 max_in_progress_remote_uploads = 407;
 }
 
 enum InvocationOutcome {

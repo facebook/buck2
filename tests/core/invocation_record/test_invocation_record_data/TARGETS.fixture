@@ -1,4 +1,4 @@
-load(":defs.bzl", "fail", "hang", "kill", "one", "pass_", "sleep", "two")
+load(":defs.bzl", "fail", "hang", "kill", "one", "pass_", "run", "sleep", "two")
 
 hang(name = "hang", touch = read_config("test", "hang_path", ""))
 pass_(name = "pass")
@@ -11,3 +11,4 @@ two(name = "and_a_two")
 pass_(name = "last_three")
 two(name = "duplicate")
 sleep(name = "sleep")
+run(name = "run")

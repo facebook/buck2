@@ -79,3 +79,16 @@ sleep = rule(
     impl = _sleep,
     attrs = {},
 )
+
+def _run(ctx):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["fbpython", "-c", "import sys; open(sys.argv[1], 'w').write('something')"], out.as_output()),
+        category = "sleep",
+    )
+    return [DefaultInfo(out)]
+
+run = rule(
+    impl = _run,
+    attrs = {},
+)

@@ -251,6 +251,21 @@ pub struct InvocationRecorder {
     max_dice_compute_keys: u64,
     current_in_progress_actions: u64,
     max_in_progress_actions: u64,
+    current_in_progress_local_actions: u64,
+    max_in_progress_local_actions: u64,
+    current_in_progress_remote_actions: u64,
+    max_in_progress_remote_actions: u64,
+    current_in_progress_remote_uploads: u64,
+    max_in_progress_remote_uploads: u64,
+    // Track executor stage types by span ID to know which counter to decrement on end
+    executor_stages_by_span: HashMap<u64, ExecutorStageType>,
+}
+
+#[derive(Clone, Debug)]
+enum ExecutorStageType {
+    LocalAction,
+    RemoteAction,
+    RemoteUpload,
 }
 
 impl InvocationRecorder {
@@ -417,6 +432,13 @@ impl InvocationRecorder {
             max_dice_compute_keys: 0,
             current_in_progress_actions: 0,
             max_in_progress_actions: 0,
+            current_in_progress_local_actions: 0,
+            max_in_progress_local_actions: 0,
+            current_in_progress_remote_actions: 0,
+            max_in_progress_remote_actions: 0,
+            current_in_progress_remote_uploads: 0,
+            max_in_progress_remote_uploads: 0,
+            executor_stages_by_span: HashMap::new(),
         }
     }
 
@@ -1015,6 +1037,9 @@ impl InvocationRecorder {
             max_dice_in_progress_keys: Some(self.max_dice_in_progress_keys),
             max_dice_compute_keys: Some(self.max_dice_compute_keys),
             max_in_progress_actions: Some(self.max_in_progress_actions),
+            max_in_progress_local_actions: Some(self.max_in_progress_local_actions),
+            max_in_progress_remote_actions: Some(self.max_in_progress_remote_actions),
+            max_in_progress_remote_uploads: Some(self.max_in_progress_remote_uploads),
         };
 
         let event = BuckEvent::new(
@@ -1269,19 +1294,52 @@ impl InvocationRecorder {
     fn handle_executor_stage_start(
         &mut self,
         executor_stage: &buck2_data::ExecutorStageStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
+        let span_id = if let Some(span_id) = event.span_id() {
+            span_id
+        } else {
+            return Ok(());
+        };
+
         match &executor_stage.stage {
             Some(buck2_data::executor_stage_start::Stage::Re(re_stage)) => match &re_stage.stage {
                 Some(buck2_data::re_stage::Stage::Execute(_)) => {
+                    self.executor_stages_by_span
+                        .insert(span_id.into(), ExecutorStageType::RemoteAction);
+                    self.current_in_progress_remote_actions =
+                        self.current_in_progress_remote_actions.saturating_add(1);
+                    self.max_in_progress_remote_actions = max(
+                        self.max_in_progress_remote_actions,
+                        self.current_in_progress_remote_actions,
+                    );
                     self.time_to_first_command_execution_start
                         .get_or_insert_with(|| elapsed_since(self.start_time));
+                }
+                Some(buck2_data::re_stage::Stage::WorkerUpload(_))
+                | Some(buck2_data::re_stage::Stage::WorkerDownload(_)) => {
+                    self.executor_stages_by_span
+                        .insert(span_id.into(), ExecutorStageType::RemoteUpload);
+                    self.current_in_progress_remote_uploads =
+                        self.current_in_progress_remote_uploads.saturating_add(1);
+                    self.max_in_progress_remote_uploads = max(
+                        self.max_in_progress_remote_uploads,
+                        self.current_in_progress_remote_uploads,
+                    );
                 }
                 _ => {}
             },
             Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
                 match &local_stage.stage {
                     Some(buck2_data::local_stage::Stage::Execute(_)) => {
+                        self.executor_stages_by_span
+                            .insert(span_id.into(), ExecutorStageType::LocalAction);
+                        self.current_in_progress_local_actions =
+                            self.current_in_progress_local_actions.saturating_add(1);
+                        self.max_in_progress_local_actions = max(
+                            self.max_in_progress_local_actions,
+                            self.current_in_progress_local_actions,
+                        );
                         self.time_to_first_command_execution_start
                             .get_or_insert_with(|| elapsed_since(self.start_time));
                     }
@@ -1289,6 +1347,33 @@ impl InvocationRecorder {
                 }
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_executor_stage_end(
+        &mut self,
+        _executor_stage: buck2_data::ExecutorStageEnd,
+        event: &BuckEvent,
+    ) -> buck2_error::Result<()> {
+        // Look up the stage type from the span ID and decrement the appropriate counter
+        if let Some(span_id) = event.span_id() {
+            if let Some(stage_type) = self.executor_stages_by_span.remove(&span_id.into()) {
+                match stage_type {
+                    ExecutorStageType::LocalAction => {
+                        self.current_in_progress_local_actions =
+                            self.current_in_progress_local_actions.saturating_sub(1);
+                    }
+                    ExecutorStageType::RemoteAction => {
+                        self.current_in_progress_remote_actions =
+                            self.current_in_progress_remote_actions.saturating_sub(1);
+                    }
+                    ExecutorStageType::RemoteUpload => {
+                        self.current_in_progress_remote_uploads =
+                            self.current_in_progress_remote_uploads.saturating_sub(1);
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -1920,6 +2005,9 @@ impl InvocationRecorder {
                         .handle_dice_block_concurrent_command_end(block_concurrent_command, event),
                     buck2_data::span_end_event::Data::DiceCleanup(dice_cleanup_end) => {
                         self.handle_dice_cleanup_end(*dice_cleanup_end, event)
+                    }
+                    buck2_data::span_end_event::Data::ExecutorStage(executor_stage) => {
+                        self.handle_executor_stage_end(*executor_stage, event)
                     }
                     buck2_data::span_end_event::Data::BxlEnsureArtifacts(_bxl_ensure_artifacts) => {
                         self.handle_bxl_ensure_artifacts_end(*_bxl_ensure_artifacts, event)
