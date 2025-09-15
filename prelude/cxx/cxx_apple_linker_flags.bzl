@@ -32,3 +32,35 @@ def apple_target_triple_flags(target_triple: str | None) -> list[str]:
         "-target",
         target_triple,
     ] if target_triple else []
+
+def apple_extra_darwin_linker_flags(target_triple: str | None) -> list[str]:
+    """
+    Returns a list of linker flags that should be used for all links with a Darwin toolchain.
+    """
+
+    # Darwin requires a target triple specified to
+    # control the deployment target being linked for.
+    extra_linker_flags = apple_target_triple_flags(target_triple)
+
+    # On Apple platforms, DWARF data is contained in the object files
+    # and executables contains paths to the object files (N_OSO stab).
+    #
+    # By default, ld64 will use absolute file paths in N_OSO entries
+    # which machine-dependent executables. Such executables would not
+    # be debuggable on any host apart from the host which performed
+    # the linking. Instead, we want produce machine-independent
+    # hermetic executables, so we need to relativize those paths.
+    #
+    # This is accomplished by passing the `oso-prefix` flag to ld64,
+    # which will strip the provided prefix from the N_OSO paths.
+    #
+    # The flag accepts a special value, `.`, which means it will
+    # use the current workding directory. This will make all paths
+    # relative to the parent of `buck-out`.
+    #
+    # Because all actions in Buck2 are run from the project root
+    # and `buck-out` is always inside the project root, we can
+    # safely pass `.` as the `-oso_prefix` without having to
+    # write a wrapper script to compute it dynamically.
+    extra_linker_flags.append("-Wl,-oso_prefix,.")
+    return extra_linker_flags

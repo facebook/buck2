@@ -8,7 +8,7 @@
 
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_target_triple_flags")
+load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_extra_darwin_linker_flags")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",
@@ -78,37 +78,8 @@ LinkArgsOutput = record(
 )
 
 def get_extra_darwin_linker_flags(ctx: AnalysisContext) -> cmd_args:
-    """
-    Returns a cmd_args object filled with hard coded linker flags that should be used for all links with a Darwin toolchain.
-    """
-
-    # Darwin requires a target triple specified to
-    # control the deployment target being linked for.
     target_triple = get_target_triple(ctx)
-    extra_linker_flags = apple_target_triple_flags(target_triple)
-
-    # On Apple platforms, DWARF data is contained in the object files
-    # and executables contains paths to the object files (N_OSO stab).
-    #
-    # By default, ld64 will use absolute file paths in N_OSO entries
-    # which machine-dependent executables. Such executables would not
-    # be debuggable on any host apart from the host which performed
-    # the linking. Instead, we want produce machine-independent
-    # hermetic executables, so we need to relativize those paths.
-    #
-    # This is accomplished by passing the `oso-prefix` flag to ld64,
-    # which will strip the provided prefix from the N_OSO paths.
-    #
-    # The flag accepts a special value, `.`, which means it will
-    # use the current workding directory. This will make all paths
-    # relative to the parent of `buck-out`.
-    #
-    # Because all actions in Buck2 are run from the project root
-    # and `buck-out` is always inside the project root, we can
-    # safely pass `.` as the `-oso_prefix` without having to
-    # write a wrapper script to compute it dynamically.
-    extra_linker_flags.append("-Wl,-oso_prefix,.")
-    return cmd_args(extra_linker_flags)
+    return cmd_args(apple_extra_darwin_linker_flags(target_triple))
 
 def make_link_args(
         ctx: AnalysisContext,
