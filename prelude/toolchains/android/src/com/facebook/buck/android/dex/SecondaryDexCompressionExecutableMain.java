@@ -117,9 +117,10 @@ public class SecondaryDexCompressionExecutableMain {
       for (int i = 0; i < secondaryDexCount; i++) {
         String secondaryDexName = getRawSecondaryDexName(module, i);
         Path rawSecondaryDexPath = rawSecondaryDexesDirPath.resolve(secondaryDexName);
-        Path secondaryDexSubDir =
-            secondaryDexOutputDir.resolve(D8Utils.getRawSecondaryDexSubDir(module));
-        Path copiedDex = secondaryDexSubDir.resolve(secondaryDexName);
+        Path copiedDex =
+            secondaryDexOutputDir
+                .resolve(D8Utils.getRawSecondaryDexSubDir(module))
+                .resolve(secondaryDexName);
         Files.copy(rawSecondaryDexPath, copiedDex);
         metadataLines.add(
             D8Utils.getSecondaryDexMetadataString(
