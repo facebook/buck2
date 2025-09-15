@@ -69,6 +69,16 @@ def build_package(
         if len(go_list.x_test_go_files) > 0:
             fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, ctx.label)
 
+        covered_go_files, covered_cgo_files, coverage_vars_out, coveragecfg = cover_srcs(
+            ctx = ctx,
+            pkg_name = go_list.name,
+            pkg_import_path = pkg_name,
+            go_files = go_list.go_files + (go_list.test_go_files if with_tests else []),
+            cgo_files = go_list.cgo_files,
+            coverage_mode = coverage_mode,
+        )
+        ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
+
         # A go package can can contain CGo or Go ASM files, but not both.
         # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
         # The `go build` command does additional check here and throws an error if both CGo and Go-ASM files are present.
@@ -79,9 +89,9 @@ def build_package(
             s_files = []
 
         # Generate CGO and C sources.
-        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(
+        transformed_cgo_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(
             ctx = ctx,
-            cgo_files = go_list.cgo_files,
+            cgo_files = covered_cgo_files,
             h_files = go_list.h_files,
             c_files = c_files,
             c_flags = go_list.cgo_cflags,
@@ -92,16 +102,6 @@ def build_package(
 
         ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((go_list.test_go_files if with_tests else []), ""))
 
-        covered_go_files, covered_cgo_files, coverage_vars_out, coveragecfg = cover_srcs(
-            ctx = ctx,
-            pkg_name = go_list.name,
-            pkg_import_path = pkg_name,
-            go_files = go_list.go_files + (go_list.test_go_files if with_tests else []),
-            cgo_files = cgo_go_files,
-            coverage_mode = coverage_mode,
-        )
-        ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
-
         symabis = _symabis(ctx, pkg_name, main, s_files, go_list.h_files, assembler_flags)
 
         # Use -complete flag when compiling Go code only
@@ -109,7 +109,7 @@ def build_package(
 
         def build_variant(shared: bool) -> (Artifact, Artifact):
             suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
-            go_files_to_compile = covered_go_files + covered_cgo_files
+            go_files_to_compile = covered_go_files + transformed_cgo_files
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared, link = False)
             go_x_file, go_a_file, asmhdr = _compile(
                 ctx = ctx,
