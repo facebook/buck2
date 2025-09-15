@@ -80,10 +80,13 @@ public class SecondaryDexCompressionExecutableMain {
   private void run() throws IOException {
     Path rawSecondaryDexesDirPath = Paths.get(rawSecondaryDexesDir);
     Preconditions.checkState(
-        ImmutableList.of("raw", "jar", "xz", "xzs").contains(compression),
-        "Only raw, jar, xz and xzs compression is supported!");
+        ImmutableList.of("raw", "raw_subdir", "jar", "xz", "xzs").contains(compression),
+        "Only raw, raw_subdir, jar, xz and xzs compression is supported!");
     Preconditions.checkState(
-        compression.equals("raw") || compression.equals("jar") || xzCompressionLevel != -1,
+        compression.equals("raw")
+            || compression.equals("raw_subdir")
+            || compression.equals("jar")
+            || xzCompressionLevel != -1,
         "Must specify a valid compression level when xz or xzs compression is used!");
 
     if (bootstrapDexDirString != null) {
@@ -110,17 +113,20 @@ public class SecondaryDexCompressionExecutableMain {
               .collect(ImmutableList.toImmutableList()));
     }
 
-    if (compression.equals("raw")) {
-      if (APKModule.isRootModule(module)) {
+    if (compression.equals("raw") || compression.equals("raw_subdir")) {
+      if (APKModule.isRootModule(module) && compression.equals("raw")) {
         metadataLines.add(".root_relative");
       }
       for (int i = 0; i < secondaryDexCount; i++) {
         String secondaryDexName = getRawSecondaryDexName(module, i);
         Path rawSecondaryDexPath = rawSecondaryDexesDirPath.resolve(secondaryDexName);
         Path copiedDex =
-            secondaryDexOutputDir
-                .resolve(D8Utils.getRawSecondaryDexSubDir(module))
-                .resolve(secondaryDexName);
+            compression.equals("raw")
+                ? secondaryDexOutputDir
+                    .resolve(D8Utils.getRawSecondaryDexSubDir(module))
+                    .resolve(secondaryDexName)
+                : secondaryDexSubdir.resolve(getSecondaryDexName(module, i, ""));
+        ;
         Files.copy(rawSecondaryDexPath, copiedDex);
         metadataLines.add(
             D8Utils.getSecondaryDexMetadataString(
