@@ -20,7 +20,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -37,54 +36,20 @@ import (
 	"unicode/utf8"
 )
 
-// A map of: pkg -> [file name -> var name]
-type coverPkgFlag map[string]map[string]string
+// A helper flag that takes a comma-separated list of strings and converts it to a slice.
+// Example: --foo=bar,baz,bar
+// Result: []string{"foo", "baz", "bar"}
+type stringSliceFlag []string
 
-func (c coverPkgFlag) String() string {
-	var buffer bytes.Buffer
-	for k, vs := range c {
-		if len(vs) > 0 {
-			buffer.WriteString(k)
-			buffer.WriteString(":")
-
-			first := true
-			for f, v := range vs {
-				buffer.WriteString(f)
-				buffer.WriteString("=")
-				buffer.WriteString(v)
-				if !first {
-					buffer.WriteString(",")
-				}
-				first = false
-			}
-
-			buffer.WriteString(";")
-		}
-	}
-	return buffer.String()
+// Set implements the flag.Value interface for stringSliceFlag
+func (s *stringSliceFlag) Set(value string) error {
+	*s = strings.Split(value, ",")
+	return nil
 }
 
-func (c coverPkgFlag) Set(value string) error {
-	for _, path := range strings.Split(value, ";") {
-		pkgAndFiles := strings.Split(path, ":")
-		if len(pkgAndFiles) != 2 {
-			return errors.New("bad format: expected path1:file1=var1,file2=var2;path2:file3=var3,file4=var4")
-		}
-		pkg := pkgAndFiles[0]
-		for _, fileAndVar := range strings.Split(pkgAndFiles[1], ",") {
-			fileAndVar := strings.Split(fileAndVar, "=")
-			if len(fileAndVar) != 2 {
-				return errors.New("bad format: expected path1:file1=var1,file2=var2;path2:file3=var3,file4=var4")
-			}
-
-			if c[pkg] == nil {
-				c[pkg] = make(map[string]string)
-			}
-
-			c[pkg][fileAndVar[0]] = fileAndVar[1]
-		}
-	}
-	return nil
+// String implements the flag.Value interface for stringSliceFlag
+func (s *stringSliceFlag) String() string {
+	return strings.Join(*s, ",")
 }
 
 // Flags
@@ -92,13 +57,13 @@ var (
 	pkgImportPath string
 	outputFile    string
 	testCoverMode string
-	coverPkgs     = make(coverPkgFlag)
+	coverPkgs     stringSliceFlag
 )
 
 func init() {
 	flag.StringVar(&pkgImportPath, "import-path", "test", "The import path in the test file")
 	flag.StringVar(&outputFile, "output", "", "The path to the output file. Default to stdout.")
-	flag.Var(coverPkgs, "cover-pkgs", "List of packages & coverage variables to gather coverage info on, in the form of IMPORT-PATH1:file1=var1,file2=var2,file3=var3;IMPORT-PATH2:...")
+	flag.Var(&coverPkgs, "cover-pkgs", "A comma-separated list of packages to gather coverage info on")
 	flag.StringVar(&testCoverMode, "cover-mode", "", "Cover mode (see `go tool cover`)")
 }
 
@@ -126,7 +91,7 @@ func main() {
 
 	pkgs := make([]*Package, 0, len(coverPkgs))
 	testCoverPaths := make([]string, 0, len(coverPkgs))
-	for importPath := range coverPkgs {
+	for _, importPath := range coverPkgs {
 		pkg := &Package{ImportPath: importPath}
 		pkgs = append(pkgs, pkg)
 		testCoverPaths = append(testCoverPaths, importPath)
