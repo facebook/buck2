@@ -2481,6 +2481,12 @@ message InvocationRecord {
 
   // Peak % memory pressure percentage over the lifetime of the command.
   optional uint64 peak_memory_pressure_percentage = 401;
+
+  // Maximum in-progress DICE key evaluations tracked during the command.
+  optional uint64 max_dice_in_progress_keys = 402;
+
+  // Maximum DICE key evaluations in compute phase tracked during the command.
+  optional uint64 max_dice_compute_keys = 403;
 }
 
 enum InvocationOutcome {

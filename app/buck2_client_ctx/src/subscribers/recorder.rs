@@ -1008,6 +1008,8 @@ impl InvocationRecorder {
                         .map(|duration| duration as f64 / c as f64)
                 })
                 .flatten(),
+            max_dice_in_progress_keys: Some(self.max_dice_in_progress_keys),
+            max_dice_compute_keys: Some(self.max_dice_compute_keys),
         };
 
         let event = BuckEvent::new(
