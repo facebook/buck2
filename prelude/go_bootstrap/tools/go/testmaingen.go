@@ -30,7 +30,6 @@ import (
 	"go/token"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
@@ -125,25 +124,11 @@ func main() {
 	os.Args = loadArgs(os.Args)
 	flag.Parse()
 
-	coverInfos := make([]coverInfo, 0, len(coverPkgs))
 	pkgs := make([]*Package, 0, len(coverPkgs))
 	testCoverPaths := make([]string, 0, len(coverPkgs))
-	for importPath, fileToVarMap := range coverPkgs {
-		coverVarMap := make(map[string]*CoverVar, len(fileToVarMap))
-		for fileName, varName := range fileToVarMap {
-			coverVarMap[fileName] = &CoverVar{
-				File: filepath.Join(importPath, fileName),
-				Var:  varName,
-			}
-		}
-
+	for importPath := range coverPkgs {
 		pkg := &Package{ImportPath: importPath}
-		cover := coverInfo{
-			Package: pkg,
-			Vars:    coverVarMap,
-		}
 		pkgs = append(pkgs, pkg)
-		coverInfos = append(coverInfos, cover)
 		testCoverPaths = append(testCoverPaths, importPath)
 	}
 
@@ -155,7 +140,6 @@ func main() {
 	if testCoverMode != "" {
 		testFuncs.Cover = &TestCover{
 			Pkgs:  pkgs,
-			Vars:  coverInfos,
 			Paths: testCoverPaths,
 			Mode:  testCoverMode,
 		}
@@ -248,18 +232,12 @@ type TestCover struct {
 	Local bool
 	Pkgs  []*Package
 	Paths []string
-	Vars  []coverInfo
 }
 
 // CoverVar holds the name of the generated coverage variables targeting the named file.
 type CoverVar struct {
 	File string // local file name
 	Var  string // name of count struct
-}
-
-type coverInfo struct {
-	Package *Package
-	Vars    map[string]*CoverVar
 }
 
 type testFuncs struct {
