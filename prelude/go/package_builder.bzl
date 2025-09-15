@@ -79,7 +79,15 @@ def build_package(
             s_files = []
 
         # Generate CGO and C sources.
-        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, c_files, go_list.cgo_cflags, go_list.cgo_cppflags, anon_targets_allowed = False)
+        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(
+            ctx = ctx,
+            cgo_files = go_list.cgo_files,
+            h_files = go_list.h_files,
+            c_files = c_files,
+            c_flags = go_list.cgo_cflags,
+            cpp_flags = go_list.cgo_cppflags,
+            anon_targets_allowed = False,
+        )
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
         ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((go_list.test_go_files if with_tests else []), ""))

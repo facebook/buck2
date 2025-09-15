@@ -135,7 +135,14 @@ def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
         args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
     )
 
-def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact], c_flags: list[str], cpp_flags: list[str], anon_targets_allowed: bool = True) -> (list[Artifact], list[Artifact], Artifact):
+def build_cgo(
+        ctx: AnalysisContext,
+        cgo_files: list[Artifact],
+        h_files: list[Artifact],
+        c_files: list[Artifact],
+        c_flags: list[str],
+        cpp_flags: list[str],
+        anon_targets_allowed: bool = True) -> (list[Artifact], list[Artifact], Artifact):
     """
     Arguments:
         anon_targets_allowed: Set to `True` if the execution context allows calls to the `AnalysisActions#anon_target` API.
