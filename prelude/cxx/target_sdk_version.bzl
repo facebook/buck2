@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_format_target_triple")
+load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_format_target_triple", "apple_target_triple_flags")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 
 def version_is_greater(left: str, right: str) -> bool:
@@ -79,7 +79,4 @@ def get_unversioned_target_triple(ctx: AnalysisContext) -> str:
 
 def get_target_sdk_version_flags(ctx: AnalysisContext) -> list[str]:
     target_triple = get_target_triple(ctx)
-    if target_triple == None:
-        return []
-
-    return ["-target", target_triple]
+    return apple_target_triple_flags(target_triple)

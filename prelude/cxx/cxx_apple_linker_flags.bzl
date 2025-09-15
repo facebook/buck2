@@ -26,3 +26,9 @@ def apple_format_target_triple(platform_name: str, version: str) -> str:
 
     triple_format_str = _PLATFORM_TARGET_TRIPLE_MAP[platform_components[0]]
     return triple_format_str.format(architecture = platform_components[1], version = version)
+
+def apple_target_triple_flags(target_triple: str | None) -> list[str]:
+    return [
+        "-target",
+        target_triple,
+    ] if target_triple else []
