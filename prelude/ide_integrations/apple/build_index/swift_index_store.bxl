@@ -38,6 +38,11 @@ def _main(ctx: bxl.Context):
         if subtarget == "swift-index-store":
             # Only get the Swift index store for this target (not transitive dependencies)
             index_stores.append(index_store_info.swift_tset.value)
+        elif subtarget == "swift-index-store-1deps":
+            # Get the Swift index store for this target and its immediate dependencies
+            index_stores.append(index_store_info.swift_tset.value)
+            for child in index_store_info.swift_tset.children:
+                index_stores.append(child.value)
         else:
             # Default behavior: get all Swift index stores including transitive dependencies
             index_stores.extend(list(index_store_info.swift_tset.traverse()))
