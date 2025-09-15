@@ -40,6 +40,8 @@ def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
         return target_version
 
 def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
+    if not (hasattr(ctx.attrs, "_cxx_toolchain") or hasattr(ctx.attrs, "_apple_toolchain")):
+        return None
     toolchain_target_sdk_version = get_cxx_toolchain_info(ctx).target_sdk_version
     target_sdk_version = getattr(ctx.attrs, "target_sdk_version", None)
     if toolchain_target_sdk_version == None and target_sdk_version == None:
@@ -93,9 +95,6 @@ def get_unversioned_target_triple(ctx: AnalysisContext) -> str:
     return _format_target_triple(ctx, "")
 
 def get_target_sdk_version_flags(ctx: AnalysisContext) -> list[str]:
-    if not (hasattr(ctx.attrs, "_cxx_toolchain") or hasattr(ctx.attrs, "_apple_toolchain")):
-        return []
-
     target_triple = get_target_triple(ctx)
     if target_triple == None:
         return []
