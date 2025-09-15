@@ -68,10 +68,8 @@ def cover_srcs(
 
     ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
 
-    coverage_vars_out = ""
-    if len(file_to_var) > 0:
-        # convert file_to_var to argsfile for compatibility with python implementation
-        cover_pkg = "{}:{}".format(pkg_import_path, ",".join(["{}={}".format(name, var) for name, var in file_to_var.items()]))
-        coverage_vars_out = cmd_args("--cover-pkgs", cover_pkg)
+    # convert file_to_var to argsfile for compatibility with python implementation
+    cover_pkg = "{}:{}".format(pkg_import_path, ",".join(["{}={}".format(name, var) for name, var in file_to_var.items()]))
+    coverage_vars_out = cmd_args("--cover-pkgs", cover_pkg)
 
     return instrum_all_files, coverage_vars_out, out_config_file
