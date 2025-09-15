@@ -153,7 +153,8 @@ public class SecondaryDexCompressionExecutableMain {
 
         metadataLines.add(
             D8Utils.getSecondaryDexMetadataString(
-                secondaryDexOutput, String.format("%s.dex%02d.Canary", canaryClassName, i + 1)));
+                secondaryDexOutput,
+                CanaryUtils.getFullyQualifiedCanaryClassName(canaryClassName, i)));
       }
 
       if (compression.equals("xzs")) {
