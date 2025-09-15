@@ -78,7 +78,9 @@ impl ContentBasedPathHash {
     pub fn as_str(&self) -> &str {
         match self {
             ContentBasedPathHash::Specified(value) => value,
-            ContentBasedPathHash::OutputArtifact => "output_artifact",
+            // We deliberately make this 16 characters long so that it's the same length
+            // as the content hash that will replace it.
+            ContentBasedPathHash::OutputArtifact => "output_artifacts",
             ContentBasedPathHash::AqueryPlaceholder => "aquery_placeholder",
             ContentBasedPathHash::Scratch => "scratch",
             ContentBasedPathHash::RelativePathResolution => "relative_path_resolution",
@@ -110,7 +112,7 @@ mod tests {
     #[test]
     fn test_hash_for_output_artifact() {
         assert_eq!(
-            "output_artifact",
+            "output_artifacts",
             ContentBasedPathHash::for_output_artifact().as_str()
         );
     }
