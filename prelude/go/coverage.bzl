@@ -19,12 +19,13 @@ def cover_srcs(
         pkg_name: str,
         pkg_import_path: str,
         go_files: list[Artifact],
-        coverage_mode: GoCoverageMode | None) -> (list[Artifact], cmd_args | str, Artifact | None):
+        cgo_files: list[Artifact],
+        coverage_mode: GoCoverageMode | None) -> (list[Artifact], list[Artifact], cmd_args | str, Artifact | None):
     if coverage_mode == None:
-        return go_files, "", None
+        return go_files, cgo_files, "", None
 
-    if len(go_files) == 0:
-        return go_files, "", None
+    if len(go_files) + len(cgo_files) == 0:
+        return go_files, cgo_files, "", None
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
@@ -53,7 +54,11 @@ def cover_srcs(
         ctx.actions.declare_output("with_instrumentation", go_file.short_path)
         for go_file in go_files
     ]
-    instrum_all_files = [instrum_vars_file] + instrum_go_files
+    instrum_cgo_files = [
+        ctx.actions.declare_output("with_instrumentation", cgo_file.short_path)
+        for cgo_file in cgo_files
+    ]
+    instrum_all_files = [instrum_vars_file] + instrum_go_files + instrum_cgo_files
     outfilelist = ctx.actions.write("outfilelist.txt", cmd_args(instrum_all_files, ""))
 
     cover_cmd = [
@@ -63,10 +68,11 @@ def cover_srcs(
         cmd_args(["-outfilelist", outfilelist], hidden = [f.as_output() for f in instrum_all_files]),
         cmd_args(["-pkgcfg", pkgcfg_file], hidden = [cover_meta_file.as_output(), out_config_file.as_output()]),
         go_files,
+        cgo_files,
     ]
 
     ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
 
     coverage_vars_out = cmd_args("--cover-pkgs", pkg_import_path)
 
-    return instrum_all_files, coverage_vars_out, out_config_file
+    return [instrum_vars_file] + instrum_go_files, instrum_cgo_files, coverage_vars_out, out_config_file

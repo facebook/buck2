@@ -92,13 +92,12 @@ def build_package(
 
         ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((go_list.test_go_files if with_tests else []), ""))
 
-        go_list_pkg_name = go_list.name
-        go_files_to_cover = go_list.go_files + cgo_go_files + (go_list.test_go_files if with_tests else [])
-        covered_go_files, coverage_vars_out, coveragecfg = cover_srcs(
+        covered_go_files, covered_cgo_files, coverage_vars_out, coveragecfg = cover_srcs(
             ctx = ctx,
-            pkg_name = go_list_pkg_name,
+            pkg_name = go_list.name,
             pkg_import_path = pkg_name,
-            go_files = go_files_to_cover,
+            go_files = go_list.go_files + (go_list.test_go_files if with_tests else []),
+            cgo_files = cgo_go_files,
             coverage_mode = coverage_mode,
         )
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
@@ -110,7 +109,7 @@ def build_package(
 
         def build_variant(shared: bool) -> (Artifact, Artifact):
             suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
-            go_files_to_compile = covered_go_files
+            go_files_to_compile = covered_go_files + covered_cgo_files
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared, link = False)
             go_x_file, go_a_file, asmhdr = _compile(
                 ctx = ctx,
