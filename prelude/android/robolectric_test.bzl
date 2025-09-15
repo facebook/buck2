@@ -48,6 +48,7 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         referenced_resources_lists = [],
         generate_strings_and_ids_separately = False,
         aapt2_preferred_density = ctx.attrs.preferred_density_for_binary_resources,
+        manifest_entries = ctx.attrs.manifest_entries,
     )
 
     test_config_properties_file = ctx.actions.write(

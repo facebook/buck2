@@ -1464,6 +1464,7 @@ robolectric_test = prelude_rule(
             "locales_for_binary_resources": attrs.list(attrs.string(), default = []),
             "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "manifest_file": attrs.option(attrs.source(), default = None),
+            "manifest_skeleton": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
             "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
