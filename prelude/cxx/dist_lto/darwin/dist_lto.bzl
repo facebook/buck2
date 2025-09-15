@@ -278,7 +278,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
 
     # linker flags that are common to both thin-link and native-link
     common_link_flags = cmd_args(cxx_link_cmd_parts(cxx_toolchain, executable_link).linker_flags)
-    common_link_flags.add(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
+    common_link_flags.add(get_extra_darwin_linker_flags(ctx))
     common_link_flags.add(sanitizer_runtime_args.extra_link_args)
     common_link_flags.add(deps_linker_flags)
 
