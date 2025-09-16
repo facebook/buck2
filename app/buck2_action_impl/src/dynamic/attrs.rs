@@ -31,6 +31,7 @@ use starlark::values::Tracer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
@@ -299,7 +300,8 @@ impl DynamicAttrType {
     ) -> buck2_error::Result<DynamicAttrValue<Value<'v>, OutputArtifact<'v>>> {
         match self {
             DynamicAttrType::Output => {
-                let artifact = <&StarlarkOutputArtifact>::unpack_value_err(value)?;
+                let artifact =
+                    <ValueTyped<'v, StarlarkOutputArtifact<'v>>>::unpack_value_err(value)?;
                 Ok(DynamicAttrValue::Output(artifact.artifact()))
             }
             DynamicAttrType::ArtifactValue => {

@@ -141,7 +141,9 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         #[starlark(require = named)] inputs: Option<
             UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
         >,
-        #[starlark(require = named)] outputs: UnpackListOrTuple<&'v StarlarkOutputArtifact>,
+        #[starlark(require = named)] outputs: UnpackListOrTuple<
+            ValueTyped<'v, StarlarkOutputArtifact<'v>>,
+        >,
         #[starlark(require = named)] f: StarlarkCallable<
             'v,
             (
