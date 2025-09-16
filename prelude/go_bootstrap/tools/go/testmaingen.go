@@ -28,7 +28,9 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -36,20 +38,23 @@ import (
 	"unicode/utf8"
 )
 
-// A helper flag that takes a comma-separated list of strings and converts it to a slice.
+// A helper flag that takes a comma-separated list of strings and
+// converts it to a "set" (map). The boolean value is meaningless.
 // Example: --foo=bar,baz,bar
-// Result: []string{"foo", "baz", "bar"}
-type stringSliceFlag []string
+// Result: map[string]bool{"foo": true, "baz": true, "bar": true}
+type stringSetFlag map[string]bool
 
-// Set implements the flag.Value interface for stringSliceFlag
-func (s *stringSliceFlag) Set(value string) error {
-	*s = strings.Split(value, ",")
+// Set implements the flag.Value interface for stringSetFlag
+func (s stringSetFlag) Set(value string) error {
+	for _, item := range strings.Split(value, ",") {
+		s[item] = true
+	}
 	return nil
 }
 
-// String implements the flag.Value interface for stringSliceFlag
-func (s *stringSliceFlag) String() string {
-	return strings.Join(*s, ",")
+// String implements the flag.Value interface for stringSetFlag
+func (s stringSetFlag) String() string {
+	return strings.Join(slices.Collect(maps.Keys(s)), ",")
 }
 
 // Flags
@@ -57,7 +62,7 @@ var (
 	pkgImportPath string
 	outputFile    string
 	testCoverMode string
-	coverPkgs     stringSliceFlag
+	coverPkgs     = make(stringSetFlag)
 )
 
 func init() {
@@ -91,7 +96,7 @@ func main() {
 
 	pkgs := make([]*Package, 0, len(coverPkgs))
 	testCoverPaths := make([]string, 0, len(coverPkgs))
-	for _, importPath := range coverPkgs {
+	for importPath := range coverPkgs {
 		pkg := &Package{ImportPath: importPath}
 		pkgs = append(pkgs, pkg)
 		testCoverPaths = append(testCoverPaths, importPath)
