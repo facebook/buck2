@@ -619,6 +619,12 @@ impl DaemonState {
                 })?
                 .unwrap_or(false);
 
+            let action_freezing_enabled = init_ctx
+                .daemon_startup_config
+                .resource_control
+                .enable_action_freezing
+                .unwrap_or(false);
+
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
@@ -640,6 +646,7 @@ impl DaemonState {
                 ),
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
+                format!("action-freezing-enabled:{}", action_freezing_enabled),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
