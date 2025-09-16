@@ -65,6 +65,7 @@ def apple_target_platforms(
         deps = None,
         cxx_platforms_constraint_values = None,  # Must be a map of a supported cxx platform to a list of constraint values
         build_mode_constraint_values = None,  # Must be a map of a supported build mode to a list of constraint values
+        generate_base_platform = True,  # Whether to generate a base platform
         use_whatsapp_build_modes = False,
         supported_cxx_platforms = DEFAULT_SUPPORTED_CXX_PLATFORMS,  # Cxx platforms to generate platforms for
         supported_build_modes = APPLE_BUILD_MODES):  # Build modes to generate platforms for
@@ -126,23 +127,24 @@ def apple_target_platforms(
             )
 
     # Define the base platform in case it is needed (example: to be a dep of another platform)
-    platform_rule(
-        name = base_name,
-        constraint_values = constraint_values,
-        visibility = visibility,
-        deps = deps,
-    )
+    if generate_base_platform:
+        platform_rule(
+            name = base_name,
+            constraint_values = constraint_values,
+            visibility = visibility,
+            deps = deps,
+        )
 
-    analysis_platform = _get_analysis_platform_for_supported_platforms(supported_cxx_platforms)
-    analysis_platform_dep = _get_base_target_platform_for_platform(analysis_platform)
-    analysis_platform_build_mode_constraints = build_mode_constraint_values.get(get_build_mode_debug(), [])
+        analysis_platform = _get_analysis_platform_for_supported_platforms(supported_cxx_platforms)
+        analysis_platform_dep = _get_base_target_platform_for_platform(analysis_platform)
+        analysis_platform_build_mode_constraints = build_mode_constraint_values.get(get_build_mode_debug(), [])
 
-    platform_rule(
-        name = base_name + "-analysis",
-        constraint_values = constraint_values + analysis_platform_build_mode_constraints + _ANALYSIS_CONSTRAINTS,
-        visibility = ["PUBLIC"],
-        deps = deps + [analysis_platform_dep],
-    )
+        platform_rule(
+            name = base_name + "-analysis",
+            constraint_values = constraint_values + analysis_platform_build_mode_constraints + _ANALYSIS_CONSTRAINTS,
+            visibility = ["PUBLIC"],
+            deps = deps + [analysis_platform_dep],
+        )
 
 def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None, supported_build_modes = None):
     platform = _get_default_platform() if platform == None else platform
