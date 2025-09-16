@@ -115,6 +115,9 @@ def _create_kotlin_sources(
         allow_args = True,
     ))
 
+    # this is required for the Kotlin compiler to be able to use jspecify annotations
+    kotlinc_cmd_args.add(["-Xjspecify-annotations=strict", "-Xtype-enhancement-improvements-strict-mode"])
+
     if ctx.attrs.java_version and not ctx.attrs.no_x_jdk_release:
         kotlinc_cmd_args.add(["-Xjdk-release=" + str(ctx.attrs.java_version)])
 
