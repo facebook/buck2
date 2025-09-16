@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -53,7 +54,6 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifact;
 use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
@@ -134,19 +134,11 @@ impl<'v> StarlarkDeclaredArtifact<'v> {
 }
 
 impl<'v> StarlarkArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        self.artifact
-            .get_path()
-            .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
-    }
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        self.artifact.get_path().with_filename(|filename| {
-            Ok(StarlarkArtifactHelpers::alloc_extension(
-                filename?.extension(),
-                heap,
-            ))
-        })
+    fn with_filename(
+        &self,
+        f: &dyn for<'b> Fn(&'b FileName) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>> {
+        self.artifact.get_path().with_filename(f)
     }
 
     fn is_source(&'v self) -> buck2_error::Result<bool> {

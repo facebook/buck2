@@ -14,6 +14,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -37,9 +38,10 @@ use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::Starlark
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
 pub trait StarlarkArtifactLike<'v>: Display {
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+    fn with_filename(
+        &self,
+        f: &dyn for<'b> Fn(&'b FileName) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>>;
 
     fn is_source(&'v self) -> buck2_error::Result<bool>;
 

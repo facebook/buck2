@@ -157,20 +157,13 @@ impl StarlarkPromiseArtifact {
 }
 
 impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn with_filename(
+        &self,
+        f: &dyn for<'b> Fn(&'b FileName) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>> {
         match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::basename(v, heap),
-            None => Ok(heap.alloc_str(self.file_name_err()?.as_str())),
-        }
-    }
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::extension(v, heap),
-            None => Ok(StarlarkArtifactHelpers::alloc_extension(
-                self.file_name_err()?.extension(),
-                heap,
-            )),
+            Some(v) => v.get_path().with_filename(f),
+            None => Ok(f(self.file_name_err()?)),
         }
     }
 

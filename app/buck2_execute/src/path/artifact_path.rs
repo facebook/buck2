@@ -33,9 +33,9 @@ pub struct ArtifactPath<'a> {
 }
 
 impl ArtifactPath<'_> {
-    pub fn with_filename<F, T>(&self, f: F) -> T
+    pub fn with_filename<F, T>(&self, f: F) -> buck2_error::Result<T>
     where
-        for<'b> F: FnOnce(buck2_error::Result<&'b FileName>) -> T,
+        for<'b> F: FnOnce(&'b FileName) -> T,
     {
         let file_name = match self.projected_path.is_empty() {
             false => self.projected_path,
@@ -45,9 +45,9 @@ impl ArtifactPath<'_> {
             },
         }
         .file_name()
-        .with_buck_error_context(|| format!("Artifact has no file name: `{self}`"));
+        .with_buck_error_context(|| format!("Artifact has no file name: `{self}`"))?;
 
-        f(file_name)
+        Ok(f(file_name))
     }
 
     pub fn with_short_path<F, T>(&self, f: F) -> T

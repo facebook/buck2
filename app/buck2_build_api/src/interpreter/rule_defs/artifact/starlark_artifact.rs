@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -119,12 +120,11 @@ impl Serialize for StarlarkArtifact {
 }
 
 impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::basename(&self.artifact, heap)
-    }
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::extension(&self.artifact, heap)
+    fn with_filename(
+        &self,
+        f: &dyn for<'b> Fn(&'b FileName) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>> {
+        self.artifact.get_path().with_filename(f)
     }
 
     fn is_source(&'v self) -> buck2_error::Result<bool> {
@@ -296,30 +296,6 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
 
 pub(crate) struct StarlarkArtifactHelpers;
 impl StarlarkArtifactHelpers {
-    /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
-    pub(crate) fn basename<'v>(
-        artifact: &Artifact,
-        heap: &'v Heap,
-    ) -> buck2_error::Result<StringValue<'v>> {
-        artifact
-            .get_path()
-            .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
-    }
-
-    /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
-    /// this is `.sh`. If no extension is present, `""` is returned.
-    pub(crate) fn extension<'v>(
-        artifact: &Artifact,
-        heap: &'v Heap,
-    ) -> buck2_error::Result<StringValue<'v>> {
-        artifact.get_path().with_filename(|filename| {
-            Ok(StarlarkArtifactHelpers::alloc_extension(
-                filename?.extension(),
-                heap,
-            ))
-        })
-    }
-
     /// The `Label` of the rule that originally created this artifact. May also be None in
     /// the case of source files, or if the artifact has not be used in an action, or if the
     /// action was not created by a rule.
@@ -346,12 +322,5 @@ impl StarlarkArtifactHelpers {
         artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
-    }
-
-    pub(crate) fn alloc_extension<'v>(extension: Option<&str>, heap: &'v Heap) -> StringValue<'v> {
-        match extension {
-            None => heap.alloc_str(""),
-            Some(x) => heap.alloc_str_concat(".", x),
-        }
     }
 }

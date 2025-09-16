@@ -99,7 +99,7 @@ fn any_artifact_methods(builder: &mut MethodsBuilder) {
         this: &'v dyn StarlarkArtifactLike<'v>,
         heap: &'v Heap,
     ) -> starlark::Result<StringValue<'v>> {
-        Ok(this.basename(heap)?)
+        Ok(this.with_filename(&|filename| heap.alloc_str(filename.as_str()))?)
     }
 
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
@@ -109,7 +109,10 @@ fn any_artifact_methods(builder: &mut MethodsBuilder) {
         this: &'v dyn StarlarkArtifactLike<'v>,
         heap: &'v Heap,
     ) -> starlark::Result<StringValue<'v>> {
-        Ok(this.extension(heap)?)
+        Ok(this.with_filename(&|filename| match filename.extension() {
+            None => heap.alloc_str(""),
+            Some(x) => heap.alloc_str_concat(".", x),
+        })?)
     }
 
     /// Whether the artifact represents a source file
