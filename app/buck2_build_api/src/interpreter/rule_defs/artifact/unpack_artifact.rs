@@ -18,16 +18,16 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInp
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub enum UnpackArtifactOrDeclaredArtifact<'v> {
+pub enum UnpackNonPromiseInputArtifact<'v> {
     Artifact(&'v StarlarkArtifact),
     DeclaredArtifact(&'v StarlarkDeclaredArtifact<'v>),
 }
 
-impl<'v> UnpackArtifactOrDeclaredArtifact<'v> {
+impl<'v> UnpackNonPromiseInputArtifact<'v> {
     pub fn artifact(&self) -> buck2_error::Result<Artifact> {
         match self {
-            UnpackArtifactOrDeclaredArtifact::Artifact(x) => Ok(x.artifact.dupe()),
-            UnpackArtifactOrDeclaredArtifact::DeclaredArtifact(x) => x.get_bound_artifact(),
+            UnpackNonPromiseInputArtifact::Artifact(x) => Ok(x.artifact.dupe()),
+            UnpackNonPromiseInputArtifact::DeclaredArtifact(x) => x.get_bound_artifact(),
         }
     }
 }

@@ -21,7 +21,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::Out
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::category::CategoryRef;
 use buck2_core::cells::paths::CellRelativePath;
@@ -192,7 +192,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     fn declared_bound_artifact_with_associated_artifacts<'v>(
         // TODO(nga): parameters should be either positional or named, not both.
         artifact: OutputArtifactArg<'v>,
-        associated_artifacts: UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact<'v>>,
+        associated_artifacts: UnpackListOrTuple<UnpackNonPromiseInputArtifact<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;

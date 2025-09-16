@@ -15,7 +15,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
 use dupe::Dupe;
@@ -277,9 +277,7 @@ impl DynamicAttrType {
     pub(crate) fn callable_param_ty(&self) -> Ty {
         match self {
             DynamicAttrType::Output => StarlarkOutputArtifact::starlark_type_repr(),
-            DynamicAttrType::ArtifactValue => {
-                UnpackArtifactOrDeclaredArtifact::starlark_type_repr()
-            }
+            DynamicAttrType::ArtifactValue => UnpackNonPromiseInputArtifact::starlark_type_repr(),
             DynamicAttrType::DynamicValue => StarlarkDynamicValue::starlark_type_repr(),
             DynamicAttrType::Value(ty) => ty.as_ty().dupe(),
             DynamicAttrType::List(item_ty) => Ty::list(item_ty.callable_param_ty()),
@@ -305,7 +303,7 @@ impl DynamicAttrType {
                 Ok(DynamicAttrValue::Output(artifact.artifact()))
             }
             DynamicAttrType::ArtifactValue => {
-                let artifact = UnpackArtifactOrDeclaredArtifact::unpack_value_err(value)?;
+                let artifact = UnpackNonPromiseInputArtifact::unpack_value_err(value)?;
                 Ok(DynamicAttrValue::ArtifactValue(artifact.artifact()?))
             }
             DynamicAttrType::DynamicValue => {

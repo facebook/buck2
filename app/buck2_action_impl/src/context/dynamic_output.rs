@@ -19,7 +19,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -137,9 +137,9 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     /// the actions it outputs is actually requested as part of the build.
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
-        #[starlark(require = named)] dynamic: UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
+        #[starlark(require = named)] dynamic: UnpackListOrTuple<UnpackNonPromiseInputArtifact>,
         #[starlark(require = named)] inputs: Option<
-            UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
+            UnpackListOrTuple<UnpackNonPromiseInputArtifact>,
         >,
         #[starlark(require = named)] outputs: UnpackListOrTuple<
             ValueTyped<'v, StarlarkOutputArtifact<'v>>,
