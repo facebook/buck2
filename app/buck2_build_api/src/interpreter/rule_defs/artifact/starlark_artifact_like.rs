@@ -52,6 +52,23 @@ pub trait StarlarkArtifactLike<'v>: Display {
         &self,
         f: &dyn for<'b> Fn(&'b ForwardRelativePath) -> StringValue<'v>,
     ) -> buck2_error::Result<StringValue<'v>>;
+
+    /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
+    /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
+    /// as the inputs to Hash/Eq to ensure they are consistent
+    fn fingerprint<'s>(&'s self) -> ArtifactFingerprint<'s>
+    where
+        'v: 's;
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        Ok(<&dyn StarlarkArtifactLike<'v>>::unpack_value(other)?
+            .is_some_and(|other| self.fingerprint() == other.fingerprint()))
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
+        self.fingerprint().hash(hasher);
+        Ok(())
+    }
 }
 
 /// A trait representing starlark representations of input artifacts.
@@ -71,21 +88,6 @@ pub trait StarlarkInputArtifactLike<'v>: StarlarkArtifactLike<'v> {
     ///
     /// Returns None if this artifact isn't the correct type to be added to a CLI object
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v>;
-
-    /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
-    /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
-    /// as the inputs to Hash/Eq to ensure they are consistent
-    fn fingerprint(&self) -> ArtifactFingerprint<'_>;
-
-    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        Ok(ValueAsInputArtifactLike::unpack_value(other)?
-            .is_some_and(|other| self.fingerprint() == other.0.fingerprint()))
-    }
-
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
-        self.fingerprint().hash(hasher);
-        Ok(())
-    }
 
     /// Gets a copy of the StarlarkArtifact, ensuring that the artifact is bound.
     fn get_bound_starlark_artifact(&self) -> buck2_error::Result<StarlarkArtifact> {
@@ -211,6 +213,7 @@ pub enum ArtifactFingerprint<'a> {
     Normal {
         path: ArtifactPath<'a>,
         associated_artifacts: Option<&'a AssociatedArtifacts>,
+        is_output: bool,
     },
     Promise {
         id: PromiseArtifactId,
@@ -223,8 +226,10 @@ impl Hash for ArtifactFingerprint<'_> {
             ArtifactFingerprint::Normal {
                 path,
                 associated_artifacts,
+                is_output,
             } => {
                 path.hash(state);
+                is_output.hash(state);
                 if let Some(associated) = associated_artifacts {
                     associated.len().hash(state);
                     associated.iter().for_each(|ag| ag.hash(state));

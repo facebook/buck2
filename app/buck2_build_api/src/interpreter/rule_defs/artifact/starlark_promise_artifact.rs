@@ -186,6 +186,14 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
             None => Ok(f(self.short_path_err()?)),
         }
     }
+
+    fn fingerprint<'s>(&'s self) -> ArtifactFingerprint<'s>
+    where
+        'v: 's,
+    {
+        let id = self.artifact.id().dupe();
+        ArtifactFingerprint::Promise { id }
+    }
 }
 
 impl<'v> StarlarkInputArtifactLike<'v> for StarlarkPromiseArtifact {
@@ -207,13 +215,6 @@ impl<'v> StarlarkInputArtifactLike<'v> for StarlarkPromiseArtifact {
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
         self
-    }
-
-    fn fingerprint(&self) -> ArtifactFingerprint<'_> {
-        {
-            let id = self.artifact.id().dupe();
-            ArtifactFingerprint::Promise { id }
-        }
     }
 
     fn as_output_error(&self) -> buck2_error::Error {
@@ -306,11 +307,11 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        StarlarkInputArtifactLike::equals(self, other)
+        StarlarkArtifactLike::equals(self, other)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
-        StarlarkInputArtifactLike::write_hash(self, hasher)
+        StarlarkArtifactLike::write_hash(self, hasher)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

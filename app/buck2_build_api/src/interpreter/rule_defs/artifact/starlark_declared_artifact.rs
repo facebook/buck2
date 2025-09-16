@@ -152,6 +152,19 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
     ) -> buck2_error::Result<StringValue<'v>> {
         Ok(self.artifact.get_path().with_short_path(f))
     }
+
+    fn fingerprint<'s>(&'s self) -> ArtifactFingerprint<'s>
+    where
+        'v: 's,
+    {
+        let path = self.artifact.get_path();
+        let associated_artifacts = self.get_associated_artifacts();
+        ArtifactFingerprint::Normal {
+            path,
+            associated_artifacts,
+            is_output: false,
+        }
+    }
 }
 
 impl<'v> StarlarkInputArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
@@ -173,17 +186,6 @@ impl<'v> StarlarkInputArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
         self
-    }
-
-    fn fingerprint(&self) -> ArtifactFingerprint<'_> {
-        {
-            let path = self.artifact.get_path();
-            let associated_artifacts = self.get_associated_artifacts();
-            ArtifactFingerprint::Normal {
-                path,
-                associated_artifacts,
-            }
-        }
     }
 
     fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
@@ -331,11 +333,11 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact<'v> {
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        StarlarkInputArtifactLike::equals(self, other)
+        StarlarkArtifactLike::equals(self, other)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
-        StarlarkInputArtifactLike::write_hash(self, hasher)
+        StarlarkArtifactLike::write_hash(self, hasher)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

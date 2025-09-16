@@ -214,21 +214,15 @@ fn output_artifact() -> buck2_error::Result<()> {
                         assert_eq(True, hasattr(a, prop))
                         getattr(a, prop)
                 
-                assert_ne(a1.as_output(), a1.as_output())
+                # Check that output artifacts compare equal to each other but not their non-output
+                # versions
+                assert_eq(a1.as_output(), a1.as_output())
+                assert_ne(a1.as_output(), a1)
+
+                # Check hashable
+                d = {a1o: 1}
             "#
     ))?;
-    let hashable = indoc!(
-        r#"
-            def test():
-                a1 = declared_artifact("baz/quz.cpp").as_output()
-                d = {a1: 1}
-            "#
-    );
-    expect_error(
-        tester.run_starlark_bzl_test(hashable),
-        hashable,
-        "is not hashable",
-    );
     Ok(())
 }
 

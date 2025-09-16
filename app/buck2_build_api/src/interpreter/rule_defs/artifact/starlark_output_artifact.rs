@@ -42,9 +42,11 @@ use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark_map::StarlarkHasher;
 
 use crate::interpreter::rule_defs::artifact::methods::any_artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
@@ -182,6 +184,17 @@ impl<'v, V: ValueLike<'v>> StarlarkArtifactLike<'v> for StarlarkOutputArtifactGe
     ) -> buck2_error::Result<StringValue<'v>> {
         Ok(self.get_path().with_short_path(f))
     }
+
+    fn fingerprint<'s>(&'s self) -> ArtifactFingerprint<'s>
+    where
+        'v: 's,
+    {
+        ArtifactFingerprint::Normal {
+            path: self.get_path(),
+            associated_artifacts: None,
+            is_output: true,
+        }
+    }
 }
 
 #[starlark_value(type = "OutputArtifact")]
@@ -192,6 +205,14 @@ where
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(any_artifact_methods)
+    }
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        StarlarkArtifactLike::equals(self, other)
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
+        StarlarkArtifactLike::write_hash(self, hasher)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
