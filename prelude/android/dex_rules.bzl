@@ -444,6 +444,23 @@ _SortedPreDexedInputs = record(
     secondary_dex_inputs = list[list[DexInputWithSpecifiedClasses]],
 )
 
+def write_metadata_dot_txts_impl(
+        actions: AnalysisActions,
+        metadata_lines: list[str],
+        metadata_line_artifacts: list[ArtifactValue],
+        metadata_dot_txt_output: OutputArtifact):
+    actions.write(metadata_dot_txt_output, metadata_lines + [a.read_string().strip() for a in metadata_line_artifacts])
+    return []
+
+_write_metadata_dot_txts_dynamic_action = dynamic_actions(
+    impl = write_metadata_dot_txts_impl,
+    attrs = {
+        "metadata_dot_txt_output": dynattrs.output(),
+        "metadata_line_artifacts": dynattrs.list(dynattrs.artifact_value()),
+        "metadata_lines": dynattrs.list(dynattrs.value(str)),
+    },
+)
+
 def merge_to_split_dex(
         ctx: AnalysisContext,
         android_toolchain: AndroidToolchainInfo,
@@ -634,21 +651,21 @@ def merge_to_split_dex(
 
                 secondary_dexes_for_symlinking[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
 
-        if metadata_dot_txt_files_by_module:
-            def write_metadata_dot_txts(ctx: AnalysisContext, artifacts, outputs):
-                for voltron_module, metadata_dot_txt in metadata_dot_txt_files_by_module.items():
-                    metadata_line_artifacts = metadata_line_artifacts_by_module[voltron_module]
-                    expect(metadata_line_artifacts != None, "Should have metadata lines!")
+        for voltron_module, metadata_dot_txt in metadata_dot_txt_files_by_module.items():
+            metadata_line_artifacts = metadata_line_artifacts_by_module[voltron_module]
+            expect(metadata_line_artifacts != None, "Should have metadata lines!")
 
-                    metadata_lines = [".id {}".format(voltron_module)]
-                    metadata_lines.extend([".requires {}".format(module_dep) for module_dep in apk_module_graph_info.module_to_module_deps_function(voltron_module)])
-                    if split_dex_merge_config.dex_compression == "raw" and is_root_module(voltron_module) and not is_exopackage_enabled_for_secondary_dex:
-                        metadata_lines.append(".root_relative")
-                    for metadata_line_artifact in metadata_line_artifacts:
-                        metadata_lines.append(artifacts[metadata_line_artifact].read_string().strip())
-                    ctx.actions.write(outputs[metadata_dot_txt], metadata_lines)
-
-            ctx.actions.dynamic_output(dynamic = flatten(metadata_line_artifacts_by_module.values()), inputs = [], outputs = [o.as_output() for o in metadata_dot_txt_files_by_module.values()], f = write_metadata_dot_txts)
+            metadata_lines = [".id {}".format(voltron_module)]
+            metadata_lines.extend([".requires {}".format(module_dep) for module_dep in apk_module_graph_info.module_to_module_deps_function(voltron_module)])
+            if split_dex_merge_config.dex_compression == "raw" and is_root_module(voltron_module) and not is_exopackage_enabled_for_secondary_dex:
+                metadata_lines.append(".root_relative")
+            ctx.actions.dynamic_output_new(
+                _write_metadata_dot_txts_dynamic_action(
+                    metadata_dot_txt_output = metadata_dot_txt.as_output(),
+                    metadata_line_artifacts = metadata_line_artifacts,
+                    metadata_lines = metadata_lines,
+                ),
+            )
 
         ctx.actions.symlinked_dir(
             outputs[root_module_secondary_dexes_dir],
