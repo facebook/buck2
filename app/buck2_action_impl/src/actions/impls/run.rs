@@ -94,7 +94,6 @@ use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::collections::SmallSet;
 use starlark::values::Freeze;
-use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
@@ -306,10 +305,8 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             outputs_for_error_handler,
         } = self;
         Ok(FrozenStarlarkRunActionValues {
-            exe: FrozenValueTyped::new_err(exe.to_value().freeze(freezer)?)
-                .map_err(|e| FreezeError::new(format!("{e}")))?,
-            args: FrozenValueTyped::new_err(args.to_value().freeze(freezer)?)
-                .map_err(|e| FreezeError::new(format!("{e}")))?,
+            exe: exe.freeze(freezer)?,
+            args: args.freeze(freezer)?,
             env: env.freeze(freezer)?,
             worker: worker.freeze(freezer)?,
             remote_worker: remote_worker.freeze(freezer)?,
