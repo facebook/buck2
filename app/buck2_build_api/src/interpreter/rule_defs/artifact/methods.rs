@@ -150,7 +150,7 @@ fn any_artifact_methods(builder: &mut MethodsBuilder) {
         this: &'v dyn StarlarkArtifactLike<'v>,
         heap: &Heap,
     ) -> starlark::Result<StringValue<'v>> {
-        Ok(this.short_path(heap)?)
+        Ok(this.with_short_path(&|short_path| heap.alloc_str(short_path.as_str()))?)
     }
 }
 

@@ -29,7 +29,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
-use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
@@ -47,7 +46,6 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifact;
 use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
@@ -179,10 +177,13 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
         }
     }
 
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn with_short_path(
+        &self,
+        f: &dyn for<'b> Fn(&'b ForwardRelativePath) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>> {
         match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::short_path(v, heap),
-            None => Ok(heap.alloc_str(self.short_path_err()?.as_str())),
+            Some(v) => Ok(v.get_path().with_short_path(f)),
+            None => Ok(f(self.short_path_err()?)),
         }
     }
 }

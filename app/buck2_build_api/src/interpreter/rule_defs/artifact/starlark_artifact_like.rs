@@ -20,7 +20,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;
-use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -47,7 +46,10 @@ pub trait StarlarkArtifactLike<'v>: Display {
 
     fn owner(&'v self) -> buck2_error::Result<Option<BaseDeferredKey>>;
 
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+    fn with_short_path(
+        &self,
+        f: &dyn for<'b> Fn(&'b ForwardRelativePath) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>>;
 }
 
 /// A trait representing starlark representations of input artifacts.

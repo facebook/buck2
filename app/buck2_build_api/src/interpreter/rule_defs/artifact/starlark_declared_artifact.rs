@@ -146,10 +146,11 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
         Ok(self.artifact.owner())
     }
 
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        self.artifact
-            .get_path()
-            .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
+    fn with_short_path(
+        &self,
+        f: &dyn for<'b> Fn(&'b ForwardRelativePath) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>> {
+        Ok(self.artifact.get_path().with_short_path(f))
     }
 }
 

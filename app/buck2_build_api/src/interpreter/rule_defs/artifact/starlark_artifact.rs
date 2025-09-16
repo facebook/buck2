@@ -26,7 +26,6 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
-use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Value;
@@ -133,8 +132,11 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
         Ok(self.artifact.owner().duped())
     }
 
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::short_path(&self.artifact, heap)
+    fn with_short_path(
+        &self,
+        f: &dyn for<'b> Fn(&'b ForwardRelativePath) -> StringValue<'v>,
+    ) -> buck2_error::Result<StringValue<'v>> {
+        Ok(self.artifact.get_path().with_short_path(f))
     }
 }
 
@@ -289,19 +291,5 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
-    }
-}
-
-pub(crate) struct StarlarkArtifactHelpers;
-impl StarlarkArtifactHelpers {
-    /// The interesting part of the path, relative to somewhere in the output directory.
-    /// For an artifact declared as `foo/bar`, this is `foo/bar`.
-    pub(crate) fn short_path<'v>(
-        artifact: &Artifact,
-        heap: &'v Heap,
-    ) -> buck2_error::Result<StringValue<'v>> {
-        artifact
-            .get_path()
-            .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
     }
 }
