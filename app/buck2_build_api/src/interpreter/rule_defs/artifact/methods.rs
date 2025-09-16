@@ -39,7 +39,7 @@ pub enum EitherStarlarkInputArtifact<'v> {
 }
 
 #[starlark_module]
-fn any_artifact_methods(builder: &mut MethodsBuilder) {
+pub(crate) fn any_artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
     fn basename<'v>(

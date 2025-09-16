@@ -160,14 +160,12 @@ fn declared_artifact() -> buck2_error::Result<()> {
                 assert_eq(".cpp", a1.extension)
                 assert_eq(False, a1.is_source)
                 assert_eq(None, a1.owner)
-                assert_eq("<output artifact for baz/quz.cpp>", repr(a1.as_output()))
 
                 assert_eq("<build artifact baz/file2>", repr(a2))
                 assert_eq("file2", a2.basename)
                 assert_eq("", a2.extension)
                 assert_eq(False, a2.is_source)
                 assert_eq(None, a2.owner)
-                assert_eq("<output artifact for baz/file2>", repr(a2.as_output()))
 
                 # Validate that attrs are setup properly
                 for a in (a1, a2):
@@ -175,6 +173,46 @@ fn declared_artifact() -> buck2_error::Result<()> {
                         assert_eq(True, hasattr(a, prop))
                         if prop != "as_output":
                             getattr(a, prop)
+            "#
+    ))?;
+    Ok(())
+}
+
+#[test]
+fn output_artifact() -> buck2_error::Result<()> {
+    let mut tester = Tester::new()?;
+    tester.additional_globals(artifactory);
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+            b = declared_bound_artifact("//foo:bar", "baz/quz.h")
+            frozen_b = b.as_output()
+
+            def test():
+                a1 = declared_artifact("baz/quz.cpp")
+                a1o = a1.as_output()
+                a2 = declared_artifact("baz/file2")
+                a2o = a2.as_output()
+
+                assert_eq("<output artifact for baz/quz.cpp>", repr(a1o))
+                assert_eq("quz.cpp", a1o.basename)
+                assert_eq(".cpp", a1o.extension)
+                assert_eq(False, a1o.is_source)
+                assert_eq(None, a1o.owner)
+
+                assert_eq("<output artifact for baz/file2>", repr(a2o))
+                assert_eq("file2", a2o.basename)
+                assert_eq("", a2o.extension)
+                assert_eq(False, a2o.is_source)
+                assert_eq(None, a2o.owner)
+
+                # Sanity check that methods are also available on frozen artifacts
+                assert_eq(False, frozen_b.is_source)
+
+                # Validate that attrs are setup properly
+                for a in (a1o, a2o):
+                    for prop in dir(a):
+                        assert_eq(True, hasattr(a, prop))
+                        getattr(a, prop)
                 
                 assert_ne(a1.as_output(), a1.as_output())
             "#
