@@ -44,6 +44,9 @@ enum WithLifetime<'v> {
     Str(&'v str),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue, Eq, PartialEq, Debug)]
+struct TransparentIntOrStr(IntOrStr);
+
 #[test]
 fn test_starlark_type_repr() {
     assert_eq!(
@@ -61,6 +64,11 @@ fn test_starlark_type_repr() {
     assert_eq!(
         Either::<i32, String>::starlark_type_repr(),
         WithLifetime::starlark_type_repr()
+    );
+
+    assert_eq!(
+        IntOrStr::starlark_type_repr(),
+        TransparentIntOrStr::starlark_type_repr(),
     );
 }
 
@@ -89,4 +97,9 @@ fn test_unpack_value() {
         Some(WithLifetime::Str("def")),
         WithLifetime::unpack_value(const_frozen_string!("def").to_value()).unwrap(),
     );
+
+    assert_eq!(
+        Some(TransparentIntOrStr(IntOrStr::Int(19))),
+        TransparentIntOrStr::unpack_value(Value::testing_new_int(19)).unwrap(),
+    )
 }

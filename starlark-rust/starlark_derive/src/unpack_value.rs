@@ -56,9 +56,13 @@ fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2:
             for _ in 0..i {
                 map_err = syn::parse_quote_spanned! { t.span() => starlark::__macro_refs::Either::Right(#map_err) };
             }
+            let variant = match n {
+                Some(variant) => quote::quote!{::#variant},
+                None => quote::quote!{},
+            };
             syn::parse_quote_spanned! { t.span() =>
                 if let Some(x) = <#t as starlark::values::UnpackValue<'v>>::unpack_value_impl(value).map_err(|e| #map_err)? {
-                    return std::result::Result::Ok(Some(#ident::#n(x)));
+                    return std::result::Result::Ok(Some(#ident #variant(x)));
                 }
             }
         })

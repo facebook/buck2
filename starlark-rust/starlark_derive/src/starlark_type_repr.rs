@@ -25,11 +25,11 @@ pub(crate) fn derive_starlark_type_repr(input: proc_macro::TokenStream) -> proc_
     }
 }
 
-/// `StarlarkTypeRepr` can be derived only for enums with single field variants.
+/// `StarlarkTypeRepr` can be derived only for enums or structs with single field variants.
 pub(crate) struct StarlarkTypeReprInput {
     pub(crate) ident: syn::Ident,
     pub(crate) generics: syn::Generics,
-    pub(crate) enum_variants: Vec<(syn::Ident, syn::Type)>,
+    pub(crate) enum_variants: Vec<(Option<syn::Ident>, syn::Type)>,
 }
 
 impl StarlarkTypeReprInput {
@@ -37,49 +37,57 @@ impl StarlarkTypeReprInput {
         input: syn::DeriveInput,
         trait_name: &'static str,
     ) -> syn::Result<StarlarkTypeReprInput> {
-        match input.data {
-            syn::Data::Enum(data) => {
-                let enum_variants = data.variants.into_iter().map(|variant| {
-                    match &variant.fields {
-                        syn::Fields::Unnamed(fields) => {
-                            match fields.unnamed.iter().collect::<Vec<_>>().as_slice() {
-                                [field] => {
-                                    Ok((variant.ident, field.ty.clone()))
-                                },
-                                _ => {
-                                    Err(syn::Error::new_spanned(
-                                        variant,
-                                        format!("`{trait_name}` can be derived only for enums with single tuple field variants"),
-                                    ))
-                                }
-                            }
-                        }
-                        _ => {
-                            Err(syn::Error::new_spanned(
-                                variant,
-                                format!("`{trait_name}` can be derived only for enums with single tuple field variants"),
-                            ))
+        let variants = match input.data {
+            syn::Data::Enum(data) => data
+                .variants
+                .into_iter()
+                .map(|variant| (Some(variant.ident), variant.fields))
+                .collect(),
+            syn::Data::Struct(data) => {
+                vec![(None, data.fields)]
+            }
+            syn::Data::Union(_) => {
+                return Err(syn::Error::new_spanned(
+                    input,
+                    format!("`{trait_name}` cannot be derived for unions"),
+                ));
+            }
+        };
+        let enum_variants = variants
+            .into_iter()
+            .map(|(ident, fields)| {
+                let mk_error = || {
+                    syn::Error::new_spanned(
+                        &fields,
+                        format!(
+                            "`{}` can be derived only for enums with single tuple field variants",
+                            trait_name
+                        ),
+                    )
+                };
+                match &fields {
+                    syn::Fields::Unnamed(fields) => {
+                        match fields.unnamed.iter().collect::<Vec<_>>().as_slice() {
+                            [field] => Ok((ident, field.ty.clone())),
+                            _ => Err(mk_error()),
                         }
                     }
-                }).collect::<syn::Result<Vec<_>>>()?;
-                Ok(StarlarkTypeReprInput {
-                    ident: input.ident,
-                    generics: input.generics,
-                    enum_variants,
-                })
-            }
-            _ => Err(syn::Error::new_spanned(
-                input,
-                format!("`{trait_name}` can be derived only for enums"),
-            )),
-        }
+                    _ => Err(mk_error()),
+                }
+            })
+            .collect::<syn::Result<Vec<_>>>()?;
+        Ok(StarlarkTypeReprInput {
+            ident: input.ident,
+            generics: input.generics,
+            enum_variants,
+        })
     }
 }
 
 fn union_type(input: &StarlarkTypeReprInput) -> syn::Result<syn::Type> {
     fn recurse(
-        (_, first): &(syn::Ident, syn::Type),
-        rest: &[(syn::Ident, syn::Type)],
+        (_, first): &(Option<syn::Ident>, syn::Type),
+        rest: &[(Option<syn::Ident>, syn::Type)],
     ) -> syn::Result<syn::Type> {
         match rest.split_first() {
             None => Ok(first.clone()),
