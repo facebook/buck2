@@ -907,7 +907,8 @@ def _compile_with_argsfile(
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
     # The main compilation actions add a category suffix when explicit modules
-    # are enabled for historical reasons. This could be removed.
+    # are enabled for debugging and telemetry reasons. This is very important,
+    # so do not be tempted to remove the suffixing.
     if extension and explicit_modules_enabled:
         category += "_with_explicit_mods"
 
