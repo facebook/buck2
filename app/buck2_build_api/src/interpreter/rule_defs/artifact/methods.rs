@@ -25,11 +25,36 @@ use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub enum EitherStarlarkArtifactRef<'v> {
+    InputArtifact(&'v dyn StarlarkInputArtifactLike<'v>),
+}
+
+impl<'v> StarlarkTypeRepr for &'v dyn StarlarkArtifactLike<'v> {
+    type Canonical = <EitherStarlarkArtifactRef<'v> as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        EitherStarlarkArtifactRef::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike<'v> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        match EitherStarlarkArtifactRef::unpack_value_opt(value) {
+            Some(EitherStarlarkArtifactRef::InputArtifact(artifact)) => Ok(Some(artifact)),
+            None => Ok(None),
+        }
+    }
+}
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub enum EitherStarlarkInputArtifactRef<'v> {
@@ -66,16 +91,12 @@ pub enum EitherStarlarkInputArtifact<'v> {
     PromiseArtifact(StarlarkPromiseArtifact),
 }
 
-/// A single input or output file for an action.
-///
-/// There is no `.parent` method on `artifact`, but in most cases
-/// `cmd_args(my_artifact, parent = 1)` can be used to similar effect.
 #[starlark_module]
-pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
+fn any_artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
     fn basename<'v>(
-        this: &'v dyn StarlarkInputArtifactLike<'v>,
+        this: &'v dyn StarlarkArtifactLike<'v>,
         heap: &'v Heap,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(this.basename(heap)?)
@@ -85,7 +106,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     /// this is `.sh`. If no extension is present, `""` is returned.
     #[starlark(attribute)]
     fn extension<'v>(
-        this: &'v dyn StarlarkInputArtifactLike<'v>,
+        this: &'v dyn StarlarkArtifactLike<'v>,
         heap: &'v Heap,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(this.extension(heap)?)
@@ -93,7 +114,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
 
     /// Whether the artifact represents a source file
     #[starlark(attribute)]
-    fn is_source<'v>(this: &'v dyn StarlarkInputArtifactLike<'v>) -> starlark::Result<bool> {
+    fn is_source<'v>(this: &'v dyn StarlarkArtifactLike<'v>) -> starlark::Result<bool> {
         Ok(this.is_source()?)
     }
 
@@ -102,7 +123,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     /// action was not created by a rule.
     #[starlark(attribute)]
     fn owner<'v>(
-        this: &'v dyn StarlarkInputArtifactLike<'v>,
+        this: &'v dyn StarlarkArtifactLike<'v>,
     ) -> starlark::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
         Ok(NoneOr::from_option(this.owner()?))
     }
@@ -111,12 +132,15 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     /// For an artifact declared as `foo/bar`, this is `foo/bar`.
     #[starlark(attribute)]
     fn short_path<'v>(
-        this: &'v dyn StarlarkInputArtifactLike<'v>,
+        this: &'v dyn StarlarkArtifactLike<'v>,
         heap: &Heap,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(this.short_path(heap)?)
     }
+}
 
+#[starlark_module]
+fn input_artifact_methods(builder: &mut MethodsBuilder) {
     /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
     /// either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
     fn as_output<'v>(
@@ -156,4 +180,13 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<EitherStarlarkInputArtifact<'v>> {
         Ok(this.with_associated_artifacts(artifacts)?)
     }
+}
+
+/// A single input or output file for an action.
+///
+/// There is no `.parent` method on `artifact`, but in most cases
+/// `cmd_args(my_artifact, parent = 1)` can be used to similar effect.
+pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
+    any_artifact_methods(builder);
+    input_artifact_methods(builder);
 }

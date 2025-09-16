@@ -41,6 +41,7 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifact;
 use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
@@ -117,6 +118,28 @@ impl Serialize for StarlarkArtifact {
     }
 }
 
+impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::basename(&self.artifact, heap)
+    }
+
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::extension(&self.artifact, heap)
+    }
+
+    fn is_source(&'v self) -> buck2_error::Result<bool> {
+        Ok(self.artifact.is_source())
+    }
+
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
+        StarlarkArtifactHelpers::owner(&self.artifact)
+    }
+
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::short_path(&self.artifact, heap)
+    }
+}
+
 impl<'v> StarlarkInputArtifactLike<'v> for StarlarkArtifact {
     fn as_output_error(&self) -> buck2_error::Error {
         match self.artifact.as_parts().0 {
@@ -157,26 +180,6 @@ impl<'v> StarlarkInputArtifactLike<'v> for StarlarkArtifact {
 
     fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
         Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
-    }
-
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::basename(&self.artifact, heap)
-    }
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::extension(&self.artifact, heap)
-    }
-
-    fn is_source(&'v self) -> buck2_error::Result<bool> {
-        Ok(self.artifact.is_source())
-    }
-
-    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
-        StarlarkArtifactHelpers::owner(&self.artifact)
-    }
-
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::short_path(&self.artifact, heap)
     }
 
     fn as_output(&'v self, _this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {

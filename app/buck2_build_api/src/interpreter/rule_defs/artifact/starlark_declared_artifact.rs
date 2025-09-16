@@ -55,6 +55,7 @@ use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
@@ -132,42 +133,7 @@ impl<'v> StarlarkDeclaredArtifact<'v> {
     }
 }
 
-impl<'v> StarlarkInputArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
-    fn as_output_error(&self) -> buck2_error::Error {
-        // This shouldn't ever be called for StarlarkDeclaredArtifact
-        buck2_error!(
-            buck2_error::ErrorTag::Tier0,
-            "error trying to use declared artifact as an output, this indicates an internal buck error"
-        )
-    }
-
-    fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
-        Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
-    }
-
-    fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts> {
-        Some(&self.associated_artifacts)
-    }
-
-    fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
-        self
-    }
-
-    fn fingerprint(&self) -> ArtifactFingerprint<'_> {
-        {
-            let path = self.artifact.get_path();
-            let associated_artifacts = self.get_associated_artifacts();
-            ArtifactFingerprint::Normal {
-                path,
-                associated_artifacts,
-            }
-        }
-    }
-
-    fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
-        Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
-    }
-
+impl<'v> StarlarkArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
     fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact
             .get_path()
@@ -203,6 +169,43 @@ impl<'v> StarlarkInputArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
         self.artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
+    }
+}
+
+impl<'v> StarlarkInputArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
+    fn as_output_error(&self) -> buck2_error::Error {
+        // This shouldn't ever be called for StarlarkDeclaredArtifact
+        buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "error trying to use declared artifact as an output, this indicates an internal buck error"
+        )
+    }
+
+    fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
+        Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
+    }
+
+    fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts> {
+        Some(&self.associated_artifacts)
+    }
+
+    fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
+        self
+    }
+
+    fn fingerprint(&self) -> ArtifactFingerprint<'_> {
+        {
+            let path = self.artifact.get_path();
+            let associated_artifacts = self.get_associated_artifacts();
+            ArtifactFingerprint::Normal {
+                path,
+                associated_artifacts,
+            }
+        }
+    }
+
+    fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
+        Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
     }
 
     fn as_output(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {

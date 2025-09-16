@@ -36,10 +36,22 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
+pub trait StarlarkArtifactLike<'v>: Display {
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+
+    fn is_source(&'v self) -> buck2_error::Result<bool>;
+
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>>;
+
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+}
+
 /// A trait representing starlark representations of input artifacts.
 ///
 /// Not implemented for `OutputArtifact`
-pub trait StarlarkInputArtifactLike<'v>: Display {
+pub trait StarlarkInputArtifactLike<'v>: StarlarkArtifactLike<'v> {
     /// Returns an apppropriate error for when this is used in a location that expects an output declaration.
     fn as_output_error(&self) -> buck2_error::Error;
 
@@ -82,16 +94,6 @@ pub trait StarlarkInputArtifactLike<'v>: Display {
 
     /// Gets the artifact group.
     fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup>;
-
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
-
-    fn is_source(&'v self) -> buck2_error::Result<bool>;
-
-    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>>;
-
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
     fn as_output(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>>;
 

@@ -48,6 +48,7 @@ use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
@@ -155,6 +156,43 @@ impl StarlarkPromiseArtifact {
     }
 }
 
+impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+        match self.artifact.get() {
+            Some(v) => StarlarkArtifactHelpers::basename(v, heap),
+            None => Ok(heap.alloc_str(self.file_name_err()?.as_str())),
+        }
+    }
+
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+        match self.artifact.get() {
+            Some(v) => StarlarkArtifactHelpers::extension(v, heap),
+            None => Ok(StarlarkArtifactHelpers::alloc_extension(
+                self.file_name_err()?.extension(),
+                heap,
+            )),
+        }
+    }
+
+    fn is_source(&'v self) -> buck2_error::Result<bool> {
+        Ok(false)
+    }
+
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
+        match self.artifact.get() {
+            Some(v) => StarlarkArtifactHelpers::owner(v),
+            None => Err(PromiseArtifactError::MethodUnsupported(self.clone(), "owner").into()),
+        }
+    }
+
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+        match self.artifact.get() {
+            Some(v) => StarlarkArtifactHelpers::short_path(v, heap),
+            None => Ok(heap.alloc_str(self.short_path_err()?.as_str())),
+        }
+    }
+}
+
 impl<'v> StarlarkInputArtifactLike<'v> for StarlarkPromiseArtifact {
     fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
         match self.artifact.get() {
@@ -192,41 +230,6 @@ impl<'v> StarlarkInputArtifactLike<'v> for StarlarkPromiseArtifact {
 
     fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
         Ok(self.as_artifact())
-    }
-
-    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::basename(v, heap),
-            None => Ok(heap.alloc_str(self.file_name_err()?.as_str())),
-        }
-    }
-
-    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::extension(v, heap),
-            None => Ok(StarlarkArtifactHelpers::alloc_extension(
-                self.file_name_err()?.extension(),
-                heap,
-            )),
-        }
-    }
-
-    fn is_source(&'v self) -> buck2_error::Result<bool> {
-        Ok(false)
-    }
-
-    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
-        match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::owner(v),
-            None => Err(PromiseArtifactError::MethodUnsupported(self.clone(), "owner").into()),
-        }
-    }
-
-    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
-        match self.artifact.get() {
-            Some(v) => StarlarkArtifactHelpers::short_path(v, heap),
-            None => Ok(heap.alloc_str(self.short_path_err()?.as_str())),
-        }
     }
 
     fn as_output(&'v self, _this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
