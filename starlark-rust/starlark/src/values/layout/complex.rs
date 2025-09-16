@@ -157,6 +157,16 @@ where
     }
 }
 
+impl<'v, T> fmt::Display for ValueTypedComplex<'v, T>
+where
+    T: ComplexValue<'v>,
+    T::Frozen: StarlarkValue<'static>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
 unsafe impl<'v, T> Trace<'v> for ValueTypedComplex<'v, T>
 where
     T: ComplexValue<'v>,
