@@ -17,13 +17,17 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::Coerce;
+use starlark::values::AllocFrozenValue;
+use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
@@ -45,6 +49,16 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 ///
 /// Allows actions to distinguish between inputs and outputs, and can validate whether the
 /// underlying artifact is bound or not yet.
+///
+/// This type intentionally does not implement `Coerce`, as it breaks the invariant set by
+/// `StarlarkOutputArtifact::new`. For this reason, we also do not provide a `impl UnpackValue for
+/// &StarlarkOutputArtifact`. Typically, that impl would be written to unpack either an unfrozen
+/// value or a frozen one which is then coerced, but we can't do the latter - so don't do either.
+///
+/// If you need to unpack this, explicitly use one of:
+///  - `ValueTyped<StarlarkOutputArtifact>`
+///  - `FrozenValueTyped<FrozenStarlarkOutputArtifact>`
+///  - `ValueTypedComplex<StarlarkOutputArtifact>`
 #[derive(
     Debug,
     Clone,
@@ -53,15 +67,33 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
     Trace,
     NoSerialize,
     Allocative,
-    Freeze,
-    Coerce
+    Freeze
 )]
 #[repr(C)]
 pub struct StarlarkOutputArtifactGen<V: ValueLifetimeless> {
     declared_artifact: V, // StarlarkDeclaredArtifact or FrozenStarlarkArtifact
 }
 
-starlark_complex_value!(pub StarlarkOutputArtifact);
+pub type StarlarkOutputArtifact<'v> = StarlarkOutputArtifactGen<Value<'v>>;
+
+pub type FrozenStarlarkOutputArtifact = StarlarkOutputArtifactGen<FrozenValue>;
+
+impl<'v> AllocValue<'v> for StarlarkOutputArtifact<'v> {
+    #[inline]
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex(self)
+    }
+}
+
+impl AllocFrozenValue for FrozenStarlarkOutputArtifact {
+    #[inline]
+    fn alloc_frozen_value(
+        self,
+        heap: &starlark::values::FrozenHeap,
+    ) -> starlark::values::FrozenValue {
+        heap.alloc_simple(self)
+    }
+}
 
 impl<'v> Display for StarlarkOutputArtifact<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
