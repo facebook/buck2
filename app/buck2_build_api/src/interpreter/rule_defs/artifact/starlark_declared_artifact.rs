@@ -19,12 +19,9 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_execute::path::artifact_path::ArtifactPath;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -145,16 +142,8 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
         Ok(false)
     }
 
-    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
-        match self.artifact.owner() {
-            None => Ok(None),
-            Some(x) => Ok(match x {
-                BaseDeferredKey::TargetLabel(t) => Some(StarlarkConfiguredProvidersLabel::new(
-                    ConfiguredProvidersLabel::new(t, ProvidersName::Default),
-                )),
-                BaseDeferredKey::AnonTarget(_) | BaseDeferredKey::BxlLabel(_) => None,
-            }),
-        }
+    fn owner(&'v self) -> buck2_error::Result<Option<BaseDeferredKey>> {
+        Ok(self.artifact.owner())
     }
 
     fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {

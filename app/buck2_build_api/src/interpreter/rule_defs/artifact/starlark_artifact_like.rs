@@ -14,10 +14,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::path::artifact_path::ArtifactPath;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;
 use starlark::values::Heap;
@@ -45,7 +45,7 @@ pub trait StarlarkArtifactLike<'v>: Display {
 
     fn is_source(&'v self) -> buck2_error::Result<bool>;
 
-    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>>;
+    fn owner(&'v self) -> buck2_error::Result<Option<BaseDeferredKey>>;
 
     fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 }

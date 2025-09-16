@@ -10,8 +10,12 @@
 
 use std::convert::Infallible;
 
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use dupe::Dupe;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
@@ -128,7 +132,15 @@ fn any_artifact_methods(builder: &mut MethodsBuilder) {
     fn owner<'v>(
         this: &'v dyn StarlarkArtifactLike<'v>,
     ) -> starlark::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
-        Ok(NoneOr::from_option(this.owner()?))
+        match this.owner()? {
+            None => Ok(NoneOr::None),
+            Some(BaseDeferredKey::TargetLabel(target)) => {
+                Ok(NoneOr::Other(StarlarkConfiguredProvidersLabel::new(
+                    ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+                )))
+            }
+            Some(BaseDeferredKey::AnonTarget(_) | BaseDeferredKey::BxlLabel(_)) => Ok(NoneOr::None),
+        }
     }
 
     /// The interesting part of the path, relative to somewhere in the output directory.
