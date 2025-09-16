@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::convert::Infallible;
-
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -17,12 +15,9 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use starlark::environment::MethodsBuilder;
-use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StringValue;
-use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
@@ -35,58 +30,6 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInpu
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
-
-#[derive(StarlarkTypeRepr, UnpackValue)]
-pub enum EitherStarlarkArtifactRef<'v> {
-    InputArtifact(&'v dyn StarlarkInputArtifactLike<'v>),
-}
-
-impl<'v> StarlarkTypeRepr for &'v dyn StarlarkArtifactLike<'v> {
-    type Canonical = <EitherStarlarkArtifactRef<'v> as StarlarkTypeRepr>::Canonical;
-
-    fn starlark_type_repr() -> Ty {
-        EitherStarlarkArtifactRef::starlark_type_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike<'v> {
-    type Error = Infallible;
-
-    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        match EitherStarlarkArtifactRef::unpack_value_opt(value) {
-            Some(EitherStarlarkArtifactRef::InputArtifact(artifact)) => Ok(Some(artifact)),
-            None => Ok(None),
-        }
-    }
-}
-
-#[derive(StarlarkTypeRepr, UnpackValue)]
-pub enum EitherStarlarkInputArtifactRef<'v> {
-    Artifact(&'v StarlarkArtifact),
-    DeclaredArtifact(&'v StarlarkDeclaredArtifact<'v>),
-    PromiseArtifact(&'v StarlarkPromiseArtifact),
-}
-
-impl<'v> StarlarkTypeRepr for &'v dyn StarlarkInputArtifactLike<'v> {
-    type Canonical = <EitherStarlarkInputArtifactRef<'v> as StarlarkTypeRepr>::Canonical;
-
-    fn starlark_type_repr() -> Ty {
-        EitherStarlarkInputArtifactRef::starlark_type_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v dyn StarlarkInputArtifactLike<'v> {
-    type Error = Infallible;
-
-    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        match EitherStarlarkInputArtifactRef::unpack_value_opt(value) {
-            Some(EitherStarlarkInputArtifactRef::Artifact(artifact)) => Ok(Some(artifact)),
-            Some(EitherStarlarkInputArtifactRef::DeclaredArtifact(artifact)) => Ok(Some(artifact)),
-            Some(EitherStarlarkInputArtifactRef::PromiseArtifact(artifact)) => Ok(Some(artifact)),
-            None => Ok(None),
-        }
-    }
-}
 
 #[derive(StarlarkTypeRepr, AllocValue)]
 pub enum EitherStarlarkInputArtifact<'v> {

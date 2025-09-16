@@ -125,9 +125,7 @@ pub enum ValueAsInputArtifactLikeUnpack<'v> {
     PromiseArtifact(&'v StarlarkPromiseArtifact),
 }
 
-pub struct ValueAsInputArtifactLike<'v>(pub &'v dyn StarlarkInputArtifactLike<'v>);
-
-impl<'v> StarlarkTypeRepr for ValueAsInputArtifactLike<'v> {
+impl<'v> StarlarkTypeRepr for &'v dyn StarlarkInputArtifactLike<'v> {
     type Canonical = <ValueAsInputArtifactLikeUnpack<'v> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
@@ -135,20 +133,41 @@ impl<'v> StarlarkTypeRepr for ValueAsInputArtifactLike<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for ValueAsInputArtifactLike<'v> {
+impl<'v> UnpackValue<'v> for &'v dyn StarlarkInputArtifactLike<'v> {
     type Error = Infallible;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         match ValueAsInputArtifactLikeUnpack::unpack_value_opt(value) {
-            Some(ValueAsInputArtifactLikeUnpack::Artifact(a)) => Ok(Some(
-                ValueAsInputArtifactLike(a as &dyn StarlarkInputArtifactLike),
-            )),
-            Some(ValueAsInputArtifactLikeUnpack::DeclaredArtifact(a)) => Ok(Some(
-                ValueAsInputArtifactLike(a as &dyn StarlarkInputArtifactLike),
-            )),
-            Some(ValueAsInputArtifactLikeUnpack::PromiseArtifact(a)) => Ok(Some(
-                ValueAsInputArtifactLike(a as &dyn StarlarkInputArtifactLike),
-            )),
+            Some(ValueAsInputArtifactLikeUnpack::Artifact(artifact)) => Ok(Some(artifact)),
+            Some(ValueAsInputArtifactLikeUnpack::DeclaredArtifact(artifact)) => Ok(Some(artifact)),
+            Some(ValueAsInputArtifactLikeUnpack::PromiseArtifact(artifact)) => Ok(Some(artifact)),
+            None => Ok(None),
+        }
+    }
+}
+
+#[derive(UnpackValue, StarlarkTypeRepr)]
+pub struct ValueAsInputArtifactLike<'v>(pub &'v dyn StarlarkInputArtifactLike<'v>);
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub enum ValueAsArtifactLikeUnpack<'v> {
+    InputArtifact(&'v dyn StarlarkInputArtifactLike<'v>),
+}
+
+impl<'v> StarlarkTypeRepr for &'v dyn StarlarkArtifactLike<'v> {
+    type Canonical = <ValueAsArtifactLikeUnpack<'v> as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        ValueAsArtifactLikeUnpack::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike<'v> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        match ValueAsArtifactLikeUnpack::unpack_value_opt(value) {
+            Some(ValueAsArtifactLikeUnpack::InputArtifact(artifact)) => Ok(Some(artifact)),
             None => Ok(None),
         }
     }
