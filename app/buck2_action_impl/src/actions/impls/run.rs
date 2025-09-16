@@ -266,7 +266,7 @@ pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) remote_worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
     pub(crate) category: StringValue<'v>,
     pub(crate) identifier: Option<StringValue<'v>>,
-    pub(crate) outputs_for_error_handler: Vec<StarlarkOutputArtifact<'v>>,
+    pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
@@ -280,7 +280,8 @@ pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) remote_worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
     pub(crate) category: FrozenStringValue,
     pub(crate) identifier: Option<FrozenStringValue>,
-    pub(crate) outputs_for_error_handler: Vec<FrozenStarlarkOutputArtifact>,
+    pub(crate) outputs_for_error_handler:
+        Vec<FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>>,
 }
 
 #[starlark_value(type = "RunActionValues")]
@@ -314,7 +315,8 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             identifier: identifier.freeze(freezer)?,
             outputs_for_error_handler: outputs_for_error_handler
                 .iter()
-                .map(|x| (*x).clone().freeze(freezer))
+                .copied()
+                .map(|x| x.freeze(freezer))
                 .collect::<FreezeResult<_>>()?,
         })
     }

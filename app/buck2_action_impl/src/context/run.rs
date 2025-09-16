@@ -35,7 +35,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::SliceClonedExt;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use starlark::collections::SmallSet;
@@ -46,6 +45,7 @@ use starlark::values::StringValue;
 use starlark::values::UnpackAndDiscard;
 use starlark::values::Value;
 use starlark::values::ValueOf;
+use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
@@ -234,8 +234,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
         >,
+        // Note: Intentionally don't support frozen output artifacts
         #[starlark(require = named, default = UnpackListOrTuple::default())]
-        outputs_for_error_handler: UnpackListOrTuple<&'v StarlarkOutputArtifact<'v>>,
+        outputs_for_error_handler: UnpackListOrTuple<
+            ValueTyped<'v, StarlarkOutputArtifact<'v>>,
+        >,
     ) -> starlark::Result<NoneType> {
         if incremental_remote_outputs && !no_outputs_cleanup {
             // Precaution to make sure content-based paths are not involved.
@@ -479,8 +482,6 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
         }
 
-        let outputs_for_error_handler = outputs_for_error_handler.items.cloned();
-
         let starlark_values = heap.alloc_complex(StarlarkRunActionValues {
             exe: heap.alloc_typed(starlark_exe),
             args: heap.alloc_typed(starlark_args),
@@ -492,7 +493,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 category
             },
             identifier: identifier.into_option(),
-            outputs_for_error_handler,
+            outputs_for_error_handler: outputs_for_error_handler.items,
         });
 
         let re_dependencies = remote_execution_dependencies
