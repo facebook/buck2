@@ -78,17 +78,6 @@ buck_kotlin_library(
     deps = [
         "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat",
         "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat_with_ka",
-        "fbsource//third-party/java/com/google/guava/guava:guava",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:analysis-api-standalone-for-ide",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:high-level-api-fir-for-ide",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:high-level-api-for-ide",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:high-level-api-impl-base-for-ide",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:low-level-api-fir-for-ide",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:platform-interface-for-ide",
-        "fbsource//third-party/java/org/jetbrains/kotlin/analysis-api-suite-for-ide:symbol-light-classes-for-ide",
-        "fbsource//third-party/jetbrains/trove4j:trove4j",
-        "prelude//toolchains/android/third-party:kotlin-metadata-jvm",
-        "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
     ],
     exported_deps = [
         ":kosabi-common",
