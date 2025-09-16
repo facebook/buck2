@@ -15,6 +15,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
+use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::AllocFrozenValue;
@@ -95,23 +96,28 @@ impl AllocFrozenValue for FrozenStarlarkOutputArtifact {
     }
 }
 
-impl<'v> Display for StarlarkOutputArtifact<'v> {
+impl<'v, V: ValueLike<'v>> Display for StarlarkOutputArtifactGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "<output artifact for {}>",
-            self.inner().get_artifact_path()
+            match self.unpack() {
+                Either::Left(v) => v.artifact.get_path(),
+                Either::Right(v) => v.artifact.get_path(),
+            }
         )
     }
 }
 
-impl Display for FrozenStarlarkOutputArtifact {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "<output artifact for {}>",
-            self.inner().get_artifact_path()
-        )
+impl<'v, V: ValueLike<'v>> StarlarkOutputArtifactGen<V> {
+    fn unpack(&self) -> Either<&'v StarlarkDeclaredArtifact<'v>, &'v StarlarkArtifact> {
+        let v = self.declared_artifact.to_value();
+        // Unwraps justified at construction time
+        if let Some(v) = v.unpack_frozen() {
+            Either::Right(v.downcast_ref().unwrap())
+        } else {
+            Either::Left(v.downcast_ref().unwrap())
+        }
     }
 }
 
@@ -142,45 +148,6 @@ impl FrozenStarlarkOutputArtifact {
     }
 }
 
-impl<'v> CommandLineArgLike<'v> for StarlarkOutputArtifact<'v> {
-    fn register_me(&self) {
-        command_line_arg_like_impl!(StarlarkOutputArtifact::starlark_type_repr());
-    }
-
-    fn add_to_command_line(
-        &self,
-        _cli: &mut dyn CommandLineBuilder,
-        _ctx: &mut dyn CommandLineContext,
-        _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
-        // TODO: proper error message
-        Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Tier0,
-            "proper error here; we should not be adding mutable starlark objects to clis"
-        ))
-    }
-
-    fn visit_artifacts(
-        &self,
-        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
-    ) -> buck2_error::Result<()> {
-        visitor.visit_declared_output(self.artifact(), vec![]);
-        Ok(())
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        false
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        _visitor: &mut dyn WriteToFileMacroVisitor,
-        _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
-        Ok(())
-    }
-}
-
 #[starlark_value(type = "OutputArtifact")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
@@ -191,7 +158,7 @@ where
     }
 }
 
-impl<'v> CommandLineArgLike<'v> for FrozenStarlarkOutputArtifact {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<V> {
     fn register_me(&self) {
         command_line_arg_like_impl!(FrozenStarlarkOutputArtifact::starlark_type_repr());
     }
@@ -202,17 +169,35 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkOutputArtifact {
         ctx: &mut dyn CommandLineContext,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        // We do not need to use the ArtifactPathMapper here as output artifacts are always
-        // resolved to a known path since their content hash is not yet available.
-        cli.push_location(ctx.resolve_output_artifact(&self.inner().artifact())?);
-        Ok(())
+        match self.unpack() {
+            Either::Left(_) => {
+                // TODO: proper error message
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "proper error here; we should not be adding mutable starlark objects to clis"
+                ))
+            }
+            Either::Right(v) => {
+                // We do not need to use the ArtifactPathMapper here as output artifacts are always
+                // resolved to a known path since their content hash is not yet available.
+                cli.push_location(ctx.resolve_output_artifact(&v.artifact)?);
+                Ok(())
+            }
+        }
     }
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_frozen_output(self.inner().artifact(), vec![]);
+        match self.unpack() {
+            Either::Left(v) => {
+                visitor.visit_declared_output(v.output_artifact(), vec![]);
+            }
+            Either::Right(v) => {
+                visitor.visit_frozen_output(v.artifact(), vec![]);
+            }
+        }
         Ok(())
     }
 
