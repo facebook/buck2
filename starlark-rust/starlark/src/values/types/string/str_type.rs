@@ -45,6 +45,9 @@ use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::Freeze;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
@@ -77,6 +80,22 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,
+}
+
+impl<const N: usize> Freeze for StarlarkStrN<N> {
+    type Frozen = StarlarkStrN<N>;
+
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        Ok(self)
+    }
+}
+
+impl Freeze for StarlarkStr {
+    type Frozen = StarlarkStr;
+
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        Ok(self)
+    }
 }
 
 impl Deref for StarlarkStr {

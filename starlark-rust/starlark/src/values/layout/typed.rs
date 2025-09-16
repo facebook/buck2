@@ -394,6 +394,20 @@ impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
     }
 }
 
+impl<'v, T> Freeze for ValueTyped<'v, T>
+where
+    T: StarlarkValue<'v>,
+    T: Freeze,
+    <T as Freeze>::Frozen: StarlarkValue<'static>,
+{
+    type Frozen = FrozenValueTyped<'static, <T as Freeze>::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        Ok(FrozenValueTyped::new_err(self.0.freeze(freezer)?)
+            .expect("Freezing a value is known to be well-behaved"))
+    }
+}
+
 impl<'v> AllocStringValue<'v> for StringValue<'v> {
     fn alloc_string_value(self, _heap: &'v Heap) -> StringValue<'v> {
         self

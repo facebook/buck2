@@ -28,9 +28,7 @@ use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
-use crate::values::StringValue;
 use crate::values::Value;
 
 /// Need to be implemented for non-simple `StarlarkValue`.
@@ -273,14 +271,6 @@ impl Freeze for FrozenValue {
 
     fn freeze(self, _freezer: &Freezer) -> FreezeResult<FrozenValue> {
         Ok(self)
-    }
-}
-
-impl<'v> Freeze for StringValue<'v> {
-    type Frozen = FrozenStringValue;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenStringValue> {
-        self.freeze(freezer)
     }
 }
 
