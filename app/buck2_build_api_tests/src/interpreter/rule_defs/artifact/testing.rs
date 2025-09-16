@@ -19,7 +19,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
@@ -163,7 +163,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    fn stringify_for_cli<'v>(artifact: ValueAsArtifactLike<'v>) -> anyhow::Result<String> {
+    fn stringify_for_cli<'v>(artifact: ValueAsInputArtifactLike<'v>) -> anyhow::Result<String> {
         let cell_info = cells(None).unwrap();
         let project_fs =
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
@@ -232,7 +232,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     }
 
     fn get_associated_artifacts_as_string<'v>(
-        artifact: ValueAsArtifactLike<'v>,
+        artifact: ValueAsInputArtifactLike<'v>,
     ) -> anyhow::Result<String> {
         let associated_artifacts = artifact.0.get_associated_artifacts();
         let s: String = associated_artifacts

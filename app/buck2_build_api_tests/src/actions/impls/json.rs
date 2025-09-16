@@ -15,7 +15,7 @@ use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::impls::json::SerializeValue;
 use buck2_build_api::actions::impls::json::visit_json_artifacts;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_error::BuckErrorContext;
@@ -59,7 +59,7 @@ fn test_tagging() -> anyhow::Result<()> {
         fn check_artifact_is_tagged<'v>(
             tagged: Value<'v>,
             tag: Value<'v>,
-            artifact: ValueAsArtifactLike<'v>,
+            artifact: ValueAsInputArtifactLike<'v>,
         ) -> anyhow::Result<Value<'v>> {
             let tag = ArtifactTag::from_value(tag).context("Invalid tag")?.dupe();
 

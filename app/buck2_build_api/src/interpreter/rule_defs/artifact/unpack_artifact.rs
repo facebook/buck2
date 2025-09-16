@@ -14,7 +14,7 @@ use starlark::values::UnpackValue;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 
 #[derive(StarlarkTypeRepr, UnpackValue)]

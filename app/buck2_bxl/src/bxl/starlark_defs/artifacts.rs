@@ -23,7 +23,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use derive_more::Display;
@@ -199,8 +199,8 @@ impl<'v> ArtifactArg<'v> {
 }
 
 impl EnsuredArtifact {
-    pub(crate) fn as_artifact(&self) -> &dyn StarlarkArtifactLike<'_> {
-        &self.artifact as &dyn StarlarkArtifactLike
+    pub(crate) fn as_artifact(&self) -> &dyn StarlarkInputArtifactLike<'_> {
+        &self.artifact as &dyn StarlarkInputArtifactLike
     }
 
     pub(crate) fn abs(&self) -> bool {
@@ -450,7 +450,7 @@ pub(crate) struct LazyBuildArtifact {
 
 impl LazyBuildArtifact {
     pub(crate) fn new(artifact: &StarlarkArtifact) -> Self {
-        let as_artifact = artifact as &dyn StarlarkArtifactLike;
+        let as_artifact = artifact as &dyn StarlarkInputArtifactLike;
 
         let bound_artifact = as_artifact.get_bound_artifact().unwrap();
         let associated_artifacts = as_artifact.get_associated_artifacts();

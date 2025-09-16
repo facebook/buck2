@@ -30,8 +30,8 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 
 use crate as buck2_build_api;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsArtifactAnnotation;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsInputArtifactAnnotation;
 
 // Provider that signals a rule is installable (ex. android_binary)
 
@@ -56,7 +56,7 @@ pub struct InstallInfoGen<V: ValueLifetimeless> {
     // Label for the installer
     installer: ValueOfUncheckedGeneric<V, StarlarkConfiguredProvidersLabel>,
     // list of files that need to be installed
-    files: ValueOfUncheckedGeneric<V, DictType<String, ValueIsArtifactAnnotation>>,
+    files: ValueOfUncheckedGeneric<V, DictType<String, ValueIsInputArtifactAnnotation>>,
 }
 
 impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
@@ -79,14 +79,15 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 
     fn get_files_iter<'a>(
         files: &'a DictRef<'v>,
-    ) -> impl Iterator<Item = buck2_error::Result<(&'v str, ValueAsArtifactLike<'v>)>> + 'a {
+    ) -> impl Iterator<Item = buck2_error::Result<(&'v str, ValueAsInputArtifactLike<'v>)>> + 'a
+    {
         files.iter().map(|(k, v)| {
             let k = k
                 .unpack_str()
                 .ok_or_else(|| InstallInfoProviderErrors::ExpectedStringKey(k.to_string()))?;
             Ok((
                 k,
-                ValueAsArtifactLike::unpack_value(v)?.ok_or_else(|| {
+                ValueAsInputArtifactLike::unpack_value(v)?.ok_or_else(|| {
                     InstallInfoProviderErrors::ExpectedArtifact {
                         key: k.to_owned(),
                         got: v.get_type().to_owned(),
@@ -114,7 +115,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
         installer: ValueOf<'v, &'v StarlarkConfiguredProvidersLabel>,
-        files: ValueOf<'v, DictType<&'v str, ValueIsArtifactAnnotation>>,
+        files: ValueOf<'v, DictType<&'v str, ValueIsInputArtifactAnnotation>>,
     ) -> starlark::Result<InstallInfo<'v>> {
         let info = InstallInfo {
             installer: installer.as_unchecked().cast(),

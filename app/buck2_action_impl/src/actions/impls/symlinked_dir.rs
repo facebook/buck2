@@ -23,7 +23,7 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -98,7 +98,7 @@ impl UnregisteredSymlinkedDirAction {
     // Map each artifact into an optional tuple of (artifact, path) and associated_artifacts, then collect
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args<'v>(
-        srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+        srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
     ) -> buck2_error::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
         SmallSet<ArtifactGroup>,
@@ -134,7 +134,7 @@ impl UnregisteredSymlinkedDirAction {
 
     pub(crate) fn new<'v>(
         copy: CopyMode,
-        srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+        srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
     ) -> buck2_error::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.

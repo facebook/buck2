@@ -51,7 +51,7 @@ use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use static_assertions::assert_eq_size;
 
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
@@ -454,7 +454,7 @@ where
 #[derive(Display, StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum RelativeOrigin<'v> {
     OutputArtifact(ValueOf<'v, &'v StarlarkOutputArtifact<'v>>),
-    Artifact(&'v dyn StarlarkArtifactLike<'v>),
+    Artifact(&'v dyn StarlarkInputArtifactLike<'v>),
     CellRoot(&'v CellRoot),
     /// Bit of a useless variant since this is simply the default, but we allow it for consistency.
     ProjectRoot(&'v StarlarkProjectRoot),

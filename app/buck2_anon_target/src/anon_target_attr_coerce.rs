@@ -13,7 +13,7 @@ use std::fmt::Debug;
 use std::iter;
 
 use buck2_build_api::artifact_groups::promise::PromiseArtifactAttr;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
@@ -132,7 +132,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                         id: promise_artifact.artifact.id.as_ref().clone(),
                         short_path: promise_artifact.short_path.clone(),
                     }))
-                } else if let Some(artifact_like) = ValueAsArtifactLike::unpack_value(value)? {
+                } else if let Some(artifact_like) = ValueAsInputArtifactLike::unpack_value(value)? {
                     let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
                 } else {

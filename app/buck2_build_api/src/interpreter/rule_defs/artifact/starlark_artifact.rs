@@ -38,11 +38,11 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
-use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifact;
 use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -117,7 +117,7 @@ impl Serialize for StarlarkArtifact {
     }
 }
 
-impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
+impl<'v> StarlarkInputArtifactLike<'v> for StarlarkArtifact {
     fn as_output_error(&self) -> buck2_error::Error {
         match self.artifact.as_parts().0 {
             BaseArtifactKind::Source(_) => ArtifactError::SourceArtifactAsOutput {
@@ -197,15 +197,17 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
-        Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>> {
+        Ok(EitherStarlarkInputArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe().project(path, hide_prefix),
             associated_artifacts: self.associated_artifacts.dupe(),
         }))
     }
 
-    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
-        Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
+    fn without_associated_artifacts(
+        &'v self,
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>> {
+        Ok(EitherStarlarkInputArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe(),
             associated_artifacts: AssociatedArtifacts::new(),
         }))
@@ -213,8 +215,8 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
 
     fn with_associated_artifacts(
         &'v self,
-        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
+        artifacts: UnpackList<ValueAsInputArtifactLike<'v>>,
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>> {
         let artifacts = artifacts
             .items
             .iter()
@@ -223,7 +225,7 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
 
         let artifacts = AssociatedArtifacts::from(artifacts);
 
-        Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
+        Ok(EitherStarlarkInputArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe(),
             associated_artifacts: self.associated_artifacts.union(artifacts),
         }))
@@ -277,11 +279,11 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        StarlarkArtifactLike::equals(self, other)
+        StarlarkInputArtifactLike::equals(self, other)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
-        StarlarkArtifactLike::write_hash(self, hasher)
+        StarlarkInputArtifactLike::write_hash(self, hasher)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

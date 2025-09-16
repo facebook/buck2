@@ -54,8 +54,8 @@ use starlark::values::none::NoneOr;
 use crate as buck2_build_api;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsArtifactAnnotation;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsInputArtifactAnnotation;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -144,7 +144,7 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// A list of `Artifact`s that are built by default if this rule is requested
     /// explicitly (via CLI or `$(location)` etc), or depended on as as a "source"
     /// (i.e., `attrs.source()`).
-    default_outputs: ValueOfUncheckedGeneric<V, ListType<ValueIsArtifactAnnotation>>,
+    default_outputs: ValueOfUncheckedGeneric<V, ListType<ValueIsInputArtifactAnnotation>>,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
     /// be built by default if this rule is requested (via CLI or `$(location)` etc),
     /// but _not_ when it's depended on as as a "source" (i.e., `attrs.source()`).
@@ -245,8 +245,9 @@ impl FrozenDefaultInfo {
                     starlark_artifact.dupe()
                 } else {
                     // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
-                    let artifact_like = ValueAsArtifactLike::unpack_value(frozen_value.to_value())?
-                        .buck_error_context("Should be list of artifacts")?;
+                    let artifact_like =
+                        ValueAsInputArtifactLike::unpack_value(frozen_value.to_value())?
+                            .buck_error_context("Should be list of artifacts")?;
                     artifact_like.0.get_bound_starlark_artifact()?
                 },
             )
@@ -303,7 +304,7 @@ impl FrozenDefaultInfo {
     ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             processor(
-                ValueAsArtifactLike::unpack_value_err(value)?
+                ValueAsInputArtifactLike::unpack_value_err(value)?
                     .0
                     .get_bound_artifact()?,
             );
@@ -316,7 +317,7 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup),
     ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
-            let others = ValueAsArtifactLike::unpack_value_err(value)?
+            let others = ValueAsInputArtifactLike::unpack_value_err(value)?
                 .0
                 .get_associated_artifacts();
             others
@@ -400,10 +401,10 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
     fn DefaultInfo<'v>(
         // TODO(nga): parameters must be named only.
         #[starlark(default = NoneOr::None)] default_output: NoneOr<
-            ValueOf<'v, ValueIsArtifactAnnotation>,
+            ValueOf<'v, ValueIsInputArtifactAnnotation>,
         >,
         #[starlark(default = NoneOr::None)] default_outputs: NoneOr<
-            ValueOf<'v, UnpackList<UnpackAndDiscard<ValueIsArtifactAnnotation>>>,
+            ValueOf<'v, UnpackList<UnpackAndDiscard<ValueIsInputArtifactAnnotation>>>,
         >,
         #[starlark(default = ValueOf { value: FrozenValue::new_empty_list().to_value(), typed: UnpackList::default()})]
         other_outputs: ValueOf<
@@ -419,7 +420,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
-        let valid_default_outputs: ValueOfUnchecked<ListType<ValueIsArtifactAnnotation>> =
+        let valid_default_outputs: ValueOfUnchecked<ListType<ValueIsInputArtifactAnnotation>> =
             match (default_outputs.into_option(), default_output.into_option()) {
                 (Some(list), None) => list.as_unchecked().cast(),
                 (None, Some(default_output)) => {

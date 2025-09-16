@@ -10,7 +10,7 @@
 
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_execute::execute::request::OutputType;
@@ -31,7 +31,7 @@ fn create_dir_tree<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     this: &AnalysisActions<'v>,
     output: OutputArtifactArg<'v>,
-    srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+    srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
     copy: CopyMode,
     uses_experimental_content_based_path_hashing: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
@@ -54,7 +54,7 @@ fn copy_file_impl<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     this: &AnalysisActions<'v>,
     dest: OutputArtifactArg<'v>,
-    src: ValueAsArtifactLike<'v>,
+    src: ValueAsInputArtifactLike<'v>,
     copy: CopyMode,
     output_type: OutputType,
     uses_experimental_content_based_path_hashing: Option<bool>,
@@ -93,7 +93,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
+        #[starlark(require = pos)] src: ValueAsInputArtifactLike<'v>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
@@ -120,7 +120,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
+        #[starlark(require = pos)] src: ValueAsInputArtifactLike<'v>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -142,7 +142,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn copy_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
+        #[starlark(require = pos)] src: ValueAsInputArtifactLike<'v>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
@@ -166,7 +166,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+        #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -186,7 +186,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+        #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,

@@ -12,7 +12,7 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 
@@ -22,5 +22,5 @@ pub enum OutputArtifactArg<'v> {
     OutputArtifact(ValueTyped<'v, StarlarkOutputArtifact<'v>>),
     DeclaredArtifact(ValueTyped<'v, StarlarkDeclaredArtifact<'v>>),
     /// This for error reporting.
-    WrongArtifact(ValueAsArtifactLike<'v>),
+    WrongArtifact(ValueAsInputArtifactLike<'v>),
 }

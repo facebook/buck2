@@ -43,13 +43,13 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
-use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifact;
 use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -155,7 +155,7 @@ impl StarlarkPromiseArtifact {
     }
 }
 
-impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
+impl<'v> StarlarkInputArtifactLike<'v> for StarlarkPromiseArtifact {
     fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
         match self.artifact.get() {
             Some(v) => Ok(v.dupe()),
@@ -237,19 +237,21 @@ impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>> {
         let _ = (path, hide_prefix);
         Err(PromiseArtifactError::CannotProject(self.clone()).into())
     }
 
-    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
-        Ok(EitherStarlarkArtifact::PromiseArtifact(self.clone()))
+    fn without_associated_artifacts(
+        &'v self,
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>> {
+        Ok(EitherStarlarkInputArtifact::PromiseArtifact(self.clone()))
     }
 
     fn with_associated_artifacts(
         &'v self,
-        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
+        artifacts: UnpackList<ValueAsInputArtifactLike<'v>>,
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>> {
         let _unused = artifacts;
         Err(PromiseArtifactError::CannotAddAssociatedArtifacts.into())
     }
@@ -306,11 +308,11 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        StarlarkArtifactLike::equals(self, other)
+        StarlarkInputArtifactLike::equals(self, other)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
-        StarlarkArtifactLike::write_hash(self, hasher)
+        StarlarkInputArtifactLike::write_hash(self, hasher)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

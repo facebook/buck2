@@ -41,8 +41,8 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::select::StarlarkSelectConcat;
 use crate::bxl::select::StarlarkSelectDict;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
@@ -125,14 +125,14 @@ where
 /// and end up getting wrapped in a list below.
 #[derive(UnpackValue, StarlarkTypeRepr)]
 pub enum JsonArtifact<'v> {
-    ValueAsArtifactLike(ValueAsArtifactLike<'v>),
+    ValueAsInputArtifactLike(ValueAsInputArtifactLike<'v>),
     StarlarkOutputArtifact(ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>),
 }
 
 impl<'v> JsonArtifact<'v> {
     fn artifact(&self) -> buck2_error::Result<Artifact> {
         match self {
-            JsonArtifact::ValueAsArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
+            JsonArtifact::ValueAsInputArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
             JsonArtifact::StarlarkOutputArtifact(x) => match x.unpack() {
                 Either::Left(x) => Ok((*x.inner()).get_bound_artifact()?.dupe()),
                 Either::Right(x) => Ok(x.inner().artifact()),
@@ -215,7 +215,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     Some(fs) => {
                         let artifact = err(x.artifact())?;
                         let path = match x {
-                            JsonArtifact::ValueAsArtifactLike(_) => {
+                            JsonArtifact::ValueAsInputArtifactLike(_) => {
                                 let content_hash = self.artifact_path_mapping.get(&artifact);
                                 err(artifact.resolve_path(fs.fs(), content_hash))?
                             }

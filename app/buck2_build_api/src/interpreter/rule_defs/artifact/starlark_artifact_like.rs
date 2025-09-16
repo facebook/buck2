@@ -29,30 +29,17 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
-use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
-/// The Starlark representation of an `Artifact`
+/// A trait representing starlark representations of input artifacts.
 ///
-/// The following fields are available in Starlark:
-/// `.basename`: The base name of this artifact. e.g. for an artifact
-///              at `foo/bar`, this is `bar`
-/// `.extension`: The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
-///               this is `sh`. If no extension is present, an empty string is returned
-/// `.is_source`: Whether the artifact represents a source file
-/// `.owner`: The `Label` of the rule that originally created this artifact. May also be None in
-///           the case of source files, or if the artifact has not be used in an action.
-/// `as_output()`: Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
-///                either an `Artifact`, or is a bound `DeclaredArtifact` (You cannot bind twice)
-/// `.short_path`: The interesting part of the path, relative to somewhere in the output directory.
-///                For an artifact declared as `foo/bar`, this is `foo/bar`.
-/// This trait also has some common functionality for `StarlarkValue` that we want shared between
-/// `StarlarkArtifact` and `StarlarkDeclaredArtifact`
-pub trait StarlarkArtifactLike<'v>: Display {
+/// Not implemented for `OutputArtifact`
+pub trait StarlarkInputArtifactLike<'v>: Display {
     /// Returns an apppropriate error for when this is used in a location that expects an output declaration.
     fn as_output_error(&self) -> buck2_error::Error;
 
@@ -73,7 +60,7 @@ pub trait StarlarkArtifactLike<'v>: Display {
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        Ok(ValueAsArtifactLike::unpack_value(other)?
+        Ok(ValueAsInputArtifactLike::unpack_value(other)?
             .is_some_and(|other| self.fingerprint() == other.0.fingerprint()))
     }
 
@@ -112,48 +99,50 @@ pub trait StarlarkArtifactLike<'v>: Display {
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>>;
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>>;
 
-    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>>;
+    fn without_associated_artifacts(
+        &'v self,
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>>;
 
     fn with_associated_artifacts(
         &'v self,
-        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>>;
+        artifacts: UnpackList<ValueAsInputArtifactLike<'v>>,
+    ) -> buck2_error::Result<EitherStarlarkInputArtifact<'v>>;
 }
 
 /// Helper type to unpack artifacts.
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub enum ValueAsArtifactLikeUnpack<'v> {
+pub enum ValueAsInputArtifactLikeUnpack<'v> {
     Artifact(&'v StarlarkArtifact),
     DeclaredArtifact(&'v StarlarkDeclaredArtifact<'v>),
     PromiseArtifact(&'v StarlarkPromiseArtifact),
 }
 
-pub struct ValueAsArtifactLike<'v>(pub &'v dyn StarlarkArtifactLike<'v>);
+pub struct ValueAsInputArtifactLike<'v>(pub &'v dyn StarlarkInputArtifactLike<'v>);
 
-impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
-    type Canonical = <ValueAsArtifactLikeUnpack<'v> as StarlarkTypeRepr>::Canonical;
+impl<'v> StarlarkTypeRepr for ValueAsInputArtifactLike<'v> {
+    type Canonical = <ValueAsInputArtifactLikeUnpack<'v> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        ValueAsArtifactLikeUnpack::starlark_type_repr()
+        ValueAsInputArtifactLikeUnpack::starlark_type_repr()
     }
 }
 
-impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
+impl<'v> UnpackValue<'v> for ValueAsInputArtifactLike<'v> {
     type Error = Infallible;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        match ValueAsArtifactLikeUnpack::unpack_value_opt(value) {
-            Some(ValueAsArtifactLikeUnpack::Artifact(a)) => {
-                Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
-            }
-            Some(ValueAsArtifactLikeUnpack::DeclaredArtifact(a)) => {
-                Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
-            }
-            Some(ValueAsArtifactLikeUnpack::PromiseArtifact(a)) => {
-                Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
-            }
+        match ValueAsInputArtifactLikeUnpack::unpack_value_opt(value) {
+            Some(ValueAsInputArtifactLikeUnpack::Artifact(a)) => Ok(Some(
+                ValueAsInputArtifactLike(a as &dyn StarlarkInputArtifactLike),
+            )),
+            Some(ValueAsInputArtifactLikeUnpack::DeclaredArtifact(a)) => Ok(Some(
+                ValueAsInputArtifactLike(a as &dyn StarlarkInputArtifactLike),
+            )),
+            Some(ValueAsInputArtifactLikeUnpack::PromiseArtifact(a)) => Ok(Some(
+                ValueAsInputArtifactLike(a as &dyn StarlarkInputArtifactLike),
+            )),
             None => Ok(None),
         }
     }
@@ -164,22 +153,24 @@ impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
 ///
 /// This is useful because unlike `ValueAsArtifactLike`, it does not carry a lifetime. See <D?> for
 /// some more discussion of why this was necessary.
-pub struct ValueIsArtifactAnnotation;
+pub struct ValueIsInputArtifactAnnotation;
 
-impl StarlarkTypeRepr for ValueIsArtifactAnnotation {
-    type Canonical = <ValueAsArtifactLikeUnpack<'static> as StarlarkTypeRepr>::Canonical;
+impl StarlarkTypeRepr for ValueIsInputArtifactAnnotation {
+    type Canonical = <ValueAsInputArtifactLikeUnpack<'static> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        ValueAsArtifactLikeUnpack::<'static>::starlark_type_repr()
+        ValueAsInputArtifactLikeUnpack::<'static>::starlark_type_repr()
     }
 }
 
-impl<'v> UnpackValue<'v> for ValueIsArtifactAnnotation {
+impl<'v> UnpackValue<'v> for ValueIsInputArtifactAnnotation {
     type Error = Infallible;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        Ok(ValueAsArtifactLikeUnpack::<'v>::unpack_value_opt(value)
-            .map(|_| ValueIsArtifactAnnotation))
+        Ok(
+            ValueAsInputArtifactLikeUnpack::<'v>::unpack_value_opt(value)
+                .map(|_| ValueIsInputArtifactAnnotation),
+        )
     }
 }
 
