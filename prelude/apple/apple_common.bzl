@@ -272,6 +272,17 @@ def _asset_catalogs_compilation_options_arg():
             """),
     }
 
+def _apple_installer_arg():
+    use_python_installer = read_config("apple", "use_python_installer", "false").lower() == "true"
+    if use_python_installer:
+        installer_target = "fbsource//xplat/buck2/platform/apple/python_installer:apple_installer"
+    else:
+        installer_target = "fbsource//xplat/buck2/platform/apple/installer/src/com/facebook/buck/apple/installer:apple_installer"
+
+    return {
+        "installer": attrs.default_only(attrs.exec_dep(default = installer_target)),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -296,4 +307,5 @@ apple_common = struct(
     executable_name_arg = _executable_name_arg,
     apple_toolchain_arg = _apple_toolchain_arg,
     asset_catalogs_compilation_options_arg = _asset_catalogs_compilation_options_arg,
+    apple_installer_arg = _apple_installer_arg,
 )

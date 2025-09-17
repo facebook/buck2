@@ -1065,7 +1065,6 @@ apple_toolchain = prelude_rule(
             "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "extra_linker_outputs": attrs.set(attrs.string(), default = []),
             "ibtool": attrs.exec_dep(providers = [RunInfo]),
-            "installer": attrs.default_only(attrs.label(default = "fbsource//xplat/buck2/platform/apple/installer/src/com/facebook/buck/apple/installer:apple_installer")),
             "labels": attrs.list(attrs.string(), default = []),
             "libtool": attrs.exec_dep(providers = [RunInfo]),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1100,7 +1099,8 @@ apple_toolchain = prelude_rule(
             # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
             #                   pass abs paths during development and using the currently selected Xcode.
             "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        apple_common.apple_installer_arg()
     ),
     impl = apple_toolchain_impl,
 )

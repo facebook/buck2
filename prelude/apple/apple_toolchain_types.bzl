@@ -27,6 +27,7 @@ AppleToolchainInfo = provider(
         "extra_linker_outputs": provider_field(list[str]),
         "ibtool": provider_field(RunInfo),
         "installer": provider_field(Label),
+        "installer_tool": provider_field(RunInfo),
         "libtool": provider_field(RunInfo),
         "lipo": provider_field(RunInfo),
         "mapc": provider_field(RunInfo | None, default = None),
