@@ -221,6 +221,47 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_unconfigured_target_node(expr))
     }
 
+    /// Gets the unconfigured target nodes for the given target pattern with keep-going behavior.
+    /// This method will continue processing even when errors are encountered, similar to
+    /// `buck2 targets --keep-going`.
+    ///
+    /// Unlike `ctx.lazy.unconfigured_target_node`, this method accepts only a single string target pattern
+    /// and returns a lazy operation that resolves to a tuple containing both successful results and errors,
+    /// allowing you to handle failures gracefully rather than failing fast.
+    ///
+    /// The given `pattern` must be a string that is a valid target pattern, such as:
+    ///     - `"//path/to:target"` - A specific target
+    ///     - `"//path/to:"` - All targets in a package
+    ///     - `"//path/to/..."` - All targets in a path
+    ///
+    /// This returns a lazy operation (`bxl.Lazy[(UnconfiguredTargetSet, dict[PackagePath, bxl.Error])]`) that resolves to a tuple where:
+    /// - First element: A `UnconfiguredTargetSet` containing successfully loaded unconfigured target nodes
+    /// - Second element: A dict mapping `PackagePath` to `Error` for packages that failed to load
+    ///
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_keep_going(ctx):
+    ///     lazy_result = ctx.lazy.unconfigured_target_nodes_keep_going("//my/package/...")
+    ///     success_targets, error_map = lazy_result.resolve()
+    ///     
+    ///     # Process successful targets
+    ///     for target in success_targets:
+    ///         ctx.output.print(f"Successfully loaded: {target.label}")
+    ///     
+    ///     # Handle errors
+    ///     for package_path, error in error_map.items():
+    ///         ctx.output.print(f"Failed to load package {package_path}: {error}")
+    /// ```
+    fn unconfigured_target_nodes_keep_going<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx,
+        #[starlark(require = pos)] pattern: &str,
+    ) -> starlark::Result<StarlarkLazy> {
+        Ok(StarlarkLazy::new_unconfigured_target_node_keep_going(
+            pattern.to_owned(),
+        ))
+    }
+
     /// Gets the lazy uquery context.
     fn uquery<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyCtx,

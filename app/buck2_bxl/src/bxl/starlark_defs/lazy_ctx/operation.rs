@@ -14,11 +14,21 @@ use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
+use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_interpreter::types::package_path::StarlarkPackagePath;
+use buck2_node::load_patterns::MissingTargetBehavior;
+use buck2_node::load_patterns::load_patterns;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use cquery::LazyCqueryOperation;
 use cquery::LazyCqueryResult;
 use derivative::Derivative;
@@ -28,6 +38,7 @@ use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
+use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -49,6 +60,7 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryOperation;
 use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryResult;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
+use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResultGen;
 use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
@@ -66,6 +78,7 @@ enum LazyOperation {
         global_cfg_options: buck2_error::Result<GlobalCfgOptions>,
     },
     UnconfiguredTargetNode(OwnedTargetNodeArg),
+    UnconfiguredTargetNodeKeepGoing(String),
     Uquery(LazyUqueryOperation),
     Cquery(LazyCqueryOperation),
     BuildArtifact(LazyBuildArtifact),
@@ -78,6 +91,12 @@ enum LazyResult {
     Analysis(StarlarkAnalysisResult),
     ConfiguredTargetNode(SingleOrCompatibleConfiguredTargets),
     UnconfiguredTargetNode(Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>),
+    UnconfiguredTargetNodeKeepGoing(
+        (
+            StarlarkTargetSet<TargetNode>,
+            SmallMap<StarlarkPackagePath, StarlarkError>,
+        ),
+    ),
     BuildArtifact(StarlarkArtifact),
     Uquery(LazyUqueryResult),
     Cquery(LazyCqueryResult),
@@ -96,6 +115,9 @@ impl LazyResult {
             LazyResult::Analysis(analysis_res) => Ok(heap.alloc(analysis_res)),
             LazyResult::ConfiguredTargetNode(res) => res.into_value(heap, bxl_eval_extra),
             LazyResult::UnconfiguredTargetNode(node) => Ok(heap.alloc(node)),
+            LazyResult::UnconfiguredTargetNodeKeepGoing((success_targets, error_packages)) => {
+                Ok(heap.alloc((success_targets, error_packages)))
+            }
             LazyResult::BuildArtifact(artifact) => Ok(heap.alloc(artifact)),
             LazyResult::Uquery(res) => res.into_value(heap),
             LazyResult::Cquery(res) => res.into_value(heap),
@@ -143,6 +165,62 @@ impl LazyOperation {
             LazyOperation::UnconfiguredTargetNode(expr) => {
                 let node = expr.to_unconfigured_target_node(core_data, dice).await?;
                 Ok(LazyResult::UnconfiguredTargetNode(node))
+            }
+            LazyOperation::UnconfiguredTargetNodeKeepGoing(pattern) => {
+                // Parse the target pattern
+                let parsed_pattern = ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                    core_data.target_alias_resolver(),
+                    CellPathRef::new(core_data.cell_name(), CellRelativePath::empty()),
+                    pattern,
+                    core_data.cell_resolver(),
+                    core_data.cell_alias_resolver(),
+                )?;
+
+                let mut success_targets = TargetSet::new();
+                let mut error_packages = SmallMap::new();
+
+                match parsed_pattern {
+                    ParsedPattern::Target(package, name, TargetPatternExtra) => {
+                        // Single target case
+                        let label = TargetLabel::new(package, name.as_ref());
+                        let node = dice.get_target_node(&label).await;
+                        match node {
+                            Ok(node) => {
+                                success_targets.insert(node);
+                            }
+                            Err(e) => {
+                                error_packages.insert(
+                                    StarlarkPackagePath::new(package),
+                                    StarlarkError::new(e),
+                                );
+                            }
+                        }
+                    }
+                    pattern => {
+                        let loaded_patterns =
+                            load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+                        for (package, targets) in loaded_patterns.into_iter() {
+                            match targets {
+                                Ok(package_targets) => {
+                                    // Successfully loaded targets from this package
+                                    success_targets.extend(package_targets.into_values());
+                                }
+                                Err(e) => {
+                                    // Failed to load targets from this package
+                                    error_packages.insert(
+                                        StarlarkPackagePath::new(package.package),
+                                        StarlarkError::new(e),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Ok(LazyResult::UnconfiguredTargetNodeKeepGoing((
+                    StarlarkTargetSet(success_targets),
+                    error_packages,
+                )))
             }
             LazyOperation::Uquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Uquery),
             LazyOperation::Cquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Cquery),
@@ -219,6 +297,12 @@ impl StarlarkLazy {
     pub(crate) fn new_unconfigured_target_node(expr: OwnedTargetNodeArg) -> Self {
         Self {
             lazy: Arc::new(LazyOperation::UnconfiguredTargetNode(expr)),
+        }
+    }
+
+    pub(crate) fn new_unconfigured_target_node_keep_going(pattern: String) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::UnconfiguredTargetNodeKeepGoing(pattern)),
         }
     }
 

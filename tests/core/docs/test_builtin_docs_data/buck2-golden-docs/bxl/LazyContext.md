@@ -8,4 +8,5 @@
 ## LazyContext.join
 ## LazyContext.join\_all
 ## LazyContext.unconfigured\_target\_node
+## LazyContext.unconfigured\_target\_nodes\_keep\_going
 ## LazyContext.uquery

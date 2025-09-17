@@ -1,0 +1,96 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+def _test_specific_target_success_impl(ctx: bxl.Context):
+    """Test unconfigured_targets_keep_going with a specific successful target."""
+    success_targets, error_map = ctx.lazy.unconfigured_target_nodes_keep_going("//:foo_lib").resolve()
+
+    # Should have one target, no errors
+    asserts.equals(1, len(success_targets))
+    asserts.equals(0, len(error_map))
+
+test_specific_target_success = bxl_main(
+    impl = _test_specific_target_success_impl,
+    cli_args = {},
+)
+
+def _test_recursive_pattern_success_impl(ctx: bxl.Context):
+    """Test unconfigured_targets_keep_going with a recursive pattern that includes only successful packages."""
+    success_targets, error_map = ctx.lazy.unconfigured_target_nodes_keep_going("//working_package/...").resolve()
+
+    # Should have all targets from working_package, no errors
+    asserts.true(len(success_targets) > 0)
+    asserts.equals(0, len(error_map))
+
+    # Verify specific targets are included
+    target_labels = [str(target.label) for target in success_targets]
+    asserts.true("root//working_package:working_target_1" in target_labels)
+    asserts.true("root//working_package:working_target_2" in target_labels)
+    asserts.true("root//working_package:working_target_3" in target_labels)
+
+test_recursive_pattern_success = bxl_main(
+    impl = _test_recursive_pattern_success_impl,
+    cli_args = {},
+)
+
+def _test_recursive_pattern_mixed_impl(ctx: bxl.Context):
+    """Test unconfigured_targets_keep_going with a recursive pattern that includes both successful and failing packages."""
+    success_targets, error_map = ctx.lazy.unconfigured_target_nodes_keep_going("//...").resolve()
+
+    # Should have some successful targets and some errors
+    asserts.true(len(success_targets) > 0)
+    asserts.true(len(error_map) > 0)
+
+    # Verify we have targets from successful packages
+    target_labels = [str(target.label) for target in success_targets]
+    asserts.true("root//working_package:working_target_1" in target_labels)
+    asserts.true("root//another_working_package:second_working_target" in target_labels)
+    asserts.true("root//:foo_lib" in target_labels)
+
+    # Verify we have errors for failing packages
+    package_paths = [str(pkg) for pkg in error_map.keys()]
+    asserts.true("root//failing_package" in package_paths)
+
+test_recursive_pattern_mixed = bxl_main(
+    impl = _test_recursive_pattern_mixed_impl,
+    cli_args = {},
+)
+
+def _test_failing_package_only_impl(ctx: bxl.Context):
+    """Test unconfigured_targets_keep_going with a pattern that only matches a failing package."""
+    success_targets, error_map = ctx.lazy.unconfigured_target_nodes_keep_going("//failing_package/...").resolve()
+
+    # Should have no successful targets and one error
+    asserts.equals(0, len(success_targets))
+    asserts.equals(1, len(error_map))
+
+    # Verify the error is for the failing package
+    package_paths = [str(pkg) for pkg in error_map.keys()]
+    asserts.true("root//failing_package" in package_paths)
+
+test_failing_package_only = bxl_main(
+    impl = _test_failing_package_only_impl,
+    cli_args = {},
+)
+
+def _test_specific_target_in_failing_package_impl(ctx: bxl.Context):
+    """Test unconfigured_targets_keep_going with a specific target in a failing package."""
+    success_targets, error_map = ctx.lazy.unconfigured_target_nodes_keep_going("//failing_package:some_working_target").resolve()
+
+    # Should have no successful targets and one error (whole package fails)
+    asserts.equals(0, len(success_targets))
+    asserts.equals(1, len(error_map))
+
+    # Verify the error is for the failing package
+    package_paths = [str(pkg) for pkg in error_map.keys()]
+    asserts.true("root//failing_package" in package_paths)
+
+test_specific_target_in_failing_package = bxl_main(
+    impl = _test_specific_target_in_failing_package_impl,
+    cli_args = {},
+)

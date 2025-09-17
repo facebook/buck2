@@ -56,6 +56,12 @@ pub(crate) struct StarlarkError {
     err: buck2_error::Error,
 }
 
+impl StarlarkError {
+    pub(crate) fn new(err: buck2_error::Error) -> Self {
+        Self { err }
+    }
+}
+
 starlark_simple_value!(StarlarkError);
 
 #[starlark_value(type = "bxl.Error")]

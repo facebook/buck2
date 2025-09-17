@@ -1,0 +1,13 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("//defs.bzl", "library")
+
+# These targets should load successfully
+library(name = "working_target_1")
+library(name = "working_target_2")
+library(name = "working_target_3")
