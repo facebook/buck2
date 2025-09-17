@@ -153,6 +153,8 @@ fn spawn_via_forkserver(
 
     let socket_path = socket_path.clone();
     tokio::spawn(async move {
+        use buck2_resource_control::CommandType;
+
         let mut req = buck2_forkserver_proto::CommandRequest {
             exe: exe.as_bytes().into(),
             argv: args.into_iter().map(|s| s.as_bytes().into()).collect(),
@@ -171,7 +173,11 @@ fn spawn_via_forkserver(
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver
-            .execute(req, async move { liveliness_observer.while_alive().await })
+            .execute(
+                req,
+                async move { liveliness_observer.while_alive().await },
+                CommandType::Worker,
+            )
             .await
             .map(|CommandResult { status, .. }| status);
 

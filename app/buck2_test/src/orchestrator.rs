@@ -1496,7 +1496,8 @@ impl BuckTestOrchestrator<'_> {
             .with_worker(worker)
             .with_remote_execution_custom_image(re_dynamic_image)
             .with_meta_internal_extra_params(meta_internal_extra_params)
-            .with_required_local_resources(required_local_resources)?;
+            .with_required_local_resources(required_local_resources)?
+            .with_is_test();
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
         }

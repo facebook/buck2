@@ -382,6 +382,8 @@ pub struct CommandExecutionRequest {
     outputs_for_error_handler: Vec<BuildArtifactPath>,
     /// String representation of a key that uniquely identifies a RunAction
     run_action_key: Option<String>,
+
+    is_test: bool,
 }
 
 impl CommandExecutionRequest {
@@ -416,6 +418,7 @@ impl CommandExecutionRequest {
             meta_internal_extra_params: MetaInternalExtraParams::default(),
             outputs_for_error_handler: Vec::new(),
             run_action_key: None,
+            is_test: false,
         }
     }
 
@@ -676,6 +679,15 @@ impl CommandExecutionRequest {
 
     pub fn run_action_key(&self) -> &Option<String> {
         &self.run_action_key
+    }
+
+    pub fn with_is_test(mut self) -> Self {
+        self.is_test = true;
+        self
+    }
+
+    pub fn is_test(&self) -> bool {
+        self.is_test
     }
 }
 

@@ -77,6 +77,7 @@ use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::timeout_into_cancellation;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
+use buck2_resource_control::CommandType;
 use buck2_util::process::background_command;
 use derive_more::From;
 use dupe::Dupe;
@@ -162,6 +163,7 @@ impl LocalExecutor {
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
         cgroup_command_id: &'a str,
+        command_type: CommandType,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             let working_directory = self.root.join_cow(working_directory);
@@ -181,6 +183,7 @@ impl LocalExecutor {
                             liveliness_observer,
                             self.knobs.enable_miniperf && !disable_miniperf,
                             cgroup_command_id,
+                            command_type,
                         )
                         .await
                     }
@@ -472,6 +475,11 @@ impl LocalExecutor {
                         .await)
                 } else {
                     let cgroup_command_id = Uuid::new_v4().to_string();
+                    let command_type = if request.is_test() {
+                        CommandType::Test
+                    } else {
+                        CommandType::Action
+                    };
                     self.exec(
                         &args[0],
                         &args[1..],
@@ -482,6 +490,7 @@ impl LocalExecutor {
                         liveliness_observer,
                         request.disable_miniperf(),
                         &cgroup_command_id,
+                        command_type,
                     )
                     .await
                 };
@@ -1411,6 +1420,8 @@ impl EnvironmentBuilder for Command {
 mod unix {
     use std::os::unix::ffi::OsStrExt;
 
+    use buck2_resource_control::CommandType;
+
     use super::*;
 
     pub async fn exec_via_forkserver(
@@ -1424,6 +1435,7 @@ mod unix {
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
         cgroup_command_id: &str,
+        command_type: CommandType,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1445,7 +1457,11 @@ mod unix {
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
-            .execute(req, async move { liveliness_observer.while_alive().await })
+            .execute(
+                req,
+                async move { liveliness_observer.while_alive().await },
+                command_type,
+            )
             .await
     }
 
@@ -1564,6 +1580,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
+                CommandType::Action,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1600,6 +1617,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
+                CommandType::Action,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1625,6 +1643,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
+                CommandType::Action,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);

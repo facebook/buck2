@@ -28,6 +28,7 @@ use nix::unistd;
 use tokio::fs::File;
 use tokio::sync::Mutex;
 
+use crate::CommandType;
 use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
@@ -67,6 +68,7 @@ struct ActionCgroup {
     error: Option<buck2_error::Error>,
     was_frozen: bool,
     freeze_file: Option<OwnedFd>,
+    command_type: CommandType,
 }
 
 pub(crate) struct ActionCgroups {
@@ -81,10 +83,14 @@ pub struct ActionCgroupSession {
     action_cgroups: Arc<Mutex<ActionCgroups>>,
     path: Option<PathBuf>,
     start_error: Option<buck2_error::Error>,
+    command_type: CommandType,
 }
 
 impl ActionCgroupSession {
-    pub fn maybe_create(tracker: &Option<MemoryTrackerHandle>) -> Option<Self> {
+    pub fn maybe_create(
+        tracker: &Option<MemoryTrackerHandle>,
+        command_type: CommandType,
+    ) -> Option<Self> {
         tracker
             .as_ref()
             .and_then(|tracker| tracker.action_cgroups.as_ref())
@@ -92,12 +98,16 @@ impl ActionCgroupSession {
                 action_cgroups: action_cgroups.dupe(),
                 path: None,
                 start_error: None,
+                command_type,
             })
     }
 
     pub async fn command_started(&mut self, cgroup_path: PathBuf) {
         let mut cgroups = self.action_cgroups.lock().await;
-        match cgroups.command_started(cgroup_path.clone()).await {
+        match cgroups
+            .command_started(cgroup_path.clone(), self.command_type)
+            .await
+        {
             Ok(()) => self.path = Some(cgroup_path),
             Err(e) => self.start_error = Some(e),
         }
@@ -139,7 +149,11 @@ impl ActionCgroups {
         }
     }
 
-    pub async fn command_started(&mut self, cgroup_path: PathBuf) -> buck2_error::Result<()> {
+    pub async fn command_started(
+        &mut self,
+        cgroup_path: PathBuf,
+        command_type: CommandType,
+    ) -> buck2_error::Result<()> {
         let mut memory_current_file = File::open(cgroup_path.join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
@@ -157,6 +171,7 @@ impl ActionCgroups {
                 error: None,
                 was_frozen: false,
                 freeze_file: None,
+                command_type,
             },
         );
         if let Some(existing) = existing {
@@ -235,7 +250,12 @@ impl ActionCgroups {
             if self.enable_freezing {
                 match freeze_cgroup(&cgroup.path) {
                     Ok(freeze_file) => {
-                        tracing::debug!("Froze action: {:?}", cgroup.path);
+                        tracing::debug!(
+                            "Froze action: {:?} (type: {:?})",
+                            cgroup.path,
+                            cgroup.command_type
+                        );
+
                         cgroup.freeze_file = Some(freeze_file);
                         self.frozen_cgroups.push_back(cgroup.path.clone());
                     }
@@ -257,11 +277,17 @@ impl ActionCgroups {
         };
 
         if let Some(frozen_cgroup_path) = cgroup_to_unfreeze {
-            tracing::debug!("Unfreezing action: {:?}", frozen_cgroup_path);
             let frozen_cgroup = self
                 .active_cgroups
                 .get_mut(&frozen_cgroup_path)
                 .expect("frozen cgroups must be in active cgroups");
+
+            tracing::debug!(
+                "Unfreezing action: {:?} (type: {:?})",
+                frozen_cgroup_path,
+                frozen_cgroup.command_type
+            );
+
             frozen_cgroup.was_frozen = true;
             let freeze_file = frozen_cgroup
                 .freeze_file
@@ -327,8 +353,12 @@ mod tests {
         fs::write(cgroup_2.join("memory.current"), "10")?;
 
         let mut action_cgroups = ActionCgroups::new(false);
-        action_cgroups.command_started(cgroup_1.clone()).await?;
-        action_cgroups.command_started(cgroup_2.clone()).await?;
+        action_cgroups
+            .command_started(cgroup_1.clone(), CommandType::Action)
+            .await?;
+        action_cgroups
+            .command_started(cgroup_2.clone(), CommandType::Action)
+            .await?;
 
         fs::write(cgroup_1.join("memory.current"), "20")?;
         fs::write(cgroup_2.join("memory.current"), "5")?;
@@ -358,8 +388,12 @@ mod tests {
         fs::write(cgroup_2.join("cgroup.freeze"), "0")?;
 
         let mut action_cgroups = ActionCgroups::new(true);
-        action_cgroups.command_started(cgroup_1.clone()).await?;
-        action_cgroups.command_started(cgroup_2.clone()).await?;
+        action_cgroups
+            .command_started(cgroup_1.clone(), CommandType::Action)
+            .await?;
+        action_cgroups
+            .command_started(cgroup_2.clone(), CommandType::Action)
+            .await?;
 
         fs::write(cgroup_1.join("memory.current"), "1")?;
         fs::write(cgroup_2.join("memory.current"), "2")?;

@@ -28,7 +28,6 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
-use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -295,7 +294,7 @@ pub struct CommandResult {
 
 pub(crate) async fn decode_command_event_stream<S>(
     stream: S,
-    memory_tracker: &Option<MemoryTrackerHandle>,
+    mut cgroup_session: Option<ActionCgroupSession>,
 ) -> buck2_error::Result<CommandResult>
 where
     S: Stream<Item = buck2_error::Result<CommandEvent>>,
@@ -304,8 +303,6 @@ where
 
     let mut stdout = Vec::<u8>::new();
     let mut stderr = Vec::<u8>::new();
-
-    let mut cgroup_session = ActionCgroupSession::maybe_create(&memory_tracker);
 
     while let Some(event) = stream.try_next().await? {
         match event {
@@ -354,7 +351,7 @@ where
         DefaultKillProcess::default(),
         true,
     )?;
-    decode_command_event_stream(stream, &None).await
+    decode_command_event_stream(stream, None).await
 }
 
 /// Dependency injection for kill. We use this in testing.
@@ -765,7 +762,7 @@ mod tests {
             true,
         )?;
 
-        let CommandResult { status, .. } = decode_command_event_stream(stream, &None).await?;
+        let CommandResult { status, .. } = decode_command_event_stream(stream, None).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
 
         assert!(*killed.lock().unwrap());

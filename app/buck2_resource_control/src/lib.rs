@@ -27,15 +27,26 @@ pub mod memory_tracker {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum CommandType {
+    Action,
+    Test,
+    Worker,
+}
+
 #[cfg(not(unix))]
 pub mod action_cgroups {
     use std::path::PathBuf;
 
+    use crate::CommandType;
     use crate::memory_tracker::MemoryTrackerHandle;
 
     pub struct ActionCgroupSession {}
     impl ActionCgroupSession {
-        pub fn maybe_create(_tracker: &Option<MemoryTrackerHandle>) -> Option<Self> {
+        pub fn maybe_create(
+            _tracker: &Option<MemoryTrackerHandle>,
+            _command_type: CommandType,
+        ) -> Option<Self> {
             None
         }
 
