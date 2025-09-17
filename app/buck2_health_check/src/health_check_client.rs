@@ -20,6 +20,7 @@ use tokio::task::JoinHandle;
 use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckEvent;
 use crate::interface::HealthCheckService;
+use crate::interface::HealthCheckSnapshotData;
 use crate::report::DisplayReport;
 use crate::report::Report;
 
@@ -117,8 +118,8 @@ impl HealthCheckClientInner {
                 HealthCheckEvent::HealthCheckContextEvent(event) => {
                     self.update_context(event).await;
                 }
-                HealthCheckEvent::Snapshot() => {
-                    self.run_checks().await;
+                HealthCheckEvent::Snapshot(snapshot) => {
+                    self.run_checks(snapshot).await;
                 }
             }
         }
@@ -130,8 +131,8 @@ impl HealthCheckClientInner {
         }
     }
 
-    async fn run_checks(&mut self) {
-        match self.health_check_service.run_checks().await {
+    async fn run_checks(&mut self, snapshot: HealthCheckSnapshotData) {
+        match self.health_check_service.run_checks(snapshot).await {
             Ok(reports) => {
                 if let Err(e) = self.send_reports(reports) {
                     tracing::debug!("Health check reporting failed: {:#}", e);
@@ -221,6 +222,7 @@ impl HealthCheckClientInner {
 mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
+    use std::time::SystemTime;
 
     use async_trait::async_trait;
     use tokio::sync::mpsc;
@@ -243,7 +245,10 @@ mod tests {
             Ok(())
         }
 
-        async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
+        async fn run_checks(
+            &mut self,
+            _snapshot: HealthCheckSnapshotData,
+        ) -> buck2_error::Result<Vec<Report>> {
             let reports = self.reports.lock().unwrap().clone();
             Ok(reports)
         }
@@ -302,7 +307,9 @@ mod tests {
 
         // Send snapshot event
         event_sender
-            .send(HealthCheckEvent::Snapshot())
+            .send(HealthCheckEvent::Snapshot(HealthCheckSnapshotData {
+                timestamp: SystemTime::now(),
+            }))
             .await
             .unwrap();
 

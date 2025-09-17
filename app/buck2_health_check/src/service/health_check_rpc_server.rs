@@ -18,6 +18,7 @@ use buck2_grpc::to_tonic;
 use buck2_health_check_proto::Empty;
 use buck2_health_check_proto::HealthCheckContextEvent;
 use buck2_health_check_proto::HealthCheckResult;
+use buck2_health_check_proto::HealthCheckSnapshotData;
 use buck2_health_check_proto::health_check_server;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
@@ -54,10 +55,11 @@ impl health_check_server::HealthCheck for HealthCheckRpcServer {
 
     async fn run_checks(
         &self,
-        _request: tonic::Request<Empty>,
+        request: tonic::Request<HealthCheckSnapshotData>,
     ) -> Result<tonic::Response<HealthCheckResult>, tonic::Status> {
         to_tonic(async move {
-            let reports = self.executor.lock().await.run_checks().await?;
+            let snapshot = request.into_inner().try_into()?;
+            let reports = self.executor.lock().await.run_checks(snapshot).await?;
             Ok(HealthCheckResult {
                 reports: reports
                     .into_iter()

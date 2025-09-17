@@ -10,12 +10,15 @@
 
 #![allow(dead_code)] // Unused in oss
 
+use dupe::Dupe;
+
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::stable_revision::stable_revision_check::StableRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
 use crate::interface::HealthCheckContextEvent;
+use crate::interface::HealthCheckSnapshotData;
 use crate::report::Report;
 
 /// This executor is responsible for maintaining the health check context and running the checks.
@@ -78,10 +81,13 @@ impl HealthCheckExecutor {
         Ok(())
     }
 
-    pub async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
+    pub async fn run_checks(
+        &mut self,
+        snapshot: HealthCheckSnapshotData,
+    ) -> buck2_error::Result<Vec<Report>> {
         let mut reports = Vec::new();
         for check in &self.health_checks {
-            if let Some(report) = check.run_check().ok().flatten() {
+            if let Some(report) = check.run_check(snapshot.dupe()).ok().flatten() {
                 reports.push(report);
             }
         }

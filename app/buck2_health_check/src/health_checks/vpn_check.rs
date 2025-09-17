@@ -15,6 +15,7 @@ use regex::Regex;
 
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
+use crate::interface::HealthCheckSnapshotData;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
 use crate::report::Remediation;
@@ -126,7 +127,7 @@ impl VpnCheck {
 
 #[async_trait::async_trait]
 impl HealthCheck for VpnCheck {
-    fn run_check(&self) -> buck2_error::Result<Option<Report>> {
+    fn run_check(&self, _snapshot: HealthCheckSnapshotData) -> buck2_error::Result<Option<Report>> {
         Ok(self.run())
     }
 

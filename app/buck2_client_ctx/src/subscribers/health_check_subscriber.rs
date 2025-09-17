@@ -150,7 +150,14 @@ impl HealthCheckSubscriber {
                             HealthCheckContextEvent::ParsedTargetPatterns(target_patterns.clone()),
                         ))
                     }
-                    Snapshot(_) => Some(HealthCheckEvent::Snapshot()),
+                    Snapshot(_snapshot) => {
+                        // Create a new HealthCheckSnapshotData from the snapshot
+                        let snapshot_data =
+                            buck2_health_check::interface::HealthCheckSnapshotData {
+                                timestamp: event.timestamp(),
+                            };
+                        Some(HealthCheckEvent::Snapshot(snapshot_data))
+                    }
                     _ => None,
                 }
             }
@@ -226,7 +233,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 while let Some(event) = event_rx.recv().await {
                     match event {
-                        HealthCheckEvent::Snapshot() => {
+                        HealthCheckEvent::Snapshot(_) => {
                             // Send test tags
                             let _unused = tags_tx
                                 .send(vec!["test_tag1".to_owned(), "test_tag2".to_owned()])

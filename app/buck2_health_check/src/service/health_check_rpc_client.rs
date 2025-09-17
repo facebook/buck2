@@ -33,6 +33,7 @@ use tonic::transport::Channel;
 
 use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;
+use crate::interface::HealthCheckSnapshotData;
 use crate::report::Report;
 
 const CLI_NAME: &str = "buck2-health-check";
@@ -166,13 +167,17 @@ impl HealthCheckService for HealthCheckRpcClient {
         Ok(())
     }
 
-    async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
-        let empty_request = buck2_health_check_proto::Empty {};
+    async fn run_checks(
+        &mut self,
+        snapshot: HealthCheckSnapshotData,
+    ) -> buck2_error::Result<Vec<Report>> {
+        let snapshot: buck2_health_check_proto::HealthCheckSnapshotData = snapshot.try_into()?;
         let mut reports = Vec::new();
+
         let response = self
             .rpc_client()
             .await?
-            .run_checks(empty_request)
+            .run_checks(snapshot)
             .await
             .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
 

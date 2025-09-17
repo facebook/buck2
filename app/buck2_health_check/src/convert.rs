@@ -13,6 +13,7 @@
 use buck2_error::BuckErrorContext;
 
 use crate::interface::HealthCheckContextEvent;
+use crate::interface::HealthCheckSnapshotData;
 use crate::interface::HealthCheckType;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
@@ -241,5 +242,53 @@ impl TryFrom<buck2_health_check_proto::HealthCheckContextEvent> for HealthCheckC
             }
         }
     )
+    }
+}
+
+impl TryFrom<buck2_health_check_proto::HealthCheckSnapshotData> for HealthCheckSnapshotData {
+    type Error = buck2_error::Error;
+
+    fn try_from(
+        value: buck2_health_check_proto::HealthCheckSnapshotData,
+    ) -> buck2_error::Result<Self> {
+        use std::time::Duration;
+        use std::time::UNIX_EPOCH;
+
+        let proto_timestamp = value.timestamp.ok_or_else(|| {
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::HealthCheck,
+                "Missing timestamp in HealthCheckSnapshotData"
+            )
+        })?;
+
+        // Convert protobuf Timestamp to SystemTime
+        let duration = Duration::new(proto_timestamp.seconds as u64, proto_timestamp.nanos as u32);
+        let timestamp = UNIX_EPOCH + duration;
+
+        Ok(HealthCheckSnapshotData { timestamp })
+    }
+}
+
+impl TryInto<buck2_health_check_proto::HealthCheckSnapshotData> for HealthCheckSnapshotData {
+    type Error = buck2_error::Error;
+
+    fn try_into(self) -> buck2_error::Result<buck2_health_check_proto::HealthCheckSnapshotData> {
+        // Convert SystemTime to protobuf Timestamp
+        let duration_since_epoch = self
+            .timestamp
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_e| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::HealthCheck,
+                    "Invalid timestamp in HealthCheckSnapshotData"
+                )
+            })?;
+
+        let timestamp = Some(prost_types::Timestamp {
+            seconds: duration_since_epoch.as_secs() as i64,
+            nanos: duration_since_epoch.subsec_nanos() as i32,
+        });
+
+        Ok(buck2_health_check_proto::HealthCheckSnapshotData { timestamp })
     }
 }

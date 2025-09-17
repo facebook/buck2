@@ -14,7 +14,10 @@ buck2_error = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_health_check_proto = { workspace = true }
 buck2_util = { workspace = true }
+dupe = { workspace = true }
 itertools = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
 regex = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }

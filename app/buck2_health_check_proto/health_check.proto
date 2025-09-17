@@ -11,6 +11,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "data.proto";
 
 package buck.health_check;
@@ -74,6 +75,13 @@ message Report {
   optional string tag = 2;
 }
 
+// A subset of the Snapshot data specifically for health check use.
+// This struct contains timing metrics extracted from buck2_data::Snapshot.
+message HealthCheckSnapshotData {
+  // Timestamp when the snapshot was created
+  google.protobuf.Timestamp timestamp = 1;
+}
+
 message HealthCheckResult {
   repeated Report reports = 1;
 }
@@ -81,7 +89,7 @@ message HealthCheckResult {
 service HealthCheck {
   rpc UpdateContext(HealthCheckContextEvent) returns (Empty);
   // Run health checks and return the result.
-  // Existing health checks do not need any additional data. If necessary, pass
-  // the buck.data.Snapshot or a custom message to this method.
-  rpc RunChecks(Empty) returns (HealthCheckResult);
+  // Pass the HealthCheckSnapshotData containing timing metrics from the
+  // snapshot.
+  rpc RunChecks(HealthCheckSnapshotData) returns (HealthCheckResult);
 }

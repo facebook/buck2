@@ -14,6 +14,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 
 use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;
+use crate::interface::HealthCheckSnapshotData;
 use crate::report::Report;
 use crate::service::health_check_executor::HealthCheckExecutor;
 
@@ -35,7 +36,10 @@ impl HealthCheckService for HealthCheckInProcessService {
         self.executor.update_context(event).await
     }
 
-    async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
-        self.executor.run_checks().await
+    async fn run_checks(
+        &mut self,
+        snapshot: HealthCheckSnapshotData,
+    ) -> buck2_error::Result<Vec<Report>> {
+        self.executor.run_checks(snapshot).await
     }
 }
