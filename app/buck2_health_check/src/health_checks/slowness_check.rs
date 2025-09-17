@@ -13,6 +13,8 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
+use crate::health_checks::slowness::buildmate_slowness_detection_fetcher::BuildmateSlownessDetectionFetcher;
+use crate::health_checks::slowness::buildmate_slowness_detection_fetcher::SlownessConfigurationFetcher;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
 use crate::interface::HealthCheckSnapshotData;
@@ -22,27 +24,33 @@ use crate::report::Report;
 use crate::report::Severity;
 
 pub const TAG: &str = "buildmate_slowness_diagnosis";
-// Harcode it for tesitng, will use graphql to fetch the threshold based on the target patterns and other attributes.
-pub const HARDCODED_SLOW_BUILD_THRESHOLD: Duration = Duration::from_secs(1440); // 24 hours
 
-/// Check for slow build performance and provide remediation links.
 pub(crate) struct SlownessCheck {
-    can_run: Option<bool>,
-    slowness_threshold: Option<Duration>,
-    command_start_timestamp: Option<SystemTime>,
+    state: SlownessCheckState,
+}
+
+enum SlownessCheckState {
+    Uninitialized,
+    Initializing {
+        command_start_timestamp: SystemTime,
+    },
+    Enabled {
+        slowness_threshold: Duration,
+        command_start_timestamp: SystemTime,
+        buildmate_url: String,
+    },
+    Disabled,
 }
 
 impl SlownessCheck {
     pub(crate) fn new() -> Self {
         Self {
-            can_run: None,
-            slowness_threshold: None,
-            command_start_timestamp: None,
+            state: SlownessCheckState::Uninitialized,
         }
     }
 
     pub(crate) fn run(&mut self, snapshot: HealthCheckSnapshotData) -> Option<Report> {
-        if !self.can_run() {
+        if !matches!(self.state, SlownessCheckState::Enabled { .. }) {
             return None;
         }
 
@@ -56,41 +64,82 @@ impl SlownessCheck {
         })
     }
 
-    pub(crate) fn can_run(&self) -> bool {
-        self.can_run.unwrap_or(false)
+    pub(crate) async fn update_state(&mut self, context: &HealthCheckContext) {
+        if !matches!(self.state, SlownessCheckState::Uninitialized) {
+            return;
+        }
+
+        let command_start_timestamp = match context.command_start_time {
+            Some(timestamp) => timestamp,
+            None => return,
+        };
+
+        let build_uuid = self.extract_build_uuid(context);
+        let target_patterns = self.extract_target_patterns(context);
+        let is_incremental_build = self.determine_if_incremental_build(context);
+
+        let (Some(uuid), Some(patterns)) = (build_uuid, target_patterns) else {
+            return; // Data not received yet, will retry on next context update
+        };
+        self.state = SlownessCheckState::Initializing {
+            command_start_timestamp,
+        };
+
+        let fetcher = BuildmateSlownessDetectionFetcher::new();
+        match fetcher
+            .get_slowness_configuration(uuid, patterns, is_incremental_build)
+            .await
+        {
+            Ok(Some(config)) if config.enable_slowness_detection => {
+                self.state = SlownessCheckState::Enabled {
+                    slowness_threshold: Duration::from_secs(
+                        config.slowness_threshold_minutes as u64 * 60,
+                    ),
+                    command_start_timestamp,
+                    buildmate_url: config.buildmate_link,
+                };
+            }
+            _ => {
+                self.state = SlownessCheckState::Disabled;
+            }
+        }
     }
 
-    pub(crate) fn try_update_can_run(&mut self, context: &HealthCheckContext) {
-        if self.can_run.is_some() {
-            return;
-        }
+    fn extract_build_uuid(&self, context: &HealthCheckContext) -> Option<String> {
+        context.trace_id.as_ref().map(|id| id.to_owned())
+    }
 
-        if let Some(command_start_timestamp) = context.command_start_time {
-            self.command_start_timestamp = Some(command_start_timestamp);
-        } else {
-            return;
-        }
+    fn extract_target_patterns(&self, context: &HealthCheckContext) -> Option<Vec<String>> {
+        context.parsed_target_patterns.as_ref().map(|patterns| {
+            patterns
+                .target_patterns
+                .iter()
+                .map(|p| p.value.clone())
+                .collect()
+        })
+    }
 
-        self.can_run = Some(true);
-        self.slowness_threshold = Some(HARDCODED_SLOW_BUILD_THRESHOLD);
+    fn determine_if_incremental_build(&self, _context: &HealthCheckContext) -> bool {
+        // TODO(junliqin) Determine if this is an incremental build based on context. Currently hardcoded to false. Will update in future diffs.
+        false
     }
 
     fn is_build_slow(&mut self, snapshot: HealthCheckSnapshotData) -> bool {
-        if self.slowness_threshold.is_none() {
-            return false;
-        }
-
-        //Todo use graphql to fetch the threshold based on the target patterns.
-        let slowness_threshold = self
-            .slowness_threshold
-            .unwrap_or(HARDCODED_SLOW_BUILD_THRESHOLD);
-        let current_timestamp = snapshot.timestamp;
-        if let Some(command_start_timestamp) = self.command_start_timestamp {
-            if let Ok(time_spent) = current_timestamp.duration_since(command_start_timestamp) {
-                return time_spent > slowness_threshold;
+        match &self.state {
+            SlownessCheckState::Enabled {
+                slowness_threshold,
+                command_start_timestamp,
+                ..
+            } => {
+                let current_timestamp = snapshot.timestamp;
+                if let Ok(time_spent) = current_timestamp.duration_since(*command_start_timestamp) {
+                    time_spent > *slowness_threshold
+                } else {
+                    false
+                }
             }
+            _ => false,
         }
-        false
     }
 
     fn generate_display_report(&self) -> Option<DisplayReport> {
@@ -116,7 +165,7 @@ impl HealthCheck for SlownessCheck {
     }
 
     async fn handle_context_update(&mut self, context: &HealthCheckContext) {
-        self.try_update_can_run(context)
+        self.update_state(context).await
     }
 }
 
@@ -124,61 +173,10 @@ impl HealthCheck for SlownessCheck {
 mod tests {
     use super::*;
 
-    const MATCHING_TARGET: &str = "//foo/bar:baz";
-    const MATCHING_REGEX: &str = "bar";
-
-    fn health_check_context(target: Option<String>) -> HealthCheckContext {
-        HealthCheckContext {
-            parsed_target_patterns: target.map(|t| buck2_data::ParsedTargetPatterns {
-                target_patterns: vec![buck2_data::TargetPattern {
-                    value: t.to_owned(),
-                }],
-            }),
-            command_start_time: Some(SystemTime::now()),
-            ..Default::default()
-        }
-    }
-
-    fn can_run_check(target: Option<String>) -> bool {
-        let mut slowness_check = SlownessCheck::new();
-        let health_check_context = health_check_context(target);
-        slowness_check.try_update_can_run(&health_check_context);
-        slowness_check.can_run()
-    }
-
     #[test]
-    fn test_can_run_with_matching_target() {
-        assert!(can_run_check(Some(MATCHING_TARGET.to_owned()),));
-    }
-
-    #[test]
-    fn test_can_run_with_no_target_patterns() {
-        // Should now default to enabled since regex checking is commented out
-        assert!(can_run_check(None));
-    }
-
-    #[test]
-    fn test_can_run_with_no_optin_target_regex() {
-        // Should default to enabled when no regex is specified
-        assert!(can_run_check(Some(MATCHING_TARGET.to_owned())));
-    }
-
-    #[test]
-    fn test_can_run_with_no_matching_target() {
-        // Should now default to enabled since regex checking is commented out
-        assert!(can_run_check(Some(MATCHING_TARGET.to_owned())));
-    }
-
-    #[test]
-    fn test_regex_matching_multiple_targets() {
-        assert!(can_run_check(Some(MATCHING_TARGET.to_owned())));
-        assert!(can_run_check(Some("//foo/buck:baz".to_owned()),));
-    }
-
-    #[test]
-    fn test_slow_build_detection() {
+    fn test_slow_build_detection_disabled() {
         let mut check = SlownessCheck::new();
-        // Since is_build_slow() always returns false now, this should be false
+        // New check should be uninitialized and not slow
         let snapshot = HealthCheckSnapshotData {
             timestamp: SystemTime::now(),
         };
@@ -187,15 +185,58 @@ mod tests {
     }
 
     #[test]
-    fn test_no_report_when_not_slow() {
+    fn test_slow_build_detection_enabled() {
         let mut check = SlownessCheck::new();
-        check.can_run = Some(true);
+        // Set up an enabled state with a short threshold
+        let command_start = SystemTime::now() - Duration::from_secs(120); // 2 minutes ago
+        check.state = SlownessCheckState::Enabled {
+            slowness_threshold: Duration::from_secs(60), // 1 minute threshold
+            command_start_timestamp: command_start,
+            buildmate_url: "https://example.com".to_owned(),
+        };
+
+        let snapshot = HealthCheckSnapshotData {
+            timestamp: SystemTime::now(),
+        };
+
+        // Should detect as slow since 2 minutes > 1 minute threshold
+        assert!(check.is_build_slow(snapshot));
+    }
+
+    #[test]
+    fn test_no_report_when_disabled() {
+        let mut check = SlownessCheck::new();
+        check.state = SlownessCheckState::Disabled;
 
         let snapshot = HealthCheckSnapshotData {
             timestamp: SystemTime::now(),
         };
         let report = check.run(snapshot);
-        // Should return None since is_build_slow() returns false
+        // Should return None since check is disabled
         assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_can_run_states() {
+        let check = SlownessCheck::new();
+        assert!(!matches!(check.state, SlownessCheckState::Enabled { .. })); // Uninitialized
+
+        let mut check = SlownessCheck::new();
+        check.state = SlownessCheckState::Disabled;
+        assert!(!matches!(check.state, SlownessCheckState::Enabled { .. })); // Disabled
+
+        let mut check = SlownessCheck::new();
+        check.state = SlownessCheckState::Initializing {
+            command_start_timestamp: SystemTime::now(),
+        };
+        assert!(!matches!(check.state, SlownessCheckState::Enabled { .. })); // Initializing
+
+        let mut check = SlownessCheck::new();
+        check.state = SlownessCheckState::Enabled {
+            slowness_threshold: Duration::from_secs(60),
+            command_start_timestamp: SystemTime::now(),
+            buildmate_url: "https://example.com".to_owned(),
+        };
+        assert!(matches!(check.state, SlownessCheckState::Enabled { .. })); // Enabled
     }
 }

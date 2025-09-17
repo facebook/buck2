@@ -8,10 +8,8 @@
  * above-listed licenses.
  */
 
-#![allow(dead_code)] // Placeholder struct will be used to make GraphQL queries in subsequent diffs
-
-use crate::health_checks::facebook::stable_revision::graphql::buildmate_slowness_detection_client::BuildmateSlownessConfiguration;
-use crate::health_checks::facebook::stable_revision::graphql::buildmate_slowness_detection_client::get_buildmate_slowness_configuration;
+use crate::health_checks::slowness::buildmate_slowness_detection_client::BuildmateSlownessConfiguration;
+use crate::health_checks::slowness::buildmate_slowness_detection_client::get_buildmate_slowness_configuration;
 
 pub struct BuildmateSlownessDetectionFetcher {
     fb: fbinit::FacebookInit,

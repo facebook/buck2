@@ -65,9 +65,9 @@ fn parse_response(
     response.data.and_then(|data| {
         data.xfb_buildmate_slowness_detection_configuration
             .map(|config| BuildmateSlownessConfiguration {
-                enable_slowness_detection: config.enable_slowness_detection,
-                slowness_threshold_minutes: config.slowness_threshold_minutes,
-                buildmate_link: config.buildmate_link,
+                enable_slowness_detection: config.enable_slowness_detection.unwrap_or(false),
+                slowness_threshold_minutes: config.slowness_threshold_minutes.unwrap_or_default(),
+                buildmate_link: config.buildmate_link.unwrap_or_default(),
             })
     })
 }
