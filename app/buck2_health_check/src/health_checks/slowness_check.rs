@@ -69,10 +69,21 @@ impl SlownessCheck {
             return;
         }
 
-        let command_start_timestamp = match context.command_start_time {
-            Some(timestamp) => timestamp,
-            None => return,
+        // Check if context.command_data is None, if so return early
+        let (Some(command_data), Some(command_start_timestamp)) =
+            (context.command_data.as_ref(), context.command_start_time)
+        else {
+            return;
         };
+
+        if !matches!(
+            command_data,
+            buck2_data::command_start::Data::Build(..)
+                | buck2_data::command_start::Data::Install(..)
+        ) {
+            self.state = SlownessCheckState::Disabled;
+            return;
+        }
 
         let build_uuid = self.extract_build_uuid(context);
         let target_patterns = self.extract_target_patterns(context);
