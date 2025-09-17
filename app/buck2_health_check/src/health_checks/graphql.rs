@@ -8,10 +8,4 @@
  * above-listed licenses.
  */
 
-#[cfg(fbcode_build)]
-pub(crate) mod graphql;
-#[cfg(fbcode_build)]
-pub(crate) mod slowness_check;
-#[cfg(fbcode_build)]
-pub(crate) mod stable_revision;
-pub(crate) mod vpn_check;
+pub(crate) mod common_graphql_client;

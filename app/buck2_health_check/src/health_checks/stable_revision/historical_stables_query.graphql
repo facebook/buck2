@@ -1,0 +1,9 @@
+query HistoricalStablesQuery($stable_name: String!, $lookback_hours: Int!) {
+  xfb_all_stable_commits_lookback(
+    stable_name: $stable_name
+    lookback_hours: $lookback_hours
+  ) {
+    commit_timestamp
+    revision
+  }
+}

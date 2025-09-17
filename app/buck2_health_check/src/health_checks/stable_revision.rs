@@ -8,4 +8,8 @@
  * above-listed licenses.
  */
 
-pub(crate) mod stable_revision;
+mod bookmark_revision_fetcher;
+mod historical_stables_client;
+pub(crate) mod stable_revision_check;
+mod stable_revision_fetcher;
+mod target_bookmark_map;

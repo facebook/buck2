@@ -13,9 +13,9 @@
 use dupe::Dupe;
 
 #[cfg(fbcode_build)]
-use crate::health_checks::facebook::stable_revision::stable_revision_check::StableRevisionCheck;
-#[cfg(fbcode_build)]
 use crate::health_checks::slowness_check::SlownessCheck;
+#[cfg(fbcode_build)]
+use crate::health_checks::stable_revision::stable_revision_check::StableRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
