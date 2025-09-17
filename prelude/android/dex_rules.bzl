@@ -322,7 +322,7 @@ def merge_to_single_dex(
     output_dex_file = ctx.actions.declare_output("classes.dex")
     pre_dexed_artifacts_to_dex_file = ctx.actions.declare_output("pre_dexed_artifacts_to_dex_file.txt")
     pre_dexed_artifacts = [pre_dexed_lib.dex for pre_dexed_lib in pre_dexed_libs if pre_dexed_lib.dex != None]
-    _merge_dexes(ctx, android_toolchain, output_dex_file, pre_dexed_artifacts, pre_dexed_artifacts_to_dex_file)
+    _merge_dexes(ctx.actions, android_toolchain, output_dex_file, pre_dexed_artifacts, pre_dexed_artifacts_to_dex_file)
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
@@ -543,7 +543,7 @@ def merge_to_split_dex(
                 )
 
                 _merge_dexes(
-                    ctx,
+                    ctx.actions,
                     android_toolchain,
                     outputs[primary_dex_output],
                     pre_dexed_artifacts,
@@ -568,7 +568,7 @@ def merge_to_split_dex(
                     bootstrap_dex_artifacts = [bootstrap_dex_input.lib.dex for bootstrap_dex_input in bootstrap_dex_input_list]
 
                     _merge_dexes(
-                        ctx,
+                        ctx.actions,
                         android_toolchain,
                         bootstrap_dex_output,
                         bootstrap_dex_artifacts,
@@ -612,7 +612,7 @@ def merge_to_split_dex(
                 )
                 pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
                 _merge_dexes(
-                    ctx,
+                    ctx.actions,
                     android_toolchain,
                     secondary_dex_output,
                     pre_dexed_artifacts,
@@ -703,7 +703,7 @@ def merge_to_split_dex(
     )
 
 def _merge_dexes(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         android_toolchain: AndroidToolchainInfo,
         output_dex_file: Artifact,
         pre_dexed_artifacts: list[Artifact],
@@ -714,7 +714,7 @@ def _merge_dexes(
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
-    pre_dexed_artifacts_to_dex_file = argfile(actions = ctx.actions, name = pre_dexed_artifacts_file, args = pre_dexed_artifacts)
+    pre_dexed_artifacts_to_dex_file = argfile(actions = actions, name = pre_dexed_artifacts_file, args = pre_dexed_artifacts)
     d8_cmd.add(["--files-to-dex-list", pre_dexed_artifacts_to_dex_file])
 
     d8_cmd.add(["--android-jar", android_toolchain.android_jar])
@@ -733,10 +733,10 @@ def _merge_dexes(
         d8_cmd.add(["--secondary-dex-metadata-line", secondary_dex_metadata_config.secondary_dex_metadata_line.as_output()])
         d8_cmd.add(["--secondary-dex-canary-class-name", secondary_dex_metadata_config.secondary_dex_canary_class_name])
 
-    ctx.actions.run(
+    actions.run(
         d8_cmd,
         category = "merge_dexes",
-        identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path),
+        identifier = output_dex_file.short_path,
         allow_cache_upload = True,
         error_handler = android_toolchain.android_error_handler,
     )
