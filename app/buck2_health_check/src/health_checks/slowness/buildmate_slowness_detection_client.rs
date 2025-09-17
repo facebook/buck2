@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![allow(dead_code)] // Remove this in further diffs
-
 use fbinit::FacebookInit;
 use graphql_client::GraphQLQuery;
 use graphql_client::Response;
