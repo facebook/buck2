@@ -1006,6 +1006,16 @@ message CommandStart {
   }
 }
 
+// A struct that combines a trace ID with CommandStart data.
+message CommandStartWithTraceId {
+  // The trace ID for the command
+  string trace_id = 1;
+  // The CommandStart data
+  CommandStart command_start = 2;
+  // Timestamp when the command was started
+  google.protobuf.Timestamp timestamp = 3;
+}
+
 // An event that marks that the command has start execution and synced it's
 // state. The period of time between CommandStart and CommandCriticalStart is
 // the time spent synchronizing changes and waiting for concurrent commands to

@@ -57,8 +57,20 @@ impl HealthCheckExecutor {
         event: HealthCheckContextEvent,
     ) -> buck2_error::Result<()> {
         match event {
-            HealthCheckContextEvent::CommandStart(command_start) => {
-                self.health_check_context.command_data = command_start.data;
+            HealthCheckContextEvent::CommandStart(command_start_with_trace_id) => {
+                if let Some(command_start) = command_start_with_trace_id.command_start {
+                    self.health_check_context.command_data = command_start.data;
+                } else {
+                    self.health_check_context.command_data = None;
+                }
+                self.health_check_context.trace_id = Some(command_start_with_trace_id.trace_id);
+                self.health_check_context.command_start_time =
+                    command_start_with_trace_id.timestamp.map(|ts| {
+                        use std::time::Duration;
+                        use std::time::UNIX_EPOCH;
+                        let duration = Duration::new(ts.seconds as u64, ts.nanos as u32);
+                        UNIX_EPOCH + duration
+                    });
             }
             HealthCheckContextEvent::ParsedTargetPatterns(parsed_target_patterns) => {
                 self.health_check_context.parsed_target_patterns = Some(parsed_target_patterns);

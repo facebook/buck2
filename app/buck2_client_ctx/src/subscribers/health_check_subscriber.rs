@@ -89,12 +89,19 @@ impl HealthCheckSubscriber {
         if self.event_sender.is_none() || self.health_check_client.is_none() {
             return Ok(());
         }
+        let trace_id = event.trace_id();
 
         let health_check_event = match event.data() {
             SpanStart(start) => match &start.data {
                 Some(buck2_data::span_start_event::Data::Command(command)) => {
                     Some(HealthCheckEvent::HealthCheckContextEvent(
-                        HealthCheckContextEvent::CommandStart(command.clone()),
+                        HealthCheckContextEvent::CommandStart(
+                            buck2_data::CommandStartWithTraceId {
+                                trace_id: trace_id.map(|id| id.to_string()).unwrap_or_default(),
+                                command_start: Some(command.clone()),
+                                timestamp: Some(event.timestamp().into()),
+                            },
+                        ),
                     ))
                 }
                 _ => None,

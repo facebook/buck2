@@ -61,6 +61,10 @@ pub(crate) struct HealthCheckContext {
     /// Example use: Run a check only on a subset of commands.
     pub command_data: Option<buck2_data::command_start::Data>,
 
+    pub trace_id: Option<String>,
+
+    pub command_start_time: Option<SystemTime>,
+
     /// Target patterns.
     /// Example use: Project/target specific checks, target specific configs e.g. warm revision.
     pub parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
@@ -95,7 +99,7 @@ pub enum HealthCheckEvent {
 /// An event to trigger update of context in the health check server.
 /// This may result in side effects like precomputing data, etc. in health checks.
 pub enum HealthCheckContextEvent {
-    CommandStart(buck2_data::CommandStart),
+    CommandStart(buck2_data::CommandStartWithTraceId),
     ParsedTargetPatterns(buck2_data::ParsedTargetPatterns),
     BranchedFromRevision(String),
     /// Sent only once and communicates if buck2 is experiencing excess cache misses.
