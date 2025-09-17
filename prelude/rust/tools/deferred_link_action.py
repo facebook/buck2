@@ -48,6 +48,7 @@ async def main() -> int:
         prefix="real-linker-args-",
         suffix=".txt",
         delete=False,
+        dir=os.environ.get("BUCK_SCRATCH_PATH"),
     ) as args_file:
         args_file.write("\n".join(args.linker[1:]).encode() + b"\n")
         args_file.flush()
