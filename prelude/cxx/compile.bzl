@@ -603,15 +603,16 @@ def _get_base_compile_cmd(
     if output_args:
         cmd.add(output_args)
 
+    if use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+        cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
+
+    cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
+
     for flavor in flavors:
         flags = flavor_flags.get(flavor.value)
         if flags:
             cmd.add(flags)
 
-    if use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
-        cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
-
-    cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
 
     cmd.add(bitcode_args)
