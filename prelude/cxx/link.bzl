@@ -65,6 +65,7 @@ load(
     "linker_map_args",
     "make_link_args",
 )
+load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
 load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
 load(
@@ -269,8 +270,35 @@ def cxx_link_into(
         allow_args = True,
     )
 
+    # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
+    # using split debug with content-based paths.
+    if (
+        cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and
+        (
+            cxx_toolchain_info.split_debug_mode != SplitDebugMode("split") or
+            getattr(ctx.attrs, "separate_debug_info", False)
+        ) and
+        cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+    ):
+        external_debug_artifacts = project_artifacts(ctx.actions, [external_debug_info])
+        separate_debug_info_path_file, _ = ctx.actions.write(
+            output.short_path + ".split_debug_paths",
+            external_debug_artifacts,
+            allow_args = True,
+        )
+        separate_debug_info_args = cmd_args(
+            "--rewrite-content-based-dwo-paths",
+            separate_debug_info_path_file,
+            "--content-based-dwo-suffix",
+            ".dwo" if cxx_toolchain_info.split_debug_mode == SplitDebugMode("split") else ".o",
+            hidden = [external_debug_artifacts],
+        )
+    else:
+        separate_debug_info_args = []
+
     command = cmd_args(
         link_cmd_parts.linker,
+        separate_debug_info_args,
         cmd_args(argfile, format = "@{}"),
         hidden = [
             link_args_output.hidden,
