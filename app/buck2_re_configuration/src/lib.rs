@@ -49,6 +49,7 @@ pub enum CASdMode {
     LocalWithSync,
     LocalWithoutSync,
     Remote,
+    RemoteToDest,
 }
 
 impl FromStr for CASdMode {
@@ -59,6 +60,7 @@ impl FromStr for CASdMode {
             "local_with_sync" => Ok(CASdMode::LocalWithSync),
             "local_without_sync" => Ok(CASdMode::LocalWithoutSync),
             "remote" => Ok(CASdMode::Remote),
+            "remote_to_dest" => Ok(CASdMode::RemoteToDest),
             _ => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
                 "Invalid CASd mode: {}",

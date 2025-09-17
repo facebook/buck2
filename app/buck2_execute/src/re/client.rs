@@ -159,6 +159,7 @@ fn map_casd_mode_into_remote_fetch_policy(casd_mode: &CASdMode) -> RemoteFetchPo
         CASdMode::LocalWithoutSync => RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
         CASdMode::Remote => RemoteFetchPolicy::REMOTE_FETCH,
         CASdMode::LocalWithSync => RemoteFetchPolicy::LOCAL_FETCH_WITH_SYNC,
+        CASdMode::RemoteToDest => RemoteFetchPolicy::REMOTE_FETCH_DIRECT_TO_DEST,
     }
 }
 
