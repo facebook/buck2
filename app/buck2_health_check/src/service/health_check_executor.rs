@@ -14,6 +14,8 @@ use dupe::Dupe;
 
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::stable_revision::stable_revision_check::StableRevisionCheck;
+#[cfg(fbcode_build)]
+use crate::health_checks::slowness_check::SlownessCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
@@ -46,9 +48,9 @@ impl HealthCheckExecutor {
             if let Ok(stable_revision_check) = StableRevisionCheck::new() {
                 health_checks.push(Box::new(stable_revision_check));
             }
+            health_checks.push(Box::new(SlownessCheck::new()));
         }
         health_checks.push(Box::new(VpnCheck::new()));
-
         health_checks
     }
 
@@ -98,7 +100,7 @@ impl HealthCheckExecutor {
         snapshot: HealthCheckSnapshotData,
     ) -> buck2_error::Result<Vec<Report>> {
         let mut reports = Vec::new();
-        for check in &self.health_checks {
+        for check in self.health_checks.iter_mut() {
             if let Some(report) = check.run_check(snapshot.dupe()).ok().flatten() {
                 reports.push(report);
             }

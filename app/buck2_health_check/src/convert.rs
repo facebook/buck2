@@ -88,6 +88,7 @@ impl TryFrom<i32> for HealthCheckType {
             buck2_health_check_proto::HealthCheckType::SlowDownloadSpeed => {
                 HealthCheckType::SlowDownloadSpeed
             }
+            buck2_health_check_proto::HealthCheckType::SlowBuild => HealthCheckType::SlowBuild,
             buck2_health_check_proto::HealthCheckType::VpnEnabled => HealthCheckType::VpnEnabled,
             buck2_health_check_proto::HealthCheckType::StableRevision => {
                 HealthCheckType::StableRevision
@@ -114,6 +115,7 @@ impl TryInto<i32> for HealthCheckType {
             HealthCheckType::StableRevision => {
                 buck2_health_check_proto::HealthCheckType::StableRevision
             }
+            HealthCheckType::SlowBuild => buck2_health_check_proto::HealthCheckType::SlowBuild,
         } as i32)
     }
 }

@@ -143,6 +143,10 @@ fn init_remaining_system_warning_count() {
         .lock()
         .unwrap()
         .insert(HealthCheckType::StableRevision, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::SlowBuild, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.

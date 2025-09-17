@@ -127,7 +127,10 @@ impl VpnCheck {
 
 #[async_trait::async_trait]
 impl HealthCheck for VpnCheck {
-    fn run_check(&self, _snapshot: HealthCheckSnapshotData) -> buck2_error::Result<Option<Report>> {
+    fn run_check(
+        &mut self,
+        _snapshot: HealthCheckSnapshotData,
+    ) -> buck2_error::Result<Option<Report>> {
         Ok(self.run())
     }
 

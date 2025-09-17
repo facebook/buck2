@@ -10,4 +10,6 @@
 
 #[cfg(fbcode_build)]
 pub(crate) mod facebook;
+#[cfg(fbcode_build)]
+pub(crate) mod slowness_check;
 pub(crate) mod vpn_check;

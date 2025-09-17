@@ -38,6 +38,7 @@ enum HealthCheckType {
   SLOW_DOWNLOAD_SPEED = 2;
   VPN_ENABLED = 3;
   STABLE_REVISION = 4;
+  SLOW_BUILD = 5;
 }
 
 // Severity of an issue reported by a health check.

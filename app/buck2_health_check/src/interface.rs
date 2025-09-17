@@ -21,6 +21,7 @@ pub enum HealthCheckType {
     SlowDownloadSpeed,
     VpnEnabled,
     StableRevision,
+    SlowBuild,
 }
 
 /// Trait to generalize a buck2 health check.
@@ -32,7 +33,10 @@ pub(crate) trait HealthCheck: Send + Sync {
     /// `None`: Health check cannot run. e.g. not applicable for this command/target
     /// `tag: None and health_issue: None`: Health check ran but nothing to report (all healthy)
     /// `tag: Some/None and health_issue: Some/None`: The issue could either be reported to user on console, logged to scuba or both.
-    fn run_check(&self, snapshot: HealthCheckSnapshotData) -> buck2_error::Result<Option<Report>>;
+    fn run_check(
+        &mut self,
+        snapshot: HealthCheckSnapshotData,
+    ) -> buck2_error::Result<Option<Report>>;
 
     /// Trigger when the health check context updates.
     /// The `run_check` method is executed repeatedly at every snapshot and should be optimized.
