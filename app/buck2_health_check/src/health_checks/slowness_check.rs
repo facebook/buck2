@@ -59,7 +59,7 @@ impl SlownessCheck {
             return None;
         }
         Some(Report {
-            display_report: self.generate_display_report(),
+            display_report: self.generate_display_report(&(self.state)),
             tag: is_slow_build.then(|| TAG.to_owned()),
         })
     }
@@ -142,16 +142,23 @@ impl SlownessCheck {
         }
     }
 
-    fn generate_display_report(&self) -> Option<DisplayReport> {
-        let health_issue = HealthIssue {
-            severity: Severity::Warning,
-            message: "The build is detected to be a slow build. Consider running buildmate to diagnose the root cause after the build finishes.".to_owned(),
-            remediation: None,
-        };
-        Some(DisplayReport {
-            health_check_type: crate::interface::HealthCheckType::SlowBuild,
-            health_issue: Some(health_issue),
-        })
+    fn generate_display_report(&self, state: &SlownessCheckState) -> Option<DisplayReport> {
+        if let SlownessCheckState::Enabled { buildmate_url, .. } = state {
+            let health_issue = HealthIssue {
+                severity: Severity::Warning,
+                message: format!(
+                    "The build is detected to be a slow build. Consider clicking this link {} to diagnose with buildmate after it finishes.",
+                    buildmate_url
+                ),
+                remediation: None,
+            };
+            Some(DisplayReport {
+                health_check_type: crate::interface::HealthCheckType::SlowBuild,
+                health_issue: Some(health_issue),
+            })
+        } else {
+            None
+        }
     }
 }
 
