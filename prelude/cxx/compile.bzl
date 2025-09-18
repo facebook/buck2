@@ -295,7 +295,8 @@ def _compile_single_cxx(
         flavors: set[CxxCompileFlavor],
         flavor_flags: dict[str, list[str]],
         provide_syntax_only: bool,
-        use_header_units: bool) -> CxxCompileOutput:
+        use_header_units: bool,
+        separate_debug_info: bool) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
@@ -404,7 +405,7 @@ def _compile_single_cxx(
 
     external_debug_info = None
     extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
-    use_external_debug_info = getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
+    use_external_debug_info = separate_debug_info and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
     if use_external_debug_info:
         external_debug_info = actions.declare_output(
             folder_name,
@@ -662,6 +663,7 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
+    separate_debug_info = getattr(ctx.attrs, "separate_debug_info", False)
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
             ctx = ctx,
@@ -673,6 +675,7 @@ def compile_cxx(
             flavor_flags = build_flavor_flags(toolchain.compiler_flavor_flags, src_compile_cmd.cxx_compile_cmd.compiler_type),
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
+            separate_debug_info = separate_debug_info,
         )
         objects.append(cxx_compile_output)
 
