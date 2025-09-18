@@ -68,6 +68,96 @@ def cuda_compile(
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 
+def _nvcc_dynamic_compile(
+        actions: AnalysisActions,
+        toolchain: CxxToolchainInfo,
+        cuda_compile_info: CudaCompileInfo,
+        src_compile_cmd: CxxSrcCompileCommand,
+        original_cmd: cmd_args,
+        hostcc_argsfile: Artifact,
+        artifacts: dict,
+        outputs: dict[Artifact, Artifact],
+        subcmds: Artifact,
+        env: Artifact,
+        object: Artifact) -> None:
+    file2artifact = {}
+    plan = artifacts[subcmds].read_json()
+
+    # Create artifacts for all intermetidate input and output files.
+    for cmd_node in plan:
+        node_inputs = cmd_node["inputs"]
+        node_outputs = cmd_node["outputs"]
+        for input in node_inputs:
+            if input not in file2artifact:
+                if input.endswith(".cu"):
+                    file2artifact[input] = src_compile_cmd.src
+                else:
+                    input_artifact = actions.declare_output(input)
+                    file2artifact[input] = input_artifact
+        for output in node_outputs:
+            if output not in file2artifact:
+                if output.endswith(".o"):
+                    file2artifact[output] = outputs[object]
+                else:
+                    output_artifact = actions.declare_output(output)
+                    file2artifact[output] = output_artifact
+
+    # Create the nvcc envvars for the sub-commands.
+    subcmd_env = {}
+    for line in artifacts[env].read_string().splitlines():
+        key, value = line.split("=", 1)
+        subcmd_env[key] = value
+
+    for cmd_node in plan:
+        subcmd = cmd_args()
+        exe = cmd_node["cmd"].pop(0)
+        if "g++" in exe or "clang++" in exe:
+            # Add the original command as a hidden dependency, so that
+            # we have access to the host compiler and header files.
+            subcmd.add(cmd_args(hidden = original_cmd))
+        elif "ptxas" in exe:
+            # Ptxas occasionally produces an empty output. The root cause
+            # is unknown as we're unable to reproduce it locally. Check the
+            # output is not empty
+            subcmd.add(toolchain.internal_tools.check_nonempty_output)
+        subcmd.add(exe)
+        for token in cmd_node["cmd"]:
+            # Replace the {input} and {output} placeholders with the actual
+            # artifacts. node["inputs"] and node["outputs"] are used as a
+            # queue here where the files will always be correctly replaced
+            # in a FIFO order.
+            if "{input}" in token:
+                input = cmd_node["inputs"].pop(0)
+                left, right = token.split("{input}", 1)
+                subcmd.add(cmd_args([left, file2artifact[input], right], delimiter = ""))
+            elif "{output}" in token:
+                output = cmd_node["outputs"].pop(0)
+                left, right = token.split("{output}", 1)
+                subcmd.add(
+                    cmd_args([left, file2artifact[output].as_output(), right], delimiter = ""),
+                )
+            elif token.startswith("-Wp,@"):
+                subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
+            else:
+                subcmd.add(token)
+
+        # Some nodes have hidden dependencies (deps that don't appear in
+        # the cmd). Add them to the hidden field of cmd_args.
+        if cmd_node["hidden"]:
+            subcmd.add(cmd_args(hidden = [file2artifact[f] for f in cmd_node["hidden"]]))
+
+        # Add the cuda toolchain deps so that we can find the Nvidia tools
+        # and CUDA header files.
+        subcmd.add(cmd_args(hidden = [toolchain.cuda_compiler_info.compiler]))
+        actions.run(
+            subcmd,
+            category = cmd_node["category"],
+            env = subcmd_env,
+            identifier = cuda_compile_info.identifier,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+            prefer_remote = True if "preproc" in cmd_node["category"] else False,
+        )
+
 def dist_nvcc(
         actions: AnalysisActions,
         toolchain: CxxToolchainInfo,
@@ -109,84 +199,19 @@ def dist_nvcc(
     actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
 
     def nvcc_dynamic_compile(ctx: AnalysisContext, artifacts: dict, outputs: dict[Artifact, Artifact]):
-        actions = ctx.actions
-        file2artifact = {}
-        plan = artifacts[subcmds].read_json()
-
-        # Create artifacts for all intermetidate input and output files.
-        for cmd_node in plan:
-            node_inputs = cmd_node["inputs"]
-            node_outputs = cmd_node["outputs"]
-            for input in node_inputs:
-                if input not in file2artifact:
-                    if input.endswith(".cu"):
-                        file2artifact[input] = src_compile_cmd.src
-                    else:
-                        input_artifact = actions.declare_output(input)
-                        file2artifact[input] = input_artifact
-            for output in node_outputs:
-                if output not in file2artifact:
-                    if output.endswith(".o"):
-                        file2artifact[output] = outputs[object]
-                    else:
-                        output_artifact = actions.declare_output(output)
-                        file2artifact[output] = output_artifact
-
-        # Create the nvcc envvars for the sub-commands.
-        subcmd_env = {}
-        for line in artifacts[env].read_string().splitlines():
-            key, value = line.split("=", 1)
-            subcmd_env[key] = value
-
-        for cmd_node in plan:
-            subcmd = cmd_args()
-            exe = cmd_node["cmd"].pop(0)
-            if "g++" in exe or "clang++" in exe:
-                # Add the original command as a hidden dependency, so that
-                # we have access to the host compiler and header files.
-                subcmd.add(cmd_args(hidden = original_cmd))
-            elif "ptxas" in exe:
-                # Ptxas occasionally produces an empty output. The root cause
-                # is unknown as we're unable to reproduce it locally. Check the
-                # output is not empty
-                subcmd.add(toolchain.internal_tools.check_nonempty_output)
-            subcmd.add(exe)
-            for token in cmd_node["cmd"]:
-                # Replace the {input} and {output} placeholders with the actual
-                # artifacts. node["inputs"] and node["outputs"] are used as a
-                # queue here where the files will always be correctly replaced
-                # in a FIFO order.
-                if "{input}" in token:
-                    input = cmd_node["inputs"].pop(0)
-                    left, right = token.split("{input}", 1)
-                    subcmd.add(cmd_args([left, file2artifact[input], right], delimiter = ""))
-                elif "{output}" in token:
-                    output = cmd_node["outputs"].pop(0)
-                    left, right = token.split("{output}", 1)
-                    subcmd.add(
-                        cmd_args([left, file2artifact[output].as_output(), right], delimiter = ""),
-                    )
-                elif token.startswith("-Wp,@"):
-                    subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
-                else:
-                    subcmd.add(token)
-
-            # Some nodes have hidden dependencies (deps that don't appear in
-            # the cmd). Add them to the hidden field of cmd_args.
-            if cmd_node["hidden"]:
-                subcmd.add(cmd_args(hidden = [file2artifact[f] for f in cmd_node["hidden"]]))
-
-            # Add the cuda toolchain deps so that we can find the Nvidia tools
-            # and CUDA header files.
-            subcmd.add(cmd_args(hidden = [toolchain.cuda_compiler_info.compiler]))
-            actions.run(
-                subcmd,
-                category = cmd_node["category"],
-                env = subcmd_env,
-                identifier = cuda_compile_info.identifier,
-                allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-                prefer_remote = True if "preproc" in cmd_node["category"] else False,
-            )
+        _nvcc_dynamic_compile(
+            actions = ctx.actions,
+            toolchain = toolchain,
+            cuda_compile_info = cuda_compile_info,
+            src_compile_cmd = src_compile_cmd,
+            original_cmd = original_cmd,
+            hostcc_argsfile = hostcc_argsfile,
+            artifacts = artifacts,
+            outputs = outputs,
+            subcmds = subcmds,
+            env = env,
+            object = object,
+        )
 
     actions.dynamic_output(
         dynamic = [env, subcmds],
