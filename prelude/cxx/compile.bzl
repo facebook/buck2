@@ -21,7 +21,12 @@ load(
     "HeaderExtension",
     "HeadersDepFiles",
 )
-load("@prelude//cxx:cuda.bzl", "CudaCompileInfo", "cuda_compile")
+load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileInfo",
+    "CudaCompileStyle",  # @unused Used as a type
+    "cuda_compile",
+)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
@@ -32,6 +37,7 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
+    "map_val",
 )
 load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":attr_selection.bzl", "cxx_by_language_ext")
@@ -296,7 +302,8 @@ def _compile_single_cxx(
         flavor_flags: dict[str, list[str]],
         provide_syntax_only: bool,
         use_header_units: bool,
-        separate_debug_info: bool) -> CxxCompileOutput:
+        separate_debug_info: bool,
+        cuda_compile_style: CudaCompileStyle | None) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
@@ -440,6 +447,7 @@ def _compile_single_cxx(
             action_dep_files,
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
+            cuda_compile_style = cuda_compile_style,
         )
         if cuda_compile_output:
             dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
@@ -664,6 +672,8 @@ def compile_cxx(
 
     objects = []
     separate_debug_info = getattr(ctx.attrs, "separate_debug_info", False)
+    cuda_compile_style = map_val(CudaCompileStyle, getattr(ctx.attrs, "cuda_compile_style", None))
+
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
             ctx = ctx,
@@ -676,6 +686,7 @@ def compile_cxx(
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
             separate_debug_info = separate_debug_info,
+            cuda_compile_style = cuda_compile_style,
         )
         objects.append(cxx_compile_output)
 

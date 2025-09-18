@@ -37,21 +37,23 @@ def cuda_compile(
         cuda_compile_info: CudaCompileInfo,
         action_dep_files: dict[str, ArtifactTag],
         allow_dep_file_cache_upload: bool,
-        error_handler: [typing.Callable, None]) -> list[Artifact] | None:
-    if ctx.attrs.cuda_compile_style == CudaCompileStyle("mono").value:
+        error_handler: [typing.Callable, None],
+        cuda_compile_style: CudaCompileStyle | None) -> list[Artifact] | None:
+    actions = ctx.actions
+    if cuda_compile_style == CudaCompileStyle("mono"):
         # Bind the object output for monolithic NVCC compilation.
         cmd.add(get_output_flags(src_compile_cmd.cxx_compile_cmd.compiler_type, object))
         headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
         if headers_dep_files:
             cmd = add_headers_dep_files(
-                ctx.actions,
+                actions,
                 cmd,
                 headers_dep_files,
                 src_compile_cmd.src,
                 cuda_compile_info.filename,
                 action_dep_files,
             )
-        ctx.actions.run(
+        actions.run(
             cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = cuda_compile_info.identifier,
@@ -61,10 +63,10 @@ def cuda_compile(
             error_handler = error_handler,
         )
         return None
-    elif ctx.attrs.cuda_compile_style == CudaCompileStyle("dist").value:
+    elif cuda_compile_style == CudaCompileStyle("dist"):
         return dist_nvcc(ctx, cmd, object, src_compile_cmd, cuda_compile_info)
     else:
-        fail("Unsupported CUDA compile style: {}".format(ctx.attrs.cuda_compile_style))
+        fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 
 def dist_nvcc(
         ctx: AnalysisContext,
