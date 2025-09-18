@@ -77,8 +77,7 @@ def _nvcc_dynamic_compile(
         hostcc_argsfile: Artifact,
         plan_artifact: ArtifactValue,
         env_artifact: ArtifactValue,
-        outputs: dict[Artifact, Artifact],
-        object: Artifact) -> None:
+        output_declared_artifact: Artifact) -> None:
     file2artifact = {}
     plan = plan_artifact.read_json()
 
@@ -96,7 +95,7 @@ def _nvcc_dynamic_compile(
         for output in node_outputs:
             if output not in file2artifact:
                 if output.endswith(".o"):
-                    file2artifact[output] = outputs[object]
+                    file2artifact[output] = output_declared_artifact
                 else:
                     output_artifact = actions.declare_output(output)
                     file2artifact[output] = output_artifact
@@ -200,6 +199,7 @@ def dist_nvcc(
     def nvcc_dynamic_compile(ctx: AnalysisContext, artifacts: dict, outputs: dict[Artifact, Artifact]):
         plan_artifact = artifacts[subcmds]
         env_artifact = artifacts[env]
+        output_declared_artifact = outputs[object]
         _nvcc_dynamic_compile(
             actions = ctx.actions,
             toolchain = toolchain,
@@ -209,8 +209,7 @@ def dist_nvcc(
             hostcc_argsfile = hostcc_argsfile,
             plan_artifact = plan_artifact,
             env_artifact = env_artifact,
-            outputs = outputs,
-            object = object,
+            output_declared_artifact = output_declared_artifact,
         )
 
     actions.dynamic_output(
