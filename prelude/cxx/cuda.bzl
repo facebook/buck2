@@ -75,13 +75,12 @@ def _nvcc_dynamic_compile(
         src_compile_cmd: CxxSrcCompileCommand,
         original_cmd: cmd_args,
         hostcc_argsfile: Artifact,
-        artifacts: dict,
+        plan_artifact: ArtifactValue,
+        env_artifact: ArtifactValue,
         outputs: dict[Artifact, Artifact],
-        subcmds: Artifact,
-        env: Artifact,
         object: Artifact) -> None:
     file2artifact = {}
-    plan = artifacts[subcmds].read_json()
+    plan = plan_artifact.read_json()
 
     # Create artifacts for all intermetidate input and output files.
     for cmd_node in plan:
@@ -104,7 +103,7 @@ def _nvcc_dynamic_compile(
 
     # Create the nvcc envvars for the sub-commands.
     subcmd_env = {}
-    for line in artifacts[env].read_string().splitlines():
+    for line in env_artifact.read_string().splitlines():
         key, value = line.split("=", 1)
         subcmd_env[key] = value
 
@@ -199,6 +198,8 @@ def dist_nvcc(
     actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
 
     def nvcc_dynamic_compile(ctx: AnalysisContext, artifacts: dict, outputs: dict[Artifact, Artifact]):
+        plan_artifact = artifacts[subcmds]
+        env_artifact = artifacts[env]
         _nvcc_dynamic_compile(
             actions = ctx.actions,
             toolchain = toolchain,
@@ -206,10 +207,9 @@ def dist_nvcc(
             src_compile_cmd = src_compile_cmd,
             original_cmd = original_cmd,
             hostcc_argsfile = hostcc_argsfile,
-            artifacts = artifacts,
+            plan_artifact = plan_artifact,
+            env_artifact = env_artifact,
             outputs = outputs,
-            subcmds = subcmds,
-            env = env,
             object = object,
         )
 
