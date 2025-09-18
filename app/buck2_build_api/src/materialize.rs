@@ -36,6 +36,7 @@ use futures::FutureExt;
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::actions::execute::dice_data::GetReClient;
+use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -191,6 +192,9 @@ async fn ensure_uploaded(
             &dir,
             None,
             digest_config,
+            ctx.per_transaction_data()
+                .get_run_action_knobs()
+                .deduplicate_get_digests_ttl_calls,
         )
         .await?;
 

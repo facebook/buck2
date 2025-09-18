@@ -388,6 +388,7 @@ impl<'a> ServerCommandContext<'a> {
             eager_dep_files,
             default_allow_cache_upload: false,
             action_paths_interner: None,
+            deduplicate_get_digests_ttl_calls: false,
         };
 
         let concurrency = self
@@ -732,6 +733,13 @@ impl DiceCommandUpdater<'_, '_> {
             run_action_knobs.action_paths_interner = Some(DashMapDirectoryInterner::new());
         }
 
+        run_action_knobs.deduplicate_get_digests_ttl_calls |= root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "deduplicate_get_digests_ttl_calls",
+            })?
+            .unwrap_or(false);
+
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())?),
@@ -780,6 +788,7 @@ impl DiceCommandUpdater<'_, '_> {
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
+            run_action_knobs.deduplicate_get_digests_ttl_calls,
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());

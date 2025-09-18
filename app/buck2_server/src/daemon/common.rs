@@ -93,6 +93,7 @@ pub struct CommandExecutorFactory {
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
     incremental_db_state: Arc<IncrementalDbState>,
+    deduplicate_get_digests_ttl_calls: bool,
 }
 
 impl CommandExecutorFactory {
@@ -116,6 +117,7 @@ impl CommandExecutorFactory {
         re_use_case_override: Option<RemoteExecutorUseCase>,
         memory_tracker: Option<MemoryTrackerHandle>,
         incremental_db_state: Arc<IncrementalDbState>,
+        deduplicate_get_digests_ttl_calls: bool,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
@@ -141,6 +143,7 @@ impl CommandExecutorFactory {
             re_use_case_override,
             local_actions_throttle,
             incremental_db_state,
+            deduplicate_get_digests_ttl_calls,
         }
     }
 
@@ -226,6 +229,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     materialize_failed_inputs: self.materialize_failed_inputs,
                     materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
+                    deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                 }
             };
 
@@ -281,6 +285,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
+                                deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                             }) as _
                         } else {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
@@ -298,6 +303,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
+                                deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                             }) as _
                         };
 
@@ -396,6 +402,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_options.re_properties.clone(),
                         None,
                         self.cache_upload_permission_checker.dupe(),
+                        self.deduplicate_get_digests_ttl_calls,
                     )) as _
                 } else if disable_caching {
                     Arc::new(NoOpCacheUploader {}) as _
@@ -409,6 +416,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_options.re_properties.clone(),
                         max_bytes,
                         self.cache_upload_permission_checker.dupe(),
+                        self.deduplicate_get_digests_ttl_calls,
                     )) as _
                 } else {
                     Arc::new(NoOpCacheUploader {}) as _

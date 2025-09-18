@@ -73,6 +73,7 @@ pub struct CacheUploader {
     platform: RePlatformFields,
     max_bytes: Option<u64>,
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
+    deduplicate_get_digests_ttl_calls: bool,
 }
 
 impl CacheUploader {
@@ -83,6 +84,7 @@ impl CacheUploader {
         platform: RePlatformFields,
         max_bytes: Option<u64>,
         cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
+        deduplicate_get_digests_ttl_calls: bool,
     ) -> CacheUploader {
         CacheUploader {
             artifact_fs,
@@ -91,6 +93,7 @@ impl CacheUploader {
             platform,
             max_bytes,
             cache_upload_permission_checker,
+            deduplicate_get_digests_ttl_calls,
         }
     }
 
@@ -387,6 +390,7 @@ impl CacheUploader {
                                 &d.dupe().as_immutable(),
                                 identity,
                                 digest_config,
+                                self.deduplicate_get_digests_ttl_calls,
                             )
                             .await
                             .map(|_| ())

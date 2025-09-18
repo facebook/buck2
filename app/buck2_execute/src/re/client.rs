@@ -238,6 +238,7 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
+        deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<UploadStats> {
         // Actually upload to CAS
         let _cas = self.data.client.cas_semaphore.acquire().await;
@@ -254,6 +255,7 @@ impl RemoteExecutionClient {
                 use_case,
                 identity,
                 digest_config,
+                deduplicate_get_digests_ttl_calls,
             ))
             .await
     }

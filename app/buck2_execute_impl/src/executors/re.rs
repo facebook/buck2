@@ -85,6 +85,7 @@ pub struct ReExecutor {
     pub materialize_failed_inputs: bool,
     pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
+    pub deduplicate_get_digests_ttl_calls: bool,
 }
 
 impl ReExecutor {
@@ -108,6 +109,7 @@ impl ReExecutor {
                     paths.input_directory(),
                     Some(identity),
                     digest_config,
+                    self.deduplicate_get_digests_ttl_calls,
                 )
                 .await;
             match res {

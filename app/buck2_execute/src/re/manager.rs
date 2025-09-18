@@ -381,6 +381,7 @@ impl ManagedRemoteExecutionClient {
         input_dir: &ActionImmutableDirectory,
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
+        deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<UploadStats> {
         self.lock()?
             .get()
@@ -394,6 +395,7 @@ impl ManagedRemoteExecutionClient {
                 self.use_case,
                 identity,
                 digest_config,
+                deduplicate_get_digests_ttl_calls,
             )
             .await
     }

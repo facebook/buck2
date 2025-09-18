@@ -48,6 +48,7 @@ pub struct ActionCacheChecker {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
+    pub deduplicate_get_digests_ttl_calls: bool,
 }
 
 enum CacheType {
@@ -79,6 +80,7 @@ async fn query_action_cache_and_download_result(
     upload_all_actions: bool,
     log_action_keys: bool,
     details: RemoteCommandExecutionDetails,
+    deduplicate_get_digests_ttl_calls: bool,
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
     let action_blobs = &command.prepared_action.action_and_blobs.blobs;
@@ -109,6 +111,7 @@ async fn query_action_cache_and_download_result(
                 request.paths().input_directory(),
                 identity,
                 digest_config,
+                deduplicate_get_digests_ttl_calls,
             )
             .await
         {
@@ -248,6 +251,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.upload_all_actions,
             self.knobs.log_action_keys,
             details,
+            self.deduplicate_get_digests_ttl_calls,
         )
         .await
     }
@@ -261,6 +265,7 @@ pub struct RemoteDepFileCacheChecker {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
+    pub deduplicate_get_digests_ttl_calls: bool,
 }
 
 #[async_trait]
@@ -307,6 +312,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.upload_all_actions,
             self.knobs.log_action_keys,
             details,
+            self.deduplicate_get_digests_ttl_calls,
         )
         .await
     }
