@@ -239,6 +239,9 @@ impl RemoteExecutionClient {
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<UploadStats> {
+        // Actually upload to CAS
+        let _cas = self.data.client.cas_semaphore.acquire().await;
+
         self.data
             .uploads
             .op(self.data.client.upload(
@@ -945,9 +948,6 @@ impl RemoteExecutionClientImpl {
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<UploadStats> {
-        // Actually upload to CAS
-        let _cas = self.cas_semaphore.acquire().await;
-
         Uploader::upload(
             fs,
             self.client().get_cas_client(),
