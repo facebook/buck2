@@ -417,7 +417,7 @@ async def test_exit_when_not_idle_after_command_exits(
     task_a = asyncio.create_task(process(a))
 
     # Wait a short time to ensure the first command has finished
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(2)
 
     b = buck.build(
         "-c",
