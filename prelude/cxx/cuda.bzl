@@ -77,7 +77,7 @@ def _nvcc_dynamic_compile(
         hostcc_argsfile: Artifact,
         plan_artifact: ArtifactValue,
         env_artifact: ArtifactValue,
-        output_declared_artifact: Artifact) -> None:
+        output_declared_artifact: OutputArtifact) -> None:
     file2artifact = {}
     plan = plan_artifact.read_json()
 
@@ -131,8 +131,13 @@ def _nvcc_dynamic_compile(
             elif "{output}" in token:
                 output = cmd_node["outputs"].pop(0)
                 left, right = token.split("{output}", 1)
+                artifact = file2artifact[output]
+                if isinstance(artifact, Artifact):
+                    bindable = artifact.as_output()
+                else:
+                    bindable = artifact
                 subcmd.add(
-                    cmd_args([left, file2artifact[output].as_output(), right], delimiter = ""),
+                    cmd_args([left, bindable, right], delimiter = ""),
                 )
             elif token.startswith("-Wp,@"):
                 subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
@@ -209,7 +214,7 @@ def dist_nvcc(
             hostcc_argsfile = hostcc_argsfile,
             plan_artifact = plan_artifact,
             env_artifact = env_artifact,
-            output_declared_artifact = output_declared_artifact,
+            output_declared_artifact = output_declared_artifact.as_output(),
         )
 
     actions.dynamic_output(
