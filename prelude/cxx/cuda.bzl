@@ -8,7 +8,7 @@
 
 load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
 load("@prelude//cxx:compiler.bzl", "get_output_flags")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:headers.bzl", "add_headers_dep_files")
 
 CudaCompileInfo = record(
@@ -30,7 +30,8 @@ CudaCompileStyle = enum(
 )
 
 def cuda_compile(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        toolchain: CxxToolchainInfo,
         cmd: cmd_args,
         object: Artifact,
         src_compile_cmd: CxxSrcCompileCommand,
@@ -39,7 +40,6 @@ def cuda_compile(
         allow_dep_file_cache_upload: bool,
         error_handler: [typing.Callable, None],
         cuda_compile_style: CudaCompileStyle | None) -> list[Artifact] | None:
-    actions = ctx.actions
     if cuda_compile_style == CudaCompileStyle("mono"):
         # Bind the object output for monolithic NVCC compilation.
         cmd.add(get_output_flags(src_compile_cmd.cxx_compile_cmd.compiler_type, object))
@@ -64,17 +64,18 @@ def cuda_compile(
         )
         return None
     elif cuda_compile_style == CudaCompileStyle("dist"):
-        return dist_nvcc(ctx, cmd, object, src_compile_cmd, cuda_compile_info)
+        return dist_nvcc(actions, toolchain, cmd, object, src_compile_cmd, cuda_compile_info)
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 
 def dist_nvcc(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        toolchain: CxxToolchainInfo,
         cmd: cmd_args,
         object: Artifact,
         src_compile_cmd: CxxSrcCompileCommand,
         cuda_compile_info: CudaCompileInfo) -> list[Artifact] | None:
-    hostcc_argsfile = ctx.actions.declare_output(
+    hostcc_argsfile = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.hostcc_argsfile".format(cuda_compile_info.filename),
     )
@@ -82,11 +83,11 @@ def dist_nvcc(
     # Create the following files for each CUDA file:
     # - Envvars to run the NVCC sub-commands with.
     # - A dependency graph of the NVCC sub-commands.
-    env = ctx.actions.declare_output(
+    env = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.env".format(cuda_compile_info.filename),
     )
-    subcmds = ctx.actions.declare_output(
+    subcmds = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.json".format(cuda_compile_info.filename),
     )
@@ -105,9 +106,10 @@ def dist_nvcc(
     ])
 
     # Run nvcc with -dryrun to create the inputs needed for dist nvcc.
-    ctx.actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
+    actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
 
     def nvcc_dynamic_compile(ctx: AnalysisContext, artifacts: dict, outputs: dict[Artifact, Artifact]):
+        actions = ctx.actions
         file2artifact = {}
         plan = artifacts[subcmds].read_json()
 
@@ -120,14 +122,14 @@ def dist_nvcc(
                     if input.endswith(".cu"):
                         file2artifact[input] = src_compile_cmd.src
                     else:
-                        input_artifact = ctx.actions.declare_output(input)
+                        input_artifact = actions.declare_output(input)
                         file2artifact[input] = input_artifact
             for output in node_outputs:
                 if output not in file2artifact:
                     if output.endswith(".o"):
                         file2artifact[output] = outputs[object]
                     else:
-                        output_artifact = ctx.actions.declare_output(output)
+                        output_artifact = actions.declare_output(output)
                         file2artifact[output] = output_artifact
 
         # Create the nvcc envvars for the sub-commands.
@@ -136,7 +138,6 @@ def dist_nvcc(
             key, value = line.split("=", 1)
             subcmd_env[key] = value
 
-        toolchain = get_cxx_toolchain_info(ctx)
         for cmd_node in plan:
             subcmd = cmd_args()
             exe = cmd_node["cmd"].pop(0)
@@ -178,7 +179,7 @@ def dist_nvcc(
             # Add the cuda toolchain deps so that we can find the Nvidia tools
             # and CUDA header files.
             subcmd.add(cmd_args(hidden = [toolchain.cuda_compiler_info.compiler]))
-            ctx.actions.run(
+            actions.run(
                 subcmd,
                 category = cmd_node["category"],
                 env = subcmd_env,
@@ -187,7 +188,7 @@ def dist_nvcc(
                 prefer_remote = True if "preproc" in cmd_node["category"] else False,
             )
 
-    ctx.actions.dynamic_output(
+    actions.dynamic_output(
         dynamic = [env, subcmds],
         inputs = [],
         outputs = [object.as_output()],

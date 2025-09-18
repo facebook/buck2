@@ -439,7 +439,8 @@ def _compile_single_cxx(
     dist_nvcc_env = None
     if src_compile_cmd.src.extension == ".cu":
         cuda_compile_output = cuda_compile(
-            ctx,
+            actions,
+            toolchain,
             cmd,
             object,
             src_compile_cmd,
