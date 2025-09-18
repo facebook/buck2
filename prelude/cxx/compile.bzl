@@ -301,6 +301,7 @@ def _compile_single_cxx(
     `src_compile_command` and other compilation options.
     """
 
+    actions = ctx.actions
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -319,7 +320,7 @@ def _compile_single_cxx(
     content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
 
     folder_name = "__objects__"
-    object = ctx.actions.declare_output(
+    object = actions.declare_output(
         folder_name,
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
         uses_experimental_content_based_path_hashing = content_based,
@@ -362,7 +363,7 @@ def _compile_single_cxx(
     clang_remarks = None
     if toolchain.clang_remarks and compiler_type == "clang":
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
-        clang_remarks = ctx.actions.declare_output(
+        clang_remarks = actions.declare_output(
             paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
             uses_experimental_content_based_path_hashing = content_based,
         )
@@ -370,7 +371,7 @@ def _compile_single_cxx(
 
     clang_llvm_statistics = None
     if toolchain.clang_llvm_statistics and compiler_type == "clang":
-        clang_llvm_statistics = ctx.actions.declare_output(
+        clang_llvm_statistics = actions.declare_output(
             paths.join("__objects__", "{}.stats".format(filename_base)),
             uses_experimental_content_based_path_hashing = content_based,
         )
@@ -386,7 +387,7 @@ def _compile_single_cxx(
     clang_trace = None
     if toolchain.clang_trace and compiler_type == "clang":
         cmd.add(["-ftime-trace"])
-        clang_trace = ctx.actions.declare_output(
+        clang_trace = actions.declare_output(
             paths.join("__objects__", "{}.json".format(filename_base)),
             uses_experimental_content_based_path_hashing = content_based,
         )
@@ -395,7 +396,7 @@ def _compile_single_cxx(
     gcno_file = None
     if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
         cmd.add(["--coverage"])
-        gcno_file = ctx.actions.declare_output(
+        gcno_file = actions.declare_output(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
             uses_experimental_content_based_path_hashing = content_based,
         )
@@ -405,7 +406,7 @@ def _compile_single_cxx(
     extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
     use_external_debug_info = getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
     if use_external_debug_info:
-        external_debug_info = ctx.actions.declare_output(
+        external_debug_info = actions.declare_output(
             folder_name,
             "{}.{}".format(filename_base, "dwo"),
             uses_experimental_content_based_path_hashing = content_based,
@@ -417,7 +418,7 @@ def _compile_single_cxx(
     if serialized_diags_to_json and src_compile_cmd.error_handler and compiler_type == "clang" and src_compile_cmd.src.extension != ".cu":
         # We need to wrap the entire compile to provide serialized diagnostics
         # output and on error convert it to JSON.
-        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(filename_base)).as_output()
+        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base)).as_output()
         outputs_for_error_handler.append(json_error_output)
         cmd = cmd_args(
             toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,
@@ -442,7 +443,7 @@ def _compile_single_cxx(
         if cuda_compile_output:
             dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
-        ctx.actions.run(
+        actions.run(
             cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier,
@@ -490,7 +491,7 @@ def _compile_single_cxx(
         assembly_extension = "s"
         if compiler_type == "clang" and object_format == CxxObjectFormat("bitcode"):
             assembly_extension = "ll"
-        assembly = ctx.actions.declare_output(
+        assembly = actions.declare_output(
             "__assembly__",
             "{}.{}".format(filename_base, assembly_extension),
         )
@@ -501,7 +502,7 @@ def _compile_single_cxx(
             flavor_flags = toolchain.compiler_flavor_flags,
             output_args = ["-S"] + get_output_flags(compiler_type, assembly),
         )
-        ctx.actions.run(
+        actions.run(
             assembly_cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier + " (assembly)",
@@ -513,7 +514,7 @@ def _compile_single_cxx(
         assembly = None
 
     if compiler_type == "clang" and provide_syntax_only:
-        diagnostics = ctx.actions.declare_output(
+        diagnostics = actions.declare_output(
             "__diagnostics__",
             "{}.diag.txt".format(short_path),
         )
@@ -534,7 +535,7 @@ def _compile_single_cxx(
                 filename_base = "{}.check".format(filename_base),
                 action_dep_files = diagnostics_dep_files,
             )
-        ctx.actions.run(
+        actions.run(
             [
                 toolchain.internal_tools.stderr_to_file,
                 cmd_args(diagnostics.as_output(), format = "--out={}"),
@@ -551,7 +552,7 @@ def _compile_single_cxx(
         diagnostics = None
 
     # Generate pre-processed sources
-    preproc = ctx.actions.declare_output(
+    preproc = actions.declare_output(
         "__preprocessed__",
         "{}.{}".format(filename_base, "i"),
     )
@@ -562,7 +563,7 @@ def _compile_single_cxx(
         flavor_flags = toolchain.compiler_flavor_flags,
         output_args = [COMMON_PREPROCESSOR_OUTPUT_ARGS, get_output_flags(compiler_type, preproc)],
     )
-    ctx.actions.run(
+    actions.run(
         preproc_cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
         identifier = identifier + " (preprocessor)",
