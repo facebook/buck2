@@ -353,7 +353,7 @@ def _compile_single_cxx(
 
     if headers_dep_files:
         cmd = add_headers_dep_files(
-            ctx,
+            actions,
             cmd,
             headers_dep_files,
             src_compile_cmd.src,
@@ -529,7 +529,7 @@ def _compile_single_cxx(
         diagnostics_dep_files = {}
         if headers_dep_files:
             syntax_only_cmd = add_headers_dep_files(
-                ctx = ctx,
+                actions = actions,
                 cmd = syntax_only_cmd,
                 headers_dep_files = headers_dep_files,
                 src = src_compile_cmd.src,

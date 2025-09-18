@@ -425,18 +425,18 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     return output
 
 def add_headers_dep_files(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         cmd: cmd_args,
         headers_dep_files: HeadersDepFiles,
         src: Artifact,
         filename_base: str,
         action_dep_files: dict[str, ArtifactTag]) -> cmd_args:
-    dep_file = ctx.actions.declare_output(
+    dep_file = actions.declare_output(
         paths.join("__dep_files__", filename_base),
         uses_experimental_content_based_path_hashing = True,
     ).as_output()
     processor_flags, compiler_flags = headers_dep_files.mk_flags(
-        ctx.actions,
+        actions,
         filename_base,
         src,
     )

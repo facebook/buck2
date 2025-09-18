@@ -44,7 +44,7 @@ def cuda_compile(
         headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
         if headers_dep_files:
             cmd = add_headers_dep_files(
-                ctx,
+                ctx.actions,
                 cmd,
                 headers_dep_files,
                 src_compile_cmd.src,
