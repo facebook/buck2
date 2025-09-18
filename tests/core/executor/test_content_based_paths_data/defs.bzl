@@ -483,3 +483,29 @@ argsfile_with_incorrectly_declared_output = rule(
     attrs = {
     },
 )
+
+def _incremental_action_impl(ctx) -> list[Provider]:
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('hello')",
+        ],
+        uses_experimental_content_based_path_hashing = True,
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["fbpython", script, out.as_output()])
+
+    ctx.actions.run(
+        args,
+        category = "test_incremental_run",
+        no_outputs_cleanup = True,
+        metadata_env_var = "METADATA",
+        metadata_path = "metadata.json",
+    )
+
+    return [DefaultInfo(out)]
+
+incremental_action = rule(impl = _incremental_action_impl, attrs = {})

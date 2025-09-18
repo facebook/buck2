@@ -446,3 +446,31 @@ async def test_argsfile_with_incorrectly_declared_output(buck: Buck) -> None:
         buck.build(target),
         stderr_regex="error: Artifact must be bound by now",
     )
+
+
+@buck_test()
+async def test_run_action_with_incremental_metadata(buck: Buck) -> None:
+    target = "root//:incremental_action"
+
+    await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+        "--remote-only",
+    )
+    what_ran1 = await read_what_ran(buck)
+    await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_cat",
+        "--show-output",
+        "--remote-only",
+    )
+    what_ran2 = await read_what_ran(buck)
+
+    # TODO(ianc) Make these match
+    assert (
+        what_ran1[0]["reproducer"]["details"]["digest"]
+        != what_ran2[0]["reproducer"]["details"]["digest"]
+    )

@@ -9,6 +9,7 @@ load(
     "dynamic_with_content_based_path",
     "failing_validation_with_content_based_path",
     "ignores_content_based_artifact",
+    "incremental_action",
     "run_with_content_based_path",
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
@@ -156,6 +157,10 @@ sets_inconsistent_params(
 
 argsfile_with_incorrectly_declared_output(
     name = "argsfile_with_incorrectly_declared_output",
+)
+
+incremental_action(
+    name = "incremental_action",
 )
 
 platform(
