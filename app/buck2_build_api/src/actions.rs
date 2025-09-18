@@ -283,7 +283,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn digest_config(&self) -> DigestConfig;
 
     /// Obtain per-command knobs for RunAction.
-    fn run_action_knobs(&self) -> RunActionKnobs;
+    fn run_action_knobs(&self) -> &RunActionKnobs;
 
     fn cancellation_context(&self) -> &CancellationContext;
 

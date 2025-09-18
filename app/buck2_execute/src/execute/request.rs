@@ -25,6 +25,7 @@ use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_error::buck2_error;
@@ -223,6 +224,7 @@ impl CommandExecutionPaths {
         outputs: IndexSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
+        interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
     ) -> buck2_error::Result<Self> {
         let mut builder = inputs_directory(&inputs, fs)?;
 
@@ -256,6 +258,11 @@ impl CommandExecutionPaths {
 
         let input_directory = builder.fingerprint(digest_config.as_directory_serializer());
 
+        let input_directory = match interner {
+            Some(i) => input_directory.shared(i).as_immutable(),
+            None => input_directory,
+        };
+
         let input_files_bytes = Self::calculate_inputs_size_bytes(&input_directory);
 
         Ok(Self {
@@ -287,6 +294,7 @@ impl CommandExecutionPaths {
         output_paths: impl IntoIterator<Item = CommandExecutionInput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
+        interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
     ) -> buck2_error::Result<Self> {
         let Self {
             mut inputs,
@@ -296,7 +304,7 @@ impl CommandExecutionPaths {
             input_files_bytes: _,
         } = self;
         inputs.extend(output_paths);
-        Self::new(inputs, outputs, fs, digest_config)
+        Self::new(inputs, outputs, fs, digest_config, interner)
     }
 
     pub fn input_directory(&self) -> &ActionImmutableDirectory {
@@ -431,10 +439,11 @@ impl CommandExecutionRequest {
         output_paths: impl IntoIterator<Item = CommandExecutionInput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
+        interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
     ) -> buck2_error::Result<Self> {
-        let override_paths = self
-            .paths
-            .add_outputs_as_inputs(output_paths, fs, digest_config)?;
+        let override_paths =
+            self.paths
+                .add_outputs_as_inputs(output_paths, fs, digest_config, interner)?;
         Ok(Self {
             paths: override_paths,
             ..self

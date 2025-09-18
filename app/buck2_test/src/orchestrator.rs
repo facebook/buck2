@@ -29,6 +29,7 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::DiceHasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::GetReClient;
+use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
@@ -1486,7 +1487,16 @@ impl BuckTestOrchestrator<'_> {
         let mut request = CommandExecutionRequest::new(
             vec![],
             cmd,
-            CommandExecutionPaths::new(inputs, outputs, fs, digest_config)?,
+            CommandExecutionPaths::new(
+                inputs,
+                outputs,
+                fs,
+                digest_config,
+                dice.per_transaction_data()
+                    .get_run_action_knobs()
+                    .action_paths_interner
+                    .as_ref(),
+            )?,
             env,
         );
         request = request
@@ -1630,7 +1640,16 @@ impl BuckTestOrchestrator<'_> {
             .into_iter()
             .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))
             .collect();
-        let paths = CommandExecutionPaths::new(inputs, indexset![], fs, digest_config)?;
+        let paths = CommandExecutionPaths::new(
+            inputs,
+            indexset![],
+            fs,
+            digest_config,
+            dice.per_transaction_data()
+                .get_run_action_knobs()
+                .action_paths_interner
+                .as_ref(),
+        )?;
         let mut execution_request =
             CommandExecutionRequest::new(vec![], cmd, paths, Default::default());
         execution_request =

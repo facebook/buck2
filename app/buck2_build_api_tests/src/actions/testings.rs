@@ -153,6 +153,7 @@ impl Action for SimpleAction {
                     .collect(),
                 ctx.fs(),
                 ctx.digest_config(),
+                None,
             )?,
             sorted_vector_map![],
         );

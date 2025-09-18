@@ -73,6 +73,7 @@ use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
+use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -386,6 +387,7 @@ impl<'a> ServerCommandContext<'a> {
                 .use_network_action_output_cache,
             eager_dep_files,
             default_allow_cache_upload: false,
+            action_paths_interner: None,
         };
 
         let concurrency = self
@@ -719,6 +721,16 @@ impl DiceCommandUpdater<'_, '_> {
                 property: "default_allow_cache_upload",
             })?
             .unwrap_or(false);
+
+        if root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "share_action_paths",
+            })?
+            .unwrap_or(false)
+        {
+            run_action_knobs.action_paths_interner = Some(DashMapDirectoryInterner::new());
+        }
 
         let mut data = UserComputationData {
             data,

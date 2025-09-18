@@ -272,7 +272,7 @@ impl HasActionExecutor for DiceComputations<'_> {
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
         let re_client = self.per_transaction_data().get_re_client();
-        let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
+        let run_action_knobs = self.per_transaction_data().get_run_action_knobs().dupe();
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
         let mergebase = self.per_transaction_data().get_mergebase();
@@ -413,8 +413,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.digest_config
     }
 
-    fn run_action_knobs(&self) -> RunActionKnobs {
-        self.executor.run_action_knobs
+    fn run_action_knobs(&self) -> &RunActionKnobs {
+        &self.executor.run_action_knobs
     }
 
     fn cancellation_context(&self) -> &CancellationContext {
@@ -951,6 +951,7 @@ mod tests {
                             .collect(),
                         ctx.fs(),
                         ctx.digest_config(),
+                        None,
                     )?,
                     SortedVectorMap::new(),
                 );

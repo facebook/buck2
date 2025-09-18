@@ -580,6 +580,10 @@ impl RunAction {
                 IndexSet::new(),
                 action_execution_ctx.fs(),
                 action_execution_ctx.digest_config(),
+                action_execution_ctx
+                    .run_action_knobs()
+                    .action_paths_interner
+                    .as_ref(),
             )?;
             Some(RemoteWorkerSpec {
                 id: remote_worker.id,
@@ -745,6 +749,7 @@ impl RunAction {
                 .collect(),
             ctx.fs(),
             ctx.digest_config(),
+            ctx.run_action_knobs().action_paths_interner.as_ref(),
         )?;
 
         Ok((
@@ -978,6 +983,7 @@ impl RunAction {
                             output_paths_as_inputs,
                             fs,
                             digest_config,
+                            ctx.run_action_knobs().action_paths_interner.as_ref(),
                         )?;
                         let override_prepared_action = ctx.prepare_action(&override_req)?;
                         (override_req, override_prepared_action)

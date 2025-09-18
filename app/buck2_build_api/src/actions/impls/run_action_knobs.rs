@@ -8,11 +8,14 @@
  * above-listed licenses.
  */
 
+use buck2_common::file_ops::metadata::TrackedFileDigest;
+use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+use buck2_execute::directory::ActionDirectoryMember;
 use dice::UserComputationData;
 use dupe::Dupe;
 
 /// Knobs controlling how RunAction works.
-#[derive(Copy, Clone, Dupe, Default)]
+#[derive(Clone, Dupe, Default)]
 pub struct RunActionKnobs {
     /// Process dep files as they are generated.
     pub eager_dep_files: bool,
@@ -24,12 +27,15 @@ pub struct RunActionKnobs {
 
     /// Default for per-action `allow_cache_upload`, to make it opt-out instead of opt-in.
     pub default_allow_cache_upload: bool,
+
+    pub action_paths_interner:
+        Option<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
 }
 
 pub trait HasRunActionKnobs {
     fn set_run_action_knobs(&mut self, knobs: RunActionKnobs);
 
-    fn get_run_action_knobs(&self) -> RunActionKnobs;
+    fn get_run_action_knobs(&self) -> &RunActionKnobs;
 }
 
 impl HasRunActionKnobs for UserComputationData {
@@ -37,9 +43,8 @@ impl HasRunActionKnobs for UserComputationData {
         self.data.set(knobs);
     }
 
-    fn get_run_action_knobs(&self) -> RunActionKnobs {
-        *self
-            .data
+    fn get_run_action_knobs(&self) -> &RunActionKnobs {
+        self.data
             .get::<RunActionKnobs>()
             .expect("RunActionKnobs should be set")
     }
