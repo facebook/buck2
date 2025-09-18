@@ -244,12 +244,13 @@ impl RemoteExecutionClient {
 
         self.data
             .uploads
-            .op(self.data.client.upload(
+            .op(Uploader::upload(
                 fs,
+                self,
                 materializer,
-                blobs,
                 dir_path,
                 input_dir,
+                blobs,
                 use_case,
                 identity,
                 digest_config,
@@ -437,6 +438,10 @@ impl RemoteExecutionClient {
         stats.get_digest_expirations =
             RemoteExecutionClientOpStats::from(&self.data.get_digest_expirations);
         stats.local_cache = LocalCacheRemoteExecutionClientStats::from(&self.data.local_cache);
+    }
+
+    pub(super) fn get_raw_re_client(&self) -> &REClient {
+        self.data.client.client()
     }
 }
 
@@ -935,31 +940,6 @@ impl RemoteExecutionClientImpl {
                 }
             }
         }
-    }
-
-    async fn upload(
-        &self,
-        fs: &ProjectRoot,
-        materializer: &Arc<dyn Materializer>,
-        blobs: &ActionBlobs,
-        dir_path: &ProjectRelativePath,
-        input_dir: &ActionImmutableDirectory,
-        use_case: RemoteExecutorUseCase,
-        identity: Option<&ReActionIdentity<'_>>,
-        digest_config: DigestConfig,
-    ) -> buck2_error::Result<UploadStats> {
-        Uploader::upload(
-            fs,
-            self.client().get_cas_client(),
-            materializer,
-            dir_path,
-            input_dir,
-            blobs,
-            use_case,
-            identity,
-            digest_config,
-        )
-        .await
     }
 
     async fn upload_files_and_directories(

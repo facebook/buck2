@@ -39,7 +39,6 @@ use gazebo::prelude::*;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
-use remote_execution::REClient;
 use remote_execution::TDigest;
 use remote_execution::UploadRequest;
 
@@ -55,6 +54,7 @@ use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
+use crate::re::client::RemoteExecutionClient;
 use crate::re::error::with_error_handler;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 
@@ -68,7 +68,7 @@ pub struct Uploader {}
 
 impl Uploader {
     async fn find_missing<'a>(
-        client: &REClient,
+        client: &RemoteExecutionClient,
         input_dir: &'a ActionImmutableDirectory,
         blobs: &'a ActionBlobs,
         use_case: &RemoteExecutorUseCase,
@@ -115,6 +115,7 @@ impl Uploader {
             };
 
             client
+                .get_raw_re_client()
                 .get_digests_ttl(use_case.metadata(identity), request)
                 .boxed()
                 .await
@@ -183,7 +184,7 @@ impl Uploader {
 
     pub async fn upload(
         fs: &ProjectRoot,
-        client: &REClient,
+        client: &RemoteExecutionClient,
         materializer: &Arc<dyn Materializer>,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
@@ -383,7 +384,7 @@ impl Uploader {
             with_error_handler(
                 "upload",
                 client.get_session_id(),
-                client
+                client.get_raw_re_client()
                     .upload(
                         use_case.metadata(identity),
                         UploadRequest {
