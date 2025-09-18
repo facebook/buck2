@@ -77,7 +77,7 @@ def _nvcc_dynamic_compile(
         hostcc_argsfile: Artifact,
         plan_artifact: ArtifactValue,
         env_artifact: ArtifactValue,
-        output_declared_artifact: OutputArtifact) -> None:
+        output_declared_artifact: OutputArtifact) -> list[Provider]:
     file2artifact = {}
     plan = plan_artifact.read_json()
 
@@ -161,6 +161,22 @@ def _nvcc_dynamic_compile(
             prefer_remote = True if "preproc" in cmd_node["category"] else False,
         )
 
+    return [DefaultInfo()]
+
+_nvcc_dynamic_compile_rule = dynamic_actions(
+    impl = _nvcc_dynamic_compile,
+    attrs = {
+        "cuda_compile_info": dynattrs.value(CudaCompileInfo),
+        "env_artifact": dynattrs.artifact_value(),
+        "hostcc_argsfile": dynattrs.value(Artifact),
+        "original_cmd": dynattrs.value(cmd_args),
+        "output_declared_artifact": dynattrs.output(),
+        "plan_artifact": dynattrs.artifact_value(),
+        "src_compile_cmd": dynattrs.value(CxxSrcCompileCommand),
+        "toolchain": dynattrs.value(CxxToolchainInfo),
+    },
+)
+
 def dist_nvcc(
         actions: AnalysisActions,
         toolchain: CxxToolchainInfo,
@@ -201,26 +217,15 @@ def dist_nvcc(
     # Run nvcc with -dryrun to create the inputs needed for dist nvcc.
     actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
 
-    def nvcc_dynamic_compile(ctx: AnalysisContext, artifacts: dict, outputs: dict[Artifact, Artifact]):
-        plan_artifact = artifacts[subcmds]
-        env_artifact = artifacts[env]
-        output_declared_artifact = outputs[object]
-        _nvcc_dynamic_compile(
-            actions = ctx.actions,
-            toolchain = toolchain,
-            cuda_compile_info = cuda_compile_info,
-            src_compile_cmd = src_compile_cmd,
-            original_cmd = original_cmd,
-            hostcc_argsfile = hostcc_argsfile,
-            plan_artifact = plan_artifact,
-            env_artifact = env_artifact,
-            output_declared_artifact = output_declared_artifact.as_output(),
-        )
+    actions.dynamic_output_new(_nvcc_dynamic_compile_rule(
+        toolchain = toolchain,
+        cuda_compile_info = cuda_compile_info,
+        src_compile_cmd = src_compile_cmd,
+        original_cmd = original_cmd,
+        hostcc_argsfile = hostcc_argsfile,
+        plan_artifact = subcmds,
+        env_artifact = env,
+        output_declared_artifact = object.as_output(),
+    ))
 
-    actions.dynamic_output(
-        dynamic = [env, subcmds],
-        inputs = [],
-        outputs = [object.as_output()],
-        f = nvcc_dynamic_compile,
-    )
     return [subcmds, env]
