@@ -44,9 +44,13 @@ def compile_with_argsfile_cmd(
         incremental_remote_outputs: bool,
         objects: list[Artifact],
         incremental_artifacts: IncrementalCompilationInput | None) -> CompileWithArgsFileCmdOutput:
-    writable_incremental_args = [obj.as_output() for obj in objects]
+    object_outputs = [obj.as_output() for obj in objects]
+
+    writable_incremental_args = []
     if incremental_artifacts:
-        writable_incremental_args = [swiftdep.as_output() for swiftdep in incremental_artifacts.swiftdeps] + [depfile.as_output() for depfile in incremental_artifacts.depfiles]
+        writable_incremental_args.extend(object_outputs)
+        writable_incremental_args.extend([swiftdep.as_output() for swiftdep in incremental_artifacts.swiftdeps])
+        writable_incremental_args.extend([depfile.as_output() for depfile in incremental_artifacts.depfiles])
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
