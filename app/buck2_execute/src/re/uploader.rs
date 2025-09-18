@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::metadata::FileDigest;
@@ -34,9 +35,16 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use chrono::Duration;
 use chrono::Utc;
+use dupe::Dupe;
 use futures::FutureExt;
+use futures::TryStreamExt;
+use futures::future::BoxFuture;
+use futures::future::Shared;
+use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 use remote_execution::GetDigestsTtlRequest;
+use remote_execution::GetDigestsTtlResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::TDigest;
@@ -89,7 +97,7 @@ impl Uploader {
 
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
-        let digest_ttls = {
+        {
             // Collect the digests we need to upload
             for entry in input_dir.unordered_walk().without_paths() {
                 let digest = match entry {
@@ -107,55 +115,47 @@ impl Uploader {
             if root_dir_digest.expires()? <= ttl_deadline {
                 input_digests.insert(root_dir_digest);
             }
-
-            // Find out which ones are missing
-            let request = GetDigestsTtlRequest {
-                digests: input_digests.iter().map(|d| d.to_re()).collect(),
-                ..Default::default()
-            };
-
-            client
-                .get_raw_re_client()
-                .get_digests_ttl(use_case.metadata(identity), request)
-                .boxed()
-                .await
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReInvalidGetCasResponse))?
-                .digests_with_ttl
         };
 
         let mut upload_blobs = Vec::new();
         let mut missing_digests = HashSet::new();
         add_injected_missing_digests(&input_digests, &mut missing_digests)?;
 
-        let mut input_digests = input_digests.into_iter().collect::<Vec<_>>();
-        input_digests.sort();
+        let (fut, reqs, new) = {
+            static GET_DIGESTS_TTL_DEDUP: Lazy<Mutex<GetDigestsTtlDeduper>> =
+                Lazy::new(|| Mutex::new(GetDigestsTtlDeduper::default()));
 
-        let mut digest_ttls = digest_ttls.into_try_map(|d| {
-            buck2_error::Ok((
-                FileDigest::from_re(&d.digest, digest_config).map_err(buck2_error::Error::from)?,
-                d.ttl,
-            ))
-        })?;
-        digest_ttls.sort();
+            GetDigestsTtlDeduper::get_ttls(
+                &GET_DIGESTS_TTL_DEDUP,
+                client,
+                *use_case,
+                identity,
+                digest_config,
+                input_digests.iter().copied(),
+            )
+        };
 
-        if input_digests.len() != digest_ttls.len() {
-            return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::ReInvalidGetCasResponse,
-                "Invalid response from get_digests_ttl: expected {}, got {} digests",
-                input_digests.len(),
-                digest_ttls.len()
-            ));
-        }
+        tracing::debug!(
+            "Requested digests for {}: {:#?}: {} futures, {} newly dispatched digests",
+            input_dir.fingerprint(),
+            input_digests.len(),
+            reqs,
+            new
+        );
 
-        // Find the blobs that need to be uploaded
+        let input_digests_ttls = fut.await?;
 
-        for (digest, (matching_digest, digest_ttl)) in input_digests.into_iter().zip(digest_ttls) {
-            if *digest.data() != matching_digest {
-                return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::ReInvalidGetCasResponse,
-                    "Invalid response from get_digests_ttl"
-                ));
-            }
+        tracing::debug!(
+            "Got digests for {}: {:#?}",
+            input_dir.fingerprint(),
+            input_digests.len()
+        );
+
+        // Now find the blobs that need to be uploaded
+        for digest in input_digests.into_iter() {
+            let digest_ttl = *input_digests_ttls
+                .get(digest)
+                .with_buck_error_context(|| format!("Did not get a TTL for digest: {}", digest))?;
 
             if digest_ttl <= ttl_wanted {
                 tracing::debug!(digest=%digest, ttl=digest_ttl, "Mark for upload");
@@ -501,4 +501,194 @@ fn extract_file_extension(path: &str) -> String {
         Some(ext) => ext.to_string_lossy().to_lowercase(),
         None => "<empty>".to_owned(),
     }
+}
+
+#[derive(
+    allocative::Allocative,
+    Copy,
+    Clone,
+    Debug,
+    dupe::Dupe,
+    PartialEq,
+    Eq,
+    Hash
+)]
+struct RequestId(u64);
+
+/// Tracks digests that have in-flight calls to RE and dedupes them.
+#[derive(Default)]
+struct GetDigestsTtlDeduper<'s> {
+    /// Used to allow `digests` to index into `queries`.
+    next_request_id: u64,
+    /// Maps a given digest to a request that will produce this digest (and
+    /// possibly / likely others). The request is referenced as an ID that
+    /// can be used to lookup in `queries`.
+    digests: HashMap<TrackedFileDigest, RequestId>,
+    /// Maps a request to the actual future that will contain its results.
+    queries: HashMap<
+        RequestId,
+        Shared<BoxFuture<'s, buck2_error::Result<HashMap<TrackedFileDigest, i64>>>>,
+    >,
+}
+
+impl<'s> GetDigestsTtlDeduper<'s> {
+    /// Obtain a future that will return the TTLs for the digests that are
+    /// queried (and possibly more TTLs).
+    fn get_ttls<'a>(
+        deduper: &'s Mutex<Self>,
+        client: &'a RemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+        identity: Option<&'a ReActionIdentity<'a>>,
+        digest_config: DigestConfig,
+        digests: impl IntoIterator<Item = &'a TrackedFileDigest>,
+    ) -> (
+        impl Future<Output = buck2_error::Result<HashMap<TrackedFileDigest, i64>>> + 's,
+        usize,
+        usize,
+    ) {
+        let mut guard = deduper.lock().expect("Poisoned lock");
+
+        let mut reqs = HashSet::new();
+
+        let mut to_schedule = Vec::new();
+
+        for digest in digests {
+            if let Some(req_id) = guard.digests.get(digest) {
+                reqs.insert(*req_id);
+            } else {
+                to_schedule.push(digest.dupe());
+            }
+        }
+
+        let to_schedule_len = to_schedule.len();
+
+        if !to_schedule.is_empty() {
+            let request_id = RequestId(guard.next_request_id);
+            guard.next_request_id += 1;
+
+            reqs.insert(request_id);
+
+            for digest in &to_schedule {
+                guard.digests.insert(digest.dupe(), request_id);
+            }
+
+            guard.queries.insert(
+                request_id,
+                query_digest_ttls(
+                    deduper,
+                    request_id,
+                    client,
+                    use_case,
+                    identity,
+                    digest_config,
+                    to_schedule,
+                )
+                .shared(),
+            );
+        }
+
+        let reqs_len = reqs.len();
+
+        let futs = reqs
+            .into_iter()
+            .map(|req| guard.queries.get(&req).unwrap().clone())
+            .collect::<FuturesUnordered<_>>();
+
+        let fut = async move {
+            let results: Vec<_> = futs.try_collect().await?;
+            Ok(results.into_iter().flatten().collect())
+        };
+
+        (fut, reqs_len, to_schedule_len)
+    }
+}
+
+/// Call RE, get  the TTLs, then match them back to our inputs. Also deregister
+/// this request once it finishes so we don't cache it forever.
+fn query_digest_ttls<'s>(
+    deduper: &'s Mutex<GetDigestsTtlDeduper>,
+    request_id: RequestId,
+    client: &RemoteExecutionClient,
+    use_case: RemoteExecutorUseCase,
+    identity: Option<&ReActionIdentity<'_>>,
+    digest_config: DigestConfig,
+    input_digests: Vec<TrackedFileDigest>,
+) -> BoxFuture<'s, buck2_error::Result<HashMap<TrackedFileDigest, i64>>> {
+    let client = client.dupe();
+    let metadata = use_case.metadata(identity);
+    let request = GetDigestsTtlRequest {
+        digests: input_digests.iter().map(|d| d.to_re()).collect(),
+        ..Default::default()
+    };
+
+    async move {
+        let digests_ttl = client
+            .get_raw_re_client()
+            .get_digests_ttl(metadata, request)
+            .await;
+
+        {
+            let mut guard = deduper.lock().expect("Poisoned lock");
+            guard.queries.remove(&request_id);
+            for digest in &input_digests {
+                guard.digests.remove(digest);
+            }
+        }
+
+        // It's possibly a bit of a shame that we deregister this response
+        // before we process it here, but in practice we need to draw a line at
+        // some point and no matter where we draw it, races where we "just miss"
+        // the deduped request will exist, unless we have synchronization
+        // between checking and setting digest TTLs, unless we cache digests
+        // forever (which right now we don't do because we track TTLs on the
+        // digest object itself and not all actions are guaranteed to hold the
+        // same instance, but maybe that's something that should be revisited),
+        // AND figure out invalidation (because the TTL will change when we
+        // upload).
+        process_get_digest_ttls_response(input_digests, digests_ttl, digest_config)
+    }
+    .boxed()
+}
+
+fn process_get_digest_ttls_response(
+    mut req: Vec<TrackedFileDigest>,
+    res: anyhow::Result<GetDigestsTtlResponse>,
+    digest_config: DigestConfig,
+) -> buck2_error::Result<HashMap<TrackedFileDigest, i64>> {
+    let digest_ttls = res
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReInvalidGetCasResponse))?
+        .digests_with_ttl;
+
+    if req.len() != digest_ttls.len() {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::ReInvalidGetCasResponse,
+            "Invalid response from get_digests_ttl: expected {}, got {} digests",
+            req.len(),
+            digest_ttls.len()
+        ));
+    }
+
+    req.sort();
+
+    let mut digest_ttls = digest_ttls.into_try_map(|d| {
+        buck2_error::Ok((
+            FileDigest::from_re(&d.digest, digest_config).map_err(buck2_error::Error::from)?,
+            d.ttl,
+        ))
+    })?;
+    digest_ttls.sort();
+
+    req.into_iter()
+        .zip(digest_ttls)
+        .map(|(digest, (matching_digest, digest_ttl))| {
+            if *digest.data() != matching_digest {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::ReInvalidGetCasResponse,
+                    "Invalid response from get_digests_ttl"
+                ));
+            }
+
+            Ok((digest.dupe(), digest_ttl))
+        })
+        .collect::<buck2_error::Result<HashMap<_, _>>>()
 }
