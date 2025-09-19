@@ -591,7 +591,7 @@ fn new_attr_value<'v>(
         }
         DynamicAttrValue::Dict(xs) => {
             let mut r = SmallMap::with_capacity(xs.len());
-            for (k, v) in xs {
+            for (k, v) in &**xs {
                 let prev = r.insert_hashed(
                     k.to_value().get_hashed()?,
                     new_attr_value(

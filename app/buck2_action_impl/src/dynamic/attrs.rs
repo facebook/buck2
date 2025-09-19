@@ -83,12 +83,12 @@ pub(crate) enum DynamicAttrValue<
     Value(V),
     List(Box<[DynamicAttrValue<V>]>),
     Tuple(Box<[DynamicAttrValue<V>]>),
-    Dict(SmallMap<V, DynamicAttrValue<V>>),
+    Dict(Box<SmallMap<V, DynamicAttrValue<V>>>),
     Option(Option<Box<DynamicAttrValue<V>>>),
 }
 
 // This isn't *super* sensitive, but it's not nothing either
-static_assertions::assert_eq_size!(DynamicAttrValue<FrozenValue>, [usize; 5]);
+static_assertions::assert_eq_size!(DynamicAttrValue<FrozenValue>, [usize; 4]);
 
 // We implement `Freeze` manually because starlark `derive(Freeze)` does not support custom bounds.
 impl<V: ValueLifetimeless> Freeze for DynamicAttrValue<V> {
@@ -349,7 +349,7 @@ impl DynamicAttrType {
                     }
                     res.insert_hashed_unique_unchecked(key, value_ty.coerce(value)?);
                 }
-                Ok(DynamicAttrValue::Dict(res))
+                Ok(DynamicAttrValue::Dict(Box::new(res)))
             }
             DynamicAttrType::Tuple(elem_tys) => {
                 let tuple = <&TupleRef>::unpack_value_err(value)?;
