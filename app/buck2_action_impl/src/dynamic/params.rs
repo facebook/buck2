@@ -10,8 +10,9 @@
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_build_api::dynamic_value::DynamicValue;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -28,6 +29,7 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark::values::structs::StructRef;
 use starlark::values::typing::FrozenStarlarkCallable;
@@ -42,8 +44,6 @@ pub(crate) struct DynamicLambdaStaticFields {
     pub(crate) artifact_values: Box<[Artifact]>,
     /// Dynamic values I depend on.
     pub(crate) dynamic_values: Box<[DynamicValue]>,
-    /// Things I produce
-    pub(crate) outputs: Box<[BoundBuildArtifact]>,
     /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
     pub(crate) execution_platform: ExecutionPlatformResolution,
 }
@@ -54,9 +54,10 @@ pub(crate) struct DynamicLambdaParams<'v> {
     pub(crate) plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     pub(crate) lambda: StarlarkCallable<'v>,
     pub(crate) attr_values: Option<(
-        DynamicAttrValues<Value<'v>, BoundBuildArtifact>,
+        DynamicAttrValues<Value<'v>>,
         FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
     )>,
+    pub(crate) outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
 }
 
@@ -66,9 +67,10 @@ pub struct FrozenDynamicLambdaParams {
     pub(crate) plugins: Option<FrozenValueTyped<'static, FrozenAnalysisPlugins>>,
     pub(crate) lambda: FrozenStarlarkCallable,
     pub attr_values: Option<(
-        DynamicAttrValues<FrozenValue, BoundBuildArtifact>,
+        DynamicAttrValues<FrozenValue>,
         FrozenValueTyped<'static, FrozenStarlarkDynamicActionsCallable>,
     )>,
+    pub(crate) outputs: Box<[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
 }
 
@@ -117,6 +119,11 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             attr_values,
+            outputs: self
+                .outputs
+                .into_iter()
+                .map(|o| o.freeze(freezer))
+                .collect::<FreezeResult<_>>()?,
             static_fields: self.static_fields,
         })
     }

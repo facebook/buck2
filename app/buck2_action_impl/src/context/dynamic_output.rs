@@ -26,7 +26,6 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::values::FrozenValue;
@@ -36,6 +35,7 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark_map::small_map::SmallMap;
 
+use crate::dynamic::attrs::dedupe_output_artifacts;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
@@ -84,16 +84,17 @@ impl DynamicActionsOutputArtifactBinder {
     }
 }
 
-fn output_artifacts_to_lambda_build_artifacts(
+fn output_artifacts_to_lambda_build_artifacts<'v>(
     dynamic_key: &DynamicLambdaResultsKey,
-    outputs: IndexSet<OutputArtifact>,
-) -> buck2_error::Result<Box<[BoundBuildArtifact]>> {
+    outputs: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
+) -> buck2_error::Result<Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>> {
+    let outputs = dedupe_output_artifacts(outputs);
     let mut bind = DynamicActionsOutputArtifactBinder::new(dynamic_key);
 
-    outputs
-        .into_iter()
-        .map(|output| bind.bind(output))
-        .collect::<buck2_error::Result<_>>()
+    for output in &outputs {
+        bind.bind(output.artifact())?;
+    }
+    Ok(outputs)
 }
 
 #[starlark_module]
@@ -168,7 +169,6 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .iter()
             .map(|x| x.artifact())
             .collect::<buck2_error::Result<_>>()?;
-        let outputs = outputs.items.iter().map(|x| x.artifact()).collect();
 
         let attributes = this.attributes;
         let plugins = this.plugins;
@@ -181,7 +181,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
 
         let key = lambda_params_storage.next_dynamic_actions_key()?;
-        let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
+        let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs.items)?;
 
         // Registration
         let lambda_params = DynamicLambdaParams {
@@ -189,10 +189,10 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             plugins,
             lambda: f.erase(),
             attr_values: None,
+            outputs,
             static_fields: DynamicLambdaStaticFields {
                 artifact_values,
                 dynamic_values: Box::new([]),
-                outputs,
                 execution_platform,
             },
         };
@@ -228,9 +228,9 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
         let key = lambda_params_storage.next_dynamic_actions_key()?;
 
-        let attr_values = attr_values.bind(&key)?;
+        attr_values.bind(&key)?;
 
-        let outputs = attr_values.outputs().into_iter().collect();
+        let outputs = attr_values.outputs();
         let artifact_values = attr_values.artifact_values();
         let dynamic_values = attr_values.dynamic_values();
 
@@ -240,10 +240,10 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             plugins: None,
             lambda: callable.implementation.erase().to_callable(),
             attr_values: Some((attr_values, callable)),
+            outputs,
             static_fields: DynamicLambdaStaticFields {
                 artifact_values,
                 dynamic_values,
-                outputs,
                 execution_platform,
             },
         };

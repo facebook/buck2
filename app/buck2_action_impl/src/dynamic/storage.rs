@@ -148,12 +148,11 @@ impl FrozenDynamicLambdaParamsStorage for FrozenDynamicLambdaParamsStorageImpl {
     }
 
     fn iter_dynamic_lambda_outputs(&self) -> Box<dyn Iterator<Item = BuildArtifact> + Send + '_> {
-        Box::new(self.lambda_params.values().flat_map(|v| {
-            v.static_fields
-                .outputs
-                .iter()
-                .map(|a| a.as_base_artifact().dupe())
-        }))
+        Box::new(
+            self.lambda_params
+                .values()
+                .flat_map(|v| v.outputs.iter().map(|a| a.as_build_artifact().dupe())),
+        )
     }
 }
 

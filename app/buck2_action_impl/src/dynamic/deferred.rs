@@ -13,7 +13,6 @@ use std::iter;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
@@ -26,6 +25,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArt
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -58,8 +58,10 @@ use indexmap::IndexMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedRefFrozenRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -82,7 +84,10 @@ pub enum DynamicLambdaArgs<'v> {
     OldPositional {
         ctx: Value<'v>,
         artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
-        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
+        outputs: ValueOfUnchecked<
+            'v,
+            DictType<FrozenValueTyped<'static, StarlarkArtifact>, StarlarkDeclaredArtifact<'v>>,
+        >,
     },
     DynamicActionsNamed {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
@@ -441,7 +446,10 @@ async fn resolve_dynamic_values(
 
 pub enum DynamicLambdaCtxDataSpec<'v> {
     Old {
-        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
+        outputs: ValueOfUnchecked<
+            'v,
+            DictType<FrozenValueTyped<'static, StarlarkArtifact>, StarlarkDeclaredArtifact<'v>>,
+        >,
         artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     },
     New {
@@ -489,25 +497,27 @@ fn artifact_values<'v>(
 
 /// Prepare dict of output artifacts for dynamic actions.
 fn outputs<'v>(
-    outputs: &[BoundBuildArtifact],
+    outputs: &[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>],
     registry: &mut AnalysisRegistry<'v>,
     heap: &'v Heap,
 ) -> buck2_error::Result<
-    ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
+    ValueOfUnchecked<
+        'v,
+        DictType<FrozenValueTyped<'static, StarlarkArtifact>, StarlarkDeclaredArtifact<'v>>,
+    >,
 > {
     let mut outputs_dict = Vec::with_capacity(outputs.len());
     for x in outputs {
-        let k = StarlarkArtifact::new(x.dupe().into_artifact());
-        let declared = registry.declare_dynamic_output(x.as_base_artifact(), heap)?;
+        let declared = registry.declare_dynamic_output(x.as_build_artifact(), heap)?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
-        outputs_dict.push((k, v));
+        outputs_dict.push((x.inner(), v));
     }
 
     Ok(heap.alloc_typed_unchecked(AllocDict(outputs_dict)).cast())
 }
 
 fn new_attr_value<'v>(
-    value: &DynamicAttrValue<FrozenValue, BoundBuildArtifact>,
+    value: &DynamicAttrValue<FrozenValue>,
     _input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
@@ -517,8 +527,13 @@ fn new_attr_value<'v>(
 ) -> buck2_error::Result<Value<'v>> {
     match value {
         DynamicAttrValue::Output(artifact) => {
-            let declared =
-                registry.declare_dynamic_output(artifact.as_base_artifact(), env.heap())?;
+            let artifact =
+                FrozenValueTyped::<'static, FrozenStarlarkOutputArtifact>::unpack_value_err(
+                    artifact.get().to_value(),
+                )
+                .expect("Checked at construction time");
+            let artifact = artifact.as_build_artifact();
+            let declared = registry.declare_dynamic_output(artifact, env.heap())?;
             let artifact = env.heap().alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
                 declared,
@@ -631,7 +646,7 @@ fn new_attr_value<'v>(
 }
 
 fn new_attr_values<'v>(
-    values: &DynamicAttrValues<FrozenValue, BoundBuildArtifact>,
+    values: &DynamicAttrValues<FrozenValue>,
     callable: &FrozenStarlarkDynamicActionsCallable,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
@@ -692,11 +707,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
                 artifact_fs,
                 env.heap(),
             )?;
-            let outputs = outputs(
-                &dynamic_lambda.static_fields.outputs,
-                &mut registry,
-                env.heap(),
-            )?;
+            let outputs = outputs(&dynamic_lambda.outputs, &mut registry, env.heap())?;
             if !dynamic_lambda.static_fields.dynamic_values.is_empty() {
                 return Err(internal_error!(
                     "Non-empty `dynamic_value` for `dynamic_output`"

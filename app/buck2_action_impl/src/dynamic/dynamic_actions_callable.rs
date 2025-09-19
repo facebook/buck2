@@ -13,7 +13,6 @@ use std::cell::RefCell;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_error::BuckErrorContext;
@@ -172,7 +171,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
     ) -> starlark::Result<Value<'v>> {
         let me = me.unpack_frozen().internal_error("me must be frozen")?;
         let me = FrozenValueTyped::new_err(me)?;
-        let attr_values: DynamicAttrValues<Value, OutputArtifact> =
+        let attr_values: DynamicAttrValues<Value<'v>> =
             self.signature.parser(args, eval, |parser, _eval| {
                 let mut attr_values = Vec::with_capacity(self.attrs.len());
                 for (name, attr_ty) in &self.attrs {

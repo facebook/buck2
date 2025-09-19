@@ -11,7 +11,6 @@
 use std::cell::RefCell;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use starlark::any::ProvidesStaticType;
 use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
@@ -28,7 +27,7 @@ use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallab
 #[derive(Debug, Trace, Allocative)]
 pub(crate) struct StarlarkDynamicActionsData<'v> {
     pub(crate) callable: FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
-    pub(crate) attr_values: DynamicAttrValues<Value<'v>, OutputArtifact<'v>>,
+    pub(crate) attr_values: DynamicAttrValues<Value<'v>>,
 }
 
 #[derive(

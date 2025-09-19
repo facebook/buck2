@@ -13,7 +13,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -156,6 +158,13 @@ impl FrozenStarlarkOutputArtifact {
     {
         // Unwrap justified by construction of the type and the where clause
         FrozenValueTyped::new_err(self.declared_artifact).unwrap()
+    }
+
+    pub fn as_build_artifact(&self) -> &BuildArtifact {
+        match self.inner().as_ref().artifact.as_parts().0 {
+            BaseArtifactKind::Build(build) => build,
+            BaseArtifactKind::Source(_) => unreachable!("checked at construction time"),
+        }
     }
 }
 
