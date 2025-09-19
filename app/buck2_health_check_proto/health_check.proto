@@ -57,10 +57,27 @@ message Remediation {
   }
 }
 
+/// Message format options for health issue messages.
+message Message {
+  oneof data {
+    // Simple text message.
+    string simple = 1;
+    // Rich format with header, body, and footer.
+    RichMessage rich = 2;
+  }
+}
+
+/// Rich message format with header, body, and optional footer.
+message RichMessage {
+  string header = 1;
+  string body = 2;
+  optional string footer = 3;
+}
+
 message HealthIssue {
   Severity severity = 1;
   // A human readable description of the issue.
-  string message = 2;
+  Message message = 2;
   // This is optional because some health checks may not have a remediation.
   optional Remediation remediation = 3;
 }

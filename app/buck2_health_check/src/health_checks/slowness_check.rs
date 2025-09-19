@@ -20,6 +20,7 @@ use crate::interface::HealthCheckContext;
 use crate::interface::HealthCheckSnapshotData;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
+use crate::report::Message;
 use crate::report::Report;
 use crate::report::Severity;
 
@@ -157,10 +158,10 @@ impl SlownessCheck {
         if let SlownessCheckState::Enabled { buildmate_url, .. } = state {
             let health_issue = HealthIssue {
                 severity: Severity::Warning,
-                message: format!(
+                message: Message::Simple(format!(
                     "The build is detected to be a slow build. Consider clicking this link {} to diagnose with buildmate after it finishes.",
                     buildmate_url
-                ),
+                )),
                 remediation: None,
             };
             Some(DisplayReport {

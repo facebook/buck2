@@ -219,6 +219,7 @@ mod tests {
     use buck2_health_check::interface::HealthCheckType;
     use buck2_health_check::report::DisplayReport;
     use buck2_health_check::report::HealthIssue;
+    use buck2_health_check::report::Message;
     use buck2_health_check::report::Severity;
     use buck2_wrapper_common::invocation_id::TraceId;
     use tokio::sync::mpsc::Receiver;
@@ -268,7 +269,7 @@ mod tests {
                 health_check_type: HealthCheckType::StableRevision,
                 health_issue: Some(HealthIssue {
                     severity: Severity::Warning,
-                    message: "Test report 1".to_owned(),
+                    message: Message::Simple("Test report 1".to_owned()),
                     remediation: None,
                 }),
             },
@@ -276,7 +277,7 @@ mod tests {
                 health_check_type: HealthCheckType::LowDiskSpace,
                 health_issue: Some(HealthIssue {
                     severity: Severity::Info,
-                    message: "Test report 2".to_owned(),
+                    message: Message::Simple("Test report 2".to_owned()),
                     remediation: None,
                 }),
             },

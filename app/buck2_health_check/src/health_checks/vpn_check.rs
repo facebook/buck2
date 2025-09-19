@@ -18,6 +18,7 @@ use crate::interface::HealthCheckContext;
 use crate::interface::HealthCheckSnapshotData;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
+use crate::report::Message;
 use crate::report::Remediation;
 use crate::report::Report;
 use crate::report::Severity;
@@ -96,7 +97,9 @@ impl VpnCheck {
     fn generate_warning(&self, is_vpn_enabled: bool) -> Option<HealthIssue> {
         is_vpn_enabled.then(|| HealthIssue {
             severity: Severity::Warning,
-            message: "For optimal build speed, consider disconnecting from VPN".to_owned(),
+            message: Message::Simple(
+                "For optimal build speed, consider disconnecting from VPN".to_owned(),
+            ),
             remediation: Some(Remediation::Link(REMEDIATION_LINK.to_owned())),
         })
     }

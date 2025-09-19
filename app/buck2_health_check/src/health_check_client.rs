@@ -230,6 +230,7 @@ mod tests {
     use super::*;
     use crate::interface::HealthCheckType;
     use crate::report::HealthIssue;
+    use crate::report::Message;
     use crate::report::Severity;
 
     struct TestHealthCheckService {
@@ -264,7 +265,7 @@ mod tests {
                     health_check_type: HealthCheckType::StableRevision,
                     health_issue: Some(HealthIssue {
                         severity: Severity::Warning,
-                        message: "Test report 1".to_owned(),
+                        message: Message::Simple("Test report 1".to_owned()),
                         remediation: None,
                     }),
                 }),
@@ -275,7 +276,7 @@ mod tests {
                     health_check_type: HealthCheckType::LowDiskSpace,
                     health_issue: Some(HealthIssue {
                         severity: Severity::Info,
-                        message: "Test report 2".to_owned(),
+                        message: Message::Simple("Test report 2".to_owned()),
                         remediation: None,
                     }),
                 }),

@@ -75,6 +75,7 @@ mod debugger;
 pub(crate) mod dice;
 mod header;
 pub(crate) mod io;
+mod message_renderer;
 mod re;
 pub mod session_info;
 pub(crate) mod system_warning;

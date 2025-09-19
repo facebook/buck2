@@ -23,6 +23,7 @@ use crate::interface::HealthCheckContext;
 use crate::interface::HealthCheckSnapshotData;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
+use crate::report::Message;
 use crate::report::Remediation;
 use crate::report::Report;
 use crate::report::Severity;
@@ -236,10 +237,10 @@ impl StableRevisionCheck {
     fn generate_warning(bookmarks: &HashSet<String>) -> Option<HealthIssue> {
         Some(HealthIssue {
             severity: Severity::Warning,
-            message: format!(
+            message: Message::Simple(format!(
                 "Rebase to a stable revision to ensure optimal build speed and cache utilization. Recommended bookmarks: {}",
                 bookmarks.iter().join(",")
-            ),
+            )),
             remediation: Some(Remediation::Link(REMEDIATION_LINK.to_owned())),
         })
     }
@@ -443,8 +444,9 @@ mod tests {
         assert_eq!(report.tag, Some(STABLE_REVISION_TAG.to_owned()));
         let display_report = report.display_report.unwrap();
         let health_issue = display_report.health_issue.unwrap();
-        assert!(health_issue.message.contains("Rebase to a stable revision"));
-        assert!(health_issue.message.contains(FBCODE_BOOKMARK));
+        let message_text = health_issue.message.to_string();
+        assert!(message_text.contains("Rebase to a stable revision"));
+        assert!(message_text.contains(FBCODE_BOOKMARK));
         Ok(())
     }
 
@@ -474,9 +476,10 @@ mod tests {
         let display_report = report.display_report.unwrap();
         let health_issue = display_report.health_issue.unwrap();
         println!("{:?}", health_issue.message);
-        assert!(health_issue.message.contains("Rebase to a stable revision"));
-        assert!(health_issue.message.contains(FBCODE_BOOKMARK));
-        assert!(health_issue.message.contains(RL_BOOKMARK));
+        let message_text = health_issue.message.to_string();
+        assert!(message_text.contains("Rebase to a stable revision"));
+        assert!(message_text.contains(FBCODE_BOOKMARK));
+        assert!(message_text.contains(RL_BOOKMARK));
         Ok(())
     }
 

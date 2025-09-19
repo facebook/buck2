@@ -17,6 +17,7 @@ use crate::interface::HealthCheckSnapshotData;
 use crate::interface::HealthCheckType;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
+use crate::report::Message;
 use crate::report::Remediation;
 use crate::report::Report;
 use crate::report::Severity;
@@ -120,13 +121,53 @@ impl TryInto<i32> for HealthCheckType {
     }
 }
 
+impl TryFrom<buck2_health_check_proto::Message> for Message {
+    type Error = buck2_error::Error;
+
+    fn try_from(value: buck2_health_check_proto::Message) -> buck2_error::Result<Self> {
+        match value.data.buck_error_context("Invalid message format")? {
+            buck2_health_check_proto::message::Data::Simple(text) => Ok(Message::Simple(text)),
+            buck2_health_check_proto::message::Data::Rich(rich_msg) => Ok(Message::Rich {
+                header: rich_msg.header,
+                body: rich_msg.body,
+                footer: rich_msg.footer,
+            }),
+        }
+    }
+}
+
+impl TryInto<buck2_health_check_proto::Message> for Message {
+    type Error = buck2_error::Error;
+
+    fn try_into(self) -> buck2_error::Result<buck2_health_check_proto::Message> {
+        let data = match self {
+            Message::Simple(text) => buck2_health_check_proto::message::Data::Simple(text),
+            Message::Rich {
+                header,
+                body,
+                footer,
+            } => buck2_health_check_proto::message::Data::Rich(
+                buck2_health_check_proto::RichMessage {
+                    header,
+                    body,
+                    footer,
+                },
+            ),
+        };
+        Ok(buck2_health_check_proto::Message { data: Some(data) })
+    }
+}
+
 impl TryFrom<buck2_health_check_proto::HealthIssue> for HealthIssue {
     type Error = buck2_error::Error;
 
     fn try_from(value: buck2_health_check_proto::HealthIssue) -> buck2_error::Result<Self> {
         Ok(HealthIssue {
             severity: value.severity.try_into()?,
-            message: value.message,
+            message: value
+                .message
+                .buck_error_context("Missing message")?
+                .try_into()?,
             remediation: value.remediation.map(|r| r.try_into()).transpose()?,
         })
     }
@@ -138,7 +179,7 @@ impl TryInto<buck2_health_check_proto::HealthIssue> for HealthIssue {
     fn try_into(self) -> buck2_error::Result<buck2_health_check_proto::HealthIssue> {
         Ok(buck2_health_check_proto::HealthIssue {
             severity: self.severity.try_into()?,
-            message: self.message,
+            message: Some(self.message.try_into()?),
             remediation: self.remediation.map(|r| r.try_into()).transpose()?,
         })
     }
