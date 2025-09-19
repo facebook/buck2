@@ -54,6 +54,7 @@ pub(crate) fn get_interngraph_client_subdomain_and_auth(
 }
 
 /// Helper function to execute a GraphQL request
+#[expect(dead_code)]
 pub async fn execute_graphql_request<T>(
     fb: FacebookInit,
     query: &str,
