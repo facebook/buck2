@@ -81,6 +81,7 @@ use buck2_execute::execute::request::RemoteWorkerSpec;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::materialize::materializer::WriteRequest;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -703,7 +704,8 @@ impl RunAction {
 
         let mut extra_env = Vec::new();
         let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
-        self.prepare_action_metadata(ctx, &cli_ctx, fs, visitor, &mut inputs, &mut extra_env)?;
+        self.prepare_action_metadata(ctx, &cli_ctx, fs, visitor, &mut inputs, &mut extra_env)
+            .await?;
 
         let mut shared_content_based_paths = Vec::new();
         self.prepare_scratch_path(
@@ -769,10 +771,10 @@ impl RunAction {
     /// Generate content and output path for the file. It will be either passed
     /// to RE as a blob or written to disk in local executor.
     /// Path to this file is passed to user in environment variable which is selected by user.
-    fn prepare_action_metadata(
+    async fn prepare_action_metadata(
         &self,
         ctx: &dyn ActionExecutionCtx,
-        cli_ctx: &DefaultCommandLineContext,
+        cli_ctx: &DefaultCommandLineContext<'_>,
         fs: &ArtifactFs,
         visitor: &mut RunActionVisitor<'_>,
         inputs: &mut Vec<CommandExecutionInput>,
@@ -784,8 +786,9 @@ impl RunAction {
                 metadata_param.path.clone(),
                 BuckOutPathKind::Configuration,
             );
+            let project_rel_path = fs.buck_out_path_resolver().resolve_gen(&path, None)?;
             let env = cli_ctx
-                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path, None)?)?
+                .resolve_project_path(project_rel_path.clone())?
                 .into_string();
             let artifact_inputs: Vec<&ArtifactGroupValues> = visitor
                 .incremental_metadata_inputs
@@ -793,8 +796,19 @@ impl RunAction {
                 .map(|group| ctx.artifact_values(group))
                 .collect();
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
+
+            ctx.materializer()
+                .declare_write(Box::new(|| {
+                    Ok(vec![WriteRequest {
+                        path: project_rel_path,
+                        content: data.0.0,
+                        is_executable: false,
+                    }])
+                }))
+                .await
+                .buck_error_context("Failed to write action metadata!")?;
+
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
-                data,
                 digest,
                 path,
             }));

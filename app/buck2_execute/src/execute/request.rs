@@ -49,7 +49,6 @@ use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
 use crate::execute::inputs_directory::inputs_directory;
-use crate::execute::paths_with_digest::PathsWithDigestBlobData;
 
 /// What protobuf messages can be stored in the action metadata blobs.
 pub trait ActionMetadataBlobMessage: Message {}
@@ -76,7 +75,6 @@ impl ActionMetadataBlobData {
 
 #[derive(Clone)]
 pub struct ActionMetadataBlob {
-    pub data: PathsWithDigestBlobData,
     pub digest: TrackedFileDigest,
     pub path: BuildArtifactPath,
 }

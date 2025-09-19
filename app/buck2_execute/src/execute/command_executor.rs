@@ -41,12 +41,10 @@ use crate::execute::cache_uploader::IntoRemoteDepFile;
 use crate::execute::cache_uploader::UploadCache;
 use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
-use crate::execute::paths_with_digest::PathsWithDigestBlobData;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::prepared::PreparedCommandOptionalExecutor;
-use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
 use crate::execute::request::OutputType;
@@ -197,14 +195,6 @@ impl CommandExecutor {
         executor_stage(buck2_data::PrepareAction {}, || {
             let input_digest = request.paths().input_directory().fingerprint();
 
-            let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
-                CommandExecutionInput::Artifact(_) => None,
-                CommandExecutionInput::ActionMetadata(metadata) => {
-                    Some((metadata.data.clone(), metadata.digest.dupe()))
-                }
-                CommandExecutionInput::ScratchPath(_) => None,
-                CommandExecutionInput::IncrementalRemoteOutput(..) => None,
-            });
             let mut platform = self.0.re_platform.clone();
             let all_args = if self.0.options.use_bazel_protocol_remote_persistent_workers
                 && let Some(worker) = request.worker()
@@ -242,7 +232,6 @@ impl CommandExecutor {
                 request.working_directory(),
                 request.env(),
                 input_digest,
-                action_metadata_blobs,
                 request.timeout(),
                 platform,
                 false,
@@ -269,7 +258,6 @@ fn re_create_action(
     working_directory: &ProjectRelativePath,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
-    blobs: impl IntoIterator<Item = (PathsWithDigestBlobData, TrackedFileDigest)>,
     timeout: Option<Duration>,
     platform: RE::Platform,
     do_not_cache: bool,
@@ -376,10 +364,6 @@ fn re_create_action(
     }
 
     let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
-
-    for (data, digest) in blobs {
-        action_and_blobs.add_paths(digest, data);
-    }
 
     let mut action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),

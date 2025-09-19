@@ -1157,10 +1157,7 @@ pub async fn materialize_inputs(
                     .buck_out_path_resolver()
                     // Metadata path always uses the configuration hash
                     .resolve_gen(&metadata.path, None)?;
-                CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
-                artifact_fs
-                    .fs()
-                    .write_file(&path, &metadata.data.0.0, false)?;
+                paths.push(path);
             }
             CommandExecutionInput::ScratchPath(path) => {
                 let path = artifact_fs.buck_out_path_resolver().resolve_scratch(path)?;
