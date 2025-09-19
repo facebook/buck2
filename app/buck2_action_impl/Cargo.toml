@@ -23,6 +23,7 @@ parking_lot = { workspace = true }
 relative-path = { workspace = true }
 serde_json = { workspace = true }
 sha1 = { workspace = true }
+static_assertions = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }

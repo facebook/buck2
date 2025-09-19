@@ -87,6 +87,9 @@ pub(crate) enum DynamicAttrValue<
     Option(Option<Box<DynamicAttrValue<V>>>),
 }
 
+// This isn't *super* sensitive, but it's not nothing either
+static_assertions::assert_eq_size!(DynamicAttrValue<FrozenValue>, [usize; 5]);
+
 // We implement `Freeze` manually because starlark `derive(Freeze)` does not support custom bounds.
 impl<V: ValueLifetimeless> Freeze for DynamicAttrValue<V> {
     type Frozen = DynamicAttrValue<V::Frozen>;
