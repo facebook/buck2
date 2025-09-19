@@ -174,7 +174,7 @@ buck_java_library(
 
 third_party_jar(
     name = "commons-compress",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/apache/commons/commons-compress:commons-compress__toolchain",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/apache/commons/commons-compress:commons-compress",
     sha1 = "b4b1b5a3d9573b2970fddab236102c0a4d27d35e",
     url = "mvn:org.apache.commons:commons-compress:jar:1.24.0",
     visibility = ["PUBLIC"],
