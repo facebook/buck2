@@ -116,13 +116,23 @@ impl<'v, V: ValueLike<'v>> Display for StarlarkOutputArtifactGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> StarlarkOutputArtifactGen<V> {
-    fn unpack(&self) -> Either<&'v StarlarkDeclaredArtifact<'v>, &'v StarlarkArtifact> {
+    fn unpack_value(
+        &self,
+    ) -> Either<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>, ValueTyped<'v, StarlarkArtifact>>
+    {
         let v = self.declared_artifact.to_value();
         // Unwraps justified at construction time
-        if let Some(v) = v.unpack_frozen() {
-            Either::Right(v.downcast_ref().unwrap())
+        if v.unpack_frozen().is_some() {
+            Either::Right(ValueTyped::new(v).unwrap())
         } else {
-            Either::Left(v.downcast_ref().unwrap())
+            Either::Left(ValueTyped::new(v).unwrap())
+        }
+    }
+
+    fn unpack(&self) -> Either<&'v StarlarkDeclaredArtifact<'v>, &'v StarlarkArtifact> {
+        match self.unpack_value() {
+            Either::Left(v) => Either::Left(v.as_ref()),
+            Either::Right(v) => Either::Right(v.as_ref()),
         }
     }
 
