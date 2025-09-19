@@ -25,6 +25,7 @@ use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
@@ -41,6 +42,7 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -223,7 +225,10 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(any_artifact_methods)
+        RES.methods(|b| {
+            any_artifact_methods(b);
+            output_artifact_methods(b);
+        })
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
@@ -236,6 +241,21 @@ where
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
+}
+
+#[starlark_module]
+fn output_artifact_methods(builder: &mut MethodsBuilder) {
+    /// Returns the input artifact from which this output artifact was constructed
+    fn as_input<'v>(
+        this: ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>,
+    ) -> starlark::Result<
+        Either<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>, ValueTyped<'v, StarlarkArtifact>>,
+    > {
+        Ok(match this.unpack() {
+            Either::Left(v) => v.unpack_value(),
+            Either::Right(v) => v.unpack_value(),
+        })
     }
 }
 

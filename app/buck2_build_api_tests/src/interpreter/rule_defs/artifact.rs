@@ -193,6 +193,8 @@ fn output_artifact() -> buck2_error::Result<()> {
                 a2 = declared_artifact("baz/file2")
                 a2o = a2.as_output()
 
+                assert_eq(a1o.as_input(), a1)
+
                 assert_eq("<output artifact for baz/quz.cpp>", repr(a1o))
                 assert_eq("quz.cpp", a1o.basename)
                 assert_eq(".cpp", a1o.extension)
