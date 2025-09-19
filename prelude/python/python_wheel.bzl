@@ -210,8 +210,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
         # Link omnibus libraries.
         omnibus_libs = create_omnibus_libraries(
-            ctx,
-            omnibus_graph,
+            ctx = ctx,
+            graph = omnibus_graph,
+            omnibus_lib_name = "omnibus-{}".format(dist),
             extra_ldflags = python_toolchain.wheel_linker_flags + ctx.attrs.linker_flags,
             extra_root_ldflags = {
                 dep.label: (
