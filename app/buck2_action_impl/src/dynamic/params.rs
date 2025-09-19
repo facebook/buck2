@@ -14,7 +14,6 @@ use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
-use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
@@ -39,8 +38,6 @@ use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallab
 
 #[derive(Allocative, Debug)]
 pub(crate) struct DynamicLambdaStaticFields {
-    /// the owner that defined this lambda
-    pub(crate) owner: BaseDeferredKey,
     /// Input artifacts required to be materialized by the lambda.
     pub(crate) artifact_values: Box<[Artifact]>,
     /// Dynamic values I depend on.

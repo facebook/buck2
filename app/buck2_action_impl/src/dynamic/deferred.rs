@@ -166,9 +166,9 @@ async fn execute_lambda(
     digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
-    if let BaseDeferredKey::BxlLabel(key) = &lambda.as_ref().static_fields.owner {
+    if let BaseDeferredKey::BxlLabel(key) = self_key.owner().dupe() {
         Ok(eval_bxl_for_dynamic_output(
-            key,
+            &key,
             self_key,
             lambda,
             dice,
@@ -184,7 +184,7 @@ async fn execute_lambda(
 
         let start_event = buck2_data::AnalysisStart {
             target: Some(buck2_data::analysis_start::Target::DynamicLambda(
-                lambda.as_ref().static_fields.owner.to_proto().into(),
+                self_key.owner().to_proto().into(),
             )),
             rule: proto_rule.clone(),
         };
@@ -206,7 +206,7 @@ async fn execute_lambda(
                     eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
                     let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                         lambda,
-                        self_key,
+                        self_key.dupe(),
                         input_artifacts_materialized,
                         &ensured_artifacts,
                         &resolved_dynamic_values,
@@ -217,7 +217,7 @@ async fn execute_lambda(
                     let ctx = AnalysisContext::prepare(
                         heap,
                         dynamic_lambda_ctx_data.lambda.attributes()?,
-                        lambda.as_ref().static_fields.owner.configured_label(),
+                        self_key.owner().configured_label(),
                         dynamic_lambda_ctx_data.lambda.plugins()?,
                         dynamic_lambda_ctx_data.registry,
                         dynamic_lambda_ctx_data.digest_config,
@@ -286,7 +286,7 @@ async fn execute_lambda(
                 output,
                 buck2_data::AnalysisEnd {
                     target: Some(buck2_data::analysis_end::Target::DynamicLambda(
-                        lambda.as_ref().static_fields.owner.to_proto().into(),
+                        self_key.owner().to_proto().into(),
                     )),
                     rule: proto_rule,
                     profile: None,
@@ -318,7 +318,7 @@ pub(crate) async fn prepare_and_execute_lambda(
 
     span_async_simple(
         buck2_data::DynamicLambdaStart {
-            owner: Some(lambda.as_ref().static_fields.owner.to_proto().into()),
+            owner: Some(self_holder_key.owner().to_proto().into()),
         },
         async move {
             let (input_artifacts_materialized, resolved_dynamic_values) = span_async_simple(
@@ -452,7 +452,6 @@ pub enum DynamicLambdaCtxDataSpec<'v> {
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
     pub lambda: &'v FrozenDynamicLambdaParams,
-    pub key: &'v BaseDeferredKey,
     pub spec: DynamicLambdaCtxDataSpec<'v>,
     pub digest_config: DigestConfig,
     pub registry: AnalysisRegistry<'v>,
@@ -678,14 +677,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
 ) -> buck2_error::Result<DynamicLambdaCtxData<'v>> {
     let self_key = Arc::new(self_key);
 
-    if &dynamic_lambda.as_ref().static_fields.owner != self_key.owner() {
-        return Err(internal_error!(
-            "Dynamic lambda owner `{}` does not match self key `{}`",
-            dynamic_lambda.as_ref().static_fields.owner,
-            self_key
-        ));
-    }
-
     let dynamic_lambda = dynamic_lambda.add_heap_ref(env.frozen_heap());
 
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
@@ -733,7 +724,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
     Ok(DynamicLambdaCtxData {
         lambda: dynamic_lambda,
         spec,
-        key: &dynamic_lambda.static_fields.owner,
         digest_config,
         registry,
     })

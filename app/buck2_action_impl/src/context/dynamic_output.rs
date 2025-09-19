@@ -190,7 +190,6 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             lambda: f.erase(),
             attr_values: None,
             static_fields: DynamicLambdaStaticFields {
-                owner: key.owner().dupe(),
                 artifact_values,
                 dynamic_values: Box::new([]),
                 outputs,
@@ -242,7 +241,6 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             lambda: callable.implementation.erase().to_callable(),
             attr_values: Some((attr_values, callable)),
             static_fields: DynamicLambdaStaticFields {
-                owner: key.owner().dupe(),
                 artifact_values,
                 dynamic_values,
                 outputs,
