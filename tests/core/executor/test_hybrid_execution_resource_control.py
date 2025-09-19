@@ -210,9 +210,13 @@ async def test_action_freezing(
     # Check that at least one action was frozen (and the command didn't block indefinitely)
     assert frozen_count > 0
 
-    # concurrent tests with enable_action_cgroup_pool=true hit this error:
-    #     Failed to start transient scope unit: Unit buck2-daemon.project.v2.scope was already loaded or has a fragment file.
-    # TODO fix that and make the rest of this a separate test
+
+@buck_test(skip_for_os=["darwin", "windows"])
+@env("BUCK2_HARD_ERROR", "panic")
+async def test_action_freezing_stress_test(
+    buck: Buck,
+) -> None:
+    configure_freezing_with_pressure(buck)
 
     # Stress test that nothing breaks with fast running actions (faster than memory tracker ticks)
     await buck.build(
