@@ -43,6 +43,7 @@ load(
     "SharedLibLinkable",
     "create_merged_link_info",
     "get_lib_output_style",
+    "get_output_styles_for_linkage",
     "set_link_info_link_whole",
 )
 load(
@@ -477,6 +478,7 @@ def _build_params_for_styles(
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
+    output_styles = get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))
 
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
@@ -484,7 +486,7 @@ def _build_params_for_styles(
         if ctx.attrs.proc_macro and linkage_lang != LinkageLang("rust"):
             continue
 
-        for lib_output_style in LibOutputStyle:
+        for lib_output_style in output_styles:
             params = build_params(
                 rule = RuleType("library"),
                 proc_macro = ctx.attrs.proc_macro,
@@ -513,9 +515,10 @@ def _link_infos(
     advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
     lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
+    output_styles = get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))
 
     link_infos = {}
-    for output_style in LibOutputStyle:
+    for output_style in output_styles:
         lib = param_artifact[lang_style_param[(lang, output_style)]]
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
@@ -751,15 +754,11 @@ def _advanced_unstable_link_providers(
     # Add the shared library to the list of shared libs.
     shlib_name = compile_ctx.soname
 
-    shared_lib_params = lang_style_param[(LinkageLang("native-unbundled"), LibOutputStyle("shared_lib"))]
-    build_params = native_param_artifact[shared_lib_params]
-    shared_lib_output = build_params.output
-
     # Only add a shared library if we generated one.
-    # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
-    # a value for LibOutputStyle("shared_lib") if that were created and we could just check for that key. Given that I intend
-    # to remove the SharedLibraries provider, maybe just wait for that to resolve this.
-    if get_lib_output_style(LinkStrategy("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LibOutputStyle("shared_lib"):
+    shared_lib_params = lang_style_param.get((LinkageLang("native-unbundled"), LibOutputStyle("shared_lib")), None)
+    if shared_lib_params:
+        build_params = native_param_artifact[shared_lib_params]
+        shared_lib_output = build_params.output
         solibs[shlib_name] = LinkedObject(
             output = shared_lib_output,
             unstripped_output = shared_lib_output,
@@ -928,8 +927,8 @@ def _native_link_providers(
 
     providers = []
 
-    shared_lib_params = lang_style_param[(LinkageLang("native"), LibOutputStyle("shared_lib"))]
-    shared_lib_output = param_artifact[shared_lib_params].output
+    shared_lib_params = lang_style_param.get((LinkageLang("native"), LibOutputStyle("shared_lib")), None)
+    shared_lib_output = param_artifact[shared_lib_params].output if shared_lib_params else None
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
@@ -949,10 +948,7 @@ def _native_link_providers(
     shlib_name = compile_ctx.soname
 
     # Only add a shared library if we generated one.
-    # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
-    # a value for LibOutputStyle("shared_lib") if that were created and we could just check for that key. Given that I intend
-    # to remove the SharedLibraries provider, maybe just wait for that to resolve this.
-    if get_lib_output_style(LinkStrategy("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LibOutputStyle("shared_lib"):
+    if shared_lib_output:
         solibs[shlib_name] = LinkedObject(
             output = shared_lib_output,
             unstripped_output = shared_lib_output,
