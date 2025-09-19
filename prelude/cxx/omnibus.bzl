@@ -174,19 +174,20 @@ def create_linkable_root(
         deps = linkable_deps(deps),
     )
 
-def _omnibus_soname(ctx):
+def _omnibus_soname(ctx, name: str):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    return get_shared_library_name(linker_info, "omnibus", apply_default_prefix = True)
+    return get_shared_library_name(linker_info, name, apply_default_prefix = True)
 
 def create_dummy_omnibus(
         ctx: AnalysisContext,
+        omnibus_lib_name: str,
         extra_ldflags: list[typing.Any] = [],
         anonymous: bool = False) -> Artifact:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = get_shared_library_name(linker_info, "omnibus-dummy", apply_default_prefix = True),
-        name = _omnibus_soname(ctx),
+        name = _omnibus_soname(ctx, omnibus_lib_name),
         opts = link_options(
             links = [LinkArgs(flags = extra_ldflags)],
             category_suffix = "dummy_omnibus",
@@ -456,6 +457,7 @@ def _is_static_deps(info: LinkableNode) -> bool:
 def _create_omnibus(
         ctx: AnalysisContext,
         spec: OmnibusSpec,
+        omnibus_lib_name: str,
         root_products: dict[Label, OmnibusRootProduct],
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
@@ -558,7 +560,7 @@ def _create_omnibus(
             "-Wl,--undefined-version",
         ]))
 
-    soname = _omnibus_soname(ctx)
+    soname = _omnibus_soname(ctx, omnibus_lib_name)
 
     return cxx_link_shared_library(
         ctx = ctx,
@@ -716,12 +718,18 @@ def create_omnibus_libraries(
         extra_root_ldflags: dict[Label, list[typing.Any]] = {},
         prefer_stripped_objects: bool = False,
         enable_distributed_thinlto = False,
+        omnibus_lib_name: str = "omnibus",
         anonymous: bool = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
     # Create dummy omnibus
-    dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags, anonymous = anonymous)
+    dummy_omnibus = create_dummy_omnibus(
+        ctx = ctx,
+        extra_ldflags = extra_ldflags,
+        omnibus_lib_name = omnibus_lib_name,
+        anonymous = anonymous,
+    )
 
     libraries = []
     root_products = {}
@@ -759,18 +767,19 @@ def create_omnibus_libraries(
     omnibus = None
     if spec.body:
         omnibus = _create_omnibus(
-            ctx,
-            spec,
-            root_products,
-            pic_behavior,
-            extra_ldflags,
-            prefer_stripped_objects,
+            ctx = ctx,
+            spec = spec,
+            omnibus_lib_name = omnibus_lib_name,
+            root_products = root_products,
+            pic_behavior = pic_behavior,
+            extra_ldflags = extra_ldflags,
+            prefer_stripped_objects = prefer_stripped_objects,
             enable_distributed_thinlto = enable_distributed_thinlto,
             allow_cache_upload = True,
         )
         libraries.append(
             create_shlib(
-                soname = _omnibus_soname(ctx),
+                soname = _omnibus_soname(ctx, omnibus_lib_name),
                 lib = omnibus.linked_object,
                 label = ctx.label,
             ),
