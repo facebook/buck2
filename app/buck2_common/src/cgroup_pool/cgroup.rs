@@ -137,6 +137,10 @@ impl Cgroup {
         self.path().join("memory.peak")
     }
 
+    fn memory_high_path(&self) -> PathBuf {
+        self.path().join("memory.high")
+    }
+
     /// confgure cgroup.subtree_control to enable controllers for sub cgroups
     ///
     /// This enables resource memory controller on the current cgroup, allowing
@@ -249,6 +253,18 @@ impl Cgroup {
             }
         }
 
+        Ok(())
+    }
+
+    /// Set the memory.high limit for this cgroup
+    pub(super) fn set_memory_high(&self, memory_high: &str) -> Result<(), CgroupError> {
+        let memory_high_file_path = self.memory_high_path();
+        fs::write(&memory_high_file_path, memory_high).map_err(|e| {
+            CgroupError::ConfigurationFailed {
+                path: memory_high_file_path.to_string_lossy().to_string(),
+                io_err: e,
+            }
+        })?;
         Ok(())
     }
 }

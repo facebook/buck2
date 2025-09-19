@@ -40,6 +40,7 @@ impl PoolState {
 pub struct CgroupPool {
     pool_cgroup: Cgroup,
     pub state: Arc<Mutex<PoolState>>,
+    per_cgroup_memory_high: Option<String>,
 }
 
 impl CgroupPool {
@@ -50,7 +51,7 @@ impl CgroupPool {
 
     const POOL_NAME: &'static str = "actions_cgroup_pool";
 
-    pub fn new(capacity: usize) -> Result<Self, CgroupError> {
+    pub fn new(capacity: usize, per_cgroup_memory_high: Option<&str>) -> Result<Self, CgroupError> {
         let cgroup_info = CGroupInfo::read().map_err(|e| CgroupError::Io {
             msg: "Failed to read cgroup info".to_owned(),
             io_err: std::io::Error::other(format!("{e:#}")),
@@ -94,17 +95,28 @@ impl CgroupPool {
                 available: VecDeque::new(),
                 in_use: HashSet::new(),
             })),
+            per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
         };
 
-        pool.initialize_pool(capacity)?;
+        pool.initialize_pool(capacity, per_cgroup_memory_high)?;
         Ok(pool)
     }
 
-    fn initialize_pool(&self, capacity: usize) -> Result<(), CgroupError> {
+    fn initialize_pool(
+        &self,
+        capacity: usize,
+        per_cgroup_memory_high: Option<&str>,
+    ) -> Result<(), CgroupError> {
         let mut state = self.state.lock().expect("Mutex poisoned");
         for i in 0..capacity {
             let worker_name = Self::worker_name(i);
             let cgroup = Cgroup::new(self.pool_path().to_path_buf(), worker_name, i)?;
+
+            // Set memory.high limit if provided
+            if let Some(per_cgroup_memory_high) = per_cgroup_memory_high {
+                cgroup.set_memory_high(per_cgroup_memory_high)?;
+            }
+
             let cgroup_id = cgroup.id().dupe();
             state.available.push_back(cgroup_id.dupe());
             state.cgroups.insert(cgroup_id, cgroup);
@@ -153,6 +165,12 @@ impl CgroupPool {
             let new_worker_name = Self::worker_name(id);
 
             let cgroup = Cgroup::new(self.pool_path().to_path_buf(), new_worker_name, id)?;
+
+            // Set memory.high limit if provided
+            if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {
+                cgroup.set_memory_high(per_cgroup_memory_high)?;
+            }
+
             let cgroup_id = cgroup.id().dupe();
             state.in_use.insert(cgroup_id.dupe());
             state.cgroups.insert(cgroup_id.dupe(), cgroup);

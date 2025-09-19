@@ -185,8 +185,8 @@ impl ResourceControlRunner {
                 let capacity = cgroup_pool_size
                     .map(|x| x as usize)
                     .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-                let cgroup_pool =
-                    CgroupPool::new(capacity).buck_error_context("Failed to create cgroup pool")?;
+                let cgroup_pool = CgroupPool::new(capacity, memory_high.as_deref())
+                    .buck_error_context("Failed to create cgroup pool")?;
                 Some(cgroup_pool)
             } else {
                 None
