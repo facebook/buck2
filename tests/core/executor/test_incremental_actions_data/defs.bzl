@@ -9,10 +9,11 @@
 def _basic_incremental_actions_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
     ctx.actions.run(
-        cmd_args(["fbpython", ctx.attrs.script] + ["--out", out.as_output()]),
+        cmd_args(["fbpython", ctx.attrs.script] + ["--out", out.as_output()], hidden = [ctx.actions.write("invalidate_action_and_metadata", ctx.attrs.invalidate)]),
         category = "incremental",
         no_outputs_cleanup = ctx.attrs.use_incremental,
-        env = {"INVALIDATE_ACTION": ctx.attrs.invalidate},
+        metadata_env_var = "METADATA_PATH",
+        metadata_path = "metadata.json",
     )
     return [
         DefaultInfo(out),
