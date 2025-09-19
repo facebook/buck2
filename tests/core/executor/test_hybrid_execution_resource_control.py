@@ -232,17 +232,14 @@ async def test_action_freezing(
 async def test_memory_pressure_telemetry(
     buck: Buck,
 ) -> None:
-    # Set per action memory high to a REALLY low amount to trigger memory pressure
-    # DO NOT set `enable_action_cgroup_pool` to true or else the cgroup could be reused
-    # and slow everything down
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
         f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = false\n")
-        f.write("memory_high_per_action = 10\n")
+        f.write("enable_action_cgroup_pool = true\n")
+        f.write("memory_high_per_action = 1048576\n")  # 1 MiB
 
     await buck.build(
-        ":merge_100",
+        ":allocate_10_10M",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=False",

@@ -72,3 +72,72 @@ execution_platforms = rule(
         "platforms": attrs.list(attrs.dep(providers = [ExecutionPlatformInfo])),
     },
 )
+
+# Python interpreter overhead will add additional memory usage beyond the requested allocation.
+SCRIPT = """
+# args: size_mb, sleep_sec, output_path
+
+import os
+import sys
+import time
+
+PAGE = os.sysconf("SC_PAGE_SIZE")
+
+
+def touch_every_page(buf: bytearray):
+    # make sure we touch every page
+    for i in range(0, len(buf), PAGE):
+        buf[i] = 1
+
+
+def main():
+    if len(sys.argv) < 4:
+        sys.exit(1)
+
+    size_mb = int(sys.argv[1])
+    sleep_sec = int(sys.argv[2])
+    file_path = sys.argv[3]
+
+    size_bytes = size_mb * 1024 * 1024
+    # allocating size_mb MB of memory
+    buf = bytearray(size_bytes)
+    touch_every_page(buf)
+
+    time.sleep(sleep_sec)
+
+    del buf
+
+    with open(file_path, "w") as f:
+        f.write("done")
+
+
+main()
+"""
+
+def _allocate_memory_impl(ctx) -> list[Provider]:
+    outputs = []
+    for i in range(0, ctx.attrs.num_actions):
+        output = ctx.actions.declare_output("output{}.txt".format(i))
+        each_action_memory_mb = ctx.attrs.each_action_memory_mb
+
+        cmd = cmd_args(["fbpython", "-c", SCRIPT, each_action_memory_mb, str(ctx.attrs.sleep), output.as_output()])
+        ctx.actions.run(cmd, category = "allocate_memory", identifier = str(i), prefer_local = prefer_local)
+
+        outputs.append(output)
+
+    merged = ctx.actions.declare_output("output.txt")
+    cmd = cmd_args("cat", outputs, ">", merged.as_output(), delimiter = " ")
+    ctx.actions.run(["sh", "-c", cmd], category = "merge", prefer_local = prefer_local)
+
+    return [
+        DefaultInfo(merged),
+    ]
+
+allocate_memory = rule(
+    impl = _allocate_memory_impl,
+    attrs = {
+        "each_action_memory_mb": attrs.string(default = "10"),
+        "num_actions": attrs.int(default = 10),
+        "sleep": attrs.int(default = 0),
+    },
+)
