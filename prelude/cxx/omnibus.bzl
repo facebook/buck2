@@ -66,6 +66,7 @@ load(
     "get_ignore_undefined_symbols_flags",
     "get_no_as_needed_shared_libs_flags",
     "get_shared_library_name",
+    "sandbox_exported_linker_flags",
 )
 load(
     ":symbols.bzl",
@@ -240,9 +241,7 @@ def _create_root(
     # to make sure the linker won't drop it from the link or complain about
     # missing symbols.
     inputs.append(LinkInfo(
-        pre_flags =
-            get_no_as_needed_shared_libs_flags(linker_type) +
-            get_ignore_undefined_symbols_flags(linker_type),
+        pre_flags = get_ignore_undefined_symbols_flags(linker_type),
     ))
 
     # add native target link input
@@ -255,7 +254,16 @@ def _create_root(
 
     # Link to Omnibus
     if spec.body:
-        inputs.append(LinkInfo(linkables = [SharedLibLinkable(lib = omnibus)]))
+        pre_flags, post_flags = sandbox_exported_linker_flags(
+            linker_info = linker_info,
+            flags = get_no_as_needed_shared_libs_flags(linker_type),
+            post_flags = [],
+        )
+        inputs.append(LinkInfo(
+            pre_flags = pre_flags,
+            linkables = [SharedLibLinkable(lib = omnibus)],
+            post_flags = post_flags,
+        ))
 
     # Add deps of the root to the link line.
     for dep in link_deps:
