@@ -158,10 +158,14 @@ impl SlownessCheck {
         if let SlownessCheckState::Enabled { buildmate_url, .. } = state {
             let health_issue = HealthIssue {
                 severity: Severity::Warning,
-                message: Message::Simple(format!(
-                    "The build is detected to be a slow build. Consider clicking this link {} to diagnose with buildmate after it finishes.",
-                    buildmate_url
-                )),
+                message: Message::Rich {
+                    header: "The build seems to be running slowly. Consider diagnosing with Buildmate using this link:"
+                        .to_owned(),
+                    body: buildmate_url.clone(),
+                    footer: Some(
+                        "Please wait until the build finishes before using the link.".to_owned(),
+                    ),
+                },
                 remediation: None,
             };
             Some(DisplayReport {
