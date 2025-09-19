@@ -203,13 +203,13 @@ rules_attributes = {
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_otp_binaries": {
-        "erl": attrs.source(doc = """
+        "erl": attrs.arg(doc = """
                 Reference to `erl` binary
             """),
-        "erlc": attrs.source(doc = """
+        "erlc": attrs.arg(doc = """
                 Reference to `erlc` binary
             """),
-        "escript": attrs.source(doc = """
+        "escript": attrs.arg(doc = """
                 Reference to `escript` binary
             """),
     },

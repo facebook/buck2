@@ -144,35 +144,6 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-def _configured_otp_binaries_impl(ctx: AnalysisContext) -> list[Provider]:
-    name = ctx.attrs.name
-    tools = get_toolchain(ctx).otp_binaries
-    bin_dir = ctx.actions.symlinked_dir(
-        name,
-        {
-            "erl": tools._tools_binaries.erl,
-            "erlc": tools._tools_binaries.erlc,
-            "escript": tools._tools_binaries.escript,
-        },
-    )
-    return [
-        DefaultInfo(
-            default_output = bin_dir,
-            sub_targets = {
-                "erl": [DefaultInfo(default_output = tools._tools_binaries.erl), RunInfo(tools.erl)],
-                "erlc": [DefaultInfo(default_output = tools._tools_binaries.erlc), RunInfo(tools.erlc)],
-                "escript": [DefaultInfo(default_output = tools._tools_binaries.escript), RunInfo(tools.escript)],
-            },
-        ),
-    ]
-
-configured_otp_binaries = rule(
-    impl = _configured_otp_binaries_impl,
-    attrs = {
-        "_toolchain": attrs.dep(),
-    },
-)
-
 def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, env: dict[str, str], parse_transforms: list[Dependency]) -> dict[str, cmd_args]:
     transforms = {}
     for dep in parse_transforms:
@@ -304,15 +275,12 @@ def _compile_toolchain_module(
 # Parse Transform
 
 def erlang_otp_binaries_impl(ctx: AnalysisContext):
-    erl = ctx.attrs.erl
-    erlc = ctx.attrs.erlc
-    escript = ctx.attrs.escript
     return [
         DefaultInfo(),
         ErlangOTPBinariesInfo(
-            erl = erl,
-            erlc = erlc,
-            escript = escript,
+            erl = cmd_args(ctx.attrs.erl),
+            erlc = cmd_args(ctx.attrs.erlc),
+            escript = cmd_args(ctx.attrs.escript),
         ),
     ]
 

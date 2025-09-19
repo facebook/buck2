@@ -102,16 +102,15 @@ ErlangReleaseInfo = provider(
 # Marker provider to enforce what erlang tests can depend on
 ErlangAppOrTestInfo = provider(fields = {})
 
-# OTP Binaries
+Tool = cmd_args
+
 ErlangOTPBinariesInfo = provider(
     fields = {
-        "erl": provider_field(Artifact),
-        "erlc": provider_field(Artifact),
-        "escript": provider_field(Artifact),
+        "erl": provider_field(Tool),
+        "erlc": provider_field(Tool),
+        "escript": provider_field(Tool),
     },
 )
-
-Tool = cmd_args
 
 Tools = record(
     name = field(str),

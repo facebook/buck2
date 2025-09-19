@@ -59,11 +59,12 @@ def _do_build_run_info(
         "",
     )
 
-    shell_script = ctx.actions.write(
+    shell_script, _ = ctx.actions.write(
         "start_shell.sh",
         start_shell_content,
         is_executable = True,
         with_inputs = True,
+        allow_args = True,
     )
 
     return RunInfo(shell_script)
