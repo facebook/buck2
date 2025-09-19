@@ -10,6 +10,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hash;
 use std::mem;
 
 use allocative::Allocative;
@@ -40,6 +41,7 @@ use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark_map::StarlarkHasher;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
@@ -160,6 +162,11 @@ where
             },
         };
         Ok(self.label().inner() == other.inner())
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
+        self.label().inner().hash(hasher);
+        Ok(())
     }
 }
 
