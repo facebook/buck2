@@ -469,8 +469,7 @@ async def test_run_action_with_incremental_metadata(buck: Buck) -> None:
     )
     what_ran2 = await read_what_ran(buck)
 
-    # TODO(ianc) Make these match
     assert (
         what_ran1[0]["reproducer"]["details"]["digest"]
-        != what_ran2[0]["reproducer"]["details"]["digest"]
+        == what_ran2[0]["reproducer"]["details"]["digest"]
     )

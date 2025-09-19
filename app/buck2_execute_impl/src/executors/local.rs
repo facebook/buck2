@@ -1155,8 +1155,7 @@ pub async fn materialize_inputs(
             CommandExecutionInput::ActionMetadata(metadata) => {
                 let path = artifact_fs
                     .buck_out_path_resolver()
-                    // Metadata path always uses the configuration hash
-                    .resolve_gen(&metadata.path, None)?;
+                    .resolve_gen(&metadata.path, Some(&metadata.content_hash))?;
                 paths.push(path);
             }
             CommandExecutionInput::ScratchPath(path) => {

@@ -29,10 +29,9 @@ pub fn inputs_directory(
                 group.add_to_directory(&mut builder, fs)?;
             }
             CommandExecutionInput::ActionMetadata(metadata) => {
-                // Metadata path always uses the configuration hash
                 let path = fs
                     .buck_out_path_resolver()
-                    .resolve_gen(&metadata.path, None)?;
+                    .resolve_gen(&metadata.path, Some(&metadata.content_hash))?;
                 builder.insert(
                     &path,
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {

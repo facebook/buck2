@@ -77,6 +77,7 @@ impl ActionMetadataBlobData {
 pub struct ActionMetadataBlob {
     pub digest: TrackedFileDigest,
     pub path: BuildArtifactPath,
+    pub content_hash: ContentBasedPathHash,
 }
 
 pub enum CommandExecutionInput {

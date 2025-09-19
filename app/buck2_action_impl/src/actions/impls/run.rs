@@ -784,23 +784,28 @@ impl RunAction {
             let path = BuildArtifactPath::new(
                 ctx.target().owner().dupe(),
                 metadata_param.path.clone(),
-                BuckOutPathKind::Configuration,
+                if self.all_outputs_are_content_based() {
+                    BuckOutPathKind::ContentHash
+                } else {
+                    BuckOutPathKind::Configuration
+                },
             );
-            let project_rel_path = fs.buck_out_path_resolver().resolve_gen(&path, None)?;
-            let env = cli_ctx
-                .resolve_project_path(project_rel_path.clone())?
-                .into_string();
+
             let artifact_inputs: Vec<&ArtifactGroupValues> = visitor
                 .incremental_metadata_inputs
                 .iter()
                 .map(|group| ctx.artifact_values(group))
                 .collect();
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
+            let content_hash = ContentBasedPathHash::new(digest.to_string())?;
+            let project_rel_path = fs
+                .buck_out_path_resolver()
+                .resolve_gen(&path, Some(&content_hash))?;
 
             ctx.materializer()
                 .declare_write(Box::new(|| {
                     Ok(vec![WriteRequest {
-                        path: project_rel_path,
+                        path: project_rel_path.clone(),
                         content: data.0.0,
                         is_executable: false,
                     }])
@@ -811,7 +816,12 @@ impl RunAction {
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
                 digest,
                 path,
+                content_hash,
             }));
+
+            let env = cli_ctx
+                .resolve_project_path(project_rel_path)?
+                .into_string();
             extra_env.push((metadata_param.env_var.to_owned(), env));
         }
         Ok(())
