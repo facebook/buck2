@@ -68,6 +68,14 @@ pub enum CgroupDelegation {
     Disabled,
 }
 
+#[derive(PartialEq, Clone)]
+pub enum ActionCgroupPoolConfig {
+    Disabled,
+    Enabled {
+        per_cgroup_memory_high: Option<String>,
+    },
+}
+
 pub struct ResourceControlRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
@@ -79,8 +87,8 @@ pub struct ResourceControlRunnerConfig {
     pub parent_slice: ParentSlice,
     /// Delegation of further resource control partitioning of cgroup unit
     pub delegation: CgroupDelegation,
-    /// Enable cgroup pool for action processes instead of using systemd scopes
-    pub enable_action_cgroup_pool: bool,
+    /// Cgroup pool configuration for action processes
+    pub action_cgroup_pool_config: ActionCgroupPoolConfig,
     /// Size of cgroup pool for action processes
     pub cgroup_pool_size: Option<u64>,
 }
@@ -94,7 +102,7 @@ impl ResourceControlRunnerConfig {
             parent_slice,
             delegation: CgroupDelegation::Disabled,
             // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
-            enable_action_cgroup_pool: false,
+            action_cgroup_pool_config: ActionCgroupPoolConfig::Disabled,
             cgroup_pool_size: None,
         }
     }
@@ -106,7 +114,13 @@ impl ResourceControlRunnerConfig {
             memory_high: config.memory_high_per_action.clone(),
             parent_slice,
             delegation: CgroupDelegation::Enabled,
-            enable_action_cgroup_pool: config.enable_action_cgroup_pool.unwrap_or(false),
+            action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
+                ActionCgroupPoolConfig::Enabled {
+                    per_cgroup_memory_high: config.memory_high_per_action.clone(),
+                }
+            } else {
+                ActionCgroupPoolConfig::Disabled
+            },
             cgroup_pool_size: config.cgroup_pool_size,
         }
     }
@@ -127,7 +141,7 @@ impl ResourceControlRunner {
         parent_slice: &ParentSlice,
         delegation: CgroupDelegation,
         // on windows, we don't have cgroup, so we don't need to this flag
-        #[allow(unused_variables)] enable_action_cgroup_pool: bool,
+        #[allow(unused_variables)] action_cgroup_pool_config: &ActionCgroupPoolConfig,
         #[allow(unused_variables)] cgroup_pool_size: Option<u64>,
     ) -> buck2_error::Result<Self> {
         // Common settings
@@ -177,19 +191,21 @@ impl ResourceControlRunner {
             memory_high: memory_high.clone(),
 
             #[cfg(unix)]
-            cgroup_pool: if enable_action_cgroup_pool {
-                // Use num_cpus to set the capacity of the cgroup pool.
-
-                use buck2_error::BuckErrorContext;
-                // if cgroup pool size is not set, use the number of available cpus
-                let capacity = cgroup_pool_size
-                    .map(|x| x as usize)
-                    .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-                let cgroup_pool = CgroupPool::new(capacity, memory_high.as_deref())
-                    .buck_error_context("Failed to create cgroup pool")?;
-                Some(cgroup_pool)
-            } else {
-                None
+            cgroup_pool: match action_cgroup_pool_config {
+                ActionCgroupPoolConfig::Enabled {
+                    per_cgroup_memory_high,
+                } => {
+                    // Use num_cpus to set the capacity of the cgroup pool.
+                    use buck2_error::BuckErrorContext;
+                    // if cgroup pool size is not set, use the number of available cpus
+                    let capacity = cgroup_pool_size
+                        .map(|x| x as usize)
+                        .unwrap_or(buck2_util::threads::available_parallelism_fresh());
+                    let cgroup_pool = CgroupPool::new(capacity, per_cgroup_memory_high.as_deref())
+                        .buck_error_context("Failed to create cgroup pool")?;
+                    Some(cgroup_pool)
+                }
+                ActionCgroupPoolConfig::Disabled => None,
             },
         })
     }
@@ -233,7 +249,7 @@ impl ResourceControlRunner {
                 config.memory_high.clone(),
                 &config.parent_slice,
                 config.delegation,
-                config.enable_action_cgroup_pool,
+                &config.action_cgroup_pool_config,
                 config.cgroup_pool_size,
             )?)),
         }

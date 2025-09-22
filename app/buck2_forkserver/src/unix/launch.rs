@@ -15,6 +15,7 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 use buck2_common::init::ResourceControlConfig;
+use buck2_common::resource_control::ActionCgroupPoolConfig;
 use buck2_common::resource_control::CgroupDelegation;
 use buck2_common::resource_control::ParentSlice;
 use buck2_common::resource_control::ResourceControlRunner;
@@ -55,7 +56,7 @@ pub async fn launch_forkserver(
             // for this we inherit slice
             &ParentSlice::Inherit("forkserver_daemon".to_owned()),
             CgroupDelegation::Enabled,
-            false,
+            &ActionCgroupPoolConfig::Disabled,
             None,
         )?;
 
