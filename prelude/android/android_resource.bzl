@@ -108,7 +108,7 @@ def aapt2_compile(
 
 def _get_package(ctx: AnalysisContext, package: [str, None], manifest: Artifact | None) -> Artifact:
     if package:
-        return ctx.actions.write(JAVA_PACKAGE_FILENAME, package)
+        return ctx.actions.write(JAVA_PACKAGE_FILENAME, package, uses_experimental_content_based_path_hashing = True)
     else:
         expect(manifest != None, "if package is not declared then a manifest must be")
         return extract_package_from_manifest(ctx, manifest)
