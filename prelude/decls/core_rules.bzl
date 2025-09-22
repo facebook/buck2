@@ -276,7 +276,6 @@ configured_alias = prelude_rule(
             # to keep output format compatibility with v1.
             # If `configured_actual` is `None`, fallback to this unconfigured dep.
             "platform": attrs.option(attrs.configuration_label(), default = None),
-            "propagate_flavors": attrs.bool(default = False),
         }
     ),
 )
