@@ -136,11 +136,12 @@ def get_text_symbols(
 
     mini_aapt_cmd.add(["--resource-paths", res])
 
-    dep_symbol_paths = cmd_args()
     dep_symbols = _get_dep_symbols(deps)
-    dep_symbol_paths.add(dep_symbols)
-
-    dep_symbol_paths_file = argfile(actions = ctx.actions, name = "{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file", args = dep_symbol_paths, allow_args = True)
+    dep_symbol_paths_file = argfile(
+        actions = ctx.actions,
+        name = "{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file",
+        args = dep_symbols,
+    )
 
     mini_aapt_cmd.add(["--dep-symbol-paths", dep_symbol_paths_file])
 
