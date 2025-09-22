@@ -53,10 +53,21 @@ class AppId:
     def infer_from_entitlements(entitlements: Dict[str, Any]) -> Optional[AppId]:
         try:
             keychain_access_groups = entitlements.get("keychain-access-groups")
-            if not keychain_access_groups:
-                return None
-            app_id_string = keychain_access_groups[0]
-            return AppId.from_string(app_id_string)
+            if keychain_access_groups:
+                app_id_string = keychain_access_groups[0]
+                return AppId.from_string(app_id_string)
+
+            application_identifier = entitlements.get("application-identifier")
+            if application_identifier:
+                return AppId.from_string(application_identifier)
+
+            team_identifier = entitlements.get("com.apple.developer.team-identifier")
+            bundle_id = entitlements.get("CFBundleIdentifier")
+            if team_identifier and bundle_id:
+                app_id_string = f"{team_identifier}.{bundle_id}"
+                return AppId.from_string(app_id_string)
+
+            return None
         except Exception as e:
             raise RuntimeError(
                 "Error when parsing the entitlements for the app ID: {}".format(e)

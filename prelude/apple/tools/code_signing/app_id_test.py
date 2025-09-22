@@ -31,13 +31,18 @@ class TestAppId(unittest.TestCase):
             _ = AppId.from_string("invalid.")
 
     def test_entitlements_parsing(self):
-        with pkg_resources.resource_stream(
-            __name__, "test_resources/Entitlements.plist"
-        ) as file:
-            entitlements = plistlib.load(file)
-            result = AppId.infer_from_entitlements(entitlements)
-            expected = AppId("ABCDE12345", "com.example.TestApp")
-            self.assertEqual(expected, result)
+        expected = AppId("ABCDE12345", "com.example.TestApp")
+        test_plist_files = [
+            "test_resources/test1.plist",
+            "test_resources/test2.plist",
+            "test_resources/test3.plist",
+        ]
+
+        for file in test_plist_files:
+            with pkg_resources.resource_stream(__name__, file) as f:
+                entitlements = plistlib.load(f)
+                result = AppId.infer_from_entitlements(entitlements)
+                self.assertEqual(expected, result)
 
         invalid_file = b"""<?xml version="1.0" encoding="UTF-8"?>
                             <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
