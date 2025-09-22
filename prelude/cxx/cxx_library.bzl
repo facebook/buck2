@@ -1155,6 +1155,16 @@ def _get_library_compile_output(
         diagnostics = diagnostics,
     )
 
+_CxxSharedLibraryResult = record(
+    # Result from link, includes the shared lib, linker map data etc
+    link_result = CxxLinkResult,
+    # Shared library name (e.g. SONAME)
+    soname = str,
+    objects_bitcode_bundle = Artifact | None,
+    # `LinkInfo` used to link against the shared library.
+    info = LinkInfo,
+)
+
 def cxx_compile_srcs(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
@@ -1814,16 +1824,6 @@ def _bitcode_bundle(
     base_name = _base_static_library_name(ctx, optimized, debuggable, stripped = False)
     name = name_extra + _bitcode_bundle_name(base_name, pic, stripped)
     return make_bitcode_bundle(ctx, name, objects)
-
-_CxxSharedLibraryResult = record(
-    # Result from link, includes the shared lib, linker map data etc
-    link_result = CxxLinkResult,
-    # Shared library name (e.g. SONAME)
-    soname = str,
-    objects_bitcode_bundle = Artifact | None,
-    # `LinkInfo` used to link against the shared library.
-    info = LinkInfo,
-)
 
 def _shared_library(
         ctx: AnalysisContext,
