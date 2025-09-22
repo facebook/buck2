@@ -27,7 +27,7 @@ def get_dummy_r_dot_java(
         android_resources: list[AndroidResourceInfo],
         union_package: [str, None]) -> JavaLibraryInfo:
     r_dot_java_source_code = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
-    return _generate_and_compile_r_dot_java(
+    return _compile_r_dot_java(
         ctx,
         r_dot_java_source_code.r_dot_java_source_code_zipped,
         "dummy_r_dot_java",
@@ -50,7 +50,7 @@ def generate_r_dot_javas(
         # like buck1 we just generate a stub class if we have no resources.  This will be stripped from release
         # builds and have minimal impact on debug builds.
         return [
-            _generate_and_compile_r_dot_java(
+            _compile_r_dot_java(
                 ctx,
                 ctx.attrs._android_toolchain[AndroidToolchainInfo].app_without_resources_stub,
                 "main_r_dot_java",
@@ -73,7 +73,7 @@ def generate_r_dot_javas(
     )
 
     library_infos = [
-        _generate_and_compile_r_dot_java(
+        _compile_r_dot_java(
             ctx,
             r_dot_java_source_code.r_dot_java_source_code_zipped,
             "main_r_dot_java",
@@ -82,13 +82,13 @@ def generate_r_dot_javas(
     ]
     if generate_strings_and_ids_separately:
         library_infos += [
-            _generate_and_compile_r_dot_java(
+            _compile_r_dot_java(
                 ctx,
                 r_dot_java_source_code.strings_source_code_zipped,
                 "strings_r_dot_java",
                 remove_classes = remove_classes + [".R$"],
             ),
-            _generate_and_compile_r_dot_java(
+            _compile_r_dot_java(
                 ctx,
                 r_dot_java_source_code.ids_source_code_zipped,
                 "ids_r_dot_java",
@@ -182,7 +182,7 @@ def _generate_r_dot_java_source_code(
         ids_source_code_zipped = ids_output_dir_zipped,
     )
 
-def _generate_and_compile_r_dot_java(
+def _compile_r_dot_java(
         ctx: AnalysisContext,
         r_dot_java_source_code_zipped: Artifact,
         identifier: str,
