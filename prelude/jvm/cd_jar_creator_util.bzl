@@ -664,7 +664,7 @@ def postprocess_jar(
         original_jar: Artifact,
         actions_identifier: [str, None]) -> Artifact:
     jar_path = original_jar.short_path
-    postprocessed_output = actions.declare_output("postprocessed_{}".format(jar_path))
+    postprocessed_output = actions.declare_output("postprocessed_{}".format(jar_path), uses_experimental_content_based_path_hashing = True)
 
     postprocess_jar_cmd = cmd_args(
         jar_postprocessor_runner,
