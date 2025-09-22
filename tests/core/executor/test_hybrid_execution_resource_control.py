@@ -263,3 +263,51 @@ async def test_memory_pressure_telemetry(
     assert (
         peak_value <= 100
     ), f"Expected % peak_pressure to be at most 100, got {peak_value}"
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_action_freezing_unfreezing(
+    buck: Buck,
+) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("status = required\n")
+        f.write("enable_action_cgroup_pool = true\n")
+        f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
+        f.write("enable_action_freezing = true\n")
+        f.write("memory_pressure_threshold_percent = 1\n")
+
+    target = "prelude//:freeze_unfreeze_target"
+    output = await buck.build(
+        target,
+        "--no-remote-cache",
+        "-c",
+        "build.use_limited_hybrid=False",
+        "-c",
+        "build.execution_platforms=//:platforms",
+        "--local-only",
+    )
+    with open(
+        output.get_build_report().output_for_target(target),
+        "r",
+    ) as f:
+        print(f.read())
+
+    result = await buck.log("show")
+    frozen_count = 0
+
+    for line in result.stdout.splitlines():
+        json_object = json.loads(line)
+        action_end: Optional[Dict[str, Any]] = _get(
+            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
+        )
+        if action_end is not None:
+            action_commands = _get(action_end, "commands")
+            assert len(action_commands) == 1
+
+            metadata = _get(action_commands[0], "details", "metadata")
+            was_frozen = metadata["was_frozen"]
+            if was_frozen:
+                frozen_count += 1
+    # only the action whose identifier is `action_to_be_frozen` will be frozen
+    assert frozen_count == 1

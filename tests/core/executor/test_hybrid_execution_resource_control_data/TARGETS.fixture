@@ -24,3 +24,8 @@ allocate_memory(
     num_actions = 10,
     each_action_memory_mb = "10",
 )
+
+freeze_unfreeze(
+    name = "freeze_unfreeze_target",
+    script = "memory_pressure.py",
+)
