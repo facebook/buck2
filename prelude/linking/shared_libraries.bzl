@@ -10,6 +10,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
+    "LinkableFlavor",  # @unused Used as a type
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//linking:strip.bzl", "strip_object")
@@ -77,6 +78,7 @@ SharedLibraries = record(
     # libraries, using this as the key allows easily detecting conflicts from
     # dependencies.
     libraries = field(list[SharedLibrary]),
+    flavored_libraries = field(dict[LinkableFlavor, SharedLibrary] | None, None),
 )
 
 # T-set of SharedLibraries
@@ -119,6 +121,27 @@ NamedLinkedObject = record(
     soname = field(str),
     linked_object = field(LinkedObject),
 )
+
+def create_flavored_shared_libraries(
+        ctx: AnalysisContext,
+        libraries: dict[LinkableFlavor, NamedLinkedObject]) -> SharedLibraries:
+    default_libraries = []
+    flavored_libraries = {}
+    for flavor in libraries:
+        solib = libraries[flavor]
+        shlib = create_shlib_from_ctx(
+            ctx = ctx,
+            soname = solib.soname,
+            lib = solib.linked_object,
+        )
+        flavored_libraries[flavor] = shlib
+        if flavor == LinkableFlavor("default"):
+            default_libraries.append(shlib)
+
+    return SharedLibraries(
+        libraries = default_libraries,
+        flavored_libraries = flavored_libraries,
+    )
 
 def create_shared_libraries(
         ctx: AnalysisContext,

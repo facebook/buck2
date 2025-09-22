@@ -96,7 +96,7 @@ load(
     "linkable_deps",
     "reduce_linkable_graph",
 )
-load("@prelude//linking:shared_libraries.bzl", "NamedLinkedObject", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load("@prelude//linking:shared_libraries.bzl", "NamedLinkedObject", "SharedLibraryInfo", "create_flavored_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load(
@@ -298,7 +298,7 @@ _CxxAllLibraryOutputs = record(
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping if this target produces a shared library.
-    solib = field(NamedLinkedObject | None),
+    solibs = field(dict[LinkableFlavor, NamedLinkedObject]),
     sanitizer_runtime_files = field(list[Artifact], []),
 )
 
@@ -586,8 +586,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         link_execution_preference = link_execution_preference,
         shared_interface_info = shared_interface_info,
     )
-    solib_as_dict = {library_outputs.solib.soname: library_outputs.solib.linked_object} if library_outputs.solib else {}
-    shared_libs = create_shared_libraries(ctx, solib_as_dict)
+    shared_libs = create_flavored_shared_libraries(ctx, library_outputs.solibs)
 
     for _, link_style_output in library_outputs.outputs.items():
         if LinkableFlavor("default") not in link_style_output:
@@ -1293,7 +1292,7 @@ def _form_library_outputs(
         shared_interface_info: [SharedInterfaceInfo, None]) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
-    solib = None
+    solibs = {}
     link_infos = {}
     providers = []
     sanitizer_runtime_files = []
@@ -1504,6 +1503,7 @@ def _form_library_outputs(
                 )
                 info = result.info
                 outputs_for_style[LinkableFlavor("default")] = default_output
+                solibs[LinkableFlavor("default")] = solib
 
                 providers.append(result.link_result.link_execution_preference_info)
 
@@ -1540,7 +1540,7 @@ def _form_library_outputs(
         outputs = outputs,
         link_infos = link_infos,
         providers = providers,
-        solib = solib,
+        solibs = solibs,
         sanitizer_runtime_files = sanitizer_runtime_files,
     )
 
