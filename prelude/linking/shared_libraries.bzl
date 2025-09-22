@@ -73,6 +73,7 @@ def create_shlib(
     )
 
 SharedLibraries = record(
+    label = field(Label | None, None),
     # A mapping of shared library SONAME (e.g. `libfoo.so.2`) to the artifact.
     # Since the SONAME is what the dynamic loader uses to uniquely identify
     # libraries, using this as the key allows easily detecting conflicts from
@@ -139,6 +140,7 @@ def create_flavored_shared_libraries(
             default_libraries.append(shlib)
 
     return SharedLibraries(
+        label = ctx.label,
         libraries = default_libraries,
         flavored_libraries = flavored_libraries,
     )
@@ -151,6 +153,7 @@ def create_shared_libraries(
     passed around in providers. Used for both srcs, and resources.
     """
     return SharedLibraries(
+        label = ctx.label,
         libraries = [
             create_shlib_from_ctx(ctx = ctx, soname = name, lib = shlib)
             for (name, shlib) in libraries.items()
