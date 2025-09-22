@@ -51,7 +51,11 @@ impl CgroupPool {
 
     const POOL_NAME: &'static str = "actions_cgroup_pool";
 
-    pub fn new(capacity: usize, per_cgroup_memory_high: Option<&str>) -> Result<Self, CgroupError> {
+    pub fn new(
+        capacity: usize,
+        per_cgroup_memory_high: Option<&str>,
+        pool_memory_high: Option<&str>,
+    ) -> Result<Self, CgroupError> {
         let cgroup_info = CGroupInfo::read().map_err(|e| CgroupError::Io {
             msg: "Failed to read cgroup info".to_owned(),
             io_err: std::io::Error::other(format!("{e:#}")),
@@ -87,6 +91,10 @@ impl CgroupPool {
             CgroupPool::POOL_CGROUP_ID,
         )?;
         pool_cgroup.config_subtree_control()?;
+
+        if let Some(pool_memory_high) = pool_memory_high {
+            pool_cgroup.set_memory_high(pool_memory_high)?;
+        }
 
         let pool = Self {
             pool_cgroup,

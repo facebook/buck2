@@ -250,6 +250,10 @@ pub struct ResourceControlConfig {
     /// The corresponding buckconfig is `buck2_resource_control.enable_action_cgroup_pool`.
     /// By default, it is false.
     pub enable_action_cgroup_pool: Option<bool>,
+    /// Memory high limit for action cgroup pool. Used when enable_action_cgroup_pool is true.
+    /// The corresponding buckconfig is `buck2_resource_control.memory_high_action_cgroup_pool`.
+    /// Mainly for testing purpose.
+    pub memory_high_action_cgroup_pool: Option<String>,
     /// It is valid only when `enable_action_cgroup_pool` is true.
     /// It is used to set the capacity of the cgroup pool. it is not the hard limit of the cgroup.
     /// When not provided, it is set to the number of logical cores.
@@ -337,6 +341,10 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "enable_action_cgroup_pool",
             })?;
+            let memory_high_action_cgroup_pool = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_high_action_cgroup_pool",
+            })?;
             let cgroup_pool_size = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "cgroup_pool_size",
@@ -357,6 +365,7 @@ impl ResourceControlConfig {
                 memory_high_per_action,
                 hybrid_execution_memory_limit_gibibytes,
                 enable_action_cgroup_pool,
+                memory_high_action_cgroup_pool,
                 cgroup_pool_size,
                 memory_pressure_threshold_percent,
                 enable_action_freezing,

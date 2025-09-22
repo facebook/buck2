@@ -73,6 +73,7 @@ pub enum ActionCgroupPoolConfig {
     Disabled,
     Enabled {
         per_cgroup_memory_high: Option<String>,
+        pool_memory_high: Option<String>,
     },
 }
 
@@ -117,6 +118,7 @@ impl ResourceControlRunnerConfig {
             action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
                 ActionCgroupPoolConfig::Enabled {
                     per_cgroup_memory_high: config.memory_high_per_action.clone(),
+                    pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
                 }
             } else {
                 ActionCgroupPoolConfig::Disabled
@@ -194,6 +196,7 @@ impl ResourceControlRunner {
             cgroup_pool: match action_cgroup_pool_config {
                 ActionCgroupPoolConfig::Enabled {
                     per_cgroup_memory_high,
+                    pool_memory_high,
                 } => {
                     // Use num_cpus to set the capacity of the cgroup pool.
                     use buck2_error::BuckErrorContext;
@@ -201,8 +204,12 @@ impl ResourceControlRunner {
                     let capacity = cgroup_pool_size
                         .map(|x| x as usize)
                         .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-                    let cgroup_pool = CgroupPool::new(capacity, per_cgroup_memory_high.as_deref())
-                        .buck_error_context("Failed to create cgroup pool")?;
+                    let cgroup_pool = CgroupPool::new(
+                        capacity,
+                        per_cgroup_memory_high.as_deref(),
+                        pool_memory_high.as_deref(),
+                    )
+                    .buck_error_context("Failed to create cgroup pool")?;
                     Some(cgroup_pool)
                 }
                 ActionCgroupPoolConfig::Disabled => None,
