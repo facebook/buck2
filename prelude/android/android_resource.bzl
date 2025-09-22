@@ -141,11 +141,12 @@ def get_text_symbols(
         actions = ctx.actions,
         name = "{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file",
         args = dep_symbols,
+        uses_experimental_content_based_path_hashing = True,
     )
 
     mini_aapt_cmd.add(["--dep-symbol-paths", dep_symbol_paths_file])
 
-    text_symbols = ctx.actions.declare_output("{}_R.txt".format(identifier) if identifier else "R.txt")
+    text_symbols = ctx.actions.declare_output("{}_R.txt".format(identifier) if identifier else "R.txt", uses_experimental_content_based_path_hashing = True)
     mini_aapt_cmd.add(["--output-path", text_symbols.as_output()])
 
     ctx.actions.run(mini_aapt_cmd, category = "mini_aapt", identifier = identifier)
