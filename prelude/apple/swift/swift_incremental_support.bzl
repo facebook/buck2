@@ -86,6 +86,9 @@ def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
     toolchain = get_swift_toolchain_info(ctx)
     return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False)
 
+def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
+    return getattr(ctx.attrs, "incremental_remote_outputs", False)
+
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
         output_file_map_data: _OutputFileMapData,
@@ -129,10 +132,11 @@ def _get_incremental_compilation_flags_and_objects(
             output_map_artifact.as_output(),
         )
     elif get_incremental_file_hashing_enabled(ctx):
-        incremental_remote_outputs = True
         cmd.add(
             "-enable-incremental-file-hashing",
         )
+        if get_incremental_remote_outputs_enabled(ctx):
+            incremental_remote_outputs = True
 
     return IncrementalCompilationOutput(
         artifacts = output_file_map_data.artifacts,

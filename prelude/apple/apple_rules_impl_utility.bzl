@@ -107,6 +107,11 @@ def get_swift_incremental_file_hashing_attrs():
         "swift_incremental_file_hashing": attrs.bool(default = read_bool("apple", "swift_incremental_file_hashing", False, False, True)),
     }
 
+def get_swift_incremental_remote_outputs_attrs():
+    return {
+        "incremental_remote_outputs": attrs.bool(default = read_bool("apple", "incremental_remote_outputs", False, False, True)),
+    }
+
 def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {

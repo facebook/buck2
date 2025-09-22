@@ -75,6 +75,7 @@ load(
     "get_enable_library_evolution",
     "get_skip_swift_incremental_outputs_attrs",
     "get_swift_incremental_file_hashing_attrs",
+    "get_swift_incremental_remote_outputs_attrs",
 )
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
@@ -712,6 +713,7 @@ apple_library = prelude_rule(
         buck.allow_cache_upload_arg() |
         apple_dsymutil_attrs() |
         get_swift_incremental_file_hashing_attrs() |
+        get_swift_incremental_remote_outputs_attrs() |
         get_skip_swift_incremental_outputs_attrs()
     ),
     uses_plugins = [SwiftMacroPlugin],
