@@ -7,15 +7,15 @@ Modifiers can be set in [`PACKAGE` files](../../rule_authors/package.md) using
 the prelude's `set_cfg_modifiers`. In this case they will be applied to all
 targets affected by that `PACKAGE` file.
 
-For example, assuming that `root//build:debug` is an existing constraint value
-and [modifiers have been setup](./modifiers_setup.md), the following will apply
-it by default to all targets defined in that `PACKAGE`'s directory:
+For example, assuming that `root//constraints:debug` is an existing constraint
+value and [modifiers have been setup](./modifiers_setup.md), the following will
+apply it by default to all targets defined in that `PACKAGE`'s directory:
 
 ```python
 load("@prelude//cfg/modifier/set_cfg_modifiers.bzl", "set_cfg_modifiers")
 
 set_cfg_modifiers([
-    "root//build:debug",
+    "root//constraints:debug",
 ])
 ```
 

@@ -75,8 +75,8 @@ native.set_cfg_constructor(
     stage1 = cfg_constructor_post_constraint_analysis,
     key = MODIFIER_METADATA_KEY,
     aliases = struct(
-        debug = "//build:debug",
-        release = "//build:release",
+        debug = "//constraints:debug",
+        release = "//constraints:release",
     ),
     extra_data = struct(),
 )

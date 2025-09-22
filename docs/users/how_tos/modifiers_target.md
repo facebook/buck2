@@ -21,7 +21,7 @@ release_package(
         ":my_rust_bin",
     ],
     modifiers = [
-        "//constraints:debug",
+        "//constraints:release",
     ],
 )
 ```
