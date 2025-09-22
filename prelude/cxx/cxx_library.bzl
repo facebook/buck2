@@ -1347,7 +1347,8 @@ def _form_library_outputs(
         )
 
     def build_shared_library(
-            compile_output: _CxxLibraryCompileOutput) -> (CxxLibraryOutput, _CxxSharedLibraryResult, NamedLinkedObject):
+            compile_output: _CxxLibraryCompileOutput,
+            flavor: LinkableFlavor) -> (CxxLibraryOutput, _CxxSharedLibraryResult, NamedLinkedObject):
         external_debug_artifacts = compile_output.external_debug_info
         if compile_output.objects_have_external_debug_info:
             external_debug_artifacts.extend(compile_output.objects)
@@ -1371,13 +1372,14 @@ def _form_library_outputs(
             link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
             link_execution_preference = link_execution_preference,
             shared_interface_info = shared_interface_info,
+            flavor = flavor,
         )
         shlib = result.link_result.linked_object
         extra_outputs = result.link_result.extra_outputs
 
         link_cmd_debug_output_file = None
         link_cmd_debug_output = make_link_command_debug_output(shlib)
-        if link_cmd_debug_output != None:
+        if link_cmd_debug_output != None and flavor == LinkableFlavor("default"):
             link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
             providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
@@ -1498,6 +1500,7 @@ def _form_library_outputs(
 
                 default_output, result, solib = build_shared_library(
                     compile_output = compiled_srcs.pic,
+                    flavor = LinkableFlavor("default"),
                 )
                 info = result.info
                 outputs_for_style[LinkableFlavor("default")] = default_output
@@ -1844,17 +1847,31 @@ def _shared_library(
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference,
         link_ordering: [LinkOrdering, None],
-        shared_interface_info: [SharedInterfaceInfo, None]) -> _CxxSharedLibraryResult:
+        shared_interface_info: [SharedInterfaceInfo, None],
+        flavor: LinkableFlavor) -> _CxxSharedLibraryResult:
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.
     """
 
+    def flavored_output(output: str, separator: str = "/") -> str:
+        if flavor != LinkableFlavor("default"):
+            return flavor.value + separator + output
+        return output
+
     soname = _soname(ctx, impl_params)
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
 
-    local_bitcode_bundle = _bitcode_bundle(ctx, objects, optimized = False, debuggable = False, pic = False, stripped = False, name_extra = "objects-")
+    local_bitcode_bundle = _bitcode_bundle(
+        ctx,
+        objects,
+        optimized = flavor == LinkableFlavor("optimized"),
+        debuggable = flavor == LinkableFlavor("debug"),
+        pic = False,
+        stripped = flavor == LinkableFlavor("stripped"),
+        name_extra = "objects-",
+    )
 
     # NOTE(agallagher): We add exported link flags here because it's what v1
     # does, but the intent of exported link flags are to wrap the link output
@@ -1895,11 +1912,11 @@ def _shared_library(
 
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = soname,
+        output = flavored_output(soname),
         opts = link_options(
             enable_distributed_thinlto = getattr(ctx.attrs, "enable_distributed_thinlto", False),
             links = links,
-            identifier = soname,
+            identifier = flavored_output(soname, separator = "_"),
             link_ordering = link_ordering,
             strip = impl_params.strip_executable,
             strip_args_factory = impl_params.strip_args_factory,
@@ -1954,16 +1971,16 @@ def _shared_library(
             )
             intf_link_result = cxx_link_shared_library(
                 ctx = ctx,
-                output = get_shared_library_name(
+                output = flavored_output(get_shared_library_name(
                     linker_info,
                     ctx.label.name + "-for-interface",
                     apply_default_prefix = True,
-                ),
+                )),
                 opts = link_options(
                     category_suffix = "interface",
                     link_ordering = link_ordering,
                     links = [LinkArgs(infos = [link_info])],
-                    identifier = soname + "-interface",
+                    identifier = flavored_output(soname + "-interface", separator = "_"),
                     link_execution_preference = link_execution_preference,
                     strip = impl_params.strip_executable,
                     error_handler = impl_params.error_handler,
