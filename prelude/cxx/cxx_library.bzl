@@ -1346,6 +1346,72 @@ def _form_library_outputs(
             bitcode_objects = compile_output.bitcode_objects,
         )
 
+    def build_shared_library(
+            compile_output: _CxxLibraryCompileOutput) -> (CxxLibraryOutput, _CxxSharedLibraryResult, NamedLinkedObject):
+        external_debug_artifacts = compile_output.external_debug_info
+        if compile_output.objects_have_external_debug_info:
+            external_debug_artifacts.extend(compile_output.objects)
+        if impl_params.extra_link_input_has_external_debug_info:
+            external_debug_artifacts.extend(impl_params.extra_link_input)
+        external_debug_info = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = external_debug_artifacts,
+            children = impl_params.additional.shared_external_debug_info,
+            tags = impl_params.additional.external_debug_info_tags,
+        )
+
+        result = _shared_library(
+            ctx = ctx,
+            impl_params = impl_params,
+            objects = compile_output.objects,
+            external_debug_info = external_debug_info,
+            dep_infos = dep_infos,
+            gnu_use_link_groups = gnu_use_link_groups,
+            link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
+            link_execution_preference = link_execution_preference,
+            shared_interface_info = shared_interface_info,
+        )
+        shlib = result.link_result.linked_object
+        extra_outputs = result.link_result.extra_outputs
+
+        link_cmd_debug_output_file = None
+        link_cmd_debug_output = make_link_command_debug_output(shlib)
+        if link_cmd_debug_output != None:
+            link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
+            providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
+
+        unstripped = shlib.unstripped_output
+        output = CxxLibraryOutput(
+            output_style = LibOutputStyle("shared_lib"),
+            default = shlib.output,
+            unstripped = unstripped,
+            object_files = compile_output.objects,
+            external_debug_info = shlib.external_debug_info,
+            dwp = shlib.dwp,
+            linker_map = result.link_result.linker_map_data,
+            sub_targets = extra_outputs | {
+                "linker.argsfile": [DefaultInfo(
+                    default_output = shlib.linker_argsfile,
+                )],
+                "linker.command": [DefaultInfo(
+                    default_outputs = filter(None, [link_cmd_debug_output_file]),
+                )],
+                "unstripped": [DefaultInfo(
+                    default_output = unstripped,
+                )],
+            },
+            pdb = shlib.pdb,
+            implib = shlib.import_library,
+        )
+
+        solib = NamedLinkedObject(
+            soname = result.soname,
+            linked_object = shlib,
+        )
+
+        return (output, result, solib)
+
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         outputs_for_style = {}
@@ -1426,71 +1492,15 @@ def _form_library_outputs(
             # If requested (by build_empty_so), we still generate a shared library even if there's no source objects.
             # This could be useful because it can still point to dependencies.
             # i.e. a rust_python_extension is an empty .so depending on a rust shared object
-            if compiled_srcs.pic.objects or impl_params.build_empty_so:
-                external_debug_artifacts = compiled_srcs.pic.external_debug_info
-                if compiled_srcs.pic.objects_have_external_debug_info:
-                    external_debug_artifacts.extend(compiled_srcs.pic.objects)
-                if impl_params.extra_link_input_has_external_debug_info:
-                    external_debug_artifacts.extend(impl_params.extra_link_input)
-                external_debug_info = make_artifact_tset(
-                    actions = ctx.actions,
-                    label = ctx.label,
-                    artifacts = external_debug_artifacts,
-                    children = impl_params.additional.shared_external_debug_info,
-                    tags = impl_params.additional.external_debug_info_tags,
-                )
+            compile_output = compiled_srcs.pic
+            if compile_output.objects or impl_params.build_empty_so:
+                gcno_files += compile_output.gcno_files
 
-                gcno_files += compiled_srcs.pic.gcno_files
-
-                result = _shared_library(
-                    ctx = ctx,
-                    impl_params = impl_params,
-                    objects = compiled_srcs.pic.objects,
-                    external_debug_info = external_debug_info,
-                    dep_infos = dep_infos,
-                    gnu_use_link_groups = gnu_use_link_groups,
-                    link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
-                    link_execution_preference = link_execution_preference,
-                    shared_interface_info = shared_interface_info,
+                default_output, result, solib = build_shared_library(
+                    compile_output = compiled_srcs.pic,
                 )
-                shlib = result.link_result.linked_object
                 info = result.info
-                extra_outputs = result.link_result.extra_outputs
-
-                link_cmd_debug_output_file = None
-                link_cmd_debug_output = make_link_command_debug_output(shlib)
-                if link_cmd_debug_output != None:
-                    link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
-                    providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
-
-                unstripped = shlib.unstripped_output
-                default_output = CxxLibraryOutput(
-                    output_style = LibOutputStyle("shared_lib"),
-                    default = shlib.output,
-                    unstripped = unstripped,
-                    object_files = compiled_srcs.pic.objects,
-                    external_debug_info = shlib.external_debug_info,
-                    dwp = shlib.dwp,
-                    linker_map = result.link_result.linker_map_data,
-                    sub_targets = extra_outputs | {
-                        "linker.argsfile": [DefaultInfo(
-                            default_output = shlib.linker_argsfile,
-                        )],
-                        "linker.command": [DefaultInfo(
-                            default_outputs = filter(None, [link_cmd_debug_output_file]),
-                        )],
-                        "unstripped": [DefaultInfo(
-                            default_output = unstripped,
-                        )],
-                    },
-                    pdb = shlib.pdb,
-                    implib = shlib.import_library,
-                )
                 outputs_for_style[LinkableFlavor("default")] = default_output
-                solib = NamedLinkedObject(
-                    soname = result.soname,
-                    linked_object = shlib,
-                )
 
                 providers.append(result.link_result.link_execution_preference_info)
 
