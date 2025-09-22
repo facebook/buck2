@@ -115,6 +115,11 @@ def create_shlib_from_ctx(
         soname = soname,
     )
 
+NamedLinkedObject = record(
+    soname = field(str),
+    linked_object = field(LinkedObject),
+)
+
 def create_shared_libraries(
         ctx: AnalysisContext,
         libraries: dict[str, LinkedObject]) -> SharedLibraries:

@@ -69,7 +69,6 @@ load(
     "LinkOrdering",
     "LinkStrategy",
     "LinkableFlavor",  # @unused Used as a type
-    "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "SharedLibLinkable",
     "SwiftmoduleLinkable",  # @unused Used as a type
@@ -97,7 +96,7 @@ load(
     "linkable_deps",
     "reduce_linkable_graph",
 )
-load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load("@prelude//linking:shared_libraries.bzl", "NamedLinkedObject", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load(
@@ -299,7 +298,7 @@ _CxxAllLibraryOutputs = record(
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping if this target produces a shared library.
-    solib = field([(str, LinkedObject), None]),
+    solib = field(NamedLinkedObject | None),
     sanitizer_runtime_files = field(list[Artifact], []),
 )
 
@@ -587,7 +586,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         link_execution_preference = link_execution_preference,
         shared_interface_info = shared_interface_info,
     )
-    solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
+    solib_as_dict = {library_outputs.solib.soname: library_outputs.solib.linked_object} if library_outputs.solib else {}
     shared_libs = create_shared_libraries(ctx, solib_as_dict)
 
     for _, link_style_output in library_outputs.outputs.items():
@@ -1478,7 +1477,10 @@ def _form_library_outputs(
                     implib = shlib.import_library,
                 )
                 outputs_for_style[LinkableFlavor("default")] = default_output
-                solib = (result.soname, shlib)
+                solib = NamedLinkedObject(
+                    soname = result.soname,
+                    linked_object = shlib,
+                )
 
                 providers.append(result.link_result.link_execution_preference_info)
 
