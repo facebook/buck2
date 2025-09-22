@@ -631,7 +631,7 @@ def _get_base_compile_cmd(
     return cmd
 
 def toolchain_supports_flavor(toolchain: CxxToolchainInfo, flavor: CxxCompileFlavor) -> bool:
-    return toolchain.compiler_flavor_flags.get(flavor.value) != None
+    return flavor.value in toolchain.supported_compile_flavors and toolchain.compiler_flavor_flags.get(flavor.value) != None
 
 def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -> dict[str, list[str]]:
     if not flavor_flags and compiler_type in ["clang", "gcc"]:

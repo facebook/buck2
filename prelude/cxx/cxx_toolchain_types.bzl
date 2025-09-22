@@ -246,6 +246,7 @@ CxxToolchainInfo = provider(
         "remap_cwd": provider_field(bool, default = False),
         "split_debug_mode": provider_field(typing.Any, default = None),
         "strip_flags_info": provider_field(typing.Any, default = None),
+        "supported_compile_flavors": provider_field(typing.Any, default = []),
         "target_sdk_version": provider_field([str, None], default = None),
         "use_dep_files": provider_field(typing.Any, default = None),
         "use_distributed_thinlto": provider_field(typing.Any, default = None),
@@ -306,6 +307,7 @@ def cxx_toolchain_infos(
         lipo = None,
         remap_cwd = False,
         compiler_flavor_flags = {},
+        supported_compile_flavors = ["pic"],
         objc_compiler_info = None,
         objcxx_compiler_info = None,
         cxx_error_handler = None):
@@ -386,6 +388,7 @@ def cxx_toolchain_infos(
         use_dep_files = use_dep_files,
         use_distributed_thinlto = use_distributed_thinlto,
         cxx_error_handler = cxx_combined_error_handler,
+        supported_compile_flavors = supported_compile_flavors,
     )
 
     ldflags_shared_extra = None
