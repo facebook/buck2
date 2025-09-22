@@ -369,6 +369,8 @@ public class AndroidBundleUtils {
         !folderName.equalsIgnoreCase("commonMain")
         && // commonMain folder is part of multiple AndroidX libraries, exclude it to avoid
         // duplicate file error
+        !folderName.equalsIgnoreCase("nativeMain")
+        && // nativeMain holds platform-specific code for native environments like iOS and macOS,
         !folderName.startsWith("_");
   }
 
