@@ -325,6 +325,20 @@ def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFil
 
     return result
 
+LinkableFlavor = enum(
+    # Provides compile outputs
+    "default",
+    # Provides compile outputs
+    # using optimization flags from toolchain
+    "optimized",
+    # Provides compile outputs
+    # using debug flags from toolchain
+    "debug",
+    # Provides compile outputs
+    # stripped of debug symbols
+    "stripped",
+)
+
 # Encapsulate all `LinkInfo`s provided by a given rule's link style.
 #
 # We provide both the "default" and (optionally) a pre-"stripped" LinkInfo. For a consumer that doesn't care

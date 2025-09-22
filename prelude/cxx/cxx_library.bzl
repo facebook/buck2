@@ -68,6 +68,7 @@ load(
     "LinkInfos",
     "LinkOrdering",
     "LinkStrategy",
+    "LinkableFlavor",  # @unused Used as a type
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "SharedLibLinkable",
@@ -289,7 +290,7 @@ _CxxAllLibraryOutputs = record(
     # or via the link group strategy if this library has link group mapping.
     # A header-only lib won't produce any outputs (but it may still provide LinkInfos below).
     # TODO(cjhopman): make library-level link_group shared lib not put its output here
-    outputs = field(dict[LibOutputStyle, CxxLibraryOutput]),
+    outputs = field(dict[LibOutputStyle, dict[LinkableFlavor, CxxLibraryOutput]]),
 
     # The link infos for linking against this lib of each output style. It's possible for a library to
     # add link_infos even when it doesn't produce an output itself.
@@ -590,9 +591,12 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     shared_libs = create_shared_libraries(ctx, solib_as_dict)
 
     for _, link_style_output in library_outputs.outputs.items():
-        for key in link_style_output.sub_targets.keys():
+        if LinkableFlavor("default") not in link_style_output:
+            continue
+
+        for key in link_style_output[LinkableFlavor("default")].sub_targets.keys():
             expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
-        sub_targets.update(link_style_output.sub_targets)
+        sub_targets.update(link_style_output[LinkableFlavor("default")].sub_targets)
 
     providers.extend(library_outputs.providers)
 
@@ -605,7 +609,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
         default_output_style_providers = []
         for output_style in get_output_styles_for_linkage(preferred_linkage):
-            output = library_outputs.outputs.get(output_style, None)
+            output = library_outputs.outputs.get(output_style, {}).get(LinkableFlavor("default"), None)
             output_style_sub_targets, output_style_providers = impl_params.output_style_sub_targets_and_providers_factory(
                 output_style,
                 ctx,
@@ -649,7 +653,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # Create the default output for the library rule given it's link style and preferred linkage
     # It's possible for a library to not produce any output, for example, a header only library doesn't produce any archive or shared lib
-    default_output = library_outputs.outputs[default_output_style] if default_output_style in library_outputs.outputs else None
+    default_output = library_outputs.outputs.get(default_output_style, {}).get(LinkableFlavor("default"), None)
 
     if default_output and default_output.bitcode_bundle:
         sub_targets["bitcode"] = [DefaultInfo(default_output = default_output.bitcode_bundle.artifact)]
@@ -1335,7 +1339,7 @@ def _form_library_outputs(
 
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.
     for output_style in get_output_styles_for_linkage(preferred_linkage):
-        output = None
+        outputs_for_style = {}
         optimized_info = None
         debuggable_info = None
         stripped = None
@@ -1360,32 +1364,36 @@ def _form_library_outputs(
             #                without -fPIE, we are still using pic objects for it. I haven't found any real world impact
             #                of that though. Another point is: transformation specs are not used for building for production
             #                and only affect local development so we can do this experiment first. I may revisit that decision.
-            _, optimized_info = build_static_library(
+            optimized_output, optimized_info = build_static_library(
                 compile_output = compiled_srcs.pic_optimized,
                 pic = pic,
                 optimized = True,
                 debuggable = False,
                 stripped = False,
             )
+            if optimized_output:
+                outputs_for_style[LinkableFlavor("optimized")] = optimized_output
 
-            _, debuggable_info = build_static_library(
+            debuggable_output, debuggable_info = build_static_library(
                 compile_output = compiled_srcs.pic_debuggable,
                 pic = pic,
                 optimized = False,
                 debuggable = True,
                 stripped = False,
             )
+            if debuggable_output:
+                outputs_for_style[LinkableFlavor("debug")] = debuggable_output
 
             # Only generate an archive if we have objects to include
             if lib_compile_output.objects:
-                output, info = build_static_library(
+                default_output, info = build_static_library(
                     compile_output = lib_compile_output,
                     pic = pic,
                     optimized = False,
                     debuggable = False,
                     stripped = False,
                 )
-                _, stripped = _static_library(
+                stripped_output, stripped = _static_library(
                     ctx,
                     impl_params,
                     lib_compile_output.stripped_objects,
@@ -1396,6 +1404,8 @@ def _form_library_outputs(
                     extra_linkables = extra_static_linkables,
                     bitcode_objects = lib_compile_output.bitcode_objects,
                 )
+                outputs_for_style[LinkableFlavor("default")] = default_output
+                outputs_for_style[LinkableFlavor("stripped")] = stripped_output
             else:
                 # Header only libraries can have `extra_static_linkables`
                 info = LinkInfo(
@@ -1445,7 +1455,7 @@ def _form_library_outputs(
                     providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
                 unstripped = shlib.unstripped_output
-                output = CxxLibraryOutput(
+                default_output = CxxLibraryOutput(
                     output_style = LibOutputStyle("shared_lib"),
                     default = shlib.output,
                     unstripped = unstripped,
@@ -1467,6 +1477,7 @@ def _form_library_outputs(
                     pdb = shlib.pdb,
                     implib = shlib.import_library,
                 )
+                outputs_for_style[LinkableFlavor("default")] = default_output
                 solib = (result.soname, shlib)
 
                 providers.append(result.link_result.link_execution_preference_info)
@@ -1477,10 +1488,11 @@ def _form_library_outputs(
                         fail("Cannot specify sanitizer runtime files multiple times")
                     sanitizer_runtime_files = link_sanitizer_runtime_files
 
+        if outputs_for_style:
+            outputs[output_style] = outputs_for_style
+
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
-        if output:
-            outputs[output_style] = output
         link_infos[output_style] = LinkInfos(
             label = ctx.label,
             default = ldflags(info),

@@ -42,6 +42,7 @@ load(
     "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
+    "LinkableFlavor",
     "create_merged_link_info",
     "wrap_link_infos",
 )
@@ -146,7 +147,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
     libraries = cxx_library_info.all_outputs
-    shared_output = libraries.outputs[LibOutputStyle("shared_lib")]
+    shared_output = libraries.outputs[LibOutputStyle("shared_lib")][LinkableFlavor("default")]
 
     expect(libraries.solib != None, "Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
     extension = libraries.solib[1]
@@ -184,8 +185,8 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             pyinit_symbol = "{}_{}".format(pyinit_prefix, module_name)
         else:
             suffix = base_module.replace("/", "$") + module_name
-            static_output = libraries.outputs[LibOutputStyle("archive")]
-            static_pic_output = libraries.outputs[LibOutputStyle("pic_archive")]
+            static_output = libraries.outputs[LibOutputStyle("archive")][LinkableFlavor("default")]
+            static_pic_output = libraries.outputs[LibOutputStyle("pic_archive")][LinkableFlavor("default")]
             link_infos = rewrite_static_symbols(
                 ctx,
                 suffix,
