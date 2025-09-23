@@ -47,6 +47,8 @@ pub async fn launch_forkserver(
 
     let exe = exe.as_ref();
 
+    let mut has_cgroup = false;
+
     let mut command = if resource_control.enable_action_cgroup_pool.unwrap_or(false) {
         // When cgroup pool is enabled, we use systemd to start forkserver
         let resource_control_runner = ResourceControlRunner::create(
@@ -67,6 +69,8 @@ pub async fn launch_forkserver(
                 .buck_error_context("Can't find slice in cgroup path")?
         );
 
+        has_cgroup = true;
+
         fs_util::create_dir_all(state_dir).map_err(buck2_error::Error::from)?;
         resource_control_runner.cgroup_scoped_command(exe, &unit_name, state_dir)
     } else {
@@ -85,6 +89,10 @@ pub async fn launch_forkserver(
         .arg(state_dir.as_path())
         .arg("--resource-control")
         .arg(resource_control.serialize()?);
+
+    if has_cgroup {
+        command.arg("--has-cgroup");
+    }
 
     let fds = [server_io.as_raw_fd()];
 

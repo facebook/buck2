@@ -126,6 +126,10 @@ pub struct UnixForkserverService {
 
     /// Systemd runner for resource control
     resource_control_runner: Option<ResourceControlRunner>,
+
+    /// Whether this forkserver is running in a cgroup
+    #[allow(unused)]
+    has_cgroup: bool,
 }
 
 impl UnixForkserverService {
@@ -133,6 +137,7 @@ impl UnixForkserverService {
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
         resource_control: ResourceControlConfig,
+        has_cgroup: bool,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
         let resource_control_runner = ResourceControlRunner::create_if_enabled(
@@ -147,6 +152,7 @@ impl UnixForkserverService {
             log_reload_handle,
             miniperf,
             resource_control_runner,
+            has_cgroup,
         })
     }
 

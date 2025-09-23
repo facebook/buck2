@@ -44,6 +44,10 @@ pub(crate) struct ForkserverCommand {
 
     #[clap(long, value_parser = ResourceControlConfig::deserialize)]
     resource_control: ResourceControlConfig,
+
+    /// If set, indicates this forkserver is running in a dedicated cgroup.
+    #[clap(long)]
+    has_cgroup: bool,
 }
 
 impl ForkserverCommand {
@@ -76,6 +80,7 @@ impl ForkserverCommand {
                 log_reload_handle,
                 state_dir,
                 self.resource_control,
+                self.has_cgroup,
             ))?)
         }
 
