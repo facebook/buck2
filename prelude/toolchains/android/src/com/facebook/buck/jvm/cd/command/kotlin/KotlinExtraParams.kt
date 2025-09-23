@@ -43,6 +43,9 @@ data class KotlinExtraParams(
     val shouldKosabiJvmAbiGenUseK2: Boolean,
 ) : CompileToJarStepFactory.ExtraParams {
 
+  val shouldActionRunIncrementally: Boolean =
+      shouldKotlincRunIncrementally || shouldKsp2RunIncrementally
+
   val kotlincWorkingDir: Optional<AbsPath> =
       incrementalStateDir.map { dir: AbsPath -> dir.resolve(KOTLINC_WORKING_DIR) }
 

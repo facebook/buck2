@@ -30,8 +30,9 @@ import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLogger;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLoggerAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriter;
-import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PostExecutorsFactory;
+import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriterFactory;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriter;
+import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriterFactory;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -85,7 +86,6 @@ public class KotlinCDCommand implements JvmCDCommand {
   private final PostBuildParams postBuildParams;
   private final Optional<Path> actionMetadataPath;
   private final Logger logger;
-  private final PostExecutorsFactory postExecutorsFactory;
 
   public KotlinCDCommand(String[] args, ImmutableMap<String, String> env)
       throws CmdLineException, IOException {
@@ -113,9 +113,6 @@ public class KotlinCDCommand implements JvmCDCommand {
     this.buildUuid = env.get("BUCK_BUILD_ID");
     this.executionPlatform = env.get("INSIDE_RE_WORKER") != null ? "remote_execution" : "local";
     KotlinCDAnalytics kotlinCDAnalytics = initKotlinCDAnalytics();
-    this.postExecutorsFactory =
-        PostExecutorsFactory.create(
-            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally());
     cleanupOldPostBuildOutputs();
 
     this.stepsBuilder =
@@ -245,7 +242,8 @@ public class KotlinCDCommand implements JvmCDCommand {
     }
 
     ClassAbiWriter classAbiWriter =
-        postExecutorsFactory.createClassAbiWriter(
+        ClassAbiWriterFactory.create(
+            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally(),
             buildKotlinCommand
                 .getKotlinExtraParams()
                 .getIncrementalStateDir()
@@ -316,7 +314,9 @@ public class KotlinCDCommand implements JvmCDCommand {
 
   protected void maybeWritePreviousStateForNextIncrementalRun() {
     PreviousStateWriter previousStateWriter =
-        postExecutorsFactory.createPreviousStateWriter(
+        PreviousStateWriterFactory.create(
+            buildKotlinCommand.getKotlinExtraParams().getShouldActionRunIncrementally(),
+            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally(),
             postBuildParams.getIncrementalStateDir(),
             actionMetadataPath.orElse(null),
             postBuildParams.getDepFile(),

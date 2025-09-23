@@ -1,3 +1,5 @@
+@file:JvmName("ClassAbiWriterFactory")
+
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -12,6 +14,8 @@ package com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors
 
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.jvm.java.abi.StubJar
+import java.nio.file.Path
+import java.nio.file.Paths
 
 sealed interface ClassAbiWriter {
 
@@ -72,5 +76,34 @@ internal data class IncrementalAbiWriter(
       setExistingAbiJar(jvmAbiGenJar)
       writeTo(abiJar)
     }
+  }
+}
+
+@JvmName("create")
+fun ClassAbiWriter(
+    shouldKotlincRunIncrementally: Boolean,
+    kotlincOutputDir: AbsPath?,
+    jvmAbiGenWorkingDir: AbsPath?,
+    jvmAbiGenJar: Path?,
+    libraryJar: Path?,
+    abiJar: Path?,
+): ClassAbiWriter {
+
+  val root: AbsPath = AbsPath.of(Paths.get(".").toAbsolutePath().normalize())
+
+  return if (shouldKotlincRunIncrementally) {
+    IncrementalAbiWriter(
+        kotlincOutputDir = requireNotNull(kotlincOutputDir),
+        jvmAbiGenWorkingDir = requireNotNull(jvmAbiGenWorkingDir),
+        jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
+        libraryJar = root.resolve(requireNotNull(libraryJar)),
+        abiJar = root.resolve(requireNotNull(abiJar)),
+    )
+  } else {
+    NonIncrementalAbiWriter(
+        libraryJar = root.resolve(requireNotNull(libraryJar)),
+        jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
+        abiJar = root.resolve(requireNotNull(abiJar)),
+    )
   }
 }

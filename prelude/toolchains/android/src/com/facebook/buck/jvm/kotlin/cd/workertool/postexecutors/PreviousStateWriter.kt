@@ -1,3 +1,5 @@
+@file:JvmName("PreviousStateWriterFactory")
+
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -19,22 +21,17 @@ sealed interface PreviousStateWriter {
   fun execute()
 }
 
-internal data class IncrementalPreviousStateWriter(
-    private val incrementalStateDir: Path,
-    private val actionMetadataPath: Path,
-    private val depFilePath: Path?,
-    private val usedJarsPath: Path?,
+internal class IncrementalPreviousStateWriter(
+    val incrementalStateDir: Path,
+    val actionMetadataPath: Path,
+    vararg val paths: Path,
 ) : PreviousStateWriter {
 
   override fun execute() {
     val state = buildList {
       add(actionMetadataPath)
-      if (depFilePath != null) {
-        add(depFilePath)
-      }
-      if (usedJarsPath != null) {
-        add(usedJarsPath)
-      }
+
+      addAll(paths)
     }
 
     state.forEach { path ->
@@ -51,5 +48,39 @@ internal data object DoNothingPreviousStateWriter : PreviousStateWriter {
 
   override fun execute() {
     // do nothing
+  }
+}
+
+@JvmName("create")
+fun PreviousStateWriter(
+    shouldActionRunIncrementally: Boolean,
+    shouldKotlincRunIncrementally: Boolean,
+    incrementalStateDir: Path?,
+    actionMetadataPath: Path?,
+    depFilePath: Path?,
+    usedJarsPath: Path?,
+): PreviousStateWriter {
+  if (!shouldActionRunIncrementally) {
+    return DoNothingPreviousStateWriter
+  }
+
+  val incrementalStateDir = requireNotNull(incrementalStateDir)
+
+  return when {
+    !shouldKotlincRunIncrementally -> {
+      IncrementalPreviousStateWriter(incrementalStateDir, requireNotNull(actionMetadataPath))
+    }
+
+    depFilePath == null && usedJarsPath == null -> {
+      IncrementalPreviousStateWriter(incrementalStateDir, requireNotNull(actionMetadataPath))
+    }
+
+    else ->
+        IncrementalPreviousStateWriter(
+            incrementalStateDir,
+            requireNotNull(actionMetadataPath),
+            requireNotNull(depFilePath),
+            requireNotNull(usedJarsPath),
+        )
   }
 }
