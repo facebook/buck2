@@ -14,7 +14,7 @@ import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersionForLogs
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
-import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam
+import com.facebook.buck.jvm.kotlin.cd.analytics.ModeParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 import java.time.Clock
 import java.time.Duration
@@ -65,15 +65,12 @@ constructor(
   @OptIn(LanguageVersionForLogs::class)
   private fun createKotlinCDLogEntry(context: KotlinCDLoggingContext): KotlinCDLogEntry {
     val addedAndModifiedFiles: Set<String>? =
-        (context.kotlincMode as? KotlincModeParam.Incremental)
+        (context.mode as? ModeParam.Incremental)
             ?.addedAndModifiedFiles
             ?.map { it.toString() }
             ?.toSet()
     val removedFiles: Set<String>? =
-        (context.kotlincMode as? KotlincModeParam.Incremental)
-            ?.removedFiles
-            ?.map { it.toString() }
-            ?.toSet()
+        (context.mode as? ModeParam.Incremental)?.removedFiles?.map { it.toString() }?.toSet()
 
     return KotlinCDLogEntry(
         time = Instant.now(clock).epochSecond,
@@ -85,7 +82,7 @@ constructor(
         numKotlinFiles = numKotlinFiles,
         numJavaFiles = numJavaFiles,
         incremental = incremental,
-        kotlincMode = context.kotlincMode?.value,
+        mode = context.mode?.value,
         classpathChanges = context.classpathChangesParam?.value,
         step = context.step.value,
         languageVersion = context.languageVersion.valueForLogs,

@@ -16,10 +16,10 @@ import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 class KotlinCDLoggingContext(
     val step: StepParam,
     val languageVersion: LanguageVersion,
-    val kotlincMode: KotlincModeParam?,
+    val mode: ModeParam?,
 ) {
 
-  val classpathChangesParam = (kotlincMode as? KotlincModeParam.Incremental)?.classpathChangesParam
+  val classpathChangesParam = (mode as? ModeParam.Incremental)?.classpathChangesParam
 
   private val _extras: MutableMap<String, MutableList<String>> = mutableMapOf()
   val extras: Map<String, List<String>>

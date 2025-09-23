@@ -20,7 +20,7 @@ enum class StepParam(val value: String) {
   KAPT("kapt"),
 }
 
-sealed class KotlincModeParam(val value: String) {
+sealed class ModeParam(val value: String) {
 
   data class Incremental(
       val classpathChangesParam: ClasspathChangesParam,
@@ -28,9 +28,9 @@ sealed class KotlincModeParam(val value: String) {
       // files
       val addedAndModifiedFiles: Set<AbsPath>? = null,
       val removedFiles: Set<AbsPath>? = null,
-  ) : KotlincModeParam("incremental")
+  ) : ModeParam("incremental")
 
-  data object NonIncremental : KotlincModeParam("non_incremental")
+  data object NonIncremental : ModeParam("non_incremental")
 }
 
 enum class ClasspathChangesParam(val value: String) {

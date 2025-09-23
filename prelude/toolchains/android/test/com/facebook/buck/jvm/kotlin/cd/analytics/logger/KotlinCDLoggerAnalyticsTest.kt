@@ -14,7 +14,7 @@ import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
-import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam
+import com.facebook.buck.jvm.kotlin.cd.analytics.ModeParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.StepParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 import java.time.Clock
@@ -134,7 +134,7 @@ internal class KotlinCDLoggerAnalyticsTest {
     kotlinCDAnalytics.log(
         createKotlinCDLoggingContext(
             kotlincMode =
-                KotlincModeParam.Incremental(
+                ModeParam.Incremental(
                     ClasspathChangesParam.NO_CHANGES,
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
                     emptySet(),
@@ -154,7 +154,7 @@ internal class KotlinCDLoggerAnalyticsTest {
     kotlinCDAnalytics.log(
         createKotlinCDLoggingContext(
             kotlincMode =
-                KotlincModeParam.Incremental(
+                ModeParam.Incremental(
                     ClasspathChangesParam.NO_CHANGES,
                     emptySet(),
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
@@ -168,8 +168,8 @@ internal class KotlinCDLoggerAnalyticsTest {
   private fun createKotlinCDLoggingContext(
       step: StepParam = StepParam.KOTLINC,
       languageVersion: String = DEFAULT_LANGUAGE_VERSION,
-      kotlincMode: KotlincModeParam? =
-          KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
+      kotlincMode: ModeParam? =
+          ModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
       extras: Map<String, List<String>> = mapOf(),
   ): KotlinCDLoggingContext {
     val context = KotlinCDLoggingContext(step, LanguageVersion(languageVersion), kotlincMode)
@@ -193,8 +193,8 @@ internal class KotlinCDLoggerAnalyticsTest {
   private fun createExpectedKotlinCDLogEntry(
       step: StepParam = StepParam.KOTLINC,
       languageVersion: String? = DEFAULT_LANGUAGE_VERSION,
-      kotlincMode: KotlincModeParam? =
-          KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
+      kotlincMode: ModeParam? =
+          ModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
       extras: String? = null,
       modifiedFiles: Set<String> = emptySet(),
       removedFiles: Set<String> = emptySet(),
@@ -209,9 +209,8 @@ internal class KotlinCDLoggerAnalyticsTest {
           numKotlinFiles = NUM_KOTLIN_FILES,
           numJavaFiles = NUM_JAVA_FILES,
           incremental = INCREMENTAL,
-          kotlincMode = kotlincMode?.value,
-          classpathChanges =
-              (kotlincMode as? KotlincModeParam.Incremental)?.classpathChangesParam?.value,
+          mode = kotlincMode?.value,
+          classpathChanges = (kotlincMode as? ModeParam.Incremental)?.classpathChangesParam?.value,
           step = step.value,
           languageVersion = languageVersion,
           extras = extras,

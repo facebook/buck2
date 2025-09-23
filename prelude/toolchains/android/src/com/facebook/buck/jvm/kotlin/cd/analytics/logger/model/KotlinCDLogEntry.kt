@@ -20,7 +20,7 @@ data class KotlinCDLogEntry(
     val numJavaFiles: Long,
     val numKotlinFiles: Long,
     val incremental: Boolean,
-    val kotlincMode: String?,
+    val mode: String?,
     val classpathChanges: String?,
     val step: String,
     val languageVersion: String?,
