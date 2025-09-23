@@ -13,6 +13,7 @@
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "AbiGenerationMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
@@ -180,6 +181,7 @@ java_binary = prelude_rule(
             "proguard_library_jars": attrs.list(attrs.source(), default = []),
         }
     ),
+    cfg = constraint_overrides.transition,
 )
 
 java_library = prelude_rule(

@@ -15,6 +15,7 @@ load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":gwt_binary.bzl", "gwt_binary_impl")
 load(":jar_genrule.bzl", "jar_genrule_impl")
 load(":java_binary.bzl", "java_binary_impl")
@@ -63,7 +64,7 @@ extra_attributes = {
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java(),
-    },
+    } | constraint_overrides.attributes,
     "java_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
