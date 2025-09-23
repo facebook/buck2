@@ -274,10 +274,6 @@ def cxx_link_into(
     # using split debug with content-based paths.
     if (
         cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and
-        (
-            cxx_toolchain_info.split_debug_mode != SplitDebugMode("split") or
-            getattr(ctx.attrs, "separate_debug_info", False)
-        ) and
         cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
     ):
         external_debug_artifacts = project_artifacts(ctx.actions, [external_debug_info])
