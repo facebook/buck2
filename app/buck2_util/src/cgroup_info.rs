@@ -11,6 +11,7 @@
 use std::fs;
 use std::path::MAIN_SEPARATOR;
 
+use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 
 #[derive(Debug, Clone)]
@@ -21,7 +22,7 @@ pub struct CgroupMemoryInfo {
 
 const SLICE_EXT: &str = ".slice";
 
-#[derive(Debug)]
+#[derive(Debug, Allocative)]
 pub struct CGroupInfo {
     pub path: String,
 }

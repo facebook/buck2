@@ -19,6 +19,8 @@ use buck2_error::BuckErrorContext;
 use buck2_resource_control::CommandType;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+#[cfg(unix)]
+use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -56,8 +58,23 @@ struct ForkserverClientInner {
     pid: u32,
     #[allocative(skip)]
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
-    /// The cgroup path of the forkserver process, if available.
-    cgroup: Option<String>,
+    /// The cgroup info of the forkserver process, if available.
+    cgroup_info: Option<CGroupInfoWrapper>,
+}
+
+#[derive(Allocative)]
+pub struct CGroupInfoWrapper {
+    #[cfg(unix)]
+    inner: CGroupInfo,
+}
+
+#[cfg(unix)]
+impl std::ops::Deref for CGroupInfoWrapper {
+    type Target = CGroupInfo;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl ForkserverClient {
@@ -91,7 +108,10 @@ impl ForkserverClient {
 
         // Query the forkserver's Cgroup now that it's started. This might return
         // None if we didn't enable it.
-        let cgroup = {
+        let mut cgroup_info = None;
+
+        #[cfg(unix)]
+        {
             let response = rpc
                 .clone()
                 .get_cgroup(tonic::Request::new(
@@ -99,7 +119,13 @@ impl ForkserverClient {
                 ))
                 .await
                 .buck_error_context("Failed to query forkserver cgroup")?;
-            response.into_inner().cgroup_path
+
+            cgroup_info = response
+                .into_inner()
+                .cgroup_path
+                .map(|path| CGroupInfoWrapper {
+                    inner: CGroupInfo { path },
+                });
         };
 
         Ok(Self {
@@ -107,7 +133,7 @@ impl ForkserverClient {
                 error,
                 pid,
                 rpc,
-                cgroup,
+                cgroup_info,
             }),
             memory_tracker,
         })
@@ -117,8 +143,9 @@ impl ForkserverClient {
         self.inner.pid
     }
 
-    pub fn cgroup(&self) -> Option<&str> {
-        self.inner.cgroup.as_deref()
+    #[cfg(unix)]
+    pub fn cgroup_info(&self) -> Option<&CGroupInfoWrapper> {
+        self.inner.cgroup_info.as_ref()
     }
 
     pub async fn execute<C>(

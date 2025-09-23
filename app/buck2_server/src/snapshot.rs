@@ -314,6 +314,7 @@ impl SnapshotCollector {
             }
 
             // Try to read Buck2 daemon memory information from cgroup
+
             if self.daemon.has_cgroup {
                 if let Ok(stat) = CGroupInfo::read().and_then(|cg| cg.read_memory_stat()) {
                     snapshot.daemon_cgroup = Some(convert_stats(&stat));
@@ -321,16 +322,14 @@ impl SnapshotCollector {
             }
 
             // Try to read forkserver memory information if available
-            if let Some(forkserver) = &self.daemon.forkserver {
-                if let Some(forkserver_cgroup_path) = forkserver.cgroup() {
-                    // Create CGroupInfo for the forkserver's cgroup path
-                    let forkserver_cgroup = CGroupInfo {
-                        path: forkserver_cgroup_path.to_owned(),
-                    };
-
-                    if let Ok(stat) = forkserver_cgroup.read_memory_stat() {
-                        snapshot.forkserver_cgroup = Some(convert_stats(&stat));
-                    }
+            if let Some(cgroup) = self
+                .daemon
+                .forkserver
+                .as_ref()
+                .and_then(|f| f.cgroup_info())
+            {
+                if let Ok(stat) = cgroup.read_memory_stat() {
+                    snapshot.forkserver_cgroup = Some(convert_stats(&stat));
                 }
             }
         }
