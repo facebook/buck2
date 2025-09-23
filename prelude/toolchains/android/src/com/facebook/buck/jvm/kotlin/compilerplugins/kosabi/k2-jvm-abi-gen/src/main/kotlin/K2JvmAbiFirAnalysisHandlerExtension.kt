@@ -13,6 +13,7 @@ package com.facebook
 import java.io.File
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.SessionWithSources
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
@@ -26,8 +27,9 @@ import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation
 import org.jetbrains.kotlin.cli.jvm.compiler.createLibraryListForJvm
 import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.ModuleCompilerEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.ModuleCompilerIrBackendInput
 import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.ModuleCompilerOutput
-import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.convertAnalyzedFirToIr
+import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.convertToIrAndActualizeForJvm
 import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.createProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.generateCodeFromIr
 import org.jetbrains.kotlin.cli.jvm.compiler.report
@@ -52,6 +54,7 @@ import org.jetbrains.kotlin.fir.DependencyListForCliModule
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirModuleDataImpl
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
@@ -145,10 +148,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               projectEnvironment.project,
               configuration.kotlinSourceRoots,
           )
-      IrGenerationExtension.registerExtension(
-          projectEnvironment.project,
-          NonAbiDeclarationsStrippingIrExtension(),
-      )
       val analysisResults =
           runFrontendForKosabi(
               projectEnvironment,
@@ -168,6 +167,33 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       Disposer.dispose(disposable)
     }
     return true
+  }
+
+  fun convertAnalyzedFirToIr(
+      configuration: CompilerConfiguration,
+      targetId: TargetId,
+      analysisResults: FirResult,
+      environment: ModuleCompilerEnvironment,
+  ): ModuleCompilerIrBackendInput {
+    val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
+    val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
+        analysisResults.convertToIrAndActualizeForJvm(
+            extensions,
+            configuration,
+            environment.diagnosticsReporter,
+            listOf(NonAbiDeclarationsStrippingIrExtension()),
+        )
+
+    return ModuleCompilerIrBackendInput(
+        targetId,
+        configuration,
+        extensions,
+        moduleFragment,
+        components,
+        pluginContext,
+        irActualizedResult,
+        symbolTable,
+    )
   }
 
   // A backend entry point for Kosabi.
