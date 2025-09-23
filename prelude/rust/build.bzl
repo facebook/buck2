@@ -97,7 +97,8 @@ load(
     "attr_crate",
     "attr_simple_crate_for_filenames",
     "get_available_proc_macros",
-    "inherited_external_debug_info",
+    "inherited_dep_external_debug_infos",
+    "inherited_external_debug_info_from_dep_infos",
     "inherited_merged_link_infos",
     "inherited_rust_external_debug_info",
     "inherited_shared_libs",
@@ -512,6 +513,17 @@ def rust_compile(
             )
             emit_op.env["CLIPPY_CONF_DIR"] = clippy_conf_dir
 
+    split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
+    link_with_split_debug = emit == Emit("link") and split_debug_mode != SplitDebugMode("none")
+    if link_with_split_debug:
+        dep_external_debug_infos = inherited_dep_external_debug_infos(
+            ctx = ctx,
+            dep_ctx = compile_ctx.dep_ctx,
+            dep_link_strategy = params.dep_link_strategy,
+        )
+    else:
+        dep_external_debug_infos = []
+
     import_library = None
     pdb_artifact = None
     dwp_inputs = []
@@ -574,11 +586,36 @@ def rust_compile(
             ],
             output_short_path = emit_op.output.short_path,
         )
+
+        # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
+        # using split debug with content-based paths.
+        if (
+            dep_external_debug_infos and
+            compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+        ):
+            separate_debug_info_path_file, _ = ctx.actions.write(
+                "{}/__{}_dwo_paths.txt".format(subdir, tempfile),
+                project_artifacts(ctx.actions, dep_external_debug_infos),
+                allow_args = True,
+            )
+            separate_debug_info_args = cmd_args(
+                "--rewrite-content-based-dwo-paths",
+                separate_debug_info_path_file,
+                "--content-based-dwo-suffix",
+                ".dwo" if split_debug_mode == SplitDebugMode("split") else ".o",
+            )
+        else:
+            separate_debug_info_path_file = None
+            separate_debug_info_args = []
+
         linker_argsfile, _ = ctx.actions.write(
             "{}/__{}_linker_args.txt".format(subdir, tempfile),
-            link_args_output.link_args,
+            cmd_args(link_args_output.link_args, separate_debug_info_args),
             allow_args = True,
         )
+        linker_hidden = link_args_output.hidden
+        if separate_debug_info_path_file:
+            linker_hidden.append(separate_debug_info_path_file)
 
         pdb_artifact = link_args_output.pdb_artifact
         dwp_inputs = [link_args_output.link_args]
@@ -587,7 +624,7 @@ def rust_compile(
         # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
         if deferred_link_cmd != None:
             deferred_link_cmd.add(cmd_args(linker_argsfile, format = "@{}"))
-            deferred_link_cmd.add(cmd_args(hidden = link_args_output.hidden))
+            deferred_link_cmd.add(cmd_args(hidden = linker_hidden))
 
             if toolchain_info.sysroot_path:
                 deferred_link_cmd.add(cmd_args(hidden = toolchain_info.sysroot_path))
@@ -597,7 +634,7 @@ def rust_compile(
             deferred_link_cmd.add(get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output))
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-            rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
+            rustc_cmd.add(cmd_args(hidden = linker_hidden))
 
     if toolchain_info.rust_target_path != None:
         emit_op.env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
@@ -640,8 +677,7 @@ def rust_compile(
     else:
         filtered_output = emit_op.output
 
-    split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
-    if emit == Emit("link") and split_debug_mode != SplitDebugMode("none"):
+    if link_with_split_debug:
         dwo_output_directory = emit_op.extra_out
 
         # staticlibs and cdylibs are "bundled" in the sense that they are used
@@ -658,11 +694,10 @@ def rust_compile(
             )
         else:
             extra_external_debug_info = []
-        all_external_debug_info = inherited_external_debug_info(
+        all_external_debug_info = inherited_external_debug_info_from_dep_infos(
             ctx = ctx,
-            dep_ctx = compile_ctx.dep_ctx,
             dwo_output_directory = dwo_output_directory,
-            dep_link_strategy = params.dep_link_strategy,
+            dep_infos = dep_external_debug_infos,
         )
         dwp_inputs.extend(project_artifacts(ctx.actions, [all_external_debug_info]))
     else:
