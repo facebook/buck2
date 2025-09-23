@@ -360,15 +360,24 @@ def _compile_single_cxx(
     pch_object_output = None
     if src_compile_cmd.src.extension == ".cu":
         output_args = None
-    elif compile_pch and src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
-        pch_object_output = ctx.actions.declare_output(
-            folder_name,
-            "{}.pch.o".format(filename_base),
-        )
-        output_args = [
-            cmd_args(object.as_output(), format="/Fp{}"),
-            cmd_args(pch_object_output.as_output(), format="/Fo{}")
-        ]
+    elif compile_pch:
+        if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
+            pch_object_output = ctx.actions.declare_output(
+                folder_name,
+                "{}.pch.o".format(filename_base),
+            )
+            output_args = [
+                cmd_args(object.as_output(), format="/Fp{}"),
+                cmd_args(pch_object_output.as_output(), format="/Fo{}"),
+                cmd_args(compile_pch.basename_src, format="/Yc{}")
+            ]
+        else:
+            output_args = [
+                get_output_flags(compiler_type, object),
+                "-Xclang", "-emit-pch",
+                "-Xclang", "-fno-pch-timestamp",
+                "-fpch-instantiate-templates",
+            ]
     else:
         output_args = get_output_flags(compiler_type, object)
 
@@ -380,16 +389,6 @@ def _compile_single_cxx(
         use_header_units = use_header_units,
         output_args = output_args,
     )
-
-    if compile_pch:
-        if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
-            cmd.add(cmd_args(compile_pch.basename_src, format="/Yc{}"))
-        elif src_compile_cmd.cxx_compile_cmd.compiler_type == "clang":
-            cmd.add(
-                "-Xclang", "-emit-pch",
-                "-Xclang", "-fno-pch-timestamp",
-                "-fpch-instantiate-templates",
-            )
 
     if precompiled_header and precompiled_header.compiled:
         pch_info = ctx.attrs.precompiled_header[DefaultInfo].sub_targets["pch"]

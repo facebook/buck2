@@ -311,6 +311,7 @@ _CxxAllLibraryOutputs = record(
 _CxxLibraryCompileOutput = record(
     # object files
     objects = field(list[Artifact]),
+    # linkable object files from pch compilation
     pch_object_output = field(list[Artifact]),
     # object files stripped of debug information
     stripped_objects = field(list[Artifact]),
@@ -432,7 +433,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         path = paths.join(pch_header.namespace, pch_header.name)
 
         if compiler_type == "windows":
-            src_file = ctx.actions.declare_output("__pch__win/__src__", basename)
+            src_file = ctx.actions.declare_output("pch.h")
             ctx.actions.write(src_file, '#include "{}"'.format(pch_header.name))
             impl_params.srcs[0] = CxxSrcWithFlags(file = src_file)
 
@@ -461,6 +462,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     own_exported_preprocessors = [own_exported_preprocessor_info]
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
+        # Legacy precompiled_header implementation is not exported. Proper precompiled headers can have exported linkables.
         non_exported_deps + filter(None, [ctx.attrs.precompiled_header if precompiled_header and not precompiled_header.compiled else None]),
     )
     inherited_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(exported_deps)
@@ -742,7 +744,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # Propagate link info provider.
     if impl_params.generate_providers.merged_native_link_info or impl_params.generate_providers.template_placeholders:
         # Gather link inputs.
-        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [ctx.attrs.precompiled_header if compiler_type != "clang" else None]))
+        # Windows needs to include a linkable PCH object, this is not required for other platforms
+        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [ctx.attrs.precompiled_header if compiler_type == "windows" else None]))
         inherited_exported_link = cxx_inherited_link_info(exported_deps)
 
         merged_native_link_info = create_merged_link_info(
@@ -1403,10 +1406,7 @@ def _form_library_outputs(
         if not compile_output:
             return (None, None)
 
-        if pch:
-            objects = compile_output.pch_object_output
-        else:
-            objects = compile_output.stripped_objects if stripped else compile_output.objects
+        objects = compile_output.pch_object_output if compile_output.pch_object_output else compile_output.stripped_objects if stripped else compile_output.objects
 
         if not objects:
             return (None, None)
