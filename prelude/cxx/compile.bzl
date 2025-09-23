@@ -756,10 +756,12 @@ def _create_precompile_cmd(
         _convert_raw_header(ctx, raw_header, include_dirs)
         for raw_header in flatten([x.raw_headers for x in preprocessors])
     ]
+    header_group_regex = regex(header_group, fancy = False) if header_group else None
+
     header_paths = [
         paths.normalize(paths.join(header.namespace, header.name))
         for header in flatten([x.headers for x in preprocessors]) + converted_headers
-        if (_is_standalone_header(header) if header_group == None else regex_match(header_group, header.name))
+        if (_is_standalone_header(header) if header_group_regex == None else header_group_regex.match(header.name))
     ]
 
     input_header_contents = cmd_args(header_paths, format = "#include \"{}\"")
