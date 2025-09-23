@@ -592,10 +592,16 @@ mod tests {
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
         };
 
+        // NOTE: This disables the forkserver since it uses the current
+        // executable and that's not gonna be available in a test like this.
         let buckconfig = ProjectRelativePath::unchecked_new(".buckconfig");
         project_root
             .path()
-            .write_file(buckconfig, "[cells]\nroot = .", false)
+            .write_file(
+                buckconfig,
+                "[cells]\nroot = .\n[buck2]\nforkserver = false\n",
+                false,
+            )
             .unwrap();
 
         #[derive(Allocative)]

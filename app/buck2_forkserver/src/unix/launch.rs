@@ -126,5 +126,7 @@ pub async fn launch_forkserver(
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .buck_error_context("Error connecting to Forkserver")?;
 
-    Ok(ForkserverClient::new(child, channel, memory_tracker))
+    ForkserverClient::new(child, channel, memory_tracker)
+        .await
+        .buck_error_context("Error creating ForkserverClient")
 }

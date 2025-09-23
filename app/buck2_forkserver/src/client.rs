@@ -56,15 +56,17 @@ struct ForkserverClientInner {
     pid: u32,
     #[allocative(skip)]
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
+    /// The cgroup path of the forkserver process, if available.
+    cgroup: Option<String>,
 }
 
 impl ForkserverClient {
     #[allow(unused)] // Unused on Windows
-    pub(crate) fn new(
+    pub(crate) async fn new(
         mut child: Child,
         channel: Channel,
         memory_tracker: Option<MemoryTrackerHandle>,
-    ) -> Self {
+    ) -> buck2_error::Result<Self> {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX);
@@ -87,14 +89,36 @@ impl ForkserverClient {
             }
         });
 
-        Self {
-            inner: Arc::new(ForkserverClientInner { error, pid, rpc }),
+        // Query the forkserver's Cgroup now that it's started. This might return
+        // None if we didn't enable it.
+        let cgroup = {
+            let response = rpc
+                .clone()
+                .get_cgroup(tonic::Request::new(
+                    buck2_forkserver_proto::GetCgroupRequest {},
+                ))
+                .await
+                .buck_error_context("Failed to query forkserver cgroup")?;
+            response.into_inner().cgroup_path
+        };
+
+        Ok(Self {
+            inner: Arc::new(ForkserverClientInner {
+                error,
+                pid,
+                rpc,
+                cgroup,
+            }),
             memory_tracker,
-        }
+        })
     }
 
     pub fn pid(&self) -> u32 {
         self.inner.pid
+    }
+
+    pub fn cgroup(&self) -> Option<&str> {
+        self.inner.cgroup.as_deref()
     }
 
     pub async fn execute<C>(
