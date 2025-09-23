@@ -382,6 +382,8 @@ impl<'a> BuckdLifecycle<'a> {
 
         let daemon_exe = get_daemon_exe()?;
 
+        let mut has_cgroup = false;
+
         // create a unique slice/scope name by converting the full project path to a underscore-separated string
         // This ensures different projects with the same directory name (e.g., /path/to/proj and /other/proj)
         // get distinct systemd scope units, avoiding "Unit was already loaded" conflictss
@@ -410,6 +412,7 @@ impl<'a> BuckdLifecycle<'a> {
             ),
         )?;
         let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
+            has_cgroup = true;
             resource_control_runner
                 .ensure_scope_stopped(&format!("{}.scope", &slice_name))
                 .await?;
@@ -426,6 +429,10 @@ impl<'a> BuckdLifecycle<'a> {
             .args(args);
 
         cmd.arg(daemon_startup_config.serialize()?);
+
+        if has_cgroup {
+            cmd.arg("--has-cgroup");
+        }
 
         if buck2_env!("BUCK_DAEMON_LOG_TO_FILE", type=u8)? == Some(1) {
             cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());

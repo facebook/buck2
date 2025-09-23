@@ -197,6 +197,9 @@ pub struct DaemonStateData {
     /// State of the Incremental Action DB for content-based hash paths
     #[allocative(skip)]
     pub incremental_db_state: Arc<IncrementalDbState>,
+
+    /// Whether this daemon has resource control enabled.
+    pub has_cgroup: bool,
 }
 
 impl DaemonStateData {
@@ -647,6 +650,7 @@ impl DaemonState {
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
+                format!("has-cgroup:{}", init_ctx.has_cgroup),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
@@ -677,6 +681,7 @@ impl DaemonState {
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
+                has_cgroup: init_ctx.has_cgroup,
             }))
         })
         .await?

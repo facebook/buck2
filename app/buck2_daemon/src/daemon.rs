@@ -86,6 +86,10 @@ pub struct DaemonCommand {
     /// state.
     #[clap(long)]
     reject_materializer_state: Option<String>,
+
+    /// If set, indicates that this daemon is running in dedicated cgroup.
+    #[clap(long)]
+    has_cgroup: bool,
 }
 
 impl DaemonCommand {
@@ -98,6 +102,7 @@ impl DaemonCommand {
             daemon_startup_config,
             enable_trace_io: false,
             reject_materializer_state: None,
+            has_cgroup: false,
         }
     }
 }
@@ -193,6 +198,7 @@ impl DaemonCommand {
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
+            has_cgroup: self.has_cgroup,
         };
 
         let span = tracing::info_span!("daemon_listener");
@@ -616,6 +622,7 @@ mod tests {
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),
+                has_cgroup: false,
             },
             process_info.clone(),
             gen_daemon_constraints(&DaemonStartupConfig::testing_empty()).unwrap(),
