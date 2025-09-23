@@ -37,6 +37,7 @@ impl EventLog {
         sanitized_argv: SanitizedArgv,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        retained_event_logs: usize,
     ) -> EventLog {
         Self {
             writer: WriteEventLog::new(
@@ -47,6 +48,7 @@ impl EventLog {
                 sanitized_argv,
                 command_name,
                 log_size_counter_bytes,
+                retained_event_logs,
             ),
         }
     }

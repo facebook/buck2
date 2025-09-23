@@ -293,6 +293,9 @@ fn get_event_log_subscriber<T: StreamingCommand>(
         sanitized_argv,
         T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
+        ctx.immediate_config.daemon_startup_config().map(|daemon_startup_config| {
+            daemon_startup_config.retained_event_logs
+        }).unwrap(),
     );
     Box::new(log)
 }
