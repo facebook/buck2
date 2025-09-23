@@ -112,7 +112,7 @@ public class KotlinCStepsBuilder {
                     classpathSnapshots),
             kotlinCDAnalytics,
             kotlincLanguageVersion,
-            extraParams.getShouldKosabiJvmAbiGenUseK2());
+            extraParams.getShouldKosabiJvmAbiGenUseK2() && kotlincLanguageVersion.getSupportsK2());
     steps.add(kotlincStep);
 
     if (kotlinClassesDir != null) {
