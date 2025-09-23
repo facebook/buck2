@@ -479,6 +479,69 @@ java_test_runner = prelude_rule(
     ),
 )
 
+prebuilt_jar = prelude_rule(
+    name = "prebuilt_jar",
+    docs = """
+        A `prebuilt_jar()` rule is used to identify a JAR file that
+        is checked into our repository as a precompiled binary rather than one
+        that is built from source by Buck. Frequently, these are used to
+        reference third-party JAR files (such as junit.jar) and
+        are used as dependencies of `java_library()` rules.
+    """,
+    examples = """
+        ```
+
+        prebuilt_jar(
+          name = 'junit',
+          binary_jar = 'junit-4.8.2.jar',
+          source_jar = 'junit-4.8.2-sources.jar',
+          javadoc_url = 'http://kentbeck.github.com/junit/javadoc/4.8/',
+        )
+
+        java_library(
+          name = 'tests',
+          srcs = glob(['tests/**/*Test.java']),
+          deps = [
+            ':junit',
+          ],
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "binary_jar": attrs.source(doc = """
+                Path to the pre-built JAR file.
+            """),
+            "source_jar": attrs.option(attrs.source(), default = None, doc = """
+                Path to a JAR file that contains the `.java` files to create
+                 the `.class` in the `binary_jar`. This is frequently
+                 provided for debugging purposes.
+            """),
+            "javadoc_url": attrs.option(attrs.string(), default = None, doc = """
+                URL to the Javadoc for the `.class` files in the
+                 `binary_jar`.
+            """),
+            "deps": attrs.list(attrs.dep(), default = [], doc = """
+                Rules that must be built before this rule. Because the
+                 `binary_jar` is already built, there should be nothing to
+                 build, so this should be empty.
+            """),
+            "desugar_deps": attrs.list(attrs.dep(), default = []),
+            "contacts": attrs.list(attrs.string(), default = []),
+            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "generate_abi": attrs.bool(default = False),
+            "labels": attrs.list(attrs.string(), default = []),
+            "licenses": attrs.list(attrs.source(), default = []),
+            "maven_coords": attrs.option(attrs.string(), default = None),
+            "never_mark_as_unused_dependency": attrs.bool(default = False),
+            "required_for_source_only_abi": attrs.bool(default = False),
+        }
+    ),
+)
+
 java_rules = struct(
     gwt_binary = gwt_binary,
     jar_genrule = jar_genrule,
@@ -488,4 +551,5 @@ java_rules = struct(
     java_plugin = java_plugin,
     java_test = java_test,
     java_test_runner = java_test_runner,
+    prebuilt_jar = prebuilt_jar,
 )
