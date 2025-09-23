@@ -1554,6 +1554,7 @@ def _generate_base_compile_command(
     )
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
+    allow_content_based_paths = bool(compiler_info.supports_content_based_paths and getattr(ctx.attrs, "use_content_based_paths", False))
     return CxxCompileCommand(
         base_compile_cmd = base_compile_cmd,
         argsfile = argsfile,
@@ -1563,5 +1564,5 @@ def _generate_base_compile_command(
         compiler_type = compiler_info.compiler_type,
         category = category,
         allow_cache_upload = allow_cache_upload,
-        allow_content_based_paths = compiler_info.supports_content_based_paths == True,
+        allow_content_based_paths = allow_content_based_paths,
     )
