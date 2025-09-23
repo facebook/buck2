@@ -287,7 +287,6 @@ def cxx_link_into(
             separate_debug_info_path_file,
             "--content-based-dwo-suffix",
             ".dwo" if cxx_toolchain_info.split_debug_mode == SplitDebugMode("split") else ".o",
-            hidden = [external_debug_artifacts],
         )
     else:
         separate_debug_info_args = []
