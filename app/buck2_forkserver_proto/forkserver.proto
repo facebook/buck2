@@ -122,9 +122,18 @@ message SetLogFilterRequest {
 
 message SetLogFilterResponse {}
 
+message GetCgroupRequest {}
+
+message GetCgroupResponse {
+  optional string cgroup_path = 1;
+}
+
 service Forkserver {
   rpc Run(stream RequestEvent) returns (stream CommandEvent) {}
 
   // Update the daemon's log filter.
   rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);
+
+  // Query the forkserver's cgroup path.
+  rpc GetCgroup(GetCgroupRequest) returns (GetCgroupResponse);
 }

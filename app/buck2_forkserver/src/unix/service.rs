@@ -33,12 +33,15 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
 use buck2_forkserver_proto::CommandRequest;
+use buck2_forkserver_proto::GetCgroupRequest;
+use buck2_forkserver_proto::GetCgroupResponse;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
+use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use dupe::Dupe;
 use futures::future::FutureExt;
@@ -128,7 +131,6 @@ pub struct UnixForkserverService {
     resource_control_runner: Option<ResourceControlRunner>,
 
     /// Whether this forkserver is running in a cgroup
-    #[allow(unused)]
     has_cgroup: bool,
 }
 
@@ -419,6 +421,23 @@ impl Forkserver for UnixForkserverService {
             .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
+    }
+
+    async fn get_cgroup(
+        &self,
+        _req: Request<GetCgroupRequest>,
+    ) -> Result<Response<GetCgroupResponse>, Status> {
+        if !self.has_cgroup {
+            return Ok(Response::new(GetCgroupResponse { cgroup_path: None }));
+        }
+
+        let cgroup_info = CGroupInfo::read()
+            .buck_error_context("Failed to read cgroup info")
+            .map_err(|e| Status::internal(format!("{e:#}")))?;
+
+        Ok(Response::new(GetCgroupResponse {
+            cgroup_path: Some(cgroup_info.path),
+        }))
     }
 }
 
