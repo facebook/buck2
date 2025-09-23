@@ -60,6 +60,7 @@ impl SnapshotCollector {
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
         self.add_cpu_usage(&mut snapshot);
+        self.add_memory_metrics(&mut snapshot);
         snapshot
     }
 
@@ -294,6 +295,43 @@ impl SnapshotCollector {
             if let Ok(cpu_usage) = collector.get_usage_since_command_start() {
                 snapshot.host_cpu_usage_system_ms = Some(cpu_usage.system_millis);
                 snapshot.host_cpu_usage_user_ms = Some(cpu_usage.user_millis);
+            }
+        }
+    }
+
+    fn add_memory_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        #[cfg(unix)]
+        {
+            use buck2_util::cgroup_info::CGroupInfo;
+            use buck2_util::cgroup_info::MemoryStat;
+
+            fn convert_stats(stats: &MemoryStat) -> buck2_data::UnixCgroupMemoryStats {
+                buck2_data::UnixCgroupMemoryStats {
+                    anon: stats.anon,
+                    file: stats.file,
+                    kernel: stats.kernel,
+                }
+            }
+
+            // Try to read Buck2 daemon memory information from cgroup
+            if self.daemon.has_cgroup {
+                if let Ok(stat) = CGroupInfo::read().and_then(|cg| cg.read_memory_stat()) {
+                    snapshot.daemon_cgroup = Some(convert_stats(&stat));
+                }
+            }
+
+            // Try to read forkserver memory information if available
+            if let Some(forkserver) = &self.daemon.forkserver {
+                if let Some(forkserver_cgroup_path) = forkserver.cgroup() {
+                    // Create CGroupInfo for the forkserver's cgroup path
+                    let forkserver_cgroup = CGroupInfo {
+                        path: forkserver_cgroup_path.to_owned(),
+                    };
+
+                    if let Ok(stat) = forkserver_cgroup.read_memory_stat() {
+                        snapshot.forkserver_cgroup = Some(convert_stats(&stat));
+                    }
+                }
             }
         }
     }
