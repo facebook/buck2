@@ -495,7 +495,12 @@ def get_filtered_labels_to_links_map(
 
     def add_link(target: Label, output_style: LibOutputStyle):
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = get_link_info(build_context.linkable_graph.nodes[target], output_style, build_context.prefer_stripped, prefer_optimized),
+            link_info = get_link_info(
+                build_context.linkable_graph.nodes[target],
+                output_style,
+                build_context.prefer_stripped,
+                prefer_optimized and output_style != LibOutputStyle("shared_lib"),  # prefer_optimized is only relevant for static libs
+            ),
             output_style = output_style,
             link_name = target,
         )

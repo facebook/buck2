@@ -1513,6 +1513,14 @@ def _form_library_outputs(
                         fail("Cannot specify sanitizer runtime files multiple times")
                     sanitizer_runtime_files = link_sanitizer_runtime_files
 
+            if compiled_srcs.pic_optimized and (compiled_srcs.pic_optimized.objects or impl_params.build_empty_so):
+                optimized_output, optimized_result, optimized_solib = build_shared_library(
+                    compile_output = compiled_srcs.pic_optimized,
+                    flavor = LinkableFlavor("optimized"),
+                )
+                optimized_info = optimized_result.info
+                outputs_for_style[LinkableFlavor("optimized")] = optimized_output
+                solibs[LinkableFlavor("optimized")] = optimized_solib
         if outputs_for_style:
             outputs[output_style] = outputs_for_style
 
