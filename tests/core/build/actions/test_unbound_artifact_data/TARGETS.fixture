@@ -1,0 +1,8 @@
+load(
+    ":defs.bzl",
+    "action_with_unbound_artifact",
+)
+
+action_with_unbound_artifact(
+    name = "action_with_unbound_artifact",
+)
