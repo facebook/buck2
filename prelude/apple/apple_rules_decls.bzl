@@ -56,6 +56,7 @@ load("@prelude//linking:execution_preference.bzl", "link_execution_preference_at
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
+load("@prelude//utils:buckconfig.bzl", "read_bool")
 load(":apple_app_intents.bzl", "apple_app_intents_impl")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
@@ -707,6 +708,7 @@ apple_library = prelude_rule(
                 "DEFAULT": False,
                 "config//features/apple:swift_enable_testing_enabled": True,
             })),
+            "uses_experimental_content_based_path_hashing": attrs.bool(default = read_bool("apple", "uses_experimental_content_based_path_hashing", False)),
             APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
             VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
