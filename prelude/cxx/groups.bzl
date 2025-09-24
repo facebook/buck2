@@ -222,14 +222,41 @@ def compute_mappings(groups_map: dict[str, Group], graph_map: dict[Label, typing
     target_to_group_map = {}
     node_traversed_targets = {}
 
-    for group in groups_map.values():
+    group_mappings_with_roots = []
+    group_mappings_without_roots = []
+    group_to_targets = {}
+
+    groups = groups_map.values()
+    for group in groups:
         for mapping in group.mappings:
-            targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
-            for target in targets_in_mapping:
-                # If the target doesn't exist in our graph, skip the mapping.
-                if target not in graph_map:
-                    continue
-                _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group, groups_map, mapping, target)
+            if mapping and not mapping.roots:
+                group_mappings_without_roots.append((group, mapping))
+            else:
+                group_mappings_with_roots.append((group, mapping))
+
+    # We assume there's more targets in the build graph then there are groups
+    for target in graph_map:
+        graph_node_labels = graph_map[target].labels
+        for group, mapping in group_mappings_without_roots:
+            all_match = True
+            for filter in mapping.filters:
+                if not filter.matches(None, target, graph_node_labels):
+                    all_match = False
+                    break
+            if all_match:
+                group_to_targets.setdefault(group.name, []).append((target, mapping))
+
+    for group, mapping in group_mappings_with_roots:
+        targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
+        for target in targets_in_mapping:
+            # If the target doesn't exist in our graph, skip the mapping.
+            if target not in graph_map:
+                continue
+            group_to_targets.setdefault(group.name, []).append((target, mapping))
+
+    for group in groups_map.values():
+        for target, mapping in group_to_targets.get(group.name, []):
+            _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group, groups_map, mapping, target)
 
     return target_to_group_map
 
