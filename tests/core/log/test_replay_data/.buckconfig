@@ -1,6 +1,7 @@
 [cells]
   root = .
   nano_prelude = nano_prelude
+  subcell = subcell
 
 [cell_aliases]
   prelude = nano_prelude

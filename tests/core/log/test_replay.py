@@ -18,3 +18,13 @@ async def test_replay(buck: Buck) -> None:
     await buck.build("//:EEE")
     replay = await buck.log("replay", "-v2")
     assert "//:EEE" in replay.stderr
+
+
+@buck_test()
+async def test_partial_result_replay(buck: Buck) -> None:
+    # `audit cell` is an easy way to produce partial results
+    res = await buck.audit("cell")
+    res2 = await buck.log("replay")
+
+    assert res.stdout != res2.stdout
+    assert res2.stdout == ""
