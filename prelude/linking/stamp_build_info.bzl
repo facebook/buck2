@@ -26,6 +26,10 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifa
             name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
             stamped_output = ctx.actions.declare_output(name + ext)
 
+        # This can be run remotely, but it's often cheaper to do this locally for large
+        # binaries, especially on CI using limited hybrid
+        prefer_local = not getattr(ctx.attrs, "optimize_for_action_throughput", False)
+
         ctx.actions.run(
             cmd_args([
                 get_cxx_toolchain_info(ctx).binary_utilities_info.objcopy,
@@ -37,8 +41,9 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifa
             identifier = obj.short_path,
             category = "stamp_build_info",
             # This can be run remotely, but it's often cheaper to do this locally for large
-            # binaries
-            prefer_local = True,
+            # binaries, especially on CI using limited hybrid.
+            prefer_local = prefer_local,
+            prefer_remote = not prefer_local,
         )
         return stamped_output
     return obj
