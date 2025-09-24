@@ -363,7 +363,7 @@ async def test_sets_inconsistent_params(buck: Buck) -> None:
             "root//:p_default",
             "--show-output",
         ),
-        stderr_regex="Artifact `out` was declared with `uses_experimental_content_based_path_hashing = true`, but is now being used with `uses_experimental_content_based_path_hashing = false`",
+        stderr_regex="Artifact `out` was declared with `has_content_based_path = true`, but is now being used with `has_content_based_path = false`",
     )
 
 

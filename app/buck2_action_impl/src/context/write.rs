@@ -134,6 +134,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] absolute: bool,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = false)]
         use_dep_files_placeholder_for_content_based_paths: bool,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -143,7 +144,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             eval,
             output,
             OutputType::File,
-            uses_experimental_content_based_path_hashing.into_option(),
+            uses_experimental_content_based_path_hashing
+                .into_option()
+                .or(has_content_based_path.into_option()),
         )?;
 
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
@@ -206,6 +209,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] absolute: bool,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = false)]
         use_dep_files_placeholder_for_content_based_paths: bool,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -271,7 +275,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             eval,
             output,
             OutputType::File,
-            uses_experimental_content_based_path_hashing.into_option(),
+            uses_experimental_content_based_path_hashing
+                .into_option()
+                .or(has_content_based_path.into_option()),
         )?;
 
         let (content_cli, written_macro_count, mut associated_artifacts) = match content {

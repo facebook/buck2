@@ -103,7 +103,7 @@ enum DeclaredArtifactError {
     #[error("Can't declare an artifact with an empty filename component")]
     DeclaredEmptyFileName,
     #[error(
-        "Artifact `{0}` was declared with `uses_experimental_content_based_path_hashing = {1}`, but is now being used with `uses_experimental_content_based_path_hashing = {2}`"
+        "Artifact `{0}` was declared with `has_content_based_path = {1}`, but is now being used with `has_content_based_path = {2}`"
     )]
     AlreadyDeclaredWithDifferentContentBasedPathHashing(String, bool, bool),
 }
@@ -195,7 +195,7 @@ impl<'v> AnalysisRegistry<'v> {
         eval: &Evaluator<'v, '_, '_>,
         value: OutputArtifactArg<'v>,
         output_type: OutputType,
-        uses_experimental_content_based_path_hashing: Option<bool>,
+        has_content_based_path: Option<bool>,
     ) -> buck2_error::Result<(ArtifactDeclaration<'v>, OutputArtifact<'v>)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
@@ -206,7 +206,7 @@ impl<'v> AnalysisRegistry<'v> {
                     path,
                     output_type,
                     declaration_location.dupe(),
-                    match uses_experimental_content_based_path_hashing {
+                    match has_content_based_path {
                         Some(true) => BuckOutPathKind::ContentHash,
                         Some(false) => BuckOutPathKind::Configuration,
                         None => BuckOutPathKind::default(),
@@ -229,16 +229,13 @@ impl<'v> AnalysisRegistry<'v> {
         let output = declared_artifact.output_artifact();
         output.ensure_output_type(output_type)?;
 
-        if let Some(uses_experimental_content_based_path_hashing) =
-            uses_experimental_content_based_path_hashing
-        {
-            let has_content_based_path = output.has_content_based_path();
-            if uses_experimental_content_based_path_hashing != has_content_based_path {
+        if let Some(has_content_based_path) = has_content_based_path {
+            if has_content_based_path != output.has_content_based_path() {
                 return Err(
                     DeclaredArtifactError::AlreadyDeclaredWithDifferentContentBasedPathHashing(
                         format!("{output}"),
+                        output.has_content_based_path(),
                         has_content_based_path,
-                        uses_experimental_content_based_path_hashing,
                     )
                     .into(),
                 );
