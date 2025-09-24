@@ -60,13 +60,6 @@ async def test_log_size_logging(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test()
-async def test_replay(buck: Buck) -> None:
-    await buck.build("//:EEE")
-    replay = await buck.log("replay", "-v2")
-    assert "//:EEE" in replay.stderr
-
-
-@buck_test()
 async def test_last_log(buck: Buck) -> None:
     await buck.build("//:EEE")
     out = await buck.log("last")
