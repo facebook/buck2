@@ -130,7 +130,7 @@ impl TimedListBody<'_> {
                 rows.push(TimedRow::span(
                     0,
                     info,
-                    time_speed.speed(),
+                    time_speed,
                     self.cutoffs,
                     display_platform,
                 )?);
@@ -139,7 +139,7 @@ impl TimedListBody<'_> {
                     rows.push(TimedRow::span(
                         2,
                         child.info(),
-                        time_speed.speed(),
+                        time_speed,
                         self.cutoffs,
                         display_platform,
                     )?);

@@ -25,6 +25,7 @@ use superconsole::style::StyledContent;
 use superconsole::style::Stylize;
 use superconsole::style::style;
 
+use crate::subscribers::superconsole::TimeSpeed;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 
 #[derive(Debug, Clone, From)]
@@ -104,7 +105,7 @@ impl TimedRow {
     pub(crate) fn span(
         padding: usize,
         span: &BuckEventSpanInfo,
-        time_speed: f64,
+        time_speed: TimeSpeed,
         cutoffs: &Cutoffs,
         display_platform: bool,
     ) -> buck2_error::Result<Self> {
@@ -112,8 +113,8 @@ impl TimedRow {
             &span.event,
             TargetDisplayOptions::for_console(display_platform),
         )?;
-        let time = fmt_duration::fmt_duration(span.start.elapsed(), time_speed);
-        let age = span.start.elapsed().mul_f64(time_speed);
+        let time = fmt_duration::fmt_duration(span.start.elapsed(), time_speed.speed());
+        let age = span.start.elapsed().mul_f64(time_speed.speed());
         Self::text(padding, event, time, age, cutoffs)
     }
 
