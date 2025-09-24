@@ -582,7 +582,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         gnu_use_link_groups,
         link_group_ctx,
         link_strategy,
-        traverse_shared_library_info(shlib_info),
+        traverse_shared_library_info(shlib_info, transformation_provider = transformation_provider),
         impl_params.extra_shared_libs,
     )
 

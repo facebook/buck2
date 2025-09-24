@@ -8,6 +8,11 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
+    "@prelude//cxx:transformation_spec.bzl",
+    "TransformationKind",
+    "TransformationResultProvider",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkableFlavor",  # @unused Used as a type
@@ -100,7 +105,7 @@ def get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
 def create_shlib_from_ctx(
         ctx: AnalysisContext,
         soname: str | Artifact | Soname,
-        lib: LinkedObject):
+        lib: LinkedObject) -> SharedLibrary:
     cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
     return create_shlib(
         lib = lib,
@@ -180,11 +185,27 @@ def merge_shared_libraries(
     set = actions.tset(SharedLibrariesTSet, **kwargs) if kwargs else None
     return SharedLibraryInfo(set = set)
 
-def traverse_shared_library_info(info: SharedLibraryInfo):  # -> list[SharedLibrary]:
+def traverse_shared_library_info(
+        info: SharedLibraryInfo,
+        transformation_provider: TransformationResultProvider | None = None) -> list[SharedLibrary]:
     libraries = []
     if info.set:
         for libs in info.set.traverse():
-            libraries.extend(libs.libraries)
+            fallback_to_default = True
+
+            if transformation_provider and not transformation_provider.is_empty and libs.label and libs.flavored_libraries:
+                transformation_kind = transformation_provider.determine_transformation(libs.label)
+
+                if transformation_kind == TransformationKind("debug") and LinkableFlavor("debug") in libs.flavored_libraries:
+                    libraries.append(libs.flavored_libraries[LinkableFlavor("debug")])
+                    fallback_to_default = False
+                elif transformation_kind == TransformationKind("optimized") and LinkableFlavor("optimized") in libs.flavored_libraries:
+                    libraries.append(libs.flavored_libraries[LinkableFlavor("optimized")])
+                    fallback_to_default = False
+
+            if fallback_to_default:
+                libraries.extend(libs.libraries)
+
     return libraries
 
 # Helper to merge shlibs, throwing an error if more than one have the same SONAME.
