@@ -14,9 +14,11 @@ derive_more = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }
 linked-hash-map = { workspace = true }
+pin-project = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
 tokio-stream = { workspace = true }
 
 buck2_cli_proto = { workspace = true }
