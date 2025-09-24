@@ -8,6 +8,7 @@
 
 # pyre-strict
 
+import asyncio
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -20,3 +21,14 @@ async def test_unbound_artifact(buck: Buck) -> None:
         buck.build("root//:action_with_unbound_artifact"),
         stderr_regex="error: Artifact must be bound by now",
     )
+
+
+@buck_test()
+async def test_unbound_artifact_inside_tset(buck: Buck) -> None:
+    # TODO(ianc): this should fail with an error message.
+    try:
+        async with asyncio.timeout(10):
+            await buck.build("root//:action_with_unbound_artifact_inside_tset")
+            raise AssertionError("This test infinitely loops, we should not get here")
+    except asyncio.TimeoutError:
+        pass

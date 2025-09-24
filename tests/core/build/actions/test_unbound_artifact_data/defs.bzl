@@ -28,3 +28,34 @@ action_with_unbound_artifact = rule(
     attrs = {
     },
 )
+
+def _identity(a: Artifact) -> Artifact:
+    return a
+
+SimpleTSet = transitive_set(args_projections = {
+    "identity": _identity,
+})
+
+def _action_with_unbound_artifact_inside_tset_impl(ctx):
+    out = ctx.actions.declare_output("out")
+    tset = ctx.actions.tset(SimpleTSet, value = out)
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open('sys.argv[1]', 'w') as f:",
+            "  f.write('sys.argv[2]')",
+        ],
+    )
+
+    args = cmd_args(["fbpython", script, out.as_output(), tset.project_as_args("identity")])
+
+    ctx.actions.run(args, category = "test_run")
+
+    return [DefaultInfo(default_output = out)]
+
+action_with_unbound_artifact_inside_tset = rule(
+    impl = _action_with_unbound_artifact_inside_tset_impl,
+    attrs = {
+    },
+)
