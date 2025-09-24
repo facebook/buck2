@@ -179,21 +179,21 @@ async fn replay_events_into(
     let mut syncher = Syncher::new(speed);
 
     pin!(events);
-    let Some((mut next_event, mut next_sleep)) =
-        find_next_event_with_delay(&sink, &mut syncher, &mut events).await
+    let Some((mut next_event, mut next_event_timestamp)) =
+        find_next_event_with_delay(&sink, &mut events).await
     else {
         return;
     };
     loop {
-        next_sleep.await;
+        syncher.sleep_until_timestamp(next_event_timestamp).await;
         if sink.send(next_event).is_err() {
             // The sink is closed, so we can stop sending events.
             return;
         }
-        match find_next_event_with_delay(&sink, &mut syncher, &mut events).await {
-            Some((event, sleep)) => {
+        match find_next_event_with_delay(&sink, &mut events).await {
+            Some((event, event_timestamp)) => {
                 next_event = event;
-                next_sleep = sleep;
+                next_event_timestamp = event_timestamp;
             }
             None => break,
         }
@@ -203,21 +203,13 @@ async fn replay_events_into(
 /// Replay events from the stream into the sink until we find the first event that requires a delay
 async fn find_next_event_with_delay(
     sink: &UnboundedSender<buck2_error::Result<StreamValue>>,
-    syncher: &mut Syncher,
     events: &mut (impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin),
-) -> Option<(buck2_error::Result<StreamValue>, Sleep)> {
-    while let Some(mut event) = events.next().await {
+) -> Option<(buck2_error::Result<StreamValue>, prost_types::Timestamp)> {
+    while let Some(event) = events.next().await {
         match &event {
             Ok(StreamValue::Event(buck_event)) => {
-                match syncher.synch_playback_time(&buck_event) {
-                    Ok(delay) => {
-                        return Some((event, delay));
-                    }
-                    Err(e) => {
-                        // We couldn't process this event, send an error instead
-                        event = Err(e);
-                    }
-                }
+                let ts = buck_event.timestamp.unwrap();
+                return Some((event, ts));
             }
             // Most other kinds of events don't really happen, don't need a delay for them
             _ => {}
@@ -244,17 +236,16 @@ impl Syncher {
         }
     }
 
-    /// Returns an appropriate delay for this event.
+    /// Returns a sleep until this event should be sent
     ///
     /// The first event will be sent immediately. Each subsequent event will be sent with a delay
     /// based on its time since that first event.
-    fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> buck2_error::Result<Sleep> {
-        let event_time = event.timestamp.unwrap();
+    fn sleep_until_timestamp(&mut self, event_time: prost_types::Timestamp) -> Sleep {
         let (sync_start, log_start) = self.start.get_or_insert((Instant::now(), event_time));
         let log_offset_time = duration_between_timestamps(*log_start, event_time);
         let sync_offset_time = log_offset_time.div_f64(self.speed);
         let sync_event_time = *sync_start + sync_offset_time;
-        Ok(tokio::time::sleep_until(sync_event_time))
+        tokio::time::sleep_until(sync_event_time)
     }
 }
 
