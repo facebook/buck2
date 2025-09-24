@@ -536,7 +536,8 @@ def _make_py_package_impl(
     if standalone or make_py_package_cmd != None:
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
-        prefer_local = (standalone and package_python_locally(ctx, python_toolchain))
+        prefer_local = (not getattr(ctx.attrs, "optimize_for_action_throughput", False)) and standalone and package_python_locally(ctx, python_toolchain)
+        prefer_remote = getattr(ctx.attrs, "optimize_for_action_throughput", False)
 
         cmd = cmd_args(
             make_py_package_cmd if make_py_package_cmd != None else python_toolchain.make_py_package_standalone,
@@ -553,6 +554,7 @@ def _make_py_package_impl(
         ctx.actions.run(
             cmd,
             prefer_local = prefer_local,
+            prefer_remote = prefer_remote,
             category = "par",
             identifier = identifier_prefix.format(output_suffix),
             allow_cache_upload = allow_cache_upload,
