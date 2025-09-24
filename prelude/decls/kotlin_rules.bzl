@@ -126,6 +126,7 @@ kotlin_library = prelude_rule(
         jvm_common.plugins() |
         jvm_common.javac() |
         jvm_common.enable_used_classes() |
+        jvm_common.content_based_path_for_jar_snapshot() |
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),

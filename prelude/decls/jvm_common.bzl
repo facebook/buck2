@@ -280,6 +280,14 @@ def _annotation_processors():
         "annotation_processors": attrs.list(attrs.string(), default = []),
     }
 
+def _content_based_path_for_jar_snapshot():
+    return {
+        "uses_content_based_path_for_jar_snapshot": attrs.bool(default = select({
+            "DEFAULT": False,
+            # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+        })),
+    }
+
 def _javac():
     return {
         "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None, doc = """
@@ -315,4 +323,5 @@ jvm_common = struct(
     enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
     should_kosabi_jvm_abi_gen_use_k2 = _should_kosabi_jvm_abi_gen_use_k2,
+    content_based_path_for_jar_snapshot = _content_based_path_for_jar_snapshot,
 )

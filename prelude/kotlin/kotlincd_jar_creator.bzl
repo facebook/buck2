@@ -87,7 +87,8 @@ def create_jar_artifact_kotlincd(
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
-        should_kosabi_jvm_abi_gen_use_k2: bool | None = False) -> (JavaCompileOutputs, Artifact):
+        should_kosabi_jvm_abi_gen_use_k2: bool | None = False,
+        uses_content_based_path_for_jar_snapshot: bool = False) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -274,7 +275,7 @@ def create_jar_artifact_kotlincd(
             define_action = define_kotlincd_action,
             uses_experimental_content_based_path_hashing = kotlin_toolchain.allow_experimental_content_based_path_hashing,
         )
-        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
+        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier, uses_content_based_path_for_jar_snapshot)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -289,7 +290,7 @@ def create_jar_artifact_kotlincd(
             used_jars_json = used_jars_json,
         ), proto
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
+        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier, uses_content_based_path_for_jar_snapshot)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
