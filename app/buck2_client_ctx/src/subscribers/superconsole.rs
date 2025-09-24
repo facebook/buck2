@@ -9,7 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::fmt::Debug;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,7 +16,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::BuckErrorContext;
-use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -66,6 +64,7 @@ use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
+use crate::subscribers::superconsole::timekeeper::TimeSpeed;
 use crate::ticker::Tick;
 
 mod commands;
@@ -79,6 +78,7 @@ mod message_renderer;
 mod re;
 pub mod session_info;
 pub(crate) mod system_warning;
+mod timekeeper;
 
 pub mod test;
 pub mod timed_list;
@@ -104,31 +104,6 @@ pub struct StatefulSuperConsoleImpl {
     state: SuperConsoleState,
     super_console: SuperConsole,
     verbosity: Verbosity,
-}
-
-#[derive(Copy, Clone, Dupe, Debug)]
-struct TimeSpeed {
-    speed: f64,
-}
-
-const TIMESPEED_DEFAULT: f64 = 1.0;
-
-impl TimeSpeed {
-    pub(crate) fn new(speed_value: Option<f64>) -> buck2_error::Result<Self> {
-        let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
-
-        if speed <= 0.0 {
-            return Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Time speed cannot be negative!"
-            ));
-        }
-        Ok(TimeSpeed { speed })
-    }
-
-    pub(crate) fn speed(self) -> f64 {
-        self.speed
-    }
 }
 
 pub struct SuperConsoleState {

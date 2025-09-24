@@ -256,7 +256,7 @@ mod tests {
 
     use super::*;
     use crate::subscribers::superconsole::SuperConsoleConfig;
-    use crate::subscribers::superconsole::TimeSpeed;
+    use crate::subscribers::superconsole::timekeeper::TimeSpeed;
     use crate::ticker::Tick;
 
     const CUTOFFS: Cutoffs = Cutoffs {
