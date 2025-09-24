@@ -131,9 +131,6 @@ load(":targets.bzl", "targets")
 _DEFAULT_ROOTS = ["lib.rs"]
 
 # Add provider for default output, and for each lib output style...
-# FIXME(JakobDegen): C++ rules only provide some of the output styles,
-# determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
-# Do we want to do the same?
 _SUB_TARGET_BUILD_PARAMS = {
     "cdylib": (LinkageLang("native"), LibOutputStyle("shared_lib")),
     "shared": (LinkageLang("rust"), LibOutputStyle("shared_lib")),
@@ -657,6 +654,7 @@ def _default_providers(
             artifact = native_param_artifact[param]
 
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
+        nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.stripped_output)]
         if artifact.pdb:
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.pdb, binary = artifact.output)
         if artifact.import_library:
