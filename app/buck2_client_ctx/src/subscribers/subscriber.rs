@@ -13,6 +13,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use buck2_event_observer::span_tracker::EventTimestamp;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 
@@ -37,8 +38,8 @@ impl Tick {
         }
     }
 
-    pub(crate) fn elapsed_since(&self, start: Instant) -> Duration {
-        (self.start_time + self.elapsed_time).saturating_duration_since(start)
+    pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
+        (self.start_time + self.elapsed_time).saturating_duration_since(start.0)
     }
 }
 

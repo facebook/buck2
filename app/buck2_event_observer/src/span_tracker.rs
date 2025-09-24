@@ -34,10 +34,14 @@ enum SpanTrackerError<T: SpanTrackable> {
     NonSpanEvent(T),
 }
 
+/// Represents a timestamp relating to event handling.
+#[derive(Debug, Clone, Dupe, Copy)]
+pub struct EventTimestamp(pub Instant);
+
 #[derive(Debug, Clone)]
 pub struct SpanInfo<T: SpanTrackable> {
     pub event: T,
-    pub start: Instant,
+    pub start: EventTimestamp,
 }
 
 #[derive(Debug, Clone)]
@@ -309,7 +313,7 @@ impl<T: SpanTrackable + Dupe> SpanTracker<T> {
             span_id,
             info: SpanInfo {
                 event: event.dupe(),
-                start: at,
+                start: EventTimestamp(at),
             },
             boringness: if is_boring { 1 } else { 0 },
             children: LinkedHashMap::new(),
