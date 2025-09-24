@@ -21,7 +21,7 @@ use crate::exit_result::ExitResult;
 use crate::subscribers::observer::ErrorObserver;
 
 /// Information about tick timing.
-#[derive(Debug, Clone, Dupe)]
+#[derive(Debug, Clone, Dupe, Copy)]
 pub struct Tick {
     /// The time that the ticker was started.
     pub start_time: Instant,
@@ -35,6 +35,10 @@ impl Tick {
             start_time: Instant::now(),
             elapsed_time: Duration::ZERO,
         }
+    }
+
+    pub(crate) fn elapsed_since(&self, start: Instant) -> Duration {
+        (self.start_time + self.elapsed_time).saturating_duration_since(start)
     }
 }
 

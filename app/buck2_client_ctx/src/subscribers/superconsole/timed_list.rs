@@ -10,7 +10,6 @@
 
 use std::fmt::Write;
 use std::time::Duration;
-use std::time::Instant;
 
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -81,9 +80,8 @@ impl TimedListBody<'_> {
             )?
         );
 
-        let now = Instant::now();
-        let child_info_elapsed = now - child_info.start;
-        let info_elapsed = now - info.start;
+        let child_info_elapsed = self.state.current_tick.elapsed_since(child_info.start);
+        let info_elapsed = self.state.current_tick.elapsed_since(info.start);
         let subaction_ratio = child_info_elapsed.as_secs_f64() / info_elapsed.as_secs_f64();
 
         // but only display the time of the subaction if it differs significantly.
@@ -130,6 +128,7 @@ impl TimedListBody<'_> {
                 rows.push(TimedRow::span(
                     0,
                     info,
+                    self.state.current_tick,
                     time_speed,
                     self.cutoffs,
                     display_platform,
@@ -139,6 +138,7 @@ impl TimedListBody<'_> {
                     rows.push(TimedRow::span(
                         2,
                         child.info(),
+                        self.state.current_tick,
                         time_speed,
                         self.cutoffs,
                         display_platform,
@@ -240,6 +240,7 @@ impl Component for TimedList<'_> {
 mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
+    use std::time::Instant;
     use std::time::UNIX_EPOCH;
 
     use buck2_data::FakeStart;
@@ -490,7 +491,7 @@ mod tests {
         )?;
 
         state.time_speed = fake_time_speed();
-        state.current_tick = tick.clone();
+        state.current_tick = tick;
 
         state
             .simple_console
