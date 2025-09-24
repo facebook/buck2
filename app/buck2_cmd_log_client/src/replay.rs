@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use std::time::SystemTime;
+use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -232,7 +232,7 @@ async fn find_next_event_with_delay(
 
 /// Handle time drifting when replaying events - add pauses in between events to simulate the real deal.
 struct Syncher {
-    start: Option<(Instant, SystemTime)>,
+    start: Option<(Instant, prost_types::Timestamp)>,
     speed: f64,
 }
 
@@ -249,11 +249,31 @@ impl Syncher {
     /// The first event will be sent immediately. Each subsequent event will be sent with a delay
     /// based on its time since that first event.
     fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> buck2_error::Result<Sleep> {
-        let event_time = SystemTime::try_from(event.timestamp.unwrap())?;
+        let event_time = event.timestamp.unwrap();
         let (sync_start, log_start) = self.start.get_or_insert((Instant::now(), event_time));
-        let log_offset_time = event_time.duration_since(*log_start)?;
+        let log_offset_time = duration_between_timestamps(*log_start, event_time);
         let sync_offset_time = log_offset_time.div_f64(self.speed);
         let sync_event_time = *sync_start + sync_offset_time;
         Ok(tokio::time::sleep_until(sync_event_time))
+    }
+}
+
+fn duration_between_timestamps(
+    start: prost_types::Timestamp,
+    end: prost_types::Timestamp,
+) -> Duration {
+    let mut diff_secs = end.seconds - start.seconds;
+    let mut diff_nanos = end.nanos - start.nanos;
+    if diff_nanos < 0 {
+        diff_nanos += 1_000_000_000;
+        diff_secs -= 1;
+    }
+    // Guaranteed positive by the above check
+    let diff_nanos = diff_nanos as u32;
+    if diff_secs < 0 {
+        // Duration went backwards, saturate to zero
+        Duration::ZERO
+    } else {
+        Duration::new(diff_secs as u64, diff_nanos)
     }
 }
