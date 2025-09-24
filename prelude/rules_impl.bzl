@@ -25,6 +25,8 @@ load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_att
 load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
+load("@prelude//cxx:cctest.bzl", "cctest_map_value_impl", "cctest_type_exists_impl", "cctest_type_size_impl", "cctest_value_impl")
+load("@prelude//cxx:cmake.bzl", "cmake_configure_file_impl", "cmake_embedding_impl", "cmake_substitution_impl", "cmake_type_size_substitution_impl")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
@@ -184,6 +186,14 @@ extra_implemented_rules = struct(
     prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
 
     #c++
+    cctest_map_value = cctest_map_value_impl,
+    cctest_value = cctest_value_impl,
+    cctest_type_exists = cctest_type_exists_impl,
+    cctest_type_size = cctest_type_size_impl,
+    cmake_configure_file = cmake_configure_file_impl,
+    cmake_embedding = cmake_embedding_impl,
+    cmake_substitution = cmake_substitution_impl,
+    cmake_type_size_substitution = cmake_type_size_substitution_impl,
     cxx_binary = cxx_binary_impl,
     cxx_test = cxx_test_impl,
     cxx_toolchain = cxx_toolchain_impl,

@@ -12,6 +12,8 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//cxx:cctest.bzl", "CcTestValueInfo", "CcTestTypeSizeInfo")
+load("@prelude//cxx:cmake.bzl", "CMakeSubstitutionInfo", "CMakeEmbeddedFileInfo")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -80,6 +82,419 @@ LinkerProviderType = ["darwin", "gnu", "windows", "unknown", "wasm"]
 PicType = ["pic", "pdc"]
 
 SharedLibraryInterfaceParamsType = ["disabled", "enabled", "defined_only"]
+
+cctest_value = prelude_rule(
+    name = "cctest_value",
+    docs = """
+        A `cctest_value()` rule enables you to hardcode a known value that would normally be computed at build time by something like
+        autoconf / configure, or by something like CMake's `CheckFunctionExists` or `CheckTypeExists` module, among others.  This is useful
+        when trying to make native buck2 builds of third party libraries that depend on built-time detection of toolchain capabilities, such
+        as is the case with configure, autoconf, or CMake.
+        
+        Targets declared with `cctest_value()` can be specified as deps to `cmake_substitution()` define a variable substitution that should
+        occur in a later call to `cmake_configure_file()`.
+    """,
+    examples = """
+        ```
+        
+        cctest_value(
+            name = 'arc4random',
+            value = select({
+                "config//os:macos": True,
+                "config//os:iphoneos": True,
+                "DEFAULT": False
+            })
+        )
+
+        cmake_substitution(
+            name = "HAVE_ARC4RANDOM",
+            value = ":arc4random"
+        )
+
+        # Will substitute `HAVE_ARC4RANDOM` with the proper value depending on whether the template file uses `#cmakedefine` or `#cmakedefine01`
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":HAVE_ARC4RANDOM",
+            ],
+            out = "cmake_config.h"
+        )
+
+        ```
+    """,
+    attrs = {
+        "value": attrs.one_of(attrs.bool(), attrs.int(), attrs.string())
+    }
+)
+
+cctest_type_exists = prelude_rule(
+    name = "cctest_type_exists",
+    docs = """
+
+        Alias for `cctest_value` but accepts only boolean arguments.  This mirrors autoconf/configure/cmake-like systems that have special
+        methods for checking whether a type exists versus some other generic boolean value.
+
+    """,
+    examples = """
+        ```
+        
+        cctest_type_exists(
+            name = 'sa_family_t',
+            value = select({
+                "config//os:android": True,
+                "config//os:iphoneos": True,
+                "config//os:linux": True,
+                "config//os:macos": True,
+                "DEFAULT": False
+            })
+        )
+
+        cmake_substitution(
+            name = "HAVE_SA_FAMILY_T",
+            value = ":arc4random"
+        )
+
+        # Will substitute `HAVE_SA_FAMILY_T` with the proper value depending on whether the template file uses `#cmakedefine` or `#cmakedefine01`
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":HAVE_SA_FAMILY_T",
+            ],
+            out = "cmake_config.h"
+        )
+
+        ```
+    """,
+    attrs = {
+        "exists": attrs.bool(),      
+    }
+)
+
+
+cctest_type_size = prelude_rule(
+    name = "cctest_type_size",
+    docs = """
+
+        A `cctest_type_size()` rule stores both a type (e.g. `size_t`) along with its corresponding size.
+
+        Normally, when calling CMake `configure_file()` it will look for lines of the form:
+
+        ```
+        #cmakedefine FOO
+        #cmakedefine01 FOO
+        ```
+
+        And replace them with the corresponding variable substitution.  When using `check_type_size()` in CMake, the rules are a little bit different. 
+
+            https://cmake.org/cmake/help/latest/module/CheckTypeSize.html
+
+        For these cases, CMake expects to find a line like
+
+        ```
+        ${SIZEOF_SSIZE_T_CODE}
+        ```
+        
+        in the configure file template, and it will replace it with a line like:
+
+        ```
+        #define SIZEOF_SSIZE_T 8
+        ```
+
+        or possibly
+
+        ```
+        #undef SIZEOF_SSIZE_T
+        ```
+
+        if the type does not exist.  Use this rule for these kinds of replacements.
+    """,
+    examples = """
+        ```
+        
+        cctest_type_size(
+            name = 'long',
+            size=select({
+                'config//os:windows': 4,
+                'config//os:android': select({
+                    'config//cpu:arm32': 4,
+                    'DEFAULT': 8
+                }),
+                'DEFAULT': 8
+            })
+        )
+
+        cmake_type_size_substitution(
+            name = 'SIZEOF_LONG',
+            value = ':long'
+        )
+
+        # Will substitute `SIZEOF_LONG_CODE` in the template file with `#define SIZEOF_LONG <value>`
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":SIZEOF_LONG",
+            ],
+            out = "cmake_config.h"
+        )
+
+        ```
+    """,
+    attrs = {
+        "type": attrs.string(),
+        "size": attrs.option(attrs.int(), default=None),      
+    }
+)
+
+
+cctest_map_value = prelude_rule(
+    name = "cctest_map_value",
+    docs = """
+        A `cctest_map_value()` rule transforms a previously computed `cctest_value()` into a different value, based on a user specified
+        mapping.  This rule is usually not needed, but occasionally comes up when a library expects a slightly different value in its
+        configured output file than usual.
+
+        Using this rule allows all of your standard default cctest values to be stored in a global location, perhaps alongside your prelude
+        and use this rule to map the value in a more localized setting nearby the target that expects the different behavior.
+    """,
+    examples = """
+        ```
+        cmake_type_exists(
+            name="has-ssize_t",
+            value=select({
+            })
+        )
+
+        cctest_map_value(
+            name="ssize_t_as_int_or_none",
+            original=":has-ssize_t",
+
+            # nghttp2 library expects to #define ssize_t to int if it doesn't exist, or not define anything if it already exists.
+            actual={
+                True: None,
+                False: "int",
+            }
+        )
+
+        cmake_substitution(
+            name = "ssize_t",
+            value = ":ssize_t_as_int_or_none"
+        )
+
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":ssize_t",
+            ],
+            out = "cmake_config.h"
+        )
+
+        ```
+    """,
+    attrs = {
+        "original": attrs.dep(providers = [CcTestValueInfo]),
+        "actual": attrs.dict(
+            attrs.one_of(attrs.bool(), attrs.int(), attrs.string()),
+            attrs.one_of(attrs.bool(), attrs.int(), attrs.string()),
+        )
+    }
+)
+
+cmake_embedding = prelude_rule(
+    name = "cmake_embedding",
+    docs = """
+        A `cmake_embedding()` rule specifies one or more input files and various other substitution parameters that enable the content of
+        the file(s) to be embedded into a configure file template in a subsequent call to `cmake_configure_file()`.
+
+        When calling `cmake_embedding()` with multiple input files, attributes exist to control how the input files are concatenated together.
+        For example, you can specify delimiters, prefixes and suffixes, etc.
+    """,
+    examples = """
+        ```
+
+        cmake_embedding(
+            name="embedded_lua_code",
+            visibility=[],
+            files=[
+                "scripts/1.lua",
+                "scripts/2.lua",
+            ],
+            prefix="",
+            suffix="",
+            item_prefix='{"",\n"",\nR"~~~~(',
+            item_suffix=')~~~~"}',
+            delimiter=",",
+            trailing_delimiter=False,
+        )
+
+        # Will replace `LUA_MODULES_CONTENT` in the template file with the embedded code in the output file.
+        cmake_configure_file(
+            name = "configure",
+            template = "EmbeddedModules.h.in",
+            output = "EmbeddedModules.h",
+            substitutions = [
+            ],
+            embeddings={
+                "LUA_MODULES_CONTENT": ":embedded_lua_code"
+            },
+        )
+
+        ```
+    """,
+    attrs = {
+        "files": attrs.list(attrs.source()),
+        "prefix": attrs.string(default=""),
+        "suffix": attrs.string(default=""),
+        "item_prefix": attrs.string(default=""),
+        "item_suffix": attrs.string(default=""),
+        "delimiter": attrs.string(default=","),
+        "trailing_delimiter": attrs.bool(default=False),
+    }
+)
+
+cmake_configure_file = prelude_rule(
+    name = "cmake_configure_file",
+    docs = """
+        
+        Implements the behavior of CMake's `configure_file()` builtin.
+
+        https://cmake.org/cmake/help/latest/command/configure_file.html
+
+        It accepts a template file that adheres to the `configure_file` syntax specification and outputs a processed file after performing
+        the appropriate variable substitutions.
+
+        It also adds some additional functionality beyond what is built into CMake's `configure_file()`.  In particular, it adds two main
+        features:
+
+        1. It is by default "strict", meaning that if you pass in substitutions that are not found in the template file, the rule will fail.
+           Similarly, if there are variables in the template file that no user substitutions were passed in for, it will also fail.  strict
+           mode is controlled by the `strict` rule attribute, and can be disabled.
+
+        2. It supports file embeddings.  This is very difficult and cumbersome to do in CMake and is not supported out of the box.  Here, we
+           support it through the `embeddings` argument, which can reference targets previously declared with the `cmake_embedding` rule.
+
+    """,
+    examples = """
+        ```
+        
+        cctest_type_exists(
+            name = 'sa_family_t',
+            value = select({
+                "config//os:android": True,
+                "config//os:iphoneos": True,
+                "config//os:linux": True,
+                "config//os:macos": True,
+                "DEFAULT": False
+            })
+        )
+
+        cmake_substitution(
+            name = "HAVE_SA_FAMILY_T",
+            value = ":arc4random"
+        )
+
+        # Will substitute `HAVE_SA_FAMILY_T` with the proper value depending on whether the template file uses `#cmakedefine` or `#cmakedefine01`
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":HAVE_SA_FAMILY_T",
+            ],
+            out = "cmake_config.h"
+        )
+        
+        ```
+    """,
+    attrs = {
+        "template": attrs.source(),
+        "substitutions": attrs.list(attrs.dep(providers=[CMakeSubstitutionInfo])),
+        "embeddings": attrs.dict(attrs.string(), attrs.dep(providers = [CMakeEmbeddedFileInfo]), default = {}),
+        "at_sub": attrs.bool(default=True),
+        "var_sub": attrs.bool(default=True),
+        "escape_quotes": attrs.bool(default=False),
+        "copy_only": attrs.bool(default=False),
+        "output": attrs.option(attrs.string(), default = None),
+        "strict": attrs.bool(default=True),
+        "script": attrs.default_only(attrs.exec_dep(default="prelude//cxx/tools:expand_cmake_template", providers=[RunInfo]))
+    }
+)
+
+cmake_substitution = prelude_rule(
+    name = "cmake_substitution",
+    docs = """
+        A `cmake_substitution()` rule defines a simple mapping between a variable name that will appear in the CMake template file
+        and the value to substitute it with.  It can take a direct value (e.g. int, bool, string) or a reference to another target that returns
+        a `CcTestValueInfo` provider (for example `cctest_value()`)
+    """,
+    examples = """
+        ```
+        
+        cctest_type_exists(
+            name = 'sa_family_t',
+            value = select({
+                "config//os:android": True,
+                "config//os:iphoneos": True,
+                "config//os:linux": True,
+                "config//os:macos": True,
+                "DEFAULT": False
+            })
+        )
+
+        cmake_substitution(
+            name = "HAVE_SA_FAMILY_T",
+            value = ":arc4random"
+        )
+
+        cmake_substitution(
+            name = "HAVE_INT",
+            value = True
+        )
+
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":HAVE_INT",
+                ":HAVE_SA_FAMILY_T",
+            ],
+            out = "cmake_config.h"
+        )
+        
+
+        ```
+    """,
+    attrs = {
+        "value": attrs.option(
+            attrs.one_of(
+                attrs.string(),
+                attrs.int(),
+                attrs.bool(),
+                attrs.dep(providers=[CcTestValueInfo])
+            ),
+            default=None
+        )
+    }
+)
+
+cmake_type_size_substitution = prelude_rule(
+    name = "cmake_type_size_substitution",
+    docs = """
+        A `cmake_type_size_substitution()` is like `cmake_substitution()`, but it requires its value to be a target that was declared with the
+        `cctest_type_size()` rule (or any other rule that returns a `CcTestTypeSizeInfo` provider).  It will result in the template variable
+        `${<NAME>_CODE} being replaced with either `#define <NAME> <VALUE>`, or not defind at all if the value is None.
+    """,
+    examples = """
+        ```
+        ```
+    """,
+    attrs = {
+        "value": attrs.dep(providers=[CcTestTypeSizeInfo]),
+    }
+)
+
 
 cxx_binary = prelude_rule(
     name = "cxx_binary",
@@ -1440,6 +1855,14 @@ llvm_link_bitcode = prelude_rule(
 )
 
 cxx_rules = struct(
+    cctest_value = cctest_value,
+    cctest_type_exists = cctest_type_exists,
+    cctest_type_size = cctest_type_size,
+    cctest_map_value = cctest_map_value,
+    cmake_embedding = cmake_embedding,
+    cmake_configure_file = cmake_configure_file,
+    cmake_substitution = cmake_substitution,
+    cmake_type_size_substitution = cmake_type_size_substitution,
     cxx_binary = cxx_binary,
     cxx_genrule = cxx_genrule,
     cxx_library = cxx_library,
