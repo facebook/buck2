@@ -82,6 +82,7 @@ def create_jar_artifact_kotlincd(
         incremental: bool,
         enable_used_classes: bool,
         language_version: str,
+        uses_content_based_paths: bool,
         ksp2_enable_incremental_processing_override: bool | None = None,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
@@ -98,7 +99,7 @@ def create_jar_artifact_kotlincd(
 
     expect(abi_generation_mode != AbiGenerationMode("source"), "abi_generation_mode: source is not supported in kotlincd")
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("none")
-    uses_experimental_content_based_path_hashing = kotlin_toolchain.allow_experimental_content_based_path_hashing
+    uses_experimental_content_based_path_hashing = uses_content_based_paths or kotlin_toolchain.allow_experimental_content_based_path_hashing
 
     output_paths = define_output_paths(actions, actions_identifier, label, uses_experimental_content_based_path_hashing)
 
@@ -140,6 +141,7 @@ def create_jar_artifact_kotlincd(
         track_class_usage,
         compiling_deps_tset,
         debug_port,
+        uses_experimental_content_based_path_hashing,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -436,6 +438,7 @@ def _define_kotlincd_action(
         track_class_usage: bool,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         debug_port: [int, None],
+        uses_experimental_content_based_path_hashing: bool,
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
@@ -450,7 +453,6 @@ def _define_kotlincd_action(
         incremental_state_dir: Artifact | None = None,
         should_action_run_incrementally: bool = False):
     _unused = source_only_abi_compiling_deps
-    uses_experimental_content_based_path_hashing = kotlin_toolchain.allow_experimental_content_based_path_hashing
 
     compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(
