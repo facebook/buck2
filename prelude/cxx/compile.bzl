@@ -262,7 +262,7 @@ def create_compile_cmds(
             args = src_args,
             index = src.index,
             is_header = src.is_header,
-            uses_experimental_content_based_path_hashing = False,
+            uses_experimental_content_based_path_hashing = cxx_compile_cmd.allow_content_based_paths,
             index_store_factory = impl_params.index_store_factory,
             error_handler = impl_params.error_handler,
         )
