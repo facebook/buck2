@@ -47,14 +47,17 @@ GoPkgLinkInfo = provider(fields = {
 })
 
 GoBuildMode = enum(
-    "executable",  # non-pic executable
+    "exe",  # non-pic executable
+    "pie",  # pic executable
     "c_shared",  # pic C-shared library
     "c_archive",  # pic C-static library
 )
 
 def _build_mode_param(mode: GoBuildMode) -> str:
-    if mode == GoBuildMode("executable"):
+    if mode == GoBuildMode("exe"):
         return "exe"
+    if mode == GoBuildMode("pie"):
+        return "pie"
     if mode == GoBuildMode("c_shared"):
         return "c-shared"
     if mode == GoBuildMode("c_archive"):
@@ -99,7 +102,7 @@ def link(
         main: GoPkg,
         pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
-        build_mode: GoBuildMode = GoBuildMode("executable"),
+        build_mode: GoBuildMode = GoBuildMode("exe"),
         link_mode: [str, None] = None,
         link_style: LinkStyle = LinkStyle("static"),
         linker_flags: list[typing.Any] = [],
@@ -124,7 +127,11 @@ def link(
         file_extension = archive_extension
         use_shared_code = True  # PIC
         link_style = LinkStyle("static_pic")
-    else:  # GoBuildMode("executable")
+    elif build_mode == GoBuildMode("pie"):
+        file_extension = executable_extension
+        use_shared_code = True  # PIC
+        link_style = LinkStyle("static_pic")
+    else:  # GoBuildMode("exe")
         file_extension = executable_extension
         use_shared_code = False  # non-PIC
     final_output_name = ctx.label.name + file_extension

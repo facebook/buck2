@@ -17,7 +17,7 @@ load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
 load(":re_test_common.bzl", "re_test_common")
 
-BuildMode = ["executable", "c_shared", "c_archive"]
+BuildMode = ["exe", "c_shared", "c_archive", "pie"]
 
 GoTestCoverStepMode = ["set", "count", "atomic", "none"]
 
@@ -75,6 +75,12 @@ go_binary = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embedcfg_arg() |
+        {
+            "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
+                Determines the build mode (equivalent of `-buildmode`). Can be
+                 one of the following values: `exe`, `pie`.`
+            """, default = None),
+        } |
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
@@ -152,14 +158,10 @@ go_exported_library = prelude_rule(
         go_common.srcs_arg() |
         go_common.deps_arg() |
         {
-            "build_mode": attrs.enum(BuildMode, doc = """
+            "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
                 Determines the build mode (equivalent of `-buildmode`). Can be
-                 one of the following values: `c_archive`, `c_shared`.
-                 This argument is valid only if at there is at least one `cgo_library declared in deps.
-                 In addition you should make sure that `-shared` flag is added to `compiler_flags`
-                 and go version under `go.goroot` is compiled with that flag present in:
-                 `gcflags`, `ldflags` and `asmflags``
-            """),
+                 one of the following values: `c_archive`, `c_shared`.`
+            """, default = None),
         } |
         cxx_common.headers_arg() |
         cxx_common.header_namespace_arg() |
@@ -329,6 +331,12 @@ go_test = prelude_rule(
         go_common.deps_arg() |
         go_common.link_style_arg() |
         go_common.link_mode_arg() |
+        {
+            "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
+                Determines the build mode (equivalent of `-buildmode`). Can be
+                 one of the following values: `exe`, `pie`.`
+            """, default = None),
+        } |
         go_common.compiler_flags_arg() |
         go_common.assembler_flags_arg() |
         go_common.linker_flags_arg() |
