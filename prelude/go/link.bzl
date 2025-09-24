@@ -85,7 +85,7 @@ def _process_shared_dependencies(
         ctx.actions,
         deps = filter_and_map_idx(SharedLibraryInfo, deps),
     )
-    shared_libs = traverse_shared_library_info(shlib_info)
+    shared_libs = traverse_shared_library_info(shlib_info, transformation_provider = None)
 
     return executable_shared_lib_arguments(
         ctx,

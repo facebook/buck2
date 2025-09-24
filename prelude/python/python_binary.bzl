@@ -507,14 +507,14 @@ def _convert_python_library_to_executable(
         else:
             shared_libs = [
                 (shared_lib, "")
-                for shared_lib in traverse_shared_library_info(library.shared_libraries)
+                for shared_lib in traverse_shared_library_info(library.shared_libraries, transformation_provider = None)
             ]
 
             # darwin and windows expect self-contained dynamically linked
             # python extensions without additional transitive shared libraries
             shared_libs += [
                 (extension_shared_lib, "")
-                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
+                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries, transformation_provider = None)
             ]
 
     return _compute_pex_providers(

@@ -1108,7 +1108,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             targets_consumed_by_link_groups = {},
         )
 
-        for shared_lib in traverse_shared_library_info(shlib_info):
+        for shared_lib in traverse_shared_library_info(shlib_info, transformation_provider = None):
             label = shared_lib.label
             if is_link_group_shlib(label, link_group_ctx):
                 sos.append(shared_lib)
@@ -1129,7 +1129,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             li = lib.get(MergedLinkInfo)
             if li != None:
                 nlis.append(li)
-        sos.extend(traverse_shared_library_info(shlib_info))
+        sos.extend(traverse_shared_library_info(shlib_info, transformation_provider = None))
         infos = get_link_args_for_strategy(
             ctx,
             nlis,

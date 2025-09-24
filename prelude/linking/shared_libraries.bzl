@@ -187,7 +187,7 @@ def merge_shared_libraries(
 
 def traverse_shared_library_info(
         info: SharedLibraryInfo,
-        transformation_provider: TransformationResultProvider | None = None) -> list[SharedLibrary]:
+        transformation_provider: TransformationResultProvider | None) -> list[SharedLibrary]:
     libraries = []
     if info.set:
         for libs in info.set.traverse():

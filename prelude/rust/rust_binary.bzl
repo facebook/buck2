@@ -182,7 +182,7 @@ def _rust_binary_common(
         use_link_groups = rust_cxx_link_group_info != None,
         link_group_ctx = link_group_ctx,
         link_strategy = link_strategy,
-        shared_libraries = traverse_shared_library_info(shlib_info),
+        shared_libraries = traverse_shared_library_info(shlib_info, transformation_provider = None),
         extra_shared_libraries = [],
     )
 

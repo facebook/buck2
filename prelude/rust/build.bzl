@@ -265,7 +265,7 @@ def generate_rustdoc_test(
             ctx.actions,
             deps = inherited_shared_libs(ctx, doc_dep_ctx),
         )
-        shared_libs.extend(traverse_shared_library_info(shlib_info))
+        shared_libs.extend(traverse_shared_library_info(shlib_info, transformation_provider = None))
     executable_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,

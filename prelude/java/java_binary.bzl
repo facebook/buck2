@@ -177,7 +177,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.deps]),
     )
-    native_deps = traverse_shared_library_info(shared_library_info)
+    native_deps = traverse_shared_library_info(shared_library_info, transformation_provider = None)
 
     base_dep = ctx.attrs.base_dep
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]

@@ -250,7 +250,7 @@ def make_py_package(
         shared_libraries = shared_libraries + [
             (lib, "")
             for info in preload_deps_shared_libraries
-            for lib in traverse_shared_library_info(info)
+            for lib in traverse_shared_library_info(info, transformation_provider = None)
         ]
 
     preload_libraries = _preload_libraries_args(

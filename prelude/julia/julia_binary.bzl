@@ -51,7 +51,7 @@ def build_jll_shlibs_mapping(ctx: AnalysisContext, json_info_file: Artifact):
         ctx.actions,
         None,
         filter(None, [d.shared_library_info for d in deps]),
-    ))
+    ), transformation_provider = None)
 
     shared_libs_symlink_tree = create_shlib_symlink_tree(
         actions = ctx.actions,

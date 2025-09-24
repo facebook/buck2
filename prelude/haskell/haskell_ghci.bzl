@@ -486,7 +486,7 @@ def _build_preload_deps_root(
         if SharedLibraryInfo in preload_dep:
             slib_info = preload_dep[SharedLibraryInfo]
 
-            shlib = traverse_shared_library_info(slib_info)
+            shlib = traverse_shared_library_info(slib_info, transformation_provider = None)
 
             for soname, shared_lib in with_unique_str_sonames(shlib).items():
                 preload_symlinks[soname] = shared_lib.lib.output
