@@ -320,6 +320,8 @@ def compile_swift(
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
 
+    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+
     # Pass the framework search paths to the driver and clang importer. This is required
     # for pcm compilation, which does not pass through driver search paths.
     framework_search_paths.add(framework_search_paths_flags)
@@ -373,8 +375,8 @@ def compile_swift(
         return (None, swift_interface_info)
 
     toolchain = get_swift_toolchain_info(ctx)
-    output_header = ctx.actions.declare_output(module_name + "-Swift.h")
-    output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
+    output_header = ctx.actions.declare_output(module_name + "-Swift.h", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     swift_framework_output = None
     swiftinterface_output = None
@@ -382,14 +384,14 @@ def compile_swift(
         swift_framework_output = SwiftLibraryForDistributionOutput(
             swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface"),
             private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
-            swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc"),  #this is generated automatically once we pass -emit-module-info, so must have this name
+            swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),  #this is generated automatically once we pass -emit-module-info, so must have this name
         )
     elif _should_compile_with_swift_interface(ctx):
-        swiftinterface_output = ctx.actions.declare_output(get_module_name(ctx) + ".swiftinterface")
+        swiftinterface_output = ctx.actions.declare_output(get_module_name(ctx) + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     output_symbols = None
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
-        output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
+        output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     # When compiling with WMO (ie, not incrementally), we compile the
     # swiftmodule separately. In incremental mode, we generate the swiftmodule
@@ -728,10 +730,11 @@ def _compile_object(
         swiftdeps = incremental_compilation_output.swiftdeps
         depfiles = incremental_compilation_output.depfiles
     else:
+        uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
         num_threads = 1
         swiftdeps = []
         depfiles = []
-        output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o")
+        output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         objects = [output_object]
         object_format = toolchain.object_format.value
         embed_bitcode = False
