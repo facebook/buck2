@@ -54,7 +54,6 @@ use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
@@ -67,6 +66,7 @@ use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
+use crate::ticker::Tick;
 
 mod commands;
 mod common;

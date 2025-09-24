@@ -25,9 +25,9 @@ use superconsole::style::StyledContent;
 use superconsole::style::Stylize;
 use superconsole::style::style;
 
-use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::TimeSpeed;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
+use crate::ticker::Tick;
 
 #[derive(Debug, Clone, From)]
 pub(crate) enum Row {

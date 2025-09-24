@@ -255,9 +255,9 @@ mod tests {
     use itertools::Itertools;
 
     use super::*;
-    use crate::subscribers::subscriber::Tick;
     use crate::subscribers::superconsole::SuperConsoleConfig;
     use crate::subscribers::superconsole::TimeSpeed;
+    use crate::ticker::Tick;
 
     const CUTOFFS: Cutoffs = Cutoffs {
         inform: Duration::from_secs(2),

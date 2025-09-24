@@ -10,12 +10,12 @@
 
 use std::time::Duration;
 
+use buck2_event_observer::span_tracker::EventTimestamp;
+use dupe::Dupe;
 use tokio::time;
 use tokio::time::Instant;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
-
-use crate::subscribers::subscriber::Tick;
 
 /// A simple wrapper around a [Interval] that tracks information about start/elapsed time and tick numbers. Note
 /// that ticks are not necessarily sequential, some may be skipped (and this indicates that ticks are running
@@ -56,5 +56,27 @@ impl Ticker {
             start_time: self.start_time.into_std(),
             elapsed_time,
         }
+    }
+}
+
+/// Information about tick timing.
+#[derive(Debug, Clone, Dupe, Copy)]
+pub struct Tick {
+    /// The time that the ticker was started.
+    pub start_time: std::time::Instant,
+    /// Elapsed time since the ticker was started for this tick.
+    pub(crate) elapsed_time: Duration,
+}
+
+impl Tick {
+    pub(crate) fn now() -> Tick {
+        Self {
+            start_time: std::time::Instant::now(),
+            elapsed_time: Duration::ZERO,
+        }
+    }
+
+    pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
+        (self.start_time + self.elapsed_time).saturating_duration_since(start.0)
     }
 }

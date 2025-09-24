@@ -20,7 +20,7 @@ use buck2_event_log::write::WriteEventLog;
 use buck2_events::BuckEvent;
 
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber::Tick;
+use crate::ticker::Tick;
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
