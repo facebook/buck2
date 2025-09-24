@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::pin::Pin;
 use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
@@ -25,15 +24,14 @@ use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
-use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use futures::stream::BoxStream;
-use futures::task::Poll;
-use pin_project::pin_project;
+use tokio::pin;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::Instant;
 use tokio::time::Sleep;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// Replay an event log.
 ///
@@ -79,8 +77,8 @@ impl BuckSubcommand for ReplayCommand {
             override_args: _,
         } = self;
         let work = async {
-            let (replayer, invocation) =
-                Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
+            let (event_stream, invocation) =
+                make_replayer(event_log.get(&ctx).await?, speed, preload).await?;
             let console = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
@@ -96,7 +94,7 @@ impl BuckSubcommand for ReplayCommand {
             let res = DaemonEventsCtx::without_tailers(&mut events_ctx)
                 .unpack_stream::<_, ReplayResult, _>(
                     &mut NoPartialResultHandler,
-                    Box::pin(replayer),
+                    event_stream,
                     ctx.console_interaction_stream(&console_opts),
                 )
                 .await;
@@ -149,49 +147,87 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
     }
 }
 
-#[pin_project]
-struct Pending {
-    #[pin]
-    delay: Sleep,
-    event: Option<Box<buck2_data::BuckEvent>>,
+pub async fn make_replayer(
+    log_path: EventLogPathBuf,
+    speed: Option<f64>,
+    preload: bool,
+) -> buck2_error::Result<(
+    impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
+    Invocation,
+)> {
+    let (invocation, events) = log_path.unpack_stream().await?;
+
+    let events = if preload {
+        let events = events.try_collect::<Vec<_>>().await?;
+        futures::stream::iter(events).map(Ok).left_stream()
+    } else {
+        events.right_stream()
+    };
+
+    let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+    tokio::task::spawn(replay_events_into(sender, events, speed));
+
+    Ok((UnboundedReceiverStream::new(receiver), invocation))
 }
 
-#[pin_project]
-pub struct Replayer<T = BoxStream<'static, buck2_error::Result<StreamValue>>> {
-    #[pin]
-    events: T,
-    was_complete: bool,
-    syncher: Syncher,
-    #[pin]
-    pending: Option<Pending>,
-}
+/// Replays the events into the sink, but inserts an appropriate delay between events
+async fn replay_events_into(
+    sink: UnboundedSender<buck2_error::Result<StreamValue>>,
+    events: impl Stream<Item = buck2_error::Result<StreamValue>>,
+    speed: Option<f64>,
+) {
+    let mut syncher = Syncher::new(speed);
 
-impl Replayer {
-    pub async fn new(
-        log_path: EventLogPathBuf,
-        speed: Option<f64>,
-        preload: bool,
-    ) -> buck2_error::Result<(Self, Invocation)> {
-        let (invocation, events) = log_path.unpack_stream().await?;
-
-        let events = if preload {
-            let events = events.try_collect::<Vec<_>>().await?;
-            futures::stream::iter(events).map(Ok).left_stream()
-        } else {
-            events.right_stream()
-        };
-
-        let syncher = Syncher::new(speed);
-
-        let myself = Self {
-            events: Box::pin(events),
-            was_complete: false,
-            pending: None,
-            syncher,
-        };
-
-        Ok((myself, invocation))
+    pin!(events);
+    let Some((mut next_event, mut next_sleep)) =
+        find_next_event_with_delay(&sink, &mut syncher, &mut events).await
+    else {
+        return;
+    };
+    loop {
+        next_sleep.await;
+        if sink.send(next_event).is_err() {
+            // The sink is closed, so we can stop sending events.
+            return;
+        }
+        match find_next_event_with_delay(&sink, &mut syncher, &mut events).await {
+            Some((event, sleep)) => {
+                next_event = event;
+                next_sleep = sleep;
+            }
+            None => break,
+        }
     }
+}
+
+/// Replay events from the stream into the sink until we find the first event that requires a delay
+async fn find_next_event_with_delay(
+    sink: &UnboundedSender<buck2_error::Result<StreamValue>>,
+    syncher: &mut Syncher,
+    events: &mut (impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin),
+) -> Option<(buck2_error::Result<StreamValue>, Sleep)> {
+    while let Some(mut event) = events.next().await {
+        match &event {
+            Ok(StreamValue::Event(buck_event)) => {
+                match syncher.synch_playback_time(&buck_event) {
+                    Ok(delay) => {
+                        return Some((event, delay));
+                    }
+                    Err(e) => {
+                        // We couldn't process this event, send an error instead
+                        event = Err(e);
+                    }
+                }
+            }
+            // Most other kinds of events don't really happen, don't need a delay for them
+            _ => {}
+        }
+        if sink.send(event).is_err() {
+            // The sink is closed, so we can stop sending events.
+            return None;
+        }
+    }
+    None
 }
 
 /// Handle time drifting when replaying events - add pauses in between events to simulate the real deal.
@@ -219,60 +255,5 @@ impl Syncher {
         let sync_offset_time = log_offset_time.div_f64(self.speed);
         let sync_event_time = *sync_start + sync_offset_time;
         Ok(tokio::time::sleep_until(sync_event_time))
-    }
-}
-
-impl<T> Stream for Replayer<T>
-where
-    T: Stream<Item = buck2_error::Result<StreamValue>>,
-{
-    type Item = buck2_error::Result<StreamValue>;
-
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        // The basic idea is to hold on to the next event and a `sleep` until it's elapsed.
-        // At this point, return the event.  Then grab a new one and a sleep and repeat the process.
-        // Knowing whether the stream is done is dependent on whether the previous iteration either
-        // erred or returned a result, so we keep track of that as well.
-
-        let mut this = self.project();
-
-        if *this.was_complete {
-            return Poll::Ready(None);
-        }
-
-        if this.pending.is_none() {
-            let event = futures::ready!(this.events.poll_next(cx));
-
-            match event {
-                Some(Ok(StreamValue::Event(event))) => {
-                    let delay = this.syncher.synch_playback_time(&event)?;
-                    this.pending.set(Some(Pending {
-                        delay,
-                        event: Some(event),
-                    }));
-                }
-                // If the stream has errored out, finished, or contains a result, flag completion.
-                _ => {
-                    *this.was_complete = true;
-                    return Poll::Ready(event);
-                }
-            }
-        }
-
-        // Unwrap is safe: we just checked this was Some.
-        let pending = this.pending.as_mut().as_pin_mut().unwrap().project();
-
-        futures::ready!(pending.delay.poll(cx));
-
-        // Take the event and remove the Pending entry. This unwrap() is safe since if we have a
-        // reference to this Pending the event cannot have been taken yet, since we immediately
-        // delete it on the next line.
-        let event = pending.event.take().unwrap();
-        this.pending.set(None);
-
-        Poll::Ready(Some(Ok(StreamValue::Event(event))))
     }
 }
