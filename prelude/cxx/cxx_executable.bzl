@@ -396,6 +396,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 anonymous = ctx.attrs.anonymous_link_groups,
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
                 public_nodes = public_link_group_nodes,
+                transformation_provider = transformation_provider,
                 error_handler = impl_params.error_handler,
             )
             link_group_libs_debug_info = linked_link_groups.libs_debug_info
@@ -449,6 +450,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             },
             prefer_stripped = impl_params.prefer_stripped_objects,
             prefer_optimized = False,
+            transformation_provider = transformation_provider,
         )
 
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
