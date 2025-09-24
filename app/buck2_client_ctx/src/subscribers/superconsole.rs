@@ -64,7 +64,7 @@ use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
-use crate::subscribers::superconsole::timekeeper::TimeSpeed;
+use crate::subscribers::superconsole::timekeeper::Timekeeper;
 use crate::ticker::Tick;
 
 mod commands;
@@ -108,7 +108,7 @@ pub struct StatefulSuperConsoleImpl {
 
 pub struct SuperConsoleState {
     pub current_tick: Tick,
-    time_speed: TimeSpeed,
+    timekeeper: Timekeeper,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole<DebugEventObserverExtra>,
     config: SuperConsoleConfig,
@@ -380,7 +380,7 @@ impl SuperConsoleState {
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
-            time_speed: TimeSpeed::new(replay_speed)?,
+            timekeeper: Timekeeper::new(replay_speed)?,
             simple_console: SimpleConsole::with_tty(
                 trace_id,
                 verbosity,

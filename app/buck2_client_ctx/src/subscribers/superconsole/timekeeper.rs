@@ -9,16 +9,18 @@
  */
 
 use buck2_error::buck2_error;
-use dupe::Dupe;
 
-#[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct TimeSpeed {
+/// Manages a view of virtual time that is used to display elapsed times in superconsole.
+///
+/// This primarily exists to allow `log replay` to work reliably and correctly.
+#[derive(Debug)]
+pub(crate) struct Timekeeper {
     speed: f64,
 }
 
 const TIMESPEED_DEFAULT: f64 = 1.0;
 
-impl TimeSpeed {
+impl Timekeeper {
     pub(crate) fn new(speed_value: Option<f64>) -> buck2_error::Result<Self> {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
@@ -28,10 +30,10 @@ impl TimeSpeed {
                 "Time speed cannot be negative!"
             ));
         }
-        Ok(TimeSpeed { speed })
+        Ok(Timekeeper { speed })
     }
 
-    pub(crate) fn speed(self) -> f64 {
+    pub(crate) fn speed(&self) -> f64 {
         self.speed
     }
 }

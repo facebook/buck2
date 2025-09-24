@@ -26,7 +26,7 @@ use superconsole::style::Stylize;
 use superconsole::style::style;
 
 use crate::subscribers::superconsole::timed_list::Cutoffs;
-use crate::subscribers::superconsole::timekeeper::TimeSpeed;
+use crate::subscribers::superconsole::timekeeper::Timekeeper;
 use crate::ticker::Tick;
 
 #[derive(Debug, Clone, From)]
@@ -107,7 +107,7 @@ impl TimedRow {
         padding: usize,
         span: &BuckEventSpanInfo,
         tick: Tick,
-        time_speed: TimeSpeed,
+        time_speed: &Timekeeper,
         cutoffs: &Cutoffs,
         display_platform: bool,
     ) -> buck2_error::Result<Self> {
