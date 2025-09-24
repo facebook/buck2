@@ -322,6 +322,9 @@ message InstantEvent {
 
     // Event used to track the % of memory pressure experienced
     MemoryPressure memory_pressure = 52;
+
+    // Event used to track the number of actions running concurrently
+    LocalActionRunningCount local_action_running_count = 53;
   }
 }
 
@@ -333,6 +336,11 @@ message MemoryPressure {
   // Peak % memory pressure experienced during the build if it exceeded the
   // threshold
   uint64 peak_pressure = 1;
+}
+
+message LocalActionRunningCount {
+  // Number of actions running concurrently
+  uint32 count = 1;
 }
 
 message PreviousCommandWithMismatchedConfig {

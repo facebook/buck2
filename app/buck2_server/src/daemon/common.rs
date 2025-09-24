@@ -50,6 +50,7 @@ use buck2_execute_impl::executors::action_cache_upload_permission_checker::Actio
 use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
+use buck2_execute_impl::executors::local::LocalActionCounter;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::local_actions_throttle::LocalActionsThrottle;
 use buck2_execute_impl::executors::re::ReExecutor;
@@ -92,6 +93,7 @@ pub struct CommandExecutorFactory {
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
+    local_action_counter: Option<Arc<LocalActionCounter>>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
 }
@@ -121,6 +123,10 @@ impl CommandExecutorFactory {
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
+        let local_action_counter = local_actions_throttle
+            .as_ref()
+            .map(|_| LocalActionCounter::new());
+
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
@@ -142,6 +148,7 @@ impl CommandExecutorFactory {
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             local_actions_throttle,
+            local_action_counter,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
         }
@@ -181,6 +188,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.forkserver.dupe(),
                 self.executor_global_knobs.dupe(),
                 worker_pool,
+                self.local_action_counter.dupe(),
             )
         };
 

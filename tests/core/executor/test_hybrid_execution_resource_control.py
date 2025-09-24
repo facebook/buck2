@@ -311,3 +311,23 @@ async def test_action_freezing_unfreezing(
                 frozen_count += 1
     # only the action whose identifier is `action_to_be_frozen` will be frozen
     assert frozen_count == 1
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+@env("BUCK2_HARD_ERROR", "panic")
+async def test_local_action_running_count(
+    buck: Buck,
+) -> None:
+    await buck.build(
+        ":merge_100",
+        "--no-remote-cache",
+        "-c",
+        "test.prefer_local=True",
+        "--local-only",
+    )
+
+    local_action_running_count = await filter_events(
+        buck, "Event", "data", "Instant", "data", "LocalActionRunningCount"
+    )
+
+    assert len(local_action_running_count) > 0
