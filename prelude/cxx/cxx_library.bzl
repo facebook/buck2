@@ -1521,6 +1521,16 @@ def _form_library_outputs(
                 optimized_info = optimized_result.info
                 outputs_for_style[LinkableFlavor("optimized")] = optimized_output
                 solibs[LinkableFlavor("optimized")] = optimized_solib
+
+            if compiled_srcs.pic_debuggable and (compiled_srcs.pic_debuggable.objects or impl_params.build_empty_so):
+                debug_output, debug_result, debug_solib = build_shared_library(
+                    compile_output = compiled_srcs.pic_debuggable,
+                    flavor = LinkableFlavor("debug"),
+                )
+                debuggable_info = debug_result.info
+                outputs_for_style[LinkableFlavor("debug")] = debug_output
+                solibs[LinkableFlavor("debug")] = debug_solib
+
         if outputs_for_style:
             outputs[output_style] = outputs_for_style
 
