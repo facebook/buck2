@@ -176,14 +176,15 @@ async fn replay_events_into(
     events: impl Stream<Item = buck2_error::Result<StreamValue>>,
     speed: Option<f64>,
 ) {
-    let mut syncher = Syncher::new(speed);
-
     pin!(events);
     let Some((mut next_event, mut next_event_timestamp)) =
         find_next_event_with_delay(&sink, &mut events).await
     else {
         return;
     };
+
+    let mut syncher = Syncher::new(next_event_timestamp, speed);
+
     loop {
         syncher.sleep_until_timestamp(next_event_timestamp).await;
         if sink.send(next_event).is_err() {
@@ -222,16 +223,18 @@ async fn find_next_event_with_delay(
     None
 }
 
-/// Handle time drifting when replaying events - add pauses in between events to simulate the real deal.
+/// Handle time drifting when replaying events - compute pauses in between events to simulate the real deal.
 struct Syncher {
-    start: Option<(Instant, prost_types::Timestamp)>,
+    zero_instant: Instant,
+    zero_timestamp: prost_types::Timestamp,
     speed: f64,
 }
 
 impl Syncher {
-    fn new(playback_speed: Option<f64>) -> Self {
+    fn new(zero_timestamp: prost_types::Timestamp, playback_speed: Option<f64>) -> Self {
         Self {
-            start: None,
+            zero_instant: Instant::now(),
+            zero_timestamp,
             speed: playback_speed.unwrap_or(1.0),
         }
     }
@@ -241,10 +244,9 @@ impl Syncher {
     /// The first event will be sent immediately. Each subsequent event will be sent with a delay
     /// based on its time since that first event.
     fn sleep_until_timestamp(&mut self, event_time: prost_types::Timestamp) -> Sleep {
-        let (sync_start, log_start) = self.start.get_or_insert((Instant::now(), event_time));
-        let log_offset_time = duration_between_timestamps(*log_start, event_time);
+        let log_offset_time = duration_between_timestamps(self.zero_timestamp, event_time);
         let sync_offset_time = log_offset_time.div_f64(self.speed);
-        let sync_event_time = *sync_start + sync_offset_time;
+        let sync_event_time = self.zero_instant + sync_offset_time;
         tokio::time::sleep_until(sync_event_time)
     }
 }
