@@ -10,7 +10,6 @@
 
 use std::time::Duration;
 
-use buck2_event_observer::span_tracker::EventTimestamp;
 use dupe::Dupe;
 use tokio::time;
 use tokio::time::Instant;
@@ -74,9 +73,5 @@ impl Tick {
             start_time: std::time::Instant::now(),
             elapsed_time: Duration::ZERO,
         }
-    }
-
-    pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
-        (self.start_time + self.elapsed_time).saturating_duration_since(start.0)
     }
 }

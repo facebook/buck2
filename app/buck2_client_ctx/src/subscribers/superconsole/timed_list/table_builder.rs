@@ -27,7 +27,6 @@ use superconsole::style::style;
 
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
-use crate::ticker::Tick;
 
 #[derive(Debug, Clone, From)]
 pub(crate) enum Row {
@@ -106,8 +105,7 @@ impl TimedRow {
     pub(crate) fn span(
         padding: usize,
         span: &BuckEventSpanInfo,
-        tick: Tick,
-        time_speed: &Timekeeper,
+        timekeeper: &Timekeeper,
         cutoffs: &Cutoffs,
         display_platform: bool,
     ) -> buck2_error::Result<Self> {
@@ -115,9 +113,9 @@ impl TimedRow {
             &span.event,
             TargetDisplayOptions::for_console(display_platform),
         )?;
-        let elapsed = tick.elapsed_since(span.start);
-        let time = fmt_duration::fmt_duration(elapsed, time_speed.speed());
-        let age = elapsed.mul_f64(time_speed.speed());
+        let elapsed = timekeeper.elapsed_since(span.start);
+        let time = fmt_duration::fmt_duration(elapsed, timekeeper.speed());
+        let age = elapsed.mul_f64(timekeeper.speed());
         Self::text(padding, event, time, age, cutoffs)
     }
 

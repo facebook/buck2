@@ -80,8 +80,8 @@ impl TimedListBody<'_> {
             )?
         );
 
-        let child_info_elapsed = self.state.current_tick.elapsed_since(child_info.start);
-        let info_elapsed = self.state.current_tick.elapsed_since(info.start);
+        let child_info_elapsed = self.state.timekeeper.elapsed_since(child_info.start);
+        let info_elapsed = self.state.timekeeper.elapsed_since(info.start);
         let subaction_ratio = child_info_elapsed.as_secs_f64() / info_elapsed.as_secs_f64();
 
         // but only display the time of the subaction if it differs significantly.
@@ -128,7 +128,6 @@ impl TimedListBody<'_> {
                 rows.push(TimedRow::span(
                     0,
                     info,
-                    self.state.current_tick,
                     timekeeper,
                     self.cutoffs,
                     display_platform,
@@ -138,7 +137,6 @@ impl TimedListBody<'_> {
                     rows.push(TimedRow::span(
                         2,
                         child.info(),
-                        self.state.current_tick,
                         timekeeper,
                         self.cutoffs,
                         display_platform,
@@ -267,14 +265,14 @@ mod tests {
 
     const TIME_DILATION: u64 = 10;
 
-    fn fake_timekeeper() -> Timekeeper {
+    fn fake_timekeeper(tick: Tick) -> Timekeeper {
         // We run time 10x slower so that any time occurring due to the
         // test running on an overloaded server is ignored.
         //
         // Note that going to 100x slower causes Windows CI to fail, because
         // the `Instant` can't go below the time when the VM was booted, or you get an
         // underflow of `Instant`.
-        Timekeeper::new(Some(1.0 / (TIME_DILATION as f64))).unwrap()
+        Timekeeper::new(Some(1.0 / (TIME_DILATION as f64)), tick).unwrap()
     }
 
     fn fake_time(tick: &Tick, secs: u64) -> Instant {
@@ -294,7 +292,6 @@ mod tests {
     fn super_console_state_for_test(
         span_tracker: BuckEventSpanTracker,
         action_stats: ActionStats,
-        tick: Tick,
         timekeeper: Timekeeper,
         timed_list_state: SuperConsoleConfig,
     ) -> SuperConsoleState {
@@ -309,7 +306,6 @@ mod tests {
         .unwrap();
         state.simple_console.observer.span_tracker = span_tracker;
         state.simple_console.observer.action_stats = action_stats;
-        state.current_tick = tick;
         state.timekeeper = timekeeper;
         state
     }
@@ -346,7 +342,7 @@ mod tests {
         state.start_at(&label, fake_time(&tick, 3)).unwrap();
         state.start_at(&module, fake_time(&tick, 1)).unwrap();
 
-        let time_speed = fake_timekeeper();
+        let timekeeper = fake_timekeeper(tick);
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -363,7 +359,7 @@ mod tests {
 
         let output = TimedList::new(
             &CUTOFFS,
-            &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
+            &super_console_state_for_test(state, action_stats, timekeeper, timed_list_state),
         )
         .draw(
             Dimensions {
@@ -433,7 +429,7 @@ mod tests {
                 .unwrap();
         }
 
-        let time_speed = fake_timekeeper();
+        let time_speed = fake_timekeeper(tick);
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -450,7 +446,7 @@ mod tests {
 
         let output = TimedList::new(
             &CUTOFFS,
-            &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
+            &super_console_state_for_test(state, action_stats, time_speed, timed_list_state),
         )
         .draw(
             Dimensions {
@@ -490,8 +486,7 @@ mod tests {
             None,
         )?;
 
-        state.timekeeper = fake_timekeeper();
-        state.current_tick = tick;
+        state.timekeeper = fake_timekeeper(tick);
 
         state
             .simple_console
@@ -598,8 +593,7 @@ mod tests {
             &super_console_state_for_test(
                 state.clone(),
                 action_stats.dupe(),
-                tick.dupe(),
-                fake_timekeeper(),
+                fake_timekeeper(tick),
                 timed_list_state.clone(),
             ),
         )
@@ -649,8 +643,7 @@ mod tests {
             &super_console_state_for_test(
                 state,
                 action_stats,
-                tick,
-                fake_timekeeper(),
+                fake_timekeeper(tick),
                 timed_list_state,
             ),
         )

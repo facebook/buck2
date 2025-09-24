@@ -8,7 +8,12 @@
  * above-listed licenses.
  */
 
+use std::time::Duration;
+
 use buck2_error::buck2_error;
+use buck2_event_observer::span_tracker::EventTimestamp;
+
+use crate::ticker::Tick;
 
 /// Manages a view of virtual time that is used to display elapsed times in superconsole.
 ///
@@ -16,12 +21,13 @@ use buck2_error::buck2_error;
 #[derive(Debug)]
 pub(crate) struct Timekeeper {
     speed: f64,
+    current_tick: Tick,
 }
 
 const TIMESPEED_DEFAULT: f64 = 1.0;
 
 impl Timekeeper {
-    pub(crate) fn new(speed_value: Option<f64>) -> buck2_error::Result<Self> {
+    pub(crate) fn new(speed_value: Option<f64>, current_tick: Tick) -> buck2_error::Result<Self> {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
@@ -30,10 +36,26 @@ impl Timekeeper {
                 "Time speed cannot be negative!"
             ));
         }
-        Ok(Timekeeper { speed })
+        Ok(Timekeeper {
+            speed,
+            current_tick,
+        })
     }
 
     pub(crate) fn speed(&self) -> f64 {
         self.speed
+    }
+
+    pub(crate) fn tick(&mut self, current_tick: Tick) {
+        self.current_tick = current_tick;
+    }
+
+    pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
+        (self.current_tick.start_time + self.current_tick.elapsed_time)
+            .saturating_duration_since(start.0)
+    }
+
+    pub(crate) fn elapsed_since_command_start(&self) -> Duration {
+        self.current_tick.elapsed_time
     }
 }
