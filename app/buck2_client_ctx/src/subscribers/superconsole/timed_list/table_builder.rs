@@ -114,9 +114,8 @@ impl TimedRow {
             TargetDisplayOptions::for_console(display_platform),
         )?;
         let elapsed = timekeeper.elapsed_since(span.start);
-        let time = fmt_duration::fmt_duration(elapsed, timekeeper.speed());
-        let age = elapsed.mul_f64(timekeeper.speed());
-        Self::text(padding, event, time, age, cutoffs)
+        let time = fmt_duration::fmt_duration(elapsed);
+        Self::text(padding, event, time, elapsed, cutoffs)
     }
 
     pub(crate) fn text(

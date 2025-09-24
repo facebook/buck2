@@ -121,10 +121,7 @@ impl Component for SimpleHeader<'_> {
 }
 
 fn time_elapsed(state: &SuperConsoleState) -> String {
-    fmt_duration::fmt_duration(
-        state.timekeeper.elapsed_since_command_start(),
-        state.timekeeper.speed(),
-    )
+    fmt_duration::fmt_duration(state.timekeeper.elapsed_since_command_start())
 }
 
 /// This component is used to display summary counts about the number of jobs.
@@ -330,7 +327,7 @@ impl ProgressHeader<'_> {
         if exec_time_ms > 0 {
             format!(
                 "{} exec time total",
-                fmt_duration::fmt_duration(Duration::from_millis(exec_time_ms), 1.0),
+                fmt_duration::fmt_duration(Duration::from_millis(exec_time_ms)),
             )
         } else {
             String::new()
@@ -389,7 +386,7 @@ impl ProgressHeader<'_> {
         if cached_exec_time_ms > 0 {
             format!(
                 "{} exec time cached ({}%)",
-                fmt_duration::fmt_duration(Duration::from_millis(cached_exec_time_ms), 1.0),
+                fmt_duration::fmt_duration(Duration::from_millis(cached_exec_time_ms)),
                 cached_exec_time_ms * 100 / std::cmp::max(exec_time_ms, 1)
             )
         } else {

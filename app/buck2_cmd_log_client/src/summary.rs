@@ -220,7 +220,7 @@ impl Display for Stats {
 
         if let Some(duration) = &self.duration {
             let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
-            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))?;
+            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration))?;
         } else {
             // TODO(ezgi): when there is no CommandEnd, take the timestamp from the last event and calculate the duration
         }

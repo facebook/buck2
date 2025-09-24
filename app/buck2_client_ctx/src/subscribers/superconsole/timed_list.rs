@@ -63,7 +63,6 @@ impl TimedListBody<'_> {
         remaining_children: usize,
         display_platform: bool,
     ) -> buck2_error::Result<TimedRow> {
-        let timekeeper = &self.state.timekeeper;
         let info = root.info();
         let child_info = single_child.info();
 
@@ -86,7 +85,7 @@ impl TimedListBody<'_> {
 
         // but only display the time of the subaction if it differs significantly.
         if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
-            let subaction_time = fmt_duration::fmt_duration(child_info_elapsed, timekeeper.speed());
+            let subaction_time = fmt_duration::fmt_duration(child_info_elapsed);
             event_string.push(' ');
             event_string.push_str(&subaction_time);
         }
@@ -101,8 +100,8 @@ impl TimedListBody<'_> {
         TimedRow::text(
             0,
             event_string,
-            fmt_duration::fmt_duration(info_elapsed, timekeeper.speed()),
-            info_elapsed.mul_f64(timekeeper.speed()),
+            fmt_duration::fmt_duration(info_elapsed),
+            info_elapsed,
             self.cutoffs,
         )
     }

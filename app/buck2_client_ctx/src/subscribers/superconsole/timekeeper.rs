@@ -42,10 +42,6 @@ impl Timekeeper {
         })
     }
 
-    pub(crate) fn speed(&self) -> f64 {
-        self.speed
-    }
-
     pub(crate) fn tick(&mut self, current_tick: Tick) {
         self.current_tick = current_tick;
     }
@@ -53,9 +49,10 @@ impl Timekeeper {
     pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
         (self.current_tick.start_time + self.current_tick.elapsed_time)
             .saturating_duration_since(start.0)
+            .mul_f64(self.speed)
     }
 
     pub(crate) fn elapsed_since_command_start(&self) -> Duration {
-        self.current_tick.elapsed_time
+        self.current_tick.elapsed_time.mul_f64(self.speed)
     }
 }
