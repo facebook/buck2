@@ -8,7 +8,10 @@
  * above-listed licenses.
  */
 
+use std::cmp::min;
+
 use allocative::Allocative;
+use buck2_error::internal_error;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -51,11 +54,13 @@ pub enum ContentBasedPathHash {
 }
 
 impl ContentBasedPathHash {
-    pub fn new(value: String) -> buck2_error::Result<ContentBasedPathHash> {
+    pub fn new(bytes: &[u8]) -> buck2_error::Result<ContentBasedPathHash> {
+        let value = hex::encode(&bytes[0..min(8, bytes.len())]);
+
         let value = if value.len() < 16 {
             return Err(ContentBasedPathHashError::NotLongEnough(value.to_owned()).into());
         } else if value.len() > 16 {
-            value[0..16].to_owned()
+            return Err(internal_error!("Content hash is too long: {}", value));
         } else {
             value
         };
@@ -96,17 +101,24 @@ mod tests {
     #[test]
     fn test_hash() {
         assert_eq!(
-            "0000000000000000",
-            ContentBasedPathHash::new("0000000000000000".to_owned())
+            "3030303030303030",
+            ContentBasedPathHash::new("00000000".as_bytes())
                 .unwrap()
                 .as_str(),
         );
         assert_eq!(
-            "ffffffffffffffff",
-            ContentBasedPathHash::new("ffffffffffffffff".to_owned())
+            "6666666666666666",
+            ContentBasedPathHash::new("ffffffff".as_bytes())
                 .unwrap()
                 .as_str(),
         );
+    }
+
+    #[test]
+    fn test_hash_too_short() {
+        let res = ContentBasedPathHash::new("0000".as_bytes());
+        assert!(res.is_err());
+        assert!(res.unwrap_err().category_key().ends_with("NotLongEnough"));
     }
 
     #[test]

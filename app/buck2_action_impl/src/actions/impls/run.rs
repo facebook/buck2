@@ -797,7 +797,7 @@ impl RunAction {
                 .map(|group| ctx.artifact_values(group))
                 .collect();
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
-            let content_hash = ContentBasedPathHash::new(digest.to_string())?;
+            let content_hash = ContentBasedPathHash::new(digest.raw_digest().as_bytes())?;
             let project_rel_path = fs
                 .buck_out_path_resolver()
                 .resolve_gen(&path, Some(&content_hash))?;

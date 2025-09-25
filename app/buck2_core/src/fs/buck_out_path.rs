@@ -555,11 +555,11 @@ mod tests {
                 ForwardRelativePathBuf::unchecked_new("faz.file".into()),
                 BuckOutPathKind::ContentHash,
             ),
-            Some(&ContentBasedPathHash::new("aaaabbbbccccdddd".to_owned())?),
+            Some(&ContentBasedPathHash::new(&[0; 8])?),
         )?;
 
         let expected_gen_content_based_path = Regex::new(
-            "base/buck-out/v2/gen/foo/baz-package/__target-name__/aaaabbbbccccdddd/faz.file",
+            "base/buck-out/v2/gen/foo/baz-package/__target-name__/0000000000000000/faz.file",
         )?;
         assert!(
             expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
@@ -643,11 +643,11 @@ mod tests {
         );
         let resolved_gen_content_based_path = path_resolver.resolve_gen(
             &content_based_path,
-            Some(&ContentBasedPathHash::new("aaaabbbbccccdddd".to_owned())?),
+            Some(&ContentBasedPathHash::new(&[0; 8])?),
         )?;
 
         let expected_gen_content_based_path = Regex::new(
-            "buck-out/gen/foo/baz-package/__target-name__/__action___17__/aaaabbbbccccdddd/quux",
+            "buck-out/gen/foo/baz-package/__target-name__/__action___17__/0000000000000000/quux",
         )?;
         assert!(
             expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
