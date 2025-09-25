@@ -882,65 +882,55 @@ impl InvocationRecorder {
             eden_version: self.eden_version.take(),
             test_info: self.test_info.take(),
             eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
-            max_event_client_delay_ms: self
-                .max_event_client_delay
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            max_event_client_delay_ms: self.max_event_client_delay.and_then(duration_as_millis),
             max_malloc_bytes_active: self.max_malloc_bytes_active.take(),
             max_malloc_bytes_allocated: self.max_malloc_bytes_allocated.take(),
             run_command_failure_count: Some(self.run_command_failure_count),
             event_count: Some(self.event_count),
             time_to_first_action_execution_ms: self
                 .time_to_first_action_execution
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             materialization_output_size: Some(self.materialization_output_size),
             initial_materializer_entries_from_sqlite: self.initial_materializer_entries_from_sqlite,
-            time_to_command_start_ms: self
-                .time_to_command_start
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_command_start_ms: self.time_to_command_start.and_then(duration_as_millis),
             time_to_command_critical_section_ms: self
                 .time_to_command_critical_section
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
-            time_to_first_analysis_ms: self
-                .time_to_first_analysis
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
+            time_to_first_analysis_ms: self.time_to_first_analysis.and_then(duration_as_millis),
             time_to_load_first_build_file_ms: self
                 .time_to_load_first_build_file
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_command_execution_start_ms: self
                 .time_to_first_command_execution_start
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_test_discovery_ms: self
                 .time_to_first_test_discovery
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
-            time_to_first_test_run_ms: self
-                .time_to_first_test_run
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
+            time_to_first_test_run_ms: self.time_to_first_test_run.and_then(duration_as_millis),
             time_to_first_pass_test_result_ms: self
                 .time_to_first_pass_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_fail_test_result_ms: self
                 .time_to_first_fail_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_fatal_test_result_ms: self
                 .time_to_first_fatal_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_skip_test_result_ms: self
                 .time_to_first_skip_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_timeout_test_result_ms: self
                 .time_to_first_timeout_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_unknown_test_result_ms: self
                 .time_to_first_unknown_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             system_total_memory_bytes: self.system_info.system_total_memory_bytes,
             file_watcher_stats: self.file_watcher_stats.take(),
-            file_watcher_duration_ms: self
-                .file_watcher_duration
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            file_watcher_duration_ms: self.file_watcher_duration.and_then(duration_as_millis),
             time_to_last_action_execution_end_ms: self
                 .time_to_last_action_execution_end
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             isolation_dir: self.isolation_dir.take(),
             sink_success_count,
             sink_failure_count,
@@ -2368,6 +2358,10 @@ fn elapsed_since(start_time: u64) -> Duration {
     current_time
         .duration_since(buck2_start_time)
         .unwrap_or_default()
+}
+
+fn duration_as_millis(duration: Duration) -> Option<u64> {
+    u64::try_from(duration.as_millis()).ok()
 }
 
 #[cfg(test)]
