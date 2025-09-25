@@ -745,7 +745,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_providers.merged_native_link_info or impl_params.generate_providers.template_placeholders:
         # Gather link inputs.
         # Windows needs to include a linkable PCH object, this is not required for other platforms
-        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [ctx.attrs.precompiled_header if compiler_type == "windows" else None]))
+        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [ctx.attrs.precompiled_header]))
         inherited_exported_link = cxx_inherited_link_info(exported_deps)
 
         merged_native_link_info = create_merged_link_info(
@@ -1406,7 +1406,7 @@ def _form_library_outputs(
         if not compile_output:
             return (None, None)
 
-        objects = compile_output.pch_object_output if compile_output.pch_object_output else compile_output.stripped_objects if stripped else compile_output.objects
+        objects = compile_output.pch_object_output if pch else compile_output.stripped_objects if stripped else compile_output.objects
 
         if not objects:
             return (None, None)
