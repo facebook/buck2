@@ -106,9 +106,7 @@ def link(
         link_mode: [str, None] = None,
         link_style: LinkStyle = LinkStyle("static"),
         linker_flags: list[typing.Any] = [],
-        external_linker_flags: list[typing.Any] = [],
-        race: bool = False,
-        asan: bool = False):
+        external_linker_flags: list[typing.Any] = []):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
@@ -146,10 +144,10 @@ def link(
     cmd.add("-buildmode=" + _build_mode_param(build_mode))
     cmd.add("-buildid=")  # Setting to a static buildid helps make the binary reproducible.
 
-    if race:
+    if go_toolchain.race:
         cmd.add("-race")
 
-    if asan:
+    if go_toolchain.asan:
         cmd.add("-asan")
 
     # Add inherited Go pkgs to library search path.

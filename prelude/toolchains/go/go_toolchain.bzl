@@ -46,6 +46,8 @@ def _go_toolchain_impl(ctx):
             linker_flags = ctx.attrs.linker_flags,
             packer = ctx.attrs.tool_pack[RunInfo],
             build_tags = ctx.attrs.build_tags,
+            asan = ctx.attrs.asan,
+            race = ctx.attrs.race,
         ),
     ]
 
@@ -53,6 +55,7 @@ go_toolchain = rule(
     impl = _go_toolchain_impl,
     is_toolchain_rule = True,
     attrs = {
+        "asan": attrs.bool(default = False),
         "assembler_flags": attrs.list(attrs.arg(), default = []),
         "build_tags": attrs.list(attrs.string(), default = []),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
@@ -68,6 +71,7 @@ go_toolchain = rule(
         "go_distr": attrs.exec_dep(providers = [GoDistrInfo]),
         "go_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_go_wrapper"),
         "linker_flags": attrs.list(attrs.arg(), default = []),
+        "race": attrs.bool(default = False),
         "tool_pack": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:tool_pack"),
     },
 )

@@ -30,13 +30,18 @@ def build_package(
         compiler_flags: list[str] = [],
         assembler_flags: list[str] = [],
         build_tags: list[str] = [],
-        race: bool = False,
-        asan: bool = False,
         cgo_enabled: bool = False,
         coverage_mode: GoCoverageMode | None = None,
         embedcfg: Artifact | None = None,
         with_tests: bool = False,
         cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
+    asan = go_toolchain.asan
+    race = go_toolchain.race
+    if race and asan:
+        fail("`race=True` and `asan=True` are mutually exclusive")
+
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 

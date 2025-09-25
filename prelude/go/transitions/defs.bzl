@@ -38,62 +38,6 @@ def _cgo_enabled_transition(platform, refs, attrs):
         configuration = new_cfg,
     )
 
-def _race_transition(platform, refs, attrs):
-    constraints = platform.configuration.constraints
-
-    # Cancel transition if the value already set
-    # to enable using configuration modifiers for overriding this option
-    race_setting = refs.race_false[ConstraintValueInfo].setting
-    if race_setting.label in constraints:
-        return platform
-
-    # change configuration only when we can't avoid it
-    if attrs.race == True:
-        race_ref = refs.race_true
-    else:
-        return platform
-
-    race_value = race_ref[ConstraintValueInfo]
-    constraints[race_value.setting.label] = race_value
-
-    new_cfg = ConfigurationInfo(
-        constraints = constraints,
-        values = platform.configuration.values,
-    )
-
-    return PlatformInfo(
-        label = platform.label,
-        configuration = new_cfg,
-    )
-
-def _asan_transition(platform, refs, attrs):
-    constraints = platform.configuration.constraints
-
-    # Cancel transition if the value already set
-    # to enable using configuration modifiers for overriding this option
-    asan_setting = refs.asan_false[ConstraintValueInfo].setting
-    if asan_setting.label in constraints:
-        return platform
-
-    # change configuration only when we can't avoid it
-    if attrs.asan == True:
-        asan_ref = refs.asan_true
-    else:
-        return platform
-
-    asan_value = asan_ref[ConstraintValueInfo]
-    constraints[asan_value.setting.label] = asan_value
-
-    new_cfg = ConfigurationInfo(
-        constraints = constraints,
-        values = platform.configuration.values,
-    )
-
-    return PlatformInfo(
-        label = platform.label,
-        configuration = new_cfg,
-    )
-
 def _coverage_mode_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
@@ -185,7 +129,7 @@ def _chain_transitions(transitions):
     return tr
 
 _all_level_transitions = [_force_mingw_on_windows]
-_top_level_transitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tags_transition] + _all_level_transitions
+_top_level_transitions = [_cgo_enabled_transition, _tags_transition] + _all_level_transitions
 
 _all_level_refs = {
     "abi_gnu": "prelude//abi/constraints:gnu",
@@ -193,18 +137,14 @@ _all_level_refs = {
 }
 
 _top_level_refs = {
-    "asan_false": "prelude//go/constraints:asan_false",
-    "asan_true": "prelude//go/constraints:asan_true",
     "cgo_enabled_false": "prelude//go/constraints:cgo_enabled_false",
     "cgo_enabled_true": "prelude//go/constraints:cgo_enabled_true",
-    "race_false": "prelude//go/constraints:race_false",
-    "race_true": "prelude//go/constraints:race_true",
 } | {
     "tag_{}__value".format(tag): constrant_value
     for tag, constrant_value in tag_to_constrant_value().items()
 } | _all_level_refs
 
-_attrs = ["asan", "cgo_enabled", "race", "build_tags"]
+_attrs = ["cgo_enabled", "build_tags"]
 
 go_binary_transition = transition(
     impl = _chain_transitions(_top_level_transitions),
@@ -244,18 +184,6 @@ cgo_enabled_attr = attrs.default_only(attrs.option(attrs.bool(), default = selec
     "DEFAULT": None,
     "prelude//go/constraints:cgo_enabled_false": False,
     "prelude//go/constraints:cgo_enabled_true": True,
-})))
-
-race_attr = attrs.default_only(attrs.bool(default = select({
-    "DEFAULT": False,
-    "prelude//go/constraints:race_false": False,
-    "prelude//go/constraints:race_true": True,
-})))
-
-asan_attr = attrs.default_only(attrs.bool(default = select({
-    "DEFAULT": False,
-    "prelude//go/constraints:asan_false": False,
-    "prelude//go/constraints:asan_true": True,
 })))
 
 coverage_mode_attr = attrs.default_only(attrs.option(attrs.enum(GoCoverageMode.values()), default = select({

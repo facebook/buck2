@@ -83,8 +83,6 @@ go_binary = prelude_rule(
         } |
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
-        go_common.race_arg() |
-        go_common.asan_arg() |
         go_common.build_tags_arg() |
         cxx_common.headers_arg() |
         cxx_common.header_namespace_arg() |
@@ -175,8 +173,6 @@ go_exported_library = prelude_rule(
         go_common.external_linker_flags_arg() |
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
-        go_common.race_arg() |
-        go_common.asan_arg() |
         go_common.build_tags_arg() |
         go_common.generate_exported_header() |
         {
@@ -344,8 +340,6 @@ go_test = prelude_rule(
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
-        go_common.race_arg() |
-        go_common.asan_arg() |
         go_common.build_tags_arg() |
         cxx_common.headers_arg() |
         cxx_common.header_namespace_arg() |

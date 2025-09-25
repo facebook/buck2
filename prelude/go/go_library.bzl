@@ -51,8 +51,6 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
 
-    race = ctx.attrs._race
-    asan = ctx.attrs._asan
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
     pkg, pkg_info = build_package(
@@ -65,8 +63,6 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         assembler_flags = ctx.attrs.assembler_flags,
         build_tags = ctx.attrs._build_tags,
-        race = race,
-        asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),

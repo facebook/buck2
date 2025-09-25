@@ -91,8 +91,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
         coverage_mode = coverage_mode,
-        race = ctx.attrs._race,
-        asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
         with_tests = True,
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
@@ -120,8 +118,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         package_root = "",
         pkgs = pkgs,
         coverage_mode = None,
-        race = ctx.attrs._race,
-        asan = ctx.attrs._asan,
         cgo_gen_dir_name = "cgo_gen_test_main",
     )
 
@@ -134,8 +130,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         build_mode = GoBuildMode(value_or(ctx.attrs.build_mode, "exe")),
         linker_flags = ctx.attrs.linker_flags,
-        race = ctx.attrs._race,
-        asan = ctx.attrs._asan,
         external_linker_flags = ctx.attrs.external_linker_flags,
     )
 
