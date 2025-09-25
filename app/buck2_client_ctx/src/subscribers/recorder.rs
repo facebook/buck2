@@ -103,7 +103,7 @@ pub struct InvocationRecorder {
     cli_args: Vec<String>,
     representative_config_flags: Vec<String>,
     isolation_dir: Option<String>,
-    start_time: u64,
+    start_time: SystemTime,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
@@ -280,7 +280,7 @@ impl InvocationRecorder {
     pub fn new(
         trace_id: TraceId,
         restarted_trace_id: Option<TraceId>,
-        start_time: u64,
+        start_time: SystemTime,
         args: Vec<String>,
     ) -> Self {
         Self {
@@ -843,12 +843,15 @@ impl InvocationRecorder {
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
             client_walltime: elapsed_since(self.start_time).try_into().ok(),
-            wrapper_start_time: Some(
-                buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
-                    .ok()
-                    .flatten()
-                    .unwrap_or(self.start_time),
-            ),
+            wrapper_start_time: buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
+                .ok()
+                .flatten()
+                .or_else(|| {
+                    self.start_time
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .ok()
+                        .and_then(duration_as_millis)
+                }),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
             persistent_cache_mode: self.persistent_cache_mode.clone(),
@@ -2355,12 +2358,9 @@ fn truncate_stderr(stderr: &str) -> &str {
     &stderr[truncate_at..]
 }
 
-fn elapsed_since(start_time: u64) -> Duration {
-    let current_time = SystemTime::now();
-    let buck2_start_time = SystemTime::UNIX_EPOCH + Duration::from_millis(start_time);
-
-    current_time
-        .duration_since(buck2_start_time)
+fn elapsed_since(start_time: SystemTime) -> Duration {
+    SystemTime::now()
+        .duration_since(start_time)
         .unwrap_or_default()
 }
 
@@ -2371,6 +2371,7 @@ fn duration_as_millis(duration: Duration) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::time::SystemTime;
 
     use buck2_data::InvocationOutcome;
     use buck2_error::ExitCode;
@@ -2395,7 +2396,8 @@ mod tests {
 
     #[test]
     fn test_outcome() {
-        let mut recorder = InvocationRecorder::new(TraceId::new(), None, 0, vec![]);
+        let mut recorder =
+            InvocationRecorder::new(TraceId::new(), None, SystemTime::UNIX_EPOCH, vec![]);
         let exit_result = ExitResult::success();
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
         let err = internal_error!("test");
