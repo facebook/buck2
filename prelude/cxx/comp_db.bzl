@@ -33,6 +33,7 @@ def create_compilation_database(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
         identifier: str) -> DefaultInfo:
+    actions = ctx.actions
     mk_comp_db = get_cxx_toolchain_info(ctx).internal_tools.make_comp_db
 
     # Generate the per-source compilation DB entries.
@@ -42,7 +43,7 @@ def create_compilation_database(
     for src_compile_cmd in src_compile_cmds:
         cdb_path = paths.join(identifier, "__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
         if cdb_path not in entries:
-            entry = ctx.actions.declare_output(cdb_path)
+            entry = actions.declare_output(cdb_path)
             cmd = cmd_args(
                 mk_comp_db,
                 "gen",
@@ -55,23 +56,23 @@ def create_compilation_database(
                 src_compile_cmd.args,
             )
             entry_identifier = paths.join(identifier, src_compile_cmd.src.short_path)
-            ctx.actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
+            actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
 
             # Add all inputs the command uses to runtime files.
             other_outputs.append(cmd)
             entries[cdb_path] = entry
 
     # Merge all entries into the actual compilation DB.
-    db = ctx.actions.declare_output(paths.join(identifier, "compile_commands.json"))
+    db = actions.declare_output(paths.join(identifier, "compile_commands.json"))
     cmd = cmd_args(mk_comp_db)
     cmd.add("merge")
     cmd.add(cmd_args(db.as_output(), format = "--output={}"))
     cmd.add(at_argfile(
-        actions = ctx.actions,
+        actions = actions,
         name = identifier + ".cxx_comp_db_argsfile",
         args = entries.values(),
     ))
 
-    ctx.actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
+    actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
 
     return DefaultInfo(default_output = db, other_outputs = other_outputs)
