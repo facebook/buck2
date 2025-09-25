@@ -293,6 +293,7 @@ fn get_event_log_subscriber<T: StreamingCommand>(
         user_event_log.as_ref().map(|p| p.resolve(&ctx.working_dir)),
         sanitized_argv,
         T::COMMAND_NAME.to_owned(),
+        ctx.start_time,
         log_size_counter_bytes,
     );
     Box::new(log)

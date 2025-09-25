@@ -9,6 +9,7 @@
  */
 
 use std::str::FromStr;
+use std::time::SystemTime;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
@@ -139,6 +140,7 @@ pub struct Invocation {
     /// and `AbsPathBuf` is not.
     pub working_dir: String,
     pub trace_id: TraceId,
+    pub start_time: SystemTime,
 }
 
 impl Invocation {
@@ -164,6 +166,7 @@ impl Invocation {
             expanded_command_line_args: self.expanded_command_line_args.clone(),
             working_dir: self.working_dir.clone(),
             trace_id: Some(self.trace_id.to_string()),
+            start_time: Some(self.start_time.into()),
         }
     }
 
@@ -176,6 +179,10 @@ impl Invocation {
                 .trace_id
                 .and_then(|s| TraceId::from_str(&s).ok())
                 .unwrap_or(TraceId::null()),
+            start_time: proto
+                .start_time
+                .and_then(|t| t.try_into().ok())
+                .unwrap_or(SystemTime::UNIX_EPOCH),
         }
     }
 }
@@ -183,6 +190,7 @@ impl Invocation {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use std::time::SystemTime;
 
     use buck2_wrapper_common::invocation_id::TraceId;
 
@@ -203,6 +211,7 @@ mod tests {
             working_dir: "/Users/nga/dir45".to_owned(),
             expanded_command_line_args: Vec::new(),
             trace_id: TraceId::from_str("281d1c16-8930-40cd-8fc1-7d71355c20f5").unwrap(),
+            start_time: SystemTime::UNIX_EPOCH,
         };
         assert_eq!(expected, line);
     }

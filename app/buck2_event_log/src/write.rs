@@ -12,6 +12,7 @@ use std::mem;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::time::SystemTime;
 
 use buck2_cli_proto::*;
 use buck2_common::argv::SanitizedArgv;
@@ -58,6 +59,7 @@ pub struct WriteEventLog {
     sanitized_argv: SanitizedArgv,
     command_name: String,
     working_dir: AbsWorkingDir,
+    start_time: SystemTime,
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
@@ -71,6 +73,7 @@ impl WriteEventLog {
         extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
         command_name: String,
+        start_time: SystemTime,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
     ) -> Self {
         Self {
@@ -82,6 +85,7 @@ impl WriteEventLog {
             sanitized_argv,
             command_name,
             working_dir,
+            start_time,
             buf: Vec::new(),
             log_size_counter_bytes,
         }
@@ -101,6 +105,7 @@ impl WriteEventLog {
             expanded_command_line_args,
             working_dir: self.working_dir.to_string(),
             trace_id,
+            start_time: self.start_time,
         };
         self.write_ln(&[invocation]).await
     }
@@ -473,6 +478,7 @@ mod tests {
                 working_dir: AbsWorkingDir::current_dir()?,
                 buf: Vec::new(),
                 log_size_counter_bytes: None,
+                start_time: SystemTime::UNIX_EPOCH,
             })
         }
     }

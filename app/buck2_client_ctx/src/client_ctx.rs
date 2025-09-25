@@ -9,6 +9,7 @@
  */
 
 use std::future::Future;
+use std::time::SystemTime;
 
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::client_context::ExitWhen as GrpcExitWhen;
@@ -51,6 +52,7 @@ pub struct ClientCommandContext<'a> {
     paths: InvocationPathsResult,
     pub working_dir: AbsWorkingDir,
     pub verbosity: Verbosity,
+    pub start_time: SystemTime,
     /// When set, this function is called to launch in process daemon.
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
@@ -73,6 +75,7 @@ impl<'a> ClientCommandContext<'a> {
         paths: InvocationPathsResult,
         working_dir: AbsWorkingDir,
         verbosity: Verbosity,
+        start_time: SystemTime,
         start_in_process_daemon: Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
         argv: Argv,
         trace_id: TraceId,
@@ -89,6 +92,7 @@ impl<'a> ClientCommandContext<'a> {
             paths,
             working_dir,
             verbosity,
+            start_time,
             start_in_process_daemon,
             argv,
             trace_id,

@@ -112,12 +112,13 @@ fn exec_with_logging(
     let mut events_ctx = EventsCtx::new(Some(recorder), vec![]);
     let (shared, res) = match shared {
         Ok(mut shared) => {
-            let res = exec(ProcessContext::new(
-                trace_id.dupe(),
-                &mut events_ctx,
-                &mut shared,
+            let res = exec(ProcessContext {
+                trace_id: trace_id.dupe(),
+                events_ctx: &mut events_ctx,
+                shared: &mut shared,
                 runtime,
-            ));
+                start_time,
+            });
             (Some(shared), res)
         }
         Err(e) => (None, e.into()),
