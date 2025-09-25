@@ -9,6 +9,7 @@
  */
 
 use std::time::Duration;
+use std::time::UNIX_EPOCH;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -22,6 +23,7 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::Clock;
+use buck2_client_ctx::subscribers::superconsole::timekeeper::duration_between_timestamps;
 use buck2_client_ctx::ticker::Tick;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -89,7 +91,6 @@ impl BuckSubcommand for ReplayCommand {
                 ctx.verbosity,
                 true,
                 Box::new(replay_clock),
-                Some(speed),
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 None,
@@ -178,7 +179,7 @@ async fn make_replayer(
     // subsequent events are calculated relative to this.
     let command_start_instant = Instant::now();
 
-    if let Some((first_event, first_event_timestamp)) = res {
+    let zero_timestamp = if let Some((first_event, first_event_timestamp)) = res {
         tokio::task::spawn(replay_events_into(
             sink,
             events,
@@ -187,9 +188,16 @@ async fn make_replayer(
             first_event_timestamp,
             command_start_instant,
         ));
-    }
+        first_event_timestamp
+    } else {
+        // FIXME(JakobDegen): Without an event with a timestamp, we have no idea when the event
+        // timeline in question is. Fortunately, that means nothing should be able to ask about this
+        // either. Still though, clean this up.
+        UNIX_EPOCH.into()
+    };
 
     let replay_clock = ReplayClock {
+        zero_timestamp,
         zero_instant: command_start_instant,
         speed,
     };
@@ -289,38 +297,32 @@ impl Syncher {
 
 struct ReplayClock {
     zero_instant: Instant,
+    zero_timestamp: prost_types::Timestamp,
     speed: f64,
 }
 
 impl Clock for ReplayClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
-        EventTimestamp(tick.start_time + tick.elapsed_time)
+        let elapsed = (tick.start_time + tick.elapsed_time)
+            .saturating_duration_since(self.zero_instant.into_std())
+            .mul_f64(self.speed);
+        EventTimestamp(timestamp_add_duration(self.zero_timestamp, elapsed))
     }
 
     fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
-        self.event_timestamp_for_tick(tick)
-            .0
-            .saturating_duration_since(self.zero_instant.into_std())
-            .mul_f64(self.speed)
+        duration_between_timestamps(self.event_timestamp_for_tick(tick).0, self.zero_timestamp)
     }
 }
 
-fn duration_between_timestamps(
-    start: prost_types::Timestamp,
-    end: prost_types::Timestamp,
-) -> Duration {
-    let mut diff_secs = end.seconds - start.seconds;
-    let mut diff_nanos = end.nanos - start.nanos;
-    if diff_nanos < 0 {
-        diff_nanos += 1_000_000_000;
-        diff_secs -= 1;
-    }
-    // Guaranteed positive by the above check
-    let diff_nanos = diff_nanos as u32;
-    if diff_secs < 0 {
-        // Duration went backwards, saturate to zero
-        Duration::ZERO
-    } else {
-        Duration::new(diff_secs as u64, diff_nanos)
+fn timestamp_add_duration(
+    timestamp: prost_types::Timestamp,
+    duration: Duration,
+) -> prost_types::Timestamp {
+    let all_nanos = (timestamp.nanos as u64) + duration.subsec_nanos() as u64;
+    let nanos = all_nanos % 1_000_000_000;
+    let seconds = (timestamp.seconds as u64) + duration.as_secs() + all_nanos / 1_000_000_000;
+    prost_types::Timestamp {
+        seconds: seconds as i64,
+        nanos: nanos as i32,
     }
 }

@@ -10,7 +10,6 @@
 
 use std::time::Duration;
 
-use buck2_error::buck2_error;
 use buck2_event_observer::span_tracker::EventTimestamp;
 
 use crate::ticker::Tick;
@@ -25,7 +24,7 @@ pub struct RealtimeClock;
 
 impl Clock for RealtimeClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
-        EventTimestamp(tick.start_time + tick.elapsed_time)
+        EventTimestamp(tick.current_realtime.into())
     }
 
     fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
@@ -37,30 +36,14 @@ impl Clock for RealtimeClock {
 ///
 /// This primarily exists to allow `log replay` to work reliably and correctly.
 pub(crate) struct Timekeeper {
-    speed: f64,
     clock: Box<dyn Clock>,
     event_timestamp_for_last_tick: EventTimestamp,
     elapsed_since_command_start_for_last_tick: Duration,
 }
 
-const TIMESPEED_DEFAULT: f64 = 1.0;
-
 impl Timekeeper {
-    pub(crate) fn new(
-        mut clock: Box<dyn Clock>,
-        speed_value: Option<f64>,
-        current_tick: Tick,
-    ) -> buck2_error::Result<Self> {
-        let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
-
-        if speed <= 0.0 {
-            return Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Time speed cannot be negative!"
-            ));
-        }
+    pub(crate) fn new(mut clock: Box<dyn Clock>, current_tick: Tick) -> buck2_error::Result<Self> {
         Ok(Timekeeper {
-            speed,
             event_timestamp_for_last_tick: clock.event_timestamp_for_tick(current_tick),
             elapsed_since_command_start_for_last_tick: clock
                 .elapsed_since_command_start(current_tick),
@@ -75,14 +58,30 @@ impl Timekeeper {
     }
 
     pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
-        self.event_timestamp_for_last_tick
-            .0
-            .checked_duration_since(start.0)
-            .unwrap_or(Duration::ZERO)
-            .mul_f64(self.speed)
+        duration_between_timestamps(start.0, self.event_timestamp_for_last_tick.0)
     }
 
     pub(crate) fn elapsed_since_command_start(&self) -> Duration {
         self.elapsed_since_command_start_for_last_tick
+    }
+}
+
+pub fn duration_between_timestamps(
+    start: prost_types::Timestamp,
+    end: prost_types::Timestamp,
+) -> Duration {
+    let mut diff_secs = end.seconds - start.seconds;
+    let mut diff_nanos = end.nanos - start.nanos;
+    if diff_nanos < 0 {
+        diff_nanos += 1_000_000_000;
+        diff_secs -= 1;
+    }
+    // Guaranteed positive by the above check
+    let diff_nanos = diff_nanos as u32;
+    if diff_secs < 0 {
+        // Duration went backwards, saturate to zero
+        Duration::ZERO
+    } else {
+        Duration::new(diff_secs as u64, diff_nanos)
     }
 }

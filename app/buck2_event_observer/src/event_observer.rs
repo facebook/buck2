@@ -69,7 +69,7 @@ where
         receive_time: Instant,
         event: &Arc<BuckEvent>,
     ) -> buck2_error::Result<()> {
-        self.span_tracker.handle_event(receive_time, event)?;
+        self.span_tracker.handle_event(event)?;
 
         {
             use buck2_data::buck_event::Data::*;

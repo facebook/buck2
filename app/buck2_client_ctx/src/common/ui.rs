@@ -57,7 +57,6 @@ pub fn get_console_with_root(
     verbosity: Verbosity,
     expect_spans: bool,
     clock: Box<dyn Clock>,
-    replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
     health_check_display_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
@@ -91,7 +90,6 @@ pub fn get_console_with_root(
             verbosity,
             expect_spans,
             clock,
-            replay_speed,
             None,
             config,
             health_check_display_reports_receiver,
@@ -109,7 +107,6 @@ pub fn get_console_with_root(
                     verbosity,
                     expect_spans,
                     Box::new(RealtimeClock),
-                    replay_speed,
                     config,
                     health_check_display_reports_receiver,
                 )

@@ -51,7 +51,6 @@ pub fn estimate_completion_percentage<T: SpanTrackable>(roots: &Roots<T>, dice: 
 mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
-    use std::time::Instant;
     use std::time::UNIX_EPOCH;
 
     use buck2_data::SpanStartEvent;
@@ -64,7 +63,6 @@ mod tests {
     use crate::span_tracker::BuckEventSpanTracker;
 
     fn setup_roots(tracker: &mut BuckEventSpanTracker) {
-        let t0 = Instant::now();
         let span = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
@@ -100,7 +98,7 @@ mod tests {
             }
             .into(),
         ));
-        tracker.start_at(&span, t0).unwrap();
+        tracker.start_at(&span).unwrap();
     }
 
     fn setup_dice_state(dice_state: &mut DiceState, finished: u32, total: u32) {

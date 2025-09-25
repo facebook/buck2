@@ -91,7 +91,6 @@ fn update_events_ctx<T: StreamingCommand>(
         ctx.verbosity,
         expect_spans,
         Box::new(RealtimeClock),
-        None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
         health_check_display_reports_receiver,

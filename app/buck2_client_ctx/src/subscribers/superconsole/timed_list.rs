@@ -238,7 +238,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Instant;
-    use std::time::UNIX_EPOCH;
+    use std::time::SystemTime;
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
@@ -263,8 +263,6 @@ mod tests {
         _notable: Duration::from_millis(200),
     };
 
-    const TIME_DILATION: u64 = 10;
-
     fn fake_timekeeper(tick: Tick) -> Timekeeper {
         // We run time 10x slower so that any time occurring due to the
         // test running on an overloaded server is ignored.
@@ -272,26 +270,13 @@ mod tests {
         // Note that going to 100x slower causes Windows CI to fail, because
         // the `Instant` can't go below the time when the VM was booted, or you get an
         // underflow of `Instant`.
-        Timekeeper::new(
-            Box::new(RealtimeClock),
-            Some(1.0 / (TIME_DILATION as f64)),
-            tick,
-        )
-        .unwrap()
+        Timekeeper::new(Box::new(RealtimeClock), tick).unwrap()
     }
 
-    fn fake_time(tick: &Tick, secs: u64) -> Instant {
-        tick.start_time
-            .checked_sub(Duration::from_secs(secs * TIME_DILATION))
-            .unwrap_or_else(|| {
-                panic!(
-                    "Instant went too low: {:?} - ({secs} * {TIME_DILATION}",
-                    tick.start_time
-                )
-            })
-            // We add 50ms to give us a 100ms window where we round down correctly
-            .checked_add(Duration::from_millis(50 * TIME_DILATION))
-            .unwrap()
+    fn fake_time(tick: &Tick, secs: u64) -> SystemTime {
+        tick.current_realtime
+            .checked_sub(Duration::from_secs(secs))
+            .expect("System time went too low")
     }
 
     fn super_console_state_for_test(
@@ -302,7 +287,6 @@ mod tests {
     ) -> SuperConsoleState {
         let mut state = SuperConsoleState::new(
             Box::new(RealtimeClock),
-            None,
             TraceId::null(),
             Verbosity::default(),
             false,
@@ -321,7 +305,7 @@ mod tests {
         let tick = Tick::now();
 
         let label = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 3),
             TraceId::new(),
             Some(SpanId::next()),
             None,
@@ -333,7 +317,7 @@ mod tests {
         ));
 
         let module = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 1),
             TraceId::new(),
             Some(SpanId::next()),
             None,
@@ -345,8 +329,8 @@ mod tests {
         ));
 
         let mut state = BuckEventSpanTracker::new();
-        state.start_at(&label, fake_time(&tick, 3)).unwrap();
-        state.start_at(&module, fake_time(&tick, 1)).unwrap();
+        state.start_at(&label).unwrap();
+        state.start_at(&module).unwrap();
 
         let timekeeper = fake_timekeeper(tick);
         let action_stats = ActionStats {
@@ -392,7 +376,7 @@ mod tests {
         let tick = Tick::now();
 
         let e1 = BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 1),
             TraceId::new(),
             Some(SpanId::next()),
             None,
@@ -404,7 +388,7 @@ mod tests {
         );
 
         let e2 = BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 1),
             TraceId::new(),
             Some(SpanId::next()),
             None,
@@ -416,7 +400,7 @@ mod tests {
         );
 
         let e3 = BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 1),
             TraceId::new(),
             Some(SpanId::next()),
             None,
@@ -430,9 +414,7 @@ mod tests {
         let mut state = BuckEventSpanTracker::new();
 
         for e in [e1, e2, e3] {
-            state
-                .start_at(&Arc::new(e.clone()), fake_time(&tick, 1))
-                .unwrap();
+            state.start_at(&Arc::new(e.clone())).unwrap();
         }
 
         let time_speed = fake_timekeeper(tick);
@@ -482,7 +464,6 @@ mod tests {
 
         let mut state = SuperConsoleState::new(
             Box::new(RealtimeClock),
-            None,
             TraceId::null(),
             Verbosity::default(),
             false,
@@ -498,13 +479,16 @@ mod tests {
         state
             .simple_console
             .observer
-            .observe(fake_time(&tick, 10), &span_start_event(None))
+            .observe(
+                Instant::now(),
+                &span_start_event(None, fake_time(&tick, 10)),
+            )
             .await?;
 
         state
             .simple_console
             .observer
-            .observe(fake_time(&tick, 1), &dice_snapshot())
+            .observe(Instant::now(), &dice_snapshot(fake_time(&tick, 1)))
             .await?;
 
         {
@@ -560,7 +544,7 @@ mod tests {
         let parent = SpanId::next();
 
         let prepare = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 5),
             TraceId::new(),
             Some(SpanId::next()),
             Some(parent),
@@ -577,9 +561,9 @@ mod tests {
 
         let mut state = BuckEventSpanTracker::new();
         state
-            .start_at(&span_start_event(Some(parent)), fake_time(&tick, 10))
+            .start_at(&span_start_event(Some(parent), fake_time(&tick, 10)))
             .unwrap();
-        state.start_at(&prepare, fake_time(&tick, 5)).unwrap();
+        state.start_at(&prepare).unwrap();
 
         let action_stats = ActionStats {
             local_actions: 0,
@@ -623,7 +607,7 @@ mod tests {
         // concurrently but this is a test!
 
         let re_download = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
+            fake_time(&tick, 2),
             TraceId::new(),
             Some(SpanId::next()),
             Some(parent),
@@ -643,7 +627,7 @@ mod tests {
             .into(),
         ));
 
-        state.start_at(&re_download, fake_time(&tick, 2)).unwrap();
+        state.start_at(&re_download).unwrap();
 
         let output = TimedList::new(
             &CUTOFFS,
@@ -672,9 +656,9 @@ mod tests {
         Ok(())
     }
 
-    fn dice_snapshot() -> Arc<BuckEvent> {
+    fn dice_snapshot(time: SystemTime) -> Arc<BuckEvent> {
         Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
+            time,
             TraceId::new(),
             None,
             None,
@@ -704,10 +688,10 @@ mod tests {
         ))
     }
 
-    fn span_start_event(parent_span: Option<SpanId>) -> Arc<BuckEvent> {
+    fn span_start_event(parent_span: Option<SpanId>, time: SystemTime) -> Arc<BuckEvent> {
         let span_id = Some(parent_span.unwrap_or(SpanId::next()));
         Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
+            time,
             TraceId::new(),
             span_id,
             None,

@@ -76,7 +76,6 @@ impl BuckSubcommand for WhatUpCommand {
         let mut super_console_state = SuperConsoleState::new(
             // FIXME(JakobDegen): Is this right? How can it be?
             Box::new(RealtimeClock),
-            None,
             invocation.trace_id,
             Verbosity::default(),
             true,

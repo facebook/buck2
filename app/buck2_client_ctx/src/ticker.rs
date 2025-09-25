@@ -9,6 +9,7 @@
  */
 
 use std::time::Duration;
+use std::time::SystemTime;
 
 use dupe::Dupe;
 use tokio::time;
@@ -54,6 +55,7 @@ impl Ticker {
         Tick {
             start_time: self.start_time.into_std(),
             elapsed_time,
+            current_realtime: SystemTime::now(),
         }
     }
 }
@@ -65,6 +67,8 @@ pub struct Tick {
     pub start_time: std::time::Instant,
     /// Elapsed time since the ticker was started for this tick.
     pub elapsed_time: Duration,
+    /// The current time, as reported by the system clock
+    pub current_realtime: SystemTime,
 }
 
 impl Tick {
@@ -72,6 +76,7 @@ impl Tick {
         Self {
             start_time: std::time::Instant::now(),
             elapsed_time: Duration::ZERO,
+            current_realtime: SystemTime::now(),
         }
     }
 }
