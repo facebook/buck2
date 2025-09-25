@@ -87,6 +87,8 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_RUNTIME_THREADS"] = "8"
     # Avoid noise in stderr.
     env["BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE"] = "true"
+    env["SUPERCONSOLE_TESTING_WIDTH"] = "100"
+    env["SUPERCONSOLE_TESTING_HEIGHT"] = "100"
 
     assert (
         "BUCK2_RUNTIME_THREADS" in env
