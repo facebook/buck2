@@ -161,15 +161,31 @@ pub async fn make_replayer(
 )> {
     let (invocation, events) = log_path.unpack_stream().await?;
 
-    let events = if preload {
+    let mut events = if preload {
         let events = events.try_collect::<Vec<_>>().await?;
         futures::stream::iter(events).map(Ok).left_stream()
     } else {
         events.right_stream()
     };
 
-    let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    tokio::task::spawn(replay_events_into(sender, events, speed));
+    let (sink, receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    let res = find_next_event_with_delay(&sink, &mut events).await;
+
+    // The point in real time at which we treat the first event as having happened - delays of
+    // subsequent events are calculated relative to this.
+    let command_start_instant = Instant::now();
+
+    if let Some((first_event, first_event_timestamp)) = res {
+        tokio::task::spawn(replay_events_into(
+            sink,
+            events,
+            speed,
+            first_event,
+            first_event_timestamp,
+            command_start_instant,
+        ));
+    }
 
     Ok((UnboundedReceiverStream::new(receiver), invocation))
 }
@@ -179,15 +195,16 @@ async fn replay_events_into(
     sink: UnboundedSender<buck2_error::Result<StreamValue>>,
     events: impl Stream<Item = buck2_error::Result<StreamValue>>,
     speed: Option<f64>,
+    first_event: buck2_error::Result<StreamValue>,
+    first_event_timestamp: prost_types::Timestamp,
+    zero_instant: Instant,
 ) {
     pin!(events);
-    let Some((mut next_event, mut next_event_timestamp)) =
-        find_next_event_with_delay(&sink, &mut events).await
-    else {
-        return;
-    };
 
-    let mut syncher = Syncher::new(next_event_timestamp, speed);
+    let mut syncher = Syncher::new(zero_instant, first_event_timestamp, speed);
+
+    let mut next_event = first_event;
+    let mut next_event_timestamp = first_event_timestamp;
 
     loop {
         syncher.sleep_until_timestamp(next_event_timestamp).await;
@@ -235,9 +252,13 @@ struct Syncher {
 }
 
 impl Syncher {
-    fn new(zero_timestamp: prost_types::Timestamp, playback_speed: Option<f64>) -> Self {
+    fn new(
+        zero_instant: Instant,
+        zero_timestamp: prost_types::Timestamp,
+        playback_speed: Option<f64>,
+    ) -> Self {
         Self {
-            zero_instant: Instant::now(),
+            zero_instant,
             zero_timestamp,
             speed: playback_speed.unwrap_or(1.0),
         }
