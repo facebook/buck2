@@ -20,7 +20,6 @@ import com.facebook.buck.jvm.core.BuildTargetValue
 import com.facebook.buck.jvm.java.CompilerOutputPaths
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
-import com.facebook.buck.jvm.kotlin.cd.analytics.StepParam
 import com.facebook.buck.jvm.kotlin.ksp.incremental.Ksp2Mode
 import com.facebook.buck.jvm.kotlin.util.getExpandedSourcePaths
 import com.facebook.buck.step.StepExecutionResult
@@ -71,7 +70,7 @@ class Ksp2Step(
     CapturingPrintStream().use { stderr ->
       try {
         val exitCode: KotlinSymbolProcessing.ExitCode = executeKsp2(stderr, context)
-        kotlinCDAnalytics.log(KotlinCDLoggingContext(StepParam.KSP2, languageVersion, null))
+        kotlinCDAnalytics.log(KotlinCDLoggingContext(languageVersion, ksp2Mode))
         return when (exitCode) {
           KotlinSymbolProcessing.ExitCode.OK -> StepExecutionResults.SUCCESS
           KotlinSymbolProcessing.ExitCode.PROCESSING_ERROR ->
