@@ -680,6 +680,7 @@ def postprocess_jar(
         postprocessed_output.as_output(),
     )
 
-    actions.run(postprocess_jar_cmd, category = "postprocessed", identifier = actions_identifier)
+    identifier = actions_identifier if actions_identifier else ""
+    actions.run(postprocess_jar_cmd, category = "postprocessed{}".format(identifier))
 
     return postprocessed_output
