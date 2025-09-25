@@ -843,8 +843,12 @@ impl InvocationRecorder {
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
             client_walltime: elapsed_since(self.start_time).try_into().ok(),
-            wrapper_start_time: buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
-                .unwrap_or(Some(self.start_time)),
+            wrapper_start_time: Some(
+                buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(self.start_time),
+            ),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
             persistent_cache_mode: self.persistent_cache_mode.clone(),
