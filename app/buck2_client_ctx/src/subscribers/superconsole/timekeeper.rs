@@ -48,11 +48,11 @@ impl Timekeeper {
         self.event_timestamp_for_last_tick = self.clock.event_timestamp_for_tick(current_tick);
     }
 
-    pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
+    pub(crate) fn duration_since(&self, start: EventTimestamp) -> Duration {
         duration_between_timestamps(start.0, self.event_timestamp_for_last_tick.0)
     }
 
-    pub(crate) fn elapsed_since_command_start(&self) -> Duration {
+    pub(crate) fn duration_since_command_start(&self) -> Duration {
         duration_between_timestamps(self.start_time.0, self.event_timestamp_for_last_tick.0)
     }
 }

@@ -113,7 +113,7 @@ impl TimedRow {
             &span.event,
             TargetDisplayOptions::for_console(display_platform),
         )?;
-        let elapsed = timekeeper.elapsed_since(span.start);
+        let elapsed = timekeeper.duration_since(span.start);
         let time = fmt_duration::fmt_duration(elapsed);
         Self::text(padding, event, time, elapsed, cutoffs)
     }

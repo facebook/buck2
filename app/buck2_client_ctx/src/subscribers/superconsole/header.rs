@@ -121,7 +121,7 @@ impl Component for SimpleHeader<'_> {
 }
 
 fn time_elapsed(state: &SuperConsoleState) -> String {
-    fmt_duration::fmt_duration(state.timekeeper.elapsed_since_command_start())
+    fmt_duration::fmt_duration(state.timekeeper.duration_since_command_start())
 }
 
 /// This component is used to display summary counts about the number of jobs.

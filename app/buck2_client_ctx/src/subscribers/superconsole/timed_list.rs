@@ -79,8 +79,8 @@ impl TimedListBody<'_> {
             )?
         );
 
-        let child_info_elapsed = self.state.timekeeper.elapsed_since(child_info.start);
-        let info_elapsed = self.state.timekeeper.elapsed_since(info.start);
+        let child_info_elapsed = self.state.timekeeper.duration_since(child_info.start);
+        let info_elapsed = self.state.timekeeper.duration_since(info.start);
         let subaction_ratio = child_info_elapsed.as_secs_f64() / info_elapsed.as_secs_f64();
 
         // but only display the time of the subaction if it differs significantly.
