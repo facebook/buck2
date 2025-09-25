@@ -63,6 +63,7 @@ use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
+use crate::subscribers::superconsole::timekeeper::Clock;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
 use crate::ticker::Tick;
 
@@ -77,7 +78,7 @@ mod message_renderer;
 mod re;
 pub mod session_info;
 pub(crate) mod system_warning;
-mod timekeeper;
+pub mod timekeeper;
 
 pub mod test;
 pub mod timed_list;
@@ -262,6 +263,7 @@ impl StatefulSuperConsole {
         command_name: &str,
         verbosity: Verbosity,
         expect_spans: bool,
+        clock: Box<dyn Clock>,
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
@@ -279,6 +281,7 @@ impl StatefulSuperConsole {
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?,
             verbosity,
             expect_spans,
+            clock,
             replay_speed,
             config,
             health_check_reports_receiver,
@@ -291,6 +294,7 @@ impl StatefulSuperConsole {
         super_console: SuperConsole,
         verbosity: Verbosity,
         expect_spans: bool,
+        clock: Box<dyn Clock>,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
@@ -299,6 +303,7 @@ impl StatefulSuperConsole {
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
             state: SuperConsoleState::new(
+                clock,
                 replay_speed,
                 trace_id,
                 verbosity,
@@ -369,6 +374,7 @@ impl StatefulSuperConsole {
 
 impl SuperConsoleState {
     pub fn new(
+        clock: Box<dyn Clock>,
         replay_speed: Option<f64>,
         trace_id: TraceId,
         verbosity: Verbosity,
@@ -377,7 +383,7 @@ impl SuperConsoleState {
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
-            timekeeper: Timekeeper::new(replay_speed, Tick::now())?,
+            timekeeper: Timekeeper::new(clock, replay_speed, Tick::now())?,
             simple_console: SimpleConsole::with_tty(
                 trace_id,
                 verbosity,
@@ -1001,6 +1007,7 @@ mod tests {
     use superconsole::testing::test_console;
 
     use super::*;
+    use crate::subscribers::superconsole::timekeeper::RealtimeClock;
 
     #[tokio::test]
     async fn test_transfer_state_to_simpleconsole() -> buck2_error::Result<()> {
@@ -1010,6 +1017,7 @@ mod tests {
             "test",
             Verbosity::default(),
             true,
+            Box::new(RealtimeClock),
             None,
             None,
             Default::default(),
@@ -1081,6 +1089,7 @@ mod tests {
             test_console(),
             Verbosity::default(),
             true,
+            Box::new(RealtimeClock),
             Default::default(),
             Default::default(),
             None,
@@ -1243,6 +1252,7 @@ mod tests {
             test_console(),
             Verbosity::default(),
             true,
+            Box::new(RealtimeClock),
             Default::default(),
             Default::default(),
             None,

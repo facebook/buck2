@@ -41,6 +41,7 @@ use crate::subscribers::event_log::EventLog;
 use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::superconsole::timekeeper::RealtimeClock;
 
 const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
 
@@ -89,6 +90,7 @@ fn update_events_ctx<T: StreamingCommand>(
         console_opts.console_type,
         ctx.verbosity,
         expect_spans,
+        Box::new(RealtimeClock),
         None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),

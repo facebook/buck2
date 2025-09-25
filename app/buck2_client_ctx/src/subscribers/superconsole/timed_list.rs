@@ -253,6 +253,7 @@ mod tests {
 
     use super::*;
     use crate::subscribers::superconsole::SuperConsoleConfig;
+    use crate::subscribers::superconsole::timekeeper::RealtimeClock;
     use crate::subscribers::superconsole::timekeeper::Timekeeper;
     use crate::ticker::Tick;
 
@@ -271,7 +272,12 @@ mod tests {
         // Note that going to 100x slower causes Windows CI to fail, because
         // the `Instant` can't go below the time when the VM was booted, or you get an
         // underflow of `Instant`.
-        Timekeeper::new(Some(1.0 / (TIME_DILATION as f64)), tick).unwrap()
+        Timekeeper::new(
+            Box::new(RealtimeClock),
+            Some(1.0 / (TIME_DILATION as f64)),
+            tick,
+        )
+        .unwrap()
     }
 
     fn fake_time(tick: &Tick, secs: u64) -> Instant {
@@ -295,6 +301,7 @@ mod tests {
         timed_list_state: SuperConsoleConfig,
     ) -> SuperConsoleState {
         let mut state = SuperConsoleState::new(
+            Box::new(RealtimeClock),
             None,
             TraceId::null(),
             Verbosity::default(),
@@ -474,6 +481,7 @@ mod tests {
         let tick = Tick::now();
 
         let mut state = SuperConsoleState::new(
+            Box::new(RealtimeClock),
             None,
             TraceId::null(),
             Verbosity::default(),

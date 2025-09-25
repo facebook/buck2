@@ -15,19 +15,42 @@ use buck2_event_observer::span_tracker::EventTimestamp;
 
 use crate::ticker::Tick;
 
+pub trait Clock: Send + Sync {
+    fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp;
+
+    fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration;
+}
+
+pub struct RealtimeClock;
+
+impl Clock for RealtimeClock {
+    fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
+        EventTimestamp(tick.start_time + tick.elapsed_time)
+    }
+
+    fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
+        tick.elapsed_time
+    }
+}
+
 /// Manages a view of virtual time that is used to display elapsed times in superconsole.
 ///
 /// This primarily exists to allow `log replay` to work reliably and correctly.
-#[derive(Debug)]
 pub(crate) struct Timekeeper {
     speed: f64,
-    current_tick: Tick,
+    clock: Box<dyn Clock>,
+    event_timestamp_for_last_tick: EventTimestamp,
+    elapsed_since_command_start_for_last_tick: Duration,
 }
 
 const TIMESPEED_DEFAULT: f64 = 1.0;
 
 impl Timekeeper {
-    pub(crate) fn new(speed_value: Option<f64>, current_tick: Tick) -> buck2_error::Result<Self> {
+    pub(crate) fn new(
+        mut clock: Box<dyn Clock>,
+        speed_value: Option<f64>,
+        current_tick: Tick,
+    ) -> buck2_error::Result<Self> {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
@@ -38,21 +61,29 @@ impl Timekeeper {
         }
         Ok(Timekeeper {
             speed,
-            current_tick,
+            event_timestamp_for_last_tick: clock.event_timestamp_for_tick(current_tick),
+            elapsed_since_command_start_for_last_tick: clock
+                .elapsed_since_command_start(current_tick),
+            clock,
         })
     }
 
     pub(crate) fn tick(&mut self, current_tick: Tick) {
-        self.current_tick = current_tick;
+        self.event_timestamp_for_last_tick = self.clock.event_timestamp_for_tick(current_tick);
+        self.elapsed_since_command_start_for_last_tick =
+            self.clock.elapsed_since_command_start(current_tick);
     }
 
     pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
-        (self.current_tick.start_time + self.current_tick.elapsed_time)
-            .saturating_duration_since(start.0)
+        self.event_timestamp_for_last_tick
+            .0
+            .checked_duration_since(start.0)
+            .unwrap_or(Duration::ZERO)
             .mul_f64(self.speed)
     }
 
     pub(crate) fn elapsed_since_command_start(&self) -> Duration {
-        self.current_tick.elapsed_time.mul_f64(self.speed)
+        self.elapsed_since_command_start_for_last_tick
+            .mul_f64(self.speed)
     }
 }

@@ -21,9 +21,12 @@ use buck2_client_ctx::events_ctx::DaemonEventsCtx;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
+use buck2_client_ctx::subscribers::superconsole::timekeeper::Clock;
+use buck2_client_ctx::ticker::Tick;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
+use buck2_event_observer::span_tracker::EventTimestamp;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -84,6 +87,7 @@ impl BuckSubcommand for ReplayCommand {
                 console_opts.console_type,
                 ctx.verbosity,
                 true,
+                Box::new(ReplayClock),
                 speed,
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
@@ -248,6 +252,18 @@ impl Syncher {
         let sync_offset_time = log_offset_time.div_f64(self.speed);
         let sync_event_time = self.zero_instant + sync_offset_time;
         tokio::time::sleep_until(sync_event_time)
+    }
+}
+
+struct ReplayClock;
+
+impl Clock for ReplayClock {
+    fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
+        EventTimestamp(tick.start_time + tick.elapsed_time)
+    }
+
+    fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
+        tick.elapsed_time
     }
 }
 

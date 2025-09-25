@@ -64,7 +64,7 @@ pub struct Tick {
     /// The time that the ticker was started.
     pub start_time: std::time::Instant,
     /// Elapsed time since the ticker was started for this tick.
-    pub(crate) elapsed_time: Duration,
+    pub elapsed_time: Duration,
 }
 
 impl Tick {
