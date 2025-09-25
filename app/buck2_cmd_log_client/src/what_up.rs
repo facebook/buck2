@@ -26,8 +26,10 @@ use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::session_info::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::RealtimeClock;
+use buck2_client_ctx::subscribers::superconsole::timekeeper::Timekeeper;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::span_tracker::EventTimestamp;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
 use superconsole::Component;
@@ -75,7 +77,10 @@ impl BuckSubcommand for WhatUpCommand {
 
         let mut super_console_state = SuperConsoleState::new(
             // FIXME(JakobDegen): Is this right? How can it be?
-            Box::new(RealtimeClock),
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(invocation.start_time.into()),
+            ),
             invocation.trace_id,
             Verbosity::default(),
             true,

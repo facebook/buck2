@@ -63,7 +63,6 @@ use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
-use crate::subscribers::superconsole::timekeeper::Clock;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
 use crate::ticker::Tick;
 
@@ -263,7 +262,7 @@ impl StatefulSuperConsole {
         command_name: &str,
         verbosity: Verbosity,
         expect_spans: bool,
-        clock: Box<dyn Clock>,
+        timekeeper: Timekeeper,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
@@ -280,7 +279,7 @@ impl StatefulSuperConsole {
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?,
             verbosity,
             expect_spans,
-            clock,
+            timekeeper,
             config,
             health_check_reports_receiver,
         )
@@ -292,7 +291,7 @@ impl StatefulSuperConsole {
         super_console: SuperConsole,
         verbosity: Verbosity,
         expect_spans: bool,
-        clock: Box<dyn Clock>,
+        timekeeper: Timekeeper,
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
@@ -300,7 +299,7 @@ impl StatefulSuperConsole {
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
             state: SuperConsoleState::new(
-                clock,
+                timekeeper,
                 trace_id,
                 verbosity,
                 expect_spans,
@@ -370,7 +369,7 @@ impl StatefulSuperConsole {
 
 impl SuperConsoleState {
     pub fn new(
-        clock: Box<dyn Clock>,
+        timekeeper: Timekeeper,
         trace_id: TraceId,
         verbosity: Verbosity,
         expect_spans: bool,
@@ -378,7 +377,7 @@ impl SuperConsoleState {
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
-            timekeeper: Timekeeper::new(clock, Tick::now())?,
+            timekeeper,
             simple_console: SimpleConsole::with_tty(
                 trace_id,
                 verbosity,
@@ -995,6 +994,7 @@ mod tests {
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
+    use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_events::span::SpanId;
     use dupe::Dupe;
     use superconsole::testing::SuperConsoleTestingExt;
@@ -1012,7 +1012,10 @@ mod tests {
             "test",
             Verbosity::default(),
             true,
-            Box::new(RealtimeClock),
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
             None,
             Default::default(),
             None,
@@ -1083,7 +1086,10 @@ mod tests {
             test_console(),
             Verbosity::default(),
             true,
-            Box::new(RealtimeClock),
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
             Default::default(),
             None,
         )?;
@@ -1245,7 +1251,10 @@ mod tests {
             test_console(),
             Verbosity::default(),
             true,
-            Box::new(RealtimeClock),
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
             Default::default(),
             None,
         )?;

@@ -16,6 +16,7 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_error::ExitCode;
+use buck2_event_observer::span_tracker::EventTimestamp;
 use dupe::Dupe;
 
 use crate::client_ctx::BuckSubcommand;
@@ -42,6 +43,7 @@ use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::timekeeper::RealtimeClock;
+use crate::subscribers::superconsole::timekeeper::Timekeeper;
 
 const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
 
@@ -90,7 +92,10 @@ fn update_events_ctx<T: StreamingCommand>(
         console_opts.console_type,
         ctx.verbosity,
         expect_spans,
-        Box::new(RealtimeClock),
+        Timekeeper::new(
+            Box::new(RealtimeClock),
+            EventTimestamp(ctx.start_time.into()),
+        ),
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
         health_check_display_reports_receiver,

@@ -9,7 +9,6 @@
  */
 
 use std::time::Duration;
-use std::time::UNIX_EPOCH;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -23,6 +22,7 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::Clock;
+use buck2_client_ctx::subscribers::superconsole::timekeeper::Timekeeper;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::duration_between_timestamps;
 use buck2_client_ctx::ticker::Tick;
 use buck2_event_log::read::EventLogPathBuf;
@@ -90,7 +90,10 @@ impl BuckSubcommand for ReplayCommand {
                 console_opts.console_type,
                 ctx.verbosity,
                 true,
-                Box::new(replay_clock),
+                Timekeeper::new(
+                    Box::new(replay_clock),
+                    EventTimestamp(invocation.start_time.into()),
+                ),
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 None,
@@ -175,11 +178,11 @@ async fn make_replayer(
 
     let res = find_next_event_with_delay(&sink, &mut events).await;
 
-    // The point in real time at which we treat the first event as having happened - delays of
+    // The point in real time at which we treat the command as having happened - delays of
     // subsequent events are calculated relative to this.
     let command_start_instant = Instant::now();
 
-    let zero_timestamp = if let Some((first_event, first_event_timestamp)) = res {
+    if let Some((first_event, first_event_timestamp)) = res {
         tokio::task::spawn(replay_events_into(
             sink,
             events,
@@ -188,16 +191,10 @@ async fn make_replayer(
             first_event_timestamp,
             command_start_instant,
         ));
-        first_event_timestamp
-    } else {
-        // FIXME(JakobDegen): Without an event with a timestamp, we have no idea when the event
-        // timeline in question is. Fortunately, that means nothing should be able to ask about this
-        // either. Still though, clean this up.
-        UNIX_EPOCH.into()
-    };
+    }
 
     let replay_clock = ReplayClock {
-        zero_timestamp,
+        zero_timestamp: invocation.start_time.into(),
         zero_instant: command_start_instant,
         speed,
     };
@@ -307,10 +304,6 @@ impl Clock for ReplayClock {
             .saturating_duration_since(self.zero_instant.into_std())
             .mul_f64(self.speed);
         EventTimestamp(timestamp_add_duration(self.zero_timestamp, elapsed))
-    }
-
-    fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
-        duration_between_timestamps(self.event_timestamp_for_tick(tick).0, self.zero_timestamp)
     }
 }
 

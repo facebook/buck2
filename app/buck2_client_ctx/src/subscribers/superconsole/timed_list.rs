@@ -243,6 +243,7 @@ mod tests {
     use buck2_data::SpanStartEvent;
     use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::action_stats::ActionStats;
+    use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_event_observer::verbosity::Verbosity;
     use buck2_events::BuckEvent;
     use buck2_events::span::SpanId;
@@ -269,7 +270,10 @@ mod tests {
         // Note that going to 100x slower causes Windows CI to fail, because
         // the `Instant` can't go below the time when the VM was booted, or you get an
         // underflow of `Instant`.
-        Timekeeper::new(Box::new(RealtimeClock), tick).unwrap()
+        Timekeeper::new(
+            Box::new(RealtimeClock),
+            EventTimestamp(tick.current_realtime.into()),
+        )
     }
 
     fn fake_time(tick: &Tick, secs: u64) -> SystemTime {
@@ -285,7 +289,7 @@ mod tests {
         timed_list_state: SuperConsoleConfig,
     ) -> SuperConsoleState {
         let mut state = SuperConsoleState::new(
-            Box::new(RealtimeClock),
+            timekeeper,
             TraceId::null(),
             Verbosity::default(),
             false,
@@ -295,7 +299,6 @@ mod tests {
         .unwrap();
         state.simple_console.observer.span_tracker = span_tracker;
         state.simple_console.observer.action_stats = action_stats;
-        state.timekeeper = timekeeper;
         state
     }
 
@@ -462,7 +465,7 @@ mod tests {
         let tick = Tick::now();
 
         let mut state = SuperConsoleState::new(
-            Box::new(RealtimeClock),
+            fake_timekeeper(tick),
             TraceId::null(),
             Verbosity::default(),
             false,
@@ -472,8 +475,6 @@ mod tests {
             },
             None,
         )?;
-
-        state.timekeeper = fake_timekeeper(tick);
 
         state
             .simple_console

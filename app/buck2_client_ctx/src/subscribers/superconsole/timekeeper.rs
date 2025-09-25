@@ -16,8 +16,6 @@ use crate::ticker::Tick;
 
 pub trait Clock: Send + Sync {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp;
-
-    fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration;
 }
 
 pub struct RealtimeClock;
@@ -26,35 +24,28 @@ impl Clock for RealtimeClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
         EventTimestamp(tick.current_realtime.into())
     }
-
-    fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
-        tick.elapsed_time
-    }
 }
 
 /// Manages a view of virtual time that is used to display elapsed times in superconsole.
 ///
 /// This primarily exists to allow `log replay` to work reliably and correctly.
-pub(crate) struct Timekeeper {
+pub struct Timekeeper {
     clock: Box<dyn Clock>,
     event_timestamp_for_last_tick: EventTimestamp,
-    elapsed_since_command_start_for_last_tick: Duration,
+    start_time: EventTimestamp,
 }
 
 impl Timekeeper {
-    pub(crate) fn new(mut clock: Box<dyn Clock>, current_tick: Tick) -> buck2_error::Result<Self> {
-        Ok(Timekeeper {
-            event_timestamp_for_last_tick: clock.event_timestamp_for_tick(current_tick),
-            elapsed_since_command_start_for_last_tick: clock
-                .elapsed_since_command_start(current_tick),
+    pub fn new(clock: Box<dyn Clock>, start_time: EventTimestamp) -> Self {
+        Timekeeper {
+            event_timestamp_for_last_tick: start_time,
+            start_time,
             clock,
-        })
+        }
     }
 
     pub(crate) fn tick(&mut self, current_tick: Tick) {
         self.event_timestamp_for_last_tick = self.clock.event_timestamp_for_tick(current_tick);
-        self.elapsed_since_command_start_for_last_tick =
-            self.clock.elapsed_since_command_start(current_tick);
     }
 
     pub(crate) fn elapsed_since(&self, start: EventTimestamp) -> Duration {
@@ -62,7 +53,7 @@ impl Timekeeper {
     }
 
     pub(crate) fn elapsed_since_command_start(&self) -> Duration {
-        self.elapsed_since_command_start_for_last_tick
+        duration_between_timestamps(self.start_time.0, self.event_timestamp_for_last_tick.0)
     }
 }
 

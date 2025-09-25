@@ -72,6 +72,7 @@ pub struct Tick {
 }
 
 impl Tick {
+    #[cfg(test)]
     pub(crate) fn now() -> Tick {
         Self {
             start_time: std::time::Instant::now(),
