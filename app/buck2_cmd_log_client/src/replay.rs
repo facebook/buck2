@@ -48,9 +48,10 @@ pub struct ReplayCommand {
     #[clap(
         long,
         help = "Control the playback speed using a float (i.e. 0.5, 2, etc)",
-        value_name = "NUMBER"
+        value_name = "NUMBER",
+        default_value = "1.0"
     )]
-    pub speed: Option<f64>,
+    pub speed: f64,
 
     /// Preload the event log. This is typically only useful for benchmarking.
     #[clap(long)]
@@ -88,7 +89,7 @@ impl BuckSubcommand for ReplayCommand {
                 ctx.verbosity,
                 true,
                 Box::new(ReplayClock),
-                speed,
+                Some(speed),
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 None,
@@ -153,7 +154,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
 
 pub async fn make_replayer(
     log_path: EventLogPathBuf,
-    speed: Option<f64>,
+    speed: f64,
     preload: bool,
 ) -> buck2_error::Result<(
     impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
@@ -194,7 +195,7 @@ pub async fn make_replayer(
 async fn replay_events_into(
     sink: UnboundedSender<buck2_error::Result<StreamValue>>,
     events: impl Stream<Item = buck2_error::Result<StreamValue>>,
-    speed: Option<f64>,
+    speed: f64,
     first_event: buck2_error::Result<StreamValue>,
     first_event_timestamp: prost_types::Timestamp,
     zero_instant: Instant,
@@ -255,12 +256,12 @@ impl Syncher {
     fn new(
         zero_instant: Instant,
         zero_timestamp: prost_types::Timestamp,
-        playback_speed: Option<f64>,
+        playback_speed: f64,
     ) -> Self {
         Self {
             zero_instant,
             zero_timestamp,
-            speed: playback_speed.unwrap_or(1.0),
+            speed: playback_speed,
         }
     }
 
