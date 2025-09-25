@@ -62,7 +62,10 @@ def create_compilation_database(
             actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
 
             # Add all inputs the command uses to runtime files.
-            other_outputs.append(cmd)
+            other_outputs.append(entry)
+            other_outputs.append(src_compile_cmd.src)
+            other_outputs.append(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
+            other_outputs.append(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
             entries[cdb_path] = entry
 
     # Merge all entries into the actual compilation DB.
