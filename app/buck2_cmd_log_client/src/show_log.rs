@@ -40,7 +40,7 @@ impl BuckSubcommand for ShowLogCommand {
 
         let mut buf = Vec::new();
 
-        serde_json::to_writer(&mut buf, &invocation)?;
+        serde_json::to_writer(&mut buf, &invocation.to_proto())?;
         stdio::print_bytes(&buf)?;
         stdio::print_bytes(b"\n")?;
 

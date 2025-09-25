@@ -382,23 +382,19 @@ impl WriteEventLog {
 
 impl SerializeForLog for Invocation {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> buck2_error::Result<()> {
-        serde_json::to_writer(buf, &self).buck_error_context("Failed to serialize event")
+        serde_json::to_writer(buf, &self.clone().to_proto())
+            .buck_error_context("Failed to serialize event")
     }
 
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> buck2_error::Result<()> {
-        let invocation = buck2_data::Invocation {
-            command_line_args: self.command_line_args.clone(),
-            expanded_command_line_args: self.expanded_command_line_args.clone(),
-            working_dir: self.working_dir.clone(),
-            trace_id: Some(self.trace_id.to_string()),
-        };
-        invocation.encode_length_delimited(buf)?;
+        self.clone().to_proto().encode_length_delimited(buf)?;
         Ok(())
     }
 
     // Always log invocation record to user event log for `buck2 log show` compatibility
     fn maybe_serialize_user_event(&self, buf: &mut Vec<u8>) -> buck2_error::Result<bool> {
-        serde_json::to_writer(buf, &self).buck_error_context("Failed to serialize event")?;
+        serde_json::to_writer(buf, &self.clone().to_proto())
+            .buck_error_context("Failed to serialize event")?;
         Ok(true)
     }
 }

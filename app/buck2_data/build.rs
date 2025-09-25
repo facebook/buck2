@@ -240,6 +240,10 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .field_attribute(
+            "buck.data.Invocation.expanded_command_line_args",
+            "#[serde(default)]",
+        )
+        .field_attribute(
             "buck.data.CommandExecutionMetadata.wall_time",
             "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )

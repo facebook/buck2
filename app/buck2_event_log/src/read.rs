@@ -233,17 +233,7 @@ impl EventLogPathBuf {
             .buck_error_context("No invocation found")?;
         let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
             .buck_error_context("Invalid Invocation")?;
-        let invocation = Invocation {
-            command_line_args: invocation.command_line_args,
-            expanded_command_line_args: invocation.expanded_command_line_args,
-            working_dir: invocation.working_dir,
-            trace_id: invocation
-                .trace_id
-                .map(|t| t.parse())
-                .transpose()
-                .buck_error_context("Invalid TraceId")?
-                .unwrap_or_else(TraceId::null),
-        };
+        let invocation = Invocation::from_proto(invocation);
 
         let events = stream.and_then(|data| async move {
             let val = buck2_cli_proto::CommandProgress::decode_length_delimited(data)
