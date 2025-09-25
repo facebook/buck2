@@ -152,7 +152,7 @@ cctest_type_exists = prelude_rule(
 
         cmake_substitution(
             name = "HAVE_SA_FAMILY_T",
-            value = ":arc4random"
+            value = ":sa_family_t"
         )
 
         # Will substitute `HAVE_SA_FAMILY_T` with the proper value depending on whether the template file uses `#cmakedefine` or `#cmakedefine01`
@@ -214,7 +214,8 @@ cctest_type_size = prelude_rule(
         ```
         
         cctest_type_size(
-            name = 'long',
+            name = 'long-size',
+            type = 'long',
             size=select({
                 'config//os:windows': 4,
                 'config//os:android': select({
@@ -227,7 +228,7 @@ cctest_type_size = prelude_rule(
 
         cmake_type_size_substitution(
             name = 'SIZEOF_LONG',
-            value = ':long'
+            value = ':long-size'
         )
 
         # Will substitute `SIZEOF_LONG_CODE` in the template file with `#define SIZEOF_LONG <value>`
@@ -264,6 +265,8 @@ cctest_map_value = prelude_rule(
         cmake_type_exists(
             name="has-ssize_t",
             value=select({
+                "config//os:windows": False,
+                "DEFAULT": True
             })
         )
 
@@ -393,7 +396,7 @@ cmake_configure_file = prelude_rule(
 
         cmake_substitution(
             name = "HAVE_SA_FAMILY_T",
-            value = ":arc4random"
+            value = ":sa_family_t"
         )
 
         # Will substitute `HAVE_SA_FAMILY_T` with the proper value depending on whether the template file uses `#cmakedefine` or `#cmakedefine01`
@@ -445,7 +448,7 @@ cmake_substitution = prelude_rule(
 
         cmake_substitution(
             name = "HAVE_SA_FAMILY_T",
-            value = ":arc4random"
+            value = ":sa_family_t"
         )
 
         cmake_substitution(
@@ -488,6 +491,35 @@ cmake_type_size_substitution = prelude_rule(
     """,
     examples = """
         ```
+        
+        cctest_type_size(
+            name = 'long-size',
+            type = 'long',
+            size=select({
+                'config//os:windows': 4,
+                'config//os:android': select({
+                    'config//cpu:arm32': 4,
+                    'DEFAULT': 8
+                }),
+                'DEFAULT': 8
+            })
+        )
+
+        cmake_type_size_substitution(
+            name = 'SIZEOF_LONG',
+            value = ':long-size'
+        )
+
+        # Will substitute `SIZEOF_LONG_CODE` in the template file with `#define SIZEOF_LONG <value>`
+        cmake_configure_file(
+            name = "configure",
+            template = "cmake_config.h.in",
+            substitutions = [
+                ":SIZEOF_LONG",
+            ],
+            out = "cmake_config.h"
+        )
+
         ```
     """,
     attrs = {

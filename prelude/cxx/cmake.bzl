@@ -55,7 +55,6 @@ def cmake_configure_file_impl(ctx: AnalysisContext) -> list[Provider]:
         "--output", output_file.as_output(),
     ]
     hidden = []
-    print(ctx.attrs.strict)
     if ctx.attrs.strict:
         args.append("--strict")
     if ctx.attrs.at_sub:
