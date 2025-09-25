@@ -216,7 +216,7 @@ impl EventObserverExtra for DebugEventObserverExtra {
         event: &Arc<BuckEvent>,
     ) -> buck2_error::Result<()> {
         self.debug_events.handle_event(receive_time, event)?;
-        self.progress_state.handle_event(receive_time, event)?;
+        self.progress_state.handle_event(event)?;
 
         Ok(())
     }
