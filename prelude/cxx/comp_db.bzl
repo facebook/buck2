@@ -29,6 +29,9 @@ def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolc
 
     return CxxCompilationDbInfo(info = info, toolchain = toolchainInfo, platform = platformInfo)
 
+def _comp_database_entry_path(identifier: str, src_path: str) -> str:
+    return paths.join(identifier, "__comp_db__", src_path + ".comp_db.json")
+
 def create_compilation_database(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
@@ -41,7 +44,7 @@ def create_compilation_database(
     other_outputs = []
 
     for src_compile_cmd in src_compile_cmds:
-        cdb_path = paths.join(identifier, "__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
+        cdb_path = _comp_database_entry_path(identifier, src_compile_cmd.src.short_path)
         if cdb_path not in entries:
             entry = actions.declare_output(cdb_path)
             cmd = cmd_args(
