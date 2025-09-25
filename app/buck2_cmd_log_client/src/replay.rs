@@ -81,14 +81,14 @@ impl BuckSubcommand for ReplayCommand {
             override_args: _,
         } = self;
         let work = async {
-            let (event_stream, invocation) =
+            let (event_stream, invocation, replay_clock) =
                 make_replayer(event_log.get(&ctx).await?, speed, preload).await?;
             let console = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
                 ctx.verbosity,
                 true,
-                Box::new(ReplayClock),
+                Box::new(replay_clock),
                 Some(speed),
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
@@ -152,13 +152,14 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
     }
 }
 
-pub async fn make_replayer(
+async fn make_replayer(
     log_path: EventLogPathBuf,
     speed: f64,
     preload: bool,
 ) -> buck2_error::Result<(
     impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
     Invocation,
+    ReplayClock,
 )> {
     let (invocation, events) = log_path.unpack_stream().await?;
 
@@ -188,7 +189,16 @@ pub async fn make_replayer(
         ));
     }
 
-    Ok((UnboundedReceiverStream::new(receiver), invocation))
+    let replay_clock = ReplayClock {
+        zero_instant: command_start_instant,
+        speed,
+    };
+
+    Ok((
+        UnboundedReceiverStream::new(receiver),
+        invocation,
+        replay_clock,
+    ))
 }
 
 /// Replays the events into the sink, but inserts an appropriate delay between events
@@ -277,7 +287,10 @@ impl Syncher {
     }
 }
 
-struct ReplayClock;
+struct ReplayClock {
+    zero_instant: Instant,
+    speed: f64,
+}
 
 impl Clock for ReplayClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
@@ -285,7 +298,10 @@ impl Clock for ReplayClock {
     }
 
     fn elapsed_since_command_start(&mut self, tick: Tick) -> Duration {
-        tick.elapsed_time
+        self.event_timestamp_for_tick(tick)
+            .0
+            .saturating_duration_since(self.zero_instant.into_std())
+            .mul_f64(self.speed)
     }
 }
 

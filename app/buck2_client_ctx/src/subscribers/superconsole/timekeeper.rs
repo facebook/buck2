@@ -84,6 +84,5 @@ impl Timekeeper {
 
     pub(crate) fn elapsed_since_command_start(&self) -> Duration {
         self.elapsed_since_command_start_for_last_tick
-            .mul_f64(self.speed)
     }
 }
