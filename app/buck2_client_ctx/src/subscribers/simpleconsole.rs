@@ -235,7 +235,7 @@ where
         &mut self,
         event: &Arc<BuckEvent>,
     ) -> buck2_error::Result<()> {
-        self.observer.observe(Instant::now(), event).await
+        self.observer.observe(event).await
     }
 
     fn notify_printed(&mut self) {

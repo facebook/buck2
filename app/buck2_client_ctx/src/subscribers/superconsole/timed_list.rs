@@ -237,7 +237,6 @@ impl Component for TimedList<'_> {
 mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
-    use std::time::Instant;
     use std::time::SystemTime;
 
     use buck2_data::FakeStart;
@@ -479,16 +478,13 @@ mod tests {
         state
             .simple_console
             .observer
-            .observe(
-                Instant::now(),
-                &span_start_event(None, fake_time(&tick, 10)),
-            )
+            .observe(&span_start_event(None, fake_time(&tick, 10)))
             .await?;
 
         state
             .simple_console
             .observer
-            .observe(Instant::now(), &dice_snapshot(fake_time(&tick, 1)))
+            .observe(&dice_snapshot(fake_time(&tick, 1)))
             .await?;
 
         {
