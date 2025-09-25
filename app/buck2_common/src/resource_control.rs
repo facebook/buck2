@@ -12,6 +12,7 @@ use std::cmp::PartialEq;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
+use std::path::Path;
 use std::sync::OnceLock;
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -76,6 +77,37 @@ pub enum ActionCgroupPoolConfig {
         /// Size of cgroup pool for action processes
         pool_size: Option<u64>,
     },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CgroupMemoryFile {
+    MemoryHigh,
+    MemoryMax,
+}
+
+impl std::fmt::Display for CgroupMemoryFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CgroupMemoryFile::MemoryHigh => write!(f, "memory.high"),
+            CgroupMemoryFile::MemoryMax => write!(f, "memory.max"),
+        }
+    }
+}
+
+impl CgroupMemoryFile {
+    pub fn read(&self, path: impl AsRef<Path>) -> buck2_error::Result<String> {
+        let file_path = path.as_ref().join(self.to_string());
+        Ok(std::fs::read_to_string(file_path)?.trim().to_owned())
+    }
+
+    pub async fn read_async(&self, path: impl AsRef<Path>) -> buck2_error::Result<String> {
+        let file_path = path.as_ref().join(self.to_string());
+        let content = tokio::fs::read_to_string(&file_path)
+            .await?
+            .trim()
+            .to_owned();
+        Ok(content)
+    }
 }
 
 pub struct ResourceControlRunnerConfig {
@@ -346,6 +378,81 @@ impl ResourceControlRunner {
         cmd.arg(program);
         cmd
     }
+    /// Finds the nearest ancestor memory limit by traversing up the cgroup hierarchy.
+    ///
+    /// This function walks up the cgroup tree starting from the given slice until it finds
+    /// a concrete memory limit (non-"max" value) or reaches the root. This is useful for
+    /// percentage-based memory calculations that need to know the parent limit.
+    async fn find_ancestor_memory_limit(
+        slice: &str,
+        memory_file_type: CgroupMemoryFile,
+    ) -> buck2_error::Result<Option<String>> {
+        // Get the cgroup path from systemctl
+        let mut cmd = process::async_background_command("systemctl");
+        cmd.args(["--user", "show", "-p", "ControlGroup", slice]);
+
+        let output = cmd.output().await?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Failed to get ControlGroup for slice {}: {}",
+                slice,
+                stderr
+            ));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let cgroup_relative_path = stdout
+            .strip_prefix("ControlGroup=")
+            .and_then(|s| s.trim().strip_prefix('/'))
+            .ok_or_else(|| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Unexpected ControlGroup output format: {}",
+                    stdout
+                )
+            })?;
+
+        // Construct absolute path
+        let cgroup_root = Path::new("/sys/fs/cgroup");
+        let mut current_path = cgroup_root.join(cgroup_relative_path);
+        // Start from the slice parent
+        current_path = match current_path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return Ok(None), // No parent to traverse from
+        };
+
+        // Traverse up the hierarchy
+        loop {
+            // Try to read the memory file
+            match memory_file_type.read_async(&current_path).await {
+                Ok(content) => {
+                    let trimmed = content.trim();
+                    // If we found a non-"max" value, return it
+                    if trimmed != "max" {
+                        return Ok(Some(trimmed.to_owned()));
+                    }
+                }
+                Err(_) => {
+                    // File doesn't exist, continue to parent
+                }
+            }
+
+            // Move to parent directory
+            if let Some(parent) = current_path.parent() {
+                // Stop if we've reached the cgroup root's parent
+                if parent == cgroup_root.parent().unwrap() {
+                    break;
+                }
+                current_path = parent.to_path_buf();
+            } else {
+                break;
+            }
+        }
+
+        Ok(None)
+    }
 
     pub async fn set_slice_memory_info(&self, slice: &str) -> buck2_error::Result<()> {
         if self.memory_limit.is_none() && self.memory_high.is_none() {
@@ -357,13 +464,52 @@ impl ResourceControlRunner {
         cmd.arg("set-property");
         cmd.arg(slice);
 
+        // Resolves memory restrictions by converting percentage values to absolute bytes
+        // based on parent slice limits, or returns the original value if not a percentage
+        async fn resolve_memory_restriction_value(
+            memory_restriction: &str,
+            slice: &str,
+            memory_file_type: CgroupMemoryFile,
+        ) -> buck2_error::Result<String> {
+            if memory_restriction.ends_with("%") {
+                let memory_percentage = memory_restriction
+                    .strip_suffix("%")
+                    .unwrap()
+                    .parse::<u64>()
+                    .expect(
+                        "if setting the percentage of the memory, the value should be an integer",
+                    );
+                if let Some(parent_memory_restrictions) =
+                    ResourceControlRunner::find_ancestor_memory_limit(slice, memory_file_type)
+                        .await?
+                {
+                    // The value from the memory file is either "max" or a integer value representing bytes
+                    let parent_memory_bytes = parent_memory_restrictions.parse::<u64>()?;
+                    let calculated_memory_bytes = (parent_memory_bytes * memory_percentage) / 100;
+                    Ok(calculated_memory_bytes.to_string())
+                } else {
+                    Ok(memory_restriction.to_owned())
+                }
+            } else {
+                Ok(memory_restriction.to_owned())
+            }
+        }
+
         if let Some(memory_limit) = &self.memory_limit {
+            let memory_limit =
+                resolve_memory_restriction_value(&memory_limit, slice, CgroupMemoryFile::MemoryMax)
+                    .await?;
+
             cmd.arg(format!("MemoryMax={memory_limit}"));
             cmd.arg("MemorySwapMax=0");
             cmd.arg("ManagedOOMMemoryPressure=kill");
         }
 
         if let Some(memory_high) = &self.memory_high {
+            let memory_high =
+                resolve_memory_restriction_value(&memory_high, slice, CgroupMemoryFile::MemoryHigh)
+                    .await?;
+
             cmd.arg(format!("MemoryHigh={memory_high}"));
         }
 
