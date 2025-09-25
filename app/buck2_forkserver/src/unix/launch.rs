@@ -59,7 +59,6 @@ pub async fn launch_forkserver(
             &ParentSlice::Inherit("forkserver_daemon".to_owned()),
             CgroupDelegation::Enabled,
             &ActionCgroupPoolConfig::Disabled,
-            None,
         )?;
 
         let info = CGroupInfo::read_async().await?;

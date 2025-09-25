@@ -74,6 +74,8 @@ pub enum ActionCgroupPoolConfig {
     Enabled {
         per_cgroup_memory_high: Option<String>,
         pool_memory_high: Option<String>,
+        /// Size of cgroup pool for action processes
+        pool_size: Option<u64>,
     },
 }
 
@@ -90,8 +92,6 @@ pub struct ResourceControlRunnerConfig {
     pub delegation: CgroupDelegation,
     /// Cgroup pool configuration for action processes
     pub action_cgroup_pool_config: ActionCgroupPoolConfig,
-    /// Size of cgroup pool for action processes
-    pub cgroup_pool_size: Option<u64>,
 }
 
 impl ResourceControlRunnerConfig {
@@ -104,7 +104,6 @@ impl ResourceControlRunnerConfig {
             delegation: CgroupDelegation::Disabled,
             // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
             action_cgroup_pool_config: ActionCgroupPoolConfig::Disabled,
-            cgroup_pool_size: None,
         }
     }
 
@@ -119,11 +118,11 @@ impl ResourceControlRunnerConfig {
                 ActionCgroupPoolConfig::Enabled {
                     per_cgroup_memory_high: config.memory_high_per_action.clone(),
                     pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
+                    pool_size: config.cgroup_pool_size,
                 }
             } else {
                 ActionCgroupPoolConfig::Disabled
             },
-            cgroup_pool_size: config.cgroup_pool_size,
         }
     }
 }
@@ -144,7 +143,6 @@ impl ResourceControlRunner {
         delegation: CgroupDelegation,
         // on windows, we don't have cgroup, so we don't need to this flag
         #[allow(unused_variables)] action_cgroup_pool_config: &ActionCgroupPoolConfig,
-        #[allow(unused_variables)] cgroup_pool_size: Option<u64>,
     ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
@@ -197,11 +195,12 @@ impl ResourceControlRunner {
                 ActionCgroupPoolConfig::Enabled {
                     per_cgroup_memory_high,
                     pool_memory_high,
+                    pool_size,
                 } => {
                     // Use num_cpus to set the capacity of the cgroup pool.
                     use buck2_error::BuckErrorContext;
                     // if cgroup pool size is not set, use the number of available cpus
-                    let capacity = cgroup_pool_size
+                    let capacity = pool_size
                         .map(|x| x as usize)
                         .unwrap_or(buck2_util::threads::available_parallelism_fresh());
                     let cgroup_pool = CgroupPool::new(
@@ -257,7 +256,6 @@ impl ResourceControlRunner {
                 &config.parent_slice,
                 config.delegation,
                 &config.action_cgroup_pool_config,
-                config.cgroup_pool_size,
             )?)),
         }
     }
