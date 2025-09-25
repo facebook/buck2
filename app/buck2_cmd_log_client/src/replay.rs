@@ -300,8 +300,9 @@ struct ReplayClock {
 
 impl Clock for ReplayClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
-        let elapsed = (tick.start_time + tick.elapsed_time)
-            .saturating_duration_since(self.zero_instant.into_std())
+        let elapsed = tick
+            .current_monotonic
+            .saturating_duration_since(self.zero_instant)
             .mul_f64(self.speed);
         EventTimestamp(timestamp_add_duration(self.zero_timestamp, elapsed))
     }
