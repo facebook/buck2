@@ -399,6 +399,10 @@ impl SuperConsoleState {
     pub fn session_info(&self) -> &SessionInfo {
         self.simple_console.observer.session_info()
     }
+
+    pub fn tick(&mut self, tick: Tick) {
+        self.timekeeper.tick(tick);
+    }
 }
 
 pub(crate) const BUCK_NO_INTERACTIVE_CONSOLE: &str = "BUCK_NO_INTERACTIVE_CONSOLE";

@@ -61,8 +61,7 @@ pub struct Tick {
 impl Dupe for Tick {}
 
 impl Tick {
-    #[cfg(test)]
-    pub(crate) fn now() -> Tick {
+    pub fn now() -> Tick {
         Self {
             current_monotonic: Instant::now(),
             current_realtime: SystemTime::now(),
