@@ -107,8 +107,8 @@ pub struct TopLevelTargetAggregatedData {
     pub action_graph_size: Option<u64>,
     pub metrics: AggregatedBuildMetrics,
     pub amortized_metrics: AggregatedBuildMetrics,
-    pub remote_max_memory_peak_bytes: Option<u64>,
-    pub local_max_memory_peak_bytes: Option<u64>,
+    pub remote_max_memory_peak_bytes: u64,
+    pub local_max_memory_peak_bytes: u64,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -124,8 +124,8 @@ impl TopLevelTargetAggregatedData {
             action_graph_size: action_graph_size.map(|v| v as u64),
             metrics: AggregatedBuildMetrics::default(),
             amortized_metrics: AggregatedBuildMetrics::default(),
-            remote_max_memory_peak_bytes: None,
-            local_max_memory_peak_bytes: None,
+            remote_max_memory_peak_bytes: 0,
+            local_max_memory_peak_bytes: 0,
         }
     }
 
@@ -153,11 +153,11 @@ impl TopLevelTargetAggregatedData {
         match ev.execution_kind {
             ActionExecutionKind::Local | ActionExecutionKind::LocalWorker => {
                 self.local_max_memory_peak_bytes =
-                    max(self.local_max_memory_peak_bytes, Some(memory_peak));
+                    max(self.local_max_memory_peak_bytes, memory_peak);
             }
             ActionExecutionKind::Remote => {
                 self.remote_max_memory_peak_bytes =
-                    max(self.remote_max_memory_peak_bytes, Some(memory_peak));
+                    max(self.remote_max_memory_peak_bytes, memory_peak);
             }
             ActionExecutionKind::NotSet
             | ActionExecutionKind::ActionCache
@@ -185,8 +185,8 @@ impl ToProtoMessage for TopLevelTargetAggregatedData {
             action_graph_size: self.action_graph_size,
             metrics: Some(self.metrics.as_proto()),
             amortized_metrics: Some(self.amortized_metrics.as_proto()),
-            remote_max_memory_peak_bytes: self.remote_max_memory_peak_bytes,
-            local_max_memory_peak_bytes: self.local_max_memory_peak_bytes,
+            remote_max_memory_peak_bytes: Some(self.remote_max_memory_peak_bytes),
+            local_max_memory_peak_bytes: Some(self.local_max_memory_peak_bytes),
         }
     }
 }

@@ -173,9 +173,9 @@ pub(crate) struct TargetBuildMetrics {
     /// metric.
     pub amortized_metrics: AggregatedBuildMetrics,
     /// Max value for peak memory usage across all remote actions.
-    pub remote_max_memory_peak_bytes: Option<u64>,
+    pub remote_max_memory_peak_bytes: u64,
     /// Max value for peak memory usage across all local actions.
-    pub local_max_memory_peak_bytes: Option<u64>,
+    pub local_max_memory_peak_bytes: u64,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
