@@ -108,6 +108,12 @@ impl CgroupMemoryFile {
             .to_owned();
         Ok(content)
     }
+
+    pub fn set(&self, path: impl AsRef<Path>, value: &str) -> buck2_error::Result<()> {
+        let file_path = path.as_ref().join(self.to_string());
+        std::fs::write(file_path, value)?;
+        Ok(())
+    }
 }
 
 pub struct ResourceControlRunnerConfig {
