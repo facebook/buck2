@@ -15,10 +15,9 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::resource_control::ActionCgroupPoolConfig;
-use buck2_common::resource_control::CgroupDelegation;
 use buck2_common::resource_control::ParentSlice;
 use buck2_common::resource_control::ResourceControlRunner;
+use buck2_common::resource_control::ResourceControlRunnerConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
@@ -51,27 +50,32 @@ pub async fn launch_forkserver(
 
     let mut command = if resource_control.enable_action_cgroup_pool.unwrap_or(false) {
         // When cgroup pool is enabled, we use systemd to start forkserver
-        let resource_control_runner = ResourceControlRunner::create(
-            None,
-            None,
-            // we want to create forkserver daemon in the same hierarchy where buck-daemon scope
-            // for this we inherit slice
-            &ParentSlice::Inherit("forkserver_daemon".to_owned()),
-            CgroupDelegation::Enabled,
-            &ActionCgroupPoolConfig::Disabled,
+
+        let forkserver_process_resource_control_runner = ResourceControlRunner::create_if_enabled(
+            &ResourceControlRunnerConfig::forkserver_config(
+                &resource_control,
+                ParentSlice::Inherit("forkserver_daemon".to_owned()),
+            ),
         )?;
 
-        let info = CGroupInfo::read_async().await?;
-        let unit_name = format!(
-            "{}.forkserver",
-            info.get_slice_name()
-                .buck_error_context("Can't find slice in cgroup path")?
-        );
+        if let Some(forkserver_process_resource_control_runner) =
+            forkserver_process_resource_control_runner
+        {
+            let info = CGroupInfo::read_async().await?;
+            let unit_name = format!(
+                "{}.forkserver",
+                info.get_slice_name()
+                    .buck_error_context("Can't find slice in cgroup path")?
+            );
 
-        has_cgroup = true;
+            has_cgroup = true;
 
-        fs_util::create_dir_all(state_dir).map_err(buck2_error::Error::from)?;
-        resource_control_runner.cgroup_scoped_command(exe, &unit_name, state_dir)
+            fs_util::create_dir_all(state_dir).map_err(buck2_error::Error::from)?;
+            forkserver_process_resource_control_runner
+                .cgroup_scoped_command(exe, &unit_name, state_dir)
+        } else {
+            background_command(exe)
+        }
     } else {
         background_command(exe)
     };

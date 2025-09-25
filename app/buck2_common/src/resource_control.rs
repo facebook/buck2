@@ -72,7 +72,6 @@ pub enum CgroupDelegation {
 pub enum ActionCgroupPoolConfig {
     Disabled,
     Enabled {
-        per_cgroup_memory_high: Option<String>,
         pool_memory_high: Option<String>,
         /// Size of cgroup pool for action processes
         pool_size: Option<u64>,
@@ -82,47 +81,115 @@ pub enum ActionCgroupPoolConfig {
 pub struct ResourceControlRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
-    /// A memory threshold. Semantics (whether it is memory of a daemon or an action process) depend on the context.
-    pub memory_max: Option<String>,
-    /// The memory limit before tasks start to be throttled, OOMd won't begin killing tasks until memory_max is reached.
-    pub memory_high: Option<String>,
     /// Parent slice behaviour
     pub parent_slice: ParentSlice,
     /// Delegation of further resource control partitioning of cgroup unit
     pub delegation: CgroupDelegation,
-    /// Cgroup pool configuration for action processes
-    pub action_cgroup_pool_config: ActionCgroupPoolConfig,
+    /// Configuration variant
+    pub config: ResourceControlRunnerConfigVariant,
+}
+
+pub enum ResourceControlRunnerConfigVariant {
+    /// Configuration for buck daemon
+    BuckDaemon {
+        /// A memory threshold for daemon, forkserver and worker processes
+        memory_max: Option<String>,
+        /// The memory limit before tasks start to be throttled for daemon, forkserver and worker processes
+        memory_high: Option<String>,
+    },
+    /// Configuration for action runner
+    ActionRunner {
+        /// A memory threshold for each action processes
+        memory_max_per_action: Option<String>,
+        /// The memory limit before tasks start to be throttled for each action processes
+        memory_high_per_action: Option<String>,
+        /// Cgroup pool configuration for action processes
+        action_cgroup_pool_config: ActionCgroupPoolConfig,
+    },
+    /// Configuration for forkserver
+    Forkserver,
+}
+
+impl ResourceControlRunnerConfigVariant {
+    pub fn memory_max(&self) -> Option<&str> {
+        match self {
+            ResourceControlRunnerConfigVariant::BuckDaemon { memory_max, .. } => {
+                memory_max.as_deref()
+            }
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_max_per_action,
+                ..
+            } => memory_max_per_action.as_deref(),
+            ResourceControlRunnerConfigVariant::Forkserver => None,
+        }
+    }
+
+    pub fn memory_high(&self) -> Option<&str> {
+        match self {
+            ResourceControlRunnerConfigVariant::BuckDaemon { memory_high, .. } => {
+                memory_high.as_deref()
+            }
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_high_per_action,
+                ..
+            } => memory_high_per_action.as_deref(),
+            ResourceControlRunnerConfigVariant::Forkserver => None,
+        }
+    }
+
+    pub fn action_cgroup_pool_config(&self) -> &ActionCgroupPoolConfig {
+        match self {
+            ResourceControlRunnerConfigVariant::BuckDaemon { .. } => {
+                &ActionCgroupPoolConfig::Disabled
+            }
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                action_cgroup_pool_config,
+                ..
+            } => action_cgroup_pool_config,
+            ResourceControlRunnerConfigVariant::Forkserver => &ActionCgroupPoolConfig::Disabled,
+        }
+    }
 }
 
 impl ResourceControlRunnerConfig {
     pub fn daemon_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
         Self {
             status: config.status.clone(),
-            memory_max: config.memory_max.clone(),
-            memory_high: config.memory_high.clone(),
             parent_slice,
             delegation: CgroupDelegation::Disabled,
-            // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
-            action_cgroup_pool_config: ActionCgroupPoolConfig::Disabled,
+            config: ResourceControlRunnerConfigVariant::BuckDaemon {
+                memory_max: config.memory_max.clone(),
+                memory_high: config.memory_high.clone(),
+            },
         }
     }
 
     pub fn action_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
         Self {
             status: config.status.clone(),
-            memory_max: config.memory_max_per_action.clone(),
-            memory_high: config.memory_high_per_action.clone(),
             parent_slice,
             delegation: CgroupDelegation::Enabled,
-            action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
-                ActionCgroupPoolConfig::Enabled {
-                    per_cgroup_memory_high: config.memory_high_per_action.clone(),
-                    pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
-                    pool_size: config.cgroup_pool_size,
-                }
-            } else {
-                ActionCgroupPoolConfig::Disabled
+            config: ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_max_per_action: config.memory_max_per_action.clone(),
+                memory_high_per_action: config.memory_high_per_action.clone(),
+                action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
+                    ActionCgroupPoolConfig::Enabled {
+                        pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
+                        pool_size: config.cgroup_pool_size,
+                    }
+                } else {
+                    ActionCgroupPoolConfig::Disabled
+                },
             },
+        }
+    }
+
+    pub fn forkserver_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
+        Self {
+            status: config.status.clone(),
+            parent_slice,
+            delegation: CgroupDelegation::Enabled,
+            config: ResourceControlRunnerConfigVariant::Forkserver,
         }
     }
 }
@@ -136,13 +203,10 @@ pub struct ResourceControlRunner {
 }
 
 impl ResourceControlRunner {
-    pub fn create(
-        memory_max: Option<String>,
-        memory_high: Option<String>,
+    fn create(
+        config_variant: &ResourceControlRunnerConfigVariant,
         parent_slice: &ParentSlice,
         delegation: CgroupDelegation,
-        // on windows, we don't have cgroup, so we don't need to this flag
-        #[allow(unused_variables)] action_cgroup_pool_config: &ActionCgroupPoolConfig,
     ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
@@ -154,21 +218,31 @@ impl ResourceControlRunner {
             "--setenv=CHGDISABLE=1".to_owned(),
         ];
 
-        if let Some(memory_max) = &memory_max {
-            args.push(format!("--property=MemoryMax={memory_max}"));
-            // Without setting `MemorySwapMax`, the process starts using swap until it's
-            // filled when the total memory usage reaches to `MemoryMax`. This may seem
-            // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
-            // to zero makes `MemoryMax` to be a 'hard limit' at which the process is
-            // stopped by OOM killer
-            args.push("--property=MemorySwapMax=0".to_owned());
-            // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
-            // some workers can keep alive even after buck2 daemon has gone due to OOM.
-            args.push("--property=OOMPolicy=kill".to_owned());
-        }
+        // Only action runner needs to set MemorySwapMax and MemoryHigh
+        match config_variant {
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_max_per_action,
+                memory_high_per_action,
+                action_cgroup_pool_config: _,
+            } => {
+                if let Some(memory_max) = &memory_max_per_action {
+                    args.push(format!("--property=MemoryMax={memory_max}"));
+                    // Without setting `MemorySwapMax`, the process starts using swap until it's
+                    // filled when the total memory usage reaches to `MemoryMax`. This may seem
+                    // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
+                    // to zero makes `MemoryMax` to be a 'hard limit' at which the process is
+                    // stopped by OOM killer
+                    args.push("--property=MemorySwapMax=0".to_owned());
+                    // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
+                    // some workers can keep alive even after buck2 daemon has gone due to OOM.
+                    args.push("--property=OOMPolicy=kill".to_owned());
+                }
 
-        if let Some(memory_high) = &memory_high {
-            args.push(format!("--property=MemoryHigh={memory_high}"));
+                if let Some(memory_high) = &memory_high_per_action {
+                    args.push(format!("--property=MemoryHigh={memory_high}"));
+                }
+            }
+            _ => {}
         }
 
         if delegation == CgroupDelegation::Enabled {
@@ -187,13 +261,12 @@ impl ResourceControlRunner {
 
         Ok(Self {
             fixed_systemd_args: args,
-            memory_limit: memory_max.clone(),
-            memory_high: memory_high.clone(),
+            memory_limit: config_variant.memory_max().map(|x| x.to_owned()),
+            memory_high: config_variant.memory_high().map(|x| x.to_owned()),
 
             #[cfg(unix)]
-            cgroup_pool: match action_cgroup_pool_config {
+            cgroup_pool: match config_variant.action_cgroup_pool_config() {
                 ActionCgroupPoolConfig::Enabled {
-                    per_cgroup_memory_high,
                     pool_memory_high,
                     pool_size,
                 } => {
@@ -205,7 +278,7 @@ impl ResourceControlRunner {
                         .unwrap_or(buck2_util::threads::available_parallelism_fresh());
                     let cgroup_pool = CgroupPool::new(
                         capacity,
-                        per_cgroup_memory_high.as_deref(),
+                        config_variant.memory_high(),
                         pool_memory_high.as_deref(),
                     )
                     .buck_error_context("Failed to create cgroup pool")?;
@@ -251,11 +324,9 @@ impl ResourceControlRunner {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
             SystemdCreationDecision::Create => Ok(Some(Self::create(
-                config.memory_max.clone(),
-                config.memory_high.clone(),
+                &config.config,
                 &config.parent_slice,
                 config.delegation,
-                &config.action_cgroup_pool_config,
             )?)),
         }
     }
