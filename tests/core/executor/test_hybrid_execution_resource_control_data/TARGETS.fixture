@@ -29,3 +29,8 @@ freeze_unfreeze(
     name = "freeze_unfreeze_target",
     script = "memory_pressure.py",
 )
+
+parent_cgroup_slice_memory_high_unset_restore(
+    name = "parent_cgroup_slice_memory_high_unset_restore_target",
+    script = "memory_pressure.py",
+)

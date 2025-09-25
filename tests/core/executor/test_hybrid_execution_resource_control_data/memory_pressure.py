@@ -67,10 +67,16 @@ class MemoryPressure:
         print(message)
 
     def run_allocations(
-        self, allocate_count: int, tick_duration: float, memory_per_tick: float
+        self,
+        allocate_count: int,
+        tick_duration: float,
+        memory_per_tick: float,
+        sleep_duration_before_exit: int = 5,
     ) -> None:
         """Run the memory allocation with pressure detection."""
         allocation_times = []
+
+        run_start = time.time()
 
         for tick in range(allocate_count):
             self.log(f"Tick {tick}")
@@ -82,7 +88,7 @@ class MemoryPressure:
 
             self.total_allocated += memory_per_tick
             self.log(
-                f"Allocated {memory_per_tick} MB in {allocation_time:.5f} seconds | Total: {self.total_allocated} MB"
+                f"[{(time.time() - run_start):.2f}] Allocated {memory_per_tick} MB in {allocation_time:.5f} seconds | Total: {self.total_allocated} MB"
             )
 
             BUFFERS.append((buffer, addr))
@@ -95,7 +101,7 @@ class MemoryPressure:
             time.sleep(tick_duration)
 
         # sleep for 5 seconds to simulate work
-        time.sleep(5)
+        time.sleep(sleep_duration_before_exit)
 
     def cleanup(self) -> None:
         """Close the output file."""
@@ -138,6 +144,13 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output", type=str, required=True, help="Output log file path"
     )
+    parser.add_argument(
+        "--pre-exit-sleep-duration",
+        type=int,
+        default=5,
+        help="Sleep duration before exit",
+    )
+
     return parser.parse_args()
 
 
@@ -148,7 +161,10 @@ def main() -> None:
     runner = MemoryPressure(args.output)
     try:
         runner.run_allocations(
-            args.allocate_count, args.tick_duration, args.each_tick_allocate_memory
+            args.allocate_count,
+            args.tick_duration,
+            args.each_tick_allocate_memory,
+            args.pre_exit_sleep_duration,
         )
     finally:
         runner.cleanup()

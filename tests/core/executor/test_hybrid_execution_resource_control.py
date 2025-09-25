@@ -11,7 +11,10 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -331,3 +334,125 @@ async def test_local_action_running_count(
     )
 
     assert len(local_action_running_count) > 0
+
+
+# get the daemon cgroup path
+def get_daemon_cgroup_path(pid: int) -> Path:
+    cgroup_path = f"/proc/{pid}/cgroup"
+
+    with open(cgroup_path, "r") as f:
+        for line in f:
+            # cgroup v2 format: 0::/path/to/cgroup
+            if line.startswith("0::"):
+                cgroup_relative_path = line.strip().split("::", 1)[1]
+                return Path(f"/sys/fs/cgroup{cgroup_relative_path}")
+
+    raise Exception(f"Could not find cgroup v2 entry for PID {pid}")
+
+
+async def get_daemon_pid(buck: Buck) -> int:
+    result = await buck.status()
+    stdout = result.stdout
+    status = json.loads(stdout)
+    pid = status["process_info"]["pid"]
+    return pid
+
+
+# This tests set the memory.high for the buck2 cgroup slice (contains daemon, forkserver and workers cgroups) to 5GB
+# The value here is only for testing the unset and restore functionality during freezing.
+# The freezing is coming from the memory pressure, limited by memory_high_action_cgroup_pool here
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_parent_slice_memory_high_unset_and_restore(
+    buck: Buck,
+) -> None:
+    memory_high_total = 5 * 1024 * 1024 * 1024  # 5 GB
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("status = required\n")
+        f.write("enable_action_cgroup_pool = true\n")
+        f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
+        f.write("enable_action_freezing = true\n")
+        f.write("memory_pressure_threshold_percent = 1\n")
+        f.write(f"memory_high = {memory_high_total}\n")
+
+    # start buck2 daemon
+    await buck.server()
+
+    pid = await get_daemon_pid(buck)
+    daemon_cgroup_path = get_daemon_cgroup_path(pid)
+    # the cgroup that contains daemon, forkserver and workers cgroups
+    slice_cgroup_path = daemon_cgroup_path.parent
+
+    # We don't set memory.high for the daemon cgroup
+    with open(daemon_cgroup_path / "memory.high", "r") as f:
+        daemon_memory_high = f.read().strip()
+    assert daemon_memory_high == "max"
+
+    with open(slice_cgroup_path / "memory.high", "r") as f:
+        slice_memory_high = int(f.read().strip())
+    assert slice_memory_high == memory_high_total
+
+    target = "prelude//:parent_cgroup_slice_memory_high_unset_restore_target"
+
+    # Variables to store the memory.high values
+    delayed_memory_high = None
+
+    def read_memory_high_after_delay(slice_cgroup_path: Path) -> None:
+        """Function to read memory.high after a 10-second delay"""
+        nonlocal delayed_memory_high
+        time.sleep(10)
+        try:
+            # One of the action is frozen at this point in the thread,
+            # so that the memory.high value should be set to max
+            with open(slice_cgroup_path / "memory.high", "r") as f:
+                delayed_memory_high = f.read().strip()
+        except Exception as e:
+            print(f"Error reading memory.high after delay: {e}")
+
+    # Start the thread to read memory.high after 10 seconds
+    memory_reader_thread = threading.Thread(
+        target=read_memory_high_after_delay, args=(slice_cgroup_path,)
+    )
+    memory_reader_thread.start()
+
+    output = await buck.build(
+        target,
+        "--no-remote-cache",
+        "-c",
+        "build.use_limited_hybrid=False",
+        "-c",
+        "build.execution_platforms=//:platforms",
+        "--local-only",
+    )
+
+    with open(
+        output.get_build_report().output_for_target(target),
+        "r",
+    ) as f:
+        print(f.read())
+
+    ## Test if freezing is working as expected
+    result = await buck.log("show")
+    frozen_count = 0
+
+    for line in result.stdout.splitlines():
+        json_object = json.loads(line)
+        action_end: Optional[Dict[str, Any]] = _get(
+            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
+        )
+        if action_end is not None:
+            action_commands = _get(action_end, "commands")
+            assert len(action_commands) == 1
+
+            metadata = _get(action_commands[0], "details", "metadata")
+            was_frozen = metadata["was_frozen"]
+            if was_frozen:
+                frozen_count += 1
+    assert frozen_count == 1
+
+    memory_reader_thread.join()
+    assert (delayed_memory_high) == "max"
+    # The memory.high value should be restored to the original value
+    with open(slice_cgroup_path / "memory.high", "r") as f:
+        slice_memory_high_at_end = int(f.read().strip())
+    assert slice_memory_high_at_end == memory_high_total
