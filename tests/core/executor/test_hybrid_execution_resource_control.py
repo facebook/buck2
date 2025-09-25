@@ -456,3 +456,40 @@ async def test_parent_slice_memory_high_unset_and_restore(
     with open(slice_cgroup_path / "memory.high", "r") as f:
         slice_memory_high_at_end = int(f.read().strip())
     assert slice_memory_high_at_end == memory_high_total
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("status = required\n")
+        f.write("memory_high = 50%\n")
+
+    # start buck2 daemon
+    await buck.server()
+
+    pid = await get_daemon_pid(buck)
+    daemon_cgroup_path = get_daemon_cgroup_path(pid)
+    # the parent of the cgroup that contains daemon, forkserver and workers cgroups
+    parent_cgroup_path = daemon_cgroup_path.parent.parent
+
+    try:
+        parent_cgroup_memory_high = 200 * 1024 * 1024 * 1024  # 10 GB
+        with open(parent_cgroup_path / "memory.high", "w") as f:
+            f.write(str(parent_cgroup_memory_high))
+
+        # restart buck2 daemon to make the parent memory.high value effective
+        await buck.kill()
+        await buck.server()
+
+        pid = await get_daemon_pid(buck)
+        daemon_cgroup_path = get_daemon_cgroup_path(pid)
+        # the cgroup that contains daemon, forkserver and workers cgroups
+        slice_cgroup_path = daemon_cgroup_path.parent
+        with open(slice_cgroup_path / "memory.high", "r") as f:
+            slice_memory_high = int(f.read().strip())
+        assert slice_memory_high == (parent_cgroup_memory_high * 0.5)
+    finally:
+        # reset the parent memory.high value to max
+        with open(parent_cgroup_path / "memory.high", "w") as f:
+            f.write("max")
