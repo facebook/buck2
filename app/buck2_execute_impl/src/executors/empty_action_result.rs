@@ -35,6 +35,7 @@ pub(crate) fn empty_action_result(
             // Random string for xbgs.
             "EMPTY_ACTION_RESULT_fztiucvwawdmarhheqoz".to_owned(),
         ],
+        #[allow(deprecated)]
         platform: Some(platform.to_re_platform()),
         ..Default::default()
     });

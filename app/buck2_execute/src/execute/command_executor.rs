@@ -273,6 +273,7 @@ fn re_create_action(
         let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
         let command = RE::Command {
             arguments: worker.init.clone(),
+            #[allow(deprecated)]
             platform: Some(platform.clone()),
             working_directory: working_directory.as_str().to_owned(),
             environment_variables: worker
@@ -305,6 +306,7 @@ fn re_create_action(
 
     let mut command = RE::Command {
         arguments: command_args,
+        #[allow(deprecated)]
         platform: Some(platform),
         working_directory: working_directory.as_str().to_owned(),
         environment_variables: environment
@@ -322,6 +324,7 @@ fn re_create_action(
             for (output, output_type) in outputs {
                 let path = output.as_str().to_owned();
 
+                #[allow(deprecated)]
                 match output_type {
                     OutputType::FileOrDirectory => {
                         command.output_files.push(path.clone());
@@ -336,6 +339,7 @@ fn re_create_action(
             for (output, output_type) in outputs {
                 let path = output.as_str().to_owned();
 
+                #[allow(deprecated)]
                 match output_type {
                     OutputType::FileOrDirectory => {
                         command.output_files.push(path);
@@ -437,6 +441,7 @@ fn re_create_action(
 
     Ok(PreparedAction {
         action_and_blobs,
+        #[allow(deprecated)]
         platform: command
             .platform
             .expect("We did put a platform a few lines up"),
