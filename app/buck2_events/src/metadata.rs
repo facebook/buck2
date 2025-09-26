@@ -125,6 +125,8 @@ fn os_type() -> String {
         "darwin".to_owned()
     } else if cfg!(target_os = "windows") {
         "windows".to_owned()
+    } else if cfg!(target_os = "freebsd") {
+        "freebsd".to_owned()
     } else {
         "unknown".to_owned()
     }
@@ -135,7 +137,7 @@ fn os_version() -> Option<String> {
     winver::WindowsVersion::detect().map(|v| v.to_string())
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "freebsd"))]
 fn os_version() -> Option<String> {
     sys_info::os_release().ok()
 }
