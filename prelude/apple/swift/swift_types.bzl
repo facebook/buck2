@@ -6,6 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",  # @unused Used as a type
+)
+load(":swift_toolchain_types.bzl", "SwiftCompiledModuleTset")
+
 SWIFT_EXTENSION = ".swift"
 
 SWIFTMODULE_EXTENSION = ".swiftmodule"
@@ -15,6 +21,14 @@ SwiftCompilationModes = ["wmo", "incremental", "auto"]
 SwiftMacroPlugin = plugins.kind()
 
 SwiftVersion = ["5", "6"]
+
+SwiftDependencyInfo = provider(fields = {
+    "debug_info_tset": provider_field(ArtifactTSet),
+    # Includes modules through exported_deps, used for compilation
+    "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
+    # Macro deps cannot be mixed with apple_library deps
+    "is_macro": provider_field(bool),
+})
 
 def _swift_framework_implicit_search_paths_args(args: cmd_args):
     return args

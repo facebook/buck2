@@ -46,7 +46,8 @@ def compile_swiftinterface_common(
         sdk_deps_providers,
         expanded_swiftinterface_cmd,
         category,
-        additional_compiled_pcm):
+        additional_compiled_pcm,
+        additional_compiled_swiftmodules = None):
     swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)
@@ -65,6 +66,10 @@ def compile_swiftinterface_common(
 
     clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_deps_providers)
     swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, sdk_deps_providers + deps)
+
+    #'additional_compiled_swiftmodules' in practice will be third-party frameworks
+    if additional_compiled_swiftmodules:
+        swift_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, children = [swift_deps_tset, additional_compiled_swiftmodules])
 
     all_deps_tset = ctx.actions.tset(
         SwiftCompiledModuleTset,

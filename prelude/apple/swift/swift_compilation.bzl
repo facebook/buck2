@@ -18,7 +18,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "create_modulemap")
 load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_explicit_modules")
-load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftDependencyInfo", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
@@ -81,14 +81,6 @@ load(
     "SwiftObjectFormat",
     "SwiftToolchainInfo",
 )
-
-SwiftDependencyInfo = provider(fields = {
-    "debug_info_tset": provider_field(ArtifactTSet),
-    # Includes modules through exported_deps, used for compilation
-    "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
-    # Macro deps cannot be mixed with apple_library deps
-    "is_macro": provider_field(bool),
-})
 
 SwiftCompilationDatabase = record(
     db = field(Artifact),

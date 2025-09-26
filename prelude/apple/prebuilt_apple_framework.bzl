@@ -16,7 +16,6 @@ load("@prelude//apple:apple_utility.bzl", "get_base_swiftinterface_compilation_f
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
-    "SwiftDependencyInfo",
     "create_swift_dependency_info",
     "get_external_debug_info_tsets",
     "get_swift_framework_anonymous_targets",
@@ -27,8 +26,8 @@ load(
     "SwiftPCMUncompiledInfo",
 )
 load("@prelude//apple/swift:swift_swiftinterface_compilation.bzl", "compile_swiftinterface_common")
-load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
-load("@prelude//apple/swift:swift_types.bzl", "FrameworkImplicitSearchPathInfo", "get_implicit_framework_search_path_providers")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftCompiledModuleTset", "SwiftToolchainInfo")
+load("@prelude//apple/swift:swift_types.bzl", "FrameworkImplicitSearchPathInfo", "SwiftDependencyInfo", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -78,6 +77,14 @@ load(":apple_frameworks.bzl", "to_framework_name")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo")
+
+def _get_compiled_swift_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset:
+    deps = [
+        d[SwiftDependencyInfo].exported_swiftmodules
+        for d in deps_providers
+        if SwiftDependencyInfo in d
+    ]
+    return ctx.actions.tset(SwiftCompiledModuleTset, children = deps)
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
     def get_prebuilt_apple_framework_providers(deps_providers) -> list[Provider]:
@@ -246,6 +253,8 @@ def _compile_swiftinterface(
         delimiter = "",
     )
 
+    swift_third_party_deps = _get_compiled_swift_deps_tset(ctx, ctx.attrs.deps)
+
     swift_compiled_module, _ = compile_swiftinterface_common(
         ctx,
         ctx.attrs.deps,
@@ -256,6 +265,7 @@ def _compile_swiftinterface(
         swiftinterface_path,
         "prebuilt_framework_swiftinterface_compilation",
         compiled_underlying_pcm,
+        additional_compiled_swiftmodules = swift_third_party_deps,
     )
 
     debug_info_tset = make_artifact_tset(
