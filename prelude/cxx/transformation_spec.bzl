@@ -6,6 +6,16 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(
+    "@prelude//utils:build_target_pattern.bzl",
+    "BuildTargetPattern",
+    "parse_build_target_pattern",
+)
+load(
+    "@prelude//utils:strings.bzl",
+    "strip_prefix",
+)
+
 TransformationKind = enum(
     "debug",
     "optimized",
@@ -16,14 +26,47 @@ TransformationResultProvider = provider(fields = {
     "is_empty": provider_field(bool),
 })
 
+TransformationTest = record(
+    matcher = Label | BuildTargetPattern,
+    result = TransformationKind,
+)
+
+def _build_pattern_matcher(entry: str) -> BuildTargetPattern | None:
+    pattern = strip_prefix("pattern:", entry)
+    if pattern == None:
+        return None
+    return parse_build_target_pattern(pattern)
+
+def _build_transformations(transformations: list[(str | Dependency, str)]) -> list[TransformationTest]:
+    parsed_transformations = []
+    for entry in transformations:
+        kind = TransformationKind(entry[1])
+        if isinstance(entry[0], Dependency):
+            parsed_transformations.append(TransformationTest(
+                matcher = entry[0].label,
+                result = kind,
+            ))
+            continue
+
+        target_pattern_matcher = _build_pattern_matcher(entry[0])
+        if target_pattern_matcher:
+            parsed_transformations.append(TransformationTest(
+                matcher = target_pattern_matcher,
+                result = kind,
+            ))
+            continue
+
+        fail("Invalid matcher provided: " + entry[0])
+    return parsed_transformations
+
 def build_determine_transformation(
-        transformations: list[tuple]) -> typing.Callable[[Label], TransformationKind | None]:
+        transformations: list[TransformationTest]) -> typing.Callable[[Label], TransformationKind | None]:
     def callable(label: Label) -> TransformationKind | None:
         for transform in transformations:
-            dep = transform[0]  # str | Dependency
-            kind = transform[1]  # TransformationKind
-            if label == dep.label:
-                return TransformationKind(kind)
+            if isinstance(transform.matcher, BuildTargetPattern) and transform.matcher.matches(label):
+                return transform.result
+            elif isinstance(transform.matcher, Label) and transform.matcher == label:
+                return transform.result
         return None
 
     return callable
@@ -33,6 +76,6 @@ def transformation_spec_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         TransformationResultProvider(
             is_empty = len(ctx.attrs.transformations) == 0,
-            determine_transformation = build_determine_transformation(ctx.attrs.transformations),
+            determine_transformation = build_determine_transformation(_build_transformations(ctx.attrs.transformations)),
         ),
     ]
