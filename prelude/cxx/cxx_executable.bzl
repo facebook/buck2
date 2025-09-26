@@ -252,7 +252,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
-    build_graph_info = new_build_graph_info(ctx)
+    cxx_deps = cxx_attr_deps(ctx)
+    build_graph_info = new_build_graph_info(ctx, cxx_deps)
     transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
     compile_flavors = set([CxxCompileFlavor("pic")]) if link_strategy != LinkStrategy("static") else set()
 
@@ -299,7 +300,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     index_stores = [out.index_store for out in cxx_outs if out.index_store]
 
     # Link deps
-    link_deps = linkables(cxx_attr_deps(ctx)) + impl_params.extra_link_deps
+    link_deps = linkables(cxx_deps) + impl_params.extra_link_deps
 
     # Link Groups
     link_group = get_link_group(ctx)
