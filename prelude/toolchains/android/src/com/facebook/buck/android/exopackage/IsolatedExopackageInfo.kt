@@ -30,9 +30,7 @@ data class IsolatedExopackageInfo(
   data class IsolatedNativeLibsInfo(val metadata: AbsPath, val directory: AbsPath)
 
   /** Isolated ResourcesInfo */
-  data class IsolatedResourcesInfo(
-      val resourcesPaths: ImmutableList<IsolatedExopackagePathAndHash>
-  )
+  data class IsolatedResourcesInfo(val resourcesPaths: ImmutableList<IsolatedExopackagePathAndHash>)
 
   /** Isolated ExopackagePathAndHash */
   data class IsolatedExopackagePathAndHash(val path: AbsPath, val hashPath: AbsPath)
