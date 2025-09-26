@@ -42,6 +42,9 @@ def build_package(
     if race and asan:
         fail("`race=True` and `asan=True` are mutually exclusive")
 
+    if not cgo_enabled and (asan or race):
+        fail("`race=True` and `asan=True` are only supported when `cgo_enabled=True`")
+
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
