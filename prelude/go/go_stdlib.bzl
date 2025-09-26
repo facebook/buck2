@@ -21,7 +21,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     compiler_flags = [] + go_toolchain.compiler_flags
     compiler_flags += ["-buildid="]  # Make builds reproducible.
 
-    if ctx.attrs._asan:
+    if go_toolchain.asan:
         compiler_flags += ["-asan"]
         build_tags += ["asan"]
 
@@ -62,7 +62,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(["-gcflags=", cmd_args(local_compiler_flags, delimiter = " ")], delimiter = "") if local_compiler_flags else [],
             cmd_args(["-ldflags=", cmd_args(linker_flags, delimiter = " ")], delimiter = "") if linker_flags else [],
             ["-tags", ",".join(build_tags)] if build_tags else [],
-            ["-race"] if ctx.attrs._race else [],
+            ["-race"] if go_toolchain.race else [],
             "std",
         ])
 

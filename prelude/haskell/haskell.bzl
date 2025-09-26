@@ -597,7 +597,7 @@ def _build_haskell_lib(
             nlis,
             to_link_strategy(link_style),
             prefer_stripped = False,
-            transformation_provider = None,
+            transformation_spec_context = None,
         )
         link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
         ctx.actions.run(
@@ -889,7 +889,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 [merged_link_info],
                 to_link_strategy(link_style),
                 prefer_stripped = False,
-                transformation_provider = None,
+                transformation_spec_context = None,
             ),
         ))
         templ_vars[name] = args
@@ -1108,7 +1108,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             targets_consumed_by_link_groups = {},
         )
 
-        for shared_lib in traverse_shared_library_info(shlib_info):
+        for shared_lib in traverse_shared_library_info(shlib_info, transformation_provider = None):
             label = shared_lib.label
             if is_link_group_shlib(label, link_group_ctx):
                 sos.append(shared_lib)
@@ -1129,13 +1129,13 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             li = lib.get(MergedLinkInfo)
             if li != None:
                 nlis.append(li)
-        sos.extend(traverse_shared_library_info(shlib_info))
+        sos.extend(traverse_shared_library_info(shlib_info, transformation_provider = None))
         infos = get_link_args_for_strategy(
             ctx,
             nlis,
             to_link_strategy(link_style),
             prefer_stripped = False,
-            transformation_provider = None,
+            transformation_spec_context = None,
         )
 
     link_args.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))

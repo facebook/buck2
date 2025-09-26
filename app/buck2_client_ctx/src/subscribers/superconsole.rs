@@ -9,7 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::fmt::Debug;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,7 +16,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::BuckErrorContext;
-use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -32,7 +30,6 @@ use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_events::BuckEvent;
 use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
-use dupe::Dupe;
 use gazebo::prelude::*;
 use strum::IntoEnumIterator;
 use superconsole::Component;
@@ -54,7 +51,6 @@ use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
@@ -67,6 +63,8 @@ use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
+use crate::subscribers::superconsole::timekeeper::Timekeeper;
+use crate::ticker::Tick;
 
 mod commands;
 mod common;
@@ -79,6 +77,7 @@ mod message_renderer;
 mod re;
 pub mod session_info;
 pub(crate) mod system_warning;
+pub mod timekeeper;
 
 pub mod test;
 pub mod timed_list;
@@ -106,34 +105,8 @@ pub struct StatefulSuperConsoleImpl {
     verbosity: Verbosity,
 }
 
-#[derive(Copy, Clone, Dupe, Debug)]
-struct TimeSpeed {
-    speed: f64,
-}
-
-const TIMESPEED_DEFAULT: f64 = 1.0;
-
-impl TimeSpeed {
-    pub(crate) fn new(speed_value: Option<f64>) -> buck2_error::Result<Self> {
-        let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
-
-        if speed <= 0.0 {
-            return Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Time speed cannot be negative!"
-            ));
-        }
-        Ok(TimeSpeed { speed })
-    }
-
-    pub(crate) fn speed(self) -> f64 {
-        self.speed
-    }
-}
-
 pub struct SuperConsoleState {
-    pub current_tick: Tick,
-    time_speed: TimeSpeed,
+    timekeeper: Timekeeper,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole<DebugEventObserverExtra>,
     config: SuperConsoleConfig,
@@ -289,7 +262,7 @@ impl StatefulSuperConsole {
         command_name: &str,
         verbosity: Verbosity,
         expect_spans: bool,
-        replay_speed: Option<f64>,
+        timekeeper: Timekeeper,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
@@ -306,7 +279,7 @@ impl StatefulSuperConsole {
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?,
             verbosity,
             expect_spans,
-            replay_speed,
+            timekeeper,
             config,
             health_check_reports_receiver,
         )
@@ -318,7 +291,7 @@ impl StatefulSuperConsole {
         super_console: SuperConsole,
         verbosity: Verbosity,
         expect_spans: bool,
-        replay_speed: Option<f64>,
+        timekeeper: Timekeeper,
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
@@ -326,7 +299,7 @@ impl StatefulSuperConsole {
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
             state: SuperConsoleState::new(
-                replay_speed,
+                timekeeper,
                 trace_id,
                 verbosity,
                 expect_spans,
@@ -396,7 +369,7 @@ impl StatefulSuperConsole {
 
 impl SuperConsoleState {
     pub fn new(
-        replay_speed: Option<f64>,
+        timekeeper: Timekeeper,
         trace_id: TraceId,
         verbosity: Verbosity,
         expect_spans: bool,
@@ -404,8 +377,7 @@ impl SuperConsoleState {
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
-            current_tick: Tick::now(),
-            time_speed: TimeSpeed::new(replay_speed)?,
+            timekeeper,
             simple_console: SimpleConsole::with_tty(
                 trace_id,
                 verbosity,
@@ -426,6 +398,10 @@ impl SuperConsoleState {
 
     pub fn session_info(&self) -> &SessionInfo {
         self.simple_console.observer.session_info()
+    }
+
+    pub fn tick(&mut self, tick: Tick) {
+        self.timekeeper.tick(tick);
     }
 }
 
@@ -791,7 +767,7 @@ impl StatefulSuperConsoleImpl {
         }
     }
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
-        self.state.current_tick = tick.dupe();
+        self.state.timekeeper.tick(*tick);
         self.try_update_active_warnings();
         self.super_console
             .render(&BuckRootComponent {
@@ -1022,12 +998,15 @@ mod tests {
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
+    use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_events::span::SpanId;
+    use dupe::Dupe;
     use superconsole::testing::SuperConsoleTestingExt;
     use superconsole::testing::assert_frame_contains;
     use superconsole::testing::test_console;
 
     use super::*;
+    use crate::subscribers::superconsole::timekeeper::RealtimeClock;
 
     #[tokio::test]
     async fn test_transfer_state_to_simpleconsole() -> buck2_error::Result<()> {
@@ -1037,7 +1016,10 @@ mod tests {
             "test",
             Verbosity::default(),
             true,
-            None,
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
             None,
             Default::default(),
             None,
@@ -1108,7 +1090,10 @@ mod tests {
             test_console(),
             Verbosity::default(),
             true,
-            Default::default(),
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
             Default::default(),
             None,
         )?;
@@ -1270,7 +1255,10 @@ mod tests {
             test_console(),
             Verbosity::default(),
             true,
-            Default::default(),
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
             Default::default(),
             None,
         )?;

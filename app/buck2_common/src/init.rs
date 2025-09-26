@@ -232,6 +232,7 @@ pub struct ResourceControlConfig {
     pub status: ResourceControlStatus,
     /// A memory threshold that buck2 daemon and workers are allowed to allocate. The units
     /// like `M` and `G` may be used (e.g. 64G,) or also `%` is accepted in this field (e.g. 90%.)
+    /// The percentage is relative to the closest ancestor cgroup with memory.max set, or physical memory if none exists.
     /// The behavior when the combined amount of memory usage of the daemon and workers exceeds this
     /// is that all the processes are killed by OOMKiller.
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.

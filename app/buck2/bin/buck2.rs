@@ -15,7 +15,6 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::SystemTime;
-use std::time::UNIX_EPOCH;
 
 use buck2::exec;
 use buck2::panic;
@@ -103,7 +102,7 @@ fn print_retry() -> anyhow::Result<()> {
 
 fn exec_with_logging(
     trace_id: TraceId,
-    start_time: u64,
+    start_time: SystemTime,
     restarted_trace_id: Option<TraceId>,
     shared: buck2_error::Result<SharedProcessContext>,
     runtime: &mut ClientRuntime,
@@ -113,12 +112,13 @@ fn exec_with_logging(
     let mut events_ctx = EventsCtx::new(Some(recorder), vec![]);
     let (shared, res) = match shared {
         Ok(mut shared) => {
-            let res = exec(ProcessContext::new(
-                trace_id.dupe(),
-                &mut events_ctx,
-                &mut shared,
+            let res = exec(ProcessContext {
+                trace_id: trace_id.dupe(),
+                events_ctx: &mut events_ctx,
+                shared: &mut shared,
                 runtime,
-            ));
+                start_time,
+            });
             (Some(shared), res)
         }
         Err(e) => (None, e.into()),
@@ -182,7 +182,7 @@ fn main() -> ! {
     }
 
     fn main_with_result() -> ExitResult {
-        let start_time = get_unix_timestamp_millis();
+        let start_time = SystemTime::now();
         let first_trace_id = TraceId::from_env_or_new()?;
         let mut runtime = ClientRuntime::new();
         let shared = init_shared_context();
@@ -209,7 +209,7 @@ fn main() -> ! {
     ) -> ExitResult {
         let force_want_restart = shared.force_want_restart;
         let restart = |res| {
-            let restart_start_time = get_unix_timestamp_millis();
+            let restart_start_time = SystemTime::now();
 
             if !force_want_restart && !shared.restarter.should_restart() {
                 tracing::debug!("No restart was requested");
@@ -241,15 +241,6 @@ fn main() -> ! {
         } else {
             initial_result.or_else(restart)
         }
-    }
-
-    pub fn get_unix_timestamp_millis() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis()
-            .try_into()
-            .unwrap()
     }
 
     main_with_result().report()

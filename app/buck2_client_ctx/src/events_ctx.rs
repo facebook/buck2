@@ -47,7 +47,7 @@ use crate::file_tailers::tailers::FileTailers;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::recorder::InvocationRecorder;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber::Tick;
+use crate::ticker::Tick;
 use crate::ticker::Ticker;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example

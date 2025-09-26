@@ -41,7 +41,7 @@ load(
     "@prelude//cxx:runtime_dependency_handling.bzl",
     "RuntimeDependencyHandling",
 )
-load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
+load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "build_transformation_spec_context")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -94,6 +94,10 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load(
+    "@prelude//utils:build_graph_pattern.bzl",
+    "new_build_graph_info",
+)
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
@@ -248,7 +252,18 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
+    cxx_deps = cxx_attr_deps(ctx)
+    build_graph_info = new_build_graph_info(ctx, cxx_deps)
+    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
     compile_flavors = set([CxxCompileFlavor("pic")]) if link_strategy != LinkStrategy("static") else set()
+
+    if transformation_spec_context:
+        transformation_kind = transformation_spec_context.provider.determine_transformation(ctx.label, transformation_spec_context.graph_info)
+        if transformation_kind == TransformationKind("debug"):
+            compile_flavors.add(CxxCompileFlavor("debug"))
+        elif transformation_kind == TransformationKind("optimized"):
+            compile_flavors.add(CxxCompileFlavor("optimized"))
+
     cxx_outs = compile_cxx(
         ctx = ctx,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
@@ -285,7 +300,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     index_stores = [out.index_store for out in cxx_outs if out.index_store]
 
     # Link deps
-    link_deps = linkables(cxx_attr_deps(ctx)) + impl_params.extra_link_deps
+    link_deps = linkables(cxx_deps) + impl_params.extra_link_deps
 
     # Link Groups
     link_group = get_link_group(ctx)
@@ -341,7 +356,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     labels_to_links = FinalLabelsToLinks(
         map = {},
     )
-    transformation_provider = ctx.attrs.transformation_spec[TransformationResultProvider] if (hasattr(ctx.attrs, "transformation_spec") and ctx.attrs.transformation_spec) else None
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
@@ -354,7 +368,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             deps_merged_link_infos,
             frameworks_linkable,
             link_strategy,
-            transformation_provider,
+            transformation_spec_context,
             swiftmodule_linkable,
             prefer_stripped = impl_params.prefer_stripped_objects,
         )
@@ -396,6 +410,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 anonymous = ctx.attrs.anonymous_link_groups,
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
                 public_nodes = public_link_group_nodes,
+                transformation_spec_context = transformation_spec_context,
                 error_handler = impl_params.error_handler,
             )
             link_group_libs_debug_info = linked_link_groups.libs_debug_info
@@ -449,6 +464,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             },
             prefer_stripped = impl_params.prefer_stripped_objects,
             prefer_optimized = False,
+            transformation_spec_context = transformation_spec_context,
         )
 
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
@@ -582,7 +598,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         gnu_use_link_groups,
         link_group_ctx,
         link_strategy,
-        traverse_shared_library_info(shlib_info),
+        traverse_shared_library_info(shlib_info, transformation_provider = transformation_spec_context),
         impl_params.extra_shared_libs,
     )
 

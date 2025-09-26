@@ -45,12 +45,12 @@ use tokio::sync::mpsc::error::TryRecvError;
 
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
+use crate::ticker::Tick;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
@@ -235,7 +235,7 @@ where
         &mut self,
         event: &Arc<BuckEvent>,
     ) -> buck2_error::Result<()> {
-        self.observer.observe(Instant::now(), event).await
+        self.observer.observe(event).await
     }
 
     fn notify_printed(&mut self) {

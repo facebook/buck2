@@ -412,6 +412,7 @@ impl CommandKind {
             events_ctx,
             shared,
             runtime,
+            start_time,
         } = process;
 
         let runtime = runtime.get_or_init()?;
@@ -437,6 +438,7 @@ impl CommandKind {
             paths,
             shared.working_dir.clone(),
             common_opts.verbosity,
+            start_time,
             start_in_process_daemon,
             argv,
             trace_id.dupe(),

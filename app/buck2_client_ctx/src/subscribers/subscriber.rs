@@ -9,34 +9,14 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_events::BuckEvent;
-use dupe::Dupe;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::exit_result::ExitResult;
 use crate::subscribers::observer::ErrorObserver;
-
-/// Information about tick timing.
-#[derive(Debug, Clone, Dupe)]
-pub struct Tick {
-    /// The time that the ticker was started.
-    pub start_time: Instant,
-    /// Elapsed time since the ticker was started for this tick.
-    pub(crate) elapsed_time: Duration,
-}
-
-impl Tick {
-    pub(crate) fn now() -> Tick {
-        Self {
-            start_time: Instant::now(),
-            elapsed_time: Duration::ZERO,
-        }
-    }
-}
+use crate::ticker::Tick;
 
 /// Visitor trait.  Implement this to subscribe to the event streams.
 /// Each method will be called whenever an event occurs.

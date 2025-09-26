@@ -365,16 +365,25 @@ def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, librar
 
 ClasspathSnapshotGranularity = enum("CLASS_LEVEL", "CLASS_MEMBER_LEVEL")
 
-def generate_java_classpath_snapshot(actions: AnalysisActions, snapshot_generator: Dependency | None, granularity: ClasspathSnapshotGranularity, library: Artifact, action_identifier: str | None) -> Artifact | None:
+def generate_java_classpath_snapshot(
+        actions: AnalysisActions,
+        snapshot_generator: Dependency | None,
+        granularity: ClasspathSnapshotGranularity,
+        library: Artifact,
+        action_identifier: str | None,
+        uses_content_based_path: bool) -> Artifact | None:
     if not snapshot_generator:
         return None
     identifier = (
         "{}_".format(action_identifier) if action_identifier else ""
     ) + library.short_path.replace("/", "_").split(".")[0]
-    output = actions.declare_output("{}_jar_snapshot_{}.bin".format(
-        identifier,
-        "cl" if ClasspathSnapshotGranularity("CLASS_LEVEL") == granularity else "cml",
-    ))
+    output = actions.declare_output(
+        "{}_jar_snapshot_{}.bin".format(
+            identifier,
+            "cl" if ClasspathSnapshotGranularity("CLASS_LEVEL") == granularity else "cml",
+        ),
+        uses_experimental_content_based_path_hashing = uses_content_based_path,
+    )
     actions.run(
         [
             snapshot_generator[RunInfo],

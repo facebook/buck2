@@ -53,6 +53,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] filename: Option<&str>,
         #[starlark(require = named, default = false)] dir: bool,
         #[starlark(require = named, default = false)] uses_experimental_content_based_path_hashing: bool,
+        #[starlark(require = named, default = false)] has_content_based_path: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkDeclaredArtifact<'v>> {
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
@@ -68,11 +69,12 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         } else {
             OutputType::FileOrDirectory
         };
-        let path_resolution_method = if uses_experimental_content_based_path_hashing {
-            BuckOutPathKind::ContentHash
-        } else {
-            BuckOutPathKind::Configuration
-        };
+        let path_resolution_method =
+            if uses_experimental_content_based_path_hashing || has_content_based_path {
+                BuckOutPathKind::ContentHash
+            } else {
+                BuckOutPathKind::Configuration
+            };
         let artifact = this.state()?.declare_output(
             prefix,
             filename,

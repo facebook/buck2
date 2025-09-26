@@ -44,6 +44,8 @@ GoToolchainInfo = provider(
         "linker_flags": provider_field(typing.Any, default = None),
         "packer": provider_field(RunInfo),
         "build_tags": provider_field(list[str], default = []),
+        "asan": provider_field(bool, default = False),
+        "race": provider_field(bool, default = False),
     },
 )
 

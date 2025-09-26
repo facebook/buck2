@@ -9,7 +9,6 @@
  */
 
 use std::collections::HashMap;
-use std::time::Instant;
 
 use buck2_data::ActionExecutionStart;
 use buck2_data::AnalysisEnd;
@@ -192,11 +191,7 @@ impl BuildProgressStateTracker {
         }
     }
 
-    pub fn handle_event(
-        &mut self,
-        _processed_time: Instant,
-        event: &BuckEvent,
-    ) -> buck2_error::Result<()> {
+    pub fn handle_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         let ev = unpack_event(event)?;
 
         self.handle_load(&ev)?;

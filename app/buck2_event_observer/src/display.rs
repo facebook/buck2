@@ -611,9 +611,7 @@ pub fn format_test_result(
         if let Ok(duration) = Duration::try_from(*duration) {
             base.push(Span::new_unstyled(format!(
                 " ({})",
-                // Set time_speed parameter as 1.0 because this is taking the duration of something that was measured somewhere else,
-                // so it doesn't make sense to apply the speed adjustment.
-                fmt_duration::fmt_duration(duration, 1.0)
+                fmt_duration::fmt_duration(duration)
             ))?);
         }
     }

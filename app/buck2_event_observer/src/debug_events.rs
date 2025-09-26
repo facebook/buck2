@@ -11,7 +11,6 @@
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::time::Duration;
-use std::time::Instant;
 use std::time::SystemTime;
 
 use buck2_data::SpanEndEvent;
@@ -61,27 +60,13 @@ impl DebugEventsState {
         }
     }
 
-    pub fn handle_event(
-        &mut self,
-        start_time: Instant,
-        event: &BuckEvent,
-    ) -> buck2_error::Result<()> {
-        let event_time: SystemTime = event.timestamp();
-        let elapsed = start_time.elapsed();
-        let events_start_time = match self.events_start_time {
-            Some(v) => v,
-            None => {
-                let start_time = event_time - elapsed;
-                self.events_start_time = Some(start_time);
-                start_time
-            }
-        };
-
+    pub fn handle_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         self.event_count += 1;
-        // event_elapsed represents the time from start_time to when this event was timestamped in the server
-        let event_elapsed = event_time.duration_since(events_start_time)?;
-        // if events are being delayed, the real elapsed time will be greater than the "event_elapsed" time
-        let delay = elapsed.checked_sub(event_elapsed).unwrap_or(Duration::ZERO);
+
+        let delay = event
+            .timestamp()
+            .duration_since(SystemTime::now())
+            .unwrap_or(Duration::ZERO);
 
         self.max_delay = std::cmp::max(delay, self.max_delay);
         self.recent_delays.push_back(delay);

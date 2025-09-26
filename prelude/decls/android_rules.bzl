@@ -421,7 +421,7 @@ android_build_config = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } | jvm_common.content_based_path_for_jar_snapshot()
     ),
 )
 
@@ -778,8 +778,10 @@ android_library = prelude_rule(
         jvm_common.k2() |
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
+        jvm_common.kotlincd_content_based_paths() |
         jvm_common.javac() |
         jvm_common.enable_used_classes() |
+        jvm_common.content_based_path_for_jar_snapshot() |
         {
             "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
                 List of classes to remove from the output jar. It only removes classes from the target's own
@@ -959,7 +961,7 @@ android_prebuilt_aar = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
-        }
+        } | jvm_common.content_based_path_for_jar_snapshot()
     ),
 )
 
@@ -1439,6 +1441,7 @@ robolectric_test = prelude_rule(
         jvm_common.annotation_processors() |
         jvm_common.k2() |
         jvm_common.incremental() |
+        jvm_common.kotlincd_content_based_paths() |
         jvm_common.plugins() |
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.javac() |

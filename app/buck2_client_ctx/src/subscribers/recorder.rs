@@ -103,7 +103,7 @@ pub struct InvocationRecorder {
     cli_args: Vec<String>,
     representative_config_flags: Vec<String>,
     isolation_dir: Option<String>,
-    start_time: u64,
+    start_time: SystemTime,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
@@ -280,7 +280,7 @@ impl InvocationRecorder {
     pub fn new(
         trace_id: TraceId,
         restarted_trace_id: Option<TraceId>,
-        start_time: u64,
+        start_time: SystemTime,
         args: Vec<String>,
     ) -> Self {
         Self {
@@ -842,9 +842,18 @@ impl InvocationRecorder {
             command_name: Some(self.command_name.unwrap_or("unknown").to_owned()),
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
-            client_walltime: elapsed_since(self.start_time).try_into().ok(),
+            client_walltime: duration_since(SystemTime::now(), self.start_time)
+                .try_into()
+                .ok(),
             wrapper_start_time: buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
-                .unwrap_or(Some(self.start_time)),
+                .ok()
+                .flatten()
+                .or_else(|| {
+                    self.start_time
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .ok()
+                        .and_then(duration_as_millis)
+                }),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
             persistent_cache_mode: self.persistent_cache_mode.clone(),
@@ -882,65 +891,55 @@ impl InvocationRecorder {
             eden_version: self.eden_version.take(),
             test_info: self.test_info.take(),
             eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
-            max_event_client_delay_ms: self
-                .max_event_client_delay
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            max_event_client_delay_ms: self.max_event_client_delay.and_then(duration_as_millis),
             max_malloc_bytes_active: self.max_malloc_bytes_active.take(),
             max_malloc_bytes_allocated: self.max_malloc_bytes_allocated.take(),
             run_command_failure_count: Some(self.run_command_failure_count),
             event_count: Some(self.event_count),
             time_to_first_action_execution_ms: self
                 .time_to_first_action_execution
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             materialization_output_size: Some(self.materialization_output_size),
             initial_materializer_entries_from_sqlite: self.initial_materializer_entries_from_sqlite,
-            time_to_command_start_ms: self
-                .time_to_command_start
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_command_start_ms: self.time_to_command_start.and_then(duration_as_millis),
             time_to_command_critical_section_ms: self
                 .time_to_command_critical_section
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
-            time_to_first_analysis_ms: self
-                .time_to_first_analysis
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
+            time_to_first_analysis_ms: self.time_to_first_analysis.and_then(duration_as_millis),
             time_to_load_first_build_file_ms: self
                 .time_to_load_first_build_file
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_command_execution_start_ms: self
                 .time_to_first_command_execution_start
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_test_discovery_ms: self
                 .time_to_first_test_discovery
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
-            time_to_first_test_run_ms: self
-                .time_to_first_test_run
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
+            time_to_first_test_run_ms: self.time_to_first_test_run.and_then(duration_as_millis),
             time_to_first_pass_test_result_ms: self
                 .time_to_first_pass_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_fail_test_result_ms: self
                 .time_to_first_fail_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_fatal_test_result_ms: self
                 .time_to_first_fatal_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_skip_test_result_ms: self
                 .time_to_first_skip_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_timeout_test_result_ms: self
                 .time_to_first_timeout_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             time_to_first_unknown_test_result_ms: self
                 .time_to_first_unknown_test_result
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             system_total_memory_bytes: self.system_info.system_total_memory_bytes,
             file_watcher_stats: self.file_watcher_stats.take(),
-            file_watcher_duration_ms: self
-                .file_watcher_duration
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            file_watcher_duration_ms: self.file_watcher_duration.and_then(duration_as_millis),
             time_to_last_action_execution_end_ms: self
                 .time_to_last_action_execution_end
-                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                .and_then(duration_as_millis),
             isolation_dir: self.isolation_dir.take(),
             sink_success_count,
             sink_failure_count,
@@ -1118,10 +1117,10 @@ impl InvocationRecorder {
     fn handle_command_start(
         &mut self,
         command: &buck2_data::CommandStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
-        self.time_to_command_start = Some(elapsed_since(self.start_time));
+        self.time_to_command_start = Some(duration_since(event.timestamp(), self.start_time));
         Ok(())
     }
 
@@ -1182,10 +1181,11 @@ impl InvocationRecorder {
     fn handle_command_critical_start(
         &mut self,
         command: &buck2_data::CommandCriticalStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
-        self.time_to_command_critical_section = Some(elapsed_since(self.start_time));
+        self.time_to_command_critical_section =
+            Some(duration_since(event.timestamp(), self.start_time));
         Ok(())
     }
     fn handle_command_critical_end(
@@ -1200,10 +1200,11 @@ impl InvocationRecorder {
     fn handle_action_execution_start(
         &mut self,
         _action: &buck2_data::ActionExecutionStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         if self.time_to_first_action_execution.is_none() {
-            self.time_to_first_action_execution = Some(elapsed_since(self.start_time));
+            self.time_to_first_action_execution =
+                Some(duration_since(event.timestamp(), self.start_time));
         }
 
         // Increment current in-progress actions counter
@@ -1220,7 +1221,7 @@ impl InvocationRecorder {
     fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         // Decrement current in-progress actions counter
         self.current_in_progress_actions = self.current_in_progress_actions.saturating_sub(1);
@@ -1280,7 +1281,8 @@ impl InvocationRecorder {
             self.run_command_failure_count += 1;
         }
 
-        self.time_to_last_action_execution_end = Some(elapsed_since(self.start_time));
+        self.time_to_last_action_execution_end =
+            Some(duration_since(event.timestamp(), self.start_time));
 
         self.exec_time_ms += get_last_command_execution_time(action).exec_time_ms;
 
@@ -1290,20 +1292,20 @@ impl InvocationRecorder {
     fn handle_analysis_start(
         &mut self,
         _analysis: &buck2_data::AnalysisStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_analysis
-            .get_or_insert_with(|| elapsed_since(self.start_time));
+            .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
         Ok(())
     }
 
     fn handle_load_start(
         &mut self,
         _eval: &buck2_data::LoadBuildFileStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_load_first_build_file
-            .get_or_insert_with(|| elapsed_since(self.start_time));
+            .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
         Ok(())
     }
 
@@ -1330,7 +1332,7 @@ impl InvocationRecorder {
                         self.current_in_progress_remote_actions,
                     );
                     self.time_to_first_command_execution_start
-                        .get_or_insert_with(|| elapsed_since(self.start_time));
+                        .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
                 }
                 Some(buck2_data::re_stage::Stage::WorkerUpload(_))
                 | Some(buck2_data::re_stage::Stage::WorkerDownload(_)) => {
@@ -1345,23 +1347,23 @@ impl InvocationRecorder {
                 }
                 _ => {}
             },
-            Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
-                match &local_stage.stage {
-                    Some(buck2_data::local_stage::Stage::Execute(_)) => {
-                        self.executor_stages_by_span
-                            .insert(span_id.into(), ExecutorStageType::LocalAction);
-                        self.current_in_progress_local_actions =
-                            self.current_in_progress_local_actions.saturating_add(1);
-                        self.max_in_progress_local_actions = max(
-                            self.max_in_progress_local_actions,
-                            self.current_in_progress_local_actions,
-                        );
-                        self.time_to_first_command_execution_start
-                            .get_or_insert_with(|| elapsed_since(self.start_time));
-                    }
-                    _ => {}
+            Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => match &local_stage
+                .stage
+            {
+                Some(buck2_data::local_stage::Stage::Execute(_)) => {
+                    self.executor_stages_by_span
+                        .insert(span_id.into(), ExecutorStageType::LocalAction);
+                    self.current_in_progress_local_actions =
+                        self.current_in_progress_local_actions.saturating_add(1);
+                    self.max_in_progress_local_actions = max(
+                        self.max_in_progress_local_actions,
+                        self.current_in_progress_local_actions,
+                    );
+                    self.time_to_first_command_execution_start
+                        .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
                 }
-            }
+                _ => {}
+            },
             _ => {}
         }
         Ok(())
@@ -1503,28 +1505,29 @@ impl InvocationRecorder {
     fn handle_test_discovery_start(
         &mut self,
         _test_discovery: &buck2_data::TestDiscoveryStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_discovery
-            .get_or_insert_with(|| elapsed_since(self.start_time));
+            .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
         Ok(())
     }
 
     fn handle_test_run_start(
         &mut self,
         _test_run: &buck2_data::TestRunStart,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_run
-            .get_or_insert_with(|| elapsed_since(self.start_time));
+            .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
         Ok(())
     }
 
     fn handle_test_result(
         &mut self,
         test_result: &buck2_data::TestResult,
+        event: &BuckEvent,
     ) -> buck2_error::Result<()> {
-        let duration = elapsed_since(self.start_time);
+        let duration = duration_since(event.timestamp(), self.start_time);
         match test_result.status() {
             buck2_data::TestStatus::Pass => {
                 self.time_to_first_pass_test_result.get_or_insert(duration);
@@ -2110,7 +2113,7 @@ impl InvocationRecorder {
                         Ok(())
                     }
                     buck2_data::instant_event::Data::TestResult(result) => {
-                        self.handle_test_result(result)
+                        self.handle_test_result(result, event)
                     }
                     buck2_data::instant_event::Data::MemoryPressure(memory_pressure) => {
                         self.handle_memory_pressure(*memory_pressure)
@@ -2361,18 +2364,18 @@ fn truncate_stderr(stderr: &str) -> &str {
     &stderr[truncate_at..]
 }
 
-fn elapsed_since(start_time: u64) -> Duration {
-    let current_time = SystemTime::now();
-    let buck2_start_time = SystemTime::UNIX_EPOCH + Duration::from_millis(start_time);
+fn duration_since(end_time: SystemTime, start_time: SystemTime) -> Duration {
+    end_time.duration_since(start_time).unwrap_or_default()
+}
 
-    current_time
-        .duration_since(buck2_start_time)
-        .unwrap_or_default()
+fn duration_as_millis(duration: Duration) -> Option<u64> {
+    u64::try_from(duration.as_millis()).ok()
 }
 
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::time::SystemTime;
 
     use buck2_data::InvocationOutcome;
     use buck2_error::ExitCode;
@@ -2397,7 +2400,8 @@ mod tests {
 
     #[test]
     fn test_outcome() {
-        let mut recorder = InvocationRecorder::new(TraceId::new(), None, 0, vec![]);
+        let mut recorder =
+            InvocationRecorder::new(TraceId::new(), None, SystemTime::UNIX_EPOCH, vec![]);
         let exit_result = ExitResult::success();
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
         let err = internal_error!("test");

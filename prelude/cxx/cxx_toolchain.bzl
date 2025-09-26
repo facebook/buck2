@@ -58,6 +58,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
     objc_info = ObjcCompilerInfo(
         compiler = c_compiler,
@@ -76,6 +77,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
         supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
     objcxx_info = ObjcxxCompilerInfo(
         compiler = cxx_compiler,
@@ -296,6 +298,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "shared_library_interface_producer": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
         "strip": dep_type(providers = [RunInfo]),
+        "supports_content_based_paths": attrs.bool(default = False),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "supports_two_phase_compilation": attrs.bool(default = False),
         # Darwin only: the deployment target to use for this build

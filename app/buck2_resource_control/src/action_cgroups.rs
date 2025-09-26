@@ -16,9 +16,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_common::init::ResourceControlConfig;
+use buck2_common::resource_control::CgroupMemoryFile;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use nix::dir::Dir;
 use nix::fcntl::OFlag;
@@ -75,6 +77,9 @@ pub(crate) struct ActionCgroups {
     enable_freezing: bool,
     active_cgroups: HashMap<PathBuf, ActionCgroup>,
     frozen_cgroups: VecDeque<PathBuf>,
+    /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
+    /// memory pressure. Used to restore the limit when all cgroups are unfrozen.
+    original_memory_high: Option<String>,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -146,6 +151,7 @@ impl ActionCgroups {
             enable_freezing,
             active_cgroups: HashMap::new(),
             frozen_cgroups: VecDeque::new(),
+            original_memory_high: None,
         }
     }
 
@@ -225,9 +231,27 @@ impl ActionCgroups {
 
         if pressure_state == MemoryPressureState::AbovePressureLimit {
             self.maybe_freeze();
+
+            // When we are under memory pressure and began freezing actions, we need to reset memory.high to max to prevent throttling unnecessarily.
+            // original_memory_high is used to make sure we don't reset more than once
+            if self.original_memory_high.is_none() && !self.frozen_cgroups.is_empty() {
+                if let Err(e) = self.unset_memory_high() {
+                    let _unused = soft_error!("unset_memory_high_error", e);
+                }
+            }
         }
 
         self.maybe_unfreeze();
+
+        // When we are not under memory pressure and have no frozen actions, lower memory.high so we can react to memory pressure earlier
+        if self.original_memory_high.is_some()
+            && self.frozen_cgroups.is_empty()
+            && pressure_state == MemoryPressureState::BelowPressureLimit
+        {
+            if let Err(e) = self.restore_memory_high() {
+                let _unused = soft_error!("restore_memory_high_error", e);
+            }
+        }
     }
 
     // Currently we freeze the largest cgroup and we keep freezing until only one action is executing.
@@ -295,6 +319,33 @@ impl ActionCgroups {
                 .expect("frozen cgroups must have a freeze file");
             unfreeze_cgroup(freeze_file);
         }
+    }
+
+    /// Removes the memory.high limit from the cgroup slice
+    fn unset_memory_high(&mut self) -> buck2_error::Result<()> {
+        let cgroup_info = CGroupInfo::read()?;
+        let slice_path = cgroup_info.get_slice().ok_or(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Environment,
+            "The closest slice of the daemon cgroup does not exist"
+        ))?;
+        let memory_high = CgroupMemoryFile::MemoryHigh.read(slice_path)?;
+        self.original_memory_high = Some(memory_high);
+        CgroupMemoryFile::MemoryHigh.set(slice_path, "max")?;
+
+        Ok(())
+    }
+
+    /// Restores the original memory.high limit to the cgroup slice
+    fn restore_memory_high(&mut self) -> buck2_error::Result<()> {
+        if let Some(original_memory_high) = self.original_memory_high.take() {
+            let cgroup_info = CGroupInfo::read()?;
+            let slice_path = cgroup_info.get_slice().ok_or(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "The closest slice of the daemon cgroup does not exist"
+            ))?;
+            CgroupMemoryFile::MemoryHigh.set(slice_path, &original_memory_high)?;
+        }
+        Ok(())
     }
 }
 

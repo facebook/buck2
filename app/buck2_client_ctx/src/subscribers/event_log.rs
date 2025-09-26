@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_common::argv::SanitizedArgv;
@@ -20,7 +21,7 @@ use buck2_event_log::write::WriteEventLog;
 use buck2_events::BuckEvent;
 
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber::Tick;
+use crate::ticker::Tick;
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
@@ -36,6 +37,7 @@ impl EventLog {
         extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
         command_name: String,
+        start_time: SystemTime,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         retained_event_logs: usize,
     ) -> EventLog {
@@ -47,6 +49,7 @@ impl EventLog {
                 extra_user_event_log_path,
                 sanitized_argv,
                 command_name,
+                start_time,
                 log_size_counter_bytes,
                 retained_event_logs,
             ),

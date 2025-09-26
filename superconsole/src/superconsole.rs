@@ -170,6 +170,11 @@ impl SuperConsole {
     }
 
     fn size(&self) -> anyhow::Result<Dimensions> {
+        if let Ok(width) = std::env::var("SUPERCONSOLE_TESTING_WIDTH") {
+            let width: usize = width.parse()?;
+            let height = std::env::var("SUPERCONSOLE_TESTING_HEIGHT")?.parse()?;
+            return Ok(Dimensions::new(width, height));
+        }
         // We want to get the size, but if that fails or is empty use the fallback_size if available.
         match (self.output.terminal_size(), self.fallback_size) {
             (Ok(size), Some(fallback)) if size.width == 0 || size.height == 0 => Ok(fallback),

@@ -19,7 +19,7 @@ load(
     "value_or",
 )
 load(":compile.bzl", "GoTestInfo")
-load(":link.bzl", "link")
+load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
@@ -37,8 +37,6 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
-        race = ctx.attrs._race,
-        asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
@@ -47,10 +45,9 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         lib,
         deps = ctx.attrs.deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
+        build_mode = GoBuildMode(value_or(ctx.attrs.build_mode, "exe")),
         linker_flags = ctx.attrs.linker_flags,
         link_mode = ctx.attrs.link_mode,
-        race = ctx.attrs._race,
-        asan = ctx.attrs._asan,
         external_linker_flags = ctx.attrs.external_linker_flags,
     )
 

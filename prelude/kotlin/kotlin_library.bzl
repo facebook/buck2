@@ -495,6 +495,7 @@ def build_kotlin_library(
                 "source_only_abi_deps": ctx.attrs.source_only_abi_deps,
                 "srcs": srcs,
                 "target_level": target_level,
+                "uses_content_based_path_for_jar_snapshot": getattr(ctx.attrs, "uses_content_based_path_for_jar_snapshot", False),
             }
 
             outputs, proto = create_jar_artifact_kotlincd(
@@ -502,6 +503,7 @@ def build_kotlin_library(
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
+                uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
                 bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
                 should_kosabi_jvm_abi_gen_use_k2 = getattr(ctx.attrs, "should_kosabi_jvm_abi_gen_use_k2", False),
                 **common_kotlincd_kwargs
@@ -539,7 +541,7 @@ def build_kotlin_library(
                         optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
                         incremental = False,
-                        ksp2_enable_incremental_processing_override = False,
+                        uses_content_based_paths = False,
                         bootclasspath_snapshot_entries = [],
                         **common_kotlincd_kwargs
                     )

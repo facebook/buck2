@@ -15,6 +15,7 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.java.ActionMetadata;
+import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlinSourceChanges;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.google.common.collect.ImmutableList;
 import java.util.Optional;
@@ -78,8 +79,7 @@ public class KotlincModeFactory {
           rootProjectDir,
           buildDir,
           kotlicWorkingDir,
-          KotlinSourceChangesFactory.create(
-              rootProjectDir, new SourceFilesActionMetadata(metadata)),
+          KotlinSourceChanges.ToBeCalculated.INSTANCE,
           ClasspathChangesFactory.create(new JarsActionMetadata(metadata), classpathSnapshots),
           depFile,
           incrementalCompilationValidator.validate(

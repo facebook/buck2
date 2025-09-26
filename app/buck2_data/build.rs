@@ -138,6 +138,10 @@ fn main() -> io::Result<()> {
             "#[serde(with = \"crate::serialize_timestamp\")]",
         )
         .field_attribute(
+            "start_time",
+            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+        )
+        .field_attribute(
             "duration",
             "#[serde(rename = \"duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
@@ -240,16 +244,16 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .field_attribute(
+            "buck.data.Invocation.expanded_command_line_args",
+            "#[serde(default)]",
+        )
+        .field_attribute(
             "buck.data.CommandExecutionMetadata.wall_time",
             "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.execution_time",
             "#[serde(rename = \"execution_time_us\", with = \"crate::serialize_duration_as_micros\")]",
-        )
-        .field_attribute(
-            "buck.data.CommandExecutionMetadata.start_time",
-            "#[serde(with = \"crate::serialize_timestamp\")]",
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.input_materialization_duration",

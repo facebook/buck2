@@ -297,6 +297,7 @@ java_library = prelude_rule(
         jvm_common.plugins() |
         jvm_common.multi_release_jar() |
         jvm_common.javac() |
+        jvm_common.content_based_path_for_jar_snapshot() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -439,7 +440,7 @@ java_test = prelude_rule(
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         }
-    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes(),
+    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.content_based_path_for_jar_snapshot(),
 )
 
 java_test_runner = prelude_rule(
@@ -544,7 +545,7 @@ prebuilt_jar = prelude_rule(
                 # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
                 "DEFAULT": False,
             })),
-        }
+        } | jvm_common.content_based_path_for_jar_snapshot()
     ),
 )
 

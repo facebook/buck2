@@ -29,6 +29,8 @@ Options:
       --speed <NUMBER>
           Control the playback speed using a float (i.e. 0.5, 2, etc)
 
+          [default: 1.0]
+
       --preload
           Preload the event log. This is typically only useful for benchmarking
 

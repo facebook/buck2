@@ -9,7 +9,6 @@
  */
 
 use std::hash::Hash;
-use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -130,20 +129,20 @@ impl ArtifactValue {
 
         match &self.entry {
             ActionDirectoryEntry::Dir(d) => {
-                ContentBasedPathHash::new(d.fingerprint().data().to_string())
+                ContentBasedPathHash::new(d.fingerprint().data().raw_digest().as_bytes())
             }
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                ContentBasedPathHash::new(f.digest.data().to_string())
+                ContentBasedPathHash::new(f.digest.data().raw_digest().as_bytes())
             }
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                 let mut hasher = Blake3StrongHasher::new();
                 s.target().hash(&mut hasher);
-                ContentBasedPathHash::new(format!("{:016x}", hasher.finish()))
+                ContentBasedPathHash::new(hasher.finalize().as_bytes())
             }
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
                 let mut hasher = Blake3StrongHasher::new();
                 s.hash(&mut hasher);
-                ContentBasedPathHash::new(format!("{:016x}", hasher.finish()))
+                ContentBasedPathHash::new(hasher.finalize().as_bytes())
             }
         }
         .expect("Constructed valid content-based path hash")

@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::SystemTime;
 
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::restarter::Restarter;
@@ -26,6 +27,7 @@ pub struct ProcessContext<'a> {
     pub events_ctx: &'a mut EventsCtx,
     pub shared: &'a mut SharedProcessContext,
     pub runtime: &'a mut ClientRuntime,
+    pub start_time: SystemTime,
 }
 
 // Process context shared with restarted commands.
@@ -36,22 +38,6 @@ pub struct SharedProcessContext {
     pub args: Vec<String>,
     pub restarter: Restarter,
     pub force_want_restart: bool,
-}
-
-impl<'a> ProcessContext<'a> {
-    pub fn new(
-        trace_id: TraceId,
-        events_ctx: &'a mut EventsCtx,
-        shared: &'a mut SharedProcessContext,
-        runtime: &'a mut ClientRuntime,
-    ) -> Self {
-        Self {
-            trace_id,
-            events_ctx,
-            shared,
-            runtime,
-        }
-    }
 }
 
 pub struct ClientRuntime(pub OnceLock<Runtime>);

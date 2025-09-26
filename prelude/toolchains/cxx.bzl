@@ -190,12 +190,14 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = cxx_tools_info.compiler_type,
                 supports_two_phase_compilation = supports_two_phase_compilation,
+                supports_content_based_paths = ctx.attrs.supports_content_based_paths,
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
                 compiler_type = cxx_tools_info.compiler_type,
+                supports_content_based_paths = ctx.attrs.supports_content_based_paths,
             ),
             as_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
@@ -249,6 +251,7 @@ system_cxx_toolchain = rule(
         "post_link_flags": attrs.list(attrs.arg(), default = []),
         "rc_compiler": attrs.option(attrs.string(), default = None),
         "rc_flags": attrs.list(attrs.arg(), default = []),
+        "supports_content_based_paths": attrs.bool(default = False),
         "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
         "_target_os_type": buck.target_os_type_arg(),
     },

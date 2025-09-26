@@ -91,8 +91,7 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = build_bootclasspath(custom_bootclasspath, source_level, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
-    # TODO(T219919866) remove this once we support content-based paths for anon targets
-    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", True) and java_toolchain.uses_experimental_content_based_path_hashing
+    uses_experimental_content_based_path_hashing = java_toolchain.uses_experimental_content_based_path_hashing
 
     should_create_class_abi = (
         not additional_compiled_srcs and
@@ -197,7 +196,7 @@ def create_jar_artifact_javacd(
             uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
         )
 
-        abi_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
+        abi_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier, getattr(ctx.attrs, "uses_content_based_path_for_jar_snapshot", False))
         result = make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -212,7 +211,7 @@ def create_jar_artifact_javacd(
             used_jars_json = used_jars_json,
         )
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
+        full_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier, getattr(ctx.attrs, "uses_content_based_path_for_jar_snapshot", False))
         result = make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,

@@ -77,7 +77,7 @@ public class KosabiStubgenStep extends KotlincStep {
         extraArguments,
         verboseModeOnlyExtraArguments,
         outputPaths,
-        trackClassUsage,
+        false, // trackClassUsage
         configuredBuckOut,
         resolvedKosabiPluginOptionPath,
         kosabiJvmAbiGenEarlyTerminationMessagePrefix,

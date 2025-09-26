@@ -9,7 +9,6 @@
  */
 
 use std::sync::Arc;
-use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
@@ -64,12 +63,8 @@ where
         }
     }
 
-    pub async fn observe(
-        &mut self,
-        receive_time: Instant,
-        event: &Arc<BuckEvent>,
-    ) -> buck2_error::Result<()> {
-        self.span_tracker.handle_event(receive_time, event)?;
+    pub async fn observe(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
+        self.span_tracker.handle_event(event)?;
 
         {
             use buck2_data::buck_event::Data::*;
@@ -143,7 +138,7 @@ where
             }
         }
 
-        self.extra.observe(receive_time, event)?;
+        self.extra.observe(event)?;
 
         Ok(())
     }
@@ -192,8 +187,7 @@ where
 pub trait EventObserverExtra: Send {
     fn new() -> Self;
 
-    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>)
-    -> buck2_error::Result<()>;
+    fn observe(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()>;
 }
 
 /// This has more fields for debug info. We don't always capture those.
@@ -210,13 +204,9 @@ impl EventObserverExtra for DebugEventObserverExtra {
         }
     }
 
-    fn observe(
-        &mut self,
-        receive_time: Instant,
-        event: &Arc<BuckEvent>,
-    ) -> buck2_error::Result<()> {
-        self.debug_events.handle_event(receive_time, event)?;
-        self.progress_state.handle_event(receive_time, event)?;
+    fn observe(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
+        self.debug_events.handle_event(event)?;
+        self.progress_state.handle_event(event)?;
 
         Ok(())
     }
@@ -239,11 +229,7 @@ impl EventObserverExtra for NoopEventObserverExtra {
         Self
     }
 
-    fn observe(
-        &mut self,
-        _receive_time: Instant,
-        _event: &Arc<BuckEvent>,
-    ) -> buck2_error::Result<()> {
+    fn observe(&mut self, _event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         // Noop
         Ok(())
     }

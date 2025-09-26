@@ -25,7 +25,7 @@ load(
 load(
     "@prelude//cxx:transformation_spec.bzl",
     "TransformationKind",
-    "TransformationResultProvider",  # @unused Used as a type
+    "TransformationSpecContext",  # @unused Used as a type
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -781,7 +781,7 @@ def get_link_args_for_strategy(
         deps_merged_link_infos: list[MergedLinkInfo],
         link_strategy: LinkStrategy,
         prefer_stripped: bool,
-        transformation_provider: TransformationResultProvider | None,
+        transformation_spec_context: TransformationSpecContext | None,
         additional_link_info: [LinkInfo, None] = None) -> LinkArgs:
     """
     Derive the `LinkArgs` for a strategy and strip preference from a list of dependency's MergedLinkInfo.
@@ -805,11 +805,11 @@ def get_link_args_for_strategy(
         ),
     )
 
-    if transformation_provider and not transformation_provider.is_empty:
+    if transformation_spec_context and not transformation_spec_context.provider.is_empty:
         flattened_results = []
         for link_infos in infos.traverse():
             link_info = get_link_info_for_transformation(
-                transformation_provider,
+                transformation_spec_context,
                 link_infos,
                 link_infos.label,
                 prefer_stripped,
@@ -827,13 +827,13 @@ def get_link_args_for_strategy(
         ),
     )
 
-def get_link_info_for_transformation(transformation_provider: TransformationResultProvider, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+def get_link_info_for_transformation(transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
     if prefer_stripped:
         return link_infos.stripped or link_infos.default
 
     info = link_infos.default
     if label:
-        transformation_kind = transformation_provider.determine_transformation(label)
+        transformation_kind = transformation_spec_context.provider.determine_transformation(label, transformation_spec_context.graph_info)
         if transformation_kind:
             if transformation_kind == TransformationKind("debug"):
                 info = link_infos.debuggable

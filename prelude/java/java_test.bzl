@@ -200,7 +200,7 @@ def _get_native_libs_env(ctx: AnalysisContext) -> dict:
     cxx_library_symlink_tree = create_shlib_symlink_tree(
         actions = ctx.actions,
         out = "cxx_library_symlink_tree",
-        shared_libs = traverse_shared_library_info(shared_library_info),
+        shared_libs = traverse_shared_library_info(shared_library_info, transformation_provider = None),
     )
 
     return {"BUCK_LD_SYMLINK_TREE": cxx_library_symlink_tree}

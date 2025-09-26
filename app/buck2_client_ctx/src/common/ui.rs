@@ -28,6 +28,7 @@ use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::BUCK_NO_INTERACTIVE_CONSOLE;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
+use crate::subscribers::superconsole::timekeeper::Timekeeper;
 
 #[derive(
     Debug,
@@ -54,7 +55,7 @@ pub fn get_console_with_root(
     console_type: ConsoleType,
     verbosity: Verbosity,
     expect_spans: bool,
-    replay_speed: Option<f64>,
+    timekeeper: Timekeeper,
     command_name: &str,
     config: SuperConsoleConfig,
     health_check_display_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
@@ -87,7 +88,7 @@ pub fn get_console_with_root(
             command_name,
             verbosity,
             expect_spans,
-            replay_speed,
+            timekeeper,
             None,
             config,
             health_check_display_reports_receiver,
@@ -104,7 +105,7 @@ pub fn get_console_with_root(
                     sc,
                     verbosity,
                     expect_spans,
-                    replay_speed,
+                    timekeeper,
                     config,
                     health_check_display_reports_receiver,
                 )

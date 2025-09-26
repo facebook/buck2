@@ -68,8 +68,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
-        race = ctx.attrs._race,
-        asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
@@ -83,8 +81,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static_pic")),
             linker_flags = ctx.attrs.linker_flags,
             external_linker_flags = ctx.attrs.external_linker_flags,
-            race = ctx.attrs._race,
-            asan = ctx.attrs._asan,
         )
         return exp_lib
 

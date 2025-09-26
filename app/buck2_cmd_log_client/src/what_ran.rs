@@ -461,9 +461,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                     reason: command.reason,
                     identity: command.identity,
                     reproducer,
-                    duration: command
-                        .duration
-                        .map(|duration| fmt_duration::fmt_duration(duration, 1.0)),
+                    duration: command.duration.map(fmt_duration::fmt_duration),
                     extra: command.extra.map(Into::into),
                     std_err,
                     scheduling_mode: command.scheduling_mode,

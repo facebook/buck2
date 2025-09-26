@@ -284,7 +284,7 @@ impl Action for WriteAction {
                             &content,
                             ctx.digest_config().cas_digest_config(),
                         );
-                        Some(ContentBasedPathHash::new(digest.to_string())?)
+                        Some(ContentBasedPathHash::new(digest.raw_digest().as_bytes())?)
                     } else {
                         None
                     }

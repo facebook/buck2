@@ -47,14 +47,17 @@ GoPkgLinkInfo = provider(fields = {
 })
 
 GoBuildMode = enum(
-    "executable",  # non-pic executable
+    "exe",  # non-pic executable
+    "pie",  # pic executable
     "c_shared",  # pic C-shared library
     "c_archive",  # pic C-static library
 )
 
 def _build_mode_param(mode: GoBuildMode) -> str:
-    if mode == GoBuildMode("executable"):
+    if mode == GoBuildMode("exe"):
         return "exe"
+    if mode == GoBuildMode("pie"):
+        return "pie"
     if mode == GoBuildMode("c_shared"):
         return "c-shared"
     if mode == GoBuildMode("c_archive"):
@@ -85,7 +88,7 @@ def _process_shared_dependencies(
         ctx.actions,
         deps = filter_and_map_idx(SharedLibraryInfo, deps),
     )
-    shared_libs = traverse_shared_library_info(shlib_info)
+    shared_libs = traverse_shared_library_info(shlib_info, transformation_provider = None)
 
     return executable_shared_lib_arguments(
         ctx,
@@ -99,13 +102,11 @@ def link(
         main: GoPkg,
         pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
-        build_mode: GoBuildMode = GoBuildMode("executable"),
+        build_mode: GoBuildMode = GoBuildMode("exe"),
         link_mode: [str, None] = None,
         link_style: LinkStyle = LinkStyle("static"),
         linker_flags: list[typing.Any] = [],
-        external_linker_flags: list[typing.Any] = [],
-        race: bool = False,
-        asan: bool = False):
+        external_linker_flags: list[typing.Any] = []):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
@@ -124,7 +125,11 @@ def link(
         file_extension = archive_extension
         use_shared_code = True  # PIC
         link_style = LinkStyle("static_pic")
-    else:  # GoBuildMode("executable")
+    elif build_mode == GoBuildMode("pie"):
+        file_extension = executable_extension
+        use_shared_code = True  # PIC
+        link_style = LinkStyle("static_pic")
+    else:  # GoBuildMode("exe")
         file_extension = executable_extension
         use_shared_code = False  # non-PIC
     final_output_name = ctx.label.name + file_extension
@@ -139,10 +144,10 @@ def link(
     cmd.add("-buildmode=" + _build_mode_param(build_mode))
     cmd.add("-buildid=")  # Setting to a static buildid helps make the binary reproducible.
 
-    if race:
+    if go_toolchain.race:
         cmd.add("-race")
 
-    if asan:
+    if go_toolchain.asan:
         cmd.add("-asan")
 
     # Add inherited Go pkgs to library search path.
@@ -179,7 +184,7 @@ def link(
             cxx_inherited_link_info(deps),
             to_link_strategy(link_style),
             prefer_stripped = False,
-            transformation_provider = None,
+            transformation_spec_context = None,
         )
         ext_link_args_output = make_link_args(
             ctx,

@@ -265,7 +265,7 @@ def generate_rustdoc_test(
             ctx.actions,
             deps = inherited_shared_libs(ctx, doc_dep_ctx),
         )
-        shared_libs.extend(traverse_shared_library_info(shlib_info))
+        shared_libs.extend(traverse_shared_library_info(shlib_info, transformation_provider = None))
     executable_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
@@ -306,7 +306,7 @@ def generate_rustdoc_test(
                 )] + inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
                 params.dep_link_strategy,
                 prefer_stripped = False,
-                transformation_provider = None,
+                transformation_spec_context = None,
             ),
         ],
     )
@@ -563,7 +563,7 @@ def rust_compile(
                 link_strategy = params.dep_link_strategy,
                 swiftmodule_linkable = None,
                 prefer_stripped = False,
-                transformation_provider = None,
+                transformation_spec_context = None,
             )
 
         if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):

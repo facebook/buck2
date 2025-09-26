@@ -13,6 +13,8 @@ use std::ffi::OsString;
 use std::ops::ControlFlow;
 use std::process::Command;
 use std::sync::Arc;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -100,6 +102,58 @@ use crate::incremental_actions_helper::get_incremental_path_map;
 use crate::incremental_actions_helper::save_content_based_incremental_state;
 use crate::sqlite::incremental_state_db::IncrementalDbState;
 
+pub struct LocalActionCounter {
+    curr_count: AtomicI32,
+    prev_sent: AtomicI32,
+}
+
+impl LocalActionCounter {
+    pub fn new() -> Arc<Self> {
+        let counter = Arc::new(Self {
+            curr_count: AtomicI32::new(0),
+            prev_sent: AtomicI32::new(0),
+        });
+
+        let state = counter.dupe();
+
+        match get_dispatcher_opt() {
+            Some(dispatcher) => {
+                tokio::task::spawn(async move {
+                    counter.log_loop(&dispatcher).await;
+                });
+            }
+            None => info!("No dispatcher available"),
+        };
+
+        state
+    }
+
+    fn increment(&self) {
+        self.curr_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn decrement(&self) {
+        self.curr_count.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub async fn log_loop(&self, dispatcher: &EventDispatcher) {
+        info!("Starting local action counter logging loop");
+        let mut timer = tokio::time::interval(Duration::from_secs(1));
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            timer.tick().await;
+            let count = self.curr_count.load(Ordering::Relaxed);
+            let prev_value = self.prev_sent.swap(count, Ordering::Relaxed);
+
+            if prev_value != count {
+                dispatcher.instant_event(buck2_data::LocalActionRunningCount {
+                    count: count as u32,
+                });
+            }
+        }
+    }
+}
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
 enum LocalExecutionError {
@@ -123,6 +177,7 @@ pub struct LocalExecutor {
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
     worker_pool: Option<Arc<WorkerPool>>,
+    local_action_counter: Option<Arc<LocalActionCounter>>,
 }
 
 impl LocalExecutor {
@@ -136,6 +191,7 @@ impl LocalExecutor {
         forkserver: Option<ForkserverClient>,
         knobs: ExecutorGlobalKnobs,
         worker_pool: Option<Arc<WorkerPool>>,
+        local_action_counter: Option<Arc<LocalActionCounter>>,
     ) -> Self {
         Self {
             artifact_fs,
@@ -147,6 +203,7 @@ impl LocalExecutor {
             forkserver,
             knobs,
             worker_pool,
+            local_action_counter,
         }
     }
 
@@ -166,9 +223,13 @@ impl LocalExecutor {
         command_type: CommandType,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
+            if let Some(counter) = self.local_action_counter.as_ref() {
+                counter.increment()
+            }
+
             let working_directory = self.root.join_cow(working_directory);
 
-            match &self.forkserver {
+            let result = match &self.forkserver {
                 Some(forkserver) => {
                     #[cfg(unix)]
                     {
@@ -221,7 +282,13 @@ impl LocalExecutor {
                     gather_output(cmd, cancellation).await
                 }
                 .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
+            };
+
+            if let Some(counter) = self.local_action_counter.as_ref() {
+                counter.decrement();
             }
+
+            result
         }
     }
 
@@ -1554,6 +1621,7 @@ mod tests {
             temp.path().root().to_buf(),
             None,
             ExecutorGlobalKnobs::default(),
+            None,
             None,
         );
 

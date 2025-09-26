@@ -22,12 +22,15 @@ RustAnalyzerInfo = provider(
         "crate": CrateName,
         # The root source for the rust target (typically lib.rs, main.rs), relative to the buck target file.
         "crate_root": str,
+        "edition": str,
         # The processed env as produced by the buck build prelude. Some env vars like `OUT_DIR` and `CARGO_MANIFEST_DIR`
         # will be made into absolute paths.
         "env": dict[str, cmd_args],
+        "features": list[str],
         # The list of rust deps needed for RustAnalyzer to function. Namely, this excludes things like
         # exec deps used as inputs to genrules and other non-rust dependencies.
         "rust_deps": list[Dependency],
+        "rustc_flags": cmd_args,
         # The list of recursive rust dependencies for this target, including proc macros. Useful for
         # identifying the targets needing to be collected into Rust Analyzer's crate graph. Notably,
         # excludes rust dependencies that are used in build tools (e.g. build scripts).
@@ -71,16 +74,30 @@ def _compute_env(
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, False)
     return plain_env | path_env
 
+def _compute_rustc_flags(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext) -> cmd_args:
+    toolchain_info = compile_ctx.toolchain_info
+    return cmd_args(
+        toolchain_info.rustc_flags,
+        ctx.attrs.rustc_flags,
+        toolchain_info.extra_rustc_flags,
+    )
+
 def rust_analyzer_provider(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         default_roots: list[str]) -> RustAnalyzerInfo:
+    toolchain_info = compile_ctx.toolchain_info
     rust_deps = _compute_rust_deps(ctx, compile_ctx.dep_ctx)
     return RustAnalyzerInfo(
         available_proc_macros = get_available_proc_macros(ctx).values(),
         crate = attr_crate(ctx),
         crate_root = crate_root(ctx, default_roots),
+        edition = ctx.attrs.edition or toolchain_info.default_edition,
         env = _compute_env(ctx, compile_ctx),
+        features = ctx.attrs.features,
         rust_deps = rust_deps,
+        rustc_flags = _compute_rustc_flags(ctx, compile_ctx),
         transitive_target_set = _compute_transitive_target_set(ctx, rust_deps),
     )

@@ -8,13 +8,14 @@
  * above-listed licenses.
  */
 
+use std::str::FromStr;
+use std::time::SystemTime;
+
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use itertools::Itertools;
-use serde::Deserialize;
-use serde::Serialize;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum EventLogErrors {
@@ -130,17 +131,16 @@ pub(crate) enum Compression {
     Zstd,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Invocation {
     pub command_line_args: Vec<String>,
     /// Command line args with expanded `@` args.
-    #[serde(default)] // For backwards compatibility. Delete after 2023-08-01.
     pub expanded_command_line_args: Vec<String>,
     /// This is `String` not `AbsPathBuf` because event log is cross-platform
     /// and `AbsPathBuf` is not.
     pub working_dir: String,
-    #[serde(default = "TraceId::null")]
     pub trace_id: TraceId,
+    pub start_time: SystemTime,
 }
 
 impl Invocation {
@@ -155,14 +155,42 @@ impl Invocation {
     }
 
     pub(crate) fn parse_json_line(json: &str) -> buck2_error::Result<Invocation> {
-        serde_json::from_str::<Invocation>(json)
-            .with_buck_error_context(|| format!("Invalid header: {}", json.trim_end()))
+        let i = serde_json::from_str::<buck2_data::Invocation>(json)
+            .with_buck_error_context(|| format!("Invalid header: {}", json.trim_end()))?;
+        Ok(Invocation::from_proto(i))
+    }
+
+    pub fn to_proto(self) -> buck2_data::Invocation {
+        buck2_data::Invocation {
+            command_line_args: self.command_line_args.clone(),
+            expanded_command_line_args: self.expanded_command_line_args.clone(),
+            working_dir: self.working_dir.clone(),
+            trace_id: Some(self.trace_id.to_string()),
+            start_time: Some(self.start_time.into()),
+        }
+    }
+
+    pub(crate) fn from_proto(proto: buck2_data::Invocation) -> Self {
+        Invocation {
+            command_line_args: proto.command_line_args,
+            expanded_command_line_args: proto.expanded_command_line_args,
+            working_dir: proto.working_dir,
+            trace_id: proto
+                .trace_id
+                .and_then(|s| TraceId::from_str(&s).ok())
+                .unwrap_or(TraceId::null()),
+            start_time: proto
+                .start_time
+                .and_then(|t| t.try_into().ok())
+                .unwrap_or(SystemTime::UNIX_EPOCH),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use std::time::SystemTime;
 
     use buck2_wrapper_common::invocation_id::TraceId;
 
@@ -183,6 +211,7 @@ mod tests {
             working_dir: "/Users/nga/dir45".to_owned(),
             expanded_command_line_args: Vec::new(),
             trace_id: TraceId::from_str("281d1c16-8930-40cd-8fc1-7d71355c20f5").unwrap(),
+            start_time: SystemTime::UNIX_EPOCH,
         };
         assert_eq!(expected, line);
     }

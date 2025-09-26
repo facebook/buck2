@@ -60,6 +60,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
         let mut this = this.state()?;
@@ -67,7 +68,9 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             eval,
             output,
             OutputType::File,
-            uses_experimental_content_based_path_hashing.into_option(),
+            uses_experimental_content_based_path_hashing
+                .into_option()
+                .or(has_content_based_path.into_option()),
         )?;
 
         let checksum = Checksum::new(sha1.into_option(), sha256.into_option())?;
@@ -112,6 +115,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_directory: bool,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
         let mut registry = this.state()?;
@@ -141,7 +145,9 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             eval,
             output,
             output_type,
-            uses_experimental_content_based_path_hashing.into_option(),
+            uses_experimental_content_based_path_hashing
+                .into_option()
+                .or(has_content_based_path.into_option()),
         )?;
 
         registry.register_action(

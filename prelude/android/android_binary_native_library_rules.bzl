@@ -933,7 +933,7 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
     )
     return {
         soname: shared_lib
-        for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info)).items()
+        for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info, transformation_provider = None)).items()
         if shared_lib.label.raw_target() not in shared_libraries_to_exclude
     }
 

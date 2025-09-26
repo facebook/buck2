@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxInternalTools", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
     ":compile_types.bzl",
@@ -29,24 +29,28 @@ def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolc
 
     return CxxCompilationDbInfo(info = info, toolchain = toolchainInfo, platform = platformInfo)
 
-def create_compilation_database(
-        ctx: AnalysisContext,
+def _comp_database_entry_path(identifier: str, src_path: str) -> str:
+    return paths.join(identifier, "__comp_db__", src_path + ".comp_db.json")
+
+def _create_comp_database_impl(
+        actions: AnalysisActions,
+        internal_tools: CxxInternalTools,
+        identifier: str,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        identifier: str) -> DefaultInfo:
-    mk_comp_db = get_cxx_toolchain_info(ctx).internal_tools.make_comp_db
+        db: OutputArtifact,
+        entries: dict[str, OutputArtifact]) -> list[Provider]:
+    mk_comp_db = internal_tools.make_comp_db
 
     # Generate the per-source compilation DB entries.
-    entries = {}
-    other_outputs = []
-
+    entries_as_input = []
     for src_compile_cmd in src_compile_cmds:
-        cdb_path = paths.join(identifier, "__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
-        if cdb_path not in entries:
-            entry = ctx.actions.declare_output(cdb_path)
+        cdb_path = _comp_database_entry_path(identifier, src_compile_cmd.src.short_path)
+        entry = entries.pop(cdb_path, None)
+        if entry:
             cmd = cmd_args(
                 mk_comp_db,
                 "gen",
-                cmd_args(entry.as_output(), format = "--output={}"),
+                cmd_args(entry, format = "--output={}"),
                 src_compile_cmd.src.basename,
                 cmd_args(src_compile_cmd.src, parent = 1),
                 "--",
@@ -55,23 +59,70 @@ def create_compilation_database(
                 src_compile_cmd.args,
             )
             entry_identifier = paths.join(identifier, src_compile_cmd.src.short_path)
-            ctx.actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
-
-            # Add all inputs the command uses to runtime files.
-            other_outputs.append(cmd)
-            entries[cdb_path] = entry
+            actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
+            entries_as_input.append(entry.as_input())
 
     # Merge all entries into the actual compilation DB.
-    db = ctx.actions.declare_output(paths.join(identifier, "compile_commands.json"))
     cmd = cmd_args(mk_comp_db)
     cmd.add("merge")
-    cmd.add(cmd_args(db.as_output(), format = "--output={}"))
+    cmd.add(cmd_args(db, format = "--output={}"))
+
     cmd.add(at_argfile(
-        actions = ctx.actions,
+        actions = actions,
         name = identifier + ".cxx_comp_db_argsfile",
-        args = entries.values(),
+        args = entries_as_input,
     ))
 
-    ctx.actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
+    actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
+
+    return [DefaultInfo()]
+
+_dynamic_compilation_database_rule = dynamic_actions(
+    impl = _create_comp_database_impl,
+    attrs = {
+        "db": dynattrs.output(),
+        "entries": dynattrs.dict(str, dynattrs.output()),
+        "identifier": dynattrs.value(str),
+        "internal_tools": dynattrs.value(CxxInternalTools),
+        "src_compile_cmds": dynattrs.list(dynattrs.value(CxxSrcCompileCommand)),
+    },
+)
+
+def create_compilation_database(
+        ctx: AnalysisContext,
+        src_compile_cmds: list[CxxSrcCompileCommand],
+        identifier: str) -> DefaultInfo:
+    actions = ctx.actions
+
+    # Generate the per-source compilation DB entries.
+    entries = {}
+    other_outputs = []
+
+    for src_compile_cmd in src_compile_cmds:
+        cdb_path = _comp_database_entry_path(identifier, src_compile_cmd.src.short_path)
+        if cdb_path not in entries:
+            entry = actions.declare_output(cdb_path)
+
+            # Add all inputs the command uses to runtime files.
+            other_outputs.append(entry)
+            other_outputs.append(src_compile_cmd.src)
+            other_outputs.append(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
+            other_outputs.append(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
+            entries[cdb_path] = entry.as_output()
+
+    # Merge all entries into the actual compilation DB.
+    db = actions.declare_output(paths.join(identifier, "compile_commands.json"))
+
+    # We don't have any dynamic inputs here and use dynamic action purely as an optimization
+    # so we don't occupy memory in analysis graph until we actually need compilation database.
+    actions.dynamic_output_new(
+        _dynamic_compilation_database_rule(
+            db = db.as_output(),
+            entries = entries,
+            identifier = identifier,
+            internal_tools = get_cxx_toolchain_info(ctx).internal_tools,
+            src_compile_cmds = src_compile_cmds,
+        ),
+    )
 
     return DefaultInfo(default_output = db, other_outputs = other_outputs)

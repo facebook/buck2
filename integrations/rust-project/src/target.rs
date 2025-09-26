@@ -177,10 +177,16 @@ impl TargetInfo {
         let feature_cfgs = self.features.iter().map(|f| format!("feature=\"{f}\""));
 
         // parse out rustc --cfg= flags
-        let rustc_flags_cfgs = self
-            .rustc_flags
-            .iter()
-            .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_string));
+        let rustc_flags_cfgs = self.rustc_flags.iter().flat_map(|flag| {
+            if let Some(atfile) = flag.strip_prefix("@") {
+                // If we fail to expand, continue anyways to provide a nearly working experience.
+                expand_atfile(Path::new(atfile)).unwrap_or_default()
+            } else if let Some(cfg) = flag.strip_prefix("--cfg=") {
+                vec![cfg.to_owned()]
+            } else {
+                vec![]
+            }
+        });
 
         feature_cfgs
             .chain(rustc_flags_cfgs)
@@ -239,6 +245,14 @@ where
     }
 
     deserializer.deserialize_any(NamedDepsVisitor)
+}
+
+fn expand_atfile(path: &Path) -> Result<Vec<String>, anyhow::Error> {
+    let contents = fs::read_to_string(path)?;
+    let flags = contents
+        .lines()
+        .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_string));
+    Ok(flags.collect::<Vec<String>>())
 }
 
 #[test]

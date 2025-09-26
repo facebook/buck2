@@ -82,12 +82,13 @@ def create_jar_artifact_kotlincd(
         incremental: bool,
         enable_used_classes: bool,
         language_version: str,
-        ksp2_enable_incremental_processing_override: bool | None = None,
+        uses_content_based_paths: bool,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
-        should_kosabi_jvm_abi_gen_use_k2: bool | None = False) -> (JavaCompileOutputs, Artifact):
+        should_kosabi_jvm_abi_gen_use_k2: bool | None = False,
+        uses_content_based_path_for_jar_snapshot: bool = False) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -97,16 +98,17 @@ def create_jar_artifact_kotlincd(
 
     expect(abi_generation_mode != AbiGenerationMode("source"), "abi_generation_mode: source is not supported in kotlincd")
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("none")
+    uses_experimental_content_based_path_hashing = uses_content_based_paths or kotlin_toolchain.allow_experimental_content_based_path_hashing
 
-    output_paths = define_output_paths(actions, actions_identifier, label, uses_experimental_content_based_path_hashing = False)
+    output_paths = define_output_paths(actions, actions_identifier, label, uses_experimental_content_based_path_hashing)
 
     should_create_class_abi = \
         not is_creating_subtarget and \
         (actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary) and \
         kotlin_toolchain.jvm_abi_gen_plugin != None
     if should_create_class_abi:
-        class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar", uses_experimental_content_based_path_hashing = False)
-        class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", uses_experimental_content_based_path_hashing = False, dir = True)
+        class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar", uses_experimental_content_based_path_hashing)
+        class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", uses_experimental_content_based_path_hashing, dir = True)
         jvm_abi_gen = cmd_args(output_paths.jar.as_output(), format = "{}/jvm-abi-gen.jar", parent = 1)
         should_use_jvm_abi_gen = True
     else:
@@ -116,8 +118,8 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = False
 
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
-    should_ksp2_run_incrementally = ksp2_enable_incremental_processing_override if ksp2_enable_incremental_processing_override != None else kotlin_toolchain.ksp2_enable_incremental_processing
-    incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_experimental_content_based_path_hashing = False, dir = True)
+    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental
+    incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_experimental_content_based_path_hashing, dir = True)
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
@@ -138,6 +140,7 @@ def create_jar_artifact_kotlincd(
         track_class_usage,
         compiling_deps_tset,
         debug_port,
+        uses_experimental_content_based_path_hashing,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -204,33 +207,17 @@ def create_jar_artifact_kotlincd(
         should_action_run_incrementally = should_kotlinc_run_incrementally or should_ksp2_run_incrementally,
     )
 
-    if kotlin_toolchain.allow_experimental_content_based_path_hashing:
-        output = declare_prefixed_output(actions, actions_identifier, "content_based_{}.jar".format(label.name), uses_experimental_content_based_path_hashing = True)
-        if should_create_class_abi:
-            content_based_class_abi_jar = declare_prefixed_output(actions, actions_identifier, "content_based_class-abi.jar", uses_experimental_content_based_path_hashing = True)
-            content_based_class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "content_based_class_abi_dir", uses_experimental_content_based_path_hashing = True, dir = True)
-            class_abi_jar = actions.copy_file(
-                content_based_class_abi_jar,
-                class_abi_jar,
-            )
-            class_abi_output_dir = actions.copy_file(
-                content_based_class_abi_output_dir,
-                class_abi_output_dir,
-            )
-    else:
-        output = None
-
     final_jar_output = prepare_final_jar(
         actions = actions,
         actions_identifier = actions_identifier,
-        output = output,
         output_paths = output_paths,
+        output = None,
         additional_compiled_srcs = None,
         jar_builder = java_toolchain.jar_builder,
         jar_postprocessor = jar_postprocessor,
         jar_postprocessor_runner = java_toolchain.postprocessor_runner[RunInfo] if java_toolchain.postprocessor_runner else None,
         zip_scrubber = java_toolchain.zip_scrubber,
-        uses_experimental_content_based_path_hashing = False,
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
     )
 
     if not is_creating_subtarget:
@@ -272,9 +259,9 @@ def create_jar_artifact_kotlincd(
             track_class_usage = True,
             encode_abi_command = abi_command_builder,
             define_action = define_kotlincd_action,
-            uses_experimental_content_based_path_hashing = kotlin_toolchain.allow_experimental_content_based_path_hashing,
+            uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
         )
-        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
+        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier, uses_content_based_path_for_jar_snapshot)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -289,7 +276,7 @@ def create_jar_artifact_kotlincd(
             used_jars_json = used_jars_json,
         ), proto
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
+        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier, uses_content_based_path_for_jar_snapshot)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -450,6 +437,7 @@ def _define_kotlincd_action(
         track_class_usage: bool,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         debug_port: [int, None],
+        uses_experimental_content_based_path_hashing: bool,
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
@@ -507,7 +495,7 @@ def _define_kotlincd_action(
             cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1),
             cmd_args(output_paths.jar.as_output(), format = "{}/kotlin-used-classes.json", parent = 1),
         ]
-        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_experimental_content_based_path_hashing = False)
+        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_experimental_content_based_path_hashing)
         if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset:
             abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
             args.add(incremental_metadata_ignored_inputs.tag_artifacts(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_dirs")))))
@@ -521,7 +509,7 @@ def _define_kotlincd_action(
             used_classes_json_outputs,
             used_jars_json_output,
             abi_to_abi_dir_map,
-            uses_experimental_content_based_path_hashing = False,
+            uses_experimental_content_based_path_hashing,
         )
 
         dep_files["classpath_jars"] = classpath_jars_tag
@@ -531,8 +519,7 @@ def _define_kotlincd_action(
         postBuildParams = post_build_params,
     )
 
-    uses_experimental_content_based_path_hashing = target_type != TargetType("library") and kotlin_toolchain.allow_experimental_content_based_path_hashing
-    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json", uses_experimental_content_based_path_hashing)
     if dep_files:
         # This is a little bit convoluted due to the way that content-based paths affect argfiles.
         # If an unused tagged input changes, we don't want to re-run the action, but if it is a
@@ -543,7 +530,7 @@ def _define_kotlincd_action(
         # and tagged as unused so that it is not used for dep-file comparison, and an argfile
         # that uses placeholders instead of content-based paths, which is not tagged for dep-files
         # and therefore causes a dep-file miss if it changes.
-        proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_dep_files_placeholder.proto.json", uses_experimental_content_based_path_hashing)
 
         proto_for_args = classpath_jars_tag.tag_artifacts(actions.write_json(proto, kotlin_build_command))
         proto_with_inputs_for_dep_files = actions.write_json(proto_dep_files_placeholder, kotlin_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True)
@@ -561,7 +548,7 @@ def _define_kotlincd_action(
     if should_action_run_incrementally:
         args.add(
             "--incremental-metadata-file",
-            _create_incremental_proto(actions, actions_identifier, kotlin_build_command, kotlin_toolchain.kotlin_version),
+            _create_incremental_proto(actions, actions_identifier, kotlin_build_command, kotlin_toolchain.kotlin_version, uses_experimental_content_based_path_hashing),
         )
 
     incremental_run_params = {
@@ -590,8 +577,8 @@ def _define_kotlincd_action(
     )
     return proto, used_jars_json_output
 
-def _create_incremental_proto(actions: AnalysisActions, actions_identifier: [str, None], kotlin_build_command: struct, kotlin_version: str):
-    incremental_meta_data_output = declare_prefixed_output(actions, actions_identifier, "incremental_metadata.proto.json", uses_experimental_content_based_path_hashing = False)
+def _create_incremental_proto(actions: AnalysisActions, actions_identifier: [str, None], kotlin_build_command: struct, kotlin_version: str, uses_experimental_content_based_path_hashing: bool):
+    incremental_meta_data_output = declare_prefixed_output(actions, actions_identifier, "incremental_metadata.proto.json", uses_experimental_content_based_path_hashing)
     incremental_meta_data = struct(
         version = 1,
         track_class_usage = kotlin_build_command.buildCommand.baseJarCommand.trackClassUsage,

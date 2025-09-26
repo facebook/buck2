@@ -141,20 +141,6 @@ def _override_cgo_enabled_arg():
 """),
     }
 
-def _race_arg():
-    return {
-        "race": attrs.bool(default = False, doc = """
-    If true, enable data race detection.
-"""),
-    }
-
-def _asan_arg():
-    return {
-        "asan": attrs.bool(default = False, doc = """
-    If true, enable ASAN.
-"""),
-    }
-
 def _build_tags_arg():
     return {
         "build_tags": attrs.list(attrs.string(), default = [], doc = """
@@ -198,8 +184,6 @@ go_common = struct(
     embedcfg_arg = _embedcfg_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
     override_cgo_enabled_arg = _override_cgo_enabled_arg,
-    race_arg = _race_arg,
-    asan_arg = _asan_arg,
     build_tags_arg = _build_tags_arg,
     cxx_compiler_flags_arg = _cxx_compiler_flags_arg,
     cxx_preprocessor_flags_arg = _cxx_preprocessor_flags_arg,

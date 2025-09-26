@@ -63,7 +63,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in all_deps]),
     )
-    traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
+    traversed_shared_library_info = traverse_shared_library_info(shared_library_info, transformation_provider = None)
 
     cmd, output = _get_base_cmd_and_output(
         ctx.actions,
@@ -126,7 +126,7 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[st
             ctx.actions,
             deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
         )
-        shared_libraries.extend(traverse_shared_library_info(shared_library_info))
+        shared_libraries.extend(traverse_shared_library_info(shared_library_info, transformation_provider = None))
 
     cmd, output = _get_base_cmd_and_output(
         ctx.actions,

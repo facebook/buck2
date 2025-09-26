@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::time::SystemTime;
 use std::time::SystemTimeError;
@@ -25,10 +26,15 @@ use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::session_info::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
+use buck2_client_ctx::subscribers::superconsole::timekeeper::Clock;
+use buck2_client_ctx::subscribers::superconsole::timekeeper::Timekeeper;
+use buck2_client_ctx::ticker::Tick;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::span_tracker::EventTimestamp;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
+use dupe::Dupe;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
@@ -72,8 +78,20 @@ impl BuckSubcommand for WhatUpCommand {
             .build_forced(StatefulSuperConsole::FALLBACK_SIZE)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
 
+        let start_time = EventTimestamp(invocation.start_time.into());
+        let initial_most_recent_timestamp = match cutoff_time {
+            // If we know what the eventual end time will be, just use that
+            Some(cutoff_time) => EventTimestamp((invocation.start_time + cutoff_time).into()),
+            None => start_time,
+        };
+
+        let most_recent_timestamp = Arc::new(Mutex::new(initial_most_recent_timestamp));
+
         let mut super_console_state = SuperConsoleState::new(
-            None,
+            Timekeeper::new(
+                Box::new(WhatupClock(most_recent_timestamp.dupe())),
+                start_time,
+            ),
             invocation.trace_id,
             Verbosity::default(),
             true,
@@ -83,23 +101,26 @@ impl BuckSubcommand for WhatUpCommand {
             },
             None,
         )?;
-        let mut first_timestamp = None;
         // Ignore any events that are truncated, hence unreadable
         while let Ok(Some(event)) = events.try_next().await {
             match event {
                 StreamValue::Event(event) => {
                     let e = BuckEvent::try_from(event)?;
+
                     match cutoff_time {
                         Some(cutoff_time) => {
                             if should_stop_reading(
                                 cutoff_time,
                                 e.timestamp(),
-                                *first_timestamp.get_or_insert(e.timestamp()),
+                                invocation.start_time,
                             )? {
                                 break;
                             }
                         }
-                        _ => (),
+                        None => {
+                            *most_recent_timestamp.lock().unwrap() =
+                                EventTimestamp(e.timestamp().into());
+                        }
                     }
 
                     super_console_state
@@ -118,6 +139,10 @@ impl BuckSubcommand for WhatUpCommand {
                 }
             }
         }
+
+        // Force tick the super console state once so that all timing data is updated before the
+        // final draw
+        super_console_state.tick(Tick::now());
 
         super_console
             .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)
@@ -151,6 +176,20 @@ impl WhatUpCommand {
         }
 
         ComponentImpl { state }
+    }
+}
+
+struct WhatupClock(Arc<Mutex<EventTimestamp>>);
+
+impl Clock for WhatupClock {
+    fn event_timestamp_for_tick(
+        &mut self,
+        _tick: buck2_client_ctx::ticker::Tick,
+    ) -> EventTimestamp {
+        // We always report the most recently seen event as the current timestamp. That way, when we
+        // finish rendering superconsole, the timestamp we report here will correspond to something
+        // that makes sense at that time
+        *self.0.lock().unwrap()
     }
 }
 

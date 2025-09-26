@@ -212,7 +212,7 @@ impl Action for WriteMacrosToFileAction {
                             );
                             fs.fs().resolve_build(
                                 output.get_path(),
-                                Some(&ContentBasedPathHash::new(digest.to_string())?),
+                                Some(&ContentBasedPathHash::new(digest.raw_digest().as_bytes())?),
                             )?
                         } else {
                             fs.fs().resolve_build(output.get_path(), None)?

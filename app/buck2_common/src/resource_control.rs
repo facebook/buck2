@@ -12,6 +12,7 @@ use std::cmp::PartialEq;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
+use std::path::Path;
 use std::sync::OnceLock;
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -72,58 +73,161 @@ pub enum CgroupDelegation {
 pub enum ActionCgroupPoolConfig {
     Disabled,
     Enabled {
-        per_cgroup_memory_high: Option<String>,
         pool_memory_high: Option<String>,
+        /// Size of cgroup pool for action processes
+        pool_size: Option<u64>,
     },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CgroupMemoryFile {
+    MemoryHigh,
+    MemoryMax,
+}
+
+impl std::fmt::Display for CgroupMemoryFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CgroupMemoryFile::MemoryHigh => write!(f, "memory.high"),
+            CgroupMemoryFile::MemoryMax => write!(f, "memory.max"),
+        }
+    }
+}
+
+impl CgroupMemoryFile {
+    pub fn read(&self, path: impl AsRef<Path>) -> buck2_error::Result<String> {
+        let file_path = path.as_ref().join(self.to_string());
+        Ok(std::fs::read_to_string(file_path)?.trim().to_owned())
+    }
+
+    pub async fn read_async(&self, path: impl AsRef<Path>) -> buck2_error::Result<String> {
+        let file_path = path.as_ref().join(self.to_string());
+        let content = tokio::fs::read_to_string(&file_path)
+            .await?
+            .trim()
+            .to_owned();
+        Ok(content)
+    }
+
+    pub fn set(&self, path: impl AsRef<Path>, value: &str) -> buck2_error::Result<()> {
+        let file_path = path.as_ref().join(self.to_string());
+        std::fs::write(file_path, value)?;
+        Ok(())
+    }
 }
 
 pub struct ResourceControlRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
-    /// A memory threshold. Semantics (whether it is memory of a daemon or an action process) depend on the context.
-    pub memory_max: Option<String>,
-    /// The memory limit before tasks start to be throttled, OOMd won't begin killing tasks until memory_max is reached.
-    pub memory_high: Option<String>,
     /// Parent slice behaviour
     pub parent_slice: ParentSlice,
     /// Delegation of further resource control partitioning of cgroup unit
     pub delegation: CgroupDelegation,
-    /// Cgroup pool configuration for action processes
-    pub action_cgroup_pool_config: ActionCgroupPoolConfig,
-    /// Size of cgroup pool for action processes
-    pub cgroup_pool_size: Option<u64>,
+    /// Configuration variant
+    pub config: ResourceControlRunnerConfigVariant,
+}
+
+pub enum ResourceControlRunnerConfigVariant {
+    /// Configuration for buck daemon
+    BuckDaemon {
+        /// A memory threshold for daemon, forkserver and worker processes
+        memory_max: Option<String>,
+        /// The memory limit before tasks start to be throttled for daemon, forkserver and worker processes
+        memory_high: Option<String>,
+    },
+    /// Configuration for action runner
+    ActionRunner {
+        /// A memory threshold for each action processes
+        memory_max_per_action: Option<String>,
+        /// The memory limit before tasks start to be throttled for each action processes
+        memory_high_per_action: Option<String>,
+        /// Cgroup pool configuration for action processes
+        action_cgroup_pool_config: ActionCgroupPoolConfig,
+    },
+    /// Configuration for forkserver
+    Forkserver,
+}
+
+impl ResourceControlRunnerConfigVariant {
+    pub fn memory_max(&self) -> Option<&str> {
+        match self {
+            ResourceControlRunnerConfigVariant::BuckDaemon { memory_max, .. } => {
+                memory_max.as_deref()
+            }
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_max_per_action,
+                ..
+            } => memory_max_per_action.as_deref(),
+            ResourceControlRunnerConfigVariant::Forkserver => None,
+        }
+    }
+
+    pub fn memory_high(&self) -> Option<&str> {
+        match self {
+            ResourceControlRunnerConfigVariant::BuckDaemon { memory_high, .. } => {
+                memory_high.as_deref()
+            }
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_high_per_action,
+                ..
+            } => memory_high_per_action.as_deref(),
+            ResourceControlRunnerConfigVariant::Forkserver => None,
+        }
+    }
+
+    pub fn action_cgroup_pool_config(&self) -> &ActionCgroupPoolConfig {
+        match self {
+            ResourceControlRunnerConfigVariant::BuckDaemon { .. } => {
+                &ActionCgroupPoolConfig::Disabled
+            }
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                action_cgroup_pool_config,
+                ..
+            } => action_cgroup_pool_config,
+            ResourceControlRunnerConfigVariant::Forkserver => &ActionCgroupPoolConfig::Disabled,
+        }
+    }
 }
 
 impl ResourceControlRunnerConfig {
     pub fn daemon_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
         Self {
             status: config.status.clone(),
-            memory_max: config.memory_max.clone(),
-            memory_high: config.memory_high.clone(),
             parent_slice,
             delegation: CgroupDelegation::Disabled,
-            // for daemon, we don't need to enable action cgroup pool, we can just rely on systemd scope to create cgroup.
-            action_cgroup_pool_config: ActionCgroupPoolConfig::Disabled,
-            cgroup_pool_size: None,
+            config: ResourceControlRunnerConfigVariant::BuckDaemon {
+                memory_max: config.memory_max.clone(),
+                memory_high: config.memory_high.clone(),
+            },
         }
     }
 
     pub fn action_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
         Self {
             status: config.status.clone(),
-            memory_max: config.memory_max_per_action.clone(),
-            memory_high: config.memory_high_per_action.clone(),
             parent_slice,
             delegation: CgroupDelegation::Enabled,
-            action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
-                ActionCgroupPoolConfig::Enabled {
-                    per_cgroup_memory_high: config.memory_high_per_action.clone(),
-                    pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
-                }
-            } else {
-                ActionCgroupPoolConfig::Disabled
+            config: ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_max_per_action: config.memory_max_per_action.clone(),
+                memory_high_per_action: config.memory_high_per_action.clone(),
+                action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
+                    ActionCgroupPoolConfig::Enabled {
+                        pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
+                        pool_size: config.cgroup_pool_size,
+                    }
+                } else {
+                    ActionCgroupPoolConfig::Disabled
+                },
             },
-            cgroup_pool_size: config.cgroup_pool_size,
+        }
+    }
+
+    pub fn forkserver_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
+        Self {
+            status: config.status.clone(),
+            parent_slice,
+            delegation: CgroupDelegation::Enabled,
+            config: ResourceControlRunnerConfigVariant::Forkserver,
         }
     }
 }
@@ -137,14 +241,10 @@ pub struct ResourceControlRunner {
 }
 
 impl ResourceControlRunner {
-    pub fn create(
-        memory_max: Option<String>,
-        memory_high: Option<String>,
+    fn create(
+        config_variant: &ResourceControlRunnerConfigVariant,
         parent_slice: &ParentSlice,
         delegation: CgroupDelegation,
-        // on windows, we don't have cgroup, so we don't need to this flag
-        #[allow(unused_variables)] action_cgroup_pool_config: &ActionCgroupPoolConfig,
-        #[allow(unused_variables)] cgroup_pool_size: Option<u64>,
     ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
@@ -156,21 +256,31 @@ impl ResourceControlRunner {
             "--setenv=CHGDISABLE=1".to_owned(),
         ];
 
-        if let Some(memory_max) = &memory_max {
-            args.push(format!("--property=MemoryMax={memory_max}"));
-            // Without setting `MemorySwapMax`, the process starts using swap until it's
-            // filled when the total memory usage reaches to `MemoryMax`. This may seem
-            // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
-            // to zero makes `MemoryMax` to be a 'hard limit' at which the process is
-            // stopped by OOM killer
-            args.push("--property=MemorySwapMax=0".to_owned());
-            // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
-            // some workers can keep alive even after buck2 daemon has gone due to OOM.
-            args.push("--property=OOMPolicy=kill".to_owned());
-        }
+        // Only action runner needs to set MemorySwapMax and MemoryHigh
+        match config_variant {
+            ResourceControlRunnerConfigVariant::ActionRunner {
+                memory_max_per_action,
+                memory_high_per_action,
+                action_cgroup_pool_config: _,
+            } => {
+                if let Some(memory_max) = &memory_max_per_action {
+                    args.push(format!("--property=MemoryMax={memory_max}"));
+                    // Without setting `MemorySwapMax`, the process starts using swap until it's
+                    // filled when the total memory usage reaches to `MemoryMax`. This may seem
+                    // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
+                    // to zero makes `MemoryMax` to be a 'hard limit' at which the process is
+                    // stopped by OOM killer
+                    args.push("--property=MemorySwapMax=0".to_owned());
+                    // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
+                    // some workers can keep alive even after buck2 daemon has gone due to OOM.
+                    args.push("--property=OOMPolicy=kill".to_owned());
+                }
 
-        if let Some(memory_high) = &memory_high {
-            args.push(format!("--property=MemoryHigh={memory_high}"));
+                if let Some(memory_high) = &memory_high_per_action {
+                    args.push(format!("--property=MemoryHigh={memory_high}"));
+                }
+            }
+            _ => {}
         }
 
         if delegation == CgroupDelegation::Enabled {
@@ -189,24 +299,24 @@ impl ResourceControlRunner {
 
         Ok(Self {
             fixed_systemd_args: args,
-            memory_limit: memory_max.clone(),
-            memory_high: memory_high.clone(),
+            memory_limit: config_variant.memory_max().map(|x| x.to_owned()),
+            memory_high: config_variant.memory_high().map(|x| x.to_owned()),
 
             #[cfg(unix)]
-            cgroup_pool: match action_cgroup_pool_config {
+            cgroup_pool: match config_variant.action_cgroup_pool_config() {
                 ActionCgroupPoolConfig::Enabled {
-                    per_cgroup_memory_high,
                     pool_memory_high,
+                    pool_size,
                 } => {
                     // Use num_cpus to set the capacity of the cgroup pool.
                     use buck2_error::BuckErrorContext;
                     // if cgroup pool size is not set, use the number of available cpus
-                    let capacity = cgroup_pool_size
+                    let capacity = pool_size
                         .map(|x| x as usize)
                         .unwrap_or(buck2_util::threads::available_parallelism_fresh());
                     let cgroup_pool = CgroupPool::new(
                         capacity,
-                        per_cgroup_memory_high.as_deref(),
+                        config_variant.memory_high(),
                         pool_memory_high.as_deref(),
                     )
                     .buck_error_context("Failed to create cgroup pool")?;
@@ -252,12 +362,9 @@ impl ResourceControlRunner {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
             SystemdCreationDecision::Create => Ok(Some(Self::create(
-                config.memory_max.clone(),
-                config.memory_high.clone(),
+                &config.config,
                 &config.parent_slice,
                 config.delegation,
-                &config.action_cgroup_pool_config,
-                config.cgroup_pool_size,
             )?)),
         }
     }
@@ -277,6 +384,81 @@ impl ResourceControlRunner {
         cmd.arg(program);
         cmd
     }
+    /// Finds the nearest ancestor memory limit by traversing up the cgroup hierarchy.
+    ///
+    /// This function walks up the cgroup tree starting from the given slice until it finds
+    /// a concrete memory limit (non-"max" value) or reaches the root. This is useful for
+    /// percentage-based memory calculations that need to know the parent limit.
+    async fn find_ancestor_memory_limit(
+        slice: &str,
+        memory_file_type: CgroupMemoryFile,
+    ) -> buck2_error::Result<Option<String>> {
+        // Get the cgroup path from systemctl
+        let mut cmd = process::async_background_command("systemctl");
+        cmd.args(["--user", "show", "-p", "ControlGroup", slice]);
+
+        let output = cmd.output().await?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Failed to get ControlGroup for slice {}: {}",
+                slice,
+                stderr
+            ));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let cgroup_relative_path = stdout
+            .strip_prefix("ControlGroup=")
+            .and_then(|s| s.trim().strip_prefix('/'))
+            .ok_or_else(|| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Unexpected ControlGroup output format: {}",
+                    stdout
+                )
+            })?;
+
+        // Construct absolute path
+        let cgroup_root = Path::new("/sys/fs/cgroup");
+        let mut current_path = cgroup_root.join(cgroup_relative_path);
+        // Start from the slice parent
+        current_path = match current_path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return Ok(None), // No parent to traverse from
+        };
+
+        // Traverse up the hierarchy
+        loop {
+            // Try to read the memory file
+            match memory_file_type.read_async(&current_path).await {
+                Ok(content) => {
+                    let trimmed = content.trim();
+                    // If we found a non-"max" value, return it
+                    if trimmed != "max" {
+                        return Ok(Some(trimmed.to_owned()));
+                    }
+                }
+                Err(_) => {
+                    // File doesn't exist, continue to parent
+                }
+            }
+
+            // Move to parent directory
+            if let Some(parent) = current_path.parent() {
+                // Stop if we've reached the cgroup root's parent
+                if parent == cgroup_root.parent().unwrap() {
+                    break;
+                }
+                current_path = parent.to_path_buf();
+            } else {
+                break;
+            }
+        }
+
+        Ok(None)
+    }
 
     pub async fn set_slice_memory_info(&self, slice: &str) -> buck2_error::Result<()> {
         if self.memory_limit.is_none() && self.memory_high.is_none() {
@@ -288,13 +470,52 @@ impl ResourceControlRunner {
         cmd.arg("set-property");
         cmd.arg(slice);
 
+        // Resolves memory restrictions by converting percentage values to absolute bytes
+        // based on parent slice limits, or returns the original value if not a percentage
+        async fn resolve_memory_restriction_value(
+            memory_restriction: &str,
+            slice: &str,
+            memory_file_type: CgroupMemoryFile,
+        ) -> buck2_error::Result<String> {
+            if memory_restriction.ends_with("%") {
+                let memory_percentage = memory_restriction
+                    .strip_suffix("%")
+                    .unwrap()
+                    .parse::<u64>()
+                    .expect(
+                        "if setting the percentage of the memory, the value should be an integer",
+                    );
+                if let Some(parent_memory_restrictions) =
+                    ResourceControlRunner::find_ancestor_memory_limit(slice, memory_file_type)
+                        .await?
+                {
+                    // The value from the memory file is either "max" or a integer value representing bytes
+                    let parent_memory_bytes = parent_memory_restrictions.parse::<u64>()?;
+                    let calculated_memory_bytes = (parent_memory_bytes * memory_percentage) / 100;
+                    Ok(calculated_memory_bytes.to_string())
+                } else {
+                    Ok(memory_restriction.to_owned())
+                }
+            } else {
+                Ok(memory_restriction.to_owned())
+            }
+        }
+
         if let Some(memory_limit) = &self.memory_limit {
+            let memory_limit =
+                resolve_memory_restriction_value(&memory_limit, slice, CgroupMemoryFile::MemoryMax)
+                    .await?;
+
             cmd.arg(format!("MemoryMax={memory_limit}"));
             cmd.arg("MemorySwapMax=0");
             cmd.arg("ManagedOOMMemoryPressure=kill");
         }
 
         if let Some(memory_high) = &self.memory_high {
+            let memory_high =
+                resolve_memory_restriction_value(&memory_high, slice, CgroupMemoryFile::MemoryHigh)
+                    .await?;
+
             cmd.arg(format!("MemoryHigh={memory_high}"));
         }
 

@@ -1003,7 +1003,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 [merged_native_link_info],
                 link_strategy,
                 prefer_stripped = False,
-                transformation_provider = None,
+                transformation_spec_context = None,
             )
             args.append(unpack_link_args(link_args))
             templ_vars[name] = cmd_args(args)
@@ -1512,6 +1512,24 @@ def _form_library_outputs(
                     if sanitizer_runtime_files:
                         fail("Cannot specify sanitizer runtime files multiple times")
                     sanitizer_runtime_files = link_sanitizer_runtime_files
+
+            if compiled_srcs.pic_optimized and (compiled_srcs.pic_optimized.objects or impl_params.build_empty_so):
+                optimized_output, optimized_result, optimized_solib = build_shared_library(
+                    compile_output = compiled_srcs.pic_optimized,
+                    flavor = LinkableFlavor("optimized"),
+                )
+                optimized_info = optimized_result.info
+                outputs_for_style[LinkableFlavor("optimized")] = optimized_output
+                solibs[LinkableFlavor("optimized")] = optimized_solib
+
+            if compiled_srcs.pic_debuggable and (compiled_srcs.pic_debuggable.objects or impl_params.build_empty_so):
+                debug_output, debug_result, debug_solib = build_shared_library(
+                    compile_output = compiled_srcs.pic_debuggable,
+                    flavor = LinkableFlavor("debug"),
+                )
+                debuggable_info = debug_result.info
+                outputs_for_style[LinkableFlavor("debug")] = debug_output
+                solibs[LinkableFlavor("debug")] = debug_solib
 
         if outputs_for_style:
             outputs[output_style] = outputs_for_style

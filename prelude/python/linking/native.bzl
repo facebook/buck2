@@ -320,6 +320,7 @@ def _compute_cxx_executable_info(
                 deps =
                     [d.shared_library_info for d in extension_info_reduced.shared_only_libs],
             ),
+            transformation_provider = None,
         ),
         extra_link_roots = (
             extension_info_reduced.unembeddable_extensions.values() +
