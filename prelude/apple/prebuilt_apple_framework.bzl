@@ -85,7 +85,8 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
 
         framework_directory_artifact = ctx.attrs.framework
         framework_name = to_framework_name(framework_directory_artifact.basename)
-        framework_library_artifact = framework_directory_artifact.project(framework_name)
+        framework_binary_name = ctx.attrs.binary if ctx.attrs.binary else framework_name
+        framework_library_artifact = framework_directory_artifact.project(framework_binary_name)
 
         # Check this rule's `supported_platforms_regex` with the current platform.
         if cxx_platform_supported(ctx):

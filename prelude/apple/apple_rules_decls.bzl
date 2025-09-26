@@ -1176,6 +1176,11 @@ prebuilt_apple_framework = prelude_rule(
                  `static` will copy the resources of the framework into
                  an Apple bundle.
             """),
+            "binary": attrs.option(attrs.string(), default = None, doc = """
+              Optional name for the binary contained in the framework. Otherwise the framework name is used.
+              Therefore, if your framework binary is named something like `libFrameworkName-iPhone.a` instead 
+              of `FrameworkName`, you can declare this here.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "contains_swift": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
