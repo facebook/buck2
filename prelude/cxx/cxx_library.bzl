@@ -1003,7 +1003,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 [merged_native_link_info],
                 link_strategy,
                 prefer_stripped = False,
-                transformation_provider = None,
+                transformation_spec_context = None,
             )
             args.append(unpack_link_args(link_args))
             templ_vars[name] = cmd_args(args)

@@ -544,7 +544,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             inherited_exported_link,
                             LinkStrategy("shared"),
                             prefer_stripped = False,
-                            transformation_provider = None,
+                            transformation_spec_context = None,
                         )
                         link_result = cxx_link_shared_library(
                             ctx = ctx,

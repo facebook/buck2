@@ -10,7 +10,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:transformation_spec.bzl",
     "TransformationKind",
-    "TransformationResultProvider",  # @unused Used as a type
+    "TransformationSpecContext",  # @unused Used as a type
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -187,14 +187,14 @@ def merge_shared_libraries(
 
 def traverse_shared_library_info(
         info: SharedLibraryInfo,
-        transformation_provider: TransformationResultProvider | None) -> list[SharedLibrary]:
+        transformation_provider: TransformationSpecContext | None) -> list[SharedLibrary]:
     libraries = []
     if info.set:
         for libs in info.set.traverse():
             fallback_to_default = True
 
-            if transformation_provider and not transformation_provider.is_empty and libs.label and libs.flavored_libraries:
-                transformation_kind = transformation_provider.determine_transformation(libs.label)
+            if transformation_provider and not transformation_provider.provider.is_empty and libs.label and libs.flavored_libraries:
+                transformation_kind = transformation_provider.provider.determine_transformation(libs.label, transformation_provider.graph_info)
 
                 if transformation_kind == TransformationKind("debug") and LinkableFlavor("debug") in libs.flavored_libraries:
                     libraries.append(libs.flavored_libraries[LinkableFlavor("debug")])

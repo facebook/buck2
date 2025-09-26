@@ -184,7 +184,7 @@ def link(
             cxx_inherited_link_info(deps),
             to_link_strategy(link_style),
             prefer_stripped = False,
-            transformation_provider = None,
+            transformation_spec_context = None,
         )
         ext_link_args_output = make_link_args(
             ctx,

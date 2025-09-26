@@ -597,7 +597,7 @@ def _build_haskell_lib(
             nlis,
             to_link_strategy(link_style),
             prefer_stripped = False,
-            transformation_provider = None,
+            transformation_spec_context = None,
         )
         link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
         ctx.actions.run(
@@ -889,7 +889,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 [merged_link_info],
                 to_link_strategy(link_style),
                 prefer_stripped = False,
-                transformation_provider = None,
+                transformation_spec_context = None,
             ),
         ))
         templ_vars[name] = args
@@ -1135,7 +1135,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             nlis,
             to_link_strategy(link_style),
             prefer_stripped = False,
-            transformation_provider = None,
+            transformation_spec_context = None,
         )
 
     link_args.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))

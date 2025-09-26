@@ -7,6 +7,12 @@
 # above-listed licenses.
 
 load(
+    "@prelude//utils:build_graph_pattern.bzl",
+    "BuildGraphInfo",
+    "BuildGraphPattern",
+    "parse_build_graph_pattern",
+)
+load(
     "@prelude//utils:build_target_pattern.bzl",
     "BuildTargetPattern",
     "parse_build_target_pattern",
@@ -22,20 +28,41 @@ TransformationKind = enum(
 )
 
 TransformationResultProvider = provider(fields = {
-    "determine_transformation": provider_field(typing.Callable[[Label], TransformationKind | None]),
+    "determine_transformation": provider_field(typing.Callable[[Label, BuildGraphInfo], TransformationKind | None]),
     "is_empty": provider_field(bool),
 })
 
 TransformationTest = record(
-    matcher = Label | BuildTargetPattern,
+    matcher = Label | BuildTargetPattern | BuildGraphPattern,
     result = TransformationKind,
 )
+
+TransformationSpecContext = record(
+    provider = TransformationResultProvider,
+    graph_info = BuildGraphInfo,
+)
+
+def build_transformation_spec_context(ctx: AnalysisContext, graph_info: BuildGraphInfo) -> TransformationSpecContext | None:
+    transformation_provider = ctx.attrs.transformation_spec[TransformationResultProvider] if (hasattr(ctx.attrs, "transformation_spec") and ctx.attrs.transformation_spec) else None
+    if not transformation_provider:
+        return None
+
+    return TransformationSpecContext(
+        provider = transformation_provider,
+        graph_info = graph_info,
+    )
 
 def _build_pattern_matcher(entry: str) -> BuildTargetPattern | None:
     pattern = strip_prefix("pattern:", entry)
     if pattern == None:
         return None
     return parse_build_target_pattern(pattern)
+
+def _build_graph_matcher(entry: str) -> BuildGraphPattern | None:
+    pattern = strip_prefix("graph:", entry)
+    if pattern == None:
+        return None
+    return parse_build_graph_pattern(pattern)
 
 def _build_transformations(transformations: list[(str | Dependency, str)]) -> list[TransformationTest]:
     parsed_transformations = []
@@ -56,17 +83,28 @@ def _build_transformations(transformations: list[(str | Dependency, str)]) -> li
             ))
             continue
 
+        graph_matcher = _build_graph_matcher(entry[0])
+        if graph_matcher:
+            parsed_transformations.append(TransformationTest(
+                matcher = graph_matcher,
+                result = kind,
+            ))
+            continue
+
         fail("Invalid matcher provided: " + entry[0])
     return parsed_transformations
 
 def build_determine_transformation(
-        transformations: list[TransformationTest]) -> typing.Callable[[Label], TransformationKind | None]:
-    def callable(label: Label) -> TransformationKind | None:
+        transformations: list[TransformationTest]) -> typing.Callable[[Label, BuildGraphInfo], TransformationKind | None]:
+    def callable(label: Label, graph_info: BuildGraphInfo) -> TransformationKind | None:
         for transform in transformations:
             if isinstance(transform.matcher, BuildTargetPattern) and transform.matcher.matches(label):
                 return transform.result
             elif isinstance(transform.matcher, Label) and transform.matcher == label:
                 return transform.result
+            elif isinstance(transform.matcher, BuildGraphPattern) and transform.matcher.matches(label, graph_info):
+                return transform.result
+
         return None
 
     return callable

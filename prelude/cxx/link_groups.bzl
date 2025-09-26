@@ -20,7 +20,7 @@ load(
 )
 load(
     "@prelude//cxx:transformation_spec.bzl",
-    "TransformationResultProvider",  # @unused Used as a type
+    "TransformationSpecContext",  # @unused Used as a type
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -451,7 +451,7 @@ BuildLinkGroupsContext = record(
     link_group_roots = field(dict[str, Label] | None, None),  # If none, derived from link_group_libs
     prefer_stripped = field(bool, False),
     prefer_optimized = field(bool, False),
-    transformation_provider = field(TransformationResultProvider | None, None),
+    transformation_spec_context = field(TransformationSpecContext | None, None),
 )
 
 def get_filtered_labels_to_links_map(
@@ -501,9 +501,9 @@ def get_filtered_labels_to_links_map(
     def add_link(target: Label, output_style: LibOutputStyle):
         infos = build_context.linkable_graph.nodes[target].link_infos[output_style]
 
-        if build_context.transformation_provider:
+        if build_context.transformation_spec_context:
             link_info = get_link_info_for_transformation(
-                build_context.transformation_provider,
+                build_context.transformation_spec_context,
                 infos,
                 target,
                 build_context.prefer_stripped,
@@ -1030,7 +1030,7 @@ def create_link_groups(
         link_group_mappings: [dict[Label, str], None] = None,
         anonymous: bool = False,
         allow_cache_upload = False,
-        transformation_provider: TransformationResultProvider | None = None,
+        transformation_spec_context: TransformationSpecContext | None = None,
         error_handler: [typing.Callable, None] = None) -> _LinkedLinkGroups:
     # We linking libraries here so we need pic
     if link_strategy == LinkStrategy("static"):
@@ -1097,7 +1097,7 @@ def create_link_groups(
         # (e.g. bottom-up with symbol errors)?
         link_group_roots = {},
         prefer_stripped = prefer_stripped_objects,
-        transformation_provider = transformation_provider,
+        transformation_spec_context = transformation_spec_context,
     )
 
     create_link_group_params = _CreateLinkGroupParams(

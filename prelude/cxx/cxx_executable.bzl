@@ -41,7 +41,7 @@ load(
     "@prelude//cxx:runtime_dependency_handling.bzl",
     "RuntimeDependencyHandling",
 )
-load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
+load("@prelude//cxx:transformation_spec.bzl", "build_transformation_spec_context")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -94,6 +94,10 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load(
+    "@prelude//utils:build_graph_pattern.bzl",
+    "new_build_graph_info",
+)
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
@@ -341,7 +345,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     labels_to_links = FinalLabelsToLinks(
         map = {},
     )
-    transformation_provider = ctx.attrs.transformation_spec[TransformationResultProvider] if (hasattr(ctx.attrs, "transformation_spec") and ctx.attrs.transformation_spec) else None
+    build_graph_info = new_build_graph_info(ctx)
+    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
@@ -354,7 +359,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             deps_merged_link_infos,
             frameworks_linkable,
             link_strategy,
-            transformation_provider,
+            transformation_spec_context,
             swiftmodule_linkable,
             prefer_stripped = impl_params.prefer_stripped_objects,
         )
@@ -396,7 +401,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 anonymous = ctx.attrs.anonymous_link_groups,
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
                 public_nodes = public_link_group_nodes,
-                transformation_provider = transformation_provider,
+                transformation_spec_context = transformation_spec_context,
                 error_handler = impl_params.error_handler,
             )
             link_group_libs_debug_info = linked_link_groups.libs_debug_info
@@ -450,7 +455,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             },
             prefer_stripped = impl_params.prefer_stripped_objects,
             prefer_optimized = False,
-            transformation_provider = transformation_provider,
+            transformation_spec_context = transformation_spec_context,
         )
 
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
@@ -584,7 +589,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         gnu_use_link_groups,
         link_group_ctx,
         link_strategy,
-        traverse_shared_library_info(shlib_info, transformation_provider = transformation_provider),
+        traverse_shared_library_info(shlib_info, transformation_provider = transformation_spec_context),
         impl_params.extra_shared_libs,
     )
 
