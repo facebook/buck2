@@ -67,29 +67,34 @@ def resolve_all_embeddings(substitutions:list[str]) -> dict[str, str]:
 def read_substitutions(substitution_file: str) -> dict[str, Union[int,str,bool,None]]:
     substitutions = []
     with open(substitution_file) as f:
-        return json.load(f)
+        results = json.load(f)
 
-def prepare_substitutions(key_value_pairs: list[str], escape_quotes: bool) -> dict[str, Union[int,str,bool,None]]:
-    substitutions = {}
-    for s in key_value_pairs:
-        k, v = s.split("=")
-        if escape_quotes:
-            v = v.replace('"', '\\"')
-        substitutions[k] = v
-    return substitutions
+    processed_dict = {}
+    for key, value in results.items():
+        substitution_type = value["type"]
+
+        if substitution_type == "subst":
+            substitution_value = value["value"]
+        elif substitution_type == "embed":
+            embedded_file = value["value"]
+            with open(embedded_file, "r") as fp:
+                substitution_value = fp.read()
+        else:
+            print(f"Unknown substitution type {value.type} for variable {key}")
+            sys.exit(1)
+
+        print(f"substitution key {key} = {substitution_value}")
+        processed_dict[key] = substitution_value
+    return processed_dict
 
 def perform_substitutions(
         input: list[str],
-        substitutions: dict[str, Union[int,bool,str,None]],
+        substitutions: dict[str, Union[int,str,bool,None]],
         copy_only: bool,
         at_replacements: bool,
-        var_replacements: bool,
-        embeddings: list[str]) -> list[str]:
+        var_replacements: bool) -> list[str]:
     
-    resolved_embeddings = resolve_all_embeddings(embeddings)
-
     formatted = []
-    substitutions.update(resolved_embeddings)
     for line in input:
         line = line.rstrip("\r\n")
 
@@ -187,26 +192,10 @@ if __name__ == "__main__":
         default=False,
         help="Fail on missing & unused substitutions",
     )
-    parser.add_argument(
-        "-s",
-        "--substitutions",
-        required=False,
-        default=[],
-        help="Substitutions as key=value pairs to make in the template file",
-        nargs="*",
-    )
-    parser.add_argument(
-        "-e",
-        "--embeddings",
-        required=False,
-        default=[],
-        help="File substitutions as json",
-        nargs="*"
-    )
 
     parser.add_argument(
         "--substitution-file",
-        required=False,
+        required=True,
         default=None,
         help="File containing key=value pairs to make in the template file",
     )
@@ -223,13 +212,6 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
         help="Perform ${var} substitution",
-    )
-    parser.add_argument(
-        "--escape-quotes",
-        required=False,
-        default=False,
-        action="store_true",
-        help="Escape any substituted quotes with backslashes (C-style).",
     )
     parser.add_argument(
         "--copy-only",
@@ -251,17 +233,13 @@ if __name__ == "__main__":
     with open(args.input) as f:
         template = f.readlines()
 
-    if args.substitution_file:
-        substitutions = read_substitutions(args.substitution_file)
-    else:
-        substitutions = prepare_substitutions(args.substitutions, escape_quotes=args.escape_quotes)
+    substitutions = read_substitutions(args.substitution_file)
 
     formatted = perform_substitutions(
         template, 
         substitutions=substitutions,
         at_replacements=args.enable_at_replacements,
         var_replacements=args.enable_var_replacements,
-        embeddings=args.embeddings,
         copy_only=args.copy_only)
     
     if args.strict:

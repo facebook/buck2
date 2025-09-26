@@ -6,22 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":cctest.bzl", "CcTestValueInfo", "CcTestTypeSizeInfo")
+load("@prelude//utils/value.bzl", "GenericValueInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
-
-# Provider used by embedded_file rule, which allows replacing a cmake
-# substitution variable with content from another file.
-CMakeEmbeddedFileInfo = provider(
-    fields = {
-        "files": provider_field(typing.Any, default = None),
-        "prefix": provider_field(typing.Any, default = None),
-        "suffix": provider_field(typing.Any, default = None),
-        "item_prefix": provider_field(typing.Any, default = None),
-        "item_suffix": provider_field(typing.Any, default = None),
-        "delimiter": provider_field(typing.Any, default = None),
-        "trailing_delimiter": provider_field(typing.Any, default = None),
-    }
-)
 
 # Stores a variable which will be searched for in the cmake configure file
 # template as well as a value to replace that variable with during substitution.
@@ -31,18 +17,6 @@ CMakeSubstitutionInfo = provider(
         "value": provider_field(typing.Any)
     }
 )
-
-def _cmake_substitution_impl_internal(name:str, value) -> list[Provider]:
-    if isinstance(value, Dependency):
-        value = value[CcTestValueInfo].value
-
-    return [
-        DefaultInfo(default_outputs = []),
-        CMakeSubstitutionInfo(
-            variable = name,
-            value = value
-        )
-    ]
 
 def cmake_configure_file_impl(ctx: AnalysisContext) -> list[Provider]:
     output_dir = ctx.actions.declare_output("out", dir = True)
@@ -70,31 +44,18 @@ def cmake_configure_file_impl(ctx: AnalysisContext) -> list[Provider]:
 
     for sub in ctx.attrs.substitutions:
         info = sub[CMakeSubstitutionInfo]
-        substitution_dictionary[info.variable] = info.value
+        entry = {
+            "value": info.value,
+            "type": "embed" if isinstance(info.value, Artifact) else "subst"
+        }
 
-    config_json = ctx.actions.write_json("config.json", substitution_dictionary, pretty=True)
+        substitution_dictionary[info.variable] = entry
+
+    config_json = ctx.actions.write_json("config.json", substitution_dictionary, with_inputs=True, pretty=True)
     args.extend([
         "--substitution-file",
         config_json
     ])
-
-    for key, value in ctx.attrs.embeddings.items():
-        value = value[CMakeEmbeddedFileInfo]
-        action = {
-            "label": key,
-            "files": value.files,
-            "prefix": value.prefix,
-            "suffix": value.suffix,
-            "item_prefix": value.item_prefix,
-            "item_suffix": value.item_suffix,
-            "delimiter": value.delimiter,
-            "trailing_delimiter": value.trailing_delimiter,
-        }
-        embedding_json_name = "{}.embedding.json".format(key)
-        embedding_json = ctx.actions.write_json(embedding_json_name, action, pretty=True)
-        args.append("--embeddings")
-        args.append(embedding_json)
-        hidden.extend(value.files)
 
     ctx.actions.run(
         cmd_args(args, hidden=hidden),
@@ -110,25 +71,46 @@ def cmake_configure_file_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     ]
 
-def cmake_embedding_impl(ctx: AnalysisContext) -> list[Provider]:
+def _cmake_substitution_impl_internal(name:str, variable:str|None, value) -> list[Provider]:
+    if variable == None:
+        variable = name
+
+
     return [
         DefaultInfo(),
-        CMakeEmbeddedFileInfo(
-            files = ctx.attrs.files,
-            prefix = ctx.attrs.prefix,
-            suffix = ctx.attrs.suffix,
-            item_prefix = ctx.attrs.item_prefix,
-            item_suffix = ctx.attrs.item_suffix,
-            delimiter = ctx.attrs.delimiter,
-            trailing_delimiter = ctx.attrs.trailing_delimiter
+        CMakeSubstitutionInfo(
+            variable = variable,
+            value = value
         )
     ]
 
-def cmake_substitution_impl(ctx: AnalysisContext) -> list[Provider]:
-    return _cmake_substitution_impl_internal(ctx.attrs.name, ctx.attrs.value)
+def _get_integer_value(value:Dependency|None|int) -> int|None:
+    if isinstance(value, Dependency):
+        return _get_integer_value(value[GenericValueInfo].value)
+
+    if isinstance(value, int):
+        return value
+
+    if value == None:
+        return value
+
+    fail(f"Unsupported value type {value} for integral argument")
+    return None
 
 def cmake_type_size_substitution_impl(ctx: AnalysisContext) -> list[Provider]:
-    name = ctx.attrs.name
-    size = ctx.attrs.value[CcTestTypeSizeInfo].size
-    return _cmake_substitution_impl_internal(f"{name}_CODE", f"#define {name} {size}")
+    variable = ctx.attrs.variable or ctx.attrs.name
 
+    key = f"{variable}_CODE"
+
+    size = _get_integer_value(ctx.attrs.size)
+    if size == None:
+        value = None
+    else:
+        value = f"#define {variable} {size}"
+    return _cmake_substitution_impl_internal(ctx.attrs.name, key, value)
+
+def cmake_substitution_impl(ctx: AnalysisContext) -> list[Provider]:
+    return _cmake_substitution_impl_internal(ctx.attrs.name, ctx.attrs.variable, ctx.attrs.value[GenericValueInfo].value)
+
+def cmake_immediate_substitution_impl(ctx: AnalysisContext) -> list[Provider]:
+    return _cmake_substitution_impl_internal(ctx.attrs.name, ctx.attrs.variable, ctx.attrs.value)
