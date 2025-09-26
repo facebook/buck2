@@ -61,7 +61,11 @@ def _main(ctx: bxl.Context) -> None:
     for x in targets:
         # TODO(connernilsen): is this how we should be excluding this alias type,
         # or should it instead be done in the `kind` filter
-        if x.rule_type in ("forward", "prelude//rules.bzl:command_alias"):
+        if x.rule_type in (
+            "forward",
+            "prelude//rules.bzl:command_alias",
+            "prelude//rules.bzl:export_file",
+        ):
             continue
 
         attrs = x.attrs_lazy()
