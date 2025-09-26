@@ -432,10 +432,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         basename = "{}{}".format(pch_artifact.basename, pch_clanguage)
         path = paths.join(pch_header.namespace, pch_header.name)
 
-        if compiler_type == "windows":
-            src_file = ctx.actions.declare_output("pch.h")
-            ctx.actions.write(src_file, '#include "{}"'.format(pch_header.name))
-            impl_params.srcs[0] = CxxSrcWithFlags(file = src_file)
+        pch_wrapper = ctx.actions.declare_output("pch_wrapper.cpp")
+        ctx.actions.write(pch_wrapper, '#include "{}"'.format(path))
+
+        ctx.attrs.headers.append(pch_artifact)
+        impl_params.srcs[0] = CxxSrcWithFlags(file = pch_wrapper)
 
         compile_pch = CxxPrecompiledHeader(
             header = ctx.attrs.srcs[0],

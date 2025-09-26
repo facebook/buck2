@@ -267,9 +267,6 @@ def create_compile_cmds(
         if cxx_compile_cmd.compiler_type != "nasm":
             src_args.append("-c")
 
-        if compile_pch and cxx_compile_cmd.compiler_type == "windows":
-            cxx_compile_cmd.base_compile_cmd.add("-I", compile_pch.namespace)
-
         src_args.append(src.file)
 
         src_compile_command = CxxSrcCompileCommand(
@@ -369,7 +366,7 @@ def _compile_single_cxx(
             output_args = [
                 cmd_args(object.as_output(), format="/Fp{}"),
                 cmd_args(pch_object_output.as_output(), format="/Fo{}"),
-                cmd_args(compile_pch.basename_src, format="/Yc{}")
+                cmd_args(compile_pch.path, format="/Yc{}")
             ]
         else:
             output_args = [
@@ -1650,7 +1647,7 @@ def _get_use_pch_args(
     elif src_compile_cmd.cxx_compile_cmd.compiler_type in ["clang"]:
         pch_args.add("-Xclang", "-include-pch", "-Xclang", compile_with_pch.header)
     else:
-        print("Warning: Unsupported compiler type for precompiled header usage: {}".format(
+        fail("Warning: Unsupported compiler type for precompiled header usage: {}".format(
             src_compile_cmd.cxx_compile_cmd.compiler_type,
         ))
 
