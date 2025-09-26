@@ -41,7 +41,7 @@ load(
     "@prelude//cxx:runtime_dependency_handling.bzl",
     "RuntimeDependencyHandling",
 )
-load("@prelude//cxx:transformation_spec.bzl", "build_transformation_spec_context")
+load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "build_transformation_spec_context")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -252,7 +252,17 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
+    build_graph_info = new_build_graph_info(ctx)
+    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
     compile_flavors = set([CxxCompileFlavor("pic")]) if link_strategy != LinkStrategy("static") else set()
+
+    if transformation_spec_context:
+        transformation_kind = transformation_spec_context.provider.determine_transformation(ctx.label, transformation_spec_context.graph_info)
+        if transformation_kind == TransformationKind("debug"):
+            compile_flavors.add(CxxCompileFlavor("debug"))
+        elif transformation_kind == TransformationKind("optimized"):
+            compile_flavors.add(CxxCompileFlavor("optimized"))
+
     cxx_outs = compile_cxx(
         ctx = ctx,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
@@ -345,8 +355,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     labels_to_links = FinalLabelsToLinks(
         map = {},
     )
-    build_graph_info = new_build_graph_info(ctx)
-    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
