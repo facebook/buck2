@@ -18,9 +18,6 @@ use buck2_error::internal_error;
 enum ContentBasedPathHashError {
     #[error("Content hash must be 16 hex digits, got: `{0}`")]
     NotLongEnough(String),
-
-    #[error("Content hash must be hex digits, got: `{0}`")]
-    NotHexDigits(String),
 }
 
 /// Hash of some content, serialized as a hex string.
@@ -65,11 +62,6 @@ impl ContentBasedPathHash {
             value
         };
 
-        for c in value.chars() {
-            if !c.is_ascii_hexdigit() {
-                return Err(ContentBasedPathHashError::NotHexDigits(value.to_owned()).into());
-            }
-        }
         Ok(ContentBasedPathHash::Specified(value))
     }
 
