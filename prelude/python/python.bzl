@@ -60,11 +60,6 @@ def _resource_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
         return []
     return [a for a, _ in value.default_resources[0].artifacts]
 
-def _resource_artifacts_simple(value: PythonLibraryManifests) -> list[ArgLike]:
-    if value.default_resources == None:
-        return []
-    return [cmd_args(a, p, delimiter = "::") for a, p in value.default_resources[0].artifacts]
-
 def _standalone_hidden_resources(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.standalone_resources == None:
         return []
@@ -96,11 +91,6 @@ def _source_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
         return []
     return [a for a, _ in value.srcs.artifacts]
 
-def _sources_simple(value: PythonLibraryManifests) -> list[ArgLike]:
-    if value.srcs == None:
-        return []
-    return [cmd_args(a, p, delimiter = "::") for a, p in value.srcs.artifacts]
-
 def _source_type_manifests(value: PythonLibraryManifests) -> list[None] | Artifact:
     if value.src_types == None:
         return []
@@ -119,13 +109,11 @@ _BYTECODE_PROJ_PREFIX = {
 args_projections = {
     "hidden_resources": _hidden_resources,
     "resource_artifacts": _resource_artifacts,
-    "resource_artifacts_simple": _resource_artifacts_simple,
     "resource_manifests": _resource_manifests,
     "source_artifacts": _source_artifacts,
     "source_manifests": _source_manifests,
     "source_type_artifacts": _source_type_artifacts,
     "source_type_manifests": _source_type_manifests,
-    "sources_simple": _sources_simple,
     "standalone_hidden_resources": _standalone_hidden_resources,
     "standalone_resource_artifacts": _standalone_resource_artifacts,
     "standalone_resource_manifests": _standalone_resource_manifests,
@@ -186,16 +174,12 @@ def _get_has_hidden_resources(standalone: bool, manifests: PythonLibraryManifest
 
 def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibraryManifestsInterface:
     return PythonLibraryManifestsInterface(
-        sources_simple = lambda: manifests.project_as_args("sources_simple"),
         src_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
-        src_type_manifests = lambda: [manifests.project_as_args("source_manifests")],
-        src_type_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
         bytecode_manifests = lambda mode: [manifests.project_as_args("{}_manifests".format(_BYTECODE_PROJ_PREFIX[mode]))],
         bytecode_artifacts = lambda mode: [manifests.project_as_args("{}_artifacts".format(_BYTECODE_PROJ_PREFIX[mode]))],
         resource_manifests = lambda standalone = False: _get_resource_manifests(standalone, manifests),
         resource_artifacts = lambda standalone = False: _get_resource_artifacts(standalone, manifests),
-        resource_artifacts_simple = lambda: manifests.project_as_args("resource_artifacts_simple"),
         has_hidden_resources = lambda standalone = False: _get_has_hidden_resources(standalone, manifests),
         hidden_resources = lambda standalone = False: _get_hidden_resources(standalone, manifests),
     )
