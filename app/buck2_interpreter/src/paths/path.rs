@@ -53,6 +53,8 @@ impl<'a> StarlarkPath<'a> {
         }
     }
 
+    /// NOTE: given the phase-out of cell-segmentation, this may always return the
+    /// same cell as [Self::cell]. See [ImportPath::new_with_build_file_cells].
     pub fn build_file_cell(&self) -> BuildFileCell {
         match self {
             StarlarkPath::BuildFile(b) => b.build_file_cell(),
