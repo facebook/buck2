@@ -172,14 +172,14 @@ def parse_subcommands(output: str) -> List[str]:
 def generate_help_docs_subcommand(buck: str, args: List[str]) -> str:
     cmd = buck + " docs markdown-help-doc " + " ".join(args)
     print("Running " + cmd + " ...")
-    res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
+    res = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE)
     return res.stdout.decode()
 
 
 def generate_subcommand_short_help(buck: str, args: List[str]) -> str:
     cmd = buck + " " + " ".join(args) + " -h"
     print("Running " + cmd + " ...")
-    res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
+    res = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE)
     output = res.stdout.decode()
     # get the first line which is the short help
     return output.splitlines()[0]
