@@ -198,6 +198,9 @@ pub enum SuperConsoleToggle {
     Commands,
     IncrLines,
     DecrLines,
+    IncreaseReplaySpeed,
+    DecreaseReplaySpeed,
+    PauseReplay,
     Help,
 }
 
@@ -214,6 +217,9 @@ impl SuperConsoleToggle {
             SuperConsoleToggle::Commands => "commands",
             SuperConsoleToggle::IncrLines => "more lines",
             SuperConsoleToggle::DecrLines => "less lines",
+            SuperConsoleToggle::IncreaseReplaySpeed => "increase replay speed",
+            SuperConsoleToggle::DecreaseReplaySpeed => "decrease replay speed",
+            SuperConsoleToggle::PauseReplay => "pause replay",
             SuperConsoleToggle::Help => "help",
         }
     }
@@ -230,6 +236,9 @@ impl SuperConsoleToggle {
             SuperConsoleToggle::Commands => 'c',
             SuperConsoleToggle::IncrLines => '+',
             SuperConsoleToggle::DecrLines => '-',
+            SuperConsoleToggle::IncreaseReplaySpeed => 'k',
+            SuperConsoleToggle::DecreaseReplaySpeed => 'j',
+            SuperConsoleToggle::PauseReplay => 'y',
             SuperConsoleToggle::Help => '?',
         }
     }
@@ -257,6 +266,9 @@ impl SuperConsoleInteraction for ConsoleInteractionStream<'_> {
                     'c' => Some(SuperConsoleToggle::Commands),
                     '+' => Some(SuperConsoleToggle::IncrLines),
                     '-' => Some(SuperConsoleToggle::DecrLines),
+                    'k' => Some(SuperConsoleToggle::IncreaseReplaySpeed),
+                    'j' => Some(SuperConsoleToggle::DecreaseReplaySpeed),
+                    'y' => Some(SuperConsoleToggle::PauseReplay),
                     '?' | 'h' => Some(SuperConsoleToggle::Help),
                     _ => None,
                 };

@@ -740,6 +740,21 @@ impl StatefulSuperConsoleImpl {
                 SuperConsoleToggle::DecrLines => {
                     self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1)
                 }
+                SuperConsoleToggle::IncreaseReplaySpeed => {
+                    if let Some(message) = self.state.timekeeper.scale_speed(1.5).await {
+                        self.handle_stderr(&message).await?;
+                    }
+                }
+                SuperConsoleToggle::DecreaseReplaySpeed => {
+                    if let Some(message) = self.state.timekeeper.scale_speed(1.0 / 1.5).await {
+                        self.handle_stderr(&message).await?;
+                    }
+                }
+                SuperConsoleToggle::PauseReplay => {
+                    if let Some(message) = self.state.timekeeper.toggle_pause().await {
+                        self.handle_stderr(&message).await?;
+                    }
+                }
                 SuperConsoleToggle::Help => {
                     let help_message = SuperConsoleToggle::iter()
                         .map(|t| format!("`{}` = toggle {}", t.key(), t.description()))
