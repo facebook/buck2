@@ -4,14 +4,11 @@ Replay an event log.
 
 This command allows visualizing an existing event log in a Superconsole.
 
-Usage: buck2 log replay [OPTIONS] [PATH] [OVERRIDE_ARGS]...
+Usage: buck2 log replay [OPTIONS] [PATH]
 
 Arguments:
   [PATH]
           A path to an event-log file to read from
-
-  [OVERRIDE_ARGS]...
-          Override the arguments
 
 Options:
       --recent <NUMBER>

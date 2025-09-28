@@ -42,7 +42,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 ///
 /// This command allows visualizing an existing event log in a Superconsole.
 #[derive(Debug, clap::Parser)]
-#[clap(trailing_var_arg = true)]
 pub struct ReplayCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
@@ -58,9 +57,6 @@ pub struct ReplayCommand {
     /// Preload the event log. This is typically only useful for benchmarking.
     #[clap(long)]
     preload: bool,
-
-    #[clap(help = "Override the arguments")]
-    pub override_args: Vec<String>,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -80,7 +76,6 @@ impl BuckSubcommand for ReplayCommand {
             speed,
             preload,
             console_opts,
-            override_args: _,
         } = self;
         let work = async {
             let (event_stream, invocation, replay_clock) =
