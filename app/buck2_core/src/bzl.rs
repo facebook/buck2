@@ -25,7 +25,7 @@ use crate::fs::paths::file_name::FileName;
 enum ImportPathError {
     #[error("Invalid import path `{0}`")]
     Invalid(CellPath),
-    #[error("Import path must have suffix `.bzl`: `{0}`")]
+    #[error("Import path must have suffix `.bzl`, `.json`, or `.toml`: `{0}`")]
     Suffix(CellPath),
 }
 
@@ -61,7 +61,7 @@ impl ImportPath {
             return Err(ImportPathError::Invalid(path).into());
         }
 
-        if path.path().extension() != Some("bzl") && path.path().extension() != Some("json") {
+        if !matches!(path.path().extension(), Some("bzl" | "json" | "toml")) {
             return Err(ImportPathError::Suffix(path).into());
         }
 

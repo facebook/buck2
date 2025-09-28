@@ -1,0 +1,6 @@
+{
+    "name": "example",
+    "object": {
+        "foo": "bar"
+    }
+}

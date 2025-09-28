@@ -60,9 +60,9 @@ pub(crate) async fn server_execute(
                     stdout: &mut dyn Write,
                 ) -> buck2_error::Result<()> {
                     let path = match module.path() {
-                        StarlarkModulePath::LoadFile(path) | StarlarkModulePath::JsonFile(path) => {
-                            path
-                        }
+                        StarlarkModulePath::LoadFile(path)
+                        | StarlarkModulePath::JsonFile(path)
+                        | StarlarkModulePath::TomlFile(path) => path,
                         StarlarkModulePath::BxlFile(_) => {
                             return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "bxl be here"));
                         }
