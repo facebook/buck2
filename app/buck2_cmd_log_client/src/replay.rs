@@ -38,6 +38,13 @@ use tokio::time::Instant;
 use tokio::time::Sleep;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+pub(crate) enum ReplayError {
+    #[error("Invalid speed {0}")]
+    InvalidSpeed(f64),
+}
+
 /// Replay an event log.
 ///
 /// This command allows visualizing an existing event log in a Superconsole.
@@ -77,6 +84,11 @@ impl BuckSubcommand for ReplayCommand {
             preload,
             console_opts,
         } = self;
+
+        if !speed.is_finite() || speed <= 0.0 {
+            return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSpeed(speed)));
+        }
+
         let work = async {
             let (event_stream, invocation, replay_clock) =
                 make_replayer(event_log.get(&ctx).await?, speed, preload).await?;
