@@ -745,10 +745,11 @@ impl StatefulSuperConsoleImpl {
                         .map(|t| format!("`{}` = toggle {}", t.key(), t.description()))
                         .collect::<Vec<_>>()
                         .join("\n");
-                    self.handle_stderr(
-                    &format!("Help:\n{help_message}\nenv var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console"),
-                )
-                .await?
+                    self.handle_stderr(&format!(
+                        "Help:\n{}\nenv var {}=true disables interactive console",
+                        help_message, BUCK_NO_INTERACTIVE_CONSOLE
+                    ))
+                    .await?
                 }
             },
             None => {}
