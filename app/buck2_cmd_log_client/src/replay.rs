@@ -35,7 +35,6 @@ use futures::TryStreamExt;
 use tokio::pin;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::Instant;
-use tokio::time::Sleep;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 #[derive(Debug, buck2_error::Error)]
@@ -189,22 +188,23 @@ async fn make_replayer(
     // subsequent events are calculated relative to this.
     let command_start_instant = Instant::now();
 
+    let syncher = Syncher {
+        reference_instant: command_start_instant,
+        reference_timestamp: invocation.start_time.into(),
+        speed,
+    };
+
     if let Some((first_event, first_event_timestamp)) = res {
         tokio::task::spawn(replay_events_into(
             sink,
             events,
-            speed,
+            syncher,
             first_event,
             first_event_timestamp,
-            command_start_instant,
         ));
     }
 
-    let replay_clock = ReplayClock {
-        zero_timestamp: invocation.start_time.into(),
-        zero_instant: command_start_instant,
-        speed,
-    };
+    let replay_clock = ReplayClock { syncher };
 
     Ok((
         UnboundedReceiverStream::new(receiver),
@@ -217,20 +217,19 @@ async fn make_replayer(
 async fn replay_events_into(
     sink: UnboundedSender<buck2_error::Result<StreamValue>>,
     events: impl Stream<Item = buck2_error::Result<StreamValue>>,
-    speed: f64,
+    syncher: Syncher,
     first_event: buck2_error::Result<StreamValue>,
     first_event_timestamp: prost_types::Timestamp,
-    zero_instant: Instant,
 ) {
     pin!(events);
 
-    let mut syncher = Syncher::new(zero_instant, first_event_timestamp, speed);
+    let mut syncher = syncher;
 
     let mut next_event = first_event;
     let mut next_event_timestamp = first_event_timestamp;
 
     loop {
-        syncher.sleep_until_timestamp(next_event_timestamp).await;
+        syncher.convert_timestamp(next_event_timestamp).await;
         if sink.send(next_event).is_err() {
             // The sink is closed, so we can stop sending events.
             return;
@@ -267,51 +266,42 @@ async fn find_next_event_with_delay(
     None
 }
 
-/// Handle time drifting when replaying events - compute pauses in between events to simulate the real deal.
+/// State that describes how to convert an instant in the timeline of the replay command to a
+/// timestamp in the timeline of the command being replayed
+#[derive(Copy, Clone)]
 struct Syncher {
-    zero_instant: Instant,
-    zero_timestamp: prost_types::Timestamp,
+    reference_instant: Instant,
+    reference_timestamp: prost_types::Timestamp,
     speed: f64,
 }
 
 impl Syncher {
-    fn new(
-        zero_instant: Instant,
-        zero_timestamp: prost_types::Timestamp,
-        playback_speed: f64,
-    ) -> Self {
-        Self {
-            zero_instant,
-            zero_timestamp,
-            speed: playback_speed,
-        }
+    fn convert_instant(&self, instant: Instant) -> prost_types::Timestamp {
+        let elapsed = instant
+            .saturating_duration_since(self.reference_instant)
+            .mul_f64(self.speed);
+        timestamp_add_duration(self.reference_timestamp, elapsed)
     }
 
-    /// Returns a sleep until this event should be sent
-    ///
-    /// The first event will be sent immediately. Each subsequent event will be sent with a delay
-    /// based on its time since that first event.
-    fn sleep_until_timestamp(&mut self, event_time: prost_types::Timestamp) -> Sleep {
-        let log_offset_time = duration_between_timestamps(self.zero_timestamp, event_time);
+    /// Given a timestamp, converts it to an instant in the timeline of the replay command and
+    /// returns a future that sleeps until that instant is reached
+    fn convert_timestamp(
+        &mut self,
+        event_time: prost_types::Timestamp,
+    ) -> impl Future<Output = ()> {
+        let log_offset_time = duration_between_timestamps(self.reference_timestamp, event_time);
         let sync_offset_time = log_offset_time.div_f64(self.speed);
-        let sync_event_time = self.zero_instant + sync_offset_time;
-        tokio::time::sleep_until(sync_event_time)
+        tokio::time::sleep_until(self.reference_instant + sync_offset_time)
     }
 }
 
 struct ReplayClock {
-    zero_instant: Instant,
-    zero_timestamp: prost_types::Timestamp,
-    speed: f64,
+    syncher: Syncher,
 }
 
 impl Clock for ReplayClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
-        let elapsed = tick
-            .current_monotonic
-            .saturating_duration_since(self.zero_instant)
-            .mul_f64(self.speed);
-        EventTimestamp(timestamp_add_duration(self.zero_timestamp, elapsed))
+        EventTimestamp(self.syncher.convert_instant(tick.current_monotonic))
     }
 }
 
