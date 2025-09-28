@@ -28,6 +28,12 @@ Options:
 
           [default: 1.0]
 
+      --seek <SEEK>
+          Skip to the given number of seconds after the start of the command before starting the
+          replay
+
+          [default: 0.0]
+
       --preload
           Preload the event log. This is typically only useful for benchmarking
 

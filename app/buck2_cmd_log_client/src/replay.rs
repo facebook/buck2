@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::cmp::Ordering;
 use std::future::pending;
 use std::time::Duration;
 
@@ -46,6 +47,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 pub(crate) enum ReplayError {
     #[error("Invalid speed {0}")]
     InvalidSpeed(f64),
+    #[error("Invalid seek {0}")]
+    InvalidSeek(f64),
 }
 
 /// Replay an event log.
@@ -63,6 +66,11 @@ pub struct ReplayCommand {
         default_value = "1.0"
     )]
     pub speed: f64,
+
+    /// Skip to the given number of seconds after the start of the command before starting the
+    /// replay
+    #[clap(long, default_value = "0.0")]
+    pub seek: f64,
 
     /// Preload the event log. This is typically only useful for benchmarking.
     #[clap(long)]
@@ -84,6 +92,7 @@ impl BuckSubcommand for ReplayCommand {
         let Self {
             event_log,
             speed,
+            seek,
             preload,
             console_opts,
         } = self;
@@ -92,9 +101,15 @@ impl BuckSubcommand for ReplayCommand {
             return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSpeed(speed)));
         }
 
+        if !seek.is_finite() || seek < 0.0 {
+            return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSeek(seek)));
+        }
+
+        let seek = Duration::from_secs(1).mul_f64(seek);
+
         let work = async {
             let (event_stream, invocation, replay_clock) =
-                make_replayer(event_log.get(&ctx).await?, speed, preload).await?;
+                make_replayer(event_log.get(&ctx).await?, speed, seek, preload).await?;
             let console = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
@@ -169,6 +184,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
 async fn make_replayer(
     log_path: EventLogPathBuf,
     speed: f64,
+    seek: Duration,
     preload: bool,
 ) -> buck2_error::Result<(
     impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
@@ -186,7 +202,9 @@ async fn make_replayer(
 
     let (sink, receiver) = tokio::sync::mpsc::unbounded_channel();
 
-    let res = find_next_event_with_delay(&sink, &mut events).await;
+    let seek_timestamp = timestamp_add_duration(invocation.start_time.into(), seek);
+
+    let res = find_next_event_with_delay(&sink, &mut events, Some(seek_timestamp)).await;
 
     // The point in real time at which we treat the command as having happened - delays of
     // subsequent events are calculated relative to this.
@@ -194,7 +212,7 @@ async fn make_replayer(
 
     let syncher = Syncher {
         reference_instant: command_start_instant,
-        reference_timestamp: invocation.start_time.into(),
+        reference_timestamp: seek_timestamp,
         speed,
     };
 
@@ -248,7 +266,7 @@ async fn replay_events_into(
                     // The sink is closed, so we can stop sending events.
                     return;
                 }
-                match find_next_event_with_delay(&sink, &mut events).await {
+                match find_next_event_with_delay(&sink, &mut events, None).await {
                     Some((event, event_timestamp)) => {
                         next_event = event;
                         next_event_timestamp = event_timestamp;
@@ -285,12 +303,17 @@ async fn replay_events_into(
 async fn find_next_event_with_delay(
     sink: &UnboundedSender<buck2_error::Result<StreamValue>>,
     events: &mut (impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin),
+    min_timestamp: Option<prost_types::Timestamp>,
 ) -> Option<(buck2_error::Result<StreamValue>, prost_types::Timestamp)> {
     while let Some(event) = events.next().await {
         match &event {
             Ok(StreamValue::Event(buck_event)) => {
                 let ts = buck_event.timestamp.unwrap();
-                return Some((event, ts));
+                if min_timestamp
+                    .is_none_or(|min_timestamp| cmp_timestamps(min_timestamp, ts).is_le())
+                {
+                    return Some((event, ts));
+                }
             }
             // Most other kinds of events don't really happen, don't need a delay for them
             _ => {}
@@ -418,4 +441,8 @@ fn timestamp_add_duration(
         seconds: seconds as i64,
         nanos: nanos as i32,
     }
+}
+
+fn cmp_timestamps(first: prost_types::Timestamp, second: prost_types::Timestamp) -> Ordering {
+    Ord::cmp(&first.seconds, &second.seconds).then_with(|| Ord::cmp(&first.nanos, &second.nanos))
 }
