@@ -107,7 +107,7 @@ def _error_handler_produced_multiple_categories(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 def _fail_error_handler_with_output(ctx):
-    out = ctx.actions.declare_output("output", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    out = ctx.actions.declare_output("output", has_content_based_path = ctx.attrs.use_content_based_path)
 
     def error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
         categories = []

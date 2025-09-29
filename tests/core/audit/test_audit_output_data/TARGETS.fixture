@@ -2,7 +2,7 @@ load(":defs.bzl", "simple_rule")
 
 simple_rule(
     name = "dummy",
-    uses_experimental_content_based_path_hashing = read_config("test", "uses_experimental_content_based_path_hashing", "False") in ["True", "true"],
+    has_content_based_path = read_config("test", "has_content_based_path", "False") in ["True", "true"],
 )
 
 constraint_setting(name = "os")

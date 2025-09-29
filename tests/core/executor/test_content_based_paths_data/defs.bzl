@@ -14,15 +14,15 @@ NameSet = transitive_set(args_projections = {
 })
 
 def _write_with_content_based_path_impl(ctx):
-    artifact_input = ctx.actions.write("artifact_input", "artifact_input", uses_experimental_content_based_path_hashing = True)
+    artifact_input = ctx.actions.write("artifact_input", "artifact_input", has_content_based_path = True)
 
-    tset_item1 = ctx.actions.declare_output("tset_item1", uses_experimental_content_based_path_hashing = True)
+    tset_item1 = ctx.actions.declare_output("tset_item1", has_content_based_path = True)
     tset1 = ctx.actions.tset(NameSet, value = ctx.actions.write(tset_item1, "tset_item1"))
-    tset_item2 = ctx.actions.declare_output("tset_item2", uses_experimental_content_based_path_hashing = True)
+    tset_item2 = ctx.actions.declare_output("tset_item2", has_content_based_path = True)
     tset2 = ctx.actions.tset(NameSet, value = ctx.actions.write(tset_item2, "tset_item2"))
     tset = ctx.actions.tset(NameSet, children = [tset1, tset2])
 
-    out = ctx.actions.declare_output("out.txt", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = True)
     return [DefaultInfo(default_output = ctx.actions.write(out, cmd_args(artifact_input, ctx.attrs.data, tset.project_as_args("project"))))]
 
 write_with_content_based_path = rule(
@@ -33,7 +33,7 @@ write_with_content_based_path = rule(
 )
 
 def _write_macro_with_content_based_path_impl(ctx):
-    out = ctx.actions.declare_output("out.txt", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = True)
     out, macro_files = ctx.actions.write(out, ctx.attrs.arg, allow_args = True)
     if not len(macro_files) == 1:
         fail("Expected exactly one macro file, got {}".format(macro_files))
@@ -57,7 +57,7 @@ def _write_json_with_content_based_path_impl(ctx):
             "foo": "bar",
             "source": ctx.attrs.source,
         },
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
     return [DefaultInfo(default_output = out)]
 
@@ -69,7 +69,7 @@ write_json_with_content_based_path = rule(
 )
 
 def _run_with_content_based_path_impl(ctx):
-    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
     script = ctx.actions.write(
         script,
         [
@@ -79,7 +79,7 @@ def _run_with_content_based_path_impl(ctx):
         ],
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     args = cmd_args(["fbpython", script, out.as_output(), ctx.attrs.data])
     args.add(cmd_args(hidden = ctx.attrs.depends_on))
     kwargs = {
@@ -106,7 +106,7 @@ run_with_content_based_path = rule(
 )
 
 def _copy_impl(ctx):
-    out = ctx.actions.copy_file("out", ctx.attrs.to_copy, uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.copy_file("out", ctx.attrs.to_copy, has_content_based_path = True)
 
     return [DefaultInfo(default_output = out)]
 
@@ -118,7 +118,7 @@ copy = rule(
 )
 
 def _symlink_impl(ctx):
-    out = ctx.actions.symlink_file("out", ctx.attrs.to_symlink, uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.symlink_file("out", ctx.attrs.to_symlink, has_content_based_path = True)
 
     return [DefaultInfo(default_output = out)]
 
@@ -130,10 +130,10 @@ symlink = rule(
 )
 
 def _symlink_and_copy_impl(ctx):
-    written = ctx.actions.write("written", "written", uses_experimental_content_based_path_hashing = True)
-    symlink = ctx.actions.symlink_file("symlink", written, uses_experimental_content_based_path_hashing = True)
+    written = ctx.actions.write("written", "written", has_content_based_path = True)
+    symlink = ctx.actions.symlink_file("symlink", written, has_content_based_path = True)
 
-    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
     script = ctx.actions.write(
         script,
         [
@@ -143,7 +143,7 @@ def _symlink_and_copy_impl(ctx):
         ],
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     args = cmd_args(["fbpython", script, symlink, out.as_output()])
 
     ctx.actions.run(args, category = "test_run")
@@ -156,7 +156,7 @@ symlink_and_copy = rule(
 )
 
 def _copied_dir_impl(ctx):
-    another_to_copy = ctx.actions.declare_output("another_to_copy", uses_experimental_content_based_path_hashing = True)
+    another_to_copy = ctx.actions.declare_output("another_to_copy", has_content_based_path = True)
     ctx.actions.write(another_to_copy, "another_to_copy")
     out = ctx.actions.copied_dir(
         "out",
@@ -164,7 +164,7 @@ def _copied_dir_impl(ctx):
             "another_to_copy": another_to_copy,
             "to_copy": ctx.attrs.to_copy,
         },
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     return [DefaultInfo(default_output = out)]
@@ -177,7 +177,7 @@ copied_dir = rule(
 )
 
 def _symlinked_dir_impl(ctx):
-    another_to_symlink = ctx.actions.declare_output("another_to_symlink", uses_experimental_content_based_path_hashing = True)
+    another_to_symlink = ctx.actions.declare_output("another_to_symlink", has_content_based_path = True)
     ctx.actions.write(another_to_symlink, "another_to_symlink")
     out = ctx.actions.symlinked_dir(
         "out",
@@ -185,7 +185,7 @@ def _symlinked_dir_impl(ctx):
             "another_to_symlink": another_to_symlink,
             "to_symlink": ctx.attrs.to_symlink,
         },
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     return [DefaultInfo(default_output = out)]
@@ -205,7 +205,7 @@ def _cas_artifact_with_content_based_path_impl(ctx: AnalysisContext):
         expires_after_timestamp = ctx.attrs.expires_after_timestamp,
         is_tree = ctx.attrs.is_tree,
         is_directory = ctx.attrs.is_directory,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
     return [DefaultInfo(default_output = out)]
 
@@ -232,7 +232,7 @@ def _download_with_content_based_path_impl(ctx: AnalysisContext):
         sha1 = None
         dummy_sha_256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-    download = ctx.actions.download_file("download", url, sha1 = sha1, sha256 = dummy_sha_256, uses_experimental_content_based_path_hashing = True)
+    download = ctx.actions.download_file("download", url, sha1 = sha1, sha256 = dummy_sha_256, has_content_based_path = True)
     return [
         DefaultInfo(default_output = download),
     ]
@@ -245,7 +245,7 @@ download_with_content_based_path = rule(
 )
 
 def _failing_validation_with_content_based_path_impl(ctx):
-    validation = ctx.actions.declare_output("validation.json", uses_experimental_content_based_path_hashing = True)
+    validation = ctx.actions.declare_output("validation.json", has_content_based_path = True)
     validation = ctx.actions.write_json(validation, {
         "data": {
             "message": "This is a failing validation",
@@ -270,9 +270,9 @@ failing_validation_with_content_based_path = rule(
 )
 
 def _dynamic_with_content_based_path_impl(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.declare_output("input", uses_experimental_content_based_path_hashing = True)
+    input = ctx.actions.declare_output("input", has_content_based_path = True)
     input = ctx.actions.write(input, str("input"))
-    output = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    output = ctx.actions.declare_output("out", has_content_based_path = True)
 
     def f(ctx: AnalysisContext, artifacts, outputs):
         src = artifacts[input].read_string()
@@ -300,9 +300,9 @@ _basic_dynamic_output_new = dynamic_actions(
 )
 
 def _dynamic_new_with_content_based_path_impl(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.declare_output("input", uses_experimental_content_based_path_hashing = True)
+    input = ctx.actions.declare_output("input", has_content_based_path = True)
     input = ctx.actions.write(input, str("input"))
-    output = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    output = ctx.actions.declare_output("out", has_content_based_path = True)
 
     ctx.actions.dynamic_output_new(_basic_dynamic_output_new(
         src = input,
@@ -317,7 +317,7 @@ dynamic_new_with_content_based_path = rule(
 )
 
 def _use_projection_with_content_based_path_impl(ctx):
-    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
     script = ctx.actions.write(
         script,
         [
@@ -331,7 +331,7 @@ def _use_projection_with_content_based_path_impl(ctx):
         ],
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     projection1 = out.project("projection1.txt")
     projection2 = out.project("projection2.txt")
     args = cmd_args(["fbpython", script, out.as_output(), projection1.as_output(), projection2.as_output()])
@@ -346,11 +346,11 @@ def _use_projection_with_content_based_path_impl(ctx):
         ],
     )
 
-    first_copy_projection1 = ctx.actions.declare_output("first_copied_projection1.txt", uses_experimental_content_based_path_hashing = True)
+    first_copy_projection1 = ctx.actions.declare_output("first_copied_projection1.txt", has_content_based_path = True)
     args = cmd_args(["fbpython", copy_script, projection1, first_copy_projection1.as_output()], hidden = [out])
     ctx.actions.run(args, category = "test_first_copy_projection1", prefer_local = True)
 
-    second_copy_projection1 = ctx.actions.declare_output("second_copied_projection1.txt", uses_experimental_content_based_path_hashing = True)
+    second_copy_projection1 = ctx.actions.declare_output("second_copied_projection1.txt", has_content_based_path = True)
     args = cmd_args(["fbpython", copy_script, projection1, second_copy_projection1.as_output()], hidden = [first_copy_projection1])
     ctx.actions.run(args, category = "test_second_copy_projection1", prefer_local = True)
 
@@ -363,10 +363,10 @@ use_projection_with_content_based_path = rule(
 )
 
 def _ignores_content_based_artifact_impl(ctx):
-    ignored = ctx.actions.declare_output("ignored.txt", uses_experimental_content_based_path_hashing = True)
+    ignored = ctx.actions.declare_output("ignored.txt", has_content_based_path = True)
     ignored = ctx.actions.write(ignored, "ignored")
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     args = cmd_args([out.as_output()], cmd_args(ignored, ignore_artifacts = True))
 
     ctx.actions.run(args, category = "test_run")
@@ -379,7 +379,7 @@ ignores_content_based_artifact = rule(
 )
 
 def _slow_running_local_action_with_content_based_path_impl(ctx):
-    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
     script = ctx.actions.write(
         script,
         [
@@ -391,7 +391,7 @@ def _slow_running_local_action_with_content_based_path_impl(ctx):
         ],
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     args = cmd_args(["fbpython", script, out.as_output(), ctx.attrs.data])
 
     ctx.actions.run(args, category = "test_run", local_only = True)
@@ -406,7 +406,7 @@ slow_running_local_action_with_content_based_path = rule(
 )
 
 def _writes_input_to_output_impl(ctx):
-    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
     script = ctx.actions.write(
         script,
         [
@@ -417,7 +417,7 @@ def _writes_input_to_output_impl(ctx):
         ],
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     args = cmd_args(["fbpython", script, out.as_output(), ctx.attrs.input])
 
     ctx.actions.run(args, category = "test_run", local_only = True)
@@ -432,13 +432,13 @@ writes_input_to_output = rule(
 )
 
 def _uses_relative_to_impl(ctx):
-    out1 = ctx.actions.declare_output("out1", uses_experimental_content_based_path_hashing = True)
+    out1 = ctx.actions.declare_output("out1", has_content_based_path = True)
     ctx.actions.write(out1, "hello world")
 
-    out2 = ctx.actions.declare_output("out2", uses_experimental_content_based_path_hashing = True)
+    out2 = ctx.actions.declare_output("out2", has_content_based_path = True)
     ctx.actions.write(out2, "hello world")
 
-    out3 = ctx.actions.declare_output("out3", uses_experimental_content_based_path_hashing = True)
+    out3 = ctx.actions.declare_output("out3", has_content_based_path = True)
     ctx.actions.write(out3, cmd_args(out1, relative_to = out2))
 
     return [DefaultInfo(default_output = out3)]
@@ -450,8 +450,8 @@ uses_relative_to = rule(
 )
 
 def _sets_inconsistent_params_impl(ctx):
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    ctx.actions.write(out, "hello world", uses_experimental_content_based_path_hashing = False)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
+    ctx.actions.write(out, "hello world", has_content_based_path = False)
 
     return [DefaultInfo(default_output = out)]
 
@@ -461,8 +461,8 @@ sets_inconsistent_params = rule(
 )
 
 def _argsfile_with_incorrectly_declared_output_impl(ctx):
-    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     script = ctx.actions.write(
         script,
         [

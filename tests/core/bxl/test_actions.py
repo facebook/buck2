@@ -46,7 +46,7 @@ async def test_bxl_create_build_actions_with_content_based_path(buck: Buck) -> N
         "--",
         "--content",
         "my_content",
-        "--uses_experimental_content_based_path_hashing",
+        "--has_content_based_path",
         "true",
     )
 
