@@ -71,6 +71,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
 use indexmap::IndexMap;
+use indexmap::IndexSet;
 use indexmap::indexmap;
 use itertools::Itertools;
 use remote_execution::TActionResult2;
@@ -389,10 +390,22 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.inputs.get(artifact).unwrap_or_else(|| panic!("Internal error: action {} tried to grab the artifact {} even though it was not an input.", self.action.owner(), artifact))
     }
 
-    fn artifact_path_mapping(&self) -> IndexMap<&Artifact, ContentBasedPathHash> {
+    fn artifact_path_mapping(
+        &self,
+        filter: Option<IndexSet<ArtifactGroup>>,
+    ) -> IndexMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
-            .filter(|(ag, _)| ag.uses_content_based_path())
+            .filter(|(ag, _)| {
+                if !ag.uses_content_based_path() {
+                    return false;
+                }
+
+                match filter {
+                    Some(ref filter) => filter.contains(*ag),
+                    None => true,
+                }
+            })
             .flat_map(|(_, v)| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))
             .collect()

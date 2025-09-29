@@ -269,7 +269,7 @@ impl Action for WriteAction {
                         &DepFilesPlaceholderArtifactPathMapper {},
                     )?
                 } else {
-                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
+                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?
                 }
                 .into_bytes();
                 let path = fs.resolve_build(

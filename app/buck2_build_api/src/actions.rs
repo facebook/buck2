@@ -272,7 +272,10 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// as an input to the associated action or a panic will be raised.
     fn artifact_values(&self, input: &ArtifactGroup) -> &ArtifactGroupValues;
 
-    fn artifact_path_mapping(&self) -> IndexMap<&Artifact, ContentBasedPathHash>;
+    fn artifact_path_mapping(
+        &self,
+        filter: Option<IndexSet<ArtifactGroup>>,
+    ) -> IndexMap<&Artifact, ContentBasedPathHash>;
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
