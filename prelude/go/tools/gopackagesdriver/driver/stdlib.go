@@ -58,6 +58,7 @@ func queryStd(ctx context.Context, req *packages.DriverRequest, goBinPath string
 		Logf: func(format string, args ...any) {
 			slog.Info(fmt.Sprintf(format, args...))
 		},
+		Env: append(os.Environ(), "CGO_ENABLED=1"),
 	}
 
 	slog.Info("running stdlib load", "mode", loadcfg.Mode, "tests", loadcfg.Tests, "buildFlags", loadcfg.BuildFlags)
