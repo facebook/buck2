@@ -90,6 +90,7 @@ def _main(ctx: bxl.Context) -> None:
         deps = []
         entry["srcs"] = srcs
         entry["deps"] = deps
+        entry["buildfile_path"] = fs.project_rel_path(x.buildfile_path)
         python_version = attrs.get("py_version_for_type_checking")
         entry["python_version"] = python_version.value() if python_version != None and python_version.value() != None else DEFAULT_PY_VERSION
 
