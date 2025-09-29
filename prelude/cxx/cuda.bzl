@@ -18,6 +18,7 @@ CudaCompileInfo = record(
     identifier = field(str),
     # Output sub-directory where all CUDA compilation artifacts will go to
     output_prefix = field(str),
+    uses_experimental_content_based_path_hashing = field(bool),
 )
 
 CudaCompileStyle = enum(
@@ -64,7 +65,14 @@ def cuda_compile(
         )
         return None
     elif cuda_compile_style == CudaCompileStyle("dist"):
-        return dist_nvcc(actions, toolchain, cmd, object, src_compile_cmd, cuda_compile_info)
+        return dist_nvcc(
+            actions,
+            toolchain,
+            cmd,
+            object,
+            src_compile_cmd,
+            cuda_compile_info,
+        )
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 
@@ -72,7 +80,8 @@ def _create_file_to_artifact_map(
         actions: AnalysisActions,
         plan_json: list[dict[str, typing.Any]],
         src_compile_cmd: CxxSrcCompileCommand,
-        output_declared_artifact: OutputArtifact) -> dict[str, Artifact | OutputArtifact]:
+        output_declared_artifact: OutputArtifact,
+        uses_experimental_content_based_path_hashing: bool) -> dict[str, Artifact | OutputArtifact]:
     # Create artifacts for all intermediate input and output files.
     file2artifact = {}
     for cmd_node in plan_json:
@@ -83,14 +92,20 @@ def _create_file_to_artifact_map(
                 if input.endswith(".cu"):
                     file2artifact[input] = src_compile_cmd.src
                 else:
-                    input_artifact = actions.declare_output(input)
+                    input_artifact = actions.declare_output(
+                        input,
+                        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+                    )
                     file2artifact[input] = input_artifact
         for output in node_outputs:
             if output not in file2artifact:
                 if output.endswith(".o"):
                     file2artifact[output] = output_declared_artifact
                 else:
-                    output_artifact = actions.declare_output(output)
+                    output_artifact = actions.declare_output(
+                        output,
+                        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+                    )
                     file2artifact[output] = output_artifact
     return file2artifact
 
@@ -101,6 +116,42 @@ def _create_nvcc_subcmd_env(env_artifact: ArtifactValue) -> dict[str, str]:
         key, value = line.split("=", 1)
         subcmd_env[key] = value
     return subcmd_env
+
+def _include_symlinked_stubs_dir(
+        actions: AnalysisActions,
+        file2artifact: dict[str, typing.Any],
+        subcmd: cmd_args) -> None:
+    """
+    .cudafe1.stub.c and .fatbin.c files are hardcoded into the cudafe1.cpp file
+    and its includes like below:
+
+    #include "add.cu.o.compute_90a.cudafe1.stub.c"
+
+    Before content-based hashing, this worked fine because all outputs were under
+    the same directory. However, with content-based hashing this no longer works
+    because the output files are put under the output_artifacts sub-directory.
+
+    Fix this by creating a directory containing symlinks to the actual stubs, and
+    adding it to the cuda_cxx_compile include search path.
+    """
+    stubs_dir = actions.declare_output(
+        "__stubs__",
+        dir = True,
+        uses_experimental_content_based_path_hashing = True,
+    )
+    stubs = {}
+    for file, artifact in file2artifact.items():
+        if file.endswith(".cudafe1.stub.c") or file.endswith(".fatbin.c"):
+            # Remove the parent paths because the includes are the filenames only.
+            # We can do this because each dynamic compile deals with only one CUDA
+            # source file.
+            stubs[artifact.basename] = artifact
+    symlinked_dir = actions.symlinked_dir(
+        stubs_dir,
+        stubs,
+        uses_experimental_content_based_path_hashing = True,
+    )
+    subcmd.add(cmd_args(symlinked_dir, format = "-I{}"))
 
 def _nvcc_dynamic_compile(
         actions: AnalysisActions,
@@ -113,11 +164,13 @@ def _nvcc_dynamic_compile(
         env_artifact: ArtifactValue,
         output_declared_artifact: OutputArtifact) -> list[Provider]:
     plan = plan_artifact.read_json()
+    content_based = cuda_compile_info.uses_experimental_content_based_path_hashing
     file2artifact = _create_file_to_artifact_map(
         actions,
         plan,
         src_compile_cmd,
         output_declared_artifact,
+        content_based,
     )
     subcmd_env = _create_nvcc_subcmd_env(env_artifact)
 
@@ -134,6 +187,10 @@ def _nvcc_dynamic_compile(
             # output is not empty
             subcmd.add(toolchain.internal_tools.check_nonempty_output)
         subcmd.add(exe)
+
+        if content_based and cmd_node["category"] == "cuda_cxx_compile":
+            _include_symlinked_stubs_dir(actions, file2artifact, subcmd)
+
         for token in cmd_node["cmd"]:
             # Replace the {input} and {output} placeholders with the actual
             # artifacts. node["inputs"] and node["outputs"] are used as a
@@ -197,9 +254,11 @@ def dist_nvcc(
         object: Artifact,
         src_compile_cmd: CxxSrcCompileCommand,
         cuda_compile_info: CudaCompileInfo) -> list[Artifact] | None:
+    content_based = cuda_compile_info.uses_experimental_content_based_path_hashing
     hostcc_argsfile = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.hostcc_argsfile".format(cuda_compile_info.filename),
+        uses_experimental_content_based_path_hashing = content_based,
     )
 
     # Create the following files for each CUDA file:
@@ -208,10 +267,12 @@ def dist_nvcc(
     env = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.env".format(cuda_compile_info.filename),
+        uses_experimental_content_based_path_hashing = content_based,
     )
     subcmds = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.json".format(cuda_compile_info.filename),
+        uses_experimental_content_based_path_hashing = content_based,
     )
 
     # We'll first run nvcc with -dryrun. So do not bind the object file yet.

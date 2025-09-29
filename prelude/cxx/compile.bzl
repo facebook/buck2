@@ -494,7 +494,12 @@ def _compile_single_cxx(
             cmd,
             object,
             src_compile_cmd,
-            CudaCompileInfo(filename = filename_base, identifier = identifier, output_prefix = folder_name),
+            CudaCompileInfo(
+                filename = filename_base,
+                identifier = identifier,
+                output_prefix = folder_name,
+                uses_experimental_content_based_path_hashing = content_based,
+            ),
             action_dep_files,
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
