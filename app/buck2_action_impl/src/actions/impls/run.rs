@@ -396,6 +396,28 @@ impl ArtifactPathMapper for DepFilesPlaceholderArtifactPathMapper {
 type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
 
 impl RunAction {
+    fn visit_artifacts<'a>(
+        &'a self,
+        artifact_visitor: &mut dyn CommandLineArtifactVisitor<'a>,
+    ) -> buck2_error::Result<()> {
+        let values = Self::unpack(&self.starlark_values)?;
+        values.args.visit_artifacts(artifact_visitor)?;
+        values.exe.visit_artifacts(artifact_visitor)?;
+        if let Some(worker) = values.worker {
+            worker.exe.visit_artifacts(artifact_visitor)?;
+        }
+        if let Some(remote_worker) = values.remote_worker {
+            remote_worker.exe.visit_artifacts(artifact_visitor)?;
+            for (_, v) in remote_worker.env.iter() {
+                v.visit_artifacts(artifact_visitor)?;
+            }
+        }
+        for (_, v) in values.env.iter() {
+            v.visit_artifacts(artifact_visitor)?;
+        }
+        Ok(())
+    }
+
     fn unpack<'v>(
         values: &'v OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> buck2_error::Result<UnpackedRunActionValues<'v>> {
@@ -1204,22 +1226,8 @@ impl Action for RunAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        let values = Self::unpack(&self.starlark_values)?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        values.args.visit_artifacts(&mut artifact_visitor)?;
-        values.exe.visit_artifacts(&mut artifact_visitor)?;
-        if let Some(worker) = values.worker {
-            worker.exe.visit_artifacts(&mut artifact_visitor)?;
-        }
-        if let Some(remote_worker) = values.remote_worker {
-            remote_worker.exe.visit_artifacts(&mut artifact_visitor)?;
-            for (_, v) in remote_worker.env.iter() {
-                v.visit_artifacts(&mut artifact_visitor)?;
-            }
-        }
-        for (_, v) in values.env.iter() {
-            v.visit_artifacts(&mut artifact_visitor)?;
-        }
+        self.visit_artifacts(&mut artifact_visitor)?;
         Ok(Cow::Owned(artifact_visitor.inputs.into_iter().collect()))
     }
 
