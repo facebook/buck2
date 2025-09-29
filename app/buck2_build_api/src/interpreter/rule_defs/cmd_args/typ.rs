@@ -258,10 +258,22 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         if !self.ignore_artifacts() {
-            for item in self.0.items().iter().chain(self.0.hidden().iter()) {
-                visitor.push_frame()?;
-                item.as_command_line_arg().visit_artifacts(visitor)?;
-                visitor.pop_frame();
+            fn visit_items<'a>(
+                visitor: &mut dyn CommandLineArtifactVisitor<'a>,
+                items: &[CommandLineArg<'a>],
+            ) -> buck2_error::Result<()> {
+                for item in items {
+                    visitor.push_frame()?;
+                    item.as_command_line_arg().visit_artifacts(visitor)?;
+                    visitor.pop_frame();
+                }
+
+                Ok(())
+            }
+
+            visit_items(visitor, self.0.items())?;
+            if !visitor.skip_hidden() {
+                visit_items(visitor, self.0.hidden())?;
             }
         } else {
             struct IgnoredArtifactsVisitor {
