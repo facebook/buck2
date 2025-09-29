@@ -7,10 +7,10 @@
 # above-listed licenses.
 
 def _impl(ctx):
-    out = ctx.actions.declare_output("bound_dynamic.txt", uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing)
+    out = ctx.actions.declare_output("bound_dynamic.txt", has_content_based_path = ctx.attrs.has_content_based_path)
 
     def dynamic(ctx, out):
-        defined_dynamic = ctx.actions.write("defined_dynamic.txt", "abcd", uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing)
+        defined_dynamic = ctx.actions.write("defined_dynamic.txt", "abcd", has_content_based_path = ctx.attrs.has_content_based_path)
         ctx.actions.copy_file(out.as_output(), defined_dynamic)
 
     f = lambda ctx, _dyn, outputs: dynamic(ctx, outputs[out])
@@ -22,6 +22,6 @@ def _impl(ctx):
 dynamic_output = rule(
     impl = _impl,
     attrs = {
-        "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
+        "has_content_based_path": attrs.bool(default = False),
     },
 )

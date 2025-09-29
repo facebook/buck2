@@ -108,7 +108,7 @@ impl WriteEventLog {
             expanded_command_line_args,
             working_dir: self.working_dir.to_string(),
             trace_id,
-            start_time: self.start_time,
+            start_time: Some(self.start_time),
         };
         self.write_ln(&[invocation]).await
     }

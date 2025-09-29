@@ -236,7 +236,7 @@ impl Action for WriteJsonAction {
                         &DepFilesPlaceholderArtifactPathMapper {},
                     )?
                 } else {
-                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
+                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?
                 };
                 let path = fs.resolve_build(
                     self.output.get_path(),

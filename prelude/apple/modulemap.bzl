@@ -41,6 +41,8 @@ def create_modulemap(
     if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
+    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+
     # Create a map of header import path to artifact location
     header_map = {}
     for h in headers:
@@ -59,10 +61,10 @@ def create_modulemap(
             fail("You shouldn't be generating a bridging header for a private module map.")
 
     # Create a symlink dir for the headers to import
-    symlink_tree = ctx.actions.symlinked_dir(name.replace(".", "_") + "_symlink_tree", header_map)
+    symlink_tree = ctx.actions.symlinked_dir(name.replace(".", "_") + "_symlink_tree", header_map, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     # Create a modulemap at the root of that tree
-    output = ctx.actions.declare_output(name + ".modulemap")
+    output = ctx.actions.declare_output(name + ".modulemap", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     cmd = cmd_args(ctx.attrs._apple_tools[AppleToolsInfo].make_modulemap)
     cmd.add([
         "--output",

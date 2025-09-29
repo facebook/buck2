@@ -112,7 +112,7 @@ async def test_audit_content_based_output_in_root_directory(buck: Buck) -> None:
     result = await buck.audit_output(
         f"buck-out/v2/gen/root/__dummy__/{DUMMY_CONTENT_HASH}/foo.txt",
         "-c",
-        "test.uses_experimental_content_based_path_hashing=true",
+        "test.has_content_based_path=true",
     )
 
     assert result.stdout.strip() == target
@@ -173,7 +173,7 @@ async def test_content_based_dynamic_output_declared_in_rule_bound_in_dynamic(
     result = await buck.audit_output(
         f"buck-out/v2/gen/root/dynamic_output/__dynamic_output__/{DUMMY_CONTENT_HASH}/bound_dynamic.txt",
         "-c",
-        "test.uses_experimental_content_based_path_hashing=true",
+        "test.has_content_based_path=true",
     )
     assert result.stdout.strip() == target
 
@@ -229,7 +229,7 @@ async def test_content_based_output_directory(buck: Buck) -> None:
     result = await buck.audit_output(
         f"buck-out/v2/gen/root/directory/__empty_dir__/{DUMMY_CONTENT_HASH}/outputdir",
         "-c",
-        "test.uses_experimental_content_based_path_hashing=true",
+        "test.has_content_based_path=true",
     )
 
     assert result.stdout.strip() == target

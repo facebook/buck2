@@ -119,6 +119,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         pkgs = pkgs,
         coverage_mode = None,
         cgo_gen_dir_name = "cgo_gen_test_main",
+        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
 
     # Link the above into a Go binary.

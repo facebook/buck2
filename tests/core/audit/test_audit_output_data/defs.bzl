@@ -7,11 +7,11 @@
 # above-listed licenses.
 
 def _simple_rule(ctx):
-    return [DefaultInfo(default_output = ctx.actions.write("foo.txt", "abcd", uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing))]
+    return [DefaultInfo(default_output = ctx.actions.write("foo.txt", "abcd", has_content_based_path = ctx.attrs.has_content_based_path))]
 
 simple_rule = rule(
     impl = _simple_rule,
     attrs = {
-        "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
+        "has_content_based_path": attrs.bool(default = False),
     },
 )

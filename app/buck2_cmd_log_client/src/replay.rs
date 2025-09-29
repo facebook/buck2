@@ -8,7 +8,10 @@
  * above-listed licenses.
  */
 
+use std::cmp::Ordering;
+use std::future::pending;
 use std::time::Duration;
+use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -32,17 +35,27 @@ use buck2_event_observer::span_tracker::EventTimestamp;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use futures::future::Either;
 use tokio::pin;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
 use tokio::time::Instant;
-use tokio::time::Sleep;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+pub(crate) enum ReplayError {
+    #[error("Invalid speed {0}")]
+    InvalidSpeed(f64),
+    #[error("Invalid seek {0}")]
+    InvalidSeek(f64),
+}
 
 /// Replay an event log.
 ///
 /// This command allows visualizing an existing event log in a Superconsole.
 #[derive(Debug, clap::Parser)]
-#[clap(trailing_var_arg = true)]
 pub struct ReplayCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
@@ -55,12 +68,14 @@ pub struct ReplayCommand {
     )]
     pub speed: f64,
 
+    /// Skip to the given number of seconds after the start of the command before starting the
+    /// replay
+    #[clap(long, default_value = "0.0")]
+    pub seek: f64,
+
     /// Preload the event log. This is typically only useful for benchmarking.
     #[clap(long)]
     preload: bool,
-
-    #[clap(help = "Override the arguments")]
-    pub override_args: Vec<String>,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -78,22 +93,30 @@ impl BuckSubcommand for ReplayCommand {
         let Self {
             event_log,
             speed,
+            seek,
             preload,
             console_opts,
-            override_args: _,
         } = self;
+
+        if !speed.is_finite() || speed <= 0.0 {
+            return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSpeed(speed)));
+        }
+
+        if !seek.is_finite() || seek < 0.0 {
+            return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSeek(seek)));
+        }
+
+        let seek = Duration::from_secs(1).mul_f64(seek);
+
         let work = async {
-            let (event_stream, invocation, replay_clock) =
-                make_replayer(event_log.get(&ctx).await?, speed, preload).await?;
+            let (event_stream, invocation, timekeeper) =
+                make_replayer(event_log.get(&ctx).await?, speed, seek, preload).await?;
             let console = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
                 ctx.verbosity,
                 true,
-                Timekeeper::new(
-                    Box::new(replay_clock),
-                    EventTimestamp(invocation.start_time.into()),
-                ),
+                timekeeper,
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 None,
@@ -159,11 +182,12 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
 async fn make_replayer(
     log_path: EventLogPathBuf,
     speed: f64,
+    seek: Duration,
     preload: bool,
 ) -> buck2_error::Result<(
     impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
     Invocation,
-    ReplayClock,
+    Timekeeper,
 )> {
     let (invocation, events) = log_path.unpack_stream().await?;
 
@@ -176,33 +200,69 @@ async fn make_replayer(
 
     let (sink, receiver) = tokio::sync::mpsc::unbounded_channel();
 
-    let res = find_next_event_with_delay(&sink, &mut events).await;
+    let start_time = if let Some(start_time) = invocation.start_time {
+        start_time.into()
+    } else {
+        // We want to support old log formats without the invocation-level start time, so use the
+        // time of the first event
+        match find_next_event_with_delay(&sink, &mut events, None).await {
+            Some((e, ts)) => {
+                // If the other side has shut down, ignore it for now, we'll notice immediately after
+                drop(sink.send(e));
+                ts
+            }
+            None => {
+                // The event log didn't contain a single timestamp. Making one up at this point
+                // seems fine
+                SystemTime::UNIX_EPOCH.into()
+            }
+        }
+    };
+
+    let seek_timestamp = timestamp_add_duration(start_time, seek);
+
+    // Note: Seeking forward in time on a large log might take a while; intentionally do this before
+    // computing the `command_start_instant` so that the time that superconsole starts up actually
+    // aligns with that instant and not that instant + however long this seek took
+    let res = find_next_event_with_delay(&sink, &mut events, Some(seek_timestamp)).await;
 
     // The point in real time at which we treat the command as having happened - delays of
     // subsequent events are calculated relative to this.
     let command_start_instant = Instant::now();
 
+    let syncher = Syncher {
+        reference_instant: command_start_instant,
+        reference_timestamp: seek_timestamp,
+        speed,
+    };
+
+    // Buffer is 1 because we only have one sender anyway
+    let (speed_update_request_sender, speed_update_requests) = mpsc::channel(1);
+
     if let Some((first_event, first_event_timestamp)) = res {
         tokio::task::spawn(replay_events_into(
             sink,
             events,
-            speed,
+            syncher,
+            speed_update_requests,
             first_event,
             first_event_timestamp,
-            command_start_instant,
         ));
-    }
-
-    let replay_clock = ReplayClock {
-        zero_timestamp: invocation.start_time.into(),
-        zero_instant: command_start_instant,
-        speed,
     };
+
+    let timekeeper = Timekeeper::new(
+        Box::new(ReplayClock {
+            syncher,
+            speed_update_request_sender,
+            pause_state: None,
+        }),
+        EventTimestamp(start_time),
+    );
 
     Ok((
         UnboundedReceiverStream::new(receiver),
         invocation,
-        replay_clock,
+        timekeeper,
     ))
 }
 
@@ -210,30 +270,54 @@ async fn make_replayer(
 async fn replay_events_into(
     sink: UnboundedSender<buck2_error::Result<StreamValue>>,
     events: impl Stream<Item = buck2_error::Result<StreamValue>>,
-    speed: f64,
+    syncher: Syncher,
+    mut speed_update_requests: mpsc::Receiver<SpeedUpdateRequest>,
     first_event: buck2_error::Result<StreamValue>,
     first_event_timestamp: prost_types::Timestamp,
-    zero_instant: Instant,
 ) {
     pin!(events);
 
-    let mut syncher = Syncher::new(zero_instant, first_event_timestamp, speed);
+    let mut syncher = syncher;
 
     let mut next_event = first_event;
     let mut next_event_timestamp = first_event_timestamp;
 
     loop {
-        syncher.sleep_until_timestamp(next_event_timestamp).await;
-        if sink.send(next_event).is_err() {
-            // The sink is closed, so we can stop sending events.
-            return;
-        }
-        match find_next_event_with_delay(&sink, &mut events).await {
-            Some((event, event_timestamp)) => {
-                next_event = event;
-                next_event_timestamp = event_timestamp;
+        tokio::select! {
+            _ = syncher.convert_timestamp(next_event_timestamp) => {
+                if sink.send(next_event).is_err() {
+                    // The sink is closed, so we can stop sending events.
+                    return;
+                }
+                match find_next_event_with_delay(&sink, &mut events, None).await {
+                    Some((event, event_timestamp)) => {
+                        next_event = event;
+                        next_event_timestamp = event_timestamp;
+                    }
+                    None => break,
+                }
             }
-            None => break,
+            Some(req) = speed_update_requests.recv() => {
+                // When changing the speed, we need to reflect that the speed is only being changed
+                // *at the current time* and not retroactively for the whole replay. So we implement
+                // speed changing by setting the reference instant to now, which means that any
+                // future action that uses the speed to scale a time only scales the interval
+                // between then and now
+                let new_reference_instant = Instant::now();
+                let new_syncher = Syncher {
+                    reference_instant: new_reference_instant,
+                    reference_timestamp: syncher.convert_instant(new_reference_instant),
+                    speed: req.new_speed,
+                };
+                // This can plausibly happen right at the end of a command, though see the note in
+                // the clock about this maybe being non-ideal
+                _ = req.ret.send(new_syncher);
+                // This works because, as a part of the select loop, if we entered this branch we
+                // cancelled the above "sleep until we should send the next event." In the next
+                // iteration of the loop, the duration of this sleep will be recalculated using the
+                // new syncher (and hence new speed)
+                syncher = new_syncher;
+            }
         }
     }
 }
@@ -242,12 +326,17 @@ async fn replay_events_into(
 async fn find_next_event_with_delay(
     sink: &UnboundedSender<buck2_error::Result<StreamValue>>,
     events: &mut (impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin),
+    min_timestamp: Option<prost_types::Timestamp>,
 ) -> Option<(buck2_error::Result<StreamValue>, prost_types::Timestamp)> {
     while let Some(event) = events.next().await {
         match &event {
             Ok(StreamValue::Event(buck_event)) => {
                 let ts = buck_event.timestamp.unwrap();
-                return Some((event, ts));
+                if min_timestamp
+                    .is_none_or(|min_timestamp| cmp_timestamps(min_timestamp, ts).is_le())
+                {
+                    return Some((event, ts));
+                }
             }
             // Most other kinds of events don't really happen, don't need a delay for them
             _ => {}
@@ -260,52 +349,108 @@ async fn find_next_event_with_delay(
     None
 }
 
-/// Handle time drifting when replaying events - compute pauses in between events to simulate the real deal.
+/// State that describes how to convert an instant in the timeline of the replay command to a
+/// timestamp in the timeline of the command being replayed
+#[derive(Copy, Clone)]
 struct Syncher {
-    zero_instant: Instant,
-    zero_timestamp: prost_types::Timestamp,
+    reference_instant: Instant,
+    reference_timestamp: prost_types::Timestamp,
     speed: f64,
 }
 
 impl Syncher {
-    fn new(
-        zero_instant: Instant,
-        zero_timestamp: prost_types::Timestamp,
-        playback_speed: f64,
-    ) -> Self {
-        Self {
-            zero_instant,
-            zero_timestamp,
-            speed: playback_speed,
-        }
+    fn convert_instant(&self, instant: Instant) -> prost_types::Timestamp {
+        let elapsed = instant
+            .saturating_duration_since(self.reference_instant)
+            .mul_f64(self.speed);
+        timestamp_add_duration(self.reference_timestamp, elapsed)
     }
 
-    /// Returns a sleep until this event should be sent
-    ///
-    /// The first event will be sent immediately. Each subsequent event will be sent with a delay
-    /// based on its time since that first event.
-    fn sleep_until_timestamp(&mut self, event_time: prost_types::Timestamp) -> Sleep {
-        let log_offset_time = duration_between_timestamps(self.zero_timestamp, event_time);
+    /// Given a timestamp, converts it to an instant in the timeline of the replay command and
+    /// returns a future that sleeps until that instant is reached
+    fn convert_timestamp(
+        &mut self,
+        event_time: prost_types::Timestamp,
+    ) -> impl Future<Output = ()> {
+        if self.speed == 0.0 {
+            // Avoid the division by zero below
+            return Either::Left(pending());
+        }
+        let log_offset_time = duration_between_timestamps(self.reference_timestamp, event_time);
         let sync_offset_time = log_offset_time.div_f64(self.speed);
-        let sync_event_time = self.zero_instant + sync_offset_time;
-        tokio::time::sleep_until(sync_event_time)
+        Either::Right(tokio::time::sleep_until(
+            self.reference_instant + sync_offset_time,
+        ))
     }
 }
 
 struct ReplayClock {
-    zero_instant: Instant,
-    zero_timestamp: prost_types::Timestamp,
-    speed: f64,
+    syncher: Syncher,
+    speed_update_request_sender: mpsc::Sender<SpeedUpdateRequest>,
+    /// If `Some`, the replay is paused and the contained value is the last speed
+    pause_state: Option<f64>,
 }
 
+#[async_trait::async_trait]
 impl Clock for ReplayClock {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp {
-        let elapsed = tick
-            .current_monotonic
-            .saturating_duration_since(self.zero_instant)
-            .mul_f64(self.speed);
-        EventTimestamp(timestamp_add_duration(self.zero_timestamp, elapsed))
+        EventTimestamp(self.syncher.convert_instant(tick.current_monotonic))
     }
+
+    async fn scale_speed(&mut self, factor: f64) -> Option<String> {
+        if let Some(pause_state) = &mut self.pause_state {
+            *pause_state *= factor;
+        } else {
+            self.set_speed(self.syncher.speed * factor).await;
+        }
+        None
+    }
+
+    async fn toggle_pause(&mut self) -> Option<String> {
+        match self.pause_state {
+            Some(speed) => {
+                self.pause_state = None;
+                self.set_speed(speed).await;
+            }
+            None => {
+                self.pause_state = Some(self.syncher.speed);
+                self.set_speed(0.0).await;
+            }
+        }
+        None
+    }
+}
+
+impl ReplayClock {
+    async fn set_speed(&mut self, new_speed: f64) {
+        let (ret, recv) = oneshot::channel();
+        let Ok(()) = self
+            .speed_update_request_sender
+            .send(SpeedUpdateRequest { new_speed, ret })
+            // Won't ever actually block
+            .await
+        else {
+            // This might happen right at the end of a command with the right timing, seems fine to ignore
+            return;
+        };
+        // Unfortunately, this isn't cancellation-safe - if this future gets cancelled at this await
+        // point, we'll have updated the syncher in the replayer but not here.
+        //
+        // Probably that's fine in practice, it's not clear if we'd ever actually expect this to get
+        // cancelled short of the entire client shutting down, but it's a bit of a shame
+        let Ok(new_syncher) = recv.await else {
+            // Again, might happen at the end of a command
+            return;
+        };
+        self.syncher = new_syncher;
+    }
+}
+
+/// A message sent from the clock to the replayer requesting a change to the speed
+struct SpeedUpdateRequest {
+    new_speed: f64,
+    /// A oneshot on which to return a new syncher representing the updated state
+    ret: oneshot::Sender<Syncher>,
 }
 
 fn timestamp_add_duration(
@@ -319,4 +464,8 @@ fn timestamp_add_duration(
         seconds: seconds as i64,
         nanos: nanos as i32,
     }
+}
+
+fn cmp_timestamps(first: prost_types::Timestamp, second: prost_types::Timestamp) -> Ordering {
+    Ord::cmp(&first.seconds, &second.seconds).then_with(|| Ord::cmp(&first.nanos, &second.nanos))
 }

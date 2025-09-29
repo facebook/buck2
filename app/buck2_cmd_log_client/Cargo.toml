@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true }
 csv = { workspace = true }
 derive_more = { workspace = true }

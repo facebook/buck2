@@ -77,6 +77,15 @@ impl ArtifactGroup {
             },
         })
     }
+
+    pub fn uses_content_based_path(&self) -> bool {
+        match self {
+            ArtifactGroup::Artifact(a) => a.has_content_based_path(),
+            ArtifactGroup::TransitiveSetProjection(a) => a.uses_content_based_paths,
+            // Promised artifacts are not allowed to use content-based paths
+            ArtifactGroup::Promise(_) => false,
+        }
+    }
 }
 
 // TODO(@wendyy) if we move PromiseArtifact into ArtifactKind someday, we should probably

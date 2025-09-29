@@ -14,8 +14,17 @@ use buck2_event_observer::span_tracker::EventTimestamp;
 
 use crate::ticker::Tick;
 
+#[async_trait::async_trait]
 pub trait Clock: Send + Sync {
     fn event_timestamp_for_tick(&mut self, tick: Tick) -> EventTimestamp;
+
+    async fn scale_speed(&mut self, _factor: f64) -> Option<String> {
+        Some("Can't scale speed outside of `log replay`".to_owned())
+    }
+
+    async fn toggle_pause(&mut self) -> Option<String> {
+        Some("Can't toggle pause outside of `log replay`".to_owned())
+    }
 }
 
 pub struct RealtimeClock;
@@ -54,6 +63,14 @@ impl Timekeeper {
 
     pub(crate) fn duration_since_command_start(&self) -> Duration {
         duration_between_timestamps(self.start_time.0, self.event_timestamp_for_last_tick.0)
+    }
+
+    pub(crate) async fn scale_speed(&mut self, factor: f64) -> Option<String> {
+        self.clock.scale_speed(factor).await
+    }
+
+    pub(crate) async fn toggle_pause(&mut self) -> Option<String> {
+        self.clock.toggle_pause().await
     }
 }
 

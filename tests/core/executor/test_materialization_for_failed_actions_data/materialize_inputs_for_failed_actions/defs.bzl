@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _dep_impl(ctx):
-    out = ctx.actions.declare_output("dep", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    out = ctx.actions.declare_output("dep", has_content_based_path = ctx.attrs.use_content_based_path)
     ctx.actions.run(
         [
             "fbpython",

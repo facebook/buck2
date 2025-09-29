@@ -66,6 +66,10 @@ pub trait CommandLineArtifactVisitor<'v> {
         );
         Ok(())
     }
+
+    fn skip_hidden(&self) -> bool {
+        false
+    }
 }
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.

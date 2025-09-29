@@ -191,7 +191,7 @@ impl Action for WriteMacrosToFileAction {
                 } else {
                     command_line.visit_write_to_file_macros(
                         &mut macro_writer,
-                        &ctx.artifact_path_mapping(),
+                        &ctx.artifact_path_mapping(None),
                     )?;
                 }
 

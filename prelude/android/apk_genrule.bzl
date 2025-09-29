@@ -109,6 +109,9 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                             default_outputs = [genrule_default_output],
                         )],
                         "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
+                        "unstripped_native_libraries": [input_android_aab_subtargets["unstripped_native_libraries"][DefaultInfo]],
+                        "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
+                        "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
                     },
                 ),
             ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
@@ -116,6 +119,9 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
             sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
             sub_targets.update({
                 "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
+                "unstripped_native_libraries": [input_android_aab_subtargets["unstripped_native_libraries"][DefaultInfo]],
+                "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
+                "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
             })
             default_providers = [
                 DefaultInfo(

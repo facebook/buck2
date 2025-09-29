@@ -113,9 +113,22 @@ CxxHeadersLayout = record(
     naming = CxxHeadersNaming,
 )
 
+CxxPrecompiledHeader = record(
+    header = field(Artifact),
+    basename = field(str),
+    basename_src = field(str),
+    path = field(str),
+    namespace = field(str),
+    clanguage = field(str),
+)
+
 CPrecompiledHeaderInfo = provider(fields = {
+    "basename": provider_field(typing.Any, default = None),
+    "clanguage": provider_field(str | None, default = None),
+    "compiled": provider_field(bool, default = False),
     # Actual precompiled header ready to be used during compilation.
     "header": Artifact,
+    "path": provider_field(typing.Any, default = None),
 })
 
 def cxx_attr_header_namespace(ctx: AnalysisContext) -> str:
@@ -173,6 +186,10 @@ def as_headers(
                 headers.append(CHeader(artifact = header, name = "/".join(mapped_header), namespace = "", named = True))
 
     return headers
+
+def cxx_attr_precompiled_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> CHeader | None:
+    header = ctx.attrs.srcs[0]
+    return _get_attr_headers([header], headers_layout.namespace, headers_layout.naming)[0]
 
 def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming) -> list[CHeader]:
     if type(xs) == type([]):

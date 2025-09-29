@@ -25,6 +25,11 @@ def main() -> None:
         required=True,
     )
     parser.add_argument(
+        "--subdir",
+        type=Path,
+        help="The subdirectory inside the dirs to combine",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         required=True,
@@ -46,6 +51,8 @@ def main() -> None:
 
     args.output_dir.mkdir(parents=True)
     for library_dir in args.library_dirs:
+        if args.subdir:
+            library_dir = library_dir / args.subdir
         all_libs = library_dir.glob("**/*.s[o|h]")
         for lib in all_libs:
             relative_path = lib.relative_to(library_dir)

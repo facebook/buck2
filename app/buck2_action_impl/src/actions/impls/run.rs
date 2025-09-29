@@ -395,7 +395,56 @@ impl ArtifactPathMapper for DepFilesPlaceholderArtifactPathMapper {
 
 type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
 
+/// A CommandLineArtifactVisitor that gathers non-hidden inputs.
+pub struct SkipHiddenCommandLineArtifactVisitor {
+    pub inputs: IndexSet<ArtifactGroup>,
+}
+
+impl SkipHiddenCommandLineArtifactVisitor {
+    pub fn new() -> Self {
+        Self {
+            inputs: IndexSet::new(),
+        }
+    }
+}
+
+impl CommandLineArtifactVisitor<'_> for SkipHiddenCommandLineArtifactVisitor {
+    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+        self.inputs.insert(input);
+    }
+
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'_>, _tags: Vec<&ArtifactTag>) {}
+
+    fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
+
+    fn skip_hidden(&self) -> bool {
+        true
+    }
+}
+
 impl RunAction {
+    fn visit_artifacts<'a>(
+        &'a self,
+        artifact_visitor: &mut dyn CommandLineArtifactVisitor<'a>,
+    ) -> buck2_error::Result<()> {
+        let values = Self::unpack(&self.starlark_values)?;
+        values.args.visit_artifacts(artifact_visitor)?;
+        values.exe.visit_artifacts(artifact_visitor)?;
+        if let Some(worker) = values.worker {
+            worker.exe.visit_artifacts(artifact_visitor)?;
+        }
+        if let Some(remote_worker) = values.remote_worker {
+            remote_worker.exe.visit_artifacts(artifact_visitor)?;
+            for (_, v) in remote_worker.env.iter() {
+                v.visit_artifacts(artifact_visitor)?;
+            }
+        }
+        for (_, v) in values.env.iter() {
+            v.visit_artifacts(artifact_visitor)?;
+        }
+        Ok(())
+    }
+
     fn unpack<'v>(
         values: &'v OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> buck2_error::Result<UnpackedRunActionValues<'v>> {
@@ -466,7 +515,14 @@ impl RunAction {
         let mut command_line_digest_for_dep_files = ExpandedCommandLineFingerprinter::new();
 
         let mut exe_rendered = Vec::<String>::new();
-        let artifact_path_mapping = action_execution_ctx.artifact_path_mapping();
+
+        // Creating the artifact_path_mapping isn't free, because we have to iterate TSets.
+        // Therefore, only create a mapping if we're going to use it - i.e. if the input
+        // is not hidden.
+        let mut skip_hidden_visitor = SkipHiddenCommandLineArtifactVisitor::new();
+        self.visit_artifacts(&mut skip_hidden_visitor)?;
+        let artifact_path_mapping =
+            action_execution_ctx.artifact_path_mapping(Some(skip_hidden_visitor.inputs));
         let artifact_path_mapping_for_dep_files = DepFilesPlaceholderArtifactPathMapper {};
         values
             .exe
@@ -1204,22 +1260,8 @@ impl Action for RunAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        let values = Self::unpack(&self.starlark_values)?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        values.args.visit_artifacts(&mut artifact_visitor)?;
-        values.exe.visit_artifacts(&mut artifact_visitor)?;
-        if let Some(worker) = values.worker {
-            worker.exe.visit_artifacts(&mut artifact_visitor)?;
-        }
-        if let Some(remote_worker) = values.remote_worker {
-            remote_worker.exe.visit_artifacts(&mut artifact_visitor)?;
-            for (_, v) in remote_worker.env.iter() {
-                v.visit_artifacts(&mut artifact_visitor)?;
-            }
-        }
-        for (_, v) in values.env.iter() {
-            v.visit_artifacts(&mut artifact_visitor)?;
-        }
+        self.visit_artifacts(&mut artifact_visitor)?;
         Ok(Cow::Owned(artifact_visitor.inputs.into_iter().collect()))
     }
 

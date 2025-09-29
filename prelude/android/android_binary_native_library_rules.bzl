@@ -413,7 +413,29 @@ def get_android_binary_native_library_info(
         )
 
     ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = dynamic_native_libs_info)
-    all_native_libs = ctx.actions.symlinked_dir("debug_all_native_libs", {"others": native_libs, "primary": native_libs_always_in_primary_apk})
+    combined_asset_libs = ctx.actions.declare_output("combined_asset_libs", dir = True)
+    ctx.actions.run(
+        cmd_args([
+            ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
+            "--output-dir",
+            combined_asset_libs.as_output(),
+            "--library-dirs",
+            native_lib_assets_for_primary_apk,
+            stripped_native_linkable_assets_for_primary_apk,
+            "--subdir",
+            "assets/lib",
+        ]),
+        category = "combine_native_asset_libs",
+        allow_cache_upload = True,
+    )
+    all_native_libs = ctx.actions.symlinked_dir(
+        "debug_all_native_libs",
+        {
+            "assets": combined_asset_libs,
+            "others": native_libs,
+            "primary": native_libs_always_in_primary_apk,
+        },
+    )
 
     lib_subtargets = _create_library_subtargets(
         lib_outputs_by_platform,

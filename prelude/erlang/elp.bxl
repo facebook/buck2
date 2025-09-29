@@ -63,6 +63,19 @@ def _get_absolute_path(ctx, src, build_results, allow_multiple = True) -> list[d
     else:
         return [_as_path(get_path_without_materialization(src, ctx, abs = True))]
 
+def _generate_sources(ctx, src, build_results) -> list:
+    """
+    Get the full set of sources used to generate a given target.
+    """
+    if isinstance(src, ConfiguredProvidersLabel) and build_results and src in build_results.result:
+        target = src.configured_target()
+        deps = ctx.cquery().deps(target)
+        inputs = ctx.cquery().inputs(deps)
+        return [f.cell() + "//" + f.path() for f in inputs]
+
+    else:
+        return []
+
 def _strip_includes_only(inc):
     str_inc = str(inc)
     suffix = "_includes_only"
@@ -118,11 +131,15 @@ def _elp_config(ctx):
         if included_apps:
             included_apps_list = [tgt.raw_target() for tgt in included_apps.value()]
 
+        is_generated = "generated" in attrs.get("labels").value()
+        gen_srcs = []
         srcs_attr = attrs.get("srcs")
         srcs = []
         if srcs_attr:
             for src in srcs_attr.value():
                 srcs += _get_absolute_path(ctx, src, build_results)
+                if is_generated:
+                    gen_srcs += _generate_sources(ctx, src, build_results)
 
         suite = attrs.get("suite")
         if not suite:
@@ -138,11 +155,13 @@ def _elp_config(ctx):
 
         includes = [t for t in includes_map.keys() if includes_map[t] == "path" or includes_map[t] == "build"]
         srcs = _construct_output(srcs)
+        gen_srcs = _uniq(gen_srcs)
         result[label_name] = dict(
             name = attrs.get("name"),
             app_name = attrs.get("app_name"),
             suite = suite,
             srcs = srcs,
+            gen_srcs = gen_srcs,
             includes = includes,
             labels = attrs.get("labels"),
             deps = deps_list,

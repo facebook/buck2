@@ -6,25 +6,31 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# This file exports utilities for use with with reindeer.
-# These are not used anywhere else in prelude and are not exported as prelude globals.
+"""
+This file exports utilities for building third-party code with reindeer.
+These are not used anywhere else in prelude and are not exported as prelude globals.
+
+These should not be used for first-party code where lints are desired.
+"""
 
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//rust/tools:buildscript_platform.bzl", "buildscript_platform_constraints")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:type_defs.bzl", "is_dict", "is_list")
 
-# Call from a PACKAGE or BUCK_TREE file to make the macros in this file
-# recognize your own non-default platforms.
-#
-#     load("@prelude//rust:cargo_package.bzl", "DEFAULT_REINDEER_PLATFORMS", "set_reindeer_platforms")
-#
-#     set_reindeer_platforms(select({
-#         "DEFAULT": DEFAULT_REINDEER_PLATFORMS,  # (optional)
-#         "ovr_config//cpu:arm32-embedded-fpu": "thumbv7em-none-eabihf",
-#     }))
-#
 def set_reindeer_platforms(platforms) -> None:
+    """
+    Call from a PACKAGE or BUCK_TREE file to make the macros in this file
+    recognize your own non-default platforms.
+
+        load("@prelude//rust:cargo_package.bzl", "DEFAULT_REINDEER_PLATFORMS", "set_reindeer_platforms")
+
+        set_reindeer_platforms(select({
+            "DEFAULT": DEFAULT_REINDEER_PLATFORMS,  # (optional)
+            "ovr_config//cpu:arm32-embedded-fpu": "thumbv7em-none-eabihf",
+        }))
+    """
+
     native.write_package_value(
         "rust.reindeer_platforms",
         _convert_select_to_dict(platforms),
@@ -194,6 +200,10 @@ def apply_platform_attrs_for_buildscript_build(platform_attrs, universal_attrs):
     )
 
 def _cargo_rust_binary(name, crate = None, platform = {}, **kwargs):
+    """
+    Build a third-party rust binary for reindeer, suppressing lints.
+    """
+
     if crate == "build_script_build":
         kwargs = apply_platform_attrs_for_buildscript_build(platform, kwargs)
     else:
@@ -209,6 +219,10 @@ def _cargo_rust_binary(name, crate = None, platform = {}, **kwargs):
     )
 
 def _cargo_rust_library(name, platform = {}, **kwargs):
+    """
+    Build a third-party rust library for reindeer, suppressing lints.
+    """
+
     kwargs = apply_platform_attrs(platform, kwargs)
 
     rustc_flags = kwargs.get("rustc_flags", [])

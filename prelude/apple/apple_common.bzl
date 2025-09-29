@@ -273,7 +273,7 @@ def _asset_catalogs_compilation_options_arg():
     }
 
 def _apple_installer_arg():
-    use_python_installer = read_config("apple", "use_python_installer", "false").lower() == "true"
+    use_python_installer = read_config("apple", "use_python_installer", "true").lower() == "true"
     if use_python_installer:
         installer_target = "fbsource//xplat/buck2/platform/apple/python_installer:apple_installer"
     else:

@@ -441,6 +441,147 @@ cxx_genrule = prelude_rule(
     ),
 )
 
+library_attrs = (
+    # @unsorted-dict-items
+    cxx_common.srcs_arg() |
+    cxx_common.platform_srcs_arg() |
+    cxx_common.headers_arg() |
+    cxx_common.platform_headers_arg() |
+    cxx_common.exported_headers_arg() |
+    cxx_common.exported_header_style_arg() |
+    cxx_common.exported_platform_headers_arg() |
+    cxx_common.header_namespace_arg() |
+    cxx_common.preprocessor_flags_arg() |
+    cxx_common.lang_preprocessor_flags_arg() |
+    cxx_common.platform_preprocessor_flags_arg() |
+    cxx_common.lang_platform_preprocessor_flags_arg() |
+    cxx_common.exported_preprocessor_flags_arg(exported_preprocessor_flags_type = attrs.list(attrs.arg(), default = [])) |
+    cxx_common.exported_lang_preprocessor_flags_arg() |
+    cxx_common.exported_platform_preprocessor_flags_arg() |
+    cxx_common.exported_lang_platform_preprocessor_flags_arg() |
+    cxx_common.compiler_flags_arg() |
+    cxx_common.lang_compiler_flags_arg() |
+    cxx_common.platform_compiler_flags_arg() |
+    cxx_common.lang_platform_compiler_flags_arg() |
+    cxx_common.linker_extra_outputs_arg() |
+    cxx_common.linker_flags_arg() |
+    cxx_common.local_linker_flags_arg() |
+    cxx_common.platform_linker_flags_arg() |
+    cxx_common.exported_linker_flags_arg() |
+    cxx_common.exported_post_linker_flags_arg() |
+    cxx_common.exported_platform_linker_flags_arg() |
+    cxx_common.exported_post_platform_linker_flags_arg() |
+    native_common.link_style() |
+    native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
+    native_common.soname() |
+    cxx_common.raw_headers_arg() |
+    cxx_common.raw_headers_as_headers_mode_arg() |
+    cxx_common.include_directories_arg() |
+    cxx_common.public_include_directories_arg() |
+    cxx_common.public_system_include_directories_arg() |
+    {
+        "deffile": attrs.option(attrs.source(), default = None, doc = """
+            Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
+              The default is to not use a defile.
+        """),
+        "used_by_wrap_script": attrs.bool(default = False, doc = """
+            When using an exopackage
+              Android, if this parameter is set to `True`, then the library is
+              included in the primary APK even if native libraries would otherwise not be
+              placed in it. This is intended for native libraries that are used by a
+              [wrap.sh](https://developer.android.com/ndk/guides/wrap-script)
+              script, which must be placed in the primary APK. Only one of
+              `can_be_asset` and `used_by_wrap_script` can be set
+              for a rule.
+        """),
+    } |
+    cxx_common.supported_platforms_regex_arg() |
+    cxx_common.force_static(force_static_type = attrs.option(attrs.bool(), default = None)) |
+    native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
+    cxx_common.reexport_all_header_dependencies_arg() |
+    cxx_common.exported_deps_arg() |
+    cxx_common.exported_platform_deps_arg() |
+    cxx_common.precompiled_header_arg() |
+    apple_common.extra_xcode_sources() |
+    apple_common.extra_xcode_files() |
+    apple_common.uses_explicit_modules_arg() |
+    apple_common.meta_apple_library_validation_enabled_arg() |
+    cxx_common.version_arg() |
+    cxx_common.use_fbcc_rust_wrapper_arg() |
+    cxx_common.use_content_based_paths_arg() |
+    {
+        "archive_allow_cache_upload": attrs.bool(default = False),
+        "bridging_header": attrs.option(attrs.source(), default = None),
+        "can_be_asset": attrs.option(attrs.bool(), default = None),
+        "contacts": attrs.list(attrs.string(), default = []),
+        "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
+        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+        "default_platform": attrs.option(attrs.string(), default = None),
+        "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "devirt_enabled": attrs.bool(default = False),
+        "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        "executable_name": attrs.option(attrs.string(), default = None),
+        "fat_lto": attrs.bool(default = False),
+        "focused_list_target": attrs.option(attrs.dep(), default = None),
+        "frameworks": attrs.list(attrs.string(), default = []),
+        "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
+        "include_in_android_merge_map_output": attrs.bool(default = True),
+        "labels": attrs.list(attrs.string(), default = []),
+        "libraries": attrs.list(attrs.string(), default = []),
+        "licenses": attrs.list(attrs.source(), default = []),
+        "link_group": attrs.option(attrs.string(), default = None),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
+        "module_name": attrs.option(attrs.string(), default = None),
+        "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+        "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+        "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
+        "prefix_header": attrs.option(attrs.source(), default = None),
+        "resources": attrs.named_set(attrs.source(), sorted = True, default = []),
+        "sdk_modules": attrs.list(attrs.string(), default = []),
+        "static_library_basename": attrs.option(attrs.string(), default = None),
+        "supports_merged_linking": attrs.option(attrs.bool(), default = None),
+        "thin_lto": attrs.bool(default = False),
+        "use_archive": attrs.option(attrs.bool(), default = None),
+        "uses_cxx_explicit_modules": attrs.bool(default = False),
+        "version_universe": attrs.option(attrs.string(), default = None),
+        "weak_framework_names": attrs.list(attrs.string(), default = []),
+        "use_header_units": attrs.bool(default = False, doc = """
+            If True, makes any header unit exported by a dependency (including
+            recursively) through export_header_unit available to the compiler. If
+            false, the compilation ignores header units, regardless of what is
+            exported by dependencies.
+        """),
+        "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None, doc = """
+            If not None, export a C++20 header unit visible to dependants (including
+            recursively) with use_header_units set to True.
+
+            "include": replace includes of each file in exported_headers or
+                raw_headers with an import of the precompiled header unit; files
+                that do not include any of those headers do not load the header
+                unit.
+
+            "preload": automatically load the precompiled header unit in any
+                dependant that uses header units.
+        """),
+        "export_header_unit_filter": attrs.list(attrs.string(), default = [], doc = """
+            A list of regexes. Each regex should match a set of headers in
+            exported_headers or raw_headers to be precompiled together into one
+            C++20 header unit.
+
+            When used with export_header_unit="include", this allows different
+            subsets of headers to be loaded only by files that use them. Each group
+            should only depend on headers in previous groups.
+
+            If a header is not matched by any group, it is not precompiled and will
+            be included textually. If no filter is specified, the rule excludes
+            inline headers based on a name heuristics (e.g. "-inl.h").
+        """),
+        "extra_dwp_flags": attrs.list(attrs.string(), default = []),
+    } |
+    buck.allow_cache_upload_arg()
+)
+
 cxx_library = prelude_rule(
     name = "cxx_library",
     docs = """
@@ -545,146 +686,7 @@ cxx_library = prelude_rule(
         ```
     """,
     further = None,
-    attrs = (
-        # @unsorted-dict-items
-        cxx_common.srcs_arg() |
-        cxx_common.platform_srcs_arg() |
-        cxx_common.headers_arg() |
-        cxx_common.platform_headers_arg() |
-        cxx_common.exported_headers_arg() |
-        cxx_common.exported_header_style_arg() |
-        cxx_common.exported_platform_headers_arg() |
-        cxx_common.header_namespace_arg() |
-        cxx_common.preprocessor_flags_arg() |
-        cxx_common.lang_preprocessor_flags_arg() |
-        cxx_common.platform_preprocessor_flags_arg() |
-        cxx_common.lang_platform_preprocessor_flags_arg() |
-        cxx_common.exported_preprocessor_flags_arg(exported_preprocessor_flags_type = attrs.list(attrs.arg(), default = [])) |
-        cxx_common.exported_lang_preprocessor_flags_arg() |
-        cxx_common.exported_platform_preprocessor_flags_arg() |
-        cxx_common.exported_lang_platform_preprocessor_flags_arg() |
-        cxx_common.compiler_flags_arg() |
-        cxx_common.lang_compiler_flags_arg() |
-        cxx_common.platform_compiler_flags_arg() |
-        cxx_common.lang_platform_compiler_flags_arg() |
-        cxx_common.linker_extra_outputs_arg() |
-        cxx_common.linker_flags_arg() |
-        cxx_common.local_linker_flags_arg() |
-        cxx_common.platform_linker_flags_arg() |
-        cxx_common.exported_linker_flags_arg() |
-        cxx_common.exported_post_linker_flags_arg() |
-        cxx_common.exported_platform_linker_flags_arg() |
-        cxx_common.exported_post_platform_linker_flags_arg() |
-        native_common.link_style() |
-        native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
-        native_common.soname() |
-        cxx_common.raw_headers_arg() |
-        cxx_common.raw_headers_as_headers_mode_arg() |
-        cxx_common.include_directories_arg() |
-        cxx_common.public_include_directories_arg() |
-        cxx_common.public_system_include_directories_arg() |
-        {
-            "deffile": attrs.option(attrs.source(), default = None, doc = """
-                Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
-                 The default is to not use a defile.
-            """),
-            "used_by_wrap_script": attrs.bool(default = False, doc = """
-                When using an exopackage
-                 Android, if this parameter is set to `True`, then the library is
-                 included in the primary APK even if native libraries would otherwise not be
-                 placed in it. This is intended for native libraries that are used by a
-                 [wrap.sh](https://developer.android.com/ndk/guides/wrap-script)
-                 script, which must be placed in the primary APK. Only one of
-                 `can_be_asset` and `used_by_wrap_script` can be set
-                 for a rule.
-            """),
-        } |
-        cxx_common.supported_platforms_regex_arg() |
-        cxx_common.force_static(force_static_type = attrs.option(attrs.bool(), default = None)) |
-        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
-        cxx_common.reexport_all_header_dependencies_arg() |
-        cxx_common.exported_deps_arg() |
-        cxx_common.exported_platform_deps_arg() |
-        cxx_common.precompiled_header_arg() |
-        apple_common.extra_xcode_sources() |
-        apple_common.extra_xcode_files() |
-        apple_common.uses_explicit_modules_arg() |
-        apple_common.meta_apple_library_validation_enabled_arg() |
-        cxx_common.version_arg() |
-        cxx_common.use_fbcc_rust_wrapper_arg() |
-        cxx_common.use_content_based_paths_arg() |
-        {
-            "archive_allow_cache_upload": attrs.bool(default = False),
-            "bridging_header": attrs.option(attrs.source(), default = None),
-            "can_be_asset": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "devirt_enabled": attrs.bool(default = False),
-            "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-            "executable_name": attrs.option(attrs.string(), default = None),
-            "fat_lto": attrs.bool(default = False),
-            "focused_list_target": attrs.option(attrs.dep(), default = None),
-            "frameworks": attrs.list(attrs.string(), default = []),
-            "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "include_in_android_merge_map_output": attrs.bool(default = True),
-            "labels": attrs.list(attrs.string(), default = []),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": LINK_GROUP_MAP_ATTR,
-            "module_name": attrs.option(attrs.string(), default = None),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
-            "prefix_header": attrs.option(attrs.source(), default = None),
-            "resources": attrs.named_set(attrs.source(), sorted = True, default = []),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
-            "static_library_basename": attrs.option(attrs.string(), default = None),
-            "supports_merged_linking": attrs.option(attrs.bool(), default = None),
-            "thin_lto": attrs.bool(default = False),
-            "use_archive": attrs.option(attrs.bool(), default = None),
-            "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "version_universe": attrs.option(attrs.string(), default = None),
-            "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "use_header_units": attrs.bool(default = False, doc = """
-                If True, makes any header unit exported by a dependency (including
-                recursively) through export_header_unit available to the compiler. If
-                false, the compilation ignores header units, regardless of what is
-                exported by dependencies.
-            """),
-            "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None, doc = """
-                If not None, export a C++20 header unit visible to dependants (including
-                recursively) with use_header_units set to True.
-
-                "include": replace includes of each file in exported_headers or
-                    raw_headers with an import of the precompiled header unit; files
-                    that do not include any of those headers do not load the header
-                    unit.
-
-                "preload": automatically load the precompiled header unit in any
-                    dependant that uses header units.
-            """),
-            "export_header_unit_filter": attrs.list(attrs.string(), default = [], doc = """
-                A list of regexes. Each regex should match a set of headers in
-                exported_headers or raw_headers to be precompiled together into one
-                C++20 header unit.
-
-                When used with export_header_unit="include", this allows different
-                subsets of headers to be loaded only by files that use them. Each group
-                should only depend on headers in previous groups.
-
-                If a header is not matched by any group, it is not precompiled and will
-                be included textually. If no filter is specified, the rule excludes
-                inline headers based on a name heuristics (e.g. "-inl.h").
-            """),
-            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
-        } |
-        buck.allow_cache_upload_arg()
-    ),
+    attrs = library_attrs,
 )
 
 cxx_precompiled_header = prelude_rule(
@@ -806,6 +808,9 @@ cxx_precompiled_header = prelude_rule(
     attrs = (
         cxx_common.use_fbcc_rust_wrapper_arg() |
         {
+            "compile_pch_file": attrs.bool(default = False, doc = """
+                Whether to compile the precompiled header file or use legacy mode.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
@@ -813,6 +818,9 @@ cxx_precompiled_header = prelude_rule(
             """),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "pch_clanguage": attrs.option(attrs.string(), default = None, doc = """
+                The c-language extension to use for the precompiled header. Eg. .c, .cpp, .m, .mm, etc.
+            """),
             "src": attrs.source(doc = """
                 The path to the header file that should be precompiled.
                  Only one header file can be specified. But of course this header could include
@@ -821,7 +829,8 @@ cxx_precompiled_header = prelude_rule(
                  have to be added to `deps` as usual.
             """),
             "version_universe": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        library_attrs
     ),
 )
 

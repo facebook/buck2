@@ -72,16 +72,7 @@ impl CommandLineContentBasedInputVisitor {
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-        let is_content_based_input = match input {
-            ArtifactGroup::Artifact(ref artifact) => artifact.has_content_based_path(),
-            // Promised artifacts are not allowed to use content-based paths
-            ArtifactGroup::Promise(_) => false,
-            ArtifactGroup::TransitiveSetProjection(ref transitive_set_projection_key) => {
-                transitive_set_projection_key.uses_content_based_paths
-            }
-        };
-
-        if is_content_based_input {
+        if input.uses_content_based_path() {
             self.content_based_inputs.insert(input);
         }
     }
@@ -101,6 +92,10 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
         }
 
         Ok(())
+    }
+
+    fn skip_hidden(&self) -> bool {
+        true
     }
 }
 
@@ -274,7 +269,7 @@ impl Action for WriteAction {
                         &DepFilesPlaceholderArtifactPathMapper {},
                     )?
                 } else {
-                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
+                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?
                 }
                 .into_bytes();
                 let path = fs.resolve_build(

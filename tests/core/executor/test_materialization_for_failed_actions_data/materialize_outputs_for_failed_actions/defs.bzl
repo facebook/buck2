@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 def _action_fail(ctx):
-    out1 = ctx.actions.declare_output("failed_action.json", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
-    out2 = ctx.actions.declare_output("failed_action.txt", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    out1 = ctx.actions.declare_output("failed_action.json", has_content_based_path = ctx.attrs.use_content_based_path)
+    out2 = ctx.actions.declare_output("failed_action.txt", has_content_based_path = ctx.attrs.use_content_based_path)
 
     run = ctx.actions.write(
         "run.py",
@@ -42,8 +42,8 @@ action_fail = rule(
 )
 
 def _undeclared_output(ctx):
-    declared = ctx.actions.declare_output("failed_action.json", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
-    undeclared = ctx.actions.declare_output("failed_action.txt", uses_experimental_content_based_path_hashing = ctx.attrs.use_content_based_path)
+    declared = ctx.actions.declare_output("failed_action.json", has_content_based_path = ctx.attrs.use_content_based_path)
+    undeclared = ctx.actions.declare_output("failed_action.txt", has_content_based_path = ctx.attrs.use_content_based_path)
     ctx.actions.run(
         cmd_args(
             "fbpython",

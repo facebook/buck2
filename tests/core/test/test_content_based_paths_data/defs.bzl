@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _run_test_with_content_based_path_impl(ctx):
-    unused_but_path_needs_resolving = ctx.actions.declare_output("unused.txt", uses_experimental_content_based_path_hashing = True)
+    unused_but_path_needs_resolving = ctx.actions.declare_output("unused.txt", has_content_based_path = True)
     ctx.actions.write(unused_but_path_needs_resolving, "unused")
 
     return [
@@ -25,7 +25,7 @@ run_test_with_content_based_path = rule(
 )
 
 def _broker_impl(ctx):
-    json = ctx.actions.declare_output("resources.json", uses_experimental_content_based_path_hashing = True)
+    json = ctx.actions.declare_output("resources.json", has_content_based_path = True)
     json = ctx.actions.write_json(json, {
         "resources": [{"my_alias": "42"}],
     })

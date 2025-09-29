@@ -28,7 +28,8 @@ def fixture(name: str) -> str:
 @buck_test()
 async def test_console_facts(buck: Buck) -> None:
     res = await buck.log(
-        "replay", fixture("my_genrule0"), "--", "build", "--console", "simple"
+        "replay",
+        fixture("my_genrule0"),
     )
     assert re.search("Network: .*([0-9.]+)([KMG]?)B", res.stderr) is not None
     assert "Cache hits: 100%" in res.stderr
@@ -40,10 +41,6 @@ async def test_console_facts_no_repo(buck: Buck) -> None:
     res = await buck.log(
         "replay",
         fixture("my_genrule0"),
-        "--",
-        "build",
-        "--console",
-        "simple",
         rel_cwd=Path(os.path.relpath("/", buck.cwd)),
     )
     assert re.search("Network: .*([0-9.]+)([KMG]?)B", res.stderr) is not None
@@ -53,9 +50,7 @@ async def test_console_facts_no_repo(buck: Buck) -> None:
 
 @buck_test()
 async def test_super_console_facts(buck: Buck) -> None:
-    res = await buck.log(
-        "replay", fixture("my_genrule0"), "--", "build", "--console", "super"
-    )
+    res = await buck.log("replay", fixture("my_genrule0"))
     assert re.search("Network: .*([0-9.]+)([KMG]?)B", res.stderr) is not None
     assert "Cache hits: 100%" in res.stderr
     assert "Commands: 1" in res.stderr
@@ -150,11 +145,11 @@ async def test_stale_snapshot(buck: Buck, tmp_path: Path) -> None:
     stale_message = "Resource usage: <snapshot is stale>"
 
     # Check it's there.
-    res = await buck.log("replay", str(logfile), "--console", "simple")
+    res = await buck.log("replay", str(logfile))
     assert stale_message in res.stderr
 
     # Check it's not in the original one.
-    res = await buck.log("replay", original, "--console", "simple")
+    res = await buck.log("replay", original)
     assert stale_message not in res.stderr
 
 
@@ -169,8 +164,6 @@ def _get(data: Dict[str, Any], *key: str) -> Dict[str, Any]:
 
 @buck_test()
 async def test_super_console_changes(buck: Buck) -> None:
-    res = await buck.log(
-        "replay", fixture("my_genrule1"), "--", "build", "--console", "super"
-    )
+    res = await buck.log("replay", fixture("my_genrule1"))
     assert "File changed: fbcode//buck2/dir1/file1" in res.stderr
     assert "Directory changed: fbcode//buck2/dir1" in res.stderr
