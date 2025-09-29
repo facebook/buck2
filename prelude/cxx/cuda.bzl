@@ -68,21 +68,14 @@ def cuda_compile(
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 
-def _nvcc_dynamic_compile(
+def _create_file_to_artifact_map(
         actions: AnalysisActions,
-        toolchain: CxxToolchainInfo,
-        cuda_compile_info: CudaCompileInfo,
+        plan_json: list[dict[str, typing.Any]],
         src_compile_cmd: CxxSrcCompileCommand,
-        original_cmd: cmd_args,
-        hostcc_argsfile: Artifact,
-        plan_artifact: ArtifactValue,
-        env_artifact: ArtifactValue,
-        output_declared_artifact: OutputArtifact) -> list[Provider]:
+        output_declared_artifact: OutputArtifact) -> dict[str, Artifact | OutputArtifact]:
+    # Create artifacts for all intermediate input and output files.
     file2artifact = {}
-    plan = plan_artifact.read_json()
-
-    # Create artifacts for all intermetidate input and output files.
-    for cmd_node in plan:
+    for cmd_node in plan_json:
         node_inputs = cmd_node["inputs"]
         node_outputs = cmd_node["outputs"]
         for input in node_inputs:
@@ -99,12 +92,34 @@ def _nvcc_dynamic_compile(
                 else:
                     output_artifact = actions.declare_output(output)
                     file2artifact[output] = output_artifact
+    return file2artifact
 
+def _create_nvcc_subcmd_env(env_artifact: ArtifactValue) -> dict[str, str]:
     # Create the nvcc envvars for the sub-commands.
     subcmd_env = {}
     for line in env_artifact.read_string().splitlines():
         key, value = line.split("=", 1)
         subcmd_env[key] = value
+    return subcmd_env
+
+def _nvcc_dynamic_compile(
+        actions: AnalysisActions,
+        toolchain: CxxToolchainInfo,
+        cuda_compile_info: CudaCompileInfo,
+        src_compile_cmd: CxxSrcCompileCommand,
+        original_cmd: cmd_args,
+        hostcc_argsfile: Artifact,
+        plan_artifact: ArtifactValue,
+        env_artifact: ArtifactValue,
+        output_declared_artifact: OutputArtifact) -> list[Provider]:
+    plan = plan_artifact.read_json()
+    file2artifact = _create_file_to_artifact_map(
+        actions,
+        plan,
+        src_compile_cmd,
+        output_declared_artifact,
+    )
+    subcmd_env = _create_nvcc_subcmd_env(env_artifact)
 
     for cmd_node in plan:
         subcmd = cmd_args()
@@ -136,9 +151,7 @@ def _nvcc_dynamic_compile(
                     bindable = artifact.as_output()
                 else:
                     bindable = artifact
-                subcmd.add(
-                    cmd_args([left, bindable, right], delimiter = ""),
-                )
+                subcmd.add(cmd_args([left, bindable, right], delimiter = ""))
             elif token.startswith("-Wp,@"):
                 subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
             else:
