@@ -11,6 +11,7 @@
 use std::cmp::Ordering;
 use std::future::pending;
 use std::time::Duration;
+use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -108,17 +109,14 @@ impl BuckSubcommand for ReplayCommand {
         let seek = Duration::from_secs(1).mul_f64(seek);
 
         let work = async {
-            let (event_stream, invocation, replay_clock) =
+            let (event_stream, invocation, timekeeper) =
                 make_replayer(event_log.get(&ctx).await?, speed, seek, preload).await?;
             let console = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
                 ctx.verbosity,
                 true,
-                Timekeeper::new(
-                    Box::new(replay_clock),
-                    EventTimestamp(invocation.start_time.into()),
-                ),
+                timekeeper,
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 None,
@@ -189,7 +187,7 @@ async fn make_replayer(
 ) -> buck2_error::Result<(
     impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
     Invocation,
-    ReplayClock,
+    Timekeeper,
 )> {
     let (invocation, events) = log_path.unpack_stream().await?;
 
@@ -202,7 +200,26 @@ async fn make_replayer(
 
     let (sink, receiver) = tokio::sync::mpsc::unbounded_channel();
 
-    let seek_timestamp = timestamp_add_duration(invocation.start_time.into(), seek);
+    let start_time = if let Some(start_time) = invocation.start_time {
+        start_time.into()
+    } else {
+        // We want to support old log formats without the invocation-level start time, so use the
+        // time of the first event
+        match find_next_event_with_delay(&sink, &mut events, None).await {
+            Some((e, ts)) => {
+                // If the other side has shut down, ignore it for now, we'll notice immediately after
+                drop(sink.send(e));
+                ts
+            }
+            None => {
+                // The event log didn't contain a single timestamp. Making one up at this point
+                // seems fine
+                SystemTime::UNIX_EPOCH.into()
+            }
+        }
+    };
+
+    let seek_timestamp = timestamp_add_duration(start_time, seek);
 
     let res = find_next_event_with_delay(&sink, &mut events, Some(seek_timestamp)).await;
 
@@ -228,18 +245,21 @@ async fn make_replayer(
             first_event,
             first_event_timestamp,
         ));
-    }
-
-    let replay_clock = ReplayClock {
-        syncher,
-        speed_update_request_sender,
-        pause_state: None,
     };
+
+    let timekeeper = Timekeeper::new(
+        Box::new(ReplayClock {
+            syncher,
+            speed_update_request_sender,
+            pause_state: None,
+        }),
+        EventTimestamp(start_time),
+    );
 
     Ok((
         UnboundedReceiverStream::new(receiver),
         invocation,
-        replay_clock,
+        timekeeper,
     ))
 }
 

@@ -78,19 +78,22 @@ impl BuckSubcommand for WhatUpCommand {
             .build_forced(StatefulSuperConsole::FALLBACK_SIZE)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
 
-        let start_time = EventTimestamp(invocation.start_time.into());
-        let initial_most_recent_timestamp = match cutoff_time {
-            // If we know what the eventual end time will be, just use that
-            Some(cutoff_time) => EventTimestamp((invocation.start_time + cutoff_time).into()),
-            None => start_time,
-        };
+        let start_time = invocation.start_time.unwrap_or(SystemTime::UNIX_EPOCH);
+        let initial_most_recent_timestamp = EventTimestamp(
+            match cutoff_time {
+                // If we know what the eventual end time will be, just use that
+                Some(cutoff_time) => start_time + cutoff_time,
+                None => start_time,
+            }
+            .into(),
+        );
 
         let most_recent_timestamp = Arc::new(Mutex::new(initial_most_recent_timestamp));
 
         let mut super_console_state = SuperConsoleState::new(
             Timekeeper::new(
                 Box::new(WhatupClock(most_recent_timestamp.dupe())),
-                start_time,
+                EventTimestamp(start_time.into()),
             ),
             invocation.trace_id,
             Verbosity::default(),
@@ -109,11 +112,7 @@ impl BuckSubcommand for WhatUpCommand {
 
                     match cutoff_time {
                         Some(cutoff_time) => {
-                            if should_stop_reading(
-                                cutoff_time,
-                                e.timestamp(),
-                                invocation.start_time,
-                            )? {
+                            if should_stop_reading(cutoff_time, e.timestamp(), start_time)? {
                                 break;
                             }
                         }
