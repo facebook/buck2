@@ -59,6 +59,7 @@ def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
+    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
 
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
@@ -93,7 +94,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
         with_tests = True,
-        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
+        cgo_enabled = cgo_enabled,
     )
 
     if coverage_mode != None:
@@ -119,13 +120,14 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         pkgs = pkgs,
         coverage_mode = None,
         cgo_gen_dir_name = "cgo_gen_test_main",
-        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
+        cgo_enabled = cgo_enabled,
     )
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
         ctx = ctx,
         main = main,
+        cgo_enabled = cgo_enabled,
         pkgs = pkgs,
         deps = deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),

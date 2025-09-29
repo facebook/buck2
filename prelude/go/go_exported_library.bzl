@@ -58,6 +58,7 @@ load(":toolchain.bzl", "evaluate_cgo_enabled")
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
+    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
 
     lib, pkg_info = build_package(
         ctx = ctx,
@@ -69,13 +70,14 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
         embedcfg = ctx.attrs.embedcfg,
-        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
+        cgo_enabled = cgo_enabled,
     )
 
     def link_variant(build_mode: GoBuildMode):
         (exp_lib, _, _) = link(
             ctx,
             lib,
+            cgo_enabled = cgo_enabled,
             deps = ctx.attrs.deps,
             build_mode = build_mode,
             link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static_pic")),

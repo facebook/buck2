@@ -100,6 +100,7 @@ def _process_shared_dependencies(
 def link(
         ctx: AnalysisContext,
         main: GoPkg,
+        cgo_enabled: bool,
         pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
         build_mode: GoBuildMode = GoBuildMode("exe"),
@@ -108,6 +109,10 @@ def link(
         linker_flags: list[typing.Any] = [],
         external_linker_flags: list[typing.Any] = []):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
+    if not cgo_enabled and (go_toolchain.asan or go_toolchain.race):
+        fail("`race=True` and `asan=True` are only supported when `cgo_enabled=True`")
+
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
         shared_extension = ".dll"
