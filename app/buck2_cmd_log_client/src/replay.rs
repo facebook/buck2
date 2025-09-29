@@ -221,6 +221,9 @@ async fn make_replayer(
 
     let seek_timestamp = timestamp_add_duration(start_time, seek);
 
+    // Note: Seeking forward in time on a large log might take a while; intentionally do this before
+    // computing the `command_start_instant` so that the time that superconsole starts up actually
+    // aligns with that instant and not that instant + however long this seek took
     let res = find_next_event_with_delay(&sink, &mut events, Some(seek_timestamp)).await;
 
     // The point in real time at which we treat the command as having happened - delays of
