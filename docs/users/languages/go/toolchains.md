@@ -51,13 +51,9 @@ load("@prelude//toolchains/go:go_toolchain.bzl", "go_distr", "go_toolchain")
 # Note: selects are resolved against execution-platform
 go_distr(
     name = "go_distr",
-    go_arch = select({
-        "config//cpu:arm64": "arm64",
-        "config//cpu:x86_64": "amd64",
-    }),
-    go_os = select({
-        "config//os:linux": "linux",
-        "config//os:macos": "darwin",
+    go_os_arch = select({
+        "config//os:linux": select({"config//cpu:x86_64": ("linux", "amd64")}),
+        "config//os:macos": select({"config//cpu:arm64": ("darwin", "arm64")}),
     }),
     go_root = select({
         "config//os:linux": select({"config//cpu:x86_64": "path/to/go-linux-amd64"}),

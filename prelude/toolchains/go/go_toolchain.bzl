@@ -78,12 +78,15 @@ go_toolchain = rule(
 
 def _go_distr_impl(ctx):
     go_root = ctx.attrs.go_root
-    suffix = ".exe" if ctx.attrs.go_os == "windows" else ""
-    tool_prefix = "pkg/tool/{}_{}".format(ctx.attrs.go_os, ctx.attrs.go_arch)
+    go_os, go_arch = ctx.attrs.go_os_arch
+    suffix = ".exe" if go_os == "windows" else ""
+    go_platform = "{}_{}".format(go_os, go_arch)
+    tool_prefix = "pkg/tool/" + go_platform
+    bin_prefix = "bin/{}".format(go_platform) if ctx.attrs.multiplatform else "bin"
     return [
         DefaultInfo(),
         GoDistrInfo(
-            bin_go = RunInfo(go_root.project("bin/go" + suffix)),
+            bin_go = RunInfo(go_root.project(bin_prefix + "/go" + suffix)),
             go_root = go_root,
             tool_asm = RunInfo(go_root.project(tool_prefix + "/asm" + suffix)),
             tool_compile = RunInfo(go_root.project(tool_prefix + "/compile" + suffix)),
@@ -96,8 +99,8 @@ def _go_distr_impl(ctx):
 go_distr = rule(
     impl = _go_distr_impl,
     attrs = {
-        "go_arch": attrs.string(),
-        "go_os": attrs.string(),
+        "go_os_arch": attrs.tuple(attrs.string(), attrs.string()),
         "go_root": attrs.source(allow_directory = True),
+        "multiplatform": attrs.bool(default = False),
     },
 )

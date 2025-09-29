@@ -33,11 +33,14 @@ go_bootstrap_toolchain = rule(
 )
 
 def _go_bootstrap_distr_impl(ctx):
-    suffix = ".exe" if ctx.attrs.go_os == "windows" else ""
+    go_os, go_arch = ctx.attrs.go_os_arch
+    suffix = ".exe" if go_os == "windows" else ""
+    go_platform = go_os + "_" + go_arch
+    bin_prefix = "bin/{}".format(go_platform) if ctx.attrs.multiplatform else "bin"
     return [
         DefaultInfo(),
         GoBootstrapDistrInfo(
-            bin_go = RunInfo(ctx.attrs.go_root.project("bin/go" + suffix)),
+            bin_go = RunInfo(ctx.attrs.go_root.project(bin_prefix + "/go" + suffix)),
             go_root = ctx.attrs.go_root,
         ),
     ]
@@ -45,7 +48,8 @@ def _go_bootstrap_distr_impl(ctx):
 go_bootstrap_distr = rule(
     impl = _go_bootstrap_distr_impl,
     attrs = {
-        "go_os": attrs.string(),
+        "go_os_arch": attrs.tuple(attrs.string(), attrs.string()),
         "go_root": attrs.source(allow_directory = True),
+        "multiplatform": attrs.bool(default = False),
     },
 )
