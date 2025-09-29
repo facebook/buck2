@@ -185,10 +185,11 @@ def main() -> None:
     args = parser.parse_args()
 
     output_dir = os.path.dirname(args.output)
+    symlink_tree_path = os.path.relpath(args.symlink_tree, output_dir)
     if args.framework:
         path_prefix = ""
     else:
-        path_prefix = os.path.relpath(args.symlink_tree, output_dir)
+        path_prefix = symlink_tree_path
 
     with open(args.output, "w") as f:
         if args.use_submodules:
@@ -211,14 +212,13 @@ def main() -> None:
             )
 
         if args.swift_header:
-            swift_header_name = os.path.relpath(args.swift_header, output_dir)
             _write_swift_header(
                 f,
                 args.name,
                 os.path.join(
-                    "swift-extended_symlink_tree",
+                    symlink_tree_path,
                     args.name,
-                    str(swift_header_name),
+                    os.path.basename(args.swift_header),
                 ),
             )
 
