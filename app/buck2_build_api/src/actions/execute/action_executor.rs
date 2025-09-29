@@ -392,6 +392,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn artifact_path_mapping(&self) -> IndexMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
+            .filter(|(ag, _)| ag.uses_content_based_path())
             .flat_map(|(_, v)| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))
             .collect()
