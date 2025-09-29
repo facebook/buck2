@@ -54,9 +54,9 @@ impl fmt::Display for ExternalCellOrigin {
 
 #[derive(Debug, Display, Eq, PartialEq, Clone, Dupe, Hash, Allocative)]
 pub enum GitObjectFormat {
-    #[display("SHA1")]
+    #[display("sha1")]
     Sha1,
-    #[display("SHA256")]
+    #[display("sha256")]
     Sha256,
 }
 
