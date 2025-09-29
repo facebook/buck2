@@ -278,14 +278,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
 
             impl<'v> CommandLineArtifactVisitor<'v> for IgnoredArtifactsVisitor {
                 fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-                    let is_content_based = match input {
-                        ArtifactGroup::Artifact(ref x) => x.has_content_based_path(),
-                        ArtifactGroup::TransitiveSetProjection(ref p) => p.uses_content_based_paths,
-                        // Promised artifacts cannot be content based
-                        ArtifactGroup::Promise(_) => false,
-                    };
-
-                    if is_content_based {
+                    if input.uses_content_based_path() {
                         self.content_based_artifacts.insert(input.to_string());
                     }
                 }
