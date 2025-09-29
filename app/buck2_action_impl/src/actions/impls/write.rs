@@ -93,6 +93,10 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
 
         Ok(())
     }
+
+    fn skip_hidden(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Allocative, Debug)]
