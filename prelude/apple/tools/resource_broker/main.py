@@ -58,12 +58,13 @@ def _args_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _args_parser().parse_args()
+    device = args.device if args.device else args.type.default_device()
     sim = asyncio.run(
         prepare_simulator(
             simulator_manager=args.simulator_manager,
             simulator_type=args.type,
             os_version=args.os_version,
-            device=args.device,
+            device=device,
         )
     )
     result = {
