@@ -23,12 +23,12 @@ use buck2_server_ctx::late_bindings::OtherServerCommands;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
-use crate::commands::build::build_command;
-use crate::commands::complete::complete_command;
-use crate::commands::debug_eval::debug_eval_command;
-use crate::commands::expand_external_cells::expand_external_cells_command;
-use crate::commands::explain::explain_command;
-use crate::commands::install::install_command;
+use crate::build::build_command;
+use crate::complete::complete_command;
+use crate::debug_eval::debug_eval_command;
+use crate::expand_external_cells::expand_external_cells_command;
+use crate::explain::explain_command;
+use crate::install::install_command;
 
 struct OtherServerCommandsInstance;
 

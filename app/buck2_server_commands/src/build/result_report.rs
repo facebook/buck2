@@ -33,9 +33,9 @@ use indexmap::IndexMap;
 use starlark_map::small_map::SmallMap;
 
 mod proto {
-    pub use buck2_cli_proto::BuildTarget;
-    pub use buck2_cli_proto::build_target::BuildOutput;
-    pub use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
+    pub(crate) use buck2_cli_proto::BuildTarget;
+    pub(crate) use buck2_cli_proto::build_target::BuildOutput;
+    pub(crate) use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
 }
 
 /// Simple container for multiple [`buck2_error::Error`]s

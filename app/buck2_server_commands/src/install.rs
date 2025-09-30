@@ -108,7 +108,7 @@ use tonic::transport::Channel;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Install)]
-pub enum InstallError {
+pub(crate) enum InstallError {
     /// Input errors from installer definition
     #[error("Target {1}:{0} cannot be installed as it does not expose an InstallInfo provider")]
     #[buck2(input)]
@@ -909,7 +909,7 @@ fn get_stdio(log_installer_console: bool) -> buck2_error::Result<Stdio> {
 }
 
 #[derive(Debug)]
-pub struct FileResult {
+pub(crate) struct FileResult {
     install_id: String,
     name: String,
     artifact: Artifact,

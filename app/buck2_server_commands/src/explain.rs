@@ -19,7 +19,7 @@ use dice::DiceTransaction;
 use tonic::async_trait;
 
 #[cfg(fbcode_build)]
-use crate::commands::explain_code::explain;
+use crate::explain_code::explain;
 
 pub(crate) async fn explain_command(
     ctx: &dyn ServerCommandContextTrait,

@@ -76,9 +76,9 @@ use futures::stream::futures_unordered::FuturesUnordered;
 use itertools::Either;
 use itertools::Itertools;
 
-use crate::commands::build::result_report::ResultReporter;
-use crate::commands::build::result_report::ResultReporterOptions;
-use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
+use crate::build::result_report::ResultReporter;
+use crate::build::result_report::ResultReporterOptions;
+use crate::build::unhashed_outputs::create_unhashed_outputs;
 
 #[allow(unused)]
 mod result_report;
