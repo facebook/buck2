@@ -177,6 +177,39 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
             locations: locations.into_option(),
         })
     }
+
+    /// Parse error text using vim errorformat patterns to create structured error information.
+    /// This method leverages vim's proven errorformat system to extract file paths, line numbers,
+    /// and error messages from compiler/tool output, automatically creating ActionSubError objects.
+    ///
+    /// For errorformat pattern syntax, see: https://neovim.io/doc/user/quickfix.html#errorformat
+    ///
+    /// Multiple patterns can be provided and will be tried in order until one matches.
+    /// This is useful for tools that may output errors in different formats.
+    ///
+    /// Args:
+    /// - `category`: Base category name for the generated sub-errors (e.g., "rust", "gcc")
+    /// - `error`: The error text to parse (typically stderr or stdout from the failed action)
+    /// - `errorformats`: List of vim errorformat pattern strings to try matching against
+    ///
+    /// Returns a list of ActionSubError objects with structured error information including
+    /// file locations when successfully parsed from the error text.
+    fn parse_with_errorformat<'v>(
+        #[starlark(this)] _this: &'v StarlarkActionErrorContext,
+        #[starlark(require = named)] category: String,
+        #[starlark(require = named)] error: String,
+        #[starlark(require = named)] errorformats: UnpackListOrTuple<String>,
+        heap: &'v Heap,
+    ) -> starlark::Result<Vec<StarlarkActionSubError<'v>>> {
+        let error_lines = buck2_errorformat::split_lines(&error);
+        let error_entries = buck2_errorformat::parse_error_format(errorformats.items, error_lines)
+            .map_err(buck2_error::Error::from)?;
+        let res = error_entries
+            .into_iter()
+            .map(|e| StarlarkActionSubError::from_errorformat_entry(e, category.clone(), heap))
+            .collect();
+        Ok(res)
+    }
 }
 
 #[derive(
@@ -287,6 +320,30 @@ impl<'v> Display for StarlarkActionSubError<'v> {
                 .as_ref()
                 .map_or(Vec::new(), |l| l.items.iter().collect()),
         )
+    }
+}
+
+impl<'v> StarlarkActionSubError<'v> {
+    pub(crate) fn from_errorformat_entry(
+        entry: buck2_errorformat::Entry,
+        category: String,
+        heap: &'v Heap,
+    ) -> Self {
+        let location = entry
+            .filename
+            .map(|f| StarlarkActionErrorLocation {
+                file: f,
+                line: entry.lnum.map(|l| l as u64),
+            })
+            .map(|l| heap.alloc_typed(l));
+
+        StarlarkActionSubError {
+            category,
+            message: entry.message,
+            locations: location.map(|l| UnpackListOrTuple {
+                items: vec![l.as_ref()],
+            }),
+        }
     }
 }
 

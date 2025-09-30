@@ -4,5 +4,6 @@
 ## ActionErrorCtx.new\_error\_location
 ## ActionErrorCtx.new\_sub\_error
 ## ActionErrorCtx.output\_artifacts
+## ActionErrorCtx.parse\_with\_errorformat
 ## ActionErrorCtx.stderr
 ## ActionErrorCtx.stdout
