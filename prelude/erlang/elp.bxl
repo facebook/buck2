@@ -89,11 +89,13 @@ def _elp_config(ctx):
     # Load the prelude targets first, so if we are working in the prelude they will be overwritten
     # by included or deps targets, and processed in ELP
 
-    included_targets = ctx.configured_targets(included_targets, None)
-    all_targets = ctx.cquery().deps(ctx.configured_targets(included_targets, None))
+    included_targets = ctx.unconfigured_targets(included_targets)
+    included_app_targets = ctx.uquery().kind("^(erlang_app|erlang_test)$", included_targets)
+    included_targets = ctx.configured_targets(included_app_targets, None)
+    all_targets = ctx.cquery().deps(included_targets)
     deps_targets = all_targets - included_targets
 
-    all = {tgt.label.raw_target(): ("app", tgt.attrs_lazy()) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", included_targets)}
+    all = {tgt.label.raw_target(): ("app", tgt.attrs_lazy()) for tgt in included_targets}
     all.update({tgt.label.raw_target(): ("dep", tgt.attrs_lazy()) for tgt in ctx.cquery().kind("^erlang_app$", deps_targets)})
 
     build_results = None
