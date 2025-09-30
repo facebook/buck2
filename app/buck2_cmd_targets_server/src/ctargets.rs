@@ -26,9 +26,9 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
-use crate::commands::targets::fmt::create_configured_formatter;
+use crate::targets::fmt::create_configured_formatter;
 
-pub(crate) async fn configured_targets_command(
+pub async fn configured_targets_command(
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ConfiguredTargetsRequest,

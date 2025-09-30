@@ -125,6 +125,7 @@ buck_rust_binary(
             "//buck2/app/buck2_cfg_constructor:buck2_cfg_constructor",
             "//buck2/app/buck2_cmd_docs_server:buck2_cmd_docs_server",
             "//buck2/app/buck2_cmd_starlark_server:buck2_cmd_starlark_server",
+            "//buck2/app/buck2_cmd_targets_server:buck2_cmd_targets_server",
             "//buck2/app/buck2_configured:buck2_configured",
             "//buck2/app/buck2_external_cells:buck2_external_cells",
             "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",

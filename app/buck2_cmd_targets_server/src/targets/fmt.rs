@@ -83,7 +83,7 @@ pub(crate) trait TargetFormatter: Send + Sync {
 }
 
 #[allow(unused_variables)]
-pub(crate) trait ConfiguredTargetFormatter: Send + Sync {
+pub trait ConfiguredTargetFormatter: Send + Sync {
     fn begin(&self, buffer: &mut String) {}
     fn end(&self, buffer: &mut String) {}
     fn separator(&self, buffer: &mut String) {}
@@ -556,7 +556,7 @@ pub(crate) fn create_formatter(
     }
 }
 
-pub(crate) fn create_configured_formatter(
+pub fn create_configured_formatter(
     request: &ConfiguredTargetsRequest,
 ) -> buck2_error::Result<Arc<dyn ConfiguredTargetFormatter>> {
     let output_format = ConfiguredOutputFormat::try_from(request.output_format)?;

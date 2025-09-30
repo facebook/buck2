@@ -55,24 +55,6 @@ pub trait OtherServerCommands: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::AqueryRequest,
     ) -> buck2_error::Result<buck2_cli_proto::AqueryResponse>;
-    async fn targets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::TargetsRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::TargetsResponse>;
-    async fn targets_show_outputs(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::TargetsRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::TargetsShowOutputsResponse>;
-    async fn ctargets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::ConfiguredTargetsRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::ConfiguredTargetsResponse>;
     async fn complete(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -100,6 +82,31 @@ pub trait OtherServerCommands: Send + Sync + 'static {
 
 pub static OTHER_SERVER_COMMANDS: LateBinding<&'static dyn OtherServerCommands> =
     LateBinding::new("OTHER_SERVER_COMMANDS");
+
+#[async_trait]
+pub trait TargetsServerCommands: Send + Sync + 'static {
+    async fn targets(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        req: buck2_cli_proto::TargetsRequest,
+    ) -> buck2_error::Result<buck2_cli_proto::TargetsResponse>;
+    async fn targets_show_outputs(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: buck2_cli_proto::TargetsRequest,
+    ) -> buck2_error::Result<buck2_cli_proto::TargetsShowOutputsResponse>;
+    async fn ctargets(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: buck2_cli_proto::ConfiguredTargetsRequest,
+    ) -> buck2_error::Result<buck2_cli_proto::ConfiguredTargetsResponse>;
+}
+
+pub static TARGETS_SERVER_COMMANDS: LateBinding<&'static dyn TargetsServerCommands> =
+    LateBinding::new("TARGETS_SERVER_COMMANDS");
 
 #[async_trait]
 pub trait DocsServerCommand: Send + Sync + 'static {

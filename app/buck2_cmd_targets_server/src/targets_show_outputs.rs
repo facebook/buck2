@@ -50,7 +50,7 @@ struct TargetsArtifacts {
     artifacts: Vec<Artifact>,
 }
 
-pub(crate) async fn targets_show_outputs_command(
+pub async fn targets_show_outputs_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TargetsRequest,

@@ -47,10 +47,10 @@ use itertools::Itertools;
 use starlark_map::small_set::SmallSet;
 use tokio::sync::Semaphore;
 
-use crate::commands::targets::fmt::Stats;
-use crate::commands::targets::fmt::TargetFormatter;
-use crate::commands::targets::fmt::TargetInfo;
 use crate::target_hash::TargetHashes;
+use crate::targets::fmt::Stats;
+use crate::targets::fmt::TargetFormatter;
+use crate::targets::fmt::TargetInfo;
 
 fn write_str(outputter: &mut dyn Write, s: &mut String) -> buck2_error::Result<()> {
     outputter.write_all(s.as_bytes())?;

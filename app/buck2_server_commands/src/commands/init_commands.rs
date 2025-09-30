@@ -25,7 +25,6 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::commands::build::build_command;
 use crate::commands::complete::complete_command;
-use crate::commands::ctargets::configured_targets_command;
 use crate::commands::debug_eval::debug_eval_command;
 use crate::commands::expand_external_cells::expand_external_cells_command;
 use crate::commands::explain::explain_command;
@@ -33,8 +32,6 @@ use crate::commands::install::install_command;
 use crate::commands::query::aquery::aquery_command;
 use crate::commands::query::cquery::cquery_command;
 use crate::commands::query::uquery::uquery_command;
-use crate::commands::targets::targets_command;
-use crate::commands::targets_show_outputs::targets_show_outputs_command;
 
 struct OtherServerCommandsInstance;
 
@@ -79,30 +76,6 @@ impl OtherServerCommands for OtherServerCommandsInstance {
         req: buck2_cli_proto::AqueryRequest,
     ) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
         aquery_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn targets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::TargetsRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::TargetsResponse> {
-        targets_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn targets_show_outputs(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::TargetsRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::TargetsShowOutputsResponse> {
-        targets_show_outputs_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn ctargets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::ConfiguredTargetsRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::ConfiguredTargetsResponse> {
-        configured_targets_command(ctx, partial_result_dispatcher, req).await
     }
 
     async fn complete(

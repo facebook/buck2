@@ -25,6 +25,7 @@ members = [
     "app/buck2_configured",
     "app/buck2_core",
     "app/buck2_cli_proto",
+    "app/buck2_cmd_targets_server",
     "app/buck2_daemon",
     "app/buck2_directory",
     "app/buck2_downward_api",
@@ -382,6 +383,7 @@ buck2_cmd_docs_server = { path = "app/buck2_cmd_docs_server" }
 buck2_cmd_log_client = { path = "app/buck2_cmd_log_client" }
 buck2_cmd_starlark_client = { path = "app/buck2_cmd_starlark_client" }
 buck2_cmd_starlark_server = { path = "app/buck2_cmd_starlark_server" }
+buck2_cmd_targets_server = { path = "app/buck2_cmd_targets_server" }
 buck2_common = { path = "app/buck2_common" }
 buck2_configured = { path = "app/buck2_configured" }
 buck2_core = { path = "app/buck2_core" }

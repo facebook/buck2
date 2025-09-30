@@ -8,10 +8,11 @@
  * above-listed licenses.
  */
 
-mod default;
-pub(crate) mod fmt;
-mod resolve_alias;
-mod streaming;
+pub mod default;
+pub mod fmt;
+pub mod resolve_alias;
+pub mod streaming;
+
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
@@ -36,11 +37,11 @@ use dice::DiceTransaction;
 use flate2::write::GzEncoder;
 use zstd::stream::write as zstd;
 
-use crate::commands::targets::default::TargetHashOptions;
-use crate::commands::targets::default::targets_batch;
-use crate::commands::targets::fmt::create_formatter;
-use crate::commands::targets::resolve_alias::targets_resolve_aliases;
-use crate::commands::targets::streaming::targets_streaming;
+use crate::targets::default::TargetHashOptions;
+use crate::targets::default::targets_batch;
+use crate::targets::fmt::create_formatter;
+use crate::targets::resolve_alias::targets_resolve_aliases;
+use crate::targets::streaming::targets_streaming;
 
 #[derive(PartialEq, Eq)]
 enum OutputType {
@@ -112,7 +113,7 @@ fn outputter<'a, W: Write + Send + 'a>(
     Ok((output_type, output))
 }
 
-pub(crate) async fn targets_command(
+pub async fn targets_command(
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: TargetsRequest,

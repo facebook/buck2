@@ -35,8 +35,8 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::FutureExt;
 
-use crate::commands::targets::fmt::JsonWriter;
 use crate::json::QuotedJson;
+use crate::targets::fmt::JsonWriter;
 
 trait ResolveAliasFormatter {
     /// Before writing anything.

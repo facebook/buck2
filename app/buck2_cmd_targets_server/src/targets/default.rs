@@ -35,11 +35,11 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
-use crate::commands::targets::fmt::Stats;
-use crate::commands::targets::fmt::TargetFormatter;
-use crate::commands::targets::fmt::TargetInfo;
 use crate::target_hash::TargetHashes;
 use crate::target_hash::TargetHashesFileMode;
+use crate::targets::fmt::Stats;
+use crate::targets::fmt::TargetFormatter;
+use crate::targets::fmt::TargetInfo;
 
 pub(crate) struct TargetHashOptions {
     file_mode: TargetHashesFileMode,

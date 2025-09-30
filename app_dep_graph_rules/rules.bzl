@@ -15,6 +15,7 @@ def _app(s):
 LATE_BINDING_ONLY_CRATES = [
     _app("buck2_anon_target"),
     _app("buck2_audit_server"),
+    _app("buck2_cmd_targets_server"),
     _app("buck2_bxl"),
     _app("buck2_query_impls"),
 ]
