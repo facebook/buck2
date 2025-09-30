@@ -37,6 +37,7 @@ pub enum CommandType {
 #[cfg(not(unix))]
 pub mod action_cgroups {
     use std::path::PathBuf;
+    use std::time::Duration;
 
     use crate::CommandType;
     use crate::memory_tracker::MemoryTrackerHandle;
@@ -61,6 +62,7 @@ pub mod action_cgroups {
         pub memory_peak: Option<u64>,
         pub error: Option<buck2_error::Error>,
         pub was_frozen: bool,
+        pub freeze_duration: Option<Duration>,
     }
 }
 

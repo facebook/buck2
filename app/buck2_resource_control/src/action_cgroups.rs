@@ -14,6 +14,8 @@ use std::os::fd::AsFd;
 use std::os::fd::OwnedFd;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::CgroupMemoryFile;
@@ -40,6 +42,7 @@ pub struct ActionCgroupResult {
     pub memory_peak: Option<u64>,
     pub error: Option<buck2_error::Error>,
     pub was_frozen: bool,
+    pub freeze_duration: Option<Duration>,
 }
 
 impl ActionCgroupResult {
@@ -48,6 +51,7 @@ impl ActionCgroupResult {
             memory_peak: Some(cgroup_info.memory_peak),
             error: cgroup_info.error,
             was_frozen: cgroup_info.was_frozen,
+            freeze_duration: cgroup_info.freeze_duration,
         }
     }
 
@@ -56,6 +60,7 @@ impl ActionCgroupResult {
             memory_peak: None,
             error: Some(e),
             was_frozen: false,
+            freeze_duration: None,
         }
     }
 }
@@ -69,6 +74,8 @@ struct ActionCgroup {
     memory_current: u64,
     error: Option<buck2_error::Error>,
     was_frozen: bool,
+    freeze_start: Option<Instant>,
+    freeze_duration: Option<Duration>,
     freeze_file: Option<OwnedFd>,
     command_type: CommandType,
 }
@@ -176,6 +183,8 @@ impl ActionCgroups {
                 memory_peak: 0,
                 error: None,
                 was_frozen: false,
+                freeze_start: None,
+                freeze_duration: None,
                 freeze_file: None,
                 command_type,
             },
@@ -280,6 +289,7 @@ impl ActionCgroups {
                             cgroup.command_type
                         );
 
+                        cgroup.freeze_start = Some(Instant::now());
                         cgroup.freeze_file = Some(freeze_file);
                         self.frozen_cgroups.push_back(cgroup.path.clone());
                     }
@@ -313,6 +323,17 @@ impl ActionCgroups {
             );
 
             frozen_cgroup.was_frozen = true;
+
+            let freeze_elapsed = frozen_cgroup
+                .freeze_start
+                .expect("freeze start must exist if we are unfreezing")
+                .elapsed();
+
+            frozen_cgroup.freeze_duration = Some(match frozen_cgroup.freeze_duration {
+                Some(duration) => duration + freeze_elapsed,
+                None => freeze_elapsed,
+            });
+
             let freeze_file = frozen_cgroup
                 .freeze_file
                 .take()
