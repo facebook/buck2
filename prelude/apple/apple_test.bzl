@@ -11,7 +11,7 @@ load(
     "project_artifacts",
 )
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
-load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device")
+load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device", "tpx_label_for_test_device_type")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
@@ -240,7 +240,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         env["TARGET_APP_BUNDLE"] = ui_test_target_app_bundle
         tpx_label = "tpx:apple_test:buck2:uiTest"
 
-    labels = ctx.attrs.labels + [tpx_label]
+    labels = ctx.attrs.labels
     labels.append(tpx_label)
 
     test_device_type = AppleTestDeviceType(ctx.attrs.test_device_type)
@@ -248,6 +248,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         # determine the device type from the sdk and platform
         sdk_name = get_apple_sdk_name(ctx)
         test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
+    labels.append(tpx_label_for_test_device_type(test_device_type))
 
     remote_execution_properties = None
     remote_execution_use_case = None
@@ -281,8 +282,6 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
         },
         local_resources = {
-            "ios_booted_simulator": ctx.attrs._iphone_booted_simulator.label,
-            "ios_unbooted_simulator": ctx.attrs._iphone_unbooted_simulator.label,
             "ipad_simulator": ctx.attrs._ipad_simulator.label,
             "iphone_booted_simulator": ctx.attrs._iphone_booted_simulator.label,
             "iphone_unbooted_simulator": ctx.attrs._iphone_unbooted_simulator.label,

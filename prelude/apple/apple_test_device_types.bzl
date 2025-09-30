@@ -26,3 +26,12 @@ def get_default_test_device(sdk: str, platform: str) -> AppleTestDeviceType:
         return AppleTestDeviceType("catalyst")
     else:
         return AppleTestDeviceType("iphone")
+
+def tpx_label_for_test_device_type(test_device_type: AppleTestDeviceType) -> str:
+    if test_device_type in (AppleTestDeviceType("catalyst"), AppleTestDeviceType("mac")):
+        return "tpx:apple_test:device_type:mac"
+    elif test_device_type == AppleTestDeviceType("ipad"):
+        return "tpx:apple_test:device_type:ipad"
+    elif test_device_type == AppleTestDeviceType("watch"):
+        return "tpx:apple_test:device_type:watch"
+    return "tpx:apple_test:device_type:iphone"
