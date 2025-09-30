@@ -268,6 +268,7 @@ def cxx_link_into(
         output.short_path + ".cxx_link_argsfile",
         shell_quoted_args,
         allow_args = True,
+        uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
     )
 
     # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
