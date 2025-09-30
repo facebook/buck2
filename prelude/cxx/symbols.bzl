@@ -314,7 +314,7 @@ def _create_symbols_file_from_script(
 
     all_symbol_files = actions.write(name + ".symbols", symbol_files)
     all_symbol_files = cmd_args(all_symbol_files, hidden = symbol_files)
-    output = actions.declare_output(name)
+    output = actions.declare_output(name, uses_experimental_content_based_path_hashing = True)
     cmd = [
         "/usr/bin/env",
         "bash",
