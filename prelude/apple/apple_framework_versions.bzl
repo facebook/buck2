@@ -458,6 +458,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 0, 0),
         "watchos": (2, 0, 0),
     },
+    "FoundationModels": {
+        "iphoneos": (26, 0, 0),
+        "maccatalyst": (26, 0, 0),
+        "macosx": (26, 0, 0),
+    },
     "GLKit": {
         "appletvos": (9, 0, 0),
         "iphoneos": (5, 0, 0),
