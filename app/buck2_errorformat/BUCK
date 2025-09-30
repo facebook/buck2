@@ -1,0 +1,15 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+rust_library(
+    name = "buck2_errorformat",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    deps = [
+        "fbsource//third-party/rust:fancy-regex",
+        "fbsource//third-party/rust:nom",
+        "//buck2/app/buck2_error:buck2_error",
+    ],
+)

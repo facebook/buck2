@@ -1,0 +1,12 @@
+[package]
+edition = "2024"
+license = { workspace = true }
+name = "buck2_errorformat"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+fancy-regex = { workspace = true }
+nom = { workspace = true }
+
+buck2_error = { workspace = true }
