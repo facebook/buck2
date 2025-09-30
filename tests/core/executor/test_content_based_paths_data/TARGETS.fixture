@@ -10,6 +10,7 @@ load(
     "failing_validation_with_content_based_path",
     "ignores_content_based_artifact",
     "incremental_action",
+    "resolve_promise_artifact",
     "run_with_content_based_path",
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
@@ -161,6 +162,10 @@ argsfile_with_incorrectly_declared_output(
 
 incremental_action(
     name = "incremental_action",
+)
+
+resolve_promise_artifact(
+    name = "resolve_promise_artifact",
 )
 
 platform(
