@@ -58,3 +58,26 @@ error_handler_nonetype_impl = rule(
     impl = _error_handler_nonetype_impl,
     attrs = {},
 )
+
+def error_handler_errorformat_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    res = ctx.parse_with_errorformat(
+        category = "test_failure",
+        error = ctx.stdout,
+        errorformats = ["%f:%l: %m"],
+    )
+    return res
+
+def _error_handler_with_errorformat(ctx: AnalysisContext):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["fbpython", "-c", "import sys\nprint('main.rs:10: expected `;`, found `}`')\nsys.exit(1)"], hidden = out.as_output()),
+        category = "test_failure",
+        error_handler = error_handler_errorformat_impl,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+error_handler_with_errorformat = rule(
+    impl = _error_handler_with_errorformat,
+    attrs = {},
+)
