@@ -50,6 +50,7 @@ public class ApkJarBuilder {
   public static final Set<String> ALLOWLISTED_META_INF_SERVICES_FILES =
       ImmutableSet.of(
           "META-INF/services/kotlin.reflect.jvm.internal.impl.builtins.BuiltInsLoader",
+          "META-INF/services/kotlin.reflect.jvm.internal.impl.km.internal.extensions.MetadataExtensions",
           "META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler",
           "META-INF/androidx.compose.ui_ui.version");
   private JarOutputStream mOutputJar;
