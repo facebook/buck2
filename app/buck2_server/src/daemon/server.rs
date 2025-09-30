@@ -65,6 +65,7 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
+use buck2_server_ctx::late_bindings::QUERY_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::TARGETS_SERVER_COMMANDS;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -1012,7 +1013,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    QUERY_SERVER_COMMANDS
                         .get()?
                         .aquery(ctx, partial_result_dispatcher, req)
                         .await
@@ -1032,7 +1033,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    QUERY_SERVER_COMMANDS
                         .get()?
                         .uquery(ctx, partial_result_dispatcher, req)
                         .await
@@ -1053,7 +1054,7 @@ impl DaemonApi for BuckdServer {
             QueryCommandOptions { profile_mode },
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    QUERY_SERVER_COMMANDS
                         .get()?
                         .cquery(ctx, partial_result_dispatcher, req)
                         .await

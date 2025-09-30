@@ -40,11 +40,11 @@ use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 
-use crate::commands::query::printer::ProviderLookUp;
-use crate::commands::query::printer::QueryResultPrinter;
-use crate::commands::query::printer::ShouldPrintProviders;
-use crate::commands::query::query_target_ext::QueryCommandTarget;
-use crate::commands::query::starlark_profile::write_query_profile_for_targets;
+use crate::query::printer::ProviderLookUp;
+use crate::query::printer::QueryResultPrinter;
+use crate::query::printer::ShouldPrintProviders;
+use crate::query::query_target_ext::QueryCommandTarget;
+use crate::query::starlark_profile::write_query_profile_for_targets;
 
 impl QueryCommandTarget for ConfiguredTargetNode {
     fn call_stack(&self) -> Option<String> {

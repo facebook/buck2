@@ -29,9 +29,6 @@ use crate::commands::debug_eval::debug_eval_command;
 use crate::commands::expand_external_cells::expand_external_cells_command;
 use crate::commands::explain::explain_command;
 use crate::commands::install::install_command;
-use crate::commands::query::aquery::aquery_command;
-use crate::commands::query::cquery::cquery_command;
-use crate::commands::query::uquery::uquery_command;
 
 struct OtherServerCommandsInstance;
 
@@ -53,31 +50,6 @@ impl OtherServerCommands for OtherServerCommandsInstance {
     ) -> buck2_error::Result<buck2_cli_proto::InstallResponse> {
         install_command(ctx, partial_result_dispatcher, req).await
     }
-    async fn uquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::UqueryRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::UqueryResponse> {
-        uquery_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn cquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::CqueryRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::CqueryResponse> {
-        cquery_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn aquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::AqueryRequest,
-    ) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
-        aquery_command(ctx, partial_result_dispatcher, req).await
-    }
-
     async fn complete(
         &self,
         ctx: &dyn ServerCommandContextTrait,

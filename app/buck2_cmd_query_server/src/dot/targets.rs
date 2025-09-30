@@ -15,18 +15,18 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use regex::RegexSet;
 use starlark_map::small_map::SmallMap;
 
-use crate::commands::query::query_target_ext::QueryCommandTarget;
 use crate::dot::DotDigraph;
 use crate::dot::DotEdge;
 use crate::dot::DotNode;
 use crate::dot::DotNodeAttrs;
+use crate::query::query_target_ext::QueryCommandTarget;
 
-pub struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
+pub(crate) struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
 
 /// A simple adapter for creating a DotDiGraph for a TargetSet.
-pub struct DotTargetGraph<T: QueryTarget> {
-    pub targets: TargetSet<T>,
-    pub attributes: Option<RegexSet>,
+pub(crate) struct DotTargetGraph<T: QueryTarget> {
+    pub(crate) targets: TargetSet<T>,
+    pub(crate) attributes: Option<RegexSet>,
 }
 
 impl<'a, T: QueryCommandTarget> DotDigraph<'a> for DotTargetGraph<T> {

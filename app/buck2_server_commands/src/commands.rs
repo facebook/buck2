@@ -17,4 +17,3 @@ pub mod explain;
 pub(crate) mod explain_code;
 pub(crate) mod init_commands;
 pub mod install;
-pub mod query;

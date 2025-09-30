@@ -28,14 +28,14 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::small_map::SmallMap;
 
-pub mod targets;
+pub(crate) mod targets;
 
 #[derive(Default, Debug)]
-pub struct DotNodeAttrs {
-    pub style: Option<String>,
-    pub color: Option<String>,
-    pub label: Option<String>,
-    pub extra: SmallMap<String, String>,
+pub(crate) struct DotNodeAttrs {
+    pub(crate) style: Option<String>,
+    pub(crate) color: Option<String>,
+    pub(crate) label: Option<String>,
+    pub(crate) extra: SmallMap<String, String>,
 }
 
 impl Display for DotNodeAttrs {
@@ -67,9 +67,9 @@ pub(crate) trait DotNode {
 }
 
 /// Represents a directed edge between two nodes, identified by their id.
-pub struct DotEdge<'a> {
-    from: &'a str,
-    to: &'a str,
+pub(crate) struct DotEdge<'a> {
+    pub(crate) from: &'a str,
+    pub(crate) to: &'a str,
 }
 
 pub(crate) trait DotDigraph<'a> {
@@ -111,7 +111,7 @@ fn escape_id(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\\\""))
 }
 
-pub struct Dot {}
+pub(crate) struct Dot {}
 
 impl Dot {
     pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
@@ -133,7 +133,7 @@ impl Dot {
     }
 }
 
-pub struct DotCompact {}
+pub(crate) struct DotCompact {}
 
 impl DotCompact {
     pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(

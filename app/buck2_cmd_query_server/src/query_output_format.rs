@@ -21,7 +21,7 @@ pub(crate) enum QueryOutputFormatInfo {
 }
 
 impl QueryOutputFormatInfo {
-    pub fn from_protobuf_int(value: i32, trace_id: String) -> Option<Self> {
+    pub(crate) fn from_protobuf_int(value: i32, trace_id: String) -> Option<Self> {
         let value = QueryOutputFormat::try_from(value).ok()?;
         let res = match value {
             QueryOutputFormat::Default => Self::Default,

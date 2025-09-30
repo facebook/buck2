@@ -41,12 +41,12 @@ use serde::Serializer;
 use serde::ser::SerializeMap;
 use serde::ser::SerializeSeq;
 
-use crate::commands::query::QueryCommandError;
-use crate::commands::query::query_target_ext::QueryCommandTarget;
 use crate::dot::Dot;
 use crate::dot::DotCompact;
 use crate::dot::targets::DotTargetGraph;
 use crate::html::Html;
+use crate::query::QueryCommandError;
+use crate::query::query_target_ext::QueryCommandTarget;
 use crate::query_output_format::QueryOutputFormatInfo;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
@@ -224,7 +224,7 @@ impl Serialize for FileSetJsonPrinter<'_> {
 
 impl<'a> QueryResultPrinter<'a> {
     /// Utility for creating from the options in their protobuf form.
-    pub fn from_request_options(
+    pub(crate) fn from_request_options(
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: i32,
@@ -238,7 +238,7 @@ impl<'a> QueryResultPrinter<'a> {
         )
     }
 
-    pub fn from_options(
+    pub(crate) fn from_options(
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: QueryOutputFormatInfo,
@@ -262,7 +262,7 @@ impl<'a> QueryResultPrinter<'a> {
         })
     }
 
-    pub async fn print_multi_output<'b, T: QueryCommandTarget, W: std::io::Write>(
+    pub(crate) async fn print_multi_output<'b, T: QueryCommandTarget, W: std::io::Write>(
         &self,
         mut output: W,
         multi_result: MultiQueryResult<T>,
@@ -328,7 +328,7 @@ impl<'a> QueryResultPrinter<'a> {
         }
     }
 
-    pub async fn print_single_output<'b, T: QueryCommandTarget, W: std::io::Write>(
+    pub(crate) async fn print_single_output<'b, T: QueryCommandTarget, W: std::io::Write>(
         &self,
         mut output: W,
         result: QueryEvaluationValue<T>,

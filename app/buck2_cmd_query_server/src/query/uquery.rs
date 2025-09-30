@@ -32,9 +32,9 @@ use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use dupe::Dupe;
 
-use crate::commands::query::printer::QueryResultPrinter;
-use crate::commands::query::printer::ShouldPrintProviders;
-use crate::commands::query::query_target_ext::QueryCommandTarget;
+use crate::query::printer::QueryResultPrinter;
+use crate::query::printer::ShouldPrintProviders;
+use crate::query::query_target_ext::QueryCommandTarget;
 
 impl QueryCommandTarget for TargetNode {
     fn call_stack(&self) -> Option<String> {

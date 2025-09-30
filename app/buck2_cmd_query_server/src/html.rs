@@ -16,12 +16,13 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 
-pub struct HtmlTargetGraph {
-    pub targets: TargetSet<ConfiguredTargetNode>,
+#[allow(dead_code)]
+pub(crate) struct HtmlTargetGraph {
+    pub(crate) targets: TargetSet<ConfiguredTargetNode>,
     // TODO iguridi: add attributes
 }
 
-pub struct Html {}
+pub(crate) struct Html {}
 
 impl Html {
     pub(crate) async fn render<W: Write, T: QueryTarget>(
