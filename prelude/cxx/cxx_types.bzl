@@ -268,4 +268,7 @@ CxxRuleConstructorParams = record(
     anon_targets_allowed = field(bool, True),
     # Any extra diagnostics to include in transitive diagnostics provider
     extra_transitive_diagnostics = field(list[Artifact], []),
+    # Any extra diagnostics to include in [check] subtarget, maps from
+    # identifier (usually filename) to diagnostic output.
+    extra_diagnostics = field(dict[str, Artifact] | None, None),
 )

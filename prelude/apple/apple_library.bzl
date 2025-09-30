@@ -558,6 +558,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         index_store_factory = _compile_index_store,
         index_stores = [swift_compile.index_store] if swift_compile else None,
         extra_transitive_diagnostics = [swift_compile.typecheck_file] if swift_compile else [],
+        extra_diagnostics = {"swift": swift_compile.typecheck_file} if swift_compile else None,
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:
