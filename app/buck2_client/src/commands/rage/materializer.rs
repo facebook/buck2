@@ -9,9 +9,6 @@
  */
 
 use async_trait::async_trait;
-use buck2_audit::AuditCommand;
-use buck2_audit::deferred_materializer::DeferredMaterializerCommand;
-use buck2_audit::deferred_materializer::DeferredMaterializerSubcommand;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
@@ -19,6 +16,9 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
+use buck2_cmd_audit_client::AuditCommand;
+use buck2_cmd_audit_client::deferred_materializer::DeferredMaterializerCommand;
+use buck2_cmd_audit_client::deferred_materializer::DeferredMaterializerSubcommand;
 use buck2_common::manifold::ManifoldClient;
 use buck2_error::buck2_error;
 use futures::future::BoxFuture;

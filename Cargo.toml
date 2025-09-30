@@ -8,8 +8,8 @@ members = [
     "app/buck2_action_metadata_proto",
     "app/buck2_analysis",
     "app/buck2_anon_target",
-    "app/buck2_audit",
-    "app/buck2_audit_server",
+    "app/buck2_cmd_audit_client",
+    "app/buck2_cmd_audit_server",
     "app/buck2_bxl",
     "app/buck2_build_info",
     "app/buck2_certs",
@@ -18,7 +18,7 @@ members = [
     "app/buck2_client_ctx",
     "app/buck2_cmd_completion_client",
     "app/buck2_cmd_debug_client",
-    "app/buck2_cmd_docs",
+    "app/buck2_cmd_docs_client",
     "app/buck2_cmd_docs_server",
     "app/buck2_cmd_log_client",
     "app/buck2_cmd_query_server",
@@ -364,8 +364,6 @@ buck2_action_metadata_proto = { path = "app/buck2_action_metadata_proto" }
 buck2_analysis = { path = "app/buck2_analysis" }
 buck2_anon_target = { path = "app/buck2_anon_target" }
 buck2_artifact = { path = "app/buck2_artifact" }
-buck2_audit = { path = "app/buck2_audit" }
-buck2_audit_server = { path = "app/buck2_audit_server" }
 buck2_build_api = { path = "app/buck2_build_api" }
 buck2_build_api_derive = { path = "app/buck2_build_api_derive" }
 buck2_build_info = { path = "app/buck2_build_info" }
@@ -377,9 +375,11 @@ buck2_cfg_constructor = { path = "app/buck2_cfg_constructor" }
 buck2_cli_proto = { path = "app/buck2_cli_proto" }
 buck2_client = { path = "app/buck2_client" }
 buck2_client_ctx = { path = "app/buck2_client_ctx" }
+buck2_cmd_audit_client = { path = "app/buck2_cmd_audit_client" }
+buck2_cmd_audit_server = { path = "app/buck2_cmd_audit_server" }
 buck2_cmd_completion_client = { path = "app/buck2_cmd_completion_client" }
 buck2_cmd_debug_client = { path = "app/buck2_cmd_debug_client" }
-buck2_cmd_docs = { path = "app/buck2_cmd_docs" }
+buck2_cmd_docs_client = { path = "app/buck2_cmd_docs_client" }
 buck2_cmd_docs_server = { path = "app/buck2_cmd_docs_server" }
 buck2_cmd_log_client = { path = "app/buck2_cmd_log_client" }
 buck2_cmd_query_server = { path = "app/buck2_cmd_query_server" }

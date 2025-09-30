@@ -13,7 +13,6 @@
 
 use std::thread;
 
-use buck2_audit::AuditCommand;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
@@ -46,6 +45,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::version::BuckVersion;
+use buck2_cmd_audit_client::AuditCommand;
 use buck2_cmd_debug_client::DebugCommand;
 use buck2_cmd_log_client::LogCommand;
 use buck2_cmd_starlark_client::StarlarkCommand;
@@ -328,7 +328,7 @@ pub(crate) enum CommandKind {
     #[clap(hide = true)]
     Complete(buck2_cmd_completion_client::complete::CompleteCommand),
     Completion(buck2_cmd_completion_client::completion::CompletionCommand),
-    Docs(buck2_cmd_docs::DocsCommand),
+    Docs(buck2_cmd_docs_client::DocsCommand),
     #[clap(subcommand)]
     Profile(ProfileCommand),
     #[clap(hide(true))] // @oss-enable

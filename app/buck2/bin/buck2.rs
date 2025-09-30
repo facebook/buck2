@@ -140,7 +140,7 @@ fn main() -> ! {
         buck2_analysis::init_late_bindings();
         buck2_anon_target::init_late_bindings();
         buck2_action_impl::init_late_bindings();
-        buck2_audit_server::init_late_bindings();
+        buck2_cmd_audit_server::init_late_bindings();
         buck2_build_api::init_late_bindings();
         buck2_cmd_docs_server::init_late_bindings();
         buck2_external_cells::init_late_bindings();

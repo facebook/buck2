@@ -23,8 +23,6 @@ host_sharing = { workspace = true }
 buck2_action_impl = { workspace = true }
 buck2_analysis = { workspace = true }
 buck2_anon_target = { workspace = true }
-buck2_audit = { workspace = true }
-buck2_audit_server = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_build_info = { workspace = true }
 buck2_build_signals = { workspace = true }
@@ -33,9 +31,11 @@ buck2_bxl = { workspace = true }
 buck2_cfg_constructor = { workspace = true }
 buck2_client = { workspace = true }
 buck2_client_ctx = { workspace = true }
+buck2_cmd_audit_client = { workspace = true }
+buck2_cmd_audit_server = { workspace = true }
 buck2_cmd_completion_client = { workspace = true }
 buck2_cmd_debug_client = { workspace = true }
-buck2_cmd_docs = { workspace = true }
+buck2_cmd_docs_client = { workspace = true }
 buck2_cmd_docs_server = { workspace = true }
 buck2_cmd_log_client = { workspace = true }
 buck2_cmd_query_server = { workspace = true }

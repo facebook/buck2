@@ -485,7 +485,7 @@ pub static FIND_MATCHING_ACTION: LateBinding<
     >,
 > = LateBinding::new("FIND_MATCHING_ACTION");
 
-/// Hook to link printer in `buck2_server_commands` from `buck2_audit_server`.
+/// Hook to link printer in `buck2_server_commands` from `buck2_cmd_audit_server`.
 pub static PRINT_ACTION_NODE: LateBinding<
     for<'a> fn(
         stdout: &'a mut (dyn Write + Send),
