@@ -81,6 +81,8 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         "-e",
         "-json=" + ",".join(required_felds),
         ["-tags", ",".join(all_tags) if all_tags else []],
+        ["-race"] if go_toolchain.race else [],
+        ["-asan"] if go_toolchain.asan else [],
         ".",
     ]
 
