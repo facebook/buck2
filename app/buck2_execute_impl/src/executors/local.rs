@@ -574,6 +574,7 @@ impl LocalExecutor {
                     hashed_artifacts_count: 0,
                     queue_duration: None,
                     was_frozen: false, // Will fill in later if avalable
+                    freeze_duration: None,
                 });
 
                 (timing, r)
@@ -621,6 +622,7 @@ impl LocalExecutor {
                         let _unused = soft_error!("action_cgroup_error", e);
                     }
                     timing.was_frozen = cgroup_result.was_frozen;
+                    timing.freeze_duration = cgroup_result.freeze_duration;
                 }
 
                 timing.hashing_duration = hashing_time.hashing_duration;

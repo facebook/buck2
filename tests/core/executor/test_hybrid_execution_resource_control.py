@@ -209,6 +209,7 @@ async def test_action_freezing(
             was_frozen = metadata["was_frozen"]
             if was_frozen:
                 frozen_count += 1
+                assert metadata["freeze_duration"] is not None
 
     # Check that at least one action was frozen (and the command didn't block indefinitely)
     assert frozen_count > 0
@@ -312,6 +313,7 @@ async def test_action_freezing_unfreezing(
             was_frozen = metadata["was_frozen"]
             if was_frozen:
                 frozen_count += 1
+                assert metadata["freeze_duration"] is not None
     # only the action whose identifier is `action_to_be_frozen` will be frozen
     assert frozen_count == 1
 
@@ -448,6 +450,7 @@ async def test_parent_slice_memory_high_unset_and_restore(
             was_frozen = metadata["was_frozen"]
             if was_frozen:
                 frozen_count += 1
+                assert metadata["freeze_duration"] is not None
     assert frozen_count == 1
 
     memory_reader_thread.join()

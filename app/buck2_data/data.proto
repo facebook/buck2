@@ -1430,6 +1430,9 @@ message CommandExecutionMetadata {
 
   /// Whether this command was frozen due to memory pressure
   optional bool was_frozen = 9;
+
+  /// The duration this command was frozen for
+  google.protobuf.Duration freeze_duration = 10;
 }
 
 message CommandOutputsMissing {
