@@ -149,10 +149,14 @@ def _rust_binary_common(
         predeclared_output = ctx.actions.declare_output(name)
         final_output = predeclared_output
 
+    build_graph_info = new_build_graph_info(ctx, cxx_deps)
+    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
+
     rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
         ctx,
         compile_ctx.dep_ctx,
         link_strategy = link_strategy,
+        transformation_spec_context = transformation_spec_context,
     )
     if rust_cxx_link_group_info != None:
         link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
@@ -182,9 +186,6 @@ def _rust_binary_common(
         labels_to_links_map = labels_to_links_map,
         targets_consumed_by_link_groups = targets_consumed_by_link_groups,
     )
-
-    build_graph_info = new_build_graph_info(ctx, cxx_deps)
-    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
 
     # Gather and setup symlink tree of transitive shared library deps.
     shared_libs = build_shared_libs_for_symlink_tree(
