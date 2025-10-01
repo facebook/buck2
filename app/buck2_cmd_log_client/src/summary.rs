@@ -34,6 +34,8 @@ use tokio_stream::StreamExt;
 struct Stats {
     // TODO(yurysamkevich): add number of file changes since last build once availbale in log
     total_bytes_uploaded: u64,
+    total_bytes_re_downloaded: u64,
+    total_bytes_http_downloaded: u64,
     total_files_materialized: u64,
     total_bytes_materialized: u64,
     total_local_actions: u64,
@@ -91,6 +93,9 @@ impl Stats {
                             self.peak_used_disk_space_bytes,
                             snapshot.used_disk_space_bytes,
                         );
+                        // snapshot.re_download_bytes/http_download_bytes fields are cumulative counters from the start of the build.
+                        self.total_bytes_re_downloaded = snapshot.re_download_bytes;
+                        self.total_bytes_http_downloaded = snapshot.http_download_bytes;
 
                         if let Some(ts) = get_event_timestamp(event) {
                             self.re_avg_download_speed
@@ -147,10 +152,29 @@ impl Display for Stats {
         )?;
         writeln!(
             f,
-            "total bytes materialized: {}",
-            self.total_bytes_materialized
+            "total materialized: {}",
+            HumanizedBytes::new(self.total_bytes_materialized)
         )?;
-        writeln!(f, "total bytes uploaded: {}", self.total_bytes_uploaded)?;
+        writeln!(
+            f,
+            "total uploaded: {}",
+            HumanizedBytes::new(self.total_bytes_uploaded)
+        )?;
+        writeln!(
+            f,
+            "total downloaded: {}",
+            HumanizedBytes::new(self.total_bytes_re_downloaded + self.total_bytes_http_downloaded)
+        )?;
+        writeln!(
+            f,
+            "  total re downloaded: {}",
+            HumanizedBytes::new(self.total_bytes_re_downloaded)
+        )?;
+        writeln!(
+            f,
+            "  total http downloaded: {}",
+            HumanizedBytes::new(self.total_bytes_http_downloaded)
+        )?;
         writeln!(f, "local actions: {}", self.total_local_actions)?;
         writeln!(f, "remote actions: {}", self.total_remote_actions)?;
         writeln!(f, "cached actions: {}", self.total_cached_actions)?;
