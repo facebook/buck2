@@ -44,6 +44,7 @@ class Arguments(Tap):
     fast_provisioning_profile_parsing: bool = False
     strict_provisioning_profile_search: bool = False
     provisioning_profile_filter: Optional[str] = None
+    only_select_provisioning_profile: bool = False
 
     def configure(self) -> None:
         """
@@ -124,6 +125,12 @@ class Arguments(Tap):
             required=False,
             help="Regex to disambiguate multiple matching profiles, evaluated against provisioning profile filename.",
         )
+        self.add_argument(
+            "--only-select-provisioning-profile",
+            action="store_true",
+            required=False,
+            help="Skip codesigning and just output the path to the selected provisioning profile to stdout.",
+        )
 
 
 # Add emoji to beginning of actionable error message so it stands out more.
@@ -135,6 +142,12 @@ def _main() -> None:
     args = Arguments().parse_args()
     try:
         if args.ad_hoc:
+            if args.only_select_provisioning_profile:
+                print(
+                    "No provisioning profile is selected for ad-hoc signing.",
+                    file=sys.stderr,
+                )
+                exit(1)
             signing_context = AdhocSigningContext(
                 codesign_identity=args.ad_hoc_codesign_identity
             )
@@ -152,6 +165,10 @@ def _main() -> None:
                 strict_provisioning_profile_search=args.strict_provisioning_profile_search,
                 provisioning_profile_filter=args.provisioning_profile_filter,
             )
+
+            if args.only_select_provisioning_profile:
+                print(signing_context.selected_profile_info.profile.file_path)
+                return
 
         bundle_path = CodesignedPath(
             path=args.bundle_path,
