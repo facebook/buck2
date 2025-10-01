@@ -216,6 +216,7 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
+        transformation_spec_context = transformation_spec_context,
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
@@ -331,6 +332,7 @@ def _rust_binary_common(
             extra_flags = extra_flags,
             infallible_diagnostics = True,
             incremental_enabled = incr,
+            transformation_spec_context = transformation_spec_context,
         )
         clippy_artifacts[incr] = rust_compile(
             ctx = ctx,
@@ -341,6 +343,7 @@ def _rust_binary_common(
             extra_flags = extra_flags,
             infallible_diagnostics = True,
             incremental_enabled = incr,
+            transformation_spec_context = transformation_spec_context,
         )
 
     providers = [RustcExtraOutputsInfo(

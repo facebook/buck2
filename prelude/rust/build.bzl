@@ -37,6 +37,10 @@ load(
     "get_shared_library_name_linker_flags",
 )
 load(
+    "@prelude//cxx:transformation_spec.bzl",
+    "TransformationSpecContext",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
@@ -392,6 +396,7 @@ def rust_compile(
         # output of the action is going to be depended on
         infallible_diagnostics: bool = False,
         rust_cxx_link_group_info: RustCxxLinkGroupInfo | None = None,
+        transformation_spec_context: TransformationSpecContext | None = None,
         profile_mode: ProfileMode | None = None) -> RustcOutput:
     toolchain_info = compile_ctx.toolchain_info
 
@@ -563,7 +568,7 @@ def rust_compile(
                 link_strategy = params.dep_link_strategy,
                 swiftmodule_linkable = None,
                 prefer_stripped = False,
-                transformation_spec_context = None,
+                transformation_spec_context = transformation_spec_context,
             )
 
         if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):
