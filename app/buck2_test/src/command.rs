@@ -631,11 +631,14 @@ async fn test_targets(
         ];
         args.extend(external_runner_args);
 
-        args.extend(
-            tpx_experiments
-                .iter()
-                .flat_map(|experiment| ["--experiment".to_owned(), experiment.to_owned()]),
-        );
+        if cfg!(fbcode_build) {
+            // Our OSS test runner does not support `--experiment` flags, so only pass these flags internally.
+            args.extend(
+                tpx_experiments
+                    .iter()
+                    .flat_map(|experiment| ["--experiment".to_owned(), experiment.to_owned()]),
+            );
+        }
 
         args
     };
