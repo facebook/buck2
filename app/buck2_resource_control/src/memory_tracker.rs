@@ -166,9 +166,10 @@ async fn open_daemon_memory_file(file_name: &str) -> buck2_error::Result<File> {
     let Some(daemon_and_forkserver_slice) = info.get_slice() else {
         return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
     };
-    File::open(daemon_and_forkserver_slice.to_owned() + "/" + file_name)
+    let path = daemon_and_forkserver_slice.to_owned() + "/" + file_name;
+    File::open(&path)
         .await
-        .map_err(|e| e.into())
+        .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
 }
 
 pub struct MemoryReporter {
