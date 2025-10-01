@@ -31,6 +31,7 @@ load(
     "get_link_group_map_json",
 )
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
+load("@prelude//cxx:transformation_spec.bzl", "build_transformation_spec_context")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -52,6 +53,10 @@ load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
+)
+load(
+    "@prelude//utils:build_graph_pattern.bzl",
+    "new_build_graph_info",
 )
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
@@ -119,10 +124,11 @@ def _rust_binary_common(
     link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
+    cxx_deps = cxx_attr_deps(ctx)
     resources = flatten_dict(gather_resources(
         label = ctx.label,
         resources = rust_attr_resources(ctx),
-        deps = cxx_attr_deps(ctx),
+        deps = cxx_deps,
     ).values())
 
     extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
@@ -177,12 +183,15 @@ def _rust_binary_common(
         targets_consumed_by_link_groups = targets_consumed_by_link_groups,
     )
 
+    build_graph_info = new_build_graph_info(ctx, cxx_deps)
+    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
+
     # Gather and setup symlink tree of transitive shared library deps.
     shared_libs = build_shared_libs_for_symlink_tree(
         use_link_groups = rust_cxx_link_group_info != None,
         link_group_ctx = link_group_ctx,
         link_strategy = link_strategy,
-        shared_libraries = traverse_shared_library_info(shlib_info, transformation_provider = None),
+        shared_libraries = traverse_shared_library_info(shlib_info, transformation_provider = transformation_spec_context),
         extra_shared_libraries = [],
     )
 
