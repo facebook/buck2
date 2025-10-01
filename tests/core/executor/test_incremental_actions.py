@@ -12,7 +12,7 @@
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import random_string
+from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 
 # Incremental actions use the output of previous actions, mimic this behavior by
@@ -248,6 +248,72 @@ async def test_basic_incremental_action_cached_with_content_based_path(
     buck: Buck,
 ) -> None:
     await basic_incremental_action_cached_helper(buck, use_content_based_path=True)
+
+
+async def basic_incremental_action_after_cache_hit_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    # Populate the remote cache
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--remote-only",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    await buck.clean()
+
+    # Run again, and make sure we got an action cache hit
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    execution_kinds = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "execution_kind",
+    )
+    ACTION_EXECUTION_KIND_ACTION_CACHE = 3
+    assert execution_kinds[-1] == ACTION_EXECUTION_KIND_ACTION_CACHE
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+
+    if use_content_based_path:
+        # TODO(ianc) this is a bug!
+        assert result.stdout == "foo"
+    else:
+        assert result.stdout == "foo bar"
+
+
+@buck_test()
+async def test_basic_incremental_action_after_cache_hit(buck: Buck) -> None:
+    await basic_incremental_action_after_cache_hit_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_basic_incremental_action_after_cache_hit_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await basic_incremental_action_after_cache_hit_helper(
+        buck, use_content_based_path=True
+    )
 
 
 async def incremental_action_interleave_platforms_helper(
