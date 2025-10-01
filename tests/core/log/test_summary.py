@@ -19,4 +19,4 @@ async def test_summary_command(buck: Buck) -> None:
     out = await buck.log("summary")
 
     assert "Showing summary from:" in out.stderr
-    assert "targets analysed: 1" in out.stderr
+    assert "Targets Analyzed: 1" in out.stderr

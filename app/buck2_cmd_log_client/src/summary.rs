@@ -145,48 +145,146 @@ fn get_event_timestamp(event: &buck2_data::BuckEvent) -> Option<SystemTime> {
 
 impl Display for Stats {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // Build Summary section
+        writeln!(f)?;
+        writeln!(f, "Build Summary")?;
+
+        if let Some(duration) = &self.duration {
+            let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
+            writeln!(f, "- Duration: {}", fmt_duration::fmt_duration(duration))?;
+        }
+
+        writeln!(f, "- Targets Analyzed: {}", self.total_targets_analysed)?;
+
+        if let Some(hg_revision) = &self.hg_revision {
+            writeln!(f, "- HG Revision: {hg_revision}")?;
+        }
+
+        if let Some(has_local_changes) = self.has_local_changes {
+            writeln!(f, "- Has Local Changes: {has_local_changes}")?;
+        } else {
+            writeln!(f, "- Has Local Changes: unknown")?;
+        }
+
+        writeln!(f)?;
+
+        // Actions section
+        writeln!(f, "Actions")?;
+        writeln!(f, "- Local actions: {}", self.total_local_actions)?;
+        writeln!(f, "- Remote actions: {}", self.total_remote_actions)?;
+        writeln!(f, "- Cached actions: {}", self.total_cached_actions)?;
+        writeln!(f, "- Other actions: {}", self.total_other_actions)?;
+        writeln!(f)?;
+
+        // File & Data section
+        writeln!(f, "File & Data")?;
         writeln!(
             f,
-            "total files materialized: {}",
-            self.total_files_materialized
+            "  (Network transfer uses compression, file materialized shows uncompressed sizes)"
         )?;
+        writeln!(f, "- Files materialized: {}", self.total_files_materialized)?;
         writeln!(
             f,
-            "total materialized: {}",
+            "- Total materialized: {}",
             HumanizedBytes::new(self.total_bytes_materialized)
         )?;
         writeln!(
             f,
-            "total uploaded: {}",
+            "- Total uploaded: {}",
             HumanizedBytes::new(self.total_bytes_uploaded)
         )?;
         writeln!(
             f,
-            "total downloaded: {}",
+            "- Total downloaded: {}",
             HumanizedBytes::new(self.total_bytes_re_downloaded + self.total_bytes_http_downloaded)
         )?;
         writeln!(
             f,
-            "  total re downloaded: {}",
+            "  - RE downloaded: {}",
             HumanizedBytes::new(self.total_bytes_re_downloaded)
         )?;
         writeln!(
             f,
-            "  total http downloaded: {}",
+            "  - HTTP downloaded: {}",
             HumanizedBytes::new(self.total_bytes_http_downloaded)
         )?;
-        writeln!(f, "local actions: {}", self.total_local_actions)?;
-        writeln!(f, "remote actions: {}", self.total_remote_actions)?;
-        writeln!(f, "cached actions: {}", self.total_cached_actions)?;
-        writeln!(f, "other actions: {}", self.total_other_actions)?;
-        writeln!(f, "targets analysed: {}", self.total_targets_analysed)?;
+        writeln!(f)?;
+
+        // Network section
+        writeln!(f, "Network")?;
+
+        // Download Speed grouping
+        let has_download_data = self.re_avg_download_speed.avg_per_second().is_some()
+            || self
+                .re_max_download_speeds
+                .iter()
+                .any(|w| w.max_per_second().unwrap_or_default() > 0);
+
+        if has_download_data {
+            writeln!(f, "- Download Speed")?;
+            if let Some(re_avg_download_speed) = self.re_avg_download_speed.avg_per_second() {
+                writeln!(
+                    f,
+                    "  - Average: {}",
+                    HumanizedBytesPerSecond::fixed_width(re_avg_download_speed)
+                )?;
+            }
+
+            if let Some(re_max_download_speed) = self
+                .re_max_download_speeds
+                .iter()
+                .map(|w| w.max_per_second().unwrap_or_default())
+                .max()
+            {
+                writeln!(
+                    f,
+                    "  - Peak: {}",
+                    HumanizedBytesPerSecond::fixed_width(re_max_download_speed)
+                )?;
+            }
+        }
+
+        // Upload Speed grouping
+        let has_upload_data = self.re_avg_upload_speed.avg_per_second().is_some()
+            || self
+                .re_max_upload_speeds
+                .iter()
+                .any(|w| w.max_per_second().unwrap_or_default() > 0);
+
+        if has_upload_data {
+            writeln!(f, "- Upload Speed")?;
+            if let Some(re_avg_upload_speed) = self.re_avg_upload_speed.avg_per_second() {
+                writeln!(
+                    f,
+                    "  - Average: {}",
+                    HumanizedBytesPerSecond::fixed_width(re_avg_upload_speed)
+                )?;
+            }
+
+            if let Some(re_max_upload_speed) = self
+                .re_max_upload_speeds
+                .iter()
+                .map(|w| w.max_per_second().unwrap_or_default())
+                .max()
+            {
+                writeln!(
+                    f,
+                    "  - Peak: {}",
+                    HumanizedBytesPerSecond::fixed_width(re_max_upload_speed)
+                )?;
+            }
+        }
+        writeln!(f)?;
+
+        // Resource Usage section
+        writeln!(f, "Resource Usage")?;
         if let (Some(peak_process_memory_bytes), Some(system_total_memory_bytes)) = (
             self.peak_process_memory_bytes,
             self.system_total_memory_bytes,
         ) {
             writeln!(
                 f,
-                "peak process memory: {} out of {}",
+                "- Peak process memory: {} / {}",
                 HumanizedBytes::fixed_width(peak_process_memory_bytes),
                 HumanizedBytes::fixed_width(system_total_memory_bytes)
             )?;
@@ -196,67 +294,12 @@ impl Display for Stats {
         {
             writeln!(
                 f,
-                "peak used disk space: {} out of {}",
+                "- Peak used disk space: {} / {}",
                 HumanizedBytes::fixed_width(peak_used_disk_space_bytes),
                 HumanizedBytes::fixed_width(total_disk_space_bytes)
             )?;
         }
-        if let Some(re_avg_download_speed) = self.re_avg_download_speed.avg_per_second() {
-            writeln!(
-                f,
-                "average download speed: {}",
-                HumanizedBytesPerSecond::fixed_width(re_avg_download_speed)
-            )?;
-        }
-        if let Some(re_avg_upload_speed) = self.re_avg_upload_speed.avg_per_second() {
-            writeln!(
-                f,
-                "average upload speed: {}",
-                HumanizedBytesPerSecond::fixed_width(re_avg_upload_speed)
-            )?;
-        }
 
-        if let Some(re_max_download_speed) = self
-            .re_max_download_speeds
-            .iter()
-            .map(|w| w.max_per_second().unwrap_or_default())
-            .max()
-        {
-            writeln!(
-                f,
-                "max download speed: {}",
-                HumanizedBytesPerSecond::fixed_width(re_max_download_speed)
-            )?;
-        }
-
-        if let Some(re_max_upload_speed) = self
-            .re_max_upload_speeds
-            .iter()
-            .map(|w| w.max_per_second().unwrap_or_default())
-            .max()
-        {
-            writeln!(
-                f,
-                "max upload speed: {}",
-                HumanizedBytesPerSecond::fixed_width(re_max_upload_speed)
-            )?;
-        }
-
-        if let Some(duration) = &self.duration {
-            let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
-            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration))?;
-        } else {
-            // TODO(ezgi): when there is no CommandEnd, take the timestamp from the last event and calculate the duration
-        }
-        if let Some(hg_revision) = &self.hg_revision {
-            writeln!(f, "hg revision: {hg_revision}")?;
-        }
-
-        if let Some(has_local_changes) = self.has_local_changes {
-            writeln!(f, "has local changes: {has_local_changes}")?;
-        } else {
-            writeln!(f, "has local changes: unknown")?;
-        }
         Ok(())
     }
 }
