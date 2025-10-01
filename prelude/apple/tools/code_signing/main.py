@@ -45,6 +45,7 @@ class Arguments(Tap):
     strict_provisioning_profile_search: bool = False
     provisioning_profile_filter: Optional[str] = None
     only_select_provisioning_profile: bool = False
+    no_check_certificates: bool = False
 
     def configure(self) -> None:
         """
@@ -131,6 +132,12 @@ class Arguments(Tap):
             required=False,
             help="Skip codesigning and just output the path to the selected provisioning profile to stdout.",
         )
+        self.add_argument(
+            "--no-check-certificates",
+            action="store_true",
+            required=False,
+            help="Skip the check on code signing identities when selecting provisioning profile.",
+        )
 
 
 # Add emoji to beginning of actionable error message so it stands out more.
@@ -164,6 +171,7 @@ def _main() -> None:
                 should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
                 strict_provisioning_profile_search=args.strict_provisioning_profile_search,
                 provisioning_profile_filter=args.provisioning_profile_filter,
+                no_check_certificates=args.no_check_certificates,
             )
 
             if args.only_select_provisioning_profile:

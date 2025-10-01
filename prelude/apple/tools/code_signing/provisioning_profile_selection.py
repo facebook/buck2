@@ -195,6 +195,7 @@ def select_best_provisioning_profile(
     platform: ApplePlatform,
     strict_search: bool,
     provisioning_profile_filter: Optional[str],
+    no_check_certificates: bool = False,
 ) -> Tuple[
     Optional[SelectedProvisioningProfileInfo], List[IProvisioningProfileDiagnostics]
 ]:
@@ -286,14 +287,20 @@ def select_best_provisioning_profile(
             log_mismatched_profile(cast(EntitlementsMismatch, mismatch))
             continue
 
-        certificate, mismatch = _check_developer_certificates_match(
-            profile=profile,
-            identities=code_signing_identities,
-            bundle_id_match_length=current_match_length,
-        )
-        if not certificate:
-            log_mismatched_profile(cast(DeveloperCertificateMismatch, mismatch))
-            continue
+        if no_check_certificates:
+            certificate = CodeSigningIdentity(
+                fingerprint=next(iter(profile.developer_certificate_fingerprints)),
+                subject_common_name="Unknown",
+            )
+        else:
+            certificate, mismatch = _check_developer_certificates_match(
+                profile=profile,
+                identities=code_signing_identities,
+                bundle_id_match_length=current_match_length,
+            )
+            if not certificate:
+                log_mismatched_profile(cast(DeveloperCertificateMismatch, mismatch))
+                continue
 
         _LOGGER.info(
             f"Matching provisioning profile `{profile.file_path.name}` with score {current_match_length}"
