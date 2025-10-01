@@ -36,13 +36,16 @@ use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
 
+use crate::incremental_actions_helper::save_content_based_incremental_state;
 use crate::re::download::DownloadResult;
 use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
+use crate::sqlite::incremental_state_db::IncrementalDbState;
 
 pub struct ActionCacheChecker {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
+    pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
@@ -70,6 +73,7 @@ async fn query_action_cache_and_download_result(
     cache_type: CacheType,
     artifact_fs: &ArtifactFs,
     materializer: &Arc<dyn Materializer>,
+    incremental_db_state: &Arc<IncrementalDbState>,
     re_client: &ManagedRemoteExecutionClient,
     re_action_key: &Option<String>,
     paranoid: &Option<ParanoidDownloader>,
@@ -213,6 +217,17 @@ async fn query_action_cache_and_download_result(
         }
     }
 
+    if let Some(run_action_key) = request.run_action_key()
+        && !request.outputs_cleanup
+    {
+        save_content_based_incremental_state(
+            run_action_key.clone(),
+            &incremental_db_state,
+            &artifact_fs,
+            &res,
+        );
+    }
+
     ControlFlow::Break(res)
 }
 
@@ -241,6 +256,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             cache_type,
             &self.artifact_fs,
             &self.materializer,
+            &self.incremental_db_state,
             &self.re_client,
             &self.re_action_key,
             &self.paranoid,
@@ -260,6 +276,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
 pub struct RemoteDepFileCacheChecker {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
+    pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
@@ -302,6 +319,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             cache_type,
             &self.artifact_fs,
             &self.materializer,
+            &self.incremental_db_state,
             &self.re_client,
             &self.re_action_key,
             &self.paranoid,

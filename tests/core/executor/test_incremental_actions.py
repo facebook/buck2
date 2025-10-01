@@ -293,11 +293,7 @@ async def basic_incremental_action_after_cache_hit_helper(
         f"test.use_content_based_path={use_content_based_path}",
     )
 
-    if use_content_based_path:
-        # TODO(ianc) this is a bug!
-        assert result.stdout == "foo"
-    else:
-        assert result.stdout == "foo bar"
+    assert result.stdout == "foo bar"
 
 
 @buck_test()

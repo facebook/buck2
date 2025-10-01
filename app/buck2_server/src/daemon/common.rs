@@ -288,6 +288,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(RemoteDepFileCacheChecker {
                                 artifact_fs: artifact_fs.clone(),
                                 materializer: self.materializer.dupe(),
+                                incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
@@ -306,6 +307,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(ActionCacheChecker {
                                 artifact_fs: artifact_fs.clone(),
                                 materializer: self.materializer.dupe(),
+                                incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
