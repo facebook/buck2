@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
 load(":common.bzl", "LinkableDepType")
 
 def _link_style():
@@ -58,6 +59,15 @@ def _soname():
 """),
     }
 
+def _transformation_spec_arg():
+    return {
+        "transformation_spec": attrs.option(
+            attrs.dep(providers = [TransformationResultProvider]),
+            default = None,
+            doc = "Dependency to a transformation spec that will selectively change parts of dependency graph",
+        ),
+    }
+
 native_common = struct(
     link_group_deps = _link_group_deps,
     link_group_public_deps_label = _link_group_public_deps_label,
@@ -65,4 +75,5 @@ native_common = struct(
     link_whole = _link_whole,
     preferred_linkage = _preferred_linkage,
     soname = _soname,
+    transformation_spec_arg = _transformation_spec_arg,
 )

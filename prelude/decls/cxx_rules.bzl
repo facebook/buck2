@@ -143,6 +143,7 @@ cxx_binary = prelude_rule(
         native_common.link_style() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
+        native_common.transformation_spec_arg() |
         buck.deps_query_arg() |
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
@@ -969,6 +970,7 @@ cxx_test = prelude_rule(
         buck.test_rule_timeout_ms() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
+        native_common.transformation_spec_arg() |
         native_common.link_style() |
         {
             "additional_coverage_targets": attrs.list(attrs.source(), default = []),
