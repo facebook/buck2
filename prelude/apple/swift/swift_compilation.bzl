@@ -154,6 +154,8 @@ _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency",
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
+_INDEX_SYSTEM_MODULES = (read_root_config("swift", "index_system_modules", "false").lower() == "true")
+
 def _get_target_flags(ctx) -> list[str]:
     if get_cxx_platform_info(ctx).name.startswith("linux"):
         # Linux triples are unversioned
@@ -861,15 +863,14 @@ def _compile_index_store(
         }
 
     index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True)
-    additional_flags = cmd_args(
-        "-index-ignore-system-modules",
+    additional_flags = cmd_args(([] if _INDEX_SYSTEM_MODULES else ["-index-ignore-system-modules"]) + [
         "-index-store-path",
         index_store_output.as_output(),
         "-c",
         "-disable-batch-mode",
         "-Xwrapper",
         "-ignore-errors",
-    )
+    ])
 
     _compile_with_argsfile(
         ctx = ctx,
