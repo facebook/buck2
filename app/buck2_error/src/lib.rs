@@ -9,7 +9,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(let_chains)]
 #![feature(trait_alias)]
 
 pub mod any;

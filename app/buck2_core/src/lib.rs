@@ -18,7 +18,6 @@
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![feature(used_with_arg)]
-#![feature(let_chains)]
 
 #[macro_use]
 pub mod error;

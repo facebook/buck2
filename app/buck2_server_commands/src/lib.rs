@@ -13,7 +13,6 @@
 //! Implementation of several server commands.
 
 #![feature(box_patterns)]
-#![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(used_with_arg)]
 

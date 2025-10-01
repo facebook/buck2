@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(let_chains)]
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
 #![feature(anonymous_lifetime_in_impl_trait)]
