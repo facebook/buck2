@@ -131,6 +131,7 @@ rust_binary = prelude_rule(
         rust_common.cxx_toolchain_arg() |
         rust_common.rust_toolchain_arg() |
         rust_common.workspaces_arg() |
+        native_common.transformation_spec_arg() |
         buck.allow_cache_upload_arg()
     ),
     uses_plugins = [RustProcMacroPlugin],
@@ -286,6 +287,7 @@ rust_test = prelude_rule(
         rust_common.cxx_toolchain_arg() |
         rust_common.rust_toolchain_arg() |
         rust_common.workspaces_arg() |
+        native_common.transformation_spec_arg() |
         test_common.attributes()
     ),
     uses_plugins = [RustProcMacroPlugin],
