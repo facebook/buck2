@@ -88,7 +88,7 @@ build_start_boot(
                 <<"name">> := AppName,
                 <<"version">> := AppVersion,
                 <<"type">> := StartType
-            } <- Others ++ OTPAppDeps
+            } <- OTPAppDeps ++ Others
         ]
     },
     make_boot_script(RelName, RelFileContent, [
