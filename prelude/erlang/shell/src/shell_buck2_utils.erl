@@ -25,7 +25,8 @@ Documentation for shell_buck2_utils, ways to use
     buck2_query/1, buck2_query/2, buck2_query/3,
     run_command/1, run_command/2,
     no_stderr/1,
-    get_additional_paths/1
+    get_additional_paths/1,
+    get_app_env/1
 ]).
 
 -type opt() :: {at_root, boolean()}.
@@ -73,7 +74,16 @@ rebuild_modules(Modules) ->
 -spec buck2_build_targets(Targets) -> ok | error when
     Targets :: [string() | binary()].
 buck2_build_targets(Targets) ->
-    case run_command([~"buck2", ~"build", ~"--reuse-current-config", ~"--console=super" | Targets]) of
+    case
+        run_command([
+            ~"buck2",
+            ~"build",
+            ~"--reuse-current-config",
+            ~"--console=super",
+            get_buck2_args_from_env()
+            | Targets
+        ])
+    of
         {ok, _Output} -> ok;
         error -> error
     end.
@@ -94,7 +104,17 @@ buck2_query(Query, Args) ->
     BuckArgs :: [string() | binary()],
     Args :: [string() | binary()].
 buck2_query(Query, BuckArgs, Args) ->
-    run_command(no_stderr([~"buck2", ~"uquery", BuckArgs, ~"--reuse-current-config", Query, Args])).
+    run_command(
+        no_stderr([
+            ~"buck2",
+            ~"uquery",
+            ~"--reuse-current-config",
+            get_buck2_args_from_env(),
+            BuckArgs,
+            Query,
+            Args
+        ])
+    ).
 
 -spec no_stderr(CommandArgs) -> CommandArgs when
     CommandArgs :: iodata().
@@ -164,6 +184,7 @@ get_additional_paths(Path) ->
             ~"bxl",
             ~"--reuse-current-config",
             ~"--console super",
+            get_buck2_args_from_env(),
             ~"prelude//erlang/shell/shell.bxl:ebin_paths",
             ~"--",
             Path
@@ -191,3 +212,18 @@ get_additional_paths(Path) ->
 -spec filter_escape_chars(String :: string()) -> string().
 filter_escape_chars(String) ->
     lists:flatten(io_lib:format("~ts", [re:replace(String, ?ANSI_ESCAPE_REGEX, "", [global])])).
+
+-spec get_buck2_args_from_env() -> [binary()].
+get_buck2_args_from_env() ->
+    case get_app_env(buck2_args) of
+        undefined -> [];
+        {ok, Buck2Args} when is_list(Buck2Args) -> Buck2Args
+    end.
+
+-spec get_app_env(Key) -> {ok, Value} | undefined when
+    Key :: atom(),
+    Value :: dynamic().
+get_app_env(Key) ->
+    _ = application:load(buck2_shell_utils),
+    % elp:ignore W0011 (application_get_env)
+    application:get_env(buck2_shell_utils, Key).

@@ -37,9 +37,7 @@ find_module(Module) ->
         [found] ->
             available;
         _ ->
-            _ = application:load(buck2_shell_utils),
-            % elp:ignore W0011 (application_get_env)
-            case application:get_env(buck2_shell_utils, search_module) of
+            case shell_buck2_utils:get_app_env(search_module) of
                 {ok, Mod} ->
                     Mod:find_module_source(Module);
                 _ ->
