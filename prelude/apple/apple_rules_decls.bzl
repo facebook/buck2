@@ -708,7 +708,11 @@ apple_library = prelude_rule(
                 "DEFAULT": False,
                 "config//features/apple:swift_enable_testing_enabled": True,
             })),
-            "uses_experimental_content_based_path_hashing": attrs.bool(default = read_bool("apple", "uses_experimental_content_based_path_hashing", False)),
+            "uses_experimental_content_based_path_hashing": attrs.bool(default = select({
+                "DEFAULT": read_bool("apple", "uses_experimental_content_based_path_hashing", False),
+                "config//features/apple:content_based_path_hashing_enabled": True,
+                "config//features/apple:content_based_path_hashing_disabled": False,
+            })),
             APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
             VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
