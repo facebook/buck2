@@ -46,6 +46,7 @@ load(
     "LinkInfo",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
 )
+load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(
@@ -149,6 +150,9 @@ SwiftDebugInfo = record(
 _IS_USER_BUILD = True # @oss-enable
 # @oss-disable: # To determine whether we're running on CI or not, we expect user.sandcastle_alias to be set.
 # @oss-disable[end= ]: _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None)
+
+# Whether we're running on a Mac, so that we may decide to execute locally vs running on Mac RE.
+_IS_MAC_HOST = host_info().os.is_macos
 
 _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 
@@ -909,29 +913,7 @@ def _compile_with_argsfile(
     if extension and explicit_modules_enabled:
         category += "_with_explicit_mods"
 
-    # If we prefer to execute locally (e.g., for perf reasons), ensure we
-    # upload to the cache so that CI builds populate caches used by developer
-    # machines.
-    allow_cache_upload = True
-    local_only = False
-
-    # Swift compilation on RE without explicit modules is impractically
-    # expensive because there's no shared module cache across different
-    # libraries.
-    prefer_local = not explicit_modules_enabled
-
-    if (not cacheable) or (build_swift_incrementally and not toolchain.supports_relative_resource_dir):
-        # When Swift code is built incrementally, the swift-driver embeds
-        # absolute paths into the artifacts without relative resource dir
-        # support. In this case we can only build locally.
-        allow_cache_upload = False
-        local_only = True
-        prefer_local = False
-    elif build_swift_incrementally and not (get_incremental_file_hashing_enabled(ctx) and get_incremental_remote_outputs_enabled(ctx)) and _IS_USER_BUILD:
-        # Swift incremental compilation requires the swiftdep files which are
-        # only present when compiling locally. Prefer local unless otherwise
-        # overridden.
-        prefer_local = True
+    allow_cache_upload, action_execution_attributes = _get_action_properties(ctx, toolchain, cacheable, build_swift_incrementally, explicit_modules_enabled)
 
     argsfile, output_file_map = compile_with_argsfile(
         ctx = ctx,
@@ -944,8 +926,8 @@ def _compile_with_argsfile(
         dep_files = dep_files,
         output_file_map = output_file_map,
         allow_cache_upload = allow_cache_upload,
-        local_only = local_only,
-        prefer_local = prefer_local,
+        local_only = action_execution_attributes.local_only,
+        prefer_local = action_execution_attributes.prefer_local,
         # We need to preserve the action outputs for incremental compilation.
         no_outputs_cleanup = build_swift_incrementally,
         # Skip incremental outputs requires an empty output file map, so is not
@@ -961,6 +943,50 @@ def _compile_with_argsfile(
         return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile}), output_file_map
     else:
         return None, output_file_map
+
+def _get_action_properties(
+        ctx: AnalysisContext,
+        toolchain: SwiftToolchainInfo,
+        cacheable: bool,
+        build_swift_incrementally: bool,
+        explicit_modules_enabled: bool) -> (bool, ActionExecutionAttributes):  # (allow_cache_upload, ActionExecutionAttributes)
+    # By default, we allow Buck and any command line arguments to determine execution preference.
+    # However, based upon certain functionality or execution environments, we modify these
+    # default properties for cacheability and performance.
+
+    # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache so
+    # that CI builds populate caches used by developer machines.
+    allow_cache_upload = True
+
+    local_only = False
+
+    # Swift compilation on RE without explicit modules is impractically expensive because there's
+    # no shared module cache across different libraries.
+    prefer_local = not explicit_modules_enabled
+
+    if build_swift_incrementally:
+        # When Swift code is built incrementally, the swift-driver embeds absolute paths into the
+        # artifacts without relative resource dir support. In this case we can only build locally.
+        if not toolchain.supports_relative_resource_dir:
+            allow_cache_upload = False
+            local_only = True
+            prefer_local = False
+        elif not (get_incremental_file_hashing_enabled(ctx) and get_incremental_remote_outputs_enabled(ctx)):
+            # Swift incremental compilation output is only portable when incremental file hashing is
+            # enabled (else timestamps invalidate swiftdeps). Similarly, if incremental remote outputs
+            # are enabled, we prefer to let Buck run hybrid/remote.
+
+            if _IS_USER_BUILD or _IS_MAC_HOST:
+                # For CI builds, we'll run on RE so that we can cache output, but user builds output can run
+                # faster locally. Similarly prefer local when compiling on a Mac as its faster than Mac RE.
+                prefer_local = True
+
+    if not cacheable:
+        allow_cache_upload = False
+        local_only = True
+        prefer_local = False
+
+    return (allow_cache_upload, ActionExecutionAttributes(prefer_local = prefer_local, local_only = local_only))
 
 def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules: bool):
     if ctx.attrs.serialize_debugging_options == False:
