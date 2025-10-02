@@ -67,6 +67,11 @@ def _preprocess_info_plist(ctx: AnalysisContext) -> Artifact:
     ])
     if substitutions_json != None:
         command.add(["--substitutions-json", substitutions_json])
+    if ctx.attrs.enforce_minimum_os_plist_key:
+        sdk_name = get_apple_sdk_name(ctx)
+        sdk_metadata = get_apple_sdk_metadata_for_sdk_name(sdk_name)
+        command.add(["--enforce-minimum-os-plist-key", sdk_metadata.min_version_plist_info_key])
+
     ctx.actions.run(command, category = "apple_preprocess_info_plist", **_get_plist_run_options())
     return output
 

@@ -153,6 +153,7 @@ def _apple_bundle_like_common_attrs():
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(apple_common.apple_tools_arg())
+    attribs.update(apple_common.enforce_minimum_os_plist_key())
     return attribs
 
 def apple_test_extra_attrs():

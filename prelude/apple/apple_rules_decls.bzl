@@ -1514,7 +1514,8 @@ apple_resource_bundle = prelude_rule(
         } | get_apple_info_plist_build_system_identification_attrs() |
         apple_common.apple_tools_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
-        apple_common.info_plist_substitutions_arg()
+        apple_common.info_plist_substitutions_arg() |
+        apple_common.enforce_minimum_os_plist_key()
     ),
 )
 

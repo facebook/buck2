@@ -283,6 +283,11 @@ def _apple_installer_arg():
         "installer": attrs.default_only(attrs.exec_dep(default = installer_target)),
     }
 
+def _enforce_minimum_os_plist_key():
+    return {
+        "enforce_minimum_os_plist_key": attrs.bool(default = False),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -308,4 +313,5 @@ apple_common = struct(
     apple_toolchain_arg = _apple_toolchain_arg,
     asset_catalogs_compilation_options_arg = _asset_catalogs_compilation_options_arg,
     apple_installer_arg = _apple_installer_arg,
+    enforce_minimum_os_plist_key = _enforce_minimum_os_plist_key,
 )
