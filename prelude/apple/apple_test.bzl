@@ -149,7 +149,8 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         if not ctx.attrs.embed_xctest_frameworks_in_test_host_app:
             # The XCTest frameworks should only be embedded in a single place,
             # either the test host (as per Xcode) or in the test itself
-            bundle_parts += get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
+            if read_root_config("apple", "exclude_xctest_libraries", "false").lower() != "true":
+                bundle_parts += get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
 
         for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
             frameworks_destination = AppleBundleDestination("frameworks")
@@ -161,8 +162,11 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 ),
             )
 
-        primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
-        swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
+        if read_root_config("apple", "exclude_swift_libraries", "false").lower() != "true":
+            primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
+            swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
+        else:
+            swift_stdlib_args = None
 
         bundle_result = assemble_bundle(
             ctx,
