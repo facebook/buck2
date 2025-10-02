@@ -27,7 +27,7 @@ Documentation for shell_buck2_utils, ways to use
     get_additional_paths/1
 ]).
 
--type opt() :: {at_root, boolean()} | {replay, boolean()}.
+-type opt() :: {at_root, boolean()}.
 
 -spec project_root() -> file:filename().
 project_root() ->
@@ -39,7 +39,7 @@ cell_root() ->
 
 -spec root(Type :: cell | project) -> file:filename().
 root(Type) ->
-    case run_command(<<"buck2 root --kind=~ts 2>/dev/null">>, [Type], [{at_root, false}, {replay, false}]) of
+    case run_command(<<"buck2 root --kind=~ts 2>/dev/null">>, [Type], [{at_root, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
             case filelib:is_dir(Dir, prim_file) of
@@ -112,7 +112,7 @@ run_command(Fmt, Args) ->
     Args :: [term()],
     Options :: [opt()].
 run_command(Fmt, Args, Options) ->
-    PortOpts0 = [exit_status, stderr_to_stdout],
+    PortOpts0 = [exit_status],
     PortOpts1 =
         case proplists:get_value(at_root, Options, true) of
             true ->
@@ -125,24 +125,18 @@ run_command(Fmt, Args, Options) ->
     RawCmd = io_lib:format(Fmt, Args),
     Cmd = unicode:characters_to_list(RawCmd),
 
-    Replay = proplists:get_value(replay, Options, true),
-
     Port = erlang:open_port({spawn, Cmd}, PortOpts1),
-    port_loop(Port, Replay, []).
+    port_loop(Port, []).
 
--spec port_loop(port(), boolean(), [binary()]) -> {ok, binary()} | error.
-port_loop(Port, Replay, StdOut) ->
+-spec port_loop(port(), [binary()]) -> {ok, binary()} | error.
+port_loop(Port, StdOut) ->
     receive
         {Port, {exit_status, 0}} ->
             {ok, unicode:characters_to_binary(lists:reverse(StdOut))};
         {Port, {exit_status, _}} ->
             error;
         {Port, {data, Data}} ->
-            case Replay of
-                true -> io:put_chars(Data);
-                false -> ok
-            end,
-            port_loop(Port, Replay, [Data | StdOut])
+            port_loop(Port, [Data | StdOut])
     end.
 
 -spec get_additional_paths(file:filename_all()) -> [file:filename_all()].
