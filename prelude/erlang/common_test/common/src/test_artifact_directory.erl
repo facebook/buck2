@@ -76,9 +76,10 @@ prepare(ExecutionDir, TestInfo) ->
                 {error, log_private_not_found} ->
                     ok;
                 LogPrivate ->
+                    LogFiles = find_log_files(LogPrivate),
                     [
                         link_to_artifact_dir(File, LogPrivate, TestInfo)
-                     || File <- filelib:wildcard(join_paths(LogPrivate, "**/*.log"), ".", ?raw_file_access),
+                     || File <- LogFiles,
                         filelib:is_regular(File, ?raw_file_access)
                     ]
             end,
@@ -150,13 +151,28 @@ dump_annotation(Annotation, FileName) ->
 
 -spec find_log_private(file:filename()) -> {error, log_private_not_found} | file:filename().
 find_log_private(LogDir) ->
-    Candidates = [
-        Folder
-     || Folder <- filelib:wildcard(join_paths(LogDir, "**/log_private"), ".", ?raw_file_access), filelib:is_dir(Folder, ?raw_file_access)
-    ],
-    case Candidates of
-        [] -> {error, log_private_not_found};
-        [LogPrivate | _Tail] -> LogPrivate
+    % Use system find command for much faster directory traversal
+    % -type d: find directories only
+    % -name "log_private": match exact name
+    % -print -quit: print first match and exit immediately
+    FindCmd = lists:flatten(
+        io_lib:format("find '~s' -type d -name \"log_private\" -print -quit 2>/dev/null", [LogDir])
+    ),
+    case string:trim(os:cmd(FindCmd)) of
+        "" -> {error, log_private_not_found};
+        Result -> Result
+    end.
+
+-spec find_log_files(file:filename()) -> [file:filename()].
+find_log_files(LogPrivate) ->
+    % Use system find command for much faster directory traversal
+    % -type f: find files only
+    % -name "*.log": match files ending with .log
+    FindCmd = lists:flatten(io_lib:format("find '~s' -type f -name \"*.log\" 2>/dev/null", [LogPrivate])),
+    Output = string:trim(os:cmd(FindCmd)),
+    case Output of
+        "" -> [];
+        _ -> string:split(Output, "\n", all)
     end.
 
 -spec join_paths(file:filename_all(), file:filename_all()) -> string().
