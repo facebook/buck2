@@ -87,6 +87,8 @@ pub(crate) struct ActionCgroups {
     /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
     /// memory pressure. Used to restore the limit when all cgroups are unfrozen.
     original_memory_high: Option<String>,
+    last_freeze_time: Option<Instant>,
+    last_unfreeze_time: Option<Instant>,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -159,6 +161,8 @@ impl ActionCgroups {
             active_cgroups: HashMap::new(),
             frozen_cgroups: VecDeque::new(),
             original_memory_high: None,
+            last_freeze_time: None,
+            last_unfreeze_time: None,
         }
     }
 
@@ -267,6 +271,15 @@ impl ActionCgroups {
     // What we really want is to freeze the cgroup that will have the least impact on the critical path,
     // may be better to freeze at random, or freeze the cgroup with the most pressure stalls.
     fn maybe_freeze(&mut self) {
+        // We freeze at most 1 action every second since memory changes of previous freezes will take a few seconds to take effect
+        // This maybe not be enough, but we don't want to wait too long that we encounter OOMs
+        if self
+            .last_freeze_time
+            .is_some_and(|t| t.elapsed() < Duration::from_secs(1))
+        {
+            return;
+        }
+
         let running_actions = self.active_cgroups.len() - self.frozen_cgroups.len();
         // Don't freeze if there's only one action
         if running_actions <= 1 {
@@ -291,6 +304,7 @@ impl ActionCgroups {
 
                         cgroup.freeze_start = Some(Instant::now());
                         cgroup.freeze_file = Some(freeze_file);
+                        self.last_freeze_time = Some(Instant::now());
                         self.frozen_cgroups.push_back(cgroup.path.clone());
                     }
                     Err(e) => {
@@ -302,6 +316,15 @@ impl ActionCgroups {
     }
 
     fn maybe_unfreeze(&mut self) {
+        // We unfreeze at most 1 action every 3 seconds since memory changes of previous freezes will take several seconds
+        // to take effect. This ensures that we don't unfreeze too quickly
+        if self
+            .last_unfreeze_time
+            .is_some_and(|t| t.elapsed() < Duration::from_secs(3))
+        {
+            return;
+        }
+
         // Wait until no actions are running to unfreeze
         // TODO start unfreezing earlier, after memory pressure drops and resuming a cgroup is unlikely to cause pressure
         let cgroup_to_unfreeze = if self.active_cgroups.len() - self.frozen_cgroups.len() == 0 {
@@ -339,6 +362,7 @@ impl ActionCgroups {
                 .take()
                 .expect("frozen cgroups must have a freeze file");
             unfreeze_cgroup(freeze_file);
+            self.last_unfreeze_time = Some(Instant::now());
         }
     }
 
