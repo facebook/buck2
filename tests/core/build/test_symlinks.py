@@ -20,7 +20,9 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
-def setup_symlink(symlink_path: Path, src: Path) -> Path:
+def setup_symlink(
+    symlink_path: Path, target: Path, target_is_directory: bool = True
+) -> Path:
     # We want to check in a symlink but given Buck is running this and symlinks
     # do not exist we need to put it back and make it be an actual symlink.
     if os.path.isdir(symlink_path):
@@ -28,13 +30,13 @@ def setup_symlink(symlink_path: Path, src: Path) -> Path:
     else:
         os.remove(symlink_path)
 
-    os.symlink(src, symlink_path, target_is_directory=True)
+    os.symlink(target, symlink_path, target_is_directory=target_is_directory)
     return symlink_path
 
 
 @buck_test(extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}})
 async def test_symlink_target_tracked_for_rebuild(buck: Buck) -> None:
-    setup_symlink(buck.cwd / "src" / "link", pathlib.Path("../dir"))
+    setup_symlink(buck.cwd / "src" / "link", Path("../dir"))
 
     await buck.build("//:cp")
     await expect_exec_count(buck, 1)
@@ -57,7 +59,7 @@ async def test_symlink_target_tracked_for_rebuild(buck: Buck) -> None:
     extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}},
 )
 async def test_symlinks_redirection(buck: Buck) -> None:
-    symlink_path = setup_symlink(buck.cwd / "src" / "link", pathlib.Path("../dir"))
+    symlink_path = setup_symlink(buck.cwd / "src" / "link", Path("../dir"))
 
     await buck.build("//:cp")
     await expect_exec_count(buck, 1)
@@ -116,7 +118,7 @@ async def test_no_read_through_symlinks(buck: Buck) -> None:
     # Just check that we don't always return `True`
     assert res.stdout.strip() == "False"
 
-    setup_symlink(buck.cwd / "src" / "link", buck.cwd / "dir")
+    setup_symlink(buck.cwd / "src" / "link", Path("..") / "dir")
 
     res = await buck.build_without_report(
         "//:stat_symlink",
@@ -133,6 +135,33 @@ async def test_no_read_through_symlinks(buck: Buck) -> None:
         "--remote-only",
     )
     assert res.stdout.strip() == "True"
+
+
+@buck_test(extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}})
+async def test_no_read_through_source_symlinks_to_file(buck: Buck) -> None:
+    res = await buck.build_without_report(
+        "//:stat_symlink",
+        "--out",
+        "-",
+        "--remote-only",
+    )
+    # Just check that we don't always return `True`
+    assert res.stdout.strip() == "False"
+
+    setup_symlink(
+        buck.cwd / "src" / "link",
+        Path("..") / "dir" / "file",
+        target_is_directory=False,
+    )
+
+    # FIXME(JakobDegen): "Not a directory"
+    # res = await buck.build_without_report(
+    #     "//:stat_symlink",
+    #     "--out",
+    #     "-",
+    #     "--remote-only",
+    # )
+    # assert res.stdout.strip() == "True"
 
 
 @buck_test(setup_eden=True)

@@ -38,11 +38,12 @@ def _stat_path_impl(ctx: AnalysisContext):
         "fbpython",
         "-c",
         cmd_args(
-            "import sys;",
-            "from pathlib import Path;",
-            "p = Path(sys.argv[2])" + project + ";",
+            "import sys",
+            "from pathlib import Path",
+            "p = Path(sys.argv[2])" + project,
+            "p.stat()",  # Just make sure this succeeds
             "open(sys.argv[1], 'w').write(str(p.is_symlink()))",
-            delimiter = " ",
+            delimiter = "; ",
         ),
         out.as_output(),
         ctx.attrs.path,
