@@ -498,3 +498,93 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+
+    use buck2_core::fs::paths::file_name::FileName;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+
+    use crate::directory::builder::DirectoryBuilder;
+    use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+    use crate::directory::directory_hasher::DirectoryHasher;
+    use crate::directory::directory_ref::FingerprintedDirectoryRef;
+    use crate::directory::entry::DirectoryEntry;
+    use crate::directory::immutable_directory::ImmutableDirectory;
+    use crate::directory::test::NopEntry;
+    use crate::directory::test::TestDigest;
+    use crate::directory::test::TestHasher;
+
+    struct CountingDigester(Cell<usize>, TestHasher);
+
+    impl DirectoryHasher<NopEntry, TestDigest> for CountingDigester {
+        fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
+        where
+            I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a NopEntry>)>,
+            D: FingerprintedDirectoryRef<'a, Leaf = NopEntry, DirectoryDigest = TestDigest>,
+        {
+            self.0.set(self.0.get() + 1);
+            self.1.hash_entries(entries)
+        }
+    }
+
+    fn make_directory(leaves: &[&'static str]) -> ImmutableDirectory<NopEntry, TestDigest> {
+        let mut d = DirectoryBuilder::<NopEntry, TestDigest>::empty();
+        for p in leaves {
+            d.insert(
+                ForwardRelativePath::new(*p).unwrap(),
+                DirectoryEntry::Leaf(NopEntry),
+            )
+            .unwrap();
+        }
+        let interner = DashMapDirectoryInterner::new();
+        ImmutableDirectory::Shared(d.fingerprint(&TestHasher).shared(&interner))
+    }
+
+    #[test]
+    fn test_reuse_in_case_of_subset_merge() {
+        let superset = make_directory(&["a/a", "b/b"]);
+        let subset = make_directory(&["b/b"]);
+
+        // Merge `subset` into `superset`
+        let mut merged = superset.into_builder();
+        merged.merge(subset.into_builder()).unwrap();
+        // Compute the fingerprint of the merge and count the number of fingerprinting operations -
+        // we use this as a way to measure whether `SharedDirectory`s are reused or not
+        let digester = CountingDigester(Cell::new(0), TestHasher);
+        merged.fingerprint(&digester);
+        // FIXME(JakobDegen): We should reuse the initial value
+        assert_eq!(1, digester.0.get());
+    }
+
+    #[test]
+    fn test_reuse_in_case_of_superset_merge() {
+        let superset = make_directory(&["a/a", "b/b"]);
+        let subset = make_directory(&["b/b"]);
+
+        // Merge `superset` into `subset`
+        let mut merged = subset.into_builder();
+        merged.merge(superset.into_builder()).unwrap();
+        // Compute the fingerprint of the merge and count the number of fingerprinting operations -
+        // we use this as a way to measure whether `ImmutableDirectory`s are reused or not
+        let digester = CountingDigester(Cell::new(0), TestHasher);
+        merged.fingerprint(&digester);
+        // FIXME(JakobDegen): We should reuse the initial value
+        assert_eq!(1, digester.0.get());
+    }
+
+    #[test]
+    fn test_reuse_in_case_of_superset_on_leaves() {
+        // Same as above, but this time there's no intermediate directories
+        let superset = make_directory(&["a", "b"]);
+        let subset = make_directory(&["b"]);
+
+        let mut merged = superset.into_builder();
+        merged.merge(subset.into_builder()).unwrap();
+        let digester = CountingDigester(Cell::new(0), TestHasher);
+        merged.fingerprint(&digester);
+        // FIXME(JakobDegen): We should reuse the initial value
+        assert_eq!(1, digester.0.get());
+    }
+}
