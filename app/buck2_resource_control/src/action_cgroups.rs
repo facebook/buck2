@@ -78,6 +78,8 @@ struct ActionCgroup {
     freeze_duration: Option<Duration>,
     freeze_file: Option<OwnedFd>,
     command_type: CommandType,
+    // memory.current value when this cgroup was frozen. Used to calculate whether we can unfreeze early
+    memory_current_when_frozen: Option<u64>,
 }
 
 pub(crate) struct ActionCgroups {
@@ -89,6 +91,9 @@ pub(crate) struct ActionCgroups {
     original_memory_high: Option<String>,
     last_freeze_time: Option<Instant>,
     last_unfreeze_time: Option<Instant>,
+    // Total memory of buck2.slice (Which contains daemon, forkserver and workers cgroups) when the last freeze happened.
+    // Used to calculate when we should unfreeze cgroups.
+    total_memory_during_last_freeze: Option<u64>,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -163,6 +168,7 @@ impl ActionCgroups {
             original_memory_high: None,
             last_freeze_time: None,
             last_unfreeze_time: None,
+            total_memory_during_last_freeze: None,
         }
     }
 
@@ -191,6 +197,7 @@ impl ActionCgroups {
                 freeze_duration: None,
                 freeze_file: None,
                 command_type,
+                memory_current_when_frozen: None,
             },
         );
         if let Some(existing) = existing {
@@ -222,7 +229,11 @@ impl ActionCgroups {
         }
     }
 
-    pub async fn update(&mut self, pressure_state: MemoryPressureState) {
+    pub async fn update(
+        &mut self,
+        pressure_state: MemoryPressureState,
+        buck2_cgroup_memory_current: u64,
+    ) {
         for cgroup in self.active_cgroups.values_mut() {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
             // in kernels older than 6.12.
@@ -243,7 +254,7 @@ impl ActionCgroups {
         }
 
         if pressure_state == MemoryPressureState::AbovePressureLimit {
-            self.maybe_freeze();
+            self.maybe_freeze(buck2_cgroup_memory_current);
 
             // When we are under memory pressure and began freezing actions, we need to reset memory.high to max to prevent throttling unnecessarily.
             // original_memory_high is used to make sure we don't reset more than once
@@ -254,7 +265,7 @@ impl ActionCgroups {
             }
         }
 
-        self.maybe_unfreeze();
+        self.maybe_unfreeze(pressure_state, buck2_cgroup_memory_current);
 
         // When we are not under memory pressure and have no frozen actions, lower memory.high so we can react to memory pressure earlier
         if self.original_memory_high.is_some()
@@ -270,7 +281,7 @@ impl ActionCgroups {
     // Currently we freeze the largest cgroup and we keep freezing until only one action is executing.
     // What we really want is to freeze the cgroup that will have the least impact on the critical path,
     // may be better to freeze at random, or freeze the cgroup with the most pressure stalls.
-    fn maybe_freeze(&mut self) {
+    fn maybe_freeze(&mut self, buck2_cgroup_memory_current: u64) {
         // We freeze at most 1 action every second since memory changes of previous freezes will take a few seconds to take effect
         // This maybe not be enough, but we don't want to wait too long that we encounter OOMs
         if self
@@ -304,6 +315,8 @@ impl ActionCgroups {
 
                         cgroup.freeze_start = Some(Instant::now());
                         cgroup.freeze_file = Some(freeze_file);
+                        cgroup.memory_current_when_frozen = Some(cgroup.memory_current);
+                        self.total_memory_during_last_freeze = Some(buck2_cgroup_memory_current);
                         self.last_freeze_time = Some(Instant::now());
                         self.frozen_cgroups.push_back(cgroup.path.clone());
                     }
@@ -315,7 +328,11 @@ impl ActionCgroups {
         }
     }
 
-    fn maybe_unfreeze(&mut self) {
+    fn maybe_unfreeze(
+        &mut self,
+        pressure_state: MemoryPressureState,
+        buck2_cgroup_memory_current: u64,
+    ) {
         // We unfreeze at most 1 action every 3 seconds since memory changes of previous freezes will take several seconds
         // to take effect. This ensures that we don't unfreeze too quickly
         if self
@@ -325,9 +342,33 @@ impl ActionCgroups {
             return;
         }
 
-        // Wait until no actions are running to unfreeze
-        // TODO start unfreezing earlier, after memory pressure drops and resuming a cgroup is unlikely to cause pressure
-        let cgroup_to_unfreeze = if self.active_cgroups.len() - self.frozen_cgroups.len() == 0 {
+        let no_actions_running = self.active_cgroups.len() == self.frozen_cgroups.len();
+        let should_unfreeze = self.frozen_cgroups.front().is_some_and(|cgroup_path| {
+            let frozen_cgroup = self
+                .active_cgroups
+                .get(cgroup_path)
+                .expect("frozen cgroups must be in active cgroups");
+
+            let memory_when_frozen = frozen_cgroup
+                .memory_current_when_frozen
+                .expect("frozen cgroups should have memory current set");
+            let total_memory_during_last_freeze = self
+                .total_memory_during_last_freeze
+                .expect("total memory during last freeze should be set");
+
+            // If the current memory use is less than the sum of memory of cgroup at the time it was frozen +
+            // total memory when we last froze an action, we can start unfreezing earlier
+            let can_unfreeze_early =
+                buck2_cgroup_memory_current + memory_when_frozen < total_memory_during_last_freeze;
+
+            // If we can unfreeze early or if there are no actions running, start unfreezing.
+            // We unfreeze even if there are no actions running to prevent the build from getting stuck
+            (pressure_state == MemoryPressureState::BelowPressureLimit && can_unfreeze_early)
+                || no_actions_running
+        });
+
+        // TODO: Should explore unfreezing what's on the critical path or what's using the least memory
+        let cgroup_to_unfreeze = if should_unfreeze {
             self.frozen_cgroups.pop_front()
         } else {
             None
@@ -460,7 +501,7 @@ mod tests {
         fs::write(cgroup_2.join("memory.current"), "5")?;
 
         action_cgroups
-            .update(MemoryPressureState::AbovePressureLimit)
+            .update(MemoryPressureState::AbovePressureLimit, 10000)
             .await;
 
         let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
@@ -495,14 +536,14 @@ mod tests {
         fs::write(cgroup_2.join("memory.current"), "2")?;
 
         action_cgroups
-            .update(MemoryPressureState::AbovePressureLimit)
+            .update(MemoryPressureState::AbovePressureLimit, 10000)
             .await;
 
         let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
         assert_eq!(cgroup_1_res.was_frozen, false);
 
         action_cgroups
-            .update(MemoryPressureState::BelowPressureLimit)
+            .update(MemoryPressureState::BelowPressureLimit, 0)
             .await;
 
         let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
