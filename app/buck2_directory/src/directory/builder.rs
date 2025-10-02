@@ -188,18 +188,22 @@ where
 
     pub fn merge(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
         if buck2_core::faster_directories::is_enabled() {
-            self.merge_inner(other)
-                .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })
+            let v = std::mem::replace(self, DirectoryBuilder::empty());
+            let v = v
+                .merge_inner(other)
+                .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })?;
+            *self = v;
+            Ok(())
         } else {
             self.merge_inner_old(other)
                 .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })
         }
     }
 
-    fn merge_inner(&mut self, other: Self) -> Result<(), PathAccumulator> {
+    fn merge_inner(mut self, other: Self) -> Result<Self, PathAccumulator> {
         match (&self, &other) {
             (Self::Immutable(d1), Self::Immutable(d2)) if d1.fingerprint() == d2.fingerprint() => {
-                return Ok(());
+                return Ok(self);
             }
             _ => {}
         }
@@ -213,7 +217,14 @@ where
             .try_for_each(|(k, v)| match entries.entry(k) {
                 Entry::Occupied(mut entry) => match (entry.get_mut(), v) {
                     (DirectoryEntry::Dir(d), DirectoryEntry::Dir(o)) => {
-                        d.merge_inner(o).map_err(|e| e.with(entry.key()))
+                        let d_val = std::mem::replace(d, DirectoryBuilder::empty());
+                        match d_val.merge_inner(o) {
+                            Ok(d_val) => {
+                                *d = d_val;
+                                Ok(())
+                            }
+                            Err(e) => Err(e.with(entry.key())),
+                        }
                     }
                     (entry, DirectoryEntry::Leaf(o)) => {
                         *entry = DirectoryEntry::Leaf(o);
@@ -227,7 +238,7 @@ where
                 }
             })?;
 
-        Ok(())
+        Ok(self)
     }
 
     /// Old implementation of `merge_inner`, preserved for a/b test
