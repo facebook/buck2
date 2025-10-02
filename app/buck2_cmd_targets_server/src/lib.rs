@@ -11,7 +11,6 @@
 #![feature(box_patterns)]
 #![feature(error_generic_member_access)]
 #![feature(iter_order_by)]
-#![feature(let_chains)]
 #![feature(never_type)]
 #![feature(try_blocks)]
 #![feature(used_with_arg)]
