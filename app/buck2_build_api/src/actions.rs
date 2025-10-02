@@ -61,6 +61,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
+use fxhash::FxHashMap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
@@ -275,7 +276,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn artifact_path_mapping(
         &self,
         filter: Option<IndexSet<ArtifactGroup>>,
-    ) -> IndexMap<&Artifact, ContentBasedPathHash>;
+    ) -> FxHashMap<&Artifact, ContentBasedPathHash>;
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 

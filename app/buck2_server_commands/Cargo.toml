@@ -10,6 +10,7 @@ version = "0.1.0"
 async-trait = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
+fxhash = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 tokio = { workspace = true }

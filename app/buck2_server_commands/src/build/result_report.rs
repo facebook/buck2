@@ -29,6 +29,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use dupe::Dupe;
+use fxhash::FxHashMap;
 use indexmap::IndexMap;
 use starlark_map::small_map::SmallMap;
 
@@ -120,7 +121,7 @@ impl<'a> ResultReporter<'a> {
             .iter()
             .filter_map(|output| output.as_ref().ok());
 
-        let mut artifact_path_mapping = IndexMap::new();
+        let mut artifact_path_mapping = FxHashMap::default();
 
         // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
         // the while avoiding duplicates.

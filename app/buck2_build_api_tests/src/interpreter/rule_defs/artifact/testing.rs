@@ -50,7 +50,7 @@ use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
-use indexmap::IndexMap;
+use fxhash::FxHashMap;
 use indexmap::indexset;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -181,7 +181,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         artifact
             .0
             .as_command_line_like()
-            .add_to_command_line(&mut cli, &mut ctx, &IndexMap::new())
+            .add_to_command_line(&mut cli, &mut ctx, &FxHashMap::default())
             .unwrap();
         assert_eq!(1, cli.len());
         Ok(cli.first().unwrap().to_owned())

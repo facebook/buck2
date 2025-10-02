@@ -149,6 +149,7 @@ use futures::FutureExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
+use fxhash::FxHashMap;
 use host_sharing::HostSharingRequirements;
 use host_sharing::convert::host_sharing_requirements_to_grpc;
 use indexmap::IndexMap;
@@ -1622,7 +1623,7 @@ impl BuckTestOrchestrator<'_> {
             })
             .await?;
 
-        let artifact_path_mapping: IndexMap<_, _> = inputs
+        let artifact_path_mapping: FxHashMap<_, _> = inputs
             .iter()
             .flat_map(|v| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))

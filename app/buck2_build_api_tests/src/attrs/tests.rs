@@ -42,8 +42,8 @@ use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::testing::configuration_ctx;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
+use fxhash::FxHashMap;
 use gazebo::prelude::*;
-use indexmap::IndexMap;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -922,7 +922,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
                 ValueAsCommandLineLike::unpack_value_err(v)
                     .unwrap()
                     .0
-                    .add_to_command_line(&mut cli, &mut ctx, &IndexMap::new())
+                    .add_to_command_line(&mut cli, &mut ctx, &FxHashMap::default())
                     .unwrap();
                 cli.join(" ")
             })

@@ -22,7 +22,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use either::Either;
-use indexmap::IndexMap;
+use fxhash::FxHashMap;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::UnpackValue;
@@ -287,7 +287,7 @@ fn is_singleton_cmdargs(x: CommandLineArg) -> bool {
 }
 
 pub fn validate_json(x: JsonUnpack) -> buck2_error::Result<()> {
-    write_json(x, None, &mut sink(), false, false, &IndexMap::new())
+    write_json(x, None, &mut sink(), false, false, &FxHashMap::default())
 }
 
 pub fn write_json(

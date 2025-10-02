@@ -70,6 +70,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
+use fxhash::FxHashMap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
@@ -393,7 +394,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn artifact_path_mapping(
         &self,
         filter: Option<IndexSet<ArtifactGroup>>,
-    ) -> IndexMap<&Artifact, ContentBasedPathHash> {
+    ) -> FxHashMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
             .filter(|(ag, _)| {
