@@ -186,8 +186,13 @@ where
     }
 
     pub fn merge(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
-        self.merge_inner(other)
-            .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })
+        if buck2_core::faster_directories::is_enabled() {
+            self.merge_inner(other)
+                .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })
+        } else {
+            self.merge_inner_old(other)
+                .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })
+        }
     }
 
     fn merge_inner(&mut self, mut other: Self) -> Result<(), PathAccumulator> {
@@ -207,6 +212,39 @@ where
                 Entry::Occupied(mut entry) => match (entry.get_mut(), v) {
                     (DirectoryEntry::Dir(d), DirectoryEntry::Dir(o)) => {
                         d.merge_inner(o).map_err(|e| e.with(entry.key()))?;
+                    }
+                    (entry, DirectoryEntry::Leaf(o)) => {
+                        *entry = DirectoryEntry::Leaf(o);
+                    }
+                    _ => return Err(PathAccumulator::new(entry.key())),
+                },
+                Entry::Vacant(entry) => {
+                    entry.insert(v);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Old implementation of `merge_inner`, preserved for a/b test
+    fn merge_inner_old(&mut self, mut other: Self) -> Result<(), PathAccumulator> {
+        match (&self, &other) {
+            (Self::Immutable(d1), Self::Immutable(d2)) if d1.fingerprint() == d2.fingerprint() => {
+                return Ok(());
+            }
+            _ => {}
+        }
+
+        let other = std::mem::take(other.as_mut());
+
+        let entries = self.as_mut();
+
+        for (k, v) in other.into_iter() {
+            match entries.entry(k) {
+                Entry::Occupied(mut entry) => match (entry.get_mut(), v) {
+                    (DirectoryEntry::Dir(d), DirectoryEntry::Dir(o)) => {
+                        d.merge_inner_old(o).map_err(|e| e.with(entry.key()))?;
                     }
                     (entry, DirectoryEntry::Leaf(o)) => {
                         *entry = DirectoryEntry::Leaf(o);

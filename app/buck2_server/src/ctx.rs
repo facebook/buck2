@@ -740,6 +740,15 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(false);
 
+        _ = buck2_core::faster_directories::VALUE.set(
+            root_config
+                .parse::<bool>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "faster_directories",
+                })?
+                .unwrap_or(true),
+        );
+
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())?),

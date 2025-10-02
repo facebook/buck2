@@ -38,6 +38,7 @@ pub mod directory_digest;
 pub mod env;
 pub mod event;
 pub mod execution_types;
+pub mod faster_directories;
 pub mod fs;
 pub mod global_cfg_options;
 pub mod io_counters;
