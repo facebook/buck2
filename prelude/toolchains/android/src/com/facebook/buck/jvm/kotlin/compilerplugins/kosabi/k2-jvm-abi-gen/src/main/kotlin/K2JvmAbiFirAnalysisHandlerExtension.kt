@@ -86,9 +86,7 @@ import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.expressions.IrReturn
-import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
@@ -338,26 +336,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         }
       }
       return super.visitSimpleFunction(declaration, data)
-    }
-
-    override fun visitProperty(declaration: IrProperty, data: Nothing?): IrStatement {
-      if (declaration.parent is IrClass || declaration.parent is IrFile) {
-        if (declaration.parent !is IrDeclarationContainer || !declaration.origin.isSynthetic) {
-
-          // the compiler generates backing fields for properties
-          // initializers for the backing fields may contain missing types
-          val backingField = declaration.backingField
-          if (
-              backingField != null &&
-                  (backingField.initializer?.expression as? IrGetValueImpl)?.origin !=
-                      IrStatementOrigin.INITIALIZE_PROPERTY_FROM_PARAMETER &&
-                  backingField.initializer != null
-          ) {
-            backingField.initializer = null
-          }
-        }
-      }
-      return super.visitProperty(declaration, data)
     }
 
     override fun visitAnonymousInitializer(
