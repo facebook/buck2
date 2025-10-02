@@ -90,15 +90,15 @@ buck2_query(Query) ->
     Query :: string() | binary(),
     Args :: [string() | binary()].
 buck2_query(Query, Args) ->
-    buck2_query(Query, <<"">>, Args).
+    buck2_query(Query, [], Args).
 
 -spec buck2_query(Query, BuckArgs, Args) -> {ok, binary()} | error when
     Query :: string() | binary(),
-    BuckArgs :: string() | binary(),
+    BuckArgs :: [string() | binary()],
     Args :: [string() | binary()].
 buck2_query(Query, BuckArgs, Args) ->
     run_command(<<"buck2 uquery ~ts --reuse-current-config \"~ts\" ~ts 2> /dev/null">>, [
-        BuckArgs, Query, lists:join(<<" ">>, Args)
+        lists:join(<<" ">>, BuckArgs), Query, lists:join(<<" ">>, Args)
     ]).
 
 -spec run_command(Fmt, Args) -> {ok, binary()} | error when

@@ -80,7 +80,7 @@ find_module_source(Module) ->
         Candidates ->
             %% check if there are actually targets associated
             {ok, RawOutput} = shell_buck2_utils:buck2_query(
-                "owner(\\\"\%s\\\")", "--json", Candidates
+                <<"owner(\\\"\%s\\\")">>, [<<"--json">>], Candidates
             ),
             SourceTargetMapping = json:decode(RawOutput),
             case
