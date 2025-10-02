@@ -96,6 +96,8 @@ Options:
           Enable hybrid execution. Will prefer executing actions that can execute remotely on RE and
           will avoid racing local and remote execution
 
+          [env: BUCK_PREFER_REMOTE=]
+
       --unstable-no-execution
           Experimental: Disable all execution
 

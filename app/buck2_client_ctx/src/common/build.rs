@@ -108,7 +108,7 @@ pub struct CommonBuildOptions {
     prefer_local: bool,
 
     /// Enable hybrid execution. Will prefer executing actions that can execute remotely on RE and will avoid racing local and remote execution.
-    #[clap(long, group = "build_strategy")]
+    #[clap(long, group = "build_strategy", env = buck2_env_name!("BUCK_PREFER_REMOTE"), value_parser = FalseyValueParser::new())]
     prefer_remote: bool,
 
     /// Experimental: Disable all execution.
