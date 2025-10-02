@@ -39,7 +39,7 @@ cell_root() ->
 
 -spec root(Type :: cell | project) -> file:filename().
 root(Type) ->
-    case run_command("buck2 root --kind=~ts 2>/dev/null", [Type], [{at_root, false}, {replay, false}]) of
+    case run_command(<<"buck2 root --kind=~ts 2>/dev/null">>, [Type], [{at_root, false}, {replay, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
             case filelib:is_dir(Dir, prim_file) of
@@ -59,46 +59,58 @@ rebuild_modules(Modules) ->
         Missing -> error({non_existing, Missing})
     end,
     RelSources = [proplists:get_value(source, Module:module_info(compile)) || Module <- Modules],
-    {ok, RawQueryResult} = buck2_query("owner(\%s)", RelSources),
+    {ok, RawQueryResult} = buck2_query(<<"owner(\%s)">>, RelSources),
     Targets = string:split(string:trim(RawQueryResult), "\n", all),
     case Targets of
         [[]] ->
-            io:format("ERROR: couldn't find targets for ~w~n", [Modules]),
+            io:format(<<"ERROR: couldn't find targets for ~w~n">>, [Modules]),
             error;
         _ ->
             buck2_build_targets(Targets)
     end.
 
--spec buck2_build_targets([string() | binary()]) -> ok | error.
+-spec buck2_build_targets(Targets) -> ok | error when
+    Targets :: [string() | binary()].
 buck2_build_targets(Targets) ->
     case
-        run_command("buck2 build --reuse-current-config --console super ~ts", [
-            lists:join(" ", Targets)
+        run_command(<<"buck2 build --reuse-current-config --console super ~ts">>, [
+            lists:join(<<" ">>, Targets)
         ])
     of
         {ok, _Output} -> ok;
         error -> error
     end.
 
--spec buck2_query(string()) -> {ok, binary()} | error.
+-spec buck2_query(Query) -> {ok, binary()} | error when
+    Query :: string() | binary().
 buck2_query(Query) ->
     buck2_query(Query, []).
 
--spec buck2_query(string(), [string()]) -> {ok, binary()} | error.
+-spec buck2_query(Query, Args) -> {ok, binary()} | error when
+    Query :: string() | binary(),
+    Args :: [string() | binary()].
 buck2_query(Query, Args) ->
-    buck2_query(Query, "", Args).
+    buck2_query(Query, <<"">>, Args).
 
--spec buck2_query(string(), string(), [string()]) -> {ok, binary()} | error.
+-spec buck2_query(Query, BuckArgs, Args) -> {ok, binary()} | error when
+    Query :: string() | binary(),
+    BuckArgs :: string() | binary(),
+    Args :: [string() | binary()].
 buck2_query(Query, BuckArgs, Args) ->
-    run_command("buck2 uquery ~ts --reuse-current-config \"~ts\" ~ts 2> /dev/null", [
-        BuckArgs, Query, lists:join(" ", Args)
+    run_command(<<"buck2 uquery ~ts --reuse-current-config \"~ts\" ~ts 2> /dev/null">>, [
+        BuckArgs, Query, lists:join(<<" ">>, Args)
     ]).
 
--spec run_command(string(), [term()]) -> {ok, binary()} | error.
+-spec run_command(Fmt, Args) -> {ok, binary()} | error when
+    Fmt :: io:format(),
+    Args :: [term()].
 run_command(Fmt, Args) ->
     run_command(Fmt, Args, []).
 
--spec run_command(string(), [term()], [opt()]) -> {ok, binary()} | error.
+-spec run_command(Fmt, Args, Options) -> {ok, binary()} | error when
+    Fmt :: io:format(),
+    Args :: [term()],
+    Options :: [opt()].
 run_command(Fmt, Args, Options) ->
     PortOpts0 = [exit_status, stderr_to_stdout],
     PortOpts1 =
@@ -137,7 +149,7 @@ port_loop(Port, Replay, StdOut) ->
 get_additional_paths(Path) ->
     case
         run_command(
-            "buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~ts",
+            <<"buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~ts">>,
             [Path]
         )
     of
