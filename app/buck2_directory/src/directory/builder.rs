@@ -19,6 +19,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
+use either::Either;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
@@ -195,7 +196,7 @@ where
         }
     }
 
-    fn merge_inner(&mut self, mut other: Self) -> Result<(), PathAccumulator> {
+    fn merge_inner(&mut self, other: Self) -> Result<(), PathAccumulator> {
         match (&self, &other) {
             (Self::Immutable(d1), Self::Immutable(d2)) if d1.fingerprint() == d2.fingerprint() => {
                 return Ok(());
@@ -203,26 +204,28 @@ where
             _ => {}
         }
 
-        let other = std::mem::take(other.as_mut());
-
         let entries = self.as_mut();
 
-        for (k, v) in other.into_iter() {
-            match entries.entry(k) {
+        // Use internal iteration instead of a for loop because of the `Either`s underlying this
+        // iterator
+        other
+            .into_entries()
+            .try_for_each(|(k, v)| match entries.entry(k) {
                 Entry::Occupied(mut entry) => match (entry.get_mut(), v) {
                     (DirectoryEntry::Dir(d), DirectoryEntry::Dir(o)) => {
-                        d.merge_inner(o).map_err(|e| e.with(entry.key()))?;
+                        d.merge_inner(o).map_err(|e| e.with(entry.key()))
                     }
                     (entry, DirectoryEntry::Leaf(o)) => {
                         *entry = DirectoryEntry::Leaf(o);
+                        Ok(())
                     }
-                    _ => return Err(PathAccumulator::new(entry.key())),
+                    _ => Err(PathAccumulator::new(entry.key())),
                 },
                 Entry::Vacant(entry) => {
                     entry.insert(v);
+                    Ok(())
                 }
-            }
-        }
+            })?;
 
         Ok(())
     }
@@ -278,6 +281,15 @@ where
                 e
             }
             Self::Immutable(..) => unreachable!(),
+        }
+    }
+
+    fn into_entries(
+        self,
+    ) -> impl Iterator<Item = (FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)> {
+        match self {
+            Self::Mutable(entries) => Either::Left(entries.into_iter()),
+            Self::Immutable(d) => Either::Right(d.into_entries()),
         }
     }
 

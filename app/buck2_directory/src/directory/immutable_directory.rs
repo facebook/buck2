@@ -13,6 +13,7 @@ use buck2_core::directory_digest::DirectoryDigest;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
+use either::Either;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -65,6 +66,15 @@ where
         match self {
             Self::Exclusive(dir) => dir.collect_entries(),
             Self::Shared(dir) => dir.collect_entries(),
+        }
+    }
+
+    pub fn into_entries(
+        self,
+    ) -> impl Iterator<Item = (FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)> {
+        match self {
+            Self::Exclusive(dir) => Either::Left(dir.into_entries()),
+            Self::Shared(dir) => Either::Right(dir.into_entries()),
         }
     }
 }

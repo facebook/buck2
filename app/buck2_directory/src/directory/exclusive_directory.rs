@@ -69,11 +69,16 @@ where
     where
         C: FromIterator<(FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)>,
     {
+        self.into_entries().collect()
+    }
+
+    pub fn into_entries(
+        self,
+    ) -> impl Iterator<Item = (FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)> {
         self.data
             .entries
             .into_iter()
             .map(|(k, v)| (k, v.map_dir(|v| v.into_builder())))
-            .collect()
     }
 
     pub fn entries(
