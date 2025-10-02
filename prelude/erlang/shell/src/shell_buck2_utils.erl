@@ -23,7 +23,8 @@ Documentation for shell_buck2_utils, ways to use
     rebuild_modules/1,
     buck2_build_targets/1,
     buck2_query/1, buck2_query/2, buck2_query/3,
-    run_command/2, run_command/3,
+    run_command/1, run_command/2,
+    no_stderr/1,
     get_additional_paths/1
 ]).
 
@@ -39,7 +40,7 @@ cell_root() ->
 
 -spec root(Type :: cell | project) -> file:filename().
 root(Type) ->
-    case run_command(<<"buck2 root --kind=~ts 2>/dev/null">>, [Type], [{at_root, false}]) of
+    case run_command(no_stderr([~"buck2", ~"root", ~"--kind", atom_to_binary(Type)]), [{at_root, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
             case filelib:is_dir(Dir, prim_file) of
@@ -59,11 +60,11 @@ rebuild_modules(Modules) ->
         Missing -> error({non_existing, Missing})
     end,
     RelSources = [proplists:get_value(source, Module:module_info(compile)) || Module <- Modules],
-    {ok, RawQueryResult} = buck2_query(<<"owner(\%s)">>, RelSources),
+    {ok, RawQueryResult} = buck2_query(~"owner(\%s)", RelSources),
     Targets = string:split(string:trim(RawQueryResult), "\n", all),
     case Targets of
         [[]] ->
-            io:format(<<"ERROR: couldn't find targets for ~w~n">>, [Modules]),
+            io:format(~"ERROR: couldn't find targets for ~w~n", [Modules]),
             error;
         _ ->
             buck2_build_targets(Targets)
@@ -72,11 +73,7 @@ rebuild_modules(Modules) ->
 -spec buck2_build_targets(Targets) -> ok | error when
     Targets :: [string() | binary()].
 buck2_build_targets(Targets) ->
-    case
-        run_command(<<"buck2 build --reuse-current-config --console super ~ts">>, [
-            lists:join(<<" ">>, Targets)
-        ])
-    of
+    case run_command([~"buck2", ~"build", ~"--reuse-current-config", ~"--console=super" | Targets]) of
         {ok, _Output} -> ok;
         error -> error
     end.
@@ -97,22 +94,31 @@ buck2_query(Query, Args) ->
     BuckArgs :: [string() | binary()],
     Args :: [string() | binary()].
 buck2_query(Query, BuckArgs, Args) ->
-    run_command(<<"buck2 uquery ~ts --reuse-current-config \"~ts\" ~ts 2> /dev/null">>, [
-        lists:join(<<" ">>, BuckArgs), Query, lists:join(<<" ">>, Args)
-    ]).
+    run_command(no_stderr([~"buck2", ~"uquery", BuckArgs, ~"--reuse-current-config", Query, Args])).
 
--spec run_command(Fmt, Args) -> {ok, binary()} | error when
-    Fmt :: io:format(),
-    Args :: [term()].
-run_command(Fmt, Args) ->
-    run_command(Fmt, Args, []).
+-spec no_stderr(CommandArgs) -> CommandArgs when
+    CommandArgs :: iodata().
+no_stderr(CommandArgs) ->
+    [~"sh", ~"-c", ~"exec 2>/dev/null $0 \"$@\"" | CommandArgs].
 
--spec run_command(Fmt, Args, Options) -> {ok, binary()} | error when
-    Fmt :: io:format(),
-    Args :: [term()],
+-spec run_command(CommandArgs) -> {ok, binary()} | error when
+    CommandArgs :: iodata().
+run_command(Command) ->
+    run_command(Command, []).
+
+-spec run_command(CommandArgs, Options) -> {ok, binary()} | error when
+    CommandArgs :: iodata(),
     Options :: [opt()].
-run_command(Fmt, Args, Options) ->
-    PortOpts0 = [exit_status],
+run_command(Command, Options) when is_binary(Command) ->
+    run_command([Command], Options);
+run_command(CmdArgs, Options) when is_list(CmdArgs) ->
+    [Cmd | Args] = flatten_command_args(CmdArgs, []),
+    CmdPath =
+        case os:find_executable(binary_to_list(Cmd)) of
+            false -> error({command_not_found, Cmd});
+            Path -> Path
+        end,
+    PortOpts0 = [{args, Args}, exit_status],
     PortOpts1 =
         case proplists:get_value(at_root, Options, true) of
             true ->
@@ -122,11 +128,22 @@ run_command(Fmt, Args, Options) ->
                 PortOpts0
         end,
 
-    RawCmd = io_lib:format(Fmt, Args),
-    Cmd = unicode:characters_to_list(RawCmd),
-
-    Port = erlang:open_port({spawn, Cmd}, PortOpts1),
+    Port = erlang:open_port({spawn_executable, CmdPath}, PortOpts1),
     port_loop(Port, []).
+
+-spec flatten_command_args(CommandArgs, Acc) -> Acc when
+    CommandArgs :: iodata(),
+    Acc :: [binary()].
+flatten_command_args([], Acc) ->
+    lists:reverse(Acc);
+flatten_command_args([H | T], Acc) when is_binary(H) ->
+    flatten_command_args(T, [H | Acc]);
+flatten_command_args([H = [I | _] | T], Acc) when is_integer(I) ->
+    flatten_command_args(T, [unicode:characters_to_binary(H) | Acc]);
+flatten_command_args([[] | T], Acc) ->
+    flatten_command_args(T, Acc);
+flatten_command_args([[H | T1] | T2], Acc) ->
+    flatten_command_args([H, T1 | T2], Acc).
 
 -spec port_loop(port(), [binary()]) -> {ok, binary()} | error.
 port_loop(Port, StdOut) ->
@@ -142,10 +159,15 @@ port_loop(Port, StdOut) ->
 -spec get_additional_paths(file:filename_all()) -> [file:filename_all()].
 get_additional_paths(Path) ->
     case
-        run_command(
-            <<"buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~ts">>,
-            [Path]
-        )
+        run_command([
+            ~"buck2",
+            ~"bxl",
+            ~"--reuse-current-config",
+            ~"--console super",
+            ~"prelude//erlang/shell/shell.bxl:ebin_paths",
+            ~"--",
+            Path
+        ])
     of
         {ok, Output} ->
             MaybeOutputPaths = [

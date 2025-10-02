@@ -53,12 +53,27 @@ find_module(Module) ->
 find_module_source(Module) ->
     Root = shell_buck2_utils:cell_root(),
     io:format("use ~ts as root", [Root]),
-    {ok, Output} = shell_buck2_utils:run_command(
-        "find ~ts -type d "
-        "\\( -path \"~ts/_build*\" -path \"~ts/erl/_build*\" -o -path ~ts/buck-out \\) -prune "
-        "-o -name '~ts.erl' -print",
-        [Root, Root, Root, Root, Module]
-    ),
+    {ok, Output} = shell_buck2_utils:run_command([
+        "find",
+        Root,
+        "-type",
+        "d",
+        "(",
+        "-path",
+        io_lib:format("~ts/_build*", [Root]),
+        "-o",
+        "-path",
+        io_lib:format("~ts/erl/_build*", [Root]),
+        "-o",
+        "-path",
+        io_lib:format("~ts/buck-out", [Root]),
+        ")",
+        "-prune",
+        "-o",
+        "-name",
+        io_lib:format("~ts.erl", [Module]),
+        "-print"
+    ]),
     case
         [
             case unicode:characters_to_list(RelPath) of
