@@ -20,7 +20,7 @@ Match: entry kind at file_metadata/symlinks/internal: Symlink
 Match: symlink component location at file_metadata/symlinks/internal: file_metadata/symlinks/internal
 Match: symlink destination kind at file_metadata/symlinks/internal: Relative
 Match: relative symlink destination at file_metadata/symlinks/internal: file_metadata/file
-Match: relative symlink destination raw at file_metadata/symlinks/internal: ../file/
+Match: relative symlink destination raw at file_metadata/symlinks/internal: ../file
 Match: entry kind at file_metadata/symlinks/internal/traverse: Symlink
 Match: symlink component location at file_metadata/symlinks/internal/traverse: file_metadata/symlinks/internal
 Match: symlink destination kind at file_metadata/symlinks/internal/traverse: Relative

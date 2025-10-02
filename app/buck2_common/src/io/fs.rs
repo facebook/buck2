@@ -349,7 +349,12 @@ impl ExactPathSymlinkMetadata {
             },
             Self::InternalSymlink(mut link_path, mut rel_link_path) => {
                 link_path.push(&rest);
-                rel_link_path.push(&rest);
+                // FIXME(JakobDegen): The `relative_path` crate has a misbehavior where it pushes a
+                // trailing `/` onto the path if this is empty. One of many reasons to stop using
+                // that crate.
+                if !rest.is_empty() {
+                    rel_link_path.push(&rest);
+                }
                 RawPathMetadata::Symlink {
                     at: curr.path,
                     to: RawSymlink::Relative(link_path, Arc::new(Symlink::new(rel_link_path))),

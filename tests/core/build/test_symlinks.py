@@ -154,14 +154,13 @@ async def test_no_read_through_source_symlinks_to_file(buck: Buck) -> None:
         target_is_directory=False,
     )
 
-    # FIXME(JakobDegen): "Not a directory"
-    # res = await buck.build_without_report(
-    #     "//:stat_symlink",
-    #     "--out",
-    #     "-",
-    #     "--remote-only",
-    # )
-    # assert res.stdout.strip() == "True"
+    res = await buck.build_without_report(
+        "//:stat_symlink",
+        "--out",
+        "-",
+        "--remote-only",
+    )
+    assert res.stdout.strip() == "True"
 
 
 @buck_test(setup_eden=True)
