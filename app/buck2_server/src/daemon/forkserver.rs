@@ -38,7 +38,7 @@ pub async fn maybe_launch_forkserver(
 
     let exe = std::env::current_exe().buck_error_context("Cannot access current_exe")?;
     Ok(ForkserverAccess::Client(
-        buck2_forkserver::unix::launch_forkserver(
+        buck2_forkserver::launch::launch_forkserver(
             exe,
             &["forkserver"],
             forkserver_state_dir,

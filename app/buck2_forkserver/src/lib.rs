@@ -11,7 +11,7 @@
 #![feature(error_generic_member_access)]
 
 pub mod client;
+pub mod command;
 pub(crate) mod convert;
-
-#[cfg(unix)]
-pub mod unix;
+pub mod launch;
+pub(crate) mod service;

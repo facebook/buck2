@@ -121,7 +121,7 @@ impl ValidatedCommand {
     }
 }
 
-pub struct UnixForkserverService {
+pub(crate) struct UnixForkserverService {
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
 
     /// State for Miniperf.
@@ -135,7 +135,7 @@ pub struct UnixForkserverService {
 }
 
 impl UnixForkserverService {
-    pub fn new(
+    pub(crate) fn new(
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
         resource_control: ResourceControlConfig,

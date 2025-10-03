@@ -74,7 +74,7 @@ impl ForkserverCommand {
                 .enable_all()
                 .build()?;
 
-            Ok(rt.block_on(buck2_forkserver::unix::run_forkserver(
+            Ok(rt.block_on(buck2_forkserver::command::run_forkserver(
                 self.fd,
                 self.socket_path,
                 log_reload_handle,
