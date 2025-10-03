@@ -36,7 +36,6 @@ def configure_memory_limit(buck: Buck) -> None:
 def configure_freezing_with_pressure(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 0\n")
 
@@ -242,8 +241,6 @@ async def test_memory_pressure_telemetry(
 ) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write("memory_high_per_action = 1048576\n")  # 1 MiB
 
     await buck.build(
@@ -275,8 +272,6 @@ async def test_action_freezing_unfreezing(
 ) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
@@ -370,8 +365,6 @@ async def test_parent_slice_memory_high_unset_and_restore(
     memory_high_total = 5 * 1024 * 1024 * 1024  # 5 GB
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
@@ -465,7 +458,6 @@ async def test_parent_slice_memory_high_unset_and_restore(
 async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
         f.write("memory_high = 50%\n")
 
     # start buck2 daemon
