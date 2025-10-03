@@ -151,7 +151,6 @@ lua_binary = prelude_rule(
             "package_style": attrs.option(attrs.enum(LuaPlatformPackageStyle), default = None),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "python_platform": attrs.option(attrs.string(), default = None),
         }
     ),
 )
