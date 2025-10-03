@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+REQUIRE_SECONDARY_DEBUGINFO_CONSTRAINT = "ovr_config//toolchain/python/constraints:secondary-native-debuginfo-required"
+
 def _ensure_default_info(ctx: bxl.Context, default_info: DefaultInfo) -> None:
     ctx.output.ensure_multiple(cmd_args(default_info.default_outputs, hidden = default_info.other_outputs))
 
@@ -17,6 +19,9 @@ def ensure_subtargets(ctx: bxl.Context, target: bxl.ConfiguredTargetNode):
     # split dwarf targets have ["dwp"] subtargets. this function ensures that all dwp files are materialized
     if "dwp" in subtargets:
         _ensure_default_info(ctx, subtargets["dwp"][DefaultInfo])
+
+    if REQUIRE_SECONDARY_DEBUGINFO_CONSTRAINT in ctx.modifiers and "native-executable" in subtargets and "dwp" in subtargets["native-executable"][DefaultInfo].sub_targets:
+        _ensure_default_info(ctx, subtargets["native-executable"][DefaultInfo].sub_targets["dwp"][DefaultInfo])
 
     # ios test targets need to materialize "dwarf-and-dsym" subtarget in order for debugging to work properly.
     if "dwarf-and-dsym" in subtargets:
