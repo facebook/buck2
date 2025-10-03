@@ -24,8 +24,8 @@ use buck2_error::buck2_error;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
-use crate::commands::rage::MaterializerRageUploadData;
-use crate::commands::rage::manifold::buf_to_manifold;
+use crate::manifold::buf_to_manifold;
+use crate::rage::MaterializerRageUploadData;
 
 pub async fn upload_materializer_data(
     buckd: Shared<BoxFuture<'_, buck2_error::Result<BootstrapBuckdClient>>>,

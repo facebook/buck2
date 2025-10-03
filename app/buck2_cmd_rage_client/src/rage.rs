@@ -8,13 +8,6 @@
  * above-listed licenses.
  */
 
-mod build_info;
-mod dice;
-mod manifold;
-mod materializer;
-mod source_control;
-mod system_info;
-
 use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
@@ -55,13 +48,14 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
-use manifold::file_to_manifold;
-use manifold::manifold_leads;
 use serde::Serialize;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
+
+use crate::manifold::file_to_manifold;
+use crate::manifold::manifold_leads;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -170,7 +164,7 @@ impl RageCommand {
             "Associated invocation info",
             selected_invocation
                 .as_ref()
-                .map(|inv| || build_info::get(inv)),
+                .map(|inv| || crate::build_info::get(inv)),
         );
 
         let (thread_dump, build_info) = tokio::join!(
@@ -180,17 +174,23 @@ impl RageCommand {
             build_info_command
         );
 
-        let system_info_command = self.section("System info", system_info::get);
+        let system_info_command = self.section("System info", crate::system_info::get);
         let daemon_stderr_command = self.section("Daemon stderr", || {
             upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
         });
-        let hg_snapshot_id_command = self.section("Source control", source_control::get_info);
+        let hg_snapshot_id_command =
+            self.section("Source control", crate::source_control::get_info);
         let dice_dump_command = self.section("Dice dump", || async {
-            dice::upload_dice_dump(buckd.clone().await?, dice_dump_dir, &manifold, &manifold_id)
-                .await
+            crate::dice::upload_dice_dump(
+                buckd.clone().await?,
+                dice_dump_dir,
+                &manifold,
+                &manifold_id,
+            )
+            .await
         });
         let materializer_state = self.section("Materializer state", || {
-            materializer::upload_materializer_data(
+            crate::materializer::upload_materializer_data(
                 buckd.clone(),
                 &client_ctx,
                 &manifold,
@@ -199,7 +199,7 @@ impl RageCommand {
             )
         });
         let materializer_fsck = self.section("Materializer fsck", || {
-            materializer::upload_materializer_data(
+            crate::materializer::upload_materializer_data(
                 buckd.clone(),
                 &client_ctx,
                 &manifold,
@@ -276,7 +276,7 @@ impl RageCommand {
         &self,
         sink: Option<RemoteEventSink>,
         invocation_id: Option<TraceId>,
-        system_info: RageSection<system_info::SystemInfo>,
+        system_info: RageSection<crate::system_info::SystemInfo>,
         daemon_stderr_dump: RageSection<String>,
         hg_snapshot_id: RageSection<String>,
         dice_dump: RageSection<String>,
@@ -284,7 +284,7 @@ impl RageCommand {
         materializer_fsck: RageSection<String>,
         thread_dump: RageSection<String>,
         event_log_dump: RageSection<String>,
-        build_info: RageSection<build_info::BuildInfo>,
+        build_info: RageSection<crate::build_info::BuildInfo>,
         re_logs: RageSection<String>,
     ) -> buck2_error::Result<()> {
         let dice_dump = dice_dump.output();
@@ -678,7 +678,7 @@ fn print_log_summary(
     log_summary: &Option<EventLogSummary>,
 ) -> buck2_error::Result<()> {
     if let Some(log_summary) = log_summary {
-        let cmd = build_info::format_cmd(&log_summary.invocation);
+        let cmd = crate::build_info::format_cmd(&log_summary.invocation);
 
         let timestamp: DateTime<Local> = log_summary.timestamp.into();
         Ok(buck2_client_ctx::eprintln!(
@@ -775,7 +775,7 @@ async fn upload_thread_dump(
 
     if command.status.success() {
         let manifold_filename = format!("flat/{manifold_id}_thread_dump");
-        manifold::buf_to_manifold(manifold, &command.stdout, manifold_filename).await
+        crate::manifold::buf_to_manifold(manifold, &command.stdout, manifold_filename).await
     } else {
         let stderr = &command.stderr;
         Ok(String::from_utf8_lossy(stderr).to_string())

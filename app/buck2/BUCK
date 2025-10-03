@@ -53,6 +53,7 @@ rust_library(
         "//buck2/app/buck2_cmd_debug_client:buck2_cmd_debug_client",
         "//buck2/app/buck2_cmd_docs_client:buck2_cmd_docs_client",
         "//buck2/app/buck2_cmd_log_client:buck2_cmd_log_client",
+        "//buck2/app/buck2_cmd_rage_client:buck2_cmd_rage_client",
         "//buck2/app/buck2_cmd_starlark_client:buck2_cmd_starlark_client",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

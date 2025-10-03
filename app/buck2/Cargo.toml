@@ -39,6 +39,7 @@ buck2_cmd_docs_client = { workspace = true }
 buck2_cmd_docs_server = { workspace = true }
 buck2_cmd_log_client = { workspace = true }
 buck2_cmd_query_server = { workspace = true }
+buck2_cmd_rage_client = { workspace = true }
 buck2_cmd_starlark_client = { workspace = true }
 buck2_cmd_starlark_server = { workspace = true }
 buck2_cmd_targets_server = { workspace = true }

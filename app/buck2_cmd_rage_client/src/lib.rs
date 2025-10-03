@@ -8,25 +8,16 @@
  * above-listed licenses.
  */
 
-pub mod build;
-pub mod bxl;
-pub mod clean;
-pub mod clean_stale;
-pub mod ctargets;
-pub mod expand_external_cell;
-pub mod explain;
-pub mod help_env;
-pub mod init;
-pub mod install;
-pub mod kill;
-pub mod killall;
-pub mod lsp;
-pub mod profile;
-pub mod query;
-pub mod root;
-pub mod run;
-pub mod server;
-pub mod status;
-pub mod subscribe;
-pub mod targets;
-pub mod test;
+#![feature(error_generic_member_access)]
+#![feature(try_blocks)]
+#![feature(try_trait_v2)]
+#![feature(exit_status_error)]
+#![feature(used_with_arg)]
+
+pub mod build_info;
+pub mod dice;
+pub mod manifold;
+pub mod materializer;
+pub mod rage;
+pub mod source_control;
+pub mod system_info;

@@ -24,7 +24,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_util::process::async_background_command;
 
-use crate::commands::rage::manifold::manifold_leads;
+use crate::manifold::manifold_leads;
 
 pub async fn upload_dice_dump(
     buckd: BootstrapBuckdClient,
