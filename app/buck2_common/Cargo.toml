@@ -24,7 +24,6 @@ futures = { workspace = true }
 globset = { workspace = true }
 hex = { workspace = true }
 hyper = { workspace = true }
-hyper-util = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 num_enum = { workspace = true }
@@ -64,6 +63,7 @@ buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
+hyper-util = { workspace = true }
 nix = { workspace = true }
 tower = { workspace = true }
 xattr = { workspace = true }

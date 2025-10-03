@@ -1471,9 +1471,9 @@ impl DaemonApi for BuckdServer {
                 .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
         }
 
+        #[cfg(unix)]
         if req.forkserver {
             let data = self.0.daemon_state.data();
-            #[cfg(unix)]
             if let ForkserverAccess::Client(forkserver) = &data.forkserver {
                 forkserver
                     .set_log_filter(req.log_filter)

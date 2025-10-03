@@ -78,6 +78,7 @@ pub enum WorkerInitError {
     InternalError(buck2_error::Error),
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 impl WorkerInitError {
     pub(crate) fn to_command_execution_result(
         &self,

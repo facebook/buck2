@@ -254,6 +254,9 @@ impl LocalExecutor {
                     .await
                 }
                 ForkserverAccess::None => {
+                    let _disable_miniperf = disable_miniperf;
+                    let _cgroup_command_id = cgroup_command_id;
+                    let _command_type = command_type;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());

@@ -300,6 +300,10 @@ impl SnapshotCollector {
     }
 
     fn add_memory_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        #[cfg(not(unix))]
+        {
+            let _snapshot = snapshot;
+        }
         #[cfg(unix)]
         {
             use buck2_execute_impl::executors::local::ForkserverAccess;
