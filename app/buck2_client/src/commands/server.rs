@@ -42,7 +42,10 @@ impl StreamingCommand for ServerCommand {
         _ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let status = buckd.with_flushing().status(events_ctx, false).await?;
+        let status = buckd
+            .with_flushing()
+            .status(events_ctx, false, false)
+            .await?;
         buck2_client_ctx::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
         ExitResult::success()
     }

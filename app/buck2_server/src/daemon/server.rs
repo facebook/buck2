@@ -904,7 +904,8 @@ impl DaemonApi for BuckdServer {
             let io_provider = daemon_state.data().io.name().to_owned();
 
             let uptime = self.0.start_instant.elapsed();
-            let base = StatusResponse {
+
+            let mut base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),
                 start_time: Some(self.0.start_time),
                 uptime: Some(uptime.try_into()?),
@@ -924,6 +925,16 @@ impl DaemonApi for BuckdServer {
                 io_provider: Some(io_provider),
                 ..Default::default()
             };
+
+            if req.include_tokio_runtime_metrics {
+                let tokio_metrics = self.0.rt.metrics();
+                let metrics_response = TokioRuntimeMetrics {
+                    num_workers: tokio_metrics.num_workers() as u64,
+                    num_alive_tasks: tokio_metrics.num_alive_tasks() as u64,
+                    global_queue_depth: tokio_metrics.global_queue_depth() as u64,
+                };
+                base.tokio_runtime_metrics = Some(metrics_response);
+            }
             Ok(base)
         })
         .await

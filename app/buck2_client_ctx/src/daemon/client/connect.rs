@@ -1035,6 +1035,7 @@ async fn get_constraints(
         .unpack_oneshot({
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
                 snapshot: false,
+                include_tokio_runtime_metrics: false,
             }))
         })
         .await?;
