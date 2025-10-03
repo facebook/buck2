@@ -149,7 +149,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         if not ctx.attrs.embed_xctest_frameworks_in_test_host_app:
             # The XCTest frameworks should only be embedded in a single place,
             # either the test host (as per Xcode) or in the test itself
-            if read_root_config("apple", "exclude_xctest_libraries", "false").lower() != "true":
+            if test_host_app_bundle != None or read_root_config("apple", "exclude_xctest_libraries", "false").lower() != "true":
                 bundle_parts += get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
 
         for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
