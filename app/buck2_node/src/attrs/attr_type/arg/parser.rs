@@ -288,7 +288,7 @@ fn read_macro_type(input: &str) -> Result<'_, String> {
         Some(pos) => {
             let macro_type = &input[..pos];
             if let Some(pos) =
-                macro_type.find(|c: char| (!c.is_ascii_alphanumeric() && c != '_' && c != '-'))
+                macro_type.find(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
             {
                 Err((&input[pos..], ArgParseError::MacroTypeInvalidChar))
             } else {

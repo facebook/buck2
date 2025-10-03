@@ -63,7 +63,7 @@ pub(crate) struct OutputFormatWithWriter<'a> {
 
 pub(crate) fn transform_format(
     format: LogCommandOutputFormat,
-    w: &mut (dyn std::io::Write),
+    w: &mut dyn std::io::Write,
 ) -> LogCommandOutputFormatWithWriter<'_> {
     match format {
         LogCommandOutputFormat::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),

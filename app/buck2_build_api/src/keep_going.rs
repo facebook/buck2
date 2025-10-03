@@ -19,12 +19,10 @@ impl KeepGoing {
     pub fn try_compute_join_all<'a, T: Send, R: 'a, E: 'a>(
         ctx: &'a mut DiceComputations<'_>,
         items: impl IntoIterator<Item = T>,
-        mapper: (
-            impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
-            + Send
-            + Sync
-            + Copy
-        ),
+        mapper: impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
+        + Send
+        + Sync
+        + Copy,
     ) -> impl Future<Output = Result<Vec<R>, E>> {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
