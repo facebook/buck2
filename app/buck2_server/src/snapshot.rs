@@ -302,6 +302,7 @@ impl SnapshotCollector {
     fn add_memory_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         #[cfg(unix)]
         {
+            use buck2_execute_impl::executors::local::ForkserverAccess;
             use buck2_util::cgroup_info::CGroupInfo;
             use buck2_util::cgroup_info::MemoryStat;
 
@@ -322,13 +323,11 @@ impl SnapshotCollector {
             }
 
             // Try to read forkserver memory information if available
-            if let Some(cgroup) = self
-                .daemon
-                .forkserver
-                .as_ref()
-                .and_then(|f| f.cgroup_info())
-            {
-                if let Ok(stat) = cgroup.read_memory_stat() {
+            if let ForkserverAccess::Client(f) = &self.daemon.forkserver {
+                if let Some(stat) = f
+                    .cgroup_info()
+                    .and_then(|cgroup| cgroup.read_memory_stat().ok())
+                {
                     snapshot.forkserver_cgroup = Some(convert_stats(&stat));
                 }
             }

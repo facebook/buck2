@@ -33,7 +33,6 @@ use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::CommandResult;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_worker_proto::ExecuteCommand;
@@ -56,6 +55,8 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::Status;
 use tonic::transport::Channel;
+
+use crate::executors::local::ForkserverAccess;
 
 const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
 
@@ -133,7 +134,7 @@ impl WorkerInitError {
 
 #[cfg(unix)]
 fn spawn_via_forkserver(
-    forkserver: ForkserverClient,
+    forkserver: ForkserverAccess,
     exe: OsString,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
@@ -147,6 +148,10 @@ fn spawn_via_forkserver(
     use std::os::unix::ffi::OsStrExt;
 
     use crate::executors::local::apply_local_execution_environment;
+
+    let ForkserverAccess::Client(forkserver) = forkserver else {
+        unreachable!("Worker should not be spawned without a forkserver")
+    };
 
     let stdout_path = stdout_path.clone();
     let stderr_path = stderr_path.clone();
@@ -192,7 +197,7 @@ fn spawn_via_forkserver(
 
 #[cfg(not(unix))]
 fn spawn_via_forkserver(
-    _forkserver: ForkserverClient,
+    _forkserver: ForkserverAccess,
     _exe: OsString,
     _args: Vec<OsString>,
     _env: Vec<(OsString, OsString)>,
@@ -210,7 +215,7 @@ async fn spawn_worker(
     worker_spec: &WorkerSpec,
     env: impl IntoIterator<Item = (OsString, OsString)>,
     root: &AbsNormPathBuf,
-    forkserver: ForkserverClient,
+    forkserver: ForkserverAccess,
     dispatcher: EventDispatcher,
     graceful_shutdown_timeout_s: Option<u32>,
 ) -> Result<WorkerHandle, WorkerInitError> {
@@ -384,7 +389,7 @@ impl WorkerPool {
         worker_spec: &WorkerSpec,
         env: impl IntoIterator<Item = (OsString, OsString)>,
         root: &AbsNormPathBuf,
-        forkserver: ForkserverClient,
+        forkserver: ForkserverAccess,
         dispatcher: EventDispatcher,
     ) -> (bool, WorkerFuture) {
         let mut workers = self.workers.lock();

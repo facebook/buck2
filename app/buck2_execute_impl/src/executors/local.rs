@@ -19,6 +19,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -71,7 +72,6 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::CommandResult;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_forkserver::run::gather_output;
@@ -164,6 +164,13 @@ enum LocalExecutionError {
     RemoteOnlyAction,
 }
 
+#[derive(Clone, Dupe, Allocative)]
+pub enum ForkserverAccess {
+    None,
+    #[cfg(unix)]
+    Client(buck2_forkserver::client::ForkserverClient),
+}
+
 #[derive(Clone)]
 pub struct LocalExecutor {
     artifact_fs: ArtifactFs,
@@ -172,8 +179,7 @@ pub struct LocalExecutor {
     blocking_executor: Arc<dyn BlockingExecutor>,
     pub(crate) host_sharing_broker: Arc<HostSharingBroker>,
     root: AbsNormPathBuf,
-    #[cfg_attr(not(unix), allow(unused))]
-    forkserver: Option<ForkserverClient>,
+    forkserver: ForkserverAccess,
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
     worker_pool: Option<Arc<WorkerPool>>,
@@ -188,7 +194,7 @@ impl LocalExecutor {
         blocking_executor: Arc<dyn BlockingExecutor>,
         host_sharing_broker: Arc<HostSharingBroker>,
         root: AbsNormPathBuf,
-        forkserver: Option<ForkserverClient>,
+        forkserver: ForkserverAccess,
         knobs: ExecutorGlobalKnobs,
         worker_pool: Option<Arc<WorkerPool>>,
         local_action_counter: Option<Arc<LocalActionCounter>>,
@@ -230,36 +236,24 @@ impl LocalExecutor {
             let working_directory = self.root.join_cow(working_directory);
 
             let result = match &self.forkserver {
-                Some(forkserver) => {
-                    #[cfg(unix)]
-                    {
-                        unix::exec_via_forkserver(
-                            forkserver,
-                            exe,
-                            args,
-                            env,
-                            &working_directory,
-                            timeout,
-                            env_inheritance,
-                            liveliness_observer,
-                            self.knobs.enable_miniperf && !disable_miniperf,
-                            cgroup_command_id,
-                            command_type,
-                        )
-                        .await
-                    }
-
-                    #[cfg(not(unix))]
-                    {
-                        let _unused = (forkserver, disable_miniperf, cgroup_command_id);
-                        Err(buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "Forkserver is not supported off-UNIX"
-                        ))
-                    }
+                #[cfg(unix)]
+                ForkserverAccess::Client(forkserver) => {
+                    unix::exec_via_forkserver(
+                        forkserver,
+                        exe,
+                        args,
+                        env,
+                        &working_directory,
+                        timeout,
+                        env_inheritance,
+                        liveliness_observer,
+                        self.knobs.enable_miniperf && !disable_miniperf,
+                        cgroup_command_id,
+                        command_type,
+                    )
+                    .await
                 }
-
-                None => {
+                ForkserverAccess::None => {
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
@@ -904,6 +898,20 @@ impl LocalExecutor {
         }
     }
 
+    #[cfg(not(unix))]
+    async fn initialize_worker(
+        &self,
+        _request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        _dispatcher: EventDispatcher,
+    ) -> ControlFlow<
+        CommandExecutionResult,
+        (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
+    > {
+        ControlFlow::Continue((None, manager))
+    }
+
+    #[cfg(unix)]
     async fn initialize_worker(
         &self,
         request: &CommandExecutionRequest,
@@ -913,12 +921,9 @@ impl LocalExecutor {
         CommandExecutionResult,
         (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
     > {
-        if let (Some(worker_spec), Some(worker_pool), Some(forkserver), true) = (
-            request.worker(),
-            self.worker_pool.dupe(),
-            self.forkserver.dupe(),
-            cfg!(unix),
-        ) {
+        if let (Some(worker_spec), Some(worker_pool), ForkserverAccess::Client(_)) =
+            (request.worker(), self.worker_pool.dupe(), &self.forkserver)
+        {
             let env = worker_spec
                 .env
                 .iter()
@@ -927,7 +932,7 @@ impl LocalExecutor {
                 worker_spec,
                 env,
                 &self.root,
-                forkserver.clone(),
+                self.forkserver.dupe(),
                 dispatcher,
             );
 
@@ -1490,7 +1495,7 @@ mod unix {
     use super::*;
 
     pub async fn exec_via_forkserver(
-        forkserver: &ForkserverClient,
+        forkserver: &buck2_forkserver::client::ForkserverClient,
         exe: impl AsRef<OsStr>,
         args: impl IntoIterator<Item = impl AsRef<OsStr>>,
         env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
@@ -1621,7 +1626,7 @@ mod tests {
                 1,
             )),
             temp.path().root().to_buf(),
-            None,
+            ForkserverAccess::None,
             ExecutorGlobalKnobs::default(),
             None,
             None,

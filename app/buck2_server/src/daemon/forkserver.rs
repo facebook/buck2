@@ -11,7 +11,7 @@
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_forkserver::client::ForkserverClient;
+use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 
 #[cfg(unix)]
@@ -20,7 +20,7 @@ pub async fn maybe_launch_forkserver(
     forkserver_state_dir: &AbsNormPath,
     resource_control: &ResourceControlConfig,
     memory_tracker: Option<MemoryTrackerHandle>,
-) -> buck2_error::Result<Option<ForkserverClient>> {
+) -> buck2_error::Result<ForkserverAccess> {
     use buck2_common::legacy_configs::key::BuckconfigKeyRef;
     use buck2_core::rollout_percentage::RolloutPercentage;
     use buck2_error::BuckErrorContext;
@@ -33,11 +33,11 @@ pub async fn maybe_launch_forkserver(
         .unwrap_or_else(RolloutPercentage::always);
 
     if !config.roll() {
-        return Ok(None);
+        return Ok(ForkserverAccess::None);
     }
 
     let exe = std::env::current_exe().buck_error_context("Cannot access current_exe")?;
-    Some(
+    Ok(ForkserverAccess::Client(
         buck2_forkserver::unix::launch_forkserver(
             exe,
             &["forkserver"],
@@ -45,9 +45,8 @@ pub async fn maybe_launch_forkserver(
             resource_control,
             memory_tracker,
         )
-        .await,
-    )
-    .transpose()
+        .await?,
+    ))
 }
 
 #[cfg(not(unix))]
@@ -56,6 +55,6 @@ pub async fn maybe_launch_forkserver(
     _forkserver_state_dir: &AbsNormPath,
     _resource_control: &ResourceControlConfig,
     _memory_tracker: Option<MemoryTrackerHandle>,
-) -> buck2_error::Result<Option<ForkserverClient>> {
-    Ok(None)
+) -> buck2_error::Result<ForkserverAccess> {
+    Ok(ForkserverAccess::None)
 }

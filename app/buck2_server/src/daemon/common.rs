@@ -50,6 +50,7 @@ use buck2_execute_impl::executors::action_cache_upload_permission_checker::Actio
 use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
+use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::executors::local::LocalActionCounter;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::local_actions_throttle::LocalActionsThrottle;
@@ -60,7 +61,6 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
@@ -80,7 +80,7 @@ pub struct CommandExecutorFactory {
     strategy: ExecutionStrategy,
     executor_global_knobs: ExecutorGlobalKnobs,
     upload_all_actions: bool,
-    forkserver: Option<ForkserverClient>,
+    forkserver: ForkserverAccess,
     skip_cache_read: bool,
     skip_cache_write: bool,
     project_root: ProjectRoot,
@@ -108,7 +108,7 @@ impl CommandExecutorFactory {
         strategy: ExecutionStrategy,
         executor_global_knobs: ExecutorGlobalKnobs,
         upload_all_actions: bool,
-        forkserver: Option<ForkserverClient>,
+        forkserver: ForkserverAccess,
         skip_cache_read: bool,
         skip_cache_write: bool,
         project_root: ProjectRoot,

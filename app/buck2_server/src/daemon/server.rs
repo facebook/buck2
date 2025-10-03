@@ -56,6 +56,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationMethod;
+use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_dropcancel;
@@ -911,7 +912,11 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(daemon_constraints),
                 project_root: daemon_state.paths.project_root().to_string(),
                 isolation_dir: daemon_state.paths.isolation.to_string(),
-                forkserver_pid: daemon_state.data.forkserver.as_ref().map(|f| f.pid()),
+                forkserver_pid: match &daemon_state.data.forkserver {
+                    #[cfg(unix)]
+                    ForkserverAccess::Client(f) => Some(f.pid()),
+                    ForkserverAccess::None => None,
+                },
                 supports_vpnless: Some(daemon_state.data().http_client.supports_vpnless()),
                 http2: Some(daemon_state.data().http_client.http2()),
                 valid_working_directory: Some(valid_working_directory),
@@ -1468,7 +1473,8 @@ impl DaemonApi for BuckdServer {
 
         if req.forkserver {
             let data = self.0.daemon_state.data();
-            if let Some(forkserver) = data.forkserver.as_ref() {
+            #[cfg(unix)]
+            if let ForkserverAccess::Client(forkserver) = &data.forkserver {
                 forkserver
                     .set_log_filter(req.log_filter)
                     .await

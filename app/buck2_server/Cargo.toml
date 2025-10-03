@@ -60,7 +60,6 @@ buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_execute_impl = { workspace = true }
 buck2_file_watcher = { workspace = true }
-buck2_forkserver = { workspace = true }
 buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
@@ -77,6 +76,7 @@ buck2_validation = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+buck2_forkserver = { workspace = true }
 psutil = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
