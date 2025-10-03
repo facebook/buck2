@@ -10,11 +10,10 @@
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_error::BuckErrorContext;
+use buck2_execute_local::CommandEvent;
+use buck2_execute_local::GatherOutputStatus;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-
-use crate::run::CommandEvent;
-use crate::run::GatherOutputStatus;
 
 #[allow(dead_code)]
 pub(crate) fn encode_event_stream<S>(

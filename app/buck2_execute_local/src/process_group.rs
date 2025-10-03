@@ -24,7 +24,7 @@ use crate::win::process_group as imp;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Tier0)]
-pub(crate) enum SpawnError {
+pub enum SpawnError {
     #[error("Failed to spawn a process")]
     IoError(io::Error),
     #[error("Failed to create a process group")]
@@ -45,13 +45,13 @@ impl From<io::Error> for SpawnError {
     }
 }
 
-pub(crate) struct ProcessCommand {
+pub struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
     cgroup: Option<PathBuf>,
 }
 
 impl ProcessCommand {
-    pub(crate) fn new(mut cmd: StdCommand, cgroup: Option<PathBuf>) -> Self {
+    pub fn new(mut cmd: StdCommand, cgroup: Option<PathBuf>) -> Self {
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -61,27 +61,25 @@ impl ProcessCommand {
         }
     }
 
-    pub(crate) fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
+    pub fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
         let child = self.inner.spawn()?;
         let inner = imp::ProcessGroupImpl::new(child)?;
         let cgroup = self.cgroup.take();
         Ok(ProcessGroup { inner, cgroup })
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
+    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
         self.inner.stdout(cfg.into());
         self
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
+    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
         self.inner.stderr(cfg.into());
         self
     }
 }
 
-pub(crate) struct ProcessGroup {
+pub struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
     pub(crate) cgroup: Option<PathBuf>,
 }
@@ -115,7 +113,7 @@ impl ProcessGroup {
 mod tests {
     use buck2_util::process::background_command;
 
-    use crate::run::process_group::ProcessCommand;
+    use crate::process_group::ProcessCommand;
 
     // The test check basic functionality of process implementation as it differs on Unix and Windows
     #[tokio::test]

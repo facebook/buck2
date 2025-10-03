@@ -41,6 +41,7 @@ members = [
     "app/buck2_event_log",
     "app/buck2_execute",
     "app/buck2_execute_impl",
+    "app/buck2_execute_local",
     "app/buck2_external_cells",
     "app/buck2_external_cells_bundled",
     "app/buck2_grpc",
@@ -406,6 +407,7 @@ buck2_event_observer = { path = "app/buck2_event_observer" }
 buck2_events = { path = "app/buck2_events" }
 buck2_execute = { path = "app/buck2_execute" }
 buck2_execute_impl = { path = "app/buck2_execute_impl" }
+buck2_execute_local = { path = "app/buck2_execute_local" }
 buck2_external_cells = { path = "app/buck2_external_cells" }
 buck2_external_cells_bundled = { path = "app/buck2_external_cells_bundled" }
 buck2_file_watcher = { path = "app/buck2_file_watcher" }

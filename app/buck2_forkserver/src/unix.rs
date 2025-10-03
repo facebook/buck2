@@ -10,7 +10,6 @@
 
 mod command;
 mod launch;
-pub(crate) mod process_group;
 mod service;
 
 pub use command::run_forkserver;

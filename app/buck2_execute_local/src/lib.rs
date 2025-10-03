@@ -8,9 +8,7 @@
  * above-listed licenses.
  */
 
-mod interruptible_async_read;
-pub mod process_group;
-pub mod status_decoder;
+#![cfg_attr(windows, feature(windows_process_extensions_main_thread_handle))]
 
 use std::borrow::Cow;
 use std::path::Path;
@@ -38,14 +36,24 @@ use pin_project::pin_project;
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
-use self::interruptible_async_read::InterruptNotifiable;
-use self::interruptible_async_read::InterruptibleAsyncRead;
-use self::status_decoder::DecodedStatus;
-use self::status_decoder::DefaultStatusDecoder;
-use self::status_decoder::StatusDecoder;
-use crate::run::process_group::ProcessCommand;
-use crate::run::process_group::ProcessGroup;
-use crate::run::process_group::SpawnError;
+use crate::interruptible_async_read::InterruptNotifiable;
+use crate::interruptible_async_read::InterruptibleAsyncRead;
+use crate::process_group::ProcessCommand;
+use crate::process_group::ProcessGroup;
+use crate::process_group::SpawnError;
+use crate::status_decoder::DecodedStatus;
+use crate::status_decoder::DefaultStatusDecoder;
+use crate::status_decoder::StatusDecoder;
+
+mod interruptible_async_read;
+pub mod process_group;
+pub mod status_decoder;
+
+#[cfg(unix)]
+mod unix;
+
+#[cfg(windows)]
+mod win;
 
 #[derive(Debug)]
 pub enum GatherOutputStatus {
@@ -75,7 +83,7 @@ impl From<DecodedStatus> for GatherOutputStatus {
 }
 
 #[derive(Debug)]
-pub(crate) enum CommandEvent {
+pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
     Exit(GatherOutputStatus),
@@ -189,7 +197,7 @@ pub async fn timeout_into_cancellation(
     }
 }
 
-pub(crate) fn stream_command_events<T>(
+pub fn stream_command_events<T>(
     process_group: buck2_error::Result<ProcessGroup>,
     cancellation: T,
     decoder: impl StatusDecoder,
@@ -292,7 +300,7 @@ pub struct CommandResult {
     pub cgroup_result: Option<ActionCgroupResult>,
 }
 
-pub(crate) async fn decode_command_event_stream<S>(
+pub async fn decode_command_event_stream<S>(
     stream: S,
     mut cgroup_session: Option<ActionCgroupSession>,
 ) -> buck2_error::Result<CommandResult>
@@ -356,12 +364,12 @@ where
 
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
-pub(crate) trait KillProcess {
+pub trait KillProcess {
     async fn kill(self, process: &mut ProcessGroup) -> buck2_error::Result<()>;
 }
 
 #[derive(Default)]
-pub(crate) struct DefaultKillProcess {
+pub struct DefaultKillProcess {
     pub graceful_shutdown_timeout_s: Option<u32>,
 }
 

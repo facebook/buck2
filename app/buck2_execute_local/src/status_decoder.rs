@@ -16,7 +16,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_miniperf_proto::MiniperfOutput;
 
-pub(crate) enum DecodedStatus {
+pub enum DecodedStatus {
     /// An actual status.
     Status {
         exit_code: i32,
@@ -28,7 +28,7 @@ pub(crate) enum DecodedStatus {
 }
 
 #[async_trait]
-pub(crate) trait StatusDecoder {
+pub trait StatusDecoder {
     /// Status decoders receive the exit status of the command we ran, but they might also obtain
     /// information out of band to obtain a different exit status.
     async fn decode_status(self, status: ExitStatus) -> buck2_error::Result<DecodedStatus>;
@@ -37,7 +37,7 @@ pub(crate) trait StatusDecoder {
     async fn cancel(self) -> buck2_error::Result<()>;
 }
 
-pub(crate) struct DefaultStatusDecoder;
+pub struct DefaultStatusDecoder;
 
 #[async_trait]
 impl StatusDecoder for DefaultStatusDecoder {
@@ -72,7 +72,7 @@ fn default_decode_exit_code(status: ExitStatus) -> i32 {
     exit_code.unwrap_or(-1)
 }
 
-pub(crate) struct MiniperfStatusDecoder {
+pub struct MiniperfStatusDecoder {
     out_path: AbsNormPathBuf,
 }
 

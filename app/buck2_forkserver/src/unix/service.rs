@@ -32,6 +32,15 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_execute_local::CommandEvent;
+use buck2_execute_local::DefaultKillProcess;
+use buck2_execute_local::GatherOutputStatus;
+use buck2_execute_local::maybe_absolutize_exe;
+use buck2_execute_local::process_group::ProcessCommand;
+use buck2_execute_local::status_decoder::DefaultStatusDecoder;
+use buck2_execute_local::status_decoder::MiniperfStatusDecoder;
+use buck2_execute_local::stream_command_events;
+use buck2_execute_local::timeout_into_cancellation;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::GetCgroupRequest;
 use buck2_forkserver_proto::GetCgroupResponse;
@@ -56,15 +65,6 @@ use tonic::Status;
 use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
-use crate::run::CommandEvent;
-use crate::run::DefaultKillProcess;
-use crate::run::GatherOutputStatus;
-use crate::run::maybe_absolutize_exe;
-use crate::run::process_group::ProcessCommand;
-use crate::run::status_decoder::DefaultStatusDecoder;
-use crate::run::status_decoder::MiniperfStatusDecoder;
-use crate::run::stream_command_events;
-use crate::run::timeout_into_cancellation;
 
 // Not quite BoxStream: it has to be Sync (...)
 type RunStream =
@@ -278,7 +278,7 @@ impl UnixForkserverService {
     }
 
     fn create_command_stream(
-        process_group: buck2_error::Result<crate::run::process_group::ProcessGroup>,
+        process_group: buck2_error::Result<buck2_execute_local::process_group::ProcessGroup>,
         cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
         + Send
         + 'static,
