@@ -188,11 +188,28 @@ where
         Ok(())
     }
 
+    /// Same as `merge`, but assumes that the two directories agree on where all the leaves are and
+    /// also the values of those leaves.
+    ///
+    /// In other words, this cannot be used to "replace" any existing things in the directory
+    pub fn merge_with_compatible_leaves(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
+        if !buck2_core::faster_directories::is_enabled() {
+            return self.merge(other);
+        }
+
+        let v = std::mem::replace(self, DirectoryBuilder::empty());
+        let v = v
+            .merge_inner(other, true)
+            .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })?;
+        *self = v;
+        Ok(())
+    }
+
     pub fn merge(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
         if buck2_core::faster_directories::is_enabled() {
             let v = std::mem::replace(self, DirectoryBuilder::empty());
             let v = v
-                .merge_inner(other)
+                .merge_inner(other, false)
                 .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })?;
             *self = v;
             Ok(())
@@ -202,7 +219,7 @@ where
         }
     }
 
-    fn merge_inner(mut self, other: Self) -> Result<Self, PathAccumulator> {
+    fn merge_inner(mut self, other: Self, leaf_compatible: bool) -> Result<Self, PathAccumulator> {
         match (&self, &other) {
             (Self::Immutable(d1), Self::Immutable(d2)) if d1.fingerprint() == d2.fingerprint() => {
                 return Ok(self);
@@ -220,7 +237,7 @@ where
                     DirectoryEntry::Dir(dir_right) => {
                         Ok(MapEntryOperation::Overwrite(DirectoryEntry::Dir(
                             dir_left
-                                .merge_inner(dir_right)
+                                .merge_inner(dir_right, leaf_compatible)
                                 .map_err(|e| e.with(needle))?,
                         )))
                     }
@@ -233,9 +250,15 @@ where
                         Some(_) => Err(PathAccumulator::new(needle)),
                         None => Ok(MapEntryOperation::Overwrite(DirectoryEntry::Dir(dir_right))),
                     },
-                    DirectoryEntry::Leaf(leaf_right) => Ok(MapEntryOperation::Overwrite(
-                        DirectoryEntry::Leaf(leaf_right),
-                    )),
+                    DirectoryEntry::Leaf(leaf_right) => {
+                        if leaf_compatible && leaf_left.is_some() {
+                            Ok(MapEntryOperation::Keep(()))
+                        } else {
+                            Ok(MapEntryOperation::Overwrite(DirectoryEntry::Leaf(
+                                leaf_right,
+                            )))
+                        }
+                    }
                 },
             )
         })?;
@@ -278,7 +301,6 @@ where
 }
 
 enum MapEntryOperation<K, O> {
-    #[expect(unused)]
     Keep(K),
     Overwrite(O),
 }

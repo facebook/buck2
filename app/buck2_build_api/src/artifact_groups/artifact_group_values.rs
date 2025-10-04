@@ -83,7 +83,7 @@ impl ArtifactGroupValues {
                 )?;
 
             non_content_based_builder
-                .merge(non_content_based_child_dir.to_builder())
+                .merge_with_compatible_leaves(non_content_based_child_dir.to_builder())
                 .buck_error_context("Merge failed")?;
 
             let content_based_child_dir = child
@@ -95,7 +95,7 @@ impl ArtifactGroupValues {
                 )?;
 
             content_based_builder
-                .merge(content_based_child_dir.to_builder())
+                .merge_with_compatible_leaves(content_based_child_dir.to_builder())
                 .buck_error_context("Merge failed")?;
 
             let dep_files_child_dir =
@@ -104,7 +104,7 @@ impl ArtifactGroupValues {
                 )?;
 
             dep_files_builder
-                .merge(dep_files_child_dir.to_builder())
+                .merge_with_compatible_leaves(dep_files_child_dir.to_builder())
                 .buck_error_context("Merge failed")?;
         }
 
