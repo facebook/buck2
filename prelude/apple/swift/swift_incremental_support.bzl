@@ -89,6 +89,9 @@ def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
 def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "incremental_remote_outputs", False)
 
+def get_uses_experimental_content_based_path_hashing(ctx):
+    return getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
         output_file_map_data: _OutputFileMapData,
@@ -119,12 +122,13 @@ def _get_incremental_compilation_flags_and_objects(
 
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
     incremental_remote_outputs = False
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
     if skip_incremental_outputs:
         # When skipping incremental outputs, we write the contents of the
         # output_file_map in the swift wrapper and need to ensure this is
         # an output file (vs being an input in normal cases)
-        output_map_artifact = ctx.actions.declare_output("__swift_incremental__/output_file_map.json")
+        output_map_artifact = ctx.actions.declare_output("__swift_incremental__/output_file_map.json", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         cmd.add(
             "-Xwrapper",
             "-skip-incremental-outputs",
@@ -152,6 +156,7 @@ def _get_incremental_compilation_flags_and_objects(
 def _get_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
+    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
     if _get_skip_swift_incremental_outputs(ctx):
         all_outputs = []
         swiftdeps = []
@@ -161,12 +166,12 @@ def _get_output_file_map(
 
         for src in srcs:
             file_name = src.file.basename
-            output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
+            output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
             artifacts.append(output_artifact)
             all_outputs.append(output_artifact)
     else:
         # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
-        module_swiftdeps = ctx.actions.declare_output("__swift_incremental__/swiftdeps/module-build-record.priors")
+        module_swiftdeps = ctx.actions.declare_output("__swift_incremental__/swiftdeps/module-build-record.priors", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         output_file_map = {
             "": {
                 "swift-dependencies": module_swiftdeps,
@@ -180,10 +185,10 @@ def _get_output_file_map(
 
         for src in srcs:
             file_name = src.file.basename
-            output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
+            output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
             artifacts.append(output_artifact)
             all_outputs.append(output_artifact)
-            swiftdeps_artifact = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + file_name + ".swiftdeps")
+            swiftdeps_artifact = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + file_name + ".swiftdeps", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
             output_file_map[src.file] = {
                 "object": output_artifact,
                 "swift-dependencies": swiftdeps_artifact,
@@ -191,7 +196,7 @@ def _get_output_file_map(
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
             if toolchain.use_depsfiles:
-                deps_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".d")
+                deps_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".d", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
                 depfiles.append(deps_artifact)
                 all_outputs.append(deps_artifact)
 

@@ -14,6 +14,7 @@ load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load(
     ":swift_incremental_support.bzl",
     "IncrementalCompilationInput",  # @unused Used as a type
+    "get_uses_experimental_content_based_path_hashing",
     "should_build_swift_incrementally",
 )
 load(":swift_output_file_map.bzl", "add_output_file_map_flags", "add_serialized_diagnostics_output")
@@ -46,6 +47,8 @@ def compile_with_argsfile_cmd(
         incremental_artifacts: IncrementalCompilationInput | None) -> CompileWithArgsFileCmdOutput:
     object_outputs = [obj.as_output() for obj in objects]
 
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+
     writable_incremental_args = []
     if incremental_artifacts:
         writable_incremental_args.extend(object_outputs)
@@ -75,7 +78,7 @@ def compile_with_argsfile_cmd(
 
         # This path needs to be kept in sync with the _SWIFT_FILES_ARGSFILE
         # variable in swift_exec.py.
-        swift_files, _ = ctx.actions.write(".{}_swift_srcs".format(category), swift_quoted_files, allow_args = True)
+        swift_files, _ = ctx.actions.write(".{}_swift_srcs".format(category), swift_quoted_files, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "", hidden = swift_quoted_files)
         cmd.add(swift_files_cmd_form)
 
@@ -86,7 +89,7 @@ def compile_with_argsfile_cmd(
     error_outputs = []
 
     if supports_serialized_errors and error_deserializer:
-        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category)).as_output()
+        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category), uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing).as_output()
         error_outputs.append(json_error_output)
         add_serialized_diagnostics_output(
             output_file_map = output_file_map if supports_output_file_map else None,
@@ -104,7 +107,7 @@ def compile_with_argsfile_cmd(
             # .dia output for each .o output. These need to be made writable.
             for obj in objects:
                 name_without_extension, _ = paths.split_extension(obj.short_path)
-                diag_output = ctx.actions.declare_output("{}.dia".format(name_without_extension))
+                diag_output = ctx.actions.declare_output("{}.dia".format(name_without_extension), uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
                 cmd.add(cmd_args(hidden = diag_output.as_output()))
                 writable_incremental_args.append(diag_output.as_output())
 

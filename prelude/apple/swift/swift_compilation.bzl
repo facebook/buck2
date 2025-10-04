@@ -62,6 +62,7 @@ load(
     "get_incremental_file_hashing_enabled",
     "get_incremental_object_compilation_flags",
     "get_incremental_remote_outputs_enabled",
+    "get_uses_experimental_content_based_path_hashing",
     "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
@@ -318,7 +319,7 @@ def compile_swift(
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
 
-    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
     # Pass the framework search paths to the driver and clang importer. This is required
     # for pcm compilation, which does not pass through driver search paths.
@@ -380,8 +381,8 @@ def compile_swift(
     swiftinterface_output = None
     if _should_compile_with_evolution(ctx):
         swift_framework_output = SwiftLibraryForDistributionOutput(
-            swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface"),
-            private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
+            swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
+            private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
             swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),  #this is generated automatically once we pass -emit-module-info, so must have this name
         )
     elif _should_compile_with_swift_interface(ctx):
@@ -660,6 +661,8 @@ def _compile_typecheck_diagnostics(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags]) -> Artifact:
     category = "swift_typecheck"
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+
     if uses_explicit_modules(ctx):
         category += "_with_explicit_mods"
 
@@ -684,7 +687,7 @@ def _compile_typecheck_diagnostics(
         incremental_artifacts = None,
     )
 
-    typecheck_file = ctx.actions.declare_output("swift-typecheck-stderr")
+    typecheck_file = ctx.actions.declare_output("swift-typecheck-stderr", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     typecheck_cmd = cmd_args([
@@ -728,7 +731,7 @@ def _compile_object(
         swiftdeps = incremental_compilation_output.swiftdeps
         depfiles = incremental_compilation_output.depfiles
     else:
-        uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+        uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
         num_threads = 1
         swiftdeps = []
         depfiles = []
@@ -1478,6 +1481,7 @@ def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module
     if not swift_ide_test_tool:
         return DefaultInfo()
     mk_swift_interface = swift_toolchain.mk_swift_interface
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
     identifier = module_name + ".swift_interface"
 
@@ -1485,8 +1489,9 @@ def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module
         identifier + "_argsfile",
         shared_flags,
         allow_args = True,
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
     )
-    interface_artifact = ctx.actions.declare_output(identifier)
+    interface_artifact = ctx.actions.declare_output(identifier, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
     mk_swift_args = cmd_args(
         mk_swift_interface,
