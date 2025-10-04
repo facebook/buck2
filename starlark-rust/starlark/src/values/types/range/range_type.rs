@@ -233,15 +233,13 @@ impl<'v> StarlarkValue<'v> for Range {
             if other < self.start || other >= self.stop {
                 return Ok(false);
             }
-            Ok((other.wrapping_sub(self.start) as u64) % (self.step.get() as u64) == 0)
+            Ok((other.wrapping_sub(self.start) as u64).is_multiple_of(self.step.get() as u64))
         } else {
             if other > self.start || other <= self.stop {
                 return Ok(false);
             }
-            Ok(
-                (self.start.wrapping_sub(other) as u64) % (self.step.get().wrapping_neg() as u64)
-                    == 0,
-            )
+            Ok((self.start.wrapping_sub(other) as u64)
+                .is_multiple_of(self.step.get().wrapping_neg() as u64))
         }
     }
 

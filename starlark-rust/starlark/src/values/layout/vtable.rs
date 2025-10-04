@@ -74,7 +74,7 @@ pub(crate) struct StarlarkValueRawPtr {
 impl StarlarkValueRawPtr {
     #[inline]
     pub(crate) fn new_header(ptr: &AValueHeader) -> Self {
-        debug_assert!(ptr as *const AValueHeader as usize % AValueHeader::ALIGN == 0);
+        debug_assert!((ptr as *const AValueHeader as usize).is_multiple_of(AValueHeader::ALIGN));
 
         unsafe {
             let ptr = (ptr as *const AValueHeader).add(1) as *const ();
@@ -98,7 +98,7 @@ impl StarlarkValueRawPtr {
         // `self.ptr` is a pointer to the end of `AValueHeader`.
         // Align it up to `T` by adding padding between `AValueRepr` fields.
         let ptr = self.ptr as usize + AValueRepr::<T>::padding_after_header();
-        debug_assert!(ptr % mem::align_of::<T>() == 0);
+        debug_assert!(ptr.is_multiple_of(mem::align_of::<T>()));
         ptr as *mut T
     }
 

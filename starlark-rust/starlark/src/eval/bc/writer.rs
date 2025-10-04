@@ -85,7 +85,7 @@ impl BcStatementLocations {
 
     fn idx_for(addr: BcAddr) -> usize {
         let addr = addr.0 as usize;
-        debug_assert!(addr % BC_INSTR_ALIGN == 0);
+        debug_assert!(addr.is_multiple_of(BC_INSTR_ALIGN));
         addr / BC_INSTR_ALIGN
     }
 
