@@ -569,10 +569,6 @@ impl DaemonState {
                 .construct_dice(io.dupe(), digest_config, root_config)
                 .await?;
 
-            // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
-            // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
-            // this list should be safe until we can revert it to Expr::True.
-
             let file_watcher = <dyn FileWatcher>::new(
                 fb,
                 paths.project_root(),
