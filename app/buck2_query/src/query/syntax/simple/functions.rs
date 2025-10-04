@@ -921,9 +921,39 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         left: QueryValue<Env::Target>,
         right: QueryValue<Env::Target>,
     ) -> Result<QueryValue<Env::Target>, QueryError> {
-        let left = accept_target_set(env, left).await?;
-        let right = accept_target_set(env, right).await?;
-        Ok(QueryValue::TargetSet(left.intersect(&right)?))
+        match(left,right) {
+            (QueryValue::TargetSet(l), QueryValue::TargetSet(r)) => {
+                Ok(QueryValue::TargetSet(l.intersect(&r)?))
+            }
+            (QueryValue::String(l), QueryValue::TargetSet(r)) => {
+                let l = env.eval_literals(&[&l]).await?;
+                Ok(QueryValue::TargetSet(l.intersect(&r)?))
+            }
+            (QueryValue::TargetSet(l), QueryValue::String(r)) => {
+                let r = env.eval_literals(&[&r]).await?;
+                Ok(QueryValue::TargetSet(l.intersect(&r)?))
+            }
+            (QueryValue::FileSet(l), QueryValue::FileSet(r)) => {
+                Ok(QueryValue::FileSet(l.intersect(&r)?))
+            }
+            (QueryValue::String(l), QueryValue::FileSet(r)) => {
+                let l = env.eval_file_literal(&l).await?;
+                Ok(QueryValue::FileSet(l.intersect(&r)?))
+            }
+            (QueryValue::FileSet(l), QueryValue::String(r)) => {
+                let r = env.eval_file_literal(&r).await?;
+                Ok(QueryValue::FileSet(l.intersect(&r)?))
+            }
+            (QueryValue::String(l), QueryValue::String(r)) => {
+                let l = env.eval_literals(&[&l]).await?;
+                let r = env.eval_literals(&[&r]).await?;
+                Ok(QueryValue::TargetSet(l.intersect(&r)?))
+            }
+            (left, right) => Err(QueryError::UnionIncompatibleTypes(
+                    left.variant_name(),
+                    right.variant_name(),
+            )),
+        }
     }
 
     pub async fn except(
