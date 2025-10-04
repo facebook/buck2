@@ -88,7 +88,7 @@ where
 
 impl<L, H> DirectoryBuilder<L, H>
 where
-    L: Clone,
+    L: Clone + PartialEq + Eq,
     H: DirectoryDigest,
 {
     /// Insert the entry `val` at `path`.
@@ -307,7 +307,7 @@ trait LeafMapCallable<Ctx, L, H: DirectoryDigest, E> =
 impl<L, H> DirectoryBuilder<L, H>
 where
     H: DirectoryDigest,
-    L: Clone,
+    L: Clone + PartialEq + Eq,
 {
     /// Map over an entry.
     ///
@@ -389,16 +389,36 @@ where
         };
 
         let new_entry = match e {
-            DirectoryEntry::Leaf(l) => match map_leaf(ctx, Some(l), &needle) {
-                Ok(MapEntryOperation::Overwrite(lnew)) => lnew,
-                Ok(MapEntryOperation::Keep(())) => return ControlFlow::Break(Ok(())),
-                Err(e) => return ControlFlow::Break(Err(e)),
-            },
-            DirectoryEntry::Dir(d) => match map_dir(ctx, d.dupe().into_builder(), &needle) {
-                Ok(MapEntryOperation::Overwrite(dnew)) => dnew,
-                Ok(MapEntryOperation::Keep(_)) => return ControlFlow::Break(Ok(())),
-                Err(e) => return ControlFlow::Break(Err(e)),
-            },
+            DirectoryEntry::Leaf(l) => {
+                let lnew = match map_leaf(ctx, Some(l), &needle) {
+                    Ok(MapEntryOperation::Overwrite(lnew)) => lnew,
+                    Ok(MapEntryOperation::Keep(())) => return ControlFlow::Break(Ok(())),
+                    Err(e) => return ControlFlow::Break(Err(e)),
+                };
+                if let DirectoryEntry::Leaf(lnew) = &lnew {
+                    if lnew == l {
+                        return ControlFlow::Break(Ok(()));
+                    }
+                }
+                lnew
+            }
+            DirectoryEntry::Dir(d) => {
+                let fingerprint = d.fingerprint();
+                let dnew = match map_dir(ctx, d.dupe().into_builder(), &needle) {
+                    Ok(MapEntryOperation::Overwrite(dnew)) => dnew,
+                    Ok(MapEntryOperation::Keep(_)) => return ControlFlow::Break(Ok(())),
+                    Err(e) => return ControlFlow::Break(Err(e)),
+                };
+                if let DirectoryEntry::Dir(DirectoryBuilder::Immutable(
+                    ImmutableDirectory::Shared(sharednew),
+                )) = &dnew
+                {
+                    if sharednew.fingerprint() == fingerprint {
+                        return ControlFlow::Break(Ok(()));
+                    }
+                }
+                dnew
+            }
         };
 
         let this = self.as_mut();
@@ -693,8 +713,7 @@ mod tests {
         // we use this as a way to measure whether `SharedDirectory`s are reused or not
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
-        // FIXME(JakobDegen): We should reuse the initial value
-        assert_eq!(1, digester.0.get());
+        assert_eq!(0, digester.0.get());
     }
 
     #[test]
@@ -723,7 +742,6 @@ mod tests {
         merged.merge(subset.into_builder()).unwrap();
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
-        // FIXME(JakobDegen): We should reuse the initial value
-        assert_eq!(1, digester.0.get());
+        assert_eq!(0, digester.0.get());
     }
 }
