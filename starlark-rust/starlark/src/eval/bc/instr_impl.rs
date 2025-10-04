@@ -998,7 +998,7 @@ impl InstrNoFlowImpl for InstrDictNPopImpl {
         (npops, target): &(BcSlotInRange, BcSlotOut),
     ) -> crate::Result<()> {
         let items = frame.get_bc_slot_range(*npops);
-        debug_assert!(items.len() % 2 == 0);
+        debug_assert!(items.len().is_multiple_of(2));
         let mut dict = SmallMap::with_capacity(items.len() / 2);
         for i in 0..items.len() / 2 {
             let k = items[i * 2];

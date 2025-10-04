@@ -131,7 +131,7 @@ impl Alloca {
 
     #[inline(always)]
     fn len_in_to_to_len_in_words<T>(len: usize) -> usize {
-        if mem::size_of::<T>() % ALIGN == 0 {
+        if mem::size_of::<T>().is_multiple_of(ALIGN) {
             // Special case to make common case fast:
             // https://rust.godbolt.org/z/adh3nzdzs
             len * (mem::size_of::<T>() / ALIGN)

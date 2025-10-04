@@ -308,7 +308,7 @@ impl BcInstrsWriter {
 
     pub(crate) fn write<I: BcInstr>(&mut self, arg: I::Arg) -> (BcAddr, *const I::Arg) {
         let repr = BcInstrRepr::<I>::new(arg);
-        assert!(mem::size_of_val(&repr) % mem::size_of::<u64>() == 0);
+        assert!(mem::size_of_val(&repr).is_multiple_of(mem::size_of::<u64>()));
 
         let ip = self.ip();
 
@@ -346,7 +346,7 @@ impl BcInstrsWriter {
                 (self.instrs.as_mut_ptr() as *mut u8).add(addr.arg.0 as usize) as *mut BcAddrOffset;
             assert!(*mem_addr == BcAddrOffset::FORWARD);
             *mem_addr = self.ip().offset_from(addr.instr_start);
-            debug_assert!(((*mem_addr).0 as usize) % BC_INSTR_ALIGN == 0);
+            debug_assert!(((*mem_addr).0 as usize).is_multiple_of(BC_INSTR_ALIGN));
         }
     }
 
@@ -365,7 +365,7 @@ impl BcInstrsWriter {
         // so we `mem::take`.
         let instrs = mem::take(&mut self.instrs);
         let instrs = instrs.into_boxed_slice();
-        assert!((instrs.as_ptr() as usize) % BC_INSTR_ALIGN == 0);
+        assert!((instrs.as_ptr() as usize).is_multiple_of(BC_INSTR_ALIGN));
         BcInstrs::for_instrs(Either::Left(instrs), stmt_locs)
     }
 }

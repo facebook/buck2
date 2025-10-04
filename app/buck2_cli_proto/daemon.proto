@@ -61,6 +61,7 @@ message KillResponse {}
 
 message StatusRequest {
   bool snapshot = 1;
+  bool include_tokio_runtime_metrics = 2;
 }
 
 message StatusResponse {
@@ -80,6 +81,13 @@ message StatusResponse {
   optional bool valid_working_directory = 14;
   optional bool valid_buck_out_mount = 15;
   optional string io_provider = 16;
+  optional TokioRuntimeMetrics tokio_runtime_metrics = 17;
+}
+
+message TokioRuntimeMetrics {
+  uint64 num_workers = 1;
+  uint64 num_alive_tasks = 2;
+  uint64 global_queue_depth = 3;
 }
 
 message PingRequest {

@@ -11,6 +11,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "LinkerType",
@@ -806,8 +807,9 @@ def get_link_args_for_strategy(
     )
 
     if transformation_spec_context and not transformation_spec_context.provider.is_empty:
+        link_ordering = get_cxx_toolchain_info(ctx).linker_info.link_ordering or "preorder"
         flattened_results = []
-        for link_infos in infos.traverse():
+        for link_infos in infos.traverse(ordering = link_ordering):
             link_info = get_link_info_for_transformation(
                 transformation_spec_context,
                 link_infos,

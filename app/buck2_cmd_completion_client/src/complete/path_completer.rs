@@ -9,6 +9,9 @@
  */
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::fs_util::IoError;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 
 use super::path_sanitizer::PathSanitizer;
@@ -78,8 +81,9 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         if let Some(offset_dir) = partial_path.parent() {
             scan_dir = scan_dir.join(offset_dir);
         }
-
-        for entry_result in scan_dir.read_dir()? {
+        let scan_dir = AbsNormPath::new(&scan_dir)?;
+        let entries = fs_util::read_dir(scan_dir).map_err(IoError::categorize_for_source_file)?;
+        for entry_result in entries {
             let entry = entry_result?;
             if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
                 let given_expanded =
@@ -99,7 +103,9 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
             scan_dir = scan_dir.join(offset_dir);
         }
 
-        for entry_result in scan_dir.read_dir()? {
+        let scan_dir = AbsNormPath::new(&scan_dir)?;
+        let entries = fs_util::read_dir(scan_dir).map_err(IoError::categorize_for_source_file)?;
+        for entry_result in entries {
             let entry = entry_result?;
             if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
                 return Ok(true);

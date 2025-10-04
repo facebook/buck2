@@ -65,6 +65,7 @@ def _main(ctx: bxl.Context) -> None:
             "forward",
             "prelude//rules.bzl:command_alias",
             "prelude//rules.bzl:export_file",
+            "prelude//rules.bzl:filegroup",
         ):
             continue
 

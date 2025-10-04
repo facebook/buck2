@@ -92,7 +92,7 @@ impl TargetBookmarkMap {
             .iter()
             .find(|(regex, _)| regex.is_match(target))
             .map(|(_, bookmarks)| bookmarks.clone())
-            .unwrap_or_else(|| vec![])
+            .unwrap_or_default()
     }
 }
 

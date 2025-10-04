@@ -51,7 +51,7 @@ struct ChunkDataEmpty {
 
 const _: () = assert!(mem::size_of::<ChunkDataEmpty>() == mem::size_of::<ChunkData>());
 const _: () = assert!(mem::align_of::<ChunkDataEmpty>() == mem::align_of::<ChunkData>());
-const _: () = assert!(mem::size_of::<ChunkData>() % mem::size_of::<usize>() == 0);
+const _: () = assert!(mem::size_of::<ChunkData>().is_multiple_of(mem::size_of::<usize>()));
 
 static EMPTY_ALLOC: ChunkDataEmpty = ChunkDataEmpty {
     ref_count: 0,

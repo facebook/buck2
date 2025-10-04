@@ -268,10 +268,14 @@ impl BuckdClient {
         &mut self,
         events_ctx: &mut DaemonEventsCtx<'a>,
         snapshot: bool,
+        include_tokio_runtime_metrics: bool,
     ) -> buck2_error::Result<StatusResponse> {
         let outcome = events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
-            .unpack_oneshot(self.client.status(Request::new(StatusRequest { snapshot })))
+            .unpack_oneshot(self.client.status(Request::new(StatusRequest {
+                snapshot,
+                include_tokio_runtime_metrics,
+            })))
             .await;
         // TODO(nmj): We have a number of things that wish to use status() and return an buck2_error::Result,
         // for now we'll just turn a "CommandMessage" into a error, but that's really not what we
@@ -577,7 +581,21 @@ impl FlushingBuckdClient<'_> {
         UnstableDiceDumpResponse
     );
 
-    wrap_method!(status(snapshot: bool), StatusResponse);
+    pub async fn status(
+        &mut self,
+        events_ctx: &mut EventsCtx,
+        snapshot: bool,
+        include_tokio_runtime_metrics: bool,
+    ) -> buck2_error::Result<StatusResponse> {
+        let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
+        let out = self
+            .inner
+            .status(&mut events_ctx, snapshot, include_tokio_runtime_metrics)
+            .await;
+        events_ctx.flush().await?;
+        out
+    }
+
     wrap_method!(set_log_filter(log_filter: SetLogFilterRequest), ());
     stream_method!(trace_io, TraceIoRequest, TraceIoResponse, NoPartialResult);
 

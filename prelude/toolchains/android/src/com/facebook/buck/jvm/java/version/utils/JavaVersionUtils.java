@@ -30,7 +30,7 @@ public class JavaVersionUtils {
 
   /** Returns the major version from a Java version string (e.g. 8 for "1.8", and 10 for "10.0"). */
   public static int getMajorVersionFromString(String version) {
-    String[] versionParts = Objects.requireNonNull(version).split("\\.");
+    String[] versionParts = Objects.requireNonNull(version).split("\\.|-");
     return Integer.parseInt((versionParts[0].equals("1")) ? versionParts[1] : versionParts[0]);
   }
 }

@@ -54,7 +54,7 @@ struct BcFrame<'v> {
     slots: [Option<Value<'v>>; 0],
 }
 
-const _: () = assert!(mem::size_of::<BcFrame>() % mem::size_of::<usize>() == 0);
+const _: () = assert!(mem::size_of::<BcFrame>().is_multiple_of(mem::size_of::<usize>()));
 const _: () = assert!(mem::align_of::<BcFrame>() == mem::align_of::<usize>());
 
 #[derive(Copy, Clone, Dupe)]

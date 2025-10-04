@@ -9,6 +9,7 @@
  */
 
 use std::mem;
+use std::ops::ControlFlow;
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
@@ -19,6 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
+use dupe::Dupe;
 use either::Either;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
@@ -86,7 +88,7 @@ where
 
 impl<L, H> DirectoryBuilder<L, H>
 where
-    L: Clone,
+    L: Clone + PartialEq + Eq,
     H: DirectoryDigest,
 {
     /// Insert the entry `val` at `path`.
@@ -186,11 +188,28 @@ where
         Ok(())
     }
 
+    /// Same as `merge`, but assumes that the two directories agree on where all the leaves are and
+    /// also the values of those leaves.
+    ///
+    /// In other words, this cannot be used to "replace" any existing things in the directory
+    pub fn merge_with_compatible_leaves(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
+        if !buck2_core::faster_directories::is_enabled() {
+            return self.merge(other);
+        }
+
+        let v = std::mem::replace(self, DirectoryBuilder::empty());
+        let v = v
+            .merge_inner(other, true)
+            .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })?;
+        *self = v;
+        Ok(())
+    }
+
     pub fn merge(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
         if buck2_core::faster_directories::is_enabled() {
             let v = std::mem::replace(self, DirectoryBuilder::empty());
             let v = v
-                .merge_inner(other)
+                .merge_inner(other, false)
                 .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })?;
             *self = v;
             Ok(())
@@ -200,7 +219,7 @@ where
         }
     }
 
-    fn merge_inner(mut self, other: Self) -> Result<Self, PathAccumulator> {
+    fn merge_inner(mut self, other: Self, leaf_compatible: bool) -> Result<Self, PathAccumulator> {
         match (&self, &other) {
             (Self::Immutable(d1), Self::Immutable(d2)) if d1.fingerprint() == d2.fingerprint() => {
                 return Ok(self);
@@ -208,35 +227,41 @@ where
             _ => {}
         }
 
-        let entries = self.as_mut();
-
         // Use internal iteration instead of a for loop because of the `Either`s underlying this
         // iterator
-        other
-            .into_entries()
-            .try_for_each(|(k, v)| match entries.entry(k) {
-                Entry::Occupied(mut entry) => match (entry.get_mut(), v) {
-                    (DirectoryEntry::Dir(d), DirectoryEntry::Dir(o)) => {
-                        let d_val = std::mem::replace(d, DirectoryBuilder::empty());
-                        match d_val.merge_inner(o) {
-                            Ok(d_val) => {
-                                *d = d_val;
-                                Ok(())
-                            }
-                            Err(e) => Err(e.with(entry.key())),
+        other.into_entries().try_for_each(|(k, v)| {
+            self.map_entry(
+                k,
+                v,
+                |v, dir_left, needle| match v {
+                    DirectoryEntry::Dir(dir_right) => {
+                        Ok(MapEntryOperation::Overwrite(DirectoryEntry::Dir(
+                            dir_left
+                                .merge_inner(dir_right, leaf_compatible)
+                                .map_err(|e| e.with(needle))?,
+                        )))
+                    }
+                    DirectoryEntry::Leaf(leaf_right) => Ok(MapEntryOperation::Overwrite(
+                        DirectoryEntry::Leaf(leaf_right),
+                    )),
+                },
+                |v, leaf_left, needle| match v {
+                    DirectoryEntry::Dir(dir_right) => match leaf_left {
+                        Some(_) => Err(PathAccumulator::new(needle)),
+                        None => Ok(MapEntryOperation::Overwrite(DirectoryEntry::Dir(dir_right))),
+                    },
+                    DirectoryEntry::Leaf(leaf_right) => {
+                        if leaf_compatible && leaf_left.is_some() {
+                            Ok(MapEntryOperation::Keep(()))
+                        } else {
+                            Ok(MapEntryOperation::Overwrite(DirectoryEntry::Leaf(
+                                leaf_right,
+                            )))
                         }
                     }
-                    (entry, DirectoryEntry::Leaf(o)) => {
-                        *entry = DirectoryEntry::Leaf(o);
-                        Ok(())
-                    }
-                    _ => Err(PathAccumulator::new(entry.key())),
                 },
-                Entry::Vacant(entry) => {
-                    entry.insert(v);
-                    Ok(())
-                }
-            })?;
+            )
+        })?;
 
         Ok(self)
     }
@@ -273,7 +298,163 @@ where
 
         Ok(())
     }
+}
 
+enum MapEntryOperation<K, O> {
+    Keep(K),
+    Overwrite(O),
+}
+
+impl<T> MapEntryOperation<T, T> {
+    fn into_inner(self) -> T {
+        match self {
+            Self::Keep(t) => t,
+            Self::Overwrite(t) => t,
+        }
+    }
+}
+
+type BuilderEntry<L, H> = DirectoryEntry<DirectoryBuilder<L, H>, L>;
+
+trait DirMapCallable<Ctx, L, H: DirectoryDigest, E> =
+    FnOnce(
+        Ctx,
+        DirectoryBuilder<L, H>,
+        &FileName,
+    ) -> Result<MapEntryOperation<BuilderEntry<L, H>, BuilderEntry<L, H>>, E>;
+
+trait LeafMapCallable<Ctx, L, H: DirectoryDigest, E> =
+    FnOnce(Ctx, Option<&L>, &FileName) -> Result<MapEntryOperation<(), BuilderEntry<L, H>>, E>;
+
+impl<L, H> DirectoryBuilder<L, H>
+where
+    H: DirectoryDigest,
+    L: Clone + PartialEq + Eq,
+{
+    /// Map over an entry.
+    ///
+    /// Calls `map_dir` or `map_leaf` with the existing entry and performs the operation specified
+    /// by the return value. `map_leaf` is called with `None` in the case where there isn't an
+    /// existing entry.
+    ///
+    /// `ctx` is arbitrary data that the user can pass in, used to prove to the compiler that only
+    /// one or the other closure is called
+    ///
+    /// If that sounds a bit awkward, it is.
+    fn map_entry<E, Ctx>(
+        &mut self,
+        needle: FileNameBuf,
+        ctx: Ctx,
+        map_dir: impl DirMapCallable<Ctx, L, H, E>,
+        map_leaf: impl LeafMapCallable<Ctx, L, H, E>,
+    ) -> Result<(), E> {
+        match self.map_entry_fasttrack(needle, ctx, map_dir, map_leaf) {
+            ControlFlow::Break(v) => v,
+            ControlFlow::Continue((needle, ctx, map_dir, map_leaf)) => {
+                let s = self.as_mut();
+                let entry = s.entry(needle);
+                match entry {
+                    Entry::Occupied(mut entry) => {
+                        let (k, v) = entry.as_key_and_mut_value();
+                        match v {
+                            DirectoryEntry::Dir(v) => {
+                                let vnew = map_dir(
+                                    ctx,
+                                    std::mem::replace(v, DirectoryBuilder::empty()),
+                                    k,
+                                )?;
+                                *entry.get_mut() = vnew.into_inner();
+                            }
+                            DirectoryEntry::Leaf(l) => {
+                                if let MapEntryOperation::Overwrite(lnew) =
+                                    map_leaf(ctx, Some(l), k)?
+                                {
+                                    *entry.get_mut() = lnew;
+                                }
+                            }
+                        }
+                    }
+                    Entry::Vacant(entry) => {
+                        if let MapEntryOperation::Overwrite(enew) =
+                            map_leaf(ctx, None, &entry.key())?
+                        {
+                            entry.insert(enew);
+                        }
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Attempt a faster version of `map_entry`
+    ///
+    /// This is optimized to avoid requiring `as_mut` if nothing new is being inserted.
+    fn map_entry_fasttrack<
+        Ctx,
+        E,
+        MapD: DirMapCallable<Ctx, L, H, E>,
+        MapL: LeafMapCallable<Ctx, L, H, E>,
+    >(
+        &mut self,
+        needle: FileNameBuf,
+        ctx: Ctx,
+        map_dir: MapD,
+        map_leaf: MapL,
+    ) -> ControlFlow<Result<(), E>, (FileNameBuf, Ctx, MapD, MapL)> {
+        let Self::Immutable(ImmutableDirectory::Shared(d)) = self else {
+            return ControlFlow::Continue((needle, ctx, map_dir, map_leaf));
+        };
+
+        let Some(e) = d.get(&needle) else {
+            return ControlFlow::Continue((needle, ctx, map_dir, map_leaf));
+        };
+
+        let new_entry = match e {
+            DirectoryEntry::Leaf(l) => {
+                let lnew = match map_leaf(ctx, Some(l), &needle) {
+                    Ok(MapEntryOperation::Overwrite(lnew)) => lnew,
+                    Ok(MapEntryOperation::Keep(())) => return ControlFlow::Break(Ok(())),
+                    Err(e) => return ControlFlow::Break(Err(e)),
+                };
+                if let DirectoryEntry::Leaf(lnew) = &lnew {
+                    if lnew == l {
+                        return ControlFlow::Break(Ok(()));
+                    }
+                }
+                lnew
+            }
+            DirectoryEntry::Dir(d) => {
+                let fingerprint = d.fingerprint();
+                let dnew = match map_dir(ctx, d.dupe().into_builder(), &needle) {
+                    Ok(MapEntryOperation::Overwrite(dnew)) => dnew,
+                    Ok(MapEntryOperation::Keep(_)) => return ControlFlow::Break(Ok(())),
+                    Err(e) => return ControlFlow::Break(Err(e)),
+                };
+                if let DirectoryEntry::Dir(DirectoryBuilder::Immutable(
+                    ImmutableDirectory::Shared(sharednew),
+                )) = &dnew
+                {
+                    if sharednew.fingerprint() == fingerprint {
+                        return ControlFlow::Break(Ok(()));
+                    }
+                }
+                dnew
+            }
+        };
+
+        let this = self.as_mut();
+        this.insert(needle, new_entry);
+
+        ControlFlow::Break(Ok(()))
+    }
+}
+
+impl<L, H> DirectoryBuilder<L, H>
+where
+    L: Clone,
+    H: DirectoryDigest,
+{
     pub(super) fn as_mut(
         &mut self,
     ) -> &mut SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>> {
@@ -554,8 +735,7 @@ mod tests {
         // we use this as a way to measure whether `SharedDirectory`s are reused or not
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
-        // FIXME(JakobDegen): We should reuse the initial value
-        assert_eq!(1, digester.0.get());
+        assert_eq!(0, digester.0.get());
     }
 
     #[test]
@@ -584,7 +764,6 @@ mod tests {
         merged.merge(subset.into_builder()).unwrap();
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
-        // FIXME(JakobDegen): We should reuse the initial value
-        assert_eq!(1, digester.0.get());
+        assert_eq!(0, digester.0.get());
     }
 }

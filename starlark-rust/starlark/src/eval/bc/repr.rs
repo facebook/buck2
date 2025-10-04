@@ -77,7 +77,7 @@ impl<I: BcInstr> BcInstrRepr<I> {
             any::type_name::<BcInstrRepr<I>>()
         );
         assert!(
-            mem::size_of::<BcInstrRepr<I>>() % BC_INSTR_ALIGN == 0,
+            mem::size_of::<BcInstrRepr<I>>().is_multiple_of(BC_INSTR_ALIGN),
             "{}",
             any::type_name::<BcInstrRepr<I>>()
         );
