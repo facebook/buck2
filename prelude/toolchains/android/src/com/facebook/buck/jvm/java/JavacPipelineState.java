@@ -15,7 +15,6 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.core.BuildTargetValue;
-import com.facebook.buck.jvm.java.version.JavaVersion;
 import com.facebook.buck.util.CapturingPrintStream;
 import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
@@ -227,9 +226,8 @@ public class JavacPipelineState implements AutoCloseable {
     }
 
     List<String> classpathEntries = new ArrayList<>();
-    JavaVersion targetRelease =
-        resolvedJavacOptions.getLanguageLevelOptions().getTargetLevelValue();
-    if (targetRelease.compareTo(JavaVersion.VERSION_9) >= 0) {
+    int targetRelease = resolvedJavacOptions.getLanguageLevelOptions().getTargetLevelValue();
+    if (targetRelease > 8) {
       String systemImage = resolvedJavacOptions.getSystemImage();
       if (systemImage != null) {
         classpathEntries.add(bootclasspath.get());
