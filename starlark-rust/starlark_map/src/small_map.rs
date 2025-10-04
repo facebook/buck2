@@ -843,6 +843,12 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     pub(crate) fn into_mut_entry(self) -> (&'a K, &'a mut V) {
         (self.key, self.value)
     }
+
+    /// Get access to both the key and the value in the entry
+    #[inline]
+    pub fn as_key_and_mut_value(&mut self) -> (&K, &mut V) {
+        (self.key, self.value)
+    }
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V>
