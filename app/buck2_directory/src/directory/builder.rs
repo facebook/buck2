@@ -219,10 +219,34 @@ where
         }
     }
 
-    fn merge_inner(mut self, other: Self, leaf_compatible: bool) -> Result<Self, PathAccumulator> {
+    fn merge_inner(
+        mut self,
+        mut other: Self,
+        leaf_compatible: bool,
+    ) -> Result<Self, PathAccumulator> {
         match (&self, &other) {
             (Self::Immutable(d1), Self::Immutable(d2)) if d1.fingerprint() == d2.fingerprint() => {
                 return Ok(self);
+            }
+            (Self::Immutable(d1), d2) => {
+                let d2_len = match d2 {
+                    DirectoryBuilder::Mutable(m) => m.len(),
+                    DirectoryBuilder::Immutable(im) => im.len(),
+                };
+                // Optimization: Merge the smaller directory into the larger one, since the work we
+                // do is linear in the size of the RHS
+                //
+                // Only do this if the LHS is still immutable, as otherwise we'd just end up
+                // spending O(len(new LHS)) to convert it into a SmallMap anyway
+                //
+                // Finally, we may also only do this if we know the leaves are compatible. Otherwise
+                // we'll change which one overrides which
+                if d1.len() < d2_len && leaf_compatible {
+                    std::mem::swap(&mut self, &mut other);
+                }
+            }
+            (Self::Mutable(m), _) if m.is_empty() => {
+                return Ok(other);
             }
             _ => {}
         }
@@ -745,13 +769,15 @@ mod tests {
 
         // Merge `superset` into `subset`
         let mut merged = subset.into_builder();
-        merged.merge(superset.into_builder()).unwrap();
+        merged
+            .merge_with_compatible_leaves(superset.into_builder())
+            .unwrap();
         // Compute the fingerprint of the merge and count the number of fingerprinting operations -
         // we use this as a way to measure whether `ImmutableDirectory`s are reused or not
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
         // FIXME(JakobDegen): We should reuse the initial value
-        assert_eq!(1, digester.0.get());
+        assert_eq!(0, digester.0.get());
     }
 
     #[test]
@@ -762,6 +788,16 @@ mod tests {
 
         let mut merged = superset.into_builder();
         merged.merge(subset.into_builder()).unwrap();
+        let digester = CountingDigester(Cell::new(0), TestHasher);
+        merged.fingerprint(&digester);
+        assert_eq!(0, digester.0.get());
+    }
+
+    #[test]
+    fn test_reuse_when_merging_into_empty_dir() {
+        let mut merged = DirectoryBuilder::empty();
+        merged.merge(make_directory(&["a"]).into_builder()).unwrap();
+
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
         assert_eq!(0, digester.0.get());

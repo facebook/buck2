@@ -52,6 +52,13 @@ where
             Self::Shared(s) => s.into_builder(),
         }
     }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Exclusive(dir) => dir.data.entries.len(),
+            Self::Shared(dir) => dir.inner.data.entries.len(),
+        }
+    }
 }
 
 impl<L, H> ImmutableDirectory<L, H>
