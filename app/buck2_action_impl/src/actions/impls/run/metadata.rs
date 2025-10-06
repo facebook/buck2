@@ -15,8 +15,8 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::LazyActionDirectoryBuilder;
 use buck2_execute::execute::paths_with_digest::PathsWithDigestBlobData;
 use buck2_execute::execute::paths_with_digest::PathsWithDigestBuilder;
 
@@ -27,10 +27,11 @@ pub(crate) fn metadata_content(
 ) -> buck2_error::Result<(PathsWithDigestBlobData, TrackedFileDigest)> {
     let mut blob_builder = PathsWithDigestBuilder::default();
 
-    let mut builder = ActionDirectoryBuilder::empty();
+    let mut builder = LazyActionDirectoryBuilder::empty();
     for &group in inputs {
         group.add_to_directory(&mut builder, fs)?;
     }
+    let builder = builder.finalize()?;
 
     let mut walk = builder.ordered_walk_leaves();
     while let Some((path, item)) = walk.next() {

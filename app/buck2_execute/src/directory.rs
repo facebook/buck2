@@ -31,6 +31,8 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_directory::directory::builder::DirectoryBuilder;
+use buck2_directory::directory::builder_lazy::DirectoryBuilderLike;
+use buck2_directory::directory::builder_lazy::LazyDirectoryBuilder;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::DirectoryDigester;
@@ -81,6 +83,9 @@ pub type ActionImmutableDirectory = ImmutableDirectory<ActionDirectoryMember, Tr
 pub type ActionSharedDirectory = SharedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
 pub type ActionDirectoryBuilder = DirectoryBuilder<ActionDirectoryMember, TrackedFileDigest>;
+
+pub type LazyActionDirectoryBuilder =
+    LazyDirectoryBuilder<ActionDirectoryMember, TrackedFileDigest>;
 
 pub trait ActionDirectory = Directory<ActionDirectoryMember, TrackedFileDigest>;
 
@@ -516,10 +521,10 @@ pub fn override_executable_bit(
     Ok(())
 }
 
-pub fn insert_entry(
-    builder: &mut ActionDirectoryBuilder,
+pub fn insert_entry<D>(
+    builder: &mut impl DirectoryBuilderLike<D, ActionDirectoryMember>,
     path: &ProjectRelativePath,
-    entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
+    entry: ActionDirectoryEntry<D>,
 ) -> buck2_error::Result<()> {
     if let DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) = entry {
         // ExternalSymlink is a bit of an odd concept. The way it works is that when you try to
@@ -586,8 +591,21 @@ pub fn insert_artifact(
     Ok(())
 }
 
-pub fn insert_file(
-    builder: &mut ActionDirectoryBuilder,
+pub fn insert_artifact_lazy(
+    builder: &mut LazyActionDirectoryBuilder,
+    path: &ProjectRelativePath,
+    value: &ArtifactValue,
+) -> buck2_error::Result<()> {
+    insert_entry(builder, path, value.entry().dupe())?;
+    // add input's deps
+    if let Some(deps) = value.deps() {
+        builder.merge(deps.dupe())?;
+    }
+    Ok(())
+}
+
+pub fn insert_file<D>(
+    builder: &mut impl DirectoryBuilderLike<D, ActionDirectoryMember>,
     path: &ProjectRelativePath,
     meta: FileMetadata,
 ) -> buck2_error::Result<()> {

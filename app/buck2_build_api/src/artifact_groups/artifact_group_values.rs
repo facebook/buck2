@@ -16,17 +16,16 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_directory::directory::directory::Directory;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
-use buck2_execute::directory::insert_artifact;
+use buck2_execute::directory::LazyActionDirectoryBuilder;
+use buck2_execute::directory::insert_artifact_lazy;
 use dupe::Dupe;
 use smallvec::SmallVec;
 use smallvec::smallvec;
@@ -44,16 +43,16 @@ impl ArtifactGroupValues {
         artifact_fs: &ArtifactFs,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
-        let mut content_based_builder = ActionDirectoryBuilder::empty();
-        let mut non_content_based_builder = ActionDirectoryBuilder::empty();
-        let mut dep_files_builder = ActionDirectoryBuilder::empty();
+        let mut content_based_builder = LazyActionDirectoryBuilder::empty();
+        let mut non_content_based_builder = LazyActionDirectoryBuilder::empty();
+        let mut dep_files_builder = LazyActionDirectoryBuilder::empty();
 
         for (artifact, value) in values.iter() {
             if artifact.has_content_based_path() {
                 let path = artifact
                     .resolve_path(artifact_fs, Some(&value.content_based_path_hash()))
                     .buck_error_context("Invalid artifact")?;
-                insert_artifact(&mut content_based_builder, path.as_ref(), value)?;
+                insert_artifact_lazy(&mut content_based_builder, path.as_ref(), value)?;
 
                 let dep_files_path = artifact
                     .resolve_path(
@@ -61,12 +60,12 @@ impl ArtifactGroupValues {
                         Some(&ContentBasedPathHash::DepFilesPlaceholder),
                     )
                     .buck_error_context("Invalid artifact")?;
-                insert_artifact(&mut dep_files_builder, dep_files_path.as_ref(), value)?;
+                insert_artifact_lazy(&mut dep_files_builder, dep_files_path.as_ref(), value)?;
             } else {
                 let path = artifact
                     .resolve_path(artifact_fs, None)
                     .buck_error_context("Invalid artifact")?;
-                insert_artifact(&mut non_content_based_builder, path.as_ref(), value)?;
+                insert_artifact_lazy(&mut non_content_based_builder, path.as_ref(), value)?;
             }
         }
 
@@ -83,7 +82,7 @@ impl ArtifactGroupValues {
                 )?;
 
             non_content_based_builder
-                .merge_with_compatible_leaves(non_content_based_child_dir.to_builder())
+                .merge(non_content_based_child_dir.dupe())
                 .buck_error_context("Merge failed")?;
 
             let content_based_child_dir = child
@@ -95,7 +94,7 @@ impl ArtifactGroupValues {
                 )?;
 
             content_based_builder
-                .merge_with_compatible_leaves(content_based_child_dir.to_builder())
+                .merge(content_based_child_dir.dupe())
                 .buck_error_context("Merge failed")?;
 
             let dep_files_child_dir =
@@ -104,19 +103,22 @@ impl ArtifactGroupValues {
                 )?;
 
             dep_files_builder
-                .merge_with_compatible_leaves(dep_files_child_dir.to_builder())
+                .merge(dep_files_child_dir.dupe())
                 .buck_error_context("Merge failed")?;
         }
 
         let non_content_based_directory = non_content_based_builder
+            .finalize()?
             .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER);
 
         let content_based_directory = content_based_builder
+            .finalize()?
             .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER);
 
         let dep_files_directory = dep_files_builder
+            .finalize()?
             .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER);
 
@@ -141,7 +143,7 @@ impl ArtifactGroupValues {
 
     pub fn add_to_directory(
         &self,
-        builder: &mut ActionDirectoryBuilder,
+        builder: &mut LazyActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
     ) -> buck2_error::Result<()> {
         match (
@@ -149,8 +151,8 @@ impl ArtifactGroupValues {
             self.0.content_based_directory.as_ref(),
         ) {
             (Some(non_content_based_directory), Some(content_based_directory)) => {
-                builder.merge(non_content_based_directory.to_builder())?;
-                builder.merge(content_based_directory.to_builder())?;
+                builder.merge(non_content_based_directory.dupe())?;
+                builder.merge(content_based_directory.dupe())?;
                 return Ok(());
             }
             (Some(_), None) | (None, Some(_)) => {
@@ -171,7 +173,7 @@ impl ArtifactGroupValues {
                 }
                 .as_ref(),
             )?;
-            insert_artifact(builder, projrel_path.as_ref(), value)?;
+            insert_artifact_lazy(builder, projrel_path.as_ref(), value)?;
         }
 
         Ok(())
@@ -179,7 +181,7 @@ impl ArtifactGroupValues {
 
     pub fn add_to_directory_for_dep_files(
         &self,
-        builder: &mut ActionDirectoryBuilder,
+        builder: &mut LazyActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
     ) -> buck2_error::Result<()> {
         match (
@@ -187,8 +189,8 @@ impl ArtifactGroupValues {
             self.0.dep_files_directory.as_ref(),
         ) {
             (Some(d), Some(dep_files_dir)) => {
-                builder.merge(d.to_builder())?;
-                builder.merge(dep_files_dir.to_builder())?;
+                builder.merge(d.dupe())?;
+                builder.merge(dep_files_dir.dupe())?;
                 return Ok(());
             }
             (None, None) => {}
@@ -209,7 +211,7 @@ impl ArtifactGroupValues {
                 }
                 .as_ref(),
             )?;
-            insert_artifact(builder, projrel_path.as_ref(), value)?;
+            insert_artifact_lazy(builder, projrel_path.as_ref(), value)?;
         }
 
         Ok(())
@@ -348,7 +350,7 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
 
     fn add_to_directory(
         &self,
-        builder: &mut ActionDirectoryBuilder,
+        builder: &mut LazyActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
     ) -> buck2_error::Result<()> {
         self.add_to_directory(builder, artifact_fs)

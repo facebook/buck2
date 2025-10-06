@@ -52,6 +52,7 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
+use buck2_execute::directory::LazyActionDirectoryBuilder;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
@@ -1131,28 +1132,28 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
             ctx: &dyn ActionExecutionCtx,
             inputs: &[ArtifactGroup],
         ) -> buck2_error::Result<ActionDirectoryBuilder> {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = LazyActionDirectoryBuilder::empty();
 
             for input in inputs {
                 let input = ctx.artifact_values(input);
                 input.add_to_directory_for_dep_files(&mut builder, ctx.fs())?;
             }
 
-            buck2_error::Ok(builder)
+            builder.finalize()
         }
 
         fn untagged_reduce(
             ctx: &dyn ActionExecutionCtx,
             inputs: &[ArtifactGroup],
         ) -> buck2_error::Result<ActionDirectoryBuilder> {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = LazyActionDirectoryBuilder::empty();
 
             for input in inputs {
                 let input = ctx.artifact_values(input);
                 input.add_to_directory(&mut builder, ctx.fs())?;
             }
 
-            buck2_error::Ok(builder)
+            builder.finalize()
         }
 
         Ok(PartitionedInputs {

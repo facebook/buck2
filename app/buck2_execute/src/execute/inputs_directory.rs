@@ -10,19 +10,21 @@
 
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use dupe::Dupe;
 
+use crate::digest_config::DigestConfig;
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryMember;
+use crate::directory::LazyActionDirectoryBuilder;
 use crate::execute::request::CommandExecutionInput;
 
 pub fn inputs_directory(
     inputs: &[CommandExecutionInput],
+    digest_config: DigestConfig,
     fs: &ArtifactFs,
 ) -> buck2_error::Result<ActionDirectoryBuilder> {
-    let mut builder = ActionDirectoryBuilder::empty();
+    let mut builder = LazyActionDirectoryBuilder::empty();
     for input in inputs {
         match input {
             CommandExecutionInput::Artifact(group) => {
@@ -42,11 +44,11 @@ pub fn inputs_directory(
             }
             CommandExecutionInput::ScratchPath(path) => {
                 let path = fs.buck_out_path_resolver().resolve_scratch(path)?;
-                builder.insert(&path, DirectoryEntry::Dir(ActionDirectoryBuilder::empty()))?;
+                builder.insert(&path, DirectoryEntry::Dir(digest_config.empty_directory()))?;
             }
             CommandExecutionInput::IncrementalRemoteOutput(path, entry) => match entry {
                 DirectoryEntry::Dir(d) => {
-                    builder.insert(path, DirectoryEntry::Dir(d.to_builder()))?;
+                    builder.insert(path, DirectoryEntry::Dir(d.dupe()))?;
                 }
                 DirectoryEntry::Leaf(m) => {
                     builder.insert(path, DirectoryEntry::Leaf(m.dupe()))?;
@@ -54,5 +56,5 @@ pub fn inputs_directory(
             },
         };
     }
-    Ok(builder)
+    builder.finalize()
 }

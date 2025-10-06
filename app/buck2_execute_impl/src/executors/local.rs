@@ -732,7 +732,7 @@ impl LocalExecutor {
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<(IndexMap<CommandExecutionOutput, ArtifactValue>, HashingInfo)> {
-        let mut builder = inputs_directory(request.inputs(), &self.artifact_fs)?;
+        let mut builder = inputs_directory(request.inputs(), digest_config, &self.artifact_fs)?;
 
         // Read outputs from disk and add them to the builder
         let mut entries = Vec::new();

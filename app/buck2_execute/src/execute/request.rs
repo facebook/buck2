@@ -226,7 +226,7 @@ impl CommandExecutionPaths {
         digest_config: DigestConfig,
         interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
     ) -> buck2_error::Result<Self> {
-        let mut builder = inputs_directory(&inputs, fs)?;
+        let mut builder = inputs_directory(&inputs, digest_config, fs)?;
 
         // RE spec requires outputs to be sorted:
         // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L667-L669
