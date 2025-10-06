@@ -16,6 +16,8 @@
     tree_node/0,
     test_leaf/0,
 
+    name/0,
+
     method_result/0,
     case_result/0,
     outcome/0,
