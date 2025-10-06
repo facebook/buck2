@@ -82,7 +82,7 @@
 Gets the name for a testcase in a given group-path
 The groups order expected here is [leaf_group, ...., root_group]
 """.
--spec qualified_name(group_path(), TC :: string()) -> string().
+-spec qualified_name(group_path(), TC :: io_lib:chars()) -> string().
 qualified_name(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),

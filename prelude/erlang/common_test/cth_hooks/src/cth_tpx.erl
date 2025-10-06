@@ -9,7 +9,6 @@
 -module(cth_tpx).
 
 -export([is_running_in_sandcastle/0]).
--eqwalizer(ignore).
 
 %% Callbacks
 -export([id/1]).
@@ -55,11 +54,13 @@
 ]).
 
 -type tree_node() :: cth_tpx_test_tree:tree_node().
+-type group_path() :: cth_tpx_test_tree:group_path().
+-type outcome() :: cth_tpx_test_tree:outcome().
 
 -record(state, {
     io_buffer :: pid() | undefined,
     suite :: string() | undefined,
-    groups :: list(string()),
+    groups :: group_path(),
     starting_times :: starting_times(),
     tree_results :: tree_node(),
     previous_group_failed :: boolean() | undefined,
@@ -72,7 +73,7 @@
 -type hook_state() :: #{
     id := term(),
     role := cth_tpx_role:role(),
-    server := 'undefined' | pid() | port()
+    server := cth_tpx_server:handle()
 }.
 -type starting_times() :: #{method_id() => float()}.
 
@@ -155,7 +156,7 @@ init_role_top(Id, ServerName, Output) ->
     case IoBuffer of
         undefined ->
             undefined;
-        Pid ->
+        Pid when is_pid(Pid) ->
             unregister(user),
             unregister(cth_tpx_io_buffer),
             register(user, Pid)
@@ -180,14 +181,16 @@ init_role_top(Id, ServerName, Output) ->
 -spec init_role_bot(Id :: term(), ServerName :: atom()) -> {ok, hook_state(), integer()}.
 init_role_bot(Id, ServerName) ->
     % Put there by init_role_top
-    Handle = whereis(ServerName),
-    unregister(ServerName),
-    HookState = #{
-        id => Id,
-        role => bot,
-        server => Handle
-    },
-    {ok, HookState, cth_tpx_role:role_priority(bot)}.
+    case whereis(ServerName) of
+        Handle when is_pid(Handle) ->
+            unregister(ServerName),
+            HookState = #{
+                id => Id,
+                role => bot,
+                server => Handle
+            },
+            {ok, HookState, cth_tpx_role:role_priority(bot)}
+    end.
 
 -doc """
 Called before init_per_suite is called.
@@ -495,7 +498,7 @@ post_init_per_testcase(_SuiteName, TestCase, _Config, Return, HookState) ->
     end).
 
 %% add test result to state
--spec add_result(method_id(), any(), string(), shared_state()) -> shared_state().
+-spec add_result(method_id(), outcome(), unicode:chardata(), shared_state()) -> shared_state().
 add_result(
     Method,
     Outcome,
@@ -525,15 +528,12 @@ add_result(
                                         filename:dirname(OutputFile), "ct_executor.stdout.txt"
                                     )
                             end,
-                        [
+                        unicode_characters_to_string(
                             io_lib:format(
-                                "The stdout logs have been truncated, see ~ts for the full suite stdout. Showing tail below\n",
-                                [
-                                    StdOutLocation
-                                ]
+                                "The stdout logs have been truncated, see ~ts for the full suite stdout. Showing tail below\n~s",
+                                [StdOutLocation, Io]
                             )
-                            | Io
-                        ];
+                        );
                     false ->
                         Io
                 end
@@ -544,7 +544,7 @@ add_result(
     Result0 = #{
         name => QualifiedName,
         outcome => Outcome,
-        details => unicode:characters_to_list(Desc),
+        details => unicode_characters_to_string(Desc),
         std_out => StdOut
     },
     Result =
@@ -563,7 +563,7 @@ add_result(
     NewTreeResults = cth_tpx_test_tree:register_result(TreeResults, Result, Groups, Method),
     State#state{starting_times = ST1, tree_results = NewTreeResults}.
 
--spec method_name(method_id(), [string()]) -> string().
+-spec method_name(method_id(), group_path()) -> string().
 method_name(Method, Groups) ->
     MethodName =
         case Method of
@@ -677,7 +677,7 @@ terminate(#{role := bot}) ->
 write_output({file, FN}, JSON) ->
     io:format("Writing result file ~tp~n", [FN]),
     ok = filelib:ensure_dir(FN),
-    file:write_file(FN, JSON, [raw, binary]);
+    ok = file:write_file(FN, JSON, [raw, binary]);
 write_output(stdout, JSON) ->
     io:format(user, "~tp", [JSON]).
 
@@ -731,4 +731,10 @@ is_running_in_sandcastle() ->
                 false -> false;
                 _ -> true
             end
+    end.
+
+-spec unicode_characters_to_string(unicode:chardata()) -> string().
+unicode_characters_to_string(Chars) ->
+    case unicode:characters_to_list(Chars) of
+        String when is_list(String) -> String
     end.
