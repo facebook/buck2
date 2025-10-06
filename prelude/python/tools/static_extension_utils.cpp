@@ -25,6 +25,7 @@ extern std::unordered_map<std::string_view, pyinitfunc> _static_extension_info;
 
 namespace {
 
+#if PY_VERSION_HEX < 0x030E0000
 static PyObject* _handle_single_phase_initialization(
     PyObject* mod,
     PyObject* name,
@@ -63,6 +64,8 @@ static PyObject* _handle_single_phase_initialization(
   }
   return mod;
 }
+#endif
+
 static PyObject* _create_module(PyObject* self, PyObject* spec) {
   PyObject* name;
   PyObject* mod;
@@ -98,10 +101,11 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
     return nullptr;
   }
 
-  PyObject* modules = nullptr;
-#if PY_VERSION_HEX >= 0x030E0000
+#if PY_VERSION_HEX >= 0x030F0000
   throw std::runtime_error(
-      "Native python does not support Python 3.14 and later.");
+      "Native python does not support Python 3.15 and later.");
+#elif PY_VERSION_HEX >= 0x030E0000
+  mod = _Ci_PyImport_CreateBuiltinFromSpecAndInitfunc(spec, initfunc);
 #elif PY_VERSION_HEX >= 0x030D0000
   // Python 3.13 has a new C-API for calling module init functions
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
@@ -130,15 +134,20 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
     Py_DECREF(name);
     return nullptr;
   }
+#if PY_VERSION_HEX < 0x030E0000
   // If the result is a PyModuleDef, then this is multi-phase initialization
   // Return the PyModule so module_exec can be called on it later
   if (PyObject_TypeCheck(mod, &PyModuleDef_Type)) {
     Py_DECREF(name);
     return PyModule_FromDefAndSpec((PyModuleDef*)mod, spec);
   }
+  PyObject* modules = nullptr;
   // At this point we know this is single-phase initialization
   return _handle_single_phase_initialization(
       mod, name, spec, initfunc, modules);
+#else
+  return mod;
+#endif
 }
 
 static PyObject* _exec_module(PyObject* self, PyObject* module) {
