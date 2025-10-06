@@ -17,6 +17,7 @@ use buck2_core::fs::paths::IntoFileNameBufIterator;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
@@ -712,10 +713,10 @@ where
 {
     fn insert(
         &mut self,
-        path: impl IntoFileNameBufIterator,
+        path: ForwardRelativePathBuf,
         entry: DirectoryEntry<Self, L>,
     ) -> Result<(), DirectoryInsertError> {
-        self.insert(path, entry).map(|_| ())
+        self.insert(&path, entry).map(|_| ())
     }
 
     fn merge(&mut self, dir: Self) -> Result<(), DirectoryMergeError> {

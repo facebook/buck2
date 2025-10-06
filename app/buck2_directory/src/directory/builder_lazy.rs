@@ -9,7 +9,6 @@
  */
 
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::fs::paths::IntoFileNameBufIterator;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 use crate::directory::builder::DirectoryBuilder;
@@ -23,7 +22,7 @@ pub trait DirectoryBuilderLike<D, L> {
 
     fn insert(
         &mut self,
-        path: impl IntoFileNameBufIterator,
+        path: ForwardRelativePathBuf,
         entry: DirectoryEntry<D, L>,
     ) -> Result<(), DirectoryInsertError>;
 }
@@ -81,15 +80,15 @@ where
 
     pub fn insert(
         &mut self,
-        path: impl IntoFileNameBufIterator,
+        path: ForwardRelativePathBuf,
         entry: DirectoryEntry<SharedDirectory<L, H>, L>,
     ) -> Result<(), DirectoryInsertError> {
         if buck2_core::faster_directories::is_enabled() {
-            self.to_insert.push((path.into_iter().collect(), entry));
+            self.to_insert.push((path, entry));
             Ok(())
         } else {
             self.builder
-                .insert(path, entry.map_dir(|d| d.into_builder()))
+                .insert(&path, entry.map_dir(|d| d.into_builder()))
                 .map(|_| ())
         }
     }
@@ -124,7 +123,7 @@ where
 {
     fn insert(
         &mut self,
-        path: impl IntoFileNameBufIterator,
+        path: ForwardRelativePathBuf,
         entry: DirectoryEntry<SharedDirectory<L, H>, L>,
     ) -> Result<(), DirectoryInsertError> {
         self.insert(path, entry)
@@ -157,7 +156,7 @@ mod tests {
         let interner = DashMapDirectoryInterner::new();
 
         let mut a = LazyTestDirectoryBuilder::empty();
-        a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+        a.insert(path("a/b").to_buf(), DirectoryEntry::Leaf(NopEntry))?;
 
         let b = {
             let mut b = TestDirectoryBuilder::empty();

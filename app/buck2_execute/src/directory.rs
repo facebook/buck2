@@ -30,6 +30,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::builder::DirectoryBuilder;
 use buck2_directory::directory::builder_lazy::DirectoryBuilderLike;
 use buck2_directory::directory::builder_lazy::LazyDirectoryBuilder;
@@ -523,7 +524,7 @@ pub fn override_executable_bit(
 
 pub fn insert_entry<D>(
     builder: &mut impl DirectoryBuilderLike<D, ActionDirectoryMember>,
-    path: &ProjectRelativePath,
+    path: ProjectRelativePathBuf,
     entry: ActionDirectoryEntry<D>,
 ) -> buck2_error::Result<()> {
     if let DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) = entry {
@@ -560,13 +561,13 @@ pub fn insert_entry<D>(
             .with_buck_error_context(|| {
                 format!("Error locating source path for symlink at {path}: {s}")
             })?;
-        let path = ProjectRelativePath::unchecked_new(fixed_source_path.as_str());
+        let path = ProjectRelativePath::unchecked_new(fixed_source_path.as_str()).to_buf();
         let entry = DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(
             s.without_remaining_path(),
         ));
-        builder.insert(path, entry)?;
+        builder.insert(path.into(), entry)?;
     } else {
-        builder.insert(path, entry)?;
+        builder.insert(path.into(), entry)?;
     }
 
     Ok(())
@@ -576,7 +577,7 @@ pub fn insert_entry<D>(
 /// symlinks to calculate the `deps` of the `ArtifactValue`.
 pub fn insert_artifact(
     builder: &mut ActionDirectoryBuilder,
-    path: &ProjectRelativePath,
+    path: ProjectRelativePathBuf,
     value: &ArtifactValue,
 ) -> buck2_error::Result<()> {
     insert_entry(
@@ -593,7 +594,7 @@ pub fn insert_artifact(
 
 pub fn insert_artifact_lazy(
     builder: &mut LazyActionDirectoryBuilder,
-    path: &ProjectRelativePath,
+    path: ProjectRelativePathBuf,
     value: &ArtifactValue,
 ) -> buck2_error::Result<()> {
     insert_entry(builder, path, value.entry().dupe())?;
@@ -606,7 +607,7 @@ pub fn insert_artifact_lazy(
 
 pub fn insert_file<D>(
     builder: &mut impl DirectoryBuilderLike<D, ActionDirectoryMember>,
-    path: &ProjectRelativePath,
+    path: ProjectRelativePathBuf,
     meta: FileMetadata,
 ) -> buck2_error::Result<()> {
     insert_entry(
@@ -619,7 +620,7 @@ pub fn insert_file<D>(
 #[cfg(test)]
 pub fn insert_symlink(
     builder: &mut ActionDirectoryBuilder,
-    path: &ProjectRelativePath,
+    path: ProjectRelativePathBuf,
     symlink: Arc<Symlink>,
 ) -> buck2_error::Result<()> {
     insert_entry(
@@ -802,8 +803,8 @@ mod tests {
 
     use super::*;
 
-    fn path(s: &str) -> &ProjectRelativePath {
-        ProjectRelativePath::new(s).unwrap()
+    fn path(s: &str) -> ProjectRelativePathBuf {
+        ProjectRelativePath::new(s).unwrap().to_buf()
     }
 
     fn assert_dirs_eq(d1: &impl ActionDirectory, d2: &impl ActionDirectory) {
@@ -882,7 +883,7 @@ mod tests {
         };
 
         // Move directory from a/d0 to b.
-        relativize_directory(&mut dir, path("a/d0"), path("b"))?;
+        relativize_directory(&mut dir, &path("a/d0"), &path("b"))?;
 
         assert_dirs_eq(&dir, &expected_dir);
 
@@ -941,7 +942,7 @@ mod tests {
     fn test_extract_no_deps() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d6"), digest_config)?
+        let value = extract_artifact_value(&root, &path("d6"), digest_config)?
             .buck_error_context("Not value!")?;
         assert!(value.deps().is_none());
         Ok(())
@@ -952,7 +953,7 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
 
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d1/d2/d3"), digest_config)?
+        let value = extract_artifact_value(&root, &path("d1/d2/d3"), digest_config)?
             .buck_error_context("Not value!")?;
 
         let expected = {
@@ -980,7 +981,7 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
 
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d1/d2/d3/s3"), digest_config)?
+        let value = extract_artifact_value(&root, &path("d1/d2/d3/s3"), digest_config)?
             .buck_error_context("Not value!")?;
 
         let expected = {
@@ -1022,7 +1023,7 @@ mod tests {
             builder
         };
 
-        let value = extract_artifact_value(&builder, path("d1/f1"), digest_config)?
+        let value = extract_artifact_value(&builder, &path("d1/f1"), digest_config)?
             .buck_error_context("Not value!")?;
 
         assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
@@ -1056,7 +1057,7 @@ mod tests {
             FileMetadata::empty(digest_config.cas_digest_config()),
         )?;
 
-        let value = extract_artifact_value(&builder, path("l1"), digest_config)?
+        let value = extract_artifact_value(&builder, &path("l1"), digest_config)?
             .buck_error_context("Not value!")?;
 
         let expected = {
@@ -1144,11 +1145,14 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(target_os = "windows")]
     #[test]
     //Test that a symlink created with a windows path doesn't get interpreted as an invalid sylink
     //TODO(lmvasquezg) Update symlinks to store a normalized, OS-independent path
     fn test_unnormalized_symlinks() -> buck2_error::Result<()> {
+        if !cfg!(windows) {
+            return Ok(());
+        }
+
         let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
@@ -1163,7 +1167,7 @@ mod tests {
             FileMetadata::empty(digest_config.cas_digest_config()),
         )?;
 
-        extract_artifact_value(&builder, path("d1/f1"), digest_config)?
+        extract_artifact_value(&builder, &path("d1/f1"), digest_config)?
             .buck_error_context("Not value!")?;
         Ok(())
     }

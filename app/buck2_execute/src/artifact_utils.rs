@@ -13,6 +13,7 @@ use std::sync::Arc;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
@@ -49,7 +50,7 @@ impl<'a> ArtifactValueBuilder<'a> {
 
     pub fn add_entry(
         &mut self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
     ) -> buck2_error::Result<()> {
         insert_entry(&mut self.builder, path, entry)
@@ -59,7 +60,7 @@ impl<'a> ArtifactValueBuilder<'a> {
     /// symlinks to calculate the `deps` of the `ArtifactValue`.
     pub fn add_input_value(
         &mut self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         value: &ArtifactValue,
     ) -> buck2_error::Result<()> {
         insert_artifact(&mut self.builder, path, value)
@@ -71,11 +72,12 @@ impl<'a> ArtifactValueBuilder<'a> {
     pub fn add_symlinked(
         &mut self,
         src_value: &ArtifactValue,
-        src: &ProjectRelativePath,
+        src: ProjectRelativePathBuf,
         dest: &ProjectRelativePath,
     ) -> buck2_error::Result<()> {
+        let symlink = new_symlink(self.project_fs.relative_path(&src, dest))?;
         insert_artifact(&mut self.builder, src, src_value)?;
-        let entry = DirectoryEntry::Leaf(new_symlink(self.project_fs.relative_path(src, dest))?);
+        let entry = DirectoryEntry::Leaf(symlink);
         self.builder.insert(dest, entry)?;
         Ok(())
     }
@@ -91,7 +93,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         dest: &ProjectRelativePath,
         executable_bit_override: Option<bool>,
     ) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-        insert_artifact(&mut self.builder, src, src_value)?;
+        insert_artifact(&mut self.builder, src.to_buf(), src_value)?;
 
         let entry = match src_value.entry() {
             DirectoryEntry::Dir(directory) => {

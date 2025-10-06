@@ -36,16 +36,16 @@ fn test_find_artifacts() -> buck2_error::Result<()> {
     let mut builder = ActionDirectoryBuilder::empty();
     insert_file(
         &mut builder,
-        &artifact1.join(ForwardRelativePath::new("f1").unwrap()),
+        artifact1.join(ForwardRelativePath::new("f1").unwrap()),
         file.dupe(),
     )?;
     insert_file(
         &mut builder,
-        &artifact2.join(ForwardRelativePath::new("d/f1").unwrap()),
+        artifact2.join(ForwardRelativePath::new("d/f1").unwrap()),
         file.dupe(),
     )?;
-    insert_file(&mut builder, &artifact3, file.dupe())?;
-    insert_file(&mut builder, &non_artifact2, file.dupe())?;
+    insert_file(&mut builder, artifact3.clone(), file.dupe())?;
+    insert_file(&mut builder, non_artifact2, file.dupe())?;
     builder.mkdir(&non_artifact1)?;
 
     // Build tree with artifacts 1-4

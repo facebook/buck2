@@ -35,7 +35,7 @@ pub fn inputs_directory(
                     .buck_out_path_resolver()
                     .resolve_gen(&metadata.path, Some(&metadata.content_hash))?;
                 builder.insert(
-                    &path,
+                    path.into(),
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
                         digest: metadata.digest.dupe(),
                         is_executable: false,
@@ -44,14 +44,17 @@ pub fn inputs_directory(
             }
             CommandExecutionInput::ScratchPath(path) => {
                 let path = fs.buck_out_path_resolver().resolve_scratch(path)?;
-                builder.insert(&path, DirectoryEntry::Dir(digest_config.empty_directory()))?;
+                builder.insert(
+                    path.into(),
+                    DirectoryEntry::Dir(digest_config.empty_directory()),
+                )?;
             }
             CommandExecutionInput::IncrementalRemoteOutput(path, entry) => match entry {
                 DirectoryEntry::Dir(d) => {
-                    builder.insert(path, DirectoryEntry::Dir(d.dupe()))?;
+                    builder.insert(path.clone().into(), DirectoryEntry::Dir(d.dupe()))?;
                 }
                 DirectoryEntry::Leaf(m) => {
-                    builder.insert(path, DirectoryEntry::Leaf(m.dupe()))?;
+                    builder.insert(path.clone().into(), DirectoryEntry::Leaf(m.dupe()))?;
                 }
             },
         };

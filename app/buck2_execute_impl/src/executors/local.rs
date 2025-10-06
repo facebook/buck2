@@ -757,7 +757,7 @@ impl LocalExecutor {
             total_hashing_time += hashing_info.hashing_duration;
             total_hashed_outputs += hashing_info.hashed_artifacts_count;
             if let Some(entry) = entry {
-                insert_entry(&mut builder, &path, entry)?;
+                insert_entry(&mut builder, path.clone(), entry)?;
                 entries.push((output.cloned(), path));
             }
         }
@@ -803,7 +803,7 @@ impl LocalExecutor {
                                 ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
                             builder.add_symlinked(
                                 &value,
-                                &hashed_path,
+                                hashed_path.clone(),
                                 &configuration_hash_path,
                             )?;
                             let symlink_value = builder.build(&configuration_hash_path)?;
@@ -820,7 +820,7 @@ impl LocalExecutor {
                                 value.dupe(),
                                 vec![CopiedArtifact {
                                     src: output_path.clone(),
-                                    dest: hashed_path.clone(),
+                                    dest: hashed_path,
                                     dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
                                     executable_bit_override: None,
                                 }],
@@ -1215,7 +1215,7 @@ pub async fn materialize_inputs(
                                     ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
                                 builder.add_symlinked(
                                     artifact_value,
-                                    &content_based_path,
+                                    content_based_path,
                                     &configuration_hash_path,
                                 )?;
                                 let symlink_value = builder.build(&configuration_hash_path)?;

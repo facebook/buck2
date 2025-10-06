@@ -52,7 +52,7 @@ impl ArtifactGroupValues {
                 let path = artifact
                     .resolve_path(artifact_fs, Some(&value.content_based_path_hash()))
                     .buck_error_context("Invalid artifact")?;
-                insert_artifact_lazy(&mut content_based_builder, path.as_ref(), value)?;
+                insert_artifact_lazy(&mut content_based_builder, path, value)?;
 
                 let dep_files_path = artifact
                     .resolve_path(
@@ -60,12 +60,12 @@ impl ArtifactGroupValues {
                         Some(&ContentBasedPathHash::DepFilesPlaceholder),
                     )
                     .buck_error_context("Invalid artifact")?;
-                insert_artifact_lazy(&mut dep_files_builder, dep_files_path.as_ref(), value)?;
+                insert_artifact_lazy(&mut dep_files_builder, dep_files_path, value)?;
             } else {
                 let path = artifact
                     .resolve_path(artifact_fs, None)
                     .buck_error_context("Invalid artifact")?;
-                insert_artifact_lazy(&mut non_content_based_builder, path.as_ref(), value)?;
+                insert_artifact_lazy(&mut non_content_based_builder, path, value)?;
             }
         }
 
@@ -173,7 +173,7 @@ impl ArtifactGroupValues {
                 }
                 .as_ref(),
             )?;
-            insert_artifact_lazy(builder, projrel_path.as_ref(), value)?;
+            insert_artifact_lazy(builder, projrel_path, value)?;
         }
 
         Ok(())
@@ -211,7 +211,7 @@ impl ArtifactGroupValues {
                 }
                 .as_ref(),
             )?;
-            insert_artifact_lazy(builder, projrel_path.as_ref(), value)?;
+            insert_artifact_lazy(builder, projrel_path, value)?;
         }
 
         Ok(())
