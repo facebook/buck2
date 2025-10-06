@@ -1096,6 +1096,9 @@ impl RemoteExecutionClientImpl {
                 // Waiting to run, no extra info needed
                 Some(TaskState::enqueued(..)) => re_stage::Stage::Queue(queue_info),
                 Some(TaskState::waiting_on_reservation(..)) => re_stage::Stage::Queue(queue_info),
+                Some(TaskState::waiting_for_gang_allocation(..)) => {
+                    re_stage::Stage::Queue(queue_info)
+                }
                 // Useful info to display
                 Some(TaskState::no_worker_available(..)) => {
                     re_stage::Stage::QueueNoWorkerAvailable(ReQueueNoWorkerAvailable {
