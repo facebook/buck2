@@ -10,6 +10,7 @@
 
 use buck2_core::directory_digest::DirectoryDigest;
 use buck2_core::fs::paths::IntoFileNameBufIterator;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::builder::DirectoryInsertError;
@@ -35,14 +36,19 @@ pub trait DirectoryBuilderLike<D, L> {
 ///  2. This does not in itself act like a directory
 ///  3. This requires that the pieces being merged are compatible in the sense that they agree on
 ///     where and what the leaves are. If this is not the case one will be picked arbitrarily.
-///
-/// TODO(JakobDegen): Make the above actually true
 pub struct LazyDirectoryBuilder<L, H>
 where
     H: DirectoryDigest,
     L: Clone + PartialEq + Eq,
 {
+    // In use without fast directories
     builder: DirectoryBuilder<L, H>,
+    // In use with fast directories
+    to_merge: Vec<SharedDirectory<L, H>>,
+    to_insert: Vec<(
+        ForwardRelativePathBuf,
+        DirectoryEntry<SharedDirectory<L, H>, L>,
+    )>,
 }
 
 impl<L, H> LazyDirectoryBuilder<L, H>
@@ -53,6 +59,8 @@ where
     pub fn empty() -> Self {
         Self {
             builder: DirectoryBuilder::empty(),
+            to_merge: Vec::new(),
+            to_insert: Vec::new(),
         }
     }
 
@@ -62,8 +70,13 @@ where
     /// directory, but the fast paths in the directory builder can only be hit with shared
     /// directories.
     pub fn merge(&mut self, dir: SharedDirectory<L, H>) -> Result<(), DirectoryMergeError> {
-        self.builder
-            .merge_with_compatible_leaves(dir.into_builder())
+        if buck2_core::faster_directories::is_enabled() {
+            self.to_merge.push(dir);
+            Ok(())
+        } else {
+            self.builder
+                .merge_with_compatible_leaves(dir.into_builder())
+        }
     }
 
     pub fn insert(
@@ -71,13 +84,36 @@ where
         path: impl IntoFileNameBufIterator,
         entry: DirectoryEntry<SharedDirectory<L, H>, L>,
     ) -> Result<(), DirectoryInsertError> {
-        self.builder
-            .insert(path, entry.map_dir(|d| d.into_builder()))
-            .map(|_| ())
+        if buck2_core::faster_directories::is_enabled() {
+            self.to_insert.push((path.into_iter().collect(), entry));
+            Ok(())
+        } else {
+            self.builder
+                .insert(path, entry.map_dir(|d| d.into_builder()))
+                .map(|_| ())
+        }
     }
 
     pub fn finalize(self) -> buck2_error::Result<DirectoryBuilder<L, H>> {
-        Ok(self.builder)
+        if buck2_core::faster_directories::is_enabled() {
+            let mut to_merge = self.to_merge;
+            to_merge.sort_by_key(|d| std::cmp::Reverse(d.size()));
+
+            // Merge items from largest to smallest, improving the ability to reuse fingerprinted
+            // directories
+            let mut builder = DirectoryBuilder::empty();
+            for d in to_merge {
+                builder.merge_with_compatible_leaves(d.into_builder())?;
+            }
+
+            for (p, e) in self.to_insert {
+                builder.insert(&p, e.map_dir(|d| d.into_builder()))?;
+            }
+
+            Ok(builder)
+        } else {
+            Ok(self.builder)
+        }
     }
 }
 
