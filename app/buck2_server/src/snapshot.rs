@@ -321,7 +321,11 @@ impl SnapshotCollector {
             // Try to read Buck2 daemon memory information from cgroup
 
             if self.daemon.has_cgroup {
-                if let Ok(stat) = CGroupInfo::read().and_then(|cg| cg.read_memory_stat()) {
+                if let Some(stat) = CGroupInfo::read()
+                    .ok()
+                    .and_then(|cg| Some(cg.get_slice()?.to_owned()))
+                    .and_then(|path| CGroupInfo { path }.read_memory_stat().ok())
+                {
                     snapshot.daemon_cgroup = Some(convert_stats(&stat));
                 }
             }
@@ -330,7 +334,7 @@ impl SnapshotCollector {
             if let ForkserverAccess::Client(f) = &self.daemon.forkserver {
                 if let Some(stat) = f
                     .cgroup_info()
-                    .and_then(|cgroup| cgroup.read_memory_stat().ok())
+                    .and_then(|cgroup| cgroup.slice.read_memory_stat().ok())
                 {
                     snapshot.forkserver_cgroup = Some(convert_stats(&stat));
                 }

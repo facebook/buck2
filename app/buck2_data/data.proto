@@ -928,8 +928,9 @@ message Snapshot {
   // Client average user + system CPU time since last snapshot processed.
   optional uint32 client_cpu_percents = 2002;
 
-  // Memory usage of the buck2 daemon from cgroup (if available)
+  // Memory usage of the buck2 daemon's slice from cgroup (if available)
   optional UnixCgroupMemoryStats daemon_cgroup = 2003;
+  // Memory usage of the forkserver daemon's slice from cgroup (if available)
   optional UnixCgroupMemoryStats forkserver_cgroup = 2004;
 }
 

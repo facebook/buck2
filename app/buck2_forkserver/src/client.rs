@@ -64,17 +64,13 @@ struct ForkserverClientInner {
 
 #[derive(Allocative)]
 pub struct CGroupInfoWrapper {
+    /// The forkserver itself.
     #[cfg(unix)]
-    inner: CGroupInfo,
-}
+    pub scope: CGroupInfo,
 
-#[cfg(unix)]
-impl std::ops::Deref for CGroupInfoWrapper {
-    type Target = CGroupInfo;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
+    /// The forkserver and the processes it spawned.
+    #[cfg(unix)]
+    pub slice: CGroupInfo,
 }
 
 impl ForkserverClient {
@@ -120,12 +116,13 @@ impl ForkserverClient {
                 .await
                 .buck_error_context("Failed to query forkserver cgroup")?;
 
-            cgroup_info = response
-                .into_inner()
-                .cgroup_path
-                .map(|path| CGroupInfoWrapper {
-                    inner: CGroupInfo { path },
-                });
+            cgroup_info = response.into_inner().cgroup_path.and_then(|path| {
+                let scope = CGroupInfo { path };
+                let slice = CGroupInfo {
+                    path: scope.get_slice()?.to_owned(),
+                };
+                Some(CGroupInfoWrapper { scope, slice })
+            });
         };
 
         Ok(Self {
