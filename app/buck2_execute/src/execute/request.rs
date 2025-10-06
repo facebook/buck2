@@ -28,6 +28,7 @@ use buck2_core::soft_error;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::buck2_error;
 use derive_more::Display;
 use dupe::Dupe;
@@ -262,7 +263,11 @@ impl CommandExecutionPaths {
             None => input_directory,
         };
 
-        let input_files_bytes = Self::calculate_inputs_size_bytes(&input_directory);
+        let input_files_bytes = if buck2_core::faster_directories::is_enabled() {
+            input_directory.size()
+        } else {
+            Self::calculate_inputs_size_bytes(&input_directory)
+        };
 
         Ok(Self {
             inputs,
