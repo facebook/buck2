@@ -342,7 +342,7 @@ merge_std_out(#{type := leaf} = TestLeaf) ->
             none -> "";
             _ -> maps:get(std_out, OptMethodEnd)
         end,
-    unicode_characters_to_string(InitStdOut ++ MainStdOut ++ EndStdOut).
+    unicode_characters_to_string([InitStdOut, MainStdOut, EndStdOut]).
 
 -doc """
 Creates a method_result for a requested method for which no result was registered.
@@ -368,9 +368,9 @@ Generates an user informative message in the case of the missing result by attem
 handle_missing_results([], MainResult) ->
     MainResult;
 handle_missing_results([Init | Inits], MainResult) ->
-    InitStdOut = unicode_characters_to_string(
-        name_to_string(maps:get(name, Init)) ++ " stdout: " ++ maps:get(std_out, Init)
-    ),
+    InitStdOut = unicode_characters_to_string([
+        name_to_string(maps:get(name, Init)), " stdout: ", maps:get(std_out, Init)
+    ]),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
@@ -417,9 +417,9 @@ handle_missing_results([Init | Inits], MainResult) ->
 handle_skipped_result([], MainResult) ->
     MainResult;
 handle_skipped_result([Init | Inits], MainResult) ->
-    InitStdOut = unicode_characters_to_string(
-        name_to_string(maps:get(name, Init)) ++ " stdout: " ++ maps:get(std_out, Init)
-    ),
+    InitStdOut = unicode_characters_to_string([
+        name_to_string(maps:get(name, Init)), " stdout: ", maps:get(std_out, Init)
+    ]),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
