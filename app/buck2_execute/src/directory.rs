@@ -33,7 +33,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_directory::directory::builder::DirectoryBuilder;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_hasher::DirectoryHasher;
+use buck2_directory::directory::directory_hasher::DirectoryDigester;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::DirectoryRef;
@@ -170,7 +170,7 @@ fn proto_serialize<M: prost::Message>(m: &M) -> Vec<u8> {
     serialized_buf
 }
 
-impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySerializer {
+impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySerializer {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TrackedFileDigest
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,

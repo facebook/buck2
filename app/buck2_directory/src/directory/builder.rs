@@ -27,7 +27,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::directory::directory::Directory;
 use crate::directory::directory_data::DirectoryData;
-use crate::directory::directory_hasher::DirectoryHasher;
+use crate::directory::directory_hasher::DirectoryDigester;
 use crate::directory::directory_mut::DirectoryMut;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
@@ -688,7 +688,7 @@ impl<L, H> DirectoryBuilder<L, H>
 where
     H: DirectoryDigest,
 {
-    pub fn fingerprint(self, hasher: &impl DirectoryHasher<L, H>) -> ImmutableDirectory<L, H> {
+    pub fn fingerprint(self, hasher: &impl DirectoryDigester<L, H>) -> ImmutableDirectory<L, H> {
         match self {
             Self::Mutable(entries) => {
                 let entries = entries
@@ -713,7 +713,7 @@ mod tests {
 
     use crate::directory::builder::DirectoryBuilder;
     use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
-    use crate::directory::directory_hasher::DirectoryHasher;
+    use crate::directory::directory_hasher::DirectoryDigester;
     use crate::directory::directory_ref::FingerprintedDirectoryRef;
     use crate::directory::entry::DirectoryEntry;
     use crate::directory::immutable_directory::ImmutableDirectory;
@@ -723,7 +723,7 @@ mod tests {
 
     struct CountingDigester(Cell<usize>, TestHasher);
 
-    impl DirectoryHasher<NopEntry, TestDigest> for CountingDigester {
+    impl DirectoryDigester<NopEntry, TestDigest> for CountingDigester {
         fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
         where
             I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a NopEntry>)>,

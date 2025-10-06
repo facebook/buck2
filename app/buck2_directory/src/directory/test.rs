@@ -29,7 +29,7 @@ use crate::directory::builder::DirectoryMergeError;
 use crate::directory::builder::DirectoryMkdirError;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use crate::directory::directory::Directory;
-use crate::directory::directory_hasher::DirectoryHasher;
+use crate::directory::directory_hasher::DirectoryDigester;
 use crate::directory::directory_hasher::NoDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
@@ -54,7 +54,7 @@ pub(crate) struct TestDigest(u64);
 
 impl DirectoryDigest for TestDigest {}
 
-impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
+impl DirectoryDigester<NopEntry, TestDigest> for TestHasher {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a NopEntry>)>,

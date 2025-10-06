@@ -20,8 +20,7 @@ use dupe::Dupe;
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 
-// TODO: Rename to DirectoryDigester
-pub trait DirectoryHasher<L, H> {
+pub trait DirectoryDigester<L, H> {
     fn hash_entries<'a, D, I>(&self, entries: I) -> H
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a L>)>,

@@ -36,7 +36,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::builder::DirectoryBuilder;
 use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_hasher::DirectoryHasher;
+use buck2_directory::directory::directory_hasher::DirectoryDigester;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
@@ -179,7 +179,7 @@ impl DirectoryDigest for BundledDirectoryDigest {}
 
 struct BundledDirectoryDigester;
 
-impl DirectoryHasher<ContentsAndMetadata, BundledDirectoryDigest> for BundledDirectoryDigester {
+impl DirectoryDigester<ContentsAndMetadata, BundledDirectoryDigest> for BundledDirectoryDigester {
     fn hash_entries<'a, D, I>(&self, entries: I) -> BundledDirectoryDigest
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ContentsAndMetadata>)>,
