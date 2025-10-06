@@ -7,6 +7,7 @@
 
 %% @format
 -module(cth_tpx).
+-compile(warn_missing_spec_all).
 
 -export([is_running_in_sandcastle/0]).
 
@@ -59,7 +60,7 @@
 
 -record(state, {
     io_buffer :: pid() | undefined,
-    suite :: string() | undefined,
+    suite :: ct_suite(),
     groups :: group_path(),
     starting_times :: starting_times(),
     tree_results :: tree_node(),
@@ -76,6 +77,15 @@
     server := cth_tpx_server:handle()
 }.
 -type starting_times() :: #{method_id() => float()}.
+
+-type ct_suite() :: module().
+-type ct_groupname() :: ct_suite:ct_groupname().
+-type ct_testname() :: ct_suite:ct_testname().
+-type ct_config() :: ct_suite:ct_config().
+-type ct_config_or_skip_or_fail() ::
+    ct_config() | {skip, term()} | {fail, term()}.
+-type ct_config_or_skip_or_fail_or_term() ::
+    ct_config_or_skip_or_fail() | ok | term().
 
 %% -----------------------------------------------------------------------------
 
@@ -202,7 +212,7 @@ init_role_bot(Id, ServerName) ->
 -doc """
 Called before init_per_suite is called.
 """.
--spec pre_init_per_suite(string(), any(), hook_state()) -> {any(), hook_state()}.
+-spec pre_init_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config_or_skip_or_fail(), hook_state()}.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
@@ -215,9 +225,8 @@ pre_init_per_suite(Suite, Config, HookState) ->
         }}
     end).
 
--doc """
-Called after init_per_suite.
-""".
+-spec post_init_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
+    {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_init_per_suite(_Suite, _Config, {skip, {failed, _Reason}} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         Desc = fmt_stack(Error, "init_per_suite FAILED"),
@@ -245,18 +254,15 @@ post_init_per_suite(_Suite, _Config, Return, HookState) ->
         {Return, add_result(?INIT_PER_SUITE, passed, <<"">>, State)}
     end).
 
--doc """
-Called before end_per_suite.
-""".
+-spec pre_end_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_suite(_Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
         {Config, capture_starting_time(State, ?END_PER_SUITE)}
     end).
 
--doc """
-Called after end_per_suite.
-""".
+-spec post_end_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
+    {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_end_per_suite(
     _Suite,
     _Config,
@@ -297,6 +303,7 @@ post_end_per_suite(_Suite, _Config, Return, HookState) ->
         {Return, clear_suite(State1)}
     end).
 
+-spec clear_suite(#state{}) -> #state{}.
 clear_suite(#state{io_buffer = IoBuffer} = State) ->
     case IoBuffer of
         undefined -> ok;
@@ -309,9 +316,7 @@ clear_suite(#state{io_buffer = IoBuffer} = State) ->
         starting_times = #{}
     }.
 
--doc """
-Called before each init_per_group.
-""".
+-spec pre_init_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun
         (State = #state{groups = [_ | Groups], previous_group_failed = true}) ->
@@ -323,9 +328,8 @@ pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
             {Config, capture_starting_time(State, ?INIT_PER_GROUP)}
     end).
 
--doc """
-Called after each init_per_group.
-""".
+-spec post_init_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
+    {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_init_per_group(
     _SuiteName,
     Group,
@@ -379,24 +383,23 @@ post_init_per_group(_SuiteName, Group, _Config, Return, HookState) ->
         {Return, ok_group(State2)}
     end).
 
+-spec ok_group(#state{}) -> #state{}.
 ok_group(State) ->
     State#state{previous_group_failed = false}.
 
+-spec fail_group(#state{}) -> #state{}.
 fail_group(State) ->
     State#state{previous_group_failed = true}.
 
--doc """
-Called after each end_per_group.
-""".
+-spec pre_end_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
         {Config, capture_starting_time(State, ?END_PER_GROUP)}
     end).
 
--doc """
-Called after each end_per_group.
-""".
+-spec post_end_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
+    {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_end_per_group(
     _SuiteName,
     _Group,
@@ -439,9 +442,7 @@ post_end_per_group(_SuiteName, _Group, _Config, Return, HookState) ->
         {Return, State1#state{groups = tl(Groups)}}
     end).
 
--doc """
-Called before each test case.
-""".
+-spec pre_init_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_init_per_testcase(_SuiteName, TestCase, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
@@ -457,6 +458,8 @@ pre_init_per_testcase(_SuiteName, TestCase, Config, HookState) ->
         {Config, State1}
     end).
 
+-spec post_init_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
+    {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_init_per_testcase(
     _SuiteName,
     TestCase,
@@ -575,14 +578,14 @@ method_name(Method, Groups) ->
         end,
     cth_tpx_test_tree:qualified_name(Groups, MethodName).
 
+-spec pre_end_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_testcase(_SuiteName, TC, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         {Config, capture_starting_time(State, {TC, ?END_PER_TESTCASE})}
     end).
 
--doc """
-Called after each test case.
-""".
+-spec post_end_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
+    {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_end_per_testcase(_SuiteName, TC, _Config, ok = Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0) ->
         State1 = add_result({TC, ?END_PER_TESTCASE}, passed, <<"">>, State0),
@@ -607,10 +610,16 @@ post_end_per_testcase(_SuiteName, TC, Config, Error, HookState) ->
         {Error, NextState}
     end).
 
--doc """
-Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
-post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
-""".
+-spec on_tc_fail(Suite, Callback, Reason, HookState) -> hook_state() when
+    Suite :: ct_suite(),
+    Callback ::
+        init_per_suite
+        | end_per_suite
+        | ct_testname()
+        | {ct_testname(), ct_groupname()}
+        | {init_per_group | end_per_group, ct_groupname()},
+    Reason :: term(),
+    HookState :: hook_state().
 on_tc_fail(_SuiteName, init_per_suite, _, HookState) ->
     HookState;
 on_tc_fail(_SuiteName, end_per_suite, _, HookState) ->
@@ -630,10 +639,16 @@ on_tc_fail(_SuiteName, TC, Reason, HookState) ->
         add_result({TC, ?MAIN_TESTCASE}, failed, Desc, State)
     end).
 
--doc """
-Called when a test case is skipped by either user action
-or due to an init function failing. (>= 19.3)
-""".
+-spec on_tc_skip(Suite, Callback, Reason, HookState) -> hook_state() when
+    Suite :: ct_suite(),
+    Callback ::
+        init_per_suite
+        | end_per_suite
+        | ct_testname()
+        | {ct_testname(), ct_groupname()}
+        | {init_per_group | end_per_group, ct_groupname()},
+    Reason :: {tc_auto_skip, term()} | {tc_user_skip, term()},
+    HookState :: hook_state().
 on_tc_skip(_SuiteName, init_per_suite, _, HookState) ->
     HookState;
 on_tc_skip(_SuiteName, end_per_suite, _, HookState) ->
@@ -651,6 +666,10 @@ on_tc_skip(_SuiteName, TC, Reason, HookState) ->
         handle_on_tc_skip(TC, Reason, State)
     end).
 
+-spec handle_on_tc_skip(TC, Reason, State) -> State when
+    TC :: ct_testname(),
+    Reason :: {tc_auto_skip, term()} | {tc_user_skip, term()},
+    State :: #state{}.
 handle_on_tc_skip(TC, {tc_auto_skip, Reason}, State = #state{suite = Suite}) ->
     Desc = fmt_fail(Reason),
     NewState = add_result({TC, ?MAIN_TESTCASE}, failed, Desc, State),
