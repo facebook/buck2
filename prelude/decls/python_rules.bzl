@@ -427,7 +427,6 @@ python_binary = prelude_rule(
                  that contains the BUCK file.
             """),
         } |
-        python_common.platform_arg() |
         python_common.deps_arg() |
         python_common.version_selections_arg() |
         python_common.preload_deps_arg() |
@@ -586,7 +585,6 @@ python_test = prelude_rule(
                  as `__test_main__.main(sys.argv)`.
             """),
         } |
-        python_common.platform_arg() |
         {
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
                 A map of environment names and values to set when running the test.
