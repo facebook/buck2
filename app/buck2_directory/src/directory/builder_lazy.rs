@@ -97,6 +97,11 @@ where
         if buck2_core::faster_directories::is_enabled() {
             let mut to_merge = self.to_merge;
             to_merge.sort_by_key(|d| std::cmp::Reverse(d.size()));
+            to_merge.dedup();
+
+            let mut to_insert = self.to_insert;
+            to_insert.sort_by(|(p, _), (q, _)| Ord::cmp(p, q));
+            to_insert.dedup();
 
             // Merge items from largest to smallest, improving the ability to reuse fingerprinted
             // directories
@@ -105,7 +110,7 @@ where
                 builder.merge_with_compatible_leaves(d.into_builder())?;
             }
 
-            for (p, e) in self.to_insert {
+            for (p, e) in to_insert {
                 builder.insert(&p, e.map_dir(|d| d.into_builder()))?;
             }
 
