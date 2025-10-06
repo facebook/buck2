@@ -24,14 +24,6 @@ async def test_metrics_cgroup_neither(buck: Buck) -> None:
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
-async def test_metrics_cgroup_daemon_only(buck: Buck) -> None:
-    write_config(buck, resource_control=True, action_cgroup_pool=False)
-    snapshot = await start_daemon_and_get_snapshot(buck)
-    assert snapshot["daemon_cgroup"]["anon"] > 0
-    assert snapshot["forkserver_cgroup"] is None
-
-
-@buck_test(skip_for_os=["darwin", "windows"])
 async def test_metrics_cgroup_both(buck: Buck) -> None:
     write_config(buck, resource_control=True, action_cgroup_pool=True)
     snapshot = await start_daemon_and_get_snapshot(buck)

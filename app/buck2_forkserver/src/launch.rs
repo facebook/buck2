@@ -48,7 +48,7 @@ pub async fn launch_forkserver(
 
     let mut has_cgroup = false;
 
-    let mut command = if resource_control.enable_action_cgroup_pool.unwrap_or(false) {
+    let mut command = {
         // When cgroup pool is enabled, we use systemd to start forkserver
 
         let forkserver_process_resource_control_runner = ResourceControlRunner::create_if_enabled(
@@ -76,8 +76,6 @@ pub async fn launch_forkserver(
         } else {
             background_command(exe)
         }
-    } else {
-        background_command(exe)
     };
 
     command
