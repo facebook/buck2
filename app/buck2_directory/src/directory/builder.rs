@@ -25,6 +25,7 @@ use either::Either;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
+use crate::directory::builder_lazy::DirectoryBuilderLike;
 use crate::directory::directory::Directory;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigester;
@@ -701,6 +702,24 @@ where
             }
             Self::Immutable(c) => c,
         }
+    }
+}
+
+impl<L, H> DirectoryBuilderLike<DirectoryBuilder<L, H>, L> for DirectoryBuilder<L, H>
+where
+    H: DirectoryDigest,
+    L: Clone + PartialEq + Eq,
+{
+    fn insert(
+        &mut self,
+        path: impl IntoFileNameBufIterator,
+        entry: DirectoryEntry<Self, L>,
+    ) -> Result<(), DirectoryInsertError> {
+        self.insert(path, entry).map(|_| ())
+    }
+
+    fn merge(&mut self, dir: Self) -> Result<(), DirectoryMergeError> {
+        self.merge_with_compatible_leaves(dir)
     }
 }
 
