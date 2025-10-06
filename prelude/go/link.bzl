@@ -211,10 +211,15 @@ def link(
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
         # we can generate the platform-specific stuff once and re-use?
+        ext_link_argfile, _ = ctx.actions.write(
+            output.short_path + ".go_ext_link_argsfile",
+            ext_link_args,
+            allow_args = True,
+        )
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,
-                ext_link_args,
+                cmd_args(ext_link_argfile, format = "@{}"),
                 "%*" if is_win else "\"$@\"",
             ],
             delimiter = " ",
@@ -225,7 +230,7 @@ def link(
             allow_args = True,
             is_executable = True,
         )
-        cmd.add("-extld", linker_wrapper, cmd_args(hidden = cxx_link_cmd))
+        cmd.add("-extld", linker_wrapper, cmd_args(hidden = [cxx_link_cmd, ext_link_args, ext_link_args_output.hidden]))
         cmd.add("-extldflags", cmd_args(
             cxx_toolchain.linker_info.linker_flags,
             go_toolchain.external_linker_flags,
