@@ -7,7 +7,7 @@
 
 %% @format
 -module(cth_tpx_test_tree).
--eqwalizer(ignore).
+-compile([warn_missing_spec_all]).
 
 -include("method_ids.hrl").
 
@@ -180,7 +180,7 @@ Provides a result for a given specific requested_result.
 """.
 -spec collect_result(tree(), group_path(), string()) -> case_result().
 collect_result(TreeResult, Groups, TestCase) ->
-    QualifiedName = cth_tpx_test_tree:qualified_name(lists:reverse(Groups), TestCase),
+    QualifiedName = qualified_name(lists:reverse(Groups), TestCase),
     LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName),
     #{ends := EndsResults, main := MainResult} = LeafResult,
     MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
@@ -369,7 +369,7 @@ handle_missing_results([], MainResult) ->
     MainResult;
 handle_missing_results([Init | Inits], MainResult) ->
     InitStdOut = unicode_characters_to_string(
-        maps:get(name, Init) ++ " stdout: " ++ maps:get(std_out, Init)
+        name_to_string(maps:get(name, Init)) ++ " stdout: " ++ maps:get(std_out, Init)
     ),
     case maps:get(outcome, Init) of
         failed ->
@@ -418,7 +418,7 @@ handle_skipped_result([], MainResult) ->
     MainResult;
 handle_skipped_result([Init | Inits], MainResult) ->
     InitStdOut = unicode_characters_to_string(
-        maps:get(name, Init) ++ " stdout: " ++ maps:get(std_out, Init)
+        name_to_string(maps:get(name, Init)) ++ " stdout: " ++ maps:get(std_out, Init)
     ),
     case maps:get(outcome, Init) of
         failed ->
@@ -468,3 +468,10 @@ unicode_characters_to_string(Chars) ->
     case unicode:characters_to_list(Chars) of
         String when is_list(String) -> String
     end.
+
+-spec name_to_string(Name) -> string() when
+    Name :: name().
+name_to_string(Name) when is_atom(Name) ->
+    atom_to_list(Name);
+name_to_string(Name) when is_list(Name) ->
+    Name.
