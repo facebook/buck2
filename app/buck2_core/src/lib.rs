@@ -47,6 +47,7 @@ pub mod package;
 pub mod pattern;
 pub mod plugins;
 pub mod provider;
+pub mod quick_debug_event;
 pub mod rollout_percentage;
 pub mod target;
 pub mod target_aliases;
