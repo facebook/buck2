@@ -21,6 +21,7 @@ mod convert;
 
 use std::cmp::Ordering;
 use std::hash::Hash;
+use std::str::FromStr;
 
 use allocative::Allocative;
 use num_bigint::BigInt;
@@ -137,7 +138,18 @@ impl Serialize for StarlarkBigInt {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.value.to_string())
+        // Always serialize as a number, prefer i64 if it fits, otherwise u64
+        if let Some(i) = self.value.to_i64() {
+            serializer.serialize_i64(i)
+        } else if let Some(u) = self.value.to_u64() {
+            serializer.serialize_u64(u)
+        } else {
+            let number_str = self.value.to_string();
+            let number = serde_json::Number::from_str(&number_str).map_err(|e| {
+                serde::ser::Error::custom(format!("Failed to create JSON number: {}", e))
+            })?;
+            number.serialize(serializer)
+        }
     }
 }
 
