@@ -28,6 +28,7 @@ buck2_build_info = { workspace = true }
 buck2_build_signals = { workspace = true }
 buck2_build_signals_impl = { workspace = true }
 buck2_bxl = { workspace = true }
+buck2_certs = { workspace = true }
 buck2_cfg_constructor = { workspace = true }
 buck2_client = { workspace = true }
 buck2_client_ctx = { workspace = true }

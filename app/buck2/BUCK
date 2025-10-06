@@ -101,6 +101,7 @@ buck_rust_binary(
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2:buck2",
         "//buck2/app/buck2_build_info:buck2_build_info",
+        "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",

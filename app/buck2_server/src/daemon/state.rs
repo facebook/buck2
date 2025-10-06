@@ -955,6 +955,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_startup_config_defaults_internal() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let builder =
             http_client_from_startup_config(&DaemonStartupConfig::testing_empty()).await?;
         assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects().unwrap());
@@ -977,6 +978,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_startup_config_overrides() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let config = parse(
             &[(
                 "config",
@@ -1006,6 +1008,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_startup_config_zero_for_unset() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let config = parse(
             &[(
                 "config",

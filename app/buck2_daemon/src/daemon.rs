@@ -573,6 +573,8 @@ mod tests {
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_daemon_smoke() {
+        buck2_certs::certs::maybe_setup_cryptography();
+
         let fbinit = unsafe { fbinit::perform_init() };
 
         buck2_core::client_only::CLIENT_ONLY_VAL.init(false);

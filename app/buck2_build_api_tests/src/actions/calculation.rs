@@ -255,6 +255,7 @@ async fn make_default_dice_state(
 
 #[tokio::test]
 async fn test_get_action_for_artifact() -> anyhow::Result<()> {
+    buck2_certs::certs::maybe_setup_cryptography();
     let build_artifact = create_test_build_artifact();
     let registered_action = registered_action(
         build_artifact.dupe(),
@@ -289,6 +290,7 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_build_action() -> anyhow::Result<()> {
+    buck2_certs::certs::maybe_setup_cryptography();
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
     let registered_action = registered_action(
@@ -339,6 +341,7 @@ async fn test_build_action() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_build_artifact() -> anyhow::Result<()> {
+    buck2_certs::certs::maybe_setup_cryptography();
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
     let registered_action = registered_action(
@@ -387,6 +390,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
+    buck2_certs::certs::maybe_setup_cryptography();
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
     let registered_action = registered_action(
@@ -437,6 +441,7 @@ async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
+    buck2_certs::certs::maybe_setup_cryptography();
     let digest_config = DigestConfig::testing_default();
 
     let path = CellPath::new(
@@ -485,6 +490,7 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
+    buck2_certs::certs::maybe_setup_cryptography();
     let path = CellPath::new(
         CellName::testing_new("cell"),
         CellRelativePathBuf::unchecked_new("proj/to_gvfs/include".to_owned()),
@@ -536,6 +542,7 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
 async fn test_command_details_omission() {
     use buck2_data::command_execution_kind::Command;
 
+    buck2_certs::certs::maybe_setup_cryptography();
     let digest_config = DigestConfig::testing_default();
 
     let mut report = CommandExecutionReport {

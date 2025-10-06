@@ -165,6 +165,9 @@ fn main() -> ! {
         release_timestamp: std::option_env!("BUCK2_RELEASE_TIMESTAMP"),
     });
 
+    // Set up crypto impl once per process
+    buck2_certs::certs::setup_cryptography_or_fail();
+
     fn init_shared_context() -> buck2_error::Result<SharedProcessContext> {
         panic::initialize().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         check_cargo();

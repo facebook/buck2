@@ -305,6 +305,7 @@ mod tests {
 
     #[test]
     fn test_change_scheme_to_http_succeeds() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let mut request = Request::builder()
             .method(Method::GET)
             .uri("https://some.site/foo")
@@ -323,6 +324,7 @@ mod tests {
 
     #[test]
     fn test_change_scheme_to_http_no_effect() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let uri: Uri = "http://some.site/foo".try_into()?;
         let mut request = Request::builder()
             .method(Method::GET)
@@ -336,6 +338,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_simple_get_success() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(request::method_path("GET", "/foo"))
@@ -351,6 +354,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_simple_put_success() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(all_of![
@@ -376,6 +380,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_simple_post_success() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(all_of![
@@ -401,6 +406,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_404_not_found_is_error() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(request::method_path("GET", "/foo"))
@@ -427,6 +433,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_count_response_size() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(request::method_path("GET", "/foo"))
@@ -453,6 +460,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_follows_redirects() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         // Chain of two redirects /foo -> /bar -> /baz.
         test_server.expect(
@@ -487,6 +495,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_head_changes_to_get_on_redirect() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         // Chain of two redirects /foo -> /bar -> /baz.
         test_server.expect(
@@ -514,6 +523,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_post_gets_redirected() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         // Redirect /foo -> /bar
         test_server.expect(
@@ -561,6 +571,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_too_many_redirects_fails() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         // Chain of three redirects /foo -> /bar -> /baz -> /boo.
         test_server.expect(
@@ -689,6 +700,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn test_proxies_through_unix_socket_when_set() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let proxy_server = unix::UnixSocketProxyServer::new().await?;
 
         let test_server = httptest::Server::run();
@@ -719,6 +731,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_x2p_error_response_is_forbidden_host() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         let url = test_server.url("/foo");
         test_server.expect(
@@ -747,6 +760,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_x2p_error_response_is_access_denied() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         let url = test_server.url("/foo");
         test_server.expect(
@@ -775,6 +789,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_x2p_error_response_is_generic_error() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
+
         let test_server = httptest::Server::run();
         let url = test_server.url("/foo");
         test_server.expect(
@@ -802,6 +818,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrency_limit() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(request::method_path("GET", "/foo"))
@@ -979,6 +996,7 @@ mod proxy_tests {
 
     #[tokio::test]
     async fn test_uses_http_proxy_with_no_scheme_in_proxy_uri() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(all_of![
@@ -1009,6 +1027,7 @@ mod proxy_tests {
 
     #[tokio::test]
     async fn test_does_not_proxy_when_no_proxy_matches() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(all_of![request::method_path("GET", "/foo")])
@@ -1044,6 +1063,7 @@ mod proxy_tests {
 
     #[tokio::test]
     async fn test_proxies_when_no_proxy_does_not_match() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(all_of![
@@ -1076,6 +1096,7 @@ mod proxy_tests {
     // Use proxy server harness to test slow connections.
     #[tokio::test]
     async fn test_timeout() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         let proxy_server = ProxyServer::new().await?;
 
