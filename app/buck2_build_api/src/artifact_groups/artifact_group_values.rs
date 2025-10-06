@@ -266,7 +266,7 @@ impl TransitiveSetContainer for ArtifactGroupValues {
     }
 }
 
-pub trait TransitiveSetContainer: Sized {
+trait TransitiveSetContainer: Sized {
     type Value: Sized;
     type Identity: Hash + Eq + PartialEq;
 
@@ -277,7 +277,7 @@ pub trait TransitiveSetContainer: Sized {
     fn identity(&self) -> Self::Identity;
 }
 
-pub struct TransitiveSetIterator<'a, C, V, I> {
+struct TransitiveSetIterator<'a, C, V, I> {
     values: &'a [V],
     queue: Vec<&'a C>,
     seen: HashSet<I>,
@@ -293,7 +293,7 @@ impl<'a, C>
 where
     C: TransitiveSetContainer,
 {
-    pub fn new(container: &'a C) -> Self {
+    fn new(container: &'a C) -> Self {
         let mut ret = Self {
             values: container.values(),
             queue: Vec::new(),
@@ -303,7 +303,7 @@ where
         ret
     }
 
-    pub fn enqueue_children(&mut self, transitive: &'a [C]) {
+    fn enqueue_children(&mut self, transitive: &'a [C]) {
         for t in transitive.iter().rev() {
             if self.seen.insert(t.identity()) {
                 self.queue.push(t);
