@@ -708,18 +708,235 @@ where
 mod tests {
     use std::cell::Cell;
 
+    use assert_matches::assert_matches;
     use buck2_core::fs::paths::file_name::FileName;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     use crate::directory::builder::DirectoryBuilder;
+    use crate::directory::builder::DirectoryInsertError;
+    use crate::directory::builder::DirectoryMergeError;
+    use crate::directory::builder::DirectoryMkdirError;
     use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+    use crate::directory::directory::Directory;
     use crate::directory::directory_hasher::DirectoryDigester;
+    use crate::directory::directory_iterator::DirectoryIterator;
     use crate::directory::directory_ref::FingerprintedDirectoryRef;
     use crate::directory::entry::DirectoryEntry;
     use crate::directory::immutable_directory::ImmutableDirectory;
+    use crate::directory::test::NoHasherDirectoryBuilder;
     use crate::directory::test::NopEntry;
     use crate::directory::test::TestDigest;
+    use crate::directory::test::TestDirectoryBuilder;
     use crate::directory::test::TestHasher;
+    use crate::directory::test::path;
+
+    #[test]
+    fn test_insert() -> buck2_error::Result<()> {
+        let mut b = NoHasherDirectoryBuilder::empty();
+
+        assert_matches!(
+            b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry)),
+            Ok(None)
+        );
+
+        assert_matches!(
+            b.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry)),
+            Err(DirectoryInsertError::CannotTraverseLeaf { path }) => {
+                assert_eq!(path.to_string(), "a/b");
+            }
+        );
+
+        assert_matches!(
+            b.insert(path("a"), DirectoryEntry::Leaf(NopEntry)),
+            Ok(Some(DirectoryEntry::Dir(..)))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge() -> buck2_error::Result<()> {
+        let mut a = TestDirectoryBuilder::empty();
+        a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/c"), DirectoryEntry::Leaf(NopEntry))?;
+
+        a.merge(b)?;
+
+        let mut it = a.ordered_walk().with_paths();
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("a"))
+        );
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("a/b"))
+        );
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("a/c"))
+        );
+
+        assert_matches!(it.next(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_overwrite() -> buck2_error::Result<()> {
+        let mut a = TestDirectoryBuilder::empty();
+        a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a"), DirectoryEntry::Leaf(NopEntry))?;
+
+        a.merge(b)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_conflict() -> buck2_error::Result<()> {
+        let mut a = TestDirectoryBuilder::empty();
+        a.insert(path("a"), DirectoryEntry::Leaf(NopEntry))?;
+
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+
+        assert_matches!(
+            a.merge(b),
+            Err(DirectoryMergeError::CannotTraverseLeaf { path }) => {
+                assert_eq!(path.to_string(), "a");
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_on_write() -> buck2_error::Result<()> {
+        let empty = TestDirectoryBuilder::empty().fingerprint(&TestHasher);
+
+        let mut a = TestDirectoryBuilder::empty();
+        a.insert(path("a"), DirectoryEntry::Dir(empty.into_builder()))?;
+
+        a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+
+        let mut it = a.ordered_walk().with_paths();
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("a"))
+        );
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("a/b"))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_mkdir() -> buck2_error::Result<()> {
+        let mut b = TestDirectoryBuilder::empty();
+        b.mkdir(path("foo/bar"))?;
+        b.mkdir(path("foo"))?;
+
+        let mut it = b.ordered_walk().with_paths();
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("foo"))
+        );
+
+        assert_matches!(
+            it.next(),
+            Some((p, _)) => assert_eq!(p, path("foo/bar"))
+        );
+
+        assert_matches!(it.next(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_mkdir_overwrite() -> buck2_error::Result<()> {
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+
+        assert_matches!(
+            b.mkdir(path("a/b/c")),
+            Err(DirectoryMkdirError::CannotTraverseLeaf { path }) => {
+                assert_eq!(path.to_string(), "a/b");
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_remove_prefix_empty() {
+        let mut b = TestDirectoryBuilder::empty();
+        assert_eq!(
+            Vec::<ForwardRelativePathBuf>::new(),
+            b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+        );
+        b.remove_prefix(path("")).unwrap();
+        b.remove_prefix(path("a")).unwrap();
+        b.remove_prefix(path("b/c")).unwrap();
+        assert_eq!(
+            Vec::<ForwardRelativePathBuf>::new(),
+            b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_remove_prefix_error() {
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))
+            .unwrap();
+        assert!(b.remove_prefix(path("a/b/c")).is_err());
+        assert_eq!(
+            vec![path("a/b")],
+            b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_remove_prefix_leaf() {
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))
+            .unwrap();
+        b.insert(path("a/x"), DirectoryEntry::Leaf(NopEntry))
+            .unwrap();
+        b.remove_prefix(path("a/b")).unwrap();
+        assert_eq!(
+            vec![path("a/x")],
+            b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_remove_prefix_tree() {
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))
+            .unwrap();
+        b.insert(path("a/b/d"), DirectoryEntry::Leaf(NopEntry))
+            .unwrap();
+        b.insert(path("a/x"), DirectoryEntry::Leaf(NopEntry))
+            .unwrap();
+        b.remove_prefix(path("a/b")).unwrap();
+        assert_eq!(
+            vec![path("a/x")],
+            b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+        );
+    }
 
     struct CountingDigester(Cell<usize>, TestHasher);
 
@@ -805,5 +1022,14 @@ mod tests {
         let digester = CountingDigester(Cell::new(0), TestHasher);
         merged.fingerprint(&digester);
         assert_eq!(0, digester.0.get());
+    }
+
+    #[test]
+    fn test_bounds() {
+        fn assert_impls_debug<T: std::fmt::Debug>() {}
+        fn assert_impls_clone<T: std::clone::Clone>() {}
+
+        assert_impls_debug::<TestDirectoryBuilder>();
+        assert_impls_clone::<TestDirectoryBuilder>();
     }
 }
