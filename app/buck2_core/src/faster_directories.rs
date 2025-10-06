@@ -8,10 +8,13 @@
  * above-listed licenses.
  */
 
-use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
 
-pub static VALUE: OnceLock<bool> = OnceLock::new();
+pub static VALUE: AtomicBool = AtomicBool::new(true);
 
+/// Is faster directories enabled?
+///
+/// NOTE: Can change with no warning.
 pub fn is_enabled() -> bool {
-    *VALUE.get().unwrap_or(&true)
+    VALUE.load(std::sync::atomic::Ordering::Relaxed)
 }

@@ -740,13 +740,14 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(false);
 
-        _ = buck2_core::faster_directories::VALUE.set(
+        _ = buck2_core::faster_directories::VALUE.store(
             root_config
                 .parse::<bool>(BuckconfigKeyRef {
                     section: "buck2",
                     property: "faster_directories",
                 })?
                 .unwrap_or(true),
+            std::sync::atomic::Ordering::Relaxed,
         );
 
         let mut data = UserComputationData {
