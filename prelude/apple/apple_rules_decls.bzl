@@ -615,7 +615,6 @@ apple_library = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.meta_apple_library_validation_enabled_arg() |
-        apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
@@ -944,7 +943,6 @@ apple_test = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.apple_sanitizer_compatibility_arg() |
-        apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         cxx_common.supported_platforms_regex_arg() |

@@ -101,9 +101,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             False,  # parse_as_library
             deps_providers,
             module_name,
-            module_name + "_Private",
             [],
-            None,
             None,
             framework_search_path_flags,
             objc_bridging_header_flags,

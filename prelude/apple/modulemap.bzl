@@ -23,9 +23,8 @@ def preprocessor_info_for_modulemap(
         module_name: str,
         headers: list[CHeader],
         swift_header: Artifact | None,
-        mark_headers_private: bool,
         additional_args: CPreprocessorArgs | None) -> CPreprocessor:
-    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, mark_headers_private, additional_args)
+    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, additional_args)
     return preprocessor_info
 
 def create_modulemap(
@@ -34,7 +33,6 @@ def create_modulemap(
         module_name: str,
         headers: list[CHeader],
         swift_header: Artifact | None,
-        mark_headers_private: bool,
         additional_args: CPreprocessorArgs | None,
         is_framework: bool = False) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
@@ -56,9 +54,6 @@ def create_modulemap(
         # We need to include the Swift header in the symlink tree too
         swift_header_name = "{}/{}-Swift.h".format(module_name, module_name)
         header_map[swift_header_name] = swift_header
-
-        if mark_headers_private:
-            fail("You shouldn't be generating a bridging header for a private module map.")
 
     # Create a symlink dir for the headers to import
     symlink_tree = ctx.actions.symlinked_dir(name.replace(".", "_") + "_symlink_tree", header_map, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
@@ -91,9 +86,6 @@ def create_modulemap(
         # Don't include the Swift header in the mappings, this is handled separately.
         if hdr != swift_header_name:
             cmd.add(hdr)
-
-    if mark_headers_private:
-        cmd.add("--mark-headers-private")
 
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
 

@@ -306,10 +306,8 @@ def compile_swift(
         parse_as_library: bool,
         deps_providers: list,
         module_name: str,
-        private_module_name: str,
         exported_headers: list[CHeader],
         exported_objc_modulemap_pp_info: [CPreprocessor, None],
-        private_objc_modulemap_pp_info: [CPreprocessor, None],
         framework_search_paths_flags: cmd_args,
         extra_search_paths_flags: list[ArgLike] = [],
         compile_category = "swift_compile",
@@ -338,17 +336,8 @@ def compile_swift(
             swift_cxx_flags,
             framework_search_paths,
         ) if exported_objc_modulemap_pp_info else None
-        private_compiled_underlying_pcm = _get_compiled_underlying_pcm(
-            ctx,
-            private_module_name,
-            private_objc_modulemap_pp_info,
-            deps_providers,
-            swift_cxx_flags,
-            framework_search_paths,
-        ) if private_objc_modulemap_pp_info else None
     else:
         exported_compiled_underlying_pcm = None
-        private_compiled_underlying_pcm = None
 
     # We always track inputs for dependency file tracking, but optionally set
     # the tag on the action depending on the use_depsfiles config.
@@ -358,10 +347,8 @@ def compile_swift(
         ctx = ctx,
         deps_providers = deps_providers,
         parse_as_library = parse_as_library,
-        private_module = private_compiled_underlying_pcm,
         public_module = exported_compiled_underlying_pcm,
         module_name = module_name,
-        private_modulemap_pp_info = private_objc_modulemap_pp_info,
         public_modulemap_pp_info = exported_objc_modulemap_pp_info,
         extra_search_paths_flags = extra_search_paths_flags,
         inputs_tag = inputs_tag,
@@ -439,7 +426,6 @@ def compile_swift(
         module_name = module_name,
         headers = exported_headers,
         swift_header = output_header,
-        mark_headers_private = False,
         additional_args = None,
     )
     exported_swift_header = CHeader(
@@ -485,12 +471,10 @@ def compile_swift(
                 None,
                 [
                     exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
-                    private_compiled_underlying_pcm.output_artifact if private_compiled_underlying_pcm else None,
                     extended_modulemap,
                 ],
             ) +
-            (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []) +
-            (private_compiled_underlying_pcm.clang_modulemap_artifacts if private_compiled_underlying_pcm else []),
+            (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []),
         ),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
@@ -1008,10 +992,8 @@ def _get_shared_flags(
         ctx: AnalysisContext,
         deps_providers: list,
         parse_as_library: bool,
-        private_module: SwiftCompiledModuleInfo | None,
         public_module: SwiftCompiledModuleInfo | None,
         module_name: str,
-        private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None,
         extra_search_paths_flags: list[ArgLike],
         inputs_tag: ArtifactTag,
@@ -1176,9 +1158,7 @@ def _get_shared_flags(
     _add_mixed_library_flags_to_cmd(
         ctx,
         cmd,
-        private_module,
         public_module,
-        private_modulemap_pp_info,
         public_modulemap_pp_info,
     )
 
@@ -1257,22 +1237,16 @@ def _add_clang_deps_flags(
 def _add_mixed_library_flags_to_cmd(
         ctx: AnalysisContext,
         cmd: cmd_args,
-        private_module: SwiftCompiledModuleInfo | None,
         underlying_module: SwiftCompiledModuleInfo | None,
-        private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None) -> None:
     if uses_explicit_modules(ctx):
-        if private_module:
-            cmd.add(private_module.clang_importer_args)
-            cmd.add(private_module.clang_module_file_args)
-
         if underlying_module:
             cmd.add(underlying_module.clang_importer_args)
             cmd.add(underlying_module.clang_module_file_args)
             cmd.add("-import-underlying-module")
         return
 
-    for objc_modulemap_pp_info in filter(None, [private_modulemap_pp_info, public_modulemap_pp_info]):
+    for objc_modulemap_pp_info in filter(None, [public_modulemap_pp_info]):
         # TODO(T99100029): We cannot use VFS overlays to mask this import from
         # the debugger as they require absolute paths. Instead we will enforce
         # that mixed libraries do not have serialized debugging info and rely on

@@ -69,7 +69,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
-load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers", "cxx_attr_headers_list")
+load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
 load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
     "@prelude//cxx:linker.bzl",
@@ -330,12 +330,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     exported_hdrs = cxx_attr_exported_headers(ctx, header_layout)
 
     module_name = get_module_name(ctx)
-    private_module_name = module_name + "_Private"
 
     # First create a modulemap if necessary. This is required for importing
     # ObjC code in Swift so must be done before Swift compilation.
     if ctx.attrs.modular or swift_srcs:
-        private_hdrs = cxx_attr_headers(ctx, header_layout)
         modulemap_name = module_name
         exported_modulemap_pre = preprocessor_info_for_modulemap(
             ctx,
@@ -343,22 +341,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             module_name = module_name,
             headers = exported_hdrs,
             swift_header = None,
-            mark_headers_private = False,
             additional_args = None,
         ) if exported_hdrs else None
-        private_modulemap_pre = preprocessor_info_for_modulemap(
-            ctx,
-            # If you change the .private suffix, check your E2E tests.
-            name = modulemap_name + ".private",
-            module_name = private_module_name,
-            headers = private_hdrs,
-            swift_header = None,
-            mark_headers_private = True,
-            additional_args = exported_modulemap_pre.args if exported_modulemap_pre else None,
-        ) if private_hdrs and ctx.attrs.enable_private_swift_module else None
     else:
         exported_modulemap_pre = None
-        private_modulemap_pre = None
 
     framework_search_paths_flags = get_framework_search_path_flags(ctx)
     swift_compile, swift_interface = compile_swift(
@@ -367,10 +353,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         True,  # parse_as_library
         deps_providers,
         module_name,
-        private_module_name,
         exported_hdrs,
         exported_modulemap_pre,
-        private_modulemap_pre,
         framework_search_paths_flags,
         params.extra_swift_compiler_flags,
     )

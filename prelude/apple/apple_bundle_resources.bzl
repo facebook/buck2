@@ -291,7 +291,6 @@ def _create_framework_module_map(ctx: AnalysisContext) -> Artifact:
         module_name,
         cheaders,
         None,
-        False,
         None,
         is_framework = True,
     )
