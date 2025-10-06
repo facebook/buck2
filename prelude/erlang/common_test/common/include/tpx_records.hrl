@@ -7,7 +7,7 @@
 
 %% @format
 
--record(test_spec_test_info, {name :: string(), filter :: string()}).
+-record(test_spec_test_info, {name :: binary(), filter :: binary()}).
 
 -record(test_spec_test_case, {suite :: binary(), testcases :: [#test_spec_test_info{}]}).
 
