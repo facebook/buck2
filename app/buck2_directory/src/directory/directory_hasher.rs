@@ -27,6 +27,14 @@ pub trait DirectoryDigester<L, H> {
         D: FingerprintedDirectoryRef<'a, Leaf = L, DirectoryDigest = H> + 'a,
         L: 'a,
         Self: Sized;
+
+    /// Return the "size" of a leaf.
+    ///
+    /// These values are aggregated up to eventually become the size of the fingerprinted directory.
+    ///
+    /// It may appear unusual to have this on the digester, but the digester is the only part of the
+    /// directory infrastructure that actually understand what the leaves are
+    fn leaf_size(&self, leaf: &L) -> u64;
 }
 
 #[allow(unused)]

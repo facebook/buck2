@@ -48,6 +48,7 @@ where
         let DirectoryData {
             entries,
             fingerprint,
+            size,
             _hash,
         } = self.data;
 
@@ -59,6 +60,7 @@ where
         let new_data = DirectoryData {
             entries,
             fingerprint,
+            size,
             _hash,
         };
 
@@ -97,6 +99,10 @@ where
 
     pub fn fingerprint(&self) -> &H {
         self.data.fingerprint()
+    }
+
+    pub fn size(&self) -> u64 {
+        self.data.size
     }
 
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {

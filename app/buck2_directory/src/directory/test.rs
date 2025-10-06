@@ -74,6 +74,10 @@ impl DirectoryDigester<NopEntry, TestDigest> for TestHasher {
         entries.hash(&mut hasher);
         TestDigest(hasher.finish())
     }
+
+    fn leaf_size(&self, _leaf: &NopEntry) -> u64 {
+        1
+    }
 }
 
 type TestDirectoryBuilder = DirectoryBuilder<NopEntry, TestDigest>;

@@ -95,6 +95,10 @@ where
         self.inner.data.fingerprint()
     }
 
+    pub fn size(&self) -> u64 {
+        self.inner.data.size
+    }
+
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
         DirectoryBuilder::Immutable(self.as_immutable())
     }

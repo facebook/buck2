@@ -28,6 +28,8 @@ pub trait FingerprintedDirectory<L, H>: Directory<L, H> {
     fn fingerprint(&self) -> &H
     where
         H: DirectoryDigest;
+
+    fn size(&self) -> u64;
 }
 
 impl<L, H> fmt::Debug for &dyn FingerprintedDirectory<L, H> {

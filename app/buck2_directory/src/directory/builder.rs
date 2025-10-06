@@ -732,6 +732,10 @@ mod tests {
             self.0.set(self.0.get() + 1);
             self.1.hash_entries(entries)
         }
+
+        fn leaf_size(&self, _leaf: &NopEntry) -> u64 {
+            1
+        }
     }
 
     fn make_directory(leaves: &[&'static str]) -> ImmutableDirectory<NopEntry, TestDigest> {

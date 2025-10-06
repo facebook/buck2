@@ -178,6 +178,14 @@ impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest> for ReDirectory
     {
         TrackedFileDigest::from_content(&Self::serialize_entries(entries), self.cas_digest_config)
     }
+
+    fn leaf_size(&self, leaf: &ActionDirectoryMember) -> u64 {
+        match leaf {
+            ActionDirectoryMember::File(f) => f.digest.size(),
+            ActionDirectoryMember::Symlink(_) => 0,
+            ActionDirectoryMember::ExternalSymlink(_) => 0,
+        }
+    }
 }
 
 pub fn new_symlink<T: AsRef<Path>>(target: T) -> buck2_error::Result<ActionDirectoryMember> {

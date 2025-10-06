@@ -134,6 +134,13 @@ where
             Self::Shared(dir) => FingerprintedDirectory::fingerprint(dir),
         }
     }
+
+    fn size(&self) -> u64 {
+        match self {
+            Self::Exclusive(dir) => FingerprintedDirectory::size(dir),
+            Self::Shared(dir) => FingerprintedDirectory::size(dir),
+        }
+    }
 }
 
 impl<L, H> PartialEq for ImmutableDirectory<L, H>

@@ -206,6 +206,10 @@ impl DirectoryDigester<ContentsAndMetadata, BundledDirectoryDigest> for BundledD
         }
         BundledDirectoryDigest(hasher.finalize())
     }
+
+    fn leaf_size(&self, leaf: &ContentsAndMetadata) -> u64 {
+        leaf.contents.len() as u64
+    }
 }
 
 #[derive(allocative::Allocative)]
