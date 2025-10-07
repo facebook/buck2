@@ -275,9 +275,8 @@ async def test_action_freezing_unfreezing(
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
 
-    target = "prelude//:freeze_unfreeze_target"
     await buck.build(
-        target,
+        "prelude//:freeze_unfreeze_target",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=False",
@@ -303,6 +302,40 @@ async def test_action_freezing_unfreezing(
             assert command[0]["details"]["metadata"]["freeze_duration"] is not None
 
     assert frozen_count == 1
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_resource_control_events_created(
+    buck: Buck,
+) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("status = required\n")
+        f.write("enable_action_cgroup_pool = true\n")
+        f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
+        f.write("enable_action_freezing = true\n")
+        f.write("memory_pressure_threshold_percent = 1\n")
+
+    await buck.build(
+        "prelude//:freeze_unfreeze_target",
+        "--no-remote-cache",
+        "-c",
+        "build.use_limited_hybrid=False",
+        "-c",
+        "build.execution_platforms=//:platforms",
+        "--local-only",
+    )
+
+    event = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "ResourceControlEvents",
+    )
+
+    assert len(event) > 0
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
@@ -379,8 +412,6 @@ async def test_parent_slice_memory_high_unset_and_restore(
         slice_memory_high = int(f.read().strip())
     assert slice_memory_high == memory_high_total
 
-    target = "prelude//:parent_cgroup_slice_memory_high_unset_restore_target"
-
     # Variables to store the memory.high values
     delayed_memory_high = None
 
@@ -403,7 +434,7 @@ async def test_parent_slice_memory_high_unset_and_restore(
     memory_reader_thread.start()
 
     await buck.build(
-        target,
+        "prelude//:freeze_unfreeze_target",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=False",
