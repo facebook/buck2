@@ -29,9 +29,20 @@ pub mod memory_tracker {
 
 #[derive(Clone, Copy, Debug)]
 pub enum CommandType {
-    Action,
+    Build,
     Test,
     Worker,
+}
+
+impl std::fmt::Display for CommandType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            CommandType::Build => "BUILD",
+            CommandType::Test => "TEST",
+            CommandType::Worker => "WORKER",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[cfg(not(unix))]

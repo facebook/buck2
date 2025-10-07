@@ -547,7 +547,7 @@ impl LocalExecutor {
                     let command_type = if request.is_test() {
                         CommandType::Test
                     } else {
-                        CommandType::Action
+                        CommandType::Build
                     };
                     self.exec(
                         &args[0],
@@ -1666,7 +1666,7 @@ mod tests {
                 false,
                 "",
                 "",
-                CommandType::Action,
+                CommandType::Build,
                 EventDispatcher::null(),
             )
             .await?;
@@ -1705,7 +1705,7 @@ mod tests {
                 false,
                 "",
                 "",
-                CommandType::Action,
+                CommandType::Build,
                 EventDispatcher::null(),
             )
             .await?;
@@ -1733,7 +1733,7 @@ mod tests {
                 false,
                 "",
                 "",
-                CommandType::Action,
+                CommandType::Build,
                 EventDispatcher::null(),
             )
             .await?;

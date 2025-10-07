@@ -514,7 +514,7 @@ mod tests {
             .command_started(
                 cgroup_1.clone(),
                 EventDispatcher::null(),
-                CommandType::Action,
+                CommandType::Build,
                 Some("action_1".to_owned()),
             )
             .await?;
@@ -522,7 +522,7 @@ mod tests {
             .command_started(
                 cgroup_2.clone(),
                 EventDispatcher::null(),
-                CommandType::Action,
+                CommandType::Build,
                 Some("action_2".to_owned()),
             )
             .await?;
@@ -559,7 +559,7 @@ mod tests {
             .command_started(
                 cgroup_1.clone(),
                 EventDispatcher::null(),
-                CommandType::Action,
+                CommandType::Build,
                 None,
             )
             .await?;
@@ -567,7 +567,7 @@ mod tests {
             .command_started(
                 cgroup_2.clone(),
                 EventDispatcher::null(),
-                CommandType::Action,
+                CommandType::Build,
                 None,
             )
             .await?;
