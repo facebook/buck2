@@ -99,7 +99,9 @@ pub(crate) struct ActionCgroups {
 // Interface between forkserver/executors and ActionCgroups used to report when commands
 // are active and return cgroup results for a single command.
 pub struct ActionCgroupSession {
-    action_cgroups: Arc<Mutex<ActionCgroups>>,
+    // Pointer to the cgroup pool and not owned by the session. This is mainly used for the session to mark a cgroup as being used
+    // when starting a command and then releasing it back to the pool when the command finishes.
+    cgroup_pool: Arc<Mutex<ActionCgroups>>,
     path: Option<PathBuf>,
     start_error: Option<buck2_error::Error>,
     command_type: CommandType,
@@ -113,8 +115,8 @@ impl ActionCgroupSession {
         tracker
             .as_ref()
             .and_then(|tracker| tracker.action_cgroups.as_ref())
-            .map(|action_cgroups| ActionCgroupSession {
-                action_cgroups: action_cgroups.dupe(),
+            .map(|cgroup_pool| ActionCgroupSession {
+                cgroup_pool: cgroup_pool.dupe(),
                 path: None,
                 start_error: None,
                 command_type,
@@ -122,7 +124,7 @@ impl ActionCgroupSession {
     }
 
     pub async fn command_started(&mut self, cgroup_path: PathBuf) {
-        let mut cgroups = self.action_cgroups.lock().await;
+        let mut cgroups = self.cgroup_pool.lock().await;
         match cgroups
             .command_started(cgroup_path.clone(), self.command_type)
             .await
@@ -141,7 +143,7 @@ impl ActionCgroupSession {
             .path
             .take()
             .expect("command_finished called without calling command_started");
-        self.action_cgroups.lock().await.command_finished(&path)
+        self.cgroup_pool.lock().await.command_finished(&path)
     }
 }
 
