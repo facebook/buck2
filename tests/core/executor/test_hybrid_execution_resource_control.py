@@ -193,22 +193,21 @@ async def test_action_freezing(
         "--local-only",
     )
 
-    result = await buck.log("show")
-    frozen_count = 0
-    for line in result.stdout.splitlines():
-        json_object = json.loads(line)
-        action_end: Optional[Dict[str, Any]] = _get(
-            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
-        )
-        if action_end is not None:
-            action_commands = _get(action_end, "commands")
-            assert len(action_commands) == 1
+    commands = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "commands",
+    )
 
-            metadata = _get(action_commands[0], "details", "metadata")
-            was_frozen = metadata["was_frozen"]
-            if was_frozen:
-                frozen_count += 1
-                assert metadata["freeze_duration"] is not None
+    frozen_count = 0
+    for command in commands:
+        if command[0]["details"]["metadata"]["was_frozen"] is True:
+            frozen_count += 1
+            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
 
     # Check that at least one action was frozen (and the command didn't block indefinitely)
     assert frozen_count > 0
@@ -277,7 +276,7 @@ async def test_action_freezing_unfreezing(
         f.write("memory_pressure_threshold_percent = 1\n")
 
     target = "prelude//:freeze_unfreeze_target"
-    output = await buck.build(
+    await buck.build(
         target,
         "--no-remote-cache",
         "-c",
@@ -286,30 +285,23 @@ async def test_action_freezing_unfreezing(
         "build.execution_platforms=//:platforms",
         "--local-only",
     )
-    with open(
-        output.get_build_report().output_for_target(target),
-        "r",
-    ) as f:
-        print(f.read())
 
-    result = await buck.log("show")
+    commands = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "commands",
+    )
+
     frozen_count = 0
+    for command in commands:
+        if command[0]["details"]["metadata"]["was_frozen"] is True:
+            frozen_count += 1
+            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
 
-    for line in result.stdout.splitlines():
-        json_object = json.loads(line)
-        action_end: Optional[Dict[str, Any]] = _get(
-            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
-        )
-        if action_end is not None:
-            action_commands = _get(action_end, "commands")
-            assert len(action_commands) == 1
-
-            metadata = _get(action_commands[0], "details", "metadata")
-            was_frozen = metadata["was_frozen"]
-            if was_frozen:
-                frozen_count += 1
-                assert metadata["freeze_duration"] is not None
-    # only the action whose identifier is `action_to_be_frozen` will be frozen
     assert frozen_count == 1
 
 
@@ -410,7 +402,7 @@ async def test_parent_slice_memory_high_unset_and_restore(
     )
     memory_reader_thread.start()
 
-    output = await buck.build(
+    await buck.build(
         target,
         "--no-remote-cache",
         "-c",
@@ -420,30 +412,22 @@ async def test_parent_slice_memory_high_unset_and_restore(
         "--local-only",
     )
 
-    with open(
-        output.get_build_report().output_for_target(target),
-        "r",
-    ) as f:
-        print(f.read())
+    commands = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "commands",
+    )
 
-    ## Test if freezing is working as expected
-    result = await buck.log("show")
     frozen_count = 0
+    for command in commands:
+        if command[0]["details"]["metadata"]["was_frozen"] is True:
+            frozen_count += 1
+            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
 
-    for line in result.stdout.splitlines():
-        json_object = json.loads(line)
-        action_end: Optional[Dict[str, Any]] = _get(
-            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
-        )
-        if action_end is not None:
-            action_commands = _get(action_end, "commands")
-            assert len(action_commands) == 1
-
-            metadata = _get(action_commands[0], "details", "metadata")
-            was_frozen = metadata["was_frozen"]
-            if was_frozen:
-                frozen_count += 1
-                assert metadata["freeze_duration"] is not None
     assert frozen_count == 1
 
     memory_reader_thread.join()
