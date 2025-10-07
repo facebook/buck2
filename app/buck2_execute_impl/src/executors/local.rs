@@ -1526,7 +1526,8 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            action_digest: Some(cgroup_command_id.to_owned()),
+            action_digest: None,
+            cgroup_command_id: Some(cgroup_command_id.to_owned()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver

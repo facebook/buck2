@@ -79,7 +79,7 @@ struct ValidatedCommand {
     enable_miniperf: bool,
     std_redirects: Option<StdRedirectPaths>,
     graceful_shutdown_timeout_s: Option<u32>,
-    action_digest: Option<String>,
+    cgroup_command_id: Option<String>,
 }
 
 impl ValidatedCommand {
@@ -93,7 +93,8 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            action_digest,
+            cgroup_command_id,
+            action_digest: _,
         } = cmd_request;
 
         let exe = OsStr::from_bytes(&exe);
@@ -116,7 +117,7 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            action_digest,
+            cgroup_command_id,
         })
     }
 }
@@ -204,7 +205,7 @@ impl UnixForkserverService {
         let resource_control_context = self
             .resource_control_runner
             .as_ref()
-            .zip(validated_cmd.action_digest.as_ref());
+            .zip(validated_cmd.cgroup_command_id.as_ref());
 
         let (mut cmd, miniperf_output, cgroup_path) = match (
             validated_cmd.enable_miniperf,
@@ -220,8 +221,8 @@ impl UnixForkserverService {
                 (cmd, Some(output_path), None)
             }
             // Uses systemd-run + miniperf for resource control + monitoring
-            // systemd-run --scope --unit=<action_digest> miniperf <output_path> <user_executable>
-            (_, Some(miniperf), Some((resource_control_runner, action_digest))) => {
+            // systemd-run --scope --unit=<cgroup_command_id> miniperf <output_path> <user_executable>
+            (_, Some(miniperf), Some((resource_control_runner, cgroup_command_id))) => {
                 if let Some(cgroup_id) = cgroup_id {
                     let mut cmd = background_command(miniperf.miniperf.as_path());
                     // safe to unwarp, because we have cgroup_id which means we have cgroup pool
@@ -235,7 +236,7 @@ impl UnixForkserverService {
                     let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
                     let mut cmd = resource_control_runner.cgroup_scoped_command(
                         miniperf.miniperf.as_path(),
-                        &replace_unit_delimiter(action_digest),
+                        &replace_unit_delimiter(cgroup_command_id),
                         workding_dir,
                     );
                     let output_path = miniperf.allocate_output_path();

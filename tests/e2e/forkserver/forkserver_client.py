@@ -76,7 +76,7 @@ class Buck2ForkserverClient:
             exe=exe.encode("utf-8"),
             argv=[arg.encode("utf-8") for arg in (argv or [])],
             enable_miniperf=enable_miniperf,
-            action_digest="fake_digest",
+            cgroup_command_id="fake_digest",
         )
 
         # Set working directory if provided
