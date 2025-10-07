@@ -120,6 +120,7 @@ def create_jar_artifact_kotlincd(
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
     should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_experimental_content_based_path_hashing, dir = True)
+    incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
@@ -141,6 +142,7 @@ def create_jar_artifact_kotlincd(
         compiling_deps_tset,
         debug_port,
         uses_experimental_content_based_path_hashing,
+        incremental_metadata_ignored_inputs_tag,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -190,6 +192,7 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
+        incremental_metadata_ignored_inputs_tag = incremental_metadata_ignored_inputs_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
@@ -438,6 +441,7 @@ def _define_kotlincd_action(
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         debug_port: [int, None],
         uses_experimental_content_based_path_hashing: bool,
+        incremental_metadata_ignored_inputs_tag: ArtifactTag,
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
@@ -487,7 +491,6 @@ def _define_kotlincd_action(
     if incremental_state_dir:
         post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
 
-    incremental_metadata_ignored_inputs = actions.artifact_tag()
     dep_files = {}
     used_jars_json_output = None
     if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
@@ -504,7 +507,7 @@ def _define_kotlincd_action(
                 args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = [dep.abi_as_dir for dep in abi_as_dir_deps])))
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
-                args.add(incremental_metadata_ignored_inputs.tag_artifacts(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_dirs")))))
+                args.add(incremental_metadata_ignored_inputs_tag.tag_artifacts(classpath_jars_tag.tag_artifacts(cmd_args(hidden = compiling_deps_tset.project_as_args("abi_dirs")))))
         setup_dep_files(
             actions,
             actions_identifier,
@@ -556,7 +559,7 @@ def _define_kotlincd_action(
         )
 
     incremental_run_params = {
-        "incremental_metadata_ignore_tags": [incremental_metadata_ignored_inputs],
+        "incremental_metadata_ignore_tags": [incremental_metadata_ignored_inputs_tag],
         "metadata_env_var": "ACTION_METADATA",
         "metadata_path": "action_metadata.json",
         "no_outputs_cleanup": True,

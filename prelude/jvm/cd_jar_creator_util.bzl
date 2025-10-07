@@ -254,6 +254,7 @@ def encode_base_jar_command(
         label: Label,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         classpath_jars_tag: ArtifactTag,
+        incremental_metadata_ignored_inputs_tag: ArtifactTag | None,
         bootclasspath_entries: list[Artifact],
         system_image: Artifact | None,
         source_level: int,
@@ -280,7 +281,10 @@ def encode_base_jar_command(
         # as they serve the incremental compiler's internal needs,
         # which are utilized after the build system has determined whether a rebuild is necessary.
         compiling_classpath = classpath_jars_tag.tag_artifacts(compiling_deps_tset.project_as_json("javacd_json", ordering = "topological") if compiling_deps_tset else [])
+
         compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts(compiling_deps_tset.project_as_json("abi_snapshot_json", ordering = "topological") if provide_classpath_snapshot and compiling_deps_tset else [])
+        if incremental_metadata_ignored_inputs_tag:
+            compiling_classpath_snapshot = incremental_metadata_ignored_inputs_tag.tag_artifacts(compiling_classpath_snapshot)
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
@@ -514,6 +518,7 @@ def encode_command(
         target_type: TargetType,
         output_paths: OutputPaths,
         classpath_jars_tag: ArtifactTag,
+        incremental_metadata_ignored_inputs_tag: ArtifactTag | None,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
     base_jar_command = encode_base_jar_command(
@@ -524,6 +529,7 @@ def encode_command(
         label,
         compiling_deps_tset,
         classpath_jars_tag,
+        incremental_metadata_ignored_inputs_tag,
         bootclasspath_entries,
         system_image,
         source_level,
@@ -586,12 +592,14 @@ def generate_abi_jars(
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
             source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label, uses_experimental_content_based_path_hashing)
             source_abi_classpath_jars_tag = actions.artifact_tag()
+            source_abi_incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", uses_experimental_content_based_path_hashing, dir = True)
             source_abi_command = encode_abi_command(
                 build_mode = BuildMode("ABI"),
                 target_type = source_abi_target_type,
                 output_paths = source_abi_output_paths,
                 classpath_jars_tag = source_abi_classpath_jars_tag,
+                incremental_metadata_ignored_inputs_tag = source_abi_incremental_metadata_ignored_inputs_tag,
                 source_only_abi_compiling_deps = [],
                 track_class_usage = track_class_usage,
             )
@@ -617,6 +625,7 @@ def generate_abi_jars(
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_experimental_content_based_path_hashing)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
+            source_only_abi_incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_experimental_content_based_path_hashing, dir = True)
             source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
             source_only_abi_command = encode_abi_command(
@@ -624,6 +633,7 @@ def generate_abi_jars(
                 target_type = source_only_abi_target_type,
                 output_paths = source_only_abi_output_paths,
                 classpath_jars_tag = source_only_abi_classpath_jars_tag,
+                incremental_metadata_ignored_inputs_tag = source_only_abi_incremental_metadata_ignored_inputs_tag,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
                 track_class_usage = track_class_usage,
             )
