@@ -165,6 +165,7 @@ impl ForkserverClient {
             .into());
         }
 
+        let action_digest = req.action_digest.clone();
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
             data: Some(req.into()),
         }))
@@ -184,7 +185,8 @@ impl ForkserverClient {
             .into_inner();
         let stream = decode_event_stream(stream);
 
-        let cgroup_session = ActionCgroupSession::maybe_create(&self.memory_tracker, command_type);
+        let cgroup_session =
+            ActionCgroupSession::maybe_create(&self.memory_tracker, command_type, action_digest);
         decode_command_event_stream(stream, cgroup_session).await
     }
 

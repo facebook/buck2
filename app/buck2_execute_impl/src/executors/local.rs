@@ -225,6 +225,7 @@ impl LocalExecutor {
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
+        action_digest: &'a str,
         cgroup_command_id: &'a str,
         command_type: CommandType,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
@@ -248,6 +249,7 @@ impl LocalExecutor {
                         env_inheritance,
                         liveliness_observer,
                         self.knobs.enable_miniperf && !disable_miniperf,
+                        action_digest,
                         cgroup_command_id,
                         command_type,
                     )
@@ -553,6 +555,7 @@ impl LocalExecutor {
                         request.local_environment_inheritance(),
                         liveliness_observer,
                         request.disable_miniperf(),
+                        &action_digest.to_string(),
                         &cgroup_command_id,
                         command_type,
                     )
@@ -1507,6 +1510,7 @@ mod unix {
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
+        action_digest: &str,
         cgroup_command_id: &str,
         command_type: CommandType,
     ) -> buck2_error::Result<CommandResult> {
@@ -1526,7 +1530,7 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            action_digest: None,
+            action_digest: Some(action_digest.to_owned()),
             cgroup_command_id: Some(cgroup_command_id.to_owned()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
@@ -1655,6 +1659,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
+                "",
                 CommandType::Action,
             )
             .await?;
@@ -1692,6 +1697,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
+                "",
                 CommandType::Action,
             )
             .await?;
@@ -1717,6 +1723,7 @@ mod tests {
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
                 false,
+                "",
                 "",
                 CommandType::Action,
             )
