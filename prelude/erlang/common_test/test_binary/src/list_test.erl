@@ -7,8 +7,7 @@
 
 %% @format
 -module(list_test).
--compile(warn_missing_spec).
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -include_lib("common/include/tpx_records.hrl").
 
@@ -20,30 +19,50 @@
 %% Fallback oncall
 -define(FALLBACK_ONCALL, <<"fallback_oncall">>).
 
--type group_name() :: atom().
--type test_name() :: atom().
+-type ct_groupname() :: ct_suite:ct_groupname().
+-type ct_testname() :: ct_suite:ct_testname().
 -type suite() :: module().
 
 %% coming from the output of the group/0 method.
 %% See https://www.erlang.org/doc/man/ct_suite.html#Module:groups-0 for the upstream type.
--type groups_output() :: [group_def()].
--type group_def() ::
-    {group_name(), properties(), [subgroup_and_test_case()]}
-    | {group_name(), [subgroup_and_test_case()]}.
--type subgroup_and_test_case() :: sub_group() | testcase().
--type sub_group() :: group_def() | {group, group_name()}.
--type testcase() :: test_name().
+-type groups_output() :: [ct_group_def()].
+-type ct_group_def() ::
+    {ct_groupname(), ct_group_props(), [ct_test_def()]}
+    | {ct_groupname(), [ct_test_def()]}.
 
 %% coming from the output of the all/0 method.
 %% See https://www.erlang.org/doc/man/ct_suite.html#Module:all-0 for the upstream type.
 -type all_output() :: [ct_test_def()].
--type ct_test_def() ::
-    {group, group_name()}
-    | {group, group_name(), properties()}
-    | {group, group_name(), properties(), sub_groups_all()}.
--type sub_groups_all() :: [{group_name(), properties()} | {group_name(), properties(), sub_groups_all()}].
-
--type properties() :: [term()].
+-type ct_test_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
+-type ct_testcase_ref() :: {testcase, ct_testname(), ct_testcase_repeat_prop()}.
+-type ct_testcase_repeat_prop() :: [
+    {repeat, ct_test_repeat()}
+    | {repeat_until_ok, ct_test_repeat()}
+    | {repeat_until_fail, ct_test_repeat()}
+].
+-type ct_group_ref() ::
+    {group, ct_groupname()}
+    | {group, ct_groupname(), ct_group_props_ref()}
+    | {group, ct_groupname(), ct_group_props_ref(), ct_subgroups_def()}.
+-type ct_group_props_ref() :: ct_group_props() | default.
+-type ct_group_props() ::
+    [
+        parallel
+        | sequence
+        | shuffle
+        | {shuffle, Seed :: {integer(), integer(), integer()}}
+        | {ct_group_repeat_type(), ct_test_repeat()}
+    ].
+-type ct_group_repeat_type() ::
+    repeat
+    | repeat_until_all_ok
+    | repeat_until_all_fail
+    | repeat_until_any_ok
+    | repeat_until_any_fail.
+-type ct_test_repeat() :: integer() | forever.
+-type ct_subgroups_def() ::
+    {ct_groupname(), ct_group_props_ref()}
+    | {ct_groupname(), ct_group_props_ref(), ct_subgroups_def()}.
 
 %% ------ Public Function --------
 
@@ -80,7 +99,7 @@ throw_if_duplicate(TestNameSet, [TestName | Tail]) ->
 -doc """
 Test that all the tests in the list are exported.
 """.
--spec test_exported_test(suite(), test_name()) -> error | ok.
+-spec test_exported_test(suite(), ct_testname()) -> error | ok.
 test_exported_test(Suite, Test) ->
     case erlang:function_exported(Suite, Test, 1) of
         false ->
@@ -142,7 +161,7 @@ suite_all(Suite, Hooks, GroupsDef) ->
         Hooks
     ).
 
--spec list_test([subgroup_and_test_case()], [group_name()], groups_output(), suite()) -> [binary()].
+-spec list_test([ct_test_def()], [ct_groupname()], groups_output(), suite()) -> [binary()].
 list_test(Node, Groups, SuiteGroups, Suite) ->
     lists:foldl(
         fun
@@ -161,15 +180,7 @@ list_test(Node, Groups, SuiteGroups, Suite) ->
 
 %% case where the format of the group is {group, GroupName}, then we need to
 %% look for the specifications of the group from the groups() method.
--spec list_group(
-    {group, group_name() | [subgroup_and_test_case()]}
-    | {group_name(), [subgroup_and_test_case()]}
-    | {group_name(), properties(), [subgroup_and_test_case()]},
-    [group_name()],
-    groups_output(),
-    suite()
-) ->
-    [binary()].
+-spec list_group(ct_group_ref(), [ct_groupname()], groups_output(), suite()) -> [binary()].
 list_group({group, Group}, Groups, SuiteGroups, Suite) when is_atom(Group) ->
     list_sub_group(Group, Groups, SuiteGroups, Suite);
 %% case {group, GroupName, Properties}, similar as above
@@ -178,23 +189,13 @@ list_group({group, Group, _}, Groups, SuiteGroups, Suite) when is_atom(Group) ->
 %% case {group, GroupName, Properties, SubGroupProperties},
 %% similar_as_above.
 list_group({group, Group, _, _}, Groups, SuiteGroups, Suite) ->
-    list_sub_group(Group, Groups, SuiteGroups, Suite);
-%% case {GroupName, SubGroupTests}, then we need to look for the specification of the group
-%% from the groups() method as above
-list_group({Group, SubGroupTests}, Groups, SuiteGroups, Suite) ->
-    Groups1 = lists:append(Groups, [Group]),
-    list_test(SubGroupTests, Groups1, SuiteGroups, Suite);
-%% case {GroupName, Properties, SubGroupsAndTests},
-%% then in this case we explore the SubGroupsAndTests
-list_group({Group, _, SubGroupTests}, Groups, SuiteGroups, Suite) ->
-    Groups1 = lists:append(Groups, [Group]),
-    list_test(SubGroupTests, Groups1, SuiteGroups, Suite).
+    list_sub_group(Group, Groups, SuiteGroups, Suite).
 
 -doc """
 Makes use of the output from the groups/0 method to get the tests and subgroups
 of the group name given as input
 """.
--spec list_sub_group(group_name(), [group_name()], groups_output(), suite()) -> [binary()].
+-spec list_sub_group(ct_groupname(), [ct_groupname()], groups_output(), suite()) -> [binary()].
 list_sub_group(Group, Groups, SuiteGroups, Suite) when is_list(SuiteGroups) ->
     TestsAndGroups =
         case lists:keyfind(Group, 1, SuiteGroups) of
@@ -211,7 +212,7 @@ Given a test that belongs to a common test suite,
 prints it as follows:
 name_of_suite.group1:group2:...:groupn.test_name
 """.
--spec test_format(suite(), [group_name()], test_name()) -> binary().
+-spec test_format(suite(), [ct_groupname()], ct_testname()) -> binary().
 test_format(Suite, Groups, Test) ->
     ok = test_exported_test(Suite, Test),
     ListPeriodGroups = lists:join(":", lists:map(fun(Group) -> atom_to_list(Group) end, Groups)),
@@ -292,6 +293,7 @@ extract_attribute(Attribute, [Form | Forms]) ->
             extract_attribute(Attribute, Forms)
     end.
 
+-spec list_string_to_binary(string()) -> binary().
 list_string_to_binary(Str) when is_list(Str) ->
     Bin = unicode:characters_to_binary(Str),
     if
