@@ -221,7 +221,6 @@ def _add_executable_subtargets(
         exe: PexProviders,
         dbg_source_db: DefaultInfo,
         dbg_source_db_output: Artifact | None,
-        lazy_import_analysis: DefaultInfo,
         library_info: PythonLibraryInfo,
         main: EntryPoint,
         source_db_no_deps: DefaultInfo,
@@ -240,7 +239,6 @@ def _add_executable_subtargets(
 
     exe.sub_targets.update({
         "dbg-source-db": [dbg_source_db],
-        "lazy-import-analysis": [lazy_import_analysis],
         "library-info": [library_info],
         "main": [DefaultInfo(default_output = ctx.actions.write_json("main.json", main))],
         "source-db-no-deps": [source_db_no_deps, create_python_source_db_info(library_info.manifests)],
@@ -284,10 +282,6 @@ def _compute_pex_providers(
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
-    # Run lazy import analysis using the existing dbg-db.json
-    lazy_import_analysis_output = ctx.actions.declare_output("lazy-import-analysis.json")
-    lazy_import_analysis = run_lazy_imports_analyzer(ctx, lazy_import_analysis_output, dbg_source_db_output)
-
     extra_artifacts = {key: value for key, value in link_extra_artifacts.items()}
 
     link_strategy = compute_link_strategy(ctx)
@@ -301,6 +295,13 @@ def _compute_pex_providers(
 
     if dbg_source_db_output:
         extra_artifacts["dbg-db.json"] = dbg_source_db_output
+
+    # Run lazy import analysis using the existing dbg-db.json only if the attribute is enabled
+    if getattr(ctx.attrs, "safer_lazy_imports", False):
+        lazy_import_analysis_output = ctx.actions.declare_output("lazy-import-analysis.json")
+        run_lazy_imports_analyzer(ctx, lazy_import_analysis_output, dbg_source_db_output)
+        if lazy_import_analysis_output:
+            extra_artifacts["lazy-import-analysis.json"] = lazy_import_analysis_output
 
     extra_artifacts["sitecustomize.py"] = python_internal_tools.default_sitecustomize
 
@@ -410,7 +411,7 @@ def _compute_pex_providers(
 
     pex.sub_targets.update(extra)
 
-    updated_pex = _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, lazy_import_analysis, library, main, source_db_no_deps, src_manifest, python_deps)
+    updated_pex = _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps)
 
     return compute_providers(ctx, updated_pex, executable_type)
 
