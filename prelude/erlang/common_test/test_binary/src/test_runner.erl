@@ -19,7 +19,11 @@
 
 -define(DEFAULT_OUTPUT_FORMAT, json).
 
--spec run_tests([string()], #test_info{}, string(), #test_spec_test_case{}) -> ok.
+-spec run_tests(Tests, TestInfo, OutputDir, Listing) -> ok when
+    Tests :: [string()],
+    TestInfo :: #test_info{},
+    OutputDir :: file:filename_all(),
+    Listing :: #test_spec_test_case{}.
 run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
     Suite =

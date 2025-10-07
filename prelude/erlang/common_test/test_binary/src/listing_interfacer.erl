@@ -33,7 +33,7 @@ test_case_constructor(Suite, Tests) ->
 test_info_to_xml(#test_spec_test_info{name = TestName, filter = TestName}) ->
     {test, [{name, [TestName]}, {filter, [TestName]}], []}.
 
--spec produce_xml_file(string(), #test_spec_test_case{}) -> ok.
+-spec produce_xml_file(file:filename_all(), #test_spec_test_case{}) -> ok.
 produce_xml_file(OutputDir, TestCase) ->
     XmlString = xmerl:export_simple([test_case_to_xml(TestCase)], xmerl_xml),
     ok = file:write_file(filename:join(OutputDir, result), XmlString, [append, raw, binary]).

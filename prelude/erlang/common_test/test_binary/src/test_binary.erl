@@ -7,7 +7,7 @@
 
 %% @format
 -module(test_binary).
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -export([main/1, main/0]).
 -include_lib("common/include/buck_ct_records.hrl").
@@ -55,7 +55,9 @@ main([TestInfoFile]) ->
     test_logger:set_up_logger(OutputDir, test_runner, true),
     try list_and_run(TestInfoFile, OutputDir) of
         true ->
-            io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [OutputDir]),
+            io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
+                OutputDir
+            ]),
             erlang:halt(1);
         false ->
             erlang:halt(0)
@@ -79,8 +81,8 @@ main(Other) ->
 
 -spec load_suite(binary()) -> atom().
 load_suite(SuitePath) ->
-    Path = unicode:characters_to_list(filename:rootname(filename:absname(SuitePath))),
-    {module, Module} = code:load_abs(Path),
+    Path = filename:rootname(filename:absname(SuitePath)),
+    {module, Module} = code:load_abs(filename_all_to_filename(Path)),
     Module.
 
 -spec get_hooks(#test_info{}) -> [module()].
@@ -95,19 +97,27 @@ get_hooks(TestInfo) ->
      || HookSpec <- Hooks
     ].
 
--spec listing(string(), string()) -> ok.
+-spec listing(TestInfoFile, OutputDir) -> ok when
+    TestInfoFile :: file:filename_all(),
+    OutputDir :: file:filename_all().
 listing(TestInfoFile, OutputDir) ->
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
     listing_interfacer:produce_xml_file(OutputDir, Listing).
 
--spec running(string(), string(), [string()]) -> ok.
+-spec running(TestInfoFile, OutputDir, Tests) -> ok when
+    TestInfoFile :: file:filename_all(),
+    OutputDir :: file:filename_all(),
+    Tests :: [string()].
 running(TestInfoFile, OutputDir, Tests) ->
     AbsOutputDir = filename:absname(OutputDir),
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, AbsOutputDir),
     test_runner:run_tests(Tests, TestInfo, AbsOutputDir, Listing).
 
+-spec get_listing(TestInfo, OutputDir) -> #test_spec_test_case{} when
+    TestInfo :: #test_info{},
+    OutputDir :: file:filename_all().
 get_listing(TestInfo, OutputDir) ->
     code:add_paths(TestInfo#test_info.dependencies),
     Suite = load_suite(TestInfo#test_info.test_suite),
@@ -116,7 +126,7 @@ get_listing(TestInfo, OutputDir) ->
     true = os:putenv("PROJECT_ROOT", ProjectRoot),
 
     InitProviderState = #init_provider_state{
-        output_dir = OutputDir,
+        output_dir = filename_all_to_filename(OutputDir),
         suite = Suite,
         raw_target = TestInfo#test_info.raw_target
     },
@@ -133,6 +143,9 @@ get_listing(TestInfo, OutputDir) ->
 
 %% rudimantary implementation for running tests with buck2 open-sourced test runner
 
+-spec list_and_run(TestInfoFile, OutputDir) -> boolean() when
+    TestInfoFile :: file:filename_all(),
+    OutputDir :: file:filename_all().
 list_and_run(TestInfoFile, OutputDir) ->
     os:putenv("ERLANG_BUCK_DEBUG_PRINT", "disabled"),
     TestInfo = test_info:load_from_file(TestInfoFile),
@@ -142,10 +155,12 @@ list_and_run(TestInfoFile, OutputDir) ->
     ResultsFile = filename:join(OutputDir, "result_exec.json"),
     print_results(ResultsFile).
 
--spec listing_to_testnames(#test_spec_test_case{}) -> [binary()].
+-spec listing_to_testnames(#test_spec_test_case{}) -> [string()].
 listing_to_testnames(Listing) ->
     [
-        TestCase#test_spec_test_info.name
+        case unicode:characters_to_list(TestCase#test_spec_test_info.name) of
+            Name when is_list(Name) -> Name
+        end
      || TestCase <- Listing#test_spec_test_case.testcases
     ].
 
@@ -179,9 +194,19 @@ print_individual_results(Result, {Summary, AnyFailure}) ->
         end,
     {Summary#{Status => maps:get(Status, Summary, 0) + 1}, NewAnyFailure}.
 
--spec print_details(string(), string()) -> ok.
+-spec print_details(StdOut, Details) -> ok when
+    StdOut :: unicode:chardata(),
+    Details :: unicode:chardata().
 print_details(StdOut, Details) ->
     io:format("~ts~n", [StdOut]),
     io:format("~ts~n", [Details]),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n"),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n").
+
+-spec filename_all_to_filename(file:filename_all()) -> file:filename().
+filename_all_to_filename(Filename) when is_binary(Filename) ->
+    case unicode:characters_to_list(Filename) of
+        FilenameStr when is_list(FilenameStr) -> FilenameStr
+    end;
+filename_all_to_filename(Filename) ->
+    Filename.
