@@ -27,8 +27,9 @@
 %% See https://www.erlang.org/doc/man/ct_suite.html#Module:groups-0 for the upstream type.
 -type groups_output() :: [ct_group_def()].
 -type ct_group_def() ::
-    {ct_groupname(), ct_group_props(), [ct_test_def()]}
-    | {ct_groupname(), [ct_test_def()]}.
+    {ct_groupname(), ct_group_props(), [ct_group_content()]}
+    | {ct_groupname(), [ct_group_content()]}.
+-type ct_group_content() :: ct_testname() | ct_group_def() | {group, ct_groupname()} | ct_testcase_ref().
 
 %% coming from the output of the all/0 method.
 %% See https://www.erlang.org/doc/man/ct_suite.html#Module:all-0 for the upstream type.
@@ -161,7 +162,7 @@ suite_all(Suite, Hooks, GroupsDef) ->
         Hooks
     ).
 
--spec list_test([ct_test_def()], [ct_groupname()], groups_output(), suite()) -> [binary()].
+-spec list_test([ct_test_def() | ct_group_content()], [ct_groupname()], groups_output(), suite()) -> [binary()].
 list_test(Node, Groups, SuiteGroups, Suite) ->
     lists:foldl(
         fun
@@ -180,7 +181,7 @@ list_test(Node, Groups, SuiteGroups, Suite) ->
 
 %% case where the format of the group is {group, GroupName}, then we need to
 %% look for the specifications of the group from the groups() method.
--spec list_group(ct_group_ref(), [ct_groupname()], groups_output(), suite()) -> [binary()].
+-spec list_group(ct_group_ref() | ct_group_def(), [ct_groupname()], groups_output(), suite()) -> [binary()].
 list_group({group, Group}, Groups, SuiteGroups, Suite) when is_atom(Group) ->
     list_sub_group(Group, Groups, SuiteGroups, Suite);
 %% case {group, GroupName, Properties}, similar as above
@@ -189,7 +190,21 @@ list_group({group, Group, _}, Groups, SuiteGroups, Suite) when is_atom(Group) ->
 %% case {group, GroupName, Properties, SubGroupProperties},
 %% similar_as_above.
 list_group({group, Group, _, _}, Groups, SuiteGroups, Suite) ->
-    list_sub_group(Group, Groups, SuiteGroups, Suite).
+    list_sub_group(Group, Groups, SuiteGroups, Suite);
+list_group(GroupDef, Groups, SuiteGroups, Suite) ->
+    list_group_def(GroupDef, Groups, SuiteGroups, Suite).
+
+-spec list_group_def(ct_group_def(), [ct_groupname()], groups_output(), suite()) -> [binary()].
+%% case {GroupName, SubGroupTests}, then we need to look for the specification of the group
+%% from the groups() method as above
+list_group_def({Group, SubGroupTests}, Groups, SuiteGroups, Suite) ->
+    Groups1 = lists:append(Groups, [Group]),
+    list_test(SubGroupTests, Groups1, SuiteGroups, Suite);
+%% case {GroupName, Properties, SubGroupsAndTests},
+%% then in this case we explore the SubGroupsAndTests
+list_group_def({Group, _, SubGroupTests}, Groups, SuiteGroups, Suite) ->
+    Groups1 = lists:append(Groups, [Group]),
+    list_test(SubGroupTests, Groups1, SuiteGroups, Suite).
 
 -doc """
 Makes use of the output from the groups/0 method to get the tests and subgroups
