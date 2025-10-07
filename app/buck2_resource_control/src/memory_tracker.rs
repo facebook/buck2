@@ -375,10 +375,16 @@ impl MemoryTracker {
                         MemoryPressureState::AbovePressureLimit
                     };
 
+                    let memory_reading = MemoryReading {
+                        memory_current,
+                        memory_swap_current,
+                        memory_pressure: pressure_percent,
+                    };
+
                     if let Some(action_cgroups) = handle.action_cgroups.as_ref() {
                         let mut action_cgroups = action_cgroups.lock().await;
                         action_cgroups
-                            .update(memory_pressure_state, memory_current, pressure_percent)
+                            .update(memory_pressure_state, &memory_reading)
                             .await;
                     }
 
@@ -387,11 +393,7 @@ impl MemoryTracker {
                             memory_current_state,
                             memory_pressure_state,
                         }),
-                        Some(MemoryReading {
-                            memory_current,
-                            memory_swap_current,
-                            memory_pressure: pressure_percent,
-                        }),
+                        Some(memory_reading),
                     )
                 }
                 _ => (TrackedMemoryState::Failure, None),

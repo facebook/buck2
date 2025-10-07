@@ -36,6 +36,7 @@ use tokio::sync::Mutex;
 
 use crate::CommandType;
 use crate::memory_tracker::MemoryPressureState;
+use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
 
@@ -253,8 +254,7 @@ impl ActionCgroups {
     pub async fn update(
         &mut self,
         pressure_state: MemoryPressureState,
-        buck2_slice_memory_current: u64,
-        buck2_slice_pressure_percent: u64,
+        memory_reading: &MemoryReading,
     ) {
         for cgroup in self.active_cgroups.values_mut() {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
@@ -276,7 +276,7 @@ impl ActionCgroups {
         }
 
         if pressure_state == MemoryPressureState::AbovePressureLimit {
-            self.maybe_freeze(buck2_slice_memory_current, buck2_slice_pressure_percent);
+            self.maybe_freeze(memory_reading);
 
             // When we are under memory pressure and began freezing actions, we need to reset memory.high to max to prevent throttling unnecessarily.
             // original_memory_high is used to make sure we don't reset more than once
@@ -287,11 +287,7 @@ impl ActionCgroups {
             }
         }
 
-        self.maybe_unfreeze(
-            pressure_state,
-            buck2_slice_memory_current,
-            buck2_slice_pressure_percent,
-        );
+        self.maybe_unfreeze(pressure_state, memory_reading);
 
         // When we are not under memory pressure and have no frozen actions, lower memory.high so we can react to memory pressure earlier
         if self.original_memory_high.is_some()
@@ -307,7 +303,7 @@ impl ActionCgroups {
     // Currently we freeze the largest cgroup and we keep freezing until only one action is executing.
     // What we really want is to freeze the cgroup that will have the least impact on the critical path,
     // may be better to freeze at random, or freeze the cgroup with the most pressure stalls.
-    fn maybe_freeze(&mut self, buck2_slice_memory_current: u64, buck2_slice_pressure_percent: u64) {
+    fn maybe_freeze(&mut self, memory_reading: &MemoryReading) {
         // We freeze at most 1 action every second since memory changes of previous freezes will take a few seconds to take effect
         // This maybe not be enough, but we don't want to wait too long that we encounter OOMs
         if self
@@ -343,14 +339,14 @@ impl ActionCgroups {
                         cgroup.freeze_start = Some(Instant::now());
                         cgroup.freeze_file = Some(freeze_file);
                         cgroup.memory_current_when_frozen = Some(cgroup.memory_current);
-                        self.total_memory_during_last_freeze = Some(buck2_slice_memory_current);
+                        self.total_memory_during_last_freeze = Some(memory_reading.memory_current);
                         self.last_freeze_time = Some(Instant::now());
                         self.frozen_cgroups.push_back(cgroup.path.clone());
 
                         create_resource_control_event(
                             &cgroup.dispatcher,
-                            buck2_slice_memory_current,
-                            buck2_slice_pressure_percent,
+                            memory_reading.memory_current,
+                            memory_reading.memory_pressure,
                             buck2_data::ResourceControlKind::Freeze,
                             cgroup,
                             self.frozen_cgroups.len() as u64,
@@ -368,8 +364,7 @@ impl ActionCgroups {
     fn maybe_unfreeze(
         &mut self,
         pressure_state: MemoryPressureState,
-        buck2_slice_memory_current: u64,
-        buck2_slice_pressure_percent: u64,
+        memory_reading: &MemoryReading,
     ) {
         // We unfreeze at most 1 action every 3 seconds since memory changes of previous freezes will take several seconds
         // to take effect. This ensures that we don't unfreeze too quickly
@@ -397,8 +392,8 @@ impl ActionCgroups {
 
             // If the current memory use is less than the sum of memory of cgroup at the time it was frozen +
             // total memory when we last froze an action, we can start unfreezing earlier
-            let can_unfreeze_early =
-                buck2_slice_memory_current + memory_when_frozen < total_memory_during_last_freeze;
+            let can_unfreeze_early = memory_reading.memory_current + memory_when_frozen
+                < total_memory_during_last_freeze;
 
             // If we can unfreeze early or if there are no actions running, start unfreezing.
             // We unfreeze even if there are no actions running to prevent the build from getting stuck
@@ -446,8 +441,8 @@ impl ActionCgroups {
 
             create_resource_control_event(
                 &frozen_cgroup.dispatcher,
-                buck2_slice_memory_current,
-                buck2_slice_pressure_percent,
+                memory_reading.memory_current,
+                memory_reading.memory_pressure,
                 buck2_data::ResourceControlKind::Unfreeze,
                 frozen_cgroup,
                 self.frozen_cgroups.len() as u64,
@@ -588,8 +583,13 @@ mod tests {
         fs::write(cgroup_1.join("memory.current"), "20")?;
         fs::write(cgroup_2.join("memory.current"), "5")?;
 
+        let memory_reading = MemoryReading {
+            memory_current: 10000,
+            memory_swap_current: 0,
+            memory_pressure: 12,
+        };
         action_cgroups
-            .update(MemoryPressureState::AbovePressureLimit, 10000, 12)
+            .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
             .await;
 
         let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
@@ -633,15 +633,25 @@ mod tests {
         fs::write(cgroup_1.join("memory.current"), "1")?;
         fs::write(cgroup_2.join("memory.current"), "2")?;
 
+        let memory_reading = MemoryReading {
+            memory_current: 10000,
+            memory_swap_current: 0,
+            memory_pressure: 12,
+        };
         action_cgroups
-            .update(MemoryPressureState::AbovePressureLimit, 10000, 12)
+            .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
             .await;
 
         let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
         assert_eq!(cgroup_1_res.was_frozen, false);
 
+        let memory_reading_2 = MemoryReading {
+            memory_current: 0,
+            memory_swap_current: 0,
+            memory_pressure: 0,
+        };
         action_cgroups
-            .update(MemoryPressureState::BelowPressureLimit, 0, 0)
+            .update(MemoryPressureState::BelowPressureLimit, &memory_reading_2)
             .await;
 
         let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
