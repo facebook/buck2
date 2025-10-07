@@ -267,6 +267,8 @@ pub struct InvocationRecorder {
     max_buck2_total_memory: Option<u64>,
     // Track maximum total buck2 forkserver memory usage (anon+file+kernel)
     max_buck2_forkserver_total_memory: Option<u64>,
+    // CommandOptions data
+    command_options: Option<buck2_data::CommandOptions>,
 }
 
 #[derive(Clone, Debug)]
@@ -451,6 +453,7 @@ impl InvocationRecorder {
             max_buck2_forkserver_anon: None,
             max_buck2_total_memory: None,
             max_buck2_forkserver_total_memory: None,
+            command_options: None,
         }
     }
 
@@ -1055,6 +1058,7 @@ impl InvocationRecorder {
             max_buck2_forkserver_anon: self.max_buck2_forkserver_anon,
             max_buck2_total_memory: self.max_buck2_total_memory,
             max_buck2_forkserver_total_memory: self.max_buck2_forkserver_total_memory,
+            command_options: self.command_options,
         };
 
         let event = BuckEvent::new(
@@ -1963,6 +1967,14 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    fn handle_command_options(
+        &mut self,
+        command_options: &buck2_data::CommandOptions,
+    ) -> buck2_error::Result<()> {
+        self.command_options = Some(*command_options);
+        Ok(())
+    }
+
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         // TODO(nga): query now once in `EventsCtx`.
         let now = SystemTime::now();
@@ -2120,6 +2132,9 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::DiceStateSnapshot(dice_state_snapshot) => {
                         self.handle_dice_state_snapshot(dice_state_snapshot)
+                    }
+                    buck2_data::instant_event::Data::ComandOptions(command_options) => {
+                        self.handle_command_options(command_options)
                     }
                     _ => Ok(()),
                 }

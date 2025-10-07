@@ -2574,6 +2574,9 @@ message InvocationRecord {
   // Maximum total buck2 forkserver memory usage (anon+file+kernel) tracked
   // during the command.
   optional uint64 max_buck2_forkserver_total_memory = 411;
+
+  // CommandOptions data
+  optional CommandOptions command_options = 412;
 }
 
 enum InvocationOutcome {
