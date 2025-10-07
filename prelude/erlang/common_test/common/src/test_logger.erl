@@ -87,10 +87,10 @@ configure_logger(LogFile) ->
 flush() ->
     logger_std_h:filesync(file_handler).
 
--spec get_std_out(file:filename(), atom()) -> file:filename_all().
+-spec get_std_out(file:filename_all(), atom()) -> file:filename_all().
 get_std_out(LogDir, AppName) ->
     filename:join(LogDir, io_lib:format("~tp.stdout.txt", [AppName])).
 
--spec get_log_file(file:filename(), atom()) -> file:filename_all().
+-spec get_log_file(file:filename_all(), atom()) -> file:filename_all().
 get_log_file(LogDir, AppName) ->
     filename:join(LogDir, io_lib:format("~tp.log", [AppName])).

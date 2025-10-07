@@ -21,7 +21,12 @@
     trampolines :: [binary()]
 }).
 
--record(ct_test, {suite, groups, test_name, canonical_name}).
+-record(ct_test, {
+    suite :: module(),
+    groups :: [atom()],
+    test_name :: atom(),
+    canonical_name :: string()
+}).
 
 -record(test_env, {
     suite :: module(),
@@ -34,9 +39,9 @@
     config_files :: [file:filename_all()],
     providers :: [{module(), [term()]}],
     ct_opts :: [term()],
-    common_app_env :: #{string() => string()},
+    common_app_env :: #{binary() => binary()},
     erl_cmd :: [binary()],
-    extra_flags :: [string()],
+    extra_flags :: [binary()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary() | undefined,
     trampolines :: [binary()]

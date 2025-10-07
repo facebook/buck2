@@ -84,7 +84,7 @@
 Gets the name for a testcase in a given group-path
 The groups order expected here is [leaf_group, ...., root_group]
 """.
--spec qualified_name(group_path(), TC :: io_lib:chars()) -> string().
+-spec qualified_name(group_path(), TC :: unicode:chardata()) -> string().
 qualified_name(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
@@ -169,7 +169,7 @@ insert_result(TreeNode, ResultTest, [], MethodId) ->
 Provides a result for the RequestedResults based on the collected results.
 The format of the requested_results is a map from a list of groups to the list of test_cases that are sub-cases from the last group from the list.
 """.
--spec get_result(tree(), #{group_path() => [string()]}) -> [case_result()].
+-spec get_result(tree(), #{group_path() => [atom()]}) -> [case_result()].
 get_result(TreeResult, RequestedResults) ->
     [
         collect_result(TreeResult, Groups, CaseRequest)

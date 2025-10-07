@@ -7,7 +7,7 @@
 
 %% @format
 -module(test_runner).
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -22,8 +22,12 @@
 -spec run_tests([string()], #test_info{}, string(), #test_spec_test_case{}) -> ok.
 run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
-    Suite = binary_to_atom(filename:basename(TestInfo#test_info.test_suite, ".beam")),
-    StructuredTests = lists:map(fun(Test) -> parse_test_name(Test, Suite) end, Tests),
+    Suite =
+        case filename:basename(TestInfo#test_info.test_suite, ".beam") of
+            SuiteBin when is_binary(SuiteBin) -> binary_to_atom(SuiteBin);
+            SuiteStr when is_list(SuiteStr) -> list_to_atom(SuiteStr)
+        end,
+    StructuredTests = [parse_test_name(Test, Suite) || Test <- Tests],
     case StructuredTests of
         [] ->
             throw(no_tests_to_run);
@@ -95,12 +99,10 @@ run_test(
                 {'DOWN', Ref, _Type, Object, Info} ->
                     test_run_fail(
                         TestEnv,
-                        unicode:characters_to_list(
-                            io_lib:format(
-                                "unexpected exception in the buck2 Common Test runner:\n"
-                                "                        application test_exec crashed (~tp ~tp) ~n",
-                                [Object, Info]
-                            )
+                        io_lib:format(
+                            "unexpected exception in the buck2 Common Test runner:\n"
+                            "                        application test_exec crashed (~tp ~tp) ~n",
+                            [Object, Info]
                         )
                     );
                 {run_succeed, Result} ->
@@ -118,9 +120,8 @@ run_test(
                 test_run_timeout(TestEnv, ErrorMsg)
             end;
         {error, Reason} ->
-            ErrorMsg = unicode:characters_to_list(
-                io_lib:format("TextExec failed to start due to ~tp", [Reason])
-            ),
+            ErrorMsg = io_lib:format("TextExec failed to start due to ~tp", [Reason]),
+
             ?LOG_ERROR(ErrorMsg),
             test_run_fail(
                 TestEnv, ErrorMsg
@@ -138,11 +139,11 @@ ensure_test_exec_stopped() ->
 -doc """
 Provides result as specified by the tpx protocol when test failed to ran.
 """.
--spec test_run_fail(#test_env{}, string()) -> ok.
+-spec test_run_fail(#test_env{}, io_lib:chars()) -> ok.
 test_run_fail(#test_env{} = TestEnv, Reason) ->
     provide_output_file(
         TestEnv,
-        unicode:characters_to_list(io_lib:format("Test failed to ran due to ~ts", [Reason])),
+        io_lib:format("Test failed to ran due to ~ts", [Reason]),
         failed
     ).
 
@@ -190,7 +191,7 @@ provide_output_file(
                 % Here we either passed or timeout.
                 case file:read_file(ResultsFile, [raw]) of
                     {ok, JsonFile} ->
-                        TreeResults = binary_to_term(JsonFile),
+                        TreeResults = decode_erlang_term(JsonFile),
                         case TreeResults of
                             undefined ->
                                 ErrorMsg =
@@ -217,8 +218,14 @@ provide_output_file(
     test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, test_runner), OutputDir, TestEnv),
     test_artifact_directory:prepare(OutputDir, TestEnv).
 
+-spec decode_erlang_term(Bin :: binary()) -> dynamic().
+decode_erlang_term(Bin) ->
+    binary_to_term(Bin).
+
+-spec trimmed_content_file(File) -> unicode:chardata() when
+    File :: file:filename_all().
 trimmed_content_file(File) ->
-    case file:open(File, [read]) of
+    case file:open(File, [read, binary]) of
         {error, Reason} ->
             io_lib:format("No ~tp file found, reason ~tp ", [filename:basename(File), Reason]);
         {ok, IoDevice} ->
@@ -230,10 +237,10 @@ trimmed_content_file(File) ->
                             eof -> io_lib:format("nothing to read from ~ts", [File])
                         end;
                     {ok, EndOfFile} ->
-                        EndOfFile ++
-                            io_lib:format("~nFile truncated, see ~tp for full output", [
-                                filename:basename(File)
-                            ])
+                        io_lib:format("~ts~nFile truncated, see ~tp for full output", [
+                            EndOfFile,
+                            filename:basename(File)
+                        ])
                 end
             of
                 Content -> Content
@@ -245,42 +252,41 @@ trimmed_content_file(File) ->
 -doc """
 Provide tpx with a result when CT failed to provide results for tests.
 """.
--spec collect_results_broken_run([#ct_test{}], atom(), io_lib:chars(), term(), io_lib:chars()) ->
+-spec collect_results_broken_run([#ct_test{}], atom(), unicode:chardata(), term(), unicode:chardata()) ->
     [cth_tpx_test_tree:case_result()].
 collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
     FormattedErrorMsg = io_lib:format("~ts~n", [ErrorMsg]),
-    lists:map(
-        fun(Test) ->
-            #{
-                ends => [],
-                inits => [],
-                main => #{
-                    name => lists:flatten(
-                        io_lib:format("~ts.[main_testcase]", [
-                            % We need to reverse the list of groups as the method cth_tpx_test_tree:qualified_name expects them
-                            % in the reverse order (as it is designed to be called when exploring the tree of results
-                            % where we push at each time the group we are in, leading to them being in reverse order).
-                            cth_tpx_test_tree:qualified_name(
-                                lists:reverse(Test#ct_test.groups), Test#ct_test.test_name
-                            )
-                        ])
+    [
+        #{
+            ends => [],
+            inits => [],
+            main => #{
+                name => lists:flatten(
+                    io_lib:format("~ts.[main_testcase]", [
+                        % We need to reverse the list of groups as the method cth_tpx_test_tree:qualified_name expects them
+                        % in the reverse order (as it is designed to be called when exploring the tree of results
+                        % where we push at each time the group we are in, leading to them being in reverse order).
+                        cth_tpx_test_tree:qualified_name(
+                            lists:reverse(Test#ct_test.groups),
+                            atom_to_binary(Test#ct_test.test_name)
+                        )
+                    ])
+                ),
+                details =>
+                    unicode_characters_to_list(
+                        io_lib:format(
+                            "~ts~ts ~n",
+                            [FormattedErrorMsg, ResultExec]
+                        )
                     ),
-                    details =>
-                        unicode:characters_to_list(
-                            io_lib:format(
-                                "~ts~ts ~n",
-                                [FormattedErrorMsg, ResultExec]
-                            )
-                        ),
-                    startedTime => 0.0,
-                    endedTime => 0.0,
-                    outcome => failed,
-                    std_out => StdOut
-                }
+                startedTime => 0.0,
+                endedTime => 0.0,
+                outcome => failed,
+                std_out => unicode_characters_to_list(StdOut)
             }
-        end,
-        Tests
-    ).
+        }
+     || Test <- Tests
+    ].
 
 -doc """
 Provide the results from the tests as specified by tpx protocol, from the json file
@@ -326,7 +332,12 @@ add_or_append(List, {Key, Value}) ->
 Built the test_spec selecting the requested tests and
 specifying the result output.
 """.
--spec build_test_spec(atom(), [atom()], string(), string(), [term()]) -> [term()].
+-spec build_test_spec(Suite, Tests, TestDir, OutputDir, CtOpts) -> [term()] when
+    Suite :: module(),
+    Tests :: [#ct_test{}],
+    TestDir :: file:filename_all(),
+    OutputDir :: file:filename_all(),
+    CtOpts :: [term()].
 build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
     TestDir = unicode:characters_to_list(TestDir0),
     ListGroupTest = get_requested_tests(Tests),
@@ -361,11 +372,13 @@ getCtHook(CtOpts, ResultOutput) ->
     CtHookHandle = {ct_hooks, CthTpxHooks ++ lists:reverse(Hooks)},
     {CtHookHandle, NewOpts}.
 
--spec addOptsHook([term()], [term()]) -> {term(), [term()]}.
+-spec addOptsHook([term()], [term()]) -> {[term()], [term()]}.
 addOptsHook(CtOpts, Hooks) ->
     case lists:keyfind(ct_hooks, 1, CtOpts) of
-        false -> {CtOpts, Hooks};
-        {ct_hooks, NewHooks} -> addOptsHook(lists:keydelete(ct_hooks, 1, CtOpts), NewHooks ++ Hooks)
+        false ->
+            {CtOpts, Hooks};
+        {ct_hooks, NewHooks} when is_list(NewHooks) ->
+            addOptsHook(lists:keydelete(ct_hooks, 1, CtOpts), NewHooks ++ Hooks)
     end.
 
 -doc """
@@ -402,7 +415,7 @@ reorder_tests(Tests, #test_spec_test_case{testcases = TestCases}) ->
     % This is the ordered lists of test from the suite as
     % binary strings.
     MapNameToTests = lists:foldl(
-        fun(#ct_test{canonical_name = Name} = Test, Map) -> Map#{list_string_to_binary(Name) => Test} end,
+        fun(#ct_test{canonical_name = Name} = Test, Map) -> Map#{unicode_characters_to_binary(Name) => Test} end,
         maps:new(),
         Tests
     ),
@@ -421,6 +434,7 @@ reorder_tests(Tests, #test_spec_test_case{testcases = TestCases}) ->
 LogDir is the directory where ct will log to.
 Make sure it exists and returns it.
 """.
+-spec set_up_log_dir(file:filename_all()) -> file:filename_all().
 set_up_log_dir(OutputDir) ->
     LogDir = filename:join(OutputDir, "log_dir"),
     ok = filelib:ensure_path(LogDir),
@@ -480,6 +494,16 @@ max_timeout(#test_env{ct_opts = CtOpts}) ->
             end
     end.
 
-list_string_to_binary(Str) when is_list(Str) ->
-    Bin = unicode:characters_to_binary(Str),
-    if is_binary(Bin) -> Bin end.
+-spec unicode_characters_to_binary(unicode:chardata()) -> binary().
+unicode_characters_to_binary(Chars) ->
+    Bin = unicode:characters_to_binary(Chars),
+    if
+        is_binary(Bin) -> Bin
+    end.
+
+-spec unicode_characters_to_list(unicode:chardata()) -> string().
+unicode_characters_to_list(Chars) ->
+    Str = unicode:characters_to_list(Chars),
+    if
+        is_list(Str) -> Str
+    end.

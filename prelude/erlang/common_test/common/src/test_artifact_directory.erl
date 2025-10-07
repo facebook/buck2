@@ -67,7 +67,7 @@ with_artifact_annotation_dir(Func) ->
 
 % Collect, create and link the logs and other relevant files in
 % the artefacts directory.
--spec prepare(file:filename(), #test_env{}) -> ok.
+-spec prepare(file:filename_all(), #test_env{}) -> ok.
 prepare(ExecutionDir, TestInfo) ->
     with_artifact_dir(
         fun(_ArtifactDir) ->
@@ -112,7 +112,7 @@ link_to_artifact_dir(File, Root, TestEnv) ->
         end
     ).
 
--spec link_tar_ball(file:filename()) -> ok.
+-spec link_tar_ball(file:filename_all()) -> ok.
 link_tar_ball(LogDir) ->
     with_artifact_dir(
         fun(ArtifactDir) ->
@@ -149,7 +149,7 @@ dump_annotation(Annotation, FileName) ->
         end
     ).
 
--spec find_log_private(file:filename()) -> {error, log_private_not_found} | file:filename().
+-spec find_log_private(file:filename_all()) -> {error, log_private_not_found} | file:filename().
 find_log_private(LogDir) ->
     % Use system find command for much faster directory traversal
     % -type d: find directories only
