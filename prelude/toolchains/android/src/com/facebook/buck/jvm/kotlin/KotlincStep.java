@@ -200,18 +200,22 @@ public class KotlincStep implements IsolatedStep {
         returnedStderr = Optional.of(firstOrderStderr);
       } else {
         returnedStderr = Optional.empty();
-        // TODO: add used-classes support for Kosabi 2.0 T232722163
-        if (trackClassUsage && !shouldKosabiJvmAbiGenUseK2) {
-          AbsPath ruleCellRoot = context.getRuleCellRoot();
-          RelPath outputJarDirPath = outputPaths.getOutputJarDirPath();
-          ClassUsageFileWriterFactory.create(kotlincMode)
-              .writeFile(
-                  KotlinClassUsageHelper.getClassUsageData(reportDirPath, ruleCellRoot),
-                  CompilerOutputPaths.getKotlinDepFilePath(outputJarDirPath),
-                  ruleCellRoot,
-                  configuredBuckOut);
-        }
       }
+
+      // TODO: add used-classes support for Kosabi 2.0 T232722163
+      if (declaredDepsBuildResult == StepExecutionResults.SUCCESS_EXIT_CODE
+          && trackClassUsage
+          && !shouldKosabiJvmAbiGenUseK2) {
+        AbsPath ruleCellRoot = context.getRuleCellRoot();
+        RelPath outputJarDirPath = outputPaths.getOutputJarDirPath();
+        ClassUsageFileWriterFactory.create(kotlincMode)
+            .writeFile(
+                KotlinClassUsageHelper.getClassUsageData(reportDirPath, ruleCellRoot),
+                CompilerOutputPaths.getKotlinDepFilePath(outputJarDirPath),
+                ruleCellRoot,
+                configuredBuckOut);
+      }
+
       return new StepExecutionResult(declaredDepsBuildResult, returnedStderr);
     } catch (IOException | InterruptedException e) {
       throw new RuntimeException(e);
