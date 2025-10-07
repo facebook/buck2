@@ -343,10 +343,9 @@ impl ActionCgroups {
                         self.last_freeze_time = Some(Instant::now());
                         self.frozen_cgroups.push_back(cgroup.path.clone());
 
-                        create_resource_control_event(
+                        emit_resource_control_event(
                             &cgroup.dispatcher,
-                            memory_reading.memory_current,
-                            memory_reading.memory_pressure,
+                            memory_reading,
                             buck2_data::ResourceControlKind::Freeze,
                             cgroup,
                             self.frozen_cgroups.len() as u64,
@@ -439,10 +438,9 @@ impl ActionCgroups {
             unfreeze_cgroup(freeze_file);
             self.last_unfreeze_time = Some(Instant::now());
 
-            create_resource_control_event(
+            emit_resource_control_event(
                 &frozen_cgroup.dispatcher,
-                memory_reading.memory_current,
-                memory_reading.memory_pressure,
+                memory_reading,
                 buck2_data::ResourceControlKind::Unfreeze,
                 frozen_cgroup,
                 self.frozen_cgroups.len() as u64,
@@ -479,10 +477,9 @@ impl ActionCgroups {
     }
 }
 
-fn create_resource_control_event(
+fn emit_resource_control_event(
     dispatcher: &EventDispatcher,
-    memory_current: u64,
-    memory_pressure: u64,
+    memory_reading: &MemoryReading,
     kind: buck2_data::ResourceControlKind,
     cgroup: &ActionCgroup,
     frozen_cgroup_count: u64,
@@ -497,8 +494,9 @@ fn create_resource_control_event(
 
         event_time: Some(SystemTime::now().into()),
 
-        memory_current,
-        memory_pressure,
+        memory_current: memory_reading.memory_current,
+        memory_swap_current: memory_reading.memory_swap_current,
+        memory_pressure: memory_reading.memory_pressure,
 
         cgroup_memory_current: cgroup.memory_current,
         cgroup_memory_peak: cgroup.memory_peak,

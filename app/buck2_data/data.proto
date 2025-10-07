@@ -741,6 +741,7 @@ message ResourceControlEvents {
   // Memory
   uint64 memory_current = 6;
   uint64 memory_pressure = 7;
+  uint64 memory_swap_current = 12;
 
   // Information related to the cgroup that's frozen
   uint64 cgroup_memory_current = 8;
