@@ -65,6 +65,9 @@ pub struct MemoryReading {
     /// Contains value from `memory.current` file for cgroup covering
     /// all aspects of build (daemon, forkserver & local action processes).
     pub memory_current: u64,
+    /// Contains value from `memory.swap.current` file for cgroup covering
+    /// all aspects of build (daemon, forkserver & local action processes).
+    pub memory_swap_current: u64,
     /// Contains the avg10 value from the 'some' role of `memory.pressure` file.
     /// This is a sliding window average of the % where any action is under memory pressure
     /// over the last 10 seconds
@@ -138,6 +141,10 @@ pub struct MemoryTracker {
     /// Open `memory.current` file in cgroup of our process
     #[allocative(skip)]
     memory_current: File,
+
+    /// Open `memory.swap.current` file in cgroup of our process
+    #[allocative(skip)]
+    memory_swap_current: File,
 
     /// Open `memory.pressure` file in cgroup of our process
     #[allocative(skip)]
@@ -269,6 +276,7 @@ pub async fn create_memory_tracker(
         let memory_tracker = MemoryTracker::new(
             handle,
             open_daemon_memory_file("memory.current").await?,
+            open_daemon_memory_file("memory.swap.current").await?,
             open_daemon_memory_file("memory.pressure").await?,
             MAX_RETRIES,
             memory_limit_bytes,
@@ -288,6 +296,7 @@ impl MemoryTracker {
     fn new(
         handle: MemoryTrackerHandleInner,
         memory_current: File,
+        memory_swap_current: File,
         memory_pressure: File,
         max_retries: u32,
         memory_limit_bytes: Option<u64>,
@@ -296,6 +305,7 @@ impl MemoryTracker {
         Self {
             handle: Arc::new(handle),
             memory_current,
+            memory_swap_current,
             memory_pressure,
             max_retries,
             memory_limit_bytes,
@@ -332,9 +342,10 @@ impl MemoryTracker {
             let old_state = *self.handle.state_sender.borrow();
             let (new_state, new_reading) = match (
                 read_memory_current(&mut self.memory_current).await,
+                read_memory_swap_current(&mut self.memory_swap_current).await,
                 self.read_some_memory_pressure_avg10().await,
             ) {
-                (Ok(memory_current), Ok(avg_mem_pressure)) => {
+                (Ok(memory_current), Ok(memory_swap_current), Ok(avg_mem_pressure)) => {
                     let memory_current_state =
                         if let Some(memory_limit_bytes) = self.memory_limit_bytes {
                             if memory_current < memory_limit_bytes {
@@ -368,6 +379,7 @@ impl MemoryTracker {
                         }),
                         Some(MemoryReading {
                             memory_current,
+                            memory_swap_current,
                             memory_pressure: pressure_percent,
                         }),
                     )
@@ -440,17 +452,17 @@ impl MemoryTracker {
     }
 }
 
-pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
-    memory_current.rewind().await?;
-    // memory.current contains a byte count as a string which is at most u64::MAX (20 digits)
+async fn read_memory_file(file: &mut File, file_name: &str) -> buck2_error::Result<u64> {
+    file.rewind().await?;
+    // Memory cgroup files contain a byte count as a string which is at most u64::MAX (20 digits)
     // using fixed buffer to avoid heap allocation
     let mut data = vec![0u8; 24];
-    let read = memory_current
+    let read = file
         .read(&mut data)
         .await
-        .with_buck_error_context(|| "Error reading cgroup current memory")?;
+        .with_buck_error_context(|| format!("Error reading cgroup {}", file_name))?;
     if read == 0 {
-        return Err(internal_error!("no bytes read from memory.current"));
+        return Err(internal_error!("no bytes read from {}", file_name));
     }
 
     data.truncate(read);
@@ -461,6 +473,14 @@ pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Resu
         .with_buck_error_context(|| {
             format!("Expected a numeric value in cgroup file, found {}", string)
         })
+}
+
+pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
+    read_memory_file(memory_current, "memory.current").await
+}
+
+pub async fn read_memory_swap_current(memory_swap_current: &mut File) -> buck2_error::Result<u64> {
+    read_memory_file(memory_swap_current, "memory.swap.current").await
 }
 
 #[cfg(test)]
@@ -484,6 +504,9 @@ mod tests {
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
         let memory_current = File::open(current.clone()).await?;
+        let swap = dir.path().join("current.swap");
+        fs::write(&swap, "2").unwrap();
+        let memory_swap_current = File::open(swap.clone()).await?;
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
@@ -492,7 +515,15 @@ mod tests {
         .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
         let handle = MemoryTrackerHandleInner::new(None);
-        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
+        let tracker = MemoryTracker::new(
+            handle,
+            memory_current,
+            memory_swap_current,
+            memory_pressure,
+            0,
+            Some(7),
+            10,
+        );
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn(TICK_DURATION).await?;
@@ -515,8 +546,10 @@ mod tests {
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_swap_current, 2);
         assert_eq!(reading.memory_pressure, 1);
         fs::write(&current, "9").unwrap();
+        fs::write(&swap, "3").unwrap();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -529,14 +562,17 @@ mod tests {
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 9);
+        assert_eq!(reading.memory_swap_current, 3);
         assert_eq!(reading.memory_pressure, 1);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
+        fs::write(&swap, "4").unwrap();
         reading_rx.changed().await?;
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 10);
+        assert_eq!(reading.memory_swap_current, 4);
         assert_eq!(reading.memory_pressure, 1);
         // expect timeout error, no state change
         assert!(
@@ -554,6 +590,9 @@ mod tests {
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
         let memory_current = File::open(current.clone()).await?;
+        let swap = dir.path().join("current.swap");
+        fs::write(&swap, "1").unwrap();
+        let memory_swap_current = File::open(swap.clone()).await?;
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
@@ -562,7 +601,15 @@ mod tests {
         .unwrap();
         let memory_pressure = File::open(pressure.clone()).await?;
         let handle = MemoryTrackerHandleInner::new(None);
-        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
+        let tracker = MemoryTracker::new(
+            handle,
+            memory_current,
+            memory_swap_current,
+            memory_pressure,
+            0,
+            Some(7),
+            10,
+        );
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn(TICK_DURATION).await?;
@@ -584,6 +631,7 @@ mod tests {
         );
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_swap_current, 1);
         assert_eq!(reading.memory_pressure, 1);
         fs::write(
             &pressure,
@@ -601,6 +649,7 @@ mod tests {
         );
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_swap_current, 1);
         assert_eq!(reading.memory_pressure, 16);
 
         // change reading but not state
@@ -612,6 +661,7 @@ mod tests {
         reading_rx.changed().await?;
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
         assert_eq!(reading.memory_current, 6);
+        assert_eq!(reading.memory_swap_current, 1);
         assert_eq!(reading.memory_pressure, 18);
 
         Ok(())
@@ -622,12 +672,23 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "abc").unwrap();
+        let swap = dir.path().join("current.swap");
+        fs::write(&swap, "xyz").unwrap();
         let pressure = dir.path().join("current.pressure");
         fs::write(&pressure, "idk").unwrap();
         let memory_current = File::open(current.clone()).await?;
+        let memory_swap_current = File::open(swap.clone()).await?;
         let memory_pressure = File::open(pressure.clone()).await?;
         let handle = MemoryTrackerHandleInner::new(None);
-        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 3, Some(0), 0);
+        let tracker = MemoryTracker::new(
+            handle,
+            memory_current,
+            memory_swap_current,
+            memory_pressure,
+            3,
+            Some(0),
+            0,
+        );
         let handle = tracker.handle.dupe();
         tracker.spawn(Duration::from_millis(100)).await?;
         let mut rx = handle.reading_sender.subscribe();
