@@ -20,17 +20,6 @@
 %% Fallback oncall
 -define(FALLBACK_ONCALL, <<"fallback_oncall">>).
 
-%% match attribute from tree
--define(MATCH_ATTRIBUTE(Attr, Bind),
-    {tree, attribute, _, {attribute, {tree, atom, _, Attr}, Bind}}
-).
--define(MATCH_LIST(Binds),
-    {tree, list, _, {list, Binds, none}}
-).
--define(MATCH_STRING(Bind),
-    {tree, string, _, Bind}
-).
-
 -type group_name() :: atom().
 -type test_name() :: atom().
 -type suite() :: module().
@@ -272,17 +261,39 @@ get_contacts(Suite) ->
 -spec extract_attribute(atom(), erl_syntax:forms()) -> [binary()].
 extract_attribute(_, []) ->
     [];
-extract_attribute(Attribute, [?MATCH_STRING(Data) | Forms]) ->
-    [list_string_to_binary(Data)] ++ extract_attribute(Attribute, Forms);
-extract_attribute(Attribute, [?MATCH_LIST(Data) | Forms]) ->
-    extract_attribute(Attribute, Data) ++
-        extract_attribute(Attribute, Forms);
-extract_attribute(Attribute, [?MATCH_ATTRIBUTE(Attribute, Binds) | Forms]) ->
-    extract_attribute(Attribute, Binds) ++
-        extract_attribute(Attribute, Forms);
-extract_attribute(Attribute, [_ | Forms]) ->
-    extract_attribute(Attribute, Forms).
+extract_attribute(Attribute, [Form | Forms]) ->
+    case erl_syntax:type(Form) of
+        attribute ->
+            AttrName = erl_syntax:attribute_name(Form),
+            FoundHere =
+                case erl_syntax:is_atom(AttrName, Attribute) of
+                    false ->
+                        [];
+                    true ->
+                        case erl_syntax:attribute_arguments(Form) of
+                            [AttrArg] ->
+                                case erl_syntax:type(AttrArg) of
+                                    string ->
+                                        [list_string_to_binary(erl_syntax:string_value(AttrArg))];
+                                    list ->
+                                        [
+                                            list_string_to_binary(erl_syntax:string_value(S))
+                                         || S <- erl_syntax:list_elements(AttrArg), erl_syntax:type(S) =:= string
+                                        ];
+                                    _ ->
+                                        []
+                                end;
+                            _ ->
+                                []
+                        end
+                end,
+            FoundHere ++ extract_attribute(Attribute, Forms);
+        _ ->
+            extract_attribute(Attribute, Forms)
+    end.
 
 list_string_to_binary(Str) when is_list(Str) ->
     Bin = unicode:characters_to_binary(Str),
-    if is_binary(Bin) -> Bin end.
+    if
+        is_binary(Bin) -> Bin
+    end.
