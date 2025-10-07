@@ -357,7 +357,7 @@ impl MemoryTracker {
                     if let Some(action_cgroups) = self.handle.action_cgroups.as_ref() {
                         let mut action_cgroups = action_cgroups.lock().await;
                         action_cgroups
-                            .update(memory_pressure_state, memory_current)
+                            .update(memory_pressure_state, memory_current, pressure_percent)
                             .await;
                     }
 
