@@ -228,6 +228,7 @@ impl LocalExecutor {
         action_digest: &'a str,
         cgroup_command_id: &'a str,
         command_type: CommandType,
+        dispatcher: EventDispatcher,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             if let Some(counter) = self.local_action_counter.as_ref() {
@@ -252,6 +253,7 @@ impl LocalExecutor {
                         action_digest,
                         cgroup_command_id,
                         command_type,
+                        dispatcher,
                     )
                     .await
                 }
@@ -259,6 +261,7 @@ impl LocalExecutor {
                     let _disable_miniperf = disable_miniperf;
                     let _cgroup_command_id = cgroup_command_id;
                     let _command_type = command_type;
+                    let _action_digest = action_digest;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
@@ -478,7 +481,7 @@ impl LocalExecutor {
         let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
 
         let (worker, manager) = self
-            .initialize_worker(request, manager, dispatcher)
+            .initialize_worker(request, manager, dispatcher.dupe())
             .boxed()
             .await?;
 
@@ -558,6 +561,7 @@ impl LocalExecutor {
                         &action_digest.to_string(),
                         &cgroup_command_id,
                         command_type,
+                        dispatcher,
                     )
                     .await
                 };
@@ -1513,6 +1517,7 @@ mod unix {
         action_digest: &str,
         cgroup_command_id: &str,
         command_type: CommandType,
+        dispatcher: EventDispatcher,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1539,6 +1544,7 @@ mod unix {
                 req,
                 async move { liveliness_observer.while_alive().await },
                 command_type,
+                dispatcher,
             )
             .await
     }
@@ -1661,6 +1667,7 @@ mod tests {
                 "",
                 "",
                 CommandType::Action,
+                EventDispatcher::null(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1699,6 +1706,7 @@ mod tests {
                 "",
                 "",
                 CommandType::Action,
+                EventDispatcher::null(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1726,6 +1734,7 @@ mod tests {
                 "",
                 "",
                 CommandType::Action,
+                EventDispatcher::null(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);

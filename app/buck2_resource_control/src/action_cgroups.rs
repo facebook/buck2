@@ -22,6 +22,7 @@ use buck2_common::resource_control::CgroupMemoryFile;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use nix::dir::Dir;
@@ -81,6 +82,7 @@ struct ActionCgroup {
     // memory.current value when this cgroup was frozen. Used to calculate whether we can unfreeze early
     memory_current_when_frozen: Option<u64>,
     _action_digest: Option<String>,
+    _dispatcher: EventDispatcher,
 }
 
 pub(crate) struct ActionCgroups {
@@ -103,6 +105,7 @@ pub struct ActionCgroupSession {
     // Pointer to the cgroup pool and not owned by the session. This is mainly used for the session to mark a cgroup as being used
     // when starting a command and then releasing it back to the pool when the command finishes.
     cgroup_pool: Arc<Mutex<ActionCgroups>>,
+    dispatcher: EventDispatcher,
     path: Option<PathBuf>,
     start_error: Option<buck2_error::Error>,
     command_type: CommandType,
@@ -112,6 +115,7 @@ pub struct ActionCgroupSession {
 impl ActionCgroupSession {
     pub fn maybe_create(
         tracker: &Option<MemoryTrackerHandle>,
+        dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
     ) -> Option<Self> {
@@ -120,6 +124,7 @@ impl ActionCgroupSession {
             .and_then(|tracker| tracker.action_cgroups.as_ref())
             .map(|cgroup_pool| ActionCgroupSession {
                 cgroup_pool: cgroup_pool.dupe(),
+                dispatcher,
                 path: None,
                 start_error: None,
                 command_type,
@@ -132,6 +137,7 @@ impl ActionCgroupSession {
         match cgroups
             .command_started(
                 cgroup_path.clone(),
+                self.dispatcher.dupe(),
                 self.command_type,
                 self.action_digest.clone(),
             )
@@ -185,6 +191,7 @@ impl ActionCgroups {
     pub async fn command_started(
         &mut self,
         cgroup_path: PathBuf,
+        dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
     ) -> buck2_error::Result<()> {
@@ -210,6 +217,7 @@ impl ActionCgroups {
                 command_type,
                 memory_current_when_frozen: None,
                 _action_digest: action_digest,
+                _dispatcher: dispatcher,
             },
         );
         if let Some(existing) = existing {
@@ -505,6 +513,7 @@ mod tests {
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
+                EventDispatcher::null(),
                 CommandType::Action,
                 Some("action_1".to_owned()),
             )
@@ -512,6 +521,7 @@ mod tests {
         action_cgroups
             .command_started(
                 cgroup_2.clone(),
+                EventDispatcher::null(),
                 CommandType::Action,
                 Some("action_2".to_owned()),
             )
@@ -546,10 +556,20 @@ mod tests {
 
         let mut action_cgroups = ActionCgroups::new(true);
         action_cgroups
-            .command_started(cgroup_1.clone(), CommandType::Action, None)
+            .command_started(
+                cgroup_1.clone(),
+                EventDispatcher::null(),
+                CommandType::Action,
+                None,
+            )
             .await?;
         action_cgroups
-            .command_started(cgroup_2.clone(), CommandType::Action, None)
+            .command_started(
+                cgroup_2.clone(),
+                EventDispatcher::null(),
+                CommandType::Action,
+                None,
+            )
             .await?;
 
         fs::write(cgroup_1.join("memory.current"), "1")?;

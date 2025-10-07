@@ -32,6 +32,7 @@ rust_library(
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
+        "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_execute_local:buck2_execute_local",
         "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
         "//buck2/app/buck2_grpc:buck2_grpc",

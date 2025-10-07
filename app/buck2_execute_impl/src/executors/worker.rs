@@ -145,6 +145,7 @@ fn spawn_via_forkserver(
     stderr_path: &AbsNormPathBuf,
     socket_path: &AbsNormPathBuf,
     graceful_shutdown_timeout_s: Option<u32>,
+    dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -184,6 +185,7 @@ fn spawn_via_forkserver(
                 req,
                 async move { liveliness_observer.while_alive().await },
                 CommandType::Worker,
+                dispatcher,
             )
             .await
             .map(|CommandResult { status, .. }| status);
@@ -209,6 +211,7 @@ fn spawn_via_forkserver(
     _stderr_path: &AbsNormPathBuf,
     _socket_path: &AbsNormPathBuf,
     _graceful_shutdown_timeout_s: Option<u32>,
+    _dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     unreachable!("workers should not be initialized off unix")
 }
@@ -267,6 +270,7 @@ async fn spawn_worker(
         &stderr_path,
         &socket_path,
         graceful_shutdown_timeout_s,
+        dispatcher,
     );
 
     let initial_delay = Duration::from_millis(50);

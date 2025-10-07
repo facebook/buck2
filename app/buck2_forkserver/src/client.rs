@@ -16,6 +16,7 @@ use allocative::Allocative;
 use arc_swap::ArcSwapOption;
 use buck2_core::tag_error;
 use buck2_error::BuckErrorContext;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::decode_command_event_stream;
 use buck2_resource_control::CommandType;
@@ -150,6 +151,7 @@ impl ForkserverClient {
         req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
         command_type: CommandType,
+        dispatcher: EventDispatcher,
     ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
@@ -185,8 +187,12 @@ impl ForkserverClient {
             .into_inner();
         let stream = decode_event_stream(stream);
 
-        let cgroup_session =
-            ActionCgroupSession::maybe_create(&self.memory_tracker, command_type, action_digest);
+        let cgroup_session = ActionCgroupSession::maybe_create(
+            &self.memory_tracker,
+            dispatcher,
+            command_type,
+            action_digest,
+        );
         decode_command_event_stream(stream, cgroup_session).await
     }
 
