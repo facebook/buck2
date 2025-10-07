@@ -340,12 +340,23 @@ impl MemoryTracker {
             }
 
             let old_state = *self.handle.state_sender.borrow();
-            let (new_state, new_reading) = match (
-                read_memory_current(&mut self.memory_current).await,
-                read_memory_swap_current(&mut self.memory_swap_current).await,
-                self.read_some_memory_pressure_avg10().await,
+
+            // Manual destructuring to allow parallel reads of different files
+            let MemoryTracker {
+                ref mut memory_current,
+                ref mut memory_swap_current,
+                ref mut memory_pressure,
+                ref handle,
+                memory_pressure_threshold,
+                ..
+            } = self;
+
+            let (new_state, new_reading) = match tokio::try_join!(
+                read_memory_current(memory_current),
+                read_memory_swap_current(memory_swap_current),
+                read_some_memory_pressure_avg10(memory_pressure),
             ) {
-                (Ok(memory_current), Ok(memory_swap_current), Ok(avg_mem_pressure)) => {
+                Ok((memory_current, memory_swap_current, avg_mem_pressure)) => {
                     let memory_current_state =
                         if let Some(memory_limit_bytes) = self.memory_limit_bytes {
                             if memory_current < memory_limit_bytes {
@@ -358,14 +369,13 @@ impl MemoryTracker {
                         };
 
                     let pressure_percent = avg_mem_pressure.round() as u64;
-                    let memory_pressure_state = if pressure_percent < self.memory_pressure_threshold
-                    {
+                    let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
                         MemoryPressureState::BelowPressureLimit
                     } else {
                         MemoryPressureState::AbovePressureLimit
                     };
 
-                    if let Some(action_cgroups) = self.handle.action_cgroups.as_ref() {
+                    if let Some(action_cgroups) = handle.action_cgroups.as_ref() {
                         let mut action_cgroups = action_cgroups.lock().await;
                         action_cgroups
                             .update(memory_pressure_state, memory_current, pressure_percent)
@@ -386,12 +396,12 @@ impl MemoryTracker {
                 }
                 _ => (TrackedMemoryState::Failure, None),
             };
-            self.handle.state_sender.send_if_modified(|x| {
+            handle.state_sender.send_if_modified(|x| {
                 *x = new_state;
                 old_state != new_state
             });
 
-            self.handle.reading_sender.send_replace(new_reading);
+            handle.reading_sender.send_replace(new_reading);
 
             match (old_state, new_state) {
                 (TrackedMemoryState::Failure, TrackedMemoryState::Failure) => {
@@ -418,38 +428,6 @@ impl MemoryTracker {
             }
         }
     }
-
-    // The content should consistently have the following format:
-    //  ```
-    //  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
-    //  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
-    //  ```
-    // 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
-    async fn read_some_memory_pressure_avg10(&mut self) -> buck2_error::Result<f32> {
-        self.memory_pressure.rewind().await?;
-        let reader = BufReader::new(&mut self.memory_pressure);
-        let mut lines = reader.lines();
-        while let Some(line) = lines.next_line().await? {
-            if line.starts_with("some") {
-                let parts = line.split_whitespace().collect::<Vec<_>>();
-                let avg10 = parts.get(1).ok_or(internal_error!(
-                    "unexpected memory.pressure format, could not parse 2nd value"
-                ))?;
-                let string_value = avg10.strip_prefix("avg10=").ok_or(internal_error!(
-                    "unexpected memory.pressure format, 2nd value doesn't start with 'avg10='"
-                ))?;
-
-                return string_value
-                    .parse::<f32>()
-                    .map_err(buck2_error::Error::from)
-                    .with_buck_error_context(|| {
-                        format!("Expected a numeric value, found {}", string_value)
-                    });
-            }
-        }
-
-        Err(internal_error!("no 'some' line found in memory.pressure"))
-    }
 }
 
 async fn read_memory_file(file: &mut File, file_name: &str) -> buck2_error::Result<u64> {
@@ -473,6 +451,38 @@ async fn read_memory_file(file: &mut File, file_name: &str) -> buck2_error::Resu
         .with_buck_error_context(|| {
             format!("Expected a numeric value in cgroup file, found {}", string)
         })
+}
+
+// The content should consistently have the following format:
+//  ```
+//  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
+//  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
+//  ```
+// 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
+async fn read_some_memory_pressure_avg10(memory_pressure: &mut File) -> buck2_error::Result<f32> {
+    memory_pressure.rewind().await?;
+    let reader = BufReader::new(memory_pressure);
+    let mut lines = reader.lines();
+    while let Some(line) = lines.next_line().await? {
+        if line.starts_with("some") {
+            let parts = line.split_whitespace().collect::<Vec<_>>();
+            let avg10 = parts.get(1).ok_or(internal_error!(
+                "unexpected memory.pressure format, could not parse 2nd value"
+            ))?;
+            let string_value = avg10.strip_prefix("avg10=").ok_or(internal_error!(
+                "unexpected memory.pressure format, 2nd value doesn't start with 'avg10='"
+            ))?;
+
+            return string_value
+                .parse::<f32>()
+                .map_err(buck2_error::Error::from)
+                .with_buck_error_context(|| {
+                    format!("Expected a numeric value, found {}", string_value)
+                });
+        }
+    }
+
+    Err(internal_error!("no 'some' line found in memory.pressure"))
 }
 
 pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
