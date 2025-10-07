@@ -1,6 +1,6 @@
 %% @format
 -module(test_info).
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -export([load_from_file/1, write_to_file/2]).
 -include_lib("common/include/buck_ct_records.hrl").
@@ -31,19 +31,19 @@ load_from_file(TestInfoFile) ->
         buck_ct_parser:parse_str(CtOpts),
         [buck_ct_parser:parse_str(CTH) || CTH <- ExtraCtHooks]
     ),
-
+    {ok, ParsedArtifactAnnotationMFA} = parse_mfa(ArtifactAnnotationMFA),
     #test_info{
-        dependencies = [unicode:characters_to_list(make_path_absolute(Dep)) || Dep <- Dependencies],
+        dependencies = [unicode_characters_to_list(make_path_absolute(Dep)) || Dep <- Dependencies],
         test_suite = filename:join((TestDir), [SuiteName, ".beam"]),
         config_files = [make_path_absolute(ConfigFile) || ConfigFile <- ConfigFiles],
         providers = Providers1,
-        artifact_annotation_mfa = parse_mfa(ArtifactAnnotationMFA),
+        artifact_annotation_mfa = ParsedArtifactAnnotationMFA,
         ct_opts = CtOpts1,
-        erl_cmd = [make_path_absolute(ErlExec) | ErlFlags],
+        erl_cmd = [unicode_characters_to_binary(make_path_absolute(ErlExec)) | ErlFlags],
         extra_flags = ExtraFlags,
         common_app_env = CommonAppEnv,
         raw_target = RawTarget,
-        trampolines = [make_path_absolute(Trampoline) || [Trampoline] <- Trampolines]
+        trampolines = [unicode_characters_to_binary(make_path_absolute(Trampoline)) || [Trampoline] <- Trampolines]
     }.
 
 -spec write_to_file(file:filename_all(), test_info()) -> ok | {error, Reason :: term()}.
@@ -61,7 +61,7 @@ write_to_file(FileName, TestInfo) ->
         raw_target = RawTarget,
         trampolines = Trampolines
     } = TestInfo,
-    ErlTermToStr = fun(Term) -> list_string_to_binary(lists:flatten(io_lib:format("~tp", [Term]))) end,
+    ErlTermToStr = fun(Term) -> unicode_characters_to_binary(lists:flatten(io_lib:format("~tp", [Term]))) end,
     Json = #{
         <<"dependencies">> => [try_make_path_relative(Dep) || Dep <- Dependencies],
         <<"test_suite">> => filename:basename(SuiteBeamPath, ".beam"),
@@ -108,9 +108,9 @@ try_make_path_relative(Path) ->
             end
     end.
 
--spec parse_mfa(binary()) -> artifact_annotations:annotation_function() | {error, term()}.
+-spec parse_mfa(binary()) -> {ok, artifact_annotations:annotation_function()} | {error, term()}.
 parse_mfa(MFA) ->
-    case erl_scan:string(unicode:characters_to_list(MFA)) of
+    case erl_scan:string(unicode_characters_to_list(MFA)) of
         {ok,
             [
                 {'fun', _},
@@ -120,8 +120,8 @@ parse_mfa(MFA) ->
                 {'/', _},
                 {integer, _, 1}
             ],
-            _} ->
-            fun Module:Function/1;
+            _} when is_atom(Module), is_atom(Function) ->
+            {ok, fun Module:Function/1};
         {ok,
             [
                 {atom, _, Module},
@@ -130,8 +130,8 @@ parse_mfa(MFA) ->
                 {'/', _},
                 {integer, _, 1}
             ],
-            _} ->
-            fun Module:Function/1;
+            _} when is_atom(Module), is_atom(Function) ->
+            {ok, fun Module:Function/1};
         Reason ->
             {error, Reason}
     end.
@@ -143,6 +143,16 @@ parse_mfa(MFA) ->
 make_ct_opts(CtOpts, []) -> CtOpts;
 make_ct_opts(CtOpts, ExtraCtHooks) -> [{ct_hooks, ExtraCtHooks} | CtOpts].
 
-list_string_to_binary(Str) when is_list(Str) ->
-    Bin = unicode:characters_to_binary(Str),
-    if is_binary(Bin) -> Bin end.
+-spec unicode_characters_to_binary(unicode:chardata()) -> binary().
+unicode_characters_to_binary(Chars) ->
+    Bin = unicode:characters_to_binary(Chars),
+    if
+        is_binary(Bin) -> Bin
+    end.
+
+-spec unicode_characters_to_list(unicode:chardata()) -> string().
+unicode_characters_to_list(Chars) ->
+    Str = unicode:characters_to_list(Chars),
+    if
+        is_list(Str) -> Str
+    end.

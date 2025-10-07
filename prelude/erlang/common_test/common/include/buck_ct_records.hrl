@@ -10,12 +10,12 @@
 -record(test_info, {
     dependencies :: [file:filename()],
     test_suite :: binary(),
-    config_files :: [binary()],
+    config_files :: [file:filename_all()],
     providers :: [{atom(), [term()]}],
     ct_opts :: [term()],
     erl_cmd :: [binary()],
-    extra_flags :: [string()],
-    common_app_env :: #{string() => string()},
+    extra_flags :: [binary()],
+    common_app_env :: #{binary() => binary()},
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary(),
     trampolines :: [binary()]

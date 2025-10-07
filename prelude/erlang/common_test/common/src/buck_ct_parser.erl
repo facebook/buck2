@@ -18,7 +18,7 @@ via user input.
 %% Public API
 -export([parse_str/1]).
 
--spec parse_str(binary()) -> term().
+-spec parse_str(binary()) -> dynamic().
 parse_str(<<"">>) ->
     [];
 parse_str(StrArgs) ->
