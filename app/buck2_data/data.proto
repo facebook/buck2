@@ -325,6 +325,9 @@ message InstantEvent {
 
     // Event used to track the number of actions running concurrently
     LocalActionRunningCount local_action_running_count = 53;
+
+    // Used to track all resource control events as they happen
+    ResourceControlEvents resource_control_events = 54;
   }
 }
 
@@ -724,6 +727,31 @@ message TestDiscovery {
     TestSessionInfo session = 1;
     TestSuite tests = 2;
   }
+}
+
+message ResourceControlEvents {
+  string uuid = 1;
+  string command = 2;
+  ResourceControlKind kind = 3;
+  google.protobuf.Timestamp event_time = 4;
+
+  // Information related to what's frozen
+  string action_digest = 5;
+
+  // Memory
+  uint64 memory_current = 6;
+  uint64 memory_pressure = 7;
+
+  // Information related to the cgroup that's frozen
+  uint64 cgroup_memory_current = 8;
+  uint64 cgroup_memory_peak = 9;
+  uint64 frozen_cgroup_count = 10;
+  uint64 active_cgroup_count = 11;
+}
+
+enum ResourceControlKind {
+  FREEZE = 0;
+  UNFREEZE = 1;
 }
 
 // Result of invoking buck2 rage

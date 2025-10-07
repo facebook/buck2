@@ -234,6 +234,7 @@ impl RemoteEventSink {
                     Some(Data::DetailedAggregatedMetrics(..)) => true,
                     Some(Data::MemoryPressure(..)) => true,
                     Some(Data::LocalActionRunningCount(..)) => true,
+                    Some(Data::ResourceControlEvents(..)) => true,
                     None => false,
                     _ => false,
                 }
