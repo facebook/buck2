@@ -9,7 +9,7 @@
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 
 # Combine the attributes we generate, we the custom implementations we have.
-load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names", "transitions")
+load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 load("@prelude//decls:common.bzl", "prelude_rule")
@@ -54,11 +54,7 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     # Map of string identifier to platform.
     attributes[APPLE_PLATFORMS_KEY] = attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {})
 
-    cfg_via_transitions_map = transitions.get(name)
-    cfg_via_rule_spec = rule_spec.cfg
-    if cfg_via_rule_spec and cfg_via_transitions_map:
-        fail("Cannot specify rule transition via `prelude_rule` and via transitions map, pick one mechanism only")
-    cfg = cfg_via_rule_spec or cfg_via_transitions_map
+    cfg = rule_spec.cfg
 
     extra_args = dict(kwargs)
     if cfg != None:

@@ -457,6 +457,7 @@ python_binary = prelude_rule(
         _typing_arg() |
         _python_binary_attrs()
     ),
+    cfg = constraint_overrides.python_transition,
 )
 
 python_library = prelude_rule(
@@ -638,6 +639,7 @@ python_test = prelude_rule(
         test_common.attributes() |
         _python_test_attrs()
     ),
+    cfg = constraint_overrides.python_transition,
 )
 
 python_test_runner = prelude_rule(

@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
 load(":remote_common.bzl", "remote_common")
@@ -419,6 +420,7 @@ export_file = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    cfg = constraint_overrides.transition,
 )
 
 external_test_runner = prelude_rule(
@@ -492,6 +494,7 @@ filegroup = prelude_rule(
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         }
     ),
+    cfg = constraint_overrides.transition,
 )
 
 genrule = prelude_rule(
@@ -712,6 +715,7 @@ genrule = prelude_rule(
             "_exec_os_type": buck.exec_os_type_arg(),
         }
     ),
+    cfg = constraint_overrides.transition,
 )
 
 http_archive = prelude_rule(

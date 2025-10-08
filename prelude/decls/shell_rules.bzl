@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "buck", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -203,6 +204,7 @@ sh_test = prelude_rule(
         re_test_common.test_args() |
         test_common.attributes()
     ),
+    cfg = constraint_overrides.transition,
 )
 
 shell_rules = struct(

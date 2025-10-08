@@ -14,6 +14,7 @@
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//android:configuration.bzl", "cpu_transition")
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "ForkMode", "LogLevel", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
@@ -283,6 +284,7 @@ android_binary = prelude_rule(
             "xz_compression_level": attrs.int(default = 4),
         }
     ),
+    cfg = constraint_overrides.transition,
 )
 
 android_build_config = prelude_rule(

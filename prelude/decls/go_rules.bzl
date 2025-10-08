@@ -12,6 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//go/transitions:defs.bzl", "go_binary_transition", "go_exported_library_transition", "go_library_transition", "go_stdlib_transition", "go_test_transition")
 load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
@@ -100,6 +101,7 @@ go_binary = prelude_rule(
             "platform": attrs.option(attrs.string(), default = None),
         }
     ),
+    cfg = go_binary_transition,
 )
 
 go_exported_library = prelude_rule(
@@ -188,6 +190,7 @@ go_exported_library = prelude_rule(
             "platform": attrs.option(attrs.string(), default = None),
         }
     ),
+    cfg = go_exported_library_transition,
 )
 
 go_library = prelude_rule(
@@ -239,6 +242,7 @@ go_library = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
         }
     ),
+    cfg = go_library_transition,
 )
 
 go_test = prelude_rule(
@@ -371,7 +375,9 @@ go_test = prelude_rule(
         re_test_common.test_args() |
         test_common.attributes()
     ),
+    cfg = go_test_transition,
 )
+
 go_bootstrap_binary = prelude_rule(
     name = "go_bootstrap_binary",
     attrs = (
@@ -383,10 +389,17 @@ go_bootstrap_binary = prelude_rule(
     ),
 )
 
+go_stdlib = prelude_rule(
+    name = "go_stdlib",
+    attrs = {},
+    cfg = go_stdlib_transition,
+)
+
 go_rules = struct(
     go_binary = go_binary,
     go_bootstrap_binary = go_bootstrap_binary,
     go_exported_library = go_exported_library,
     go_library = go_library,
+    go_stdlib = go_stdlib,
     go_test = go_test,
 )

@@ -66,7 +66,7 @@ load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_binary_transition", "go_exported_library_transition", "go_library_transition", "go_stdlib_transition", "go_test_transition")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary_impl")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
@@ -537,24 +537,6 @@ categorized_extra_attributes = {
     _RUST_RULES_KEY: _rust_extra_attributes,
     _SHELL_RULES_KEY: _shell_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
-}
-
-# Configuration transitions to pass `cfg` for builtin rules.
-transitions = {
-    "android_binary": constraint_overrides.transition,
-    "cxx_binary": constraint_overrides.transition,
-    "cxx_test": constraint_overrides.transition,
-    "export_file": constraint_overrides.transition,
-    "filegroup": constraint_overrides.transition,
-    "genrule": constraint_overrides.transition,
-    "go_binary": go_binary_transition,
-    "go_exported_library": go_exported_library_transition,
-    "go_library": go_library_transition,
-    "go_stdlib": go_stdlib_transition,
-    "go_test": go_test_transition,
-    "python_binary": constraint_overrides.python_transition,
-    "python_test": constraint_overrides.python_transition,
-    "sh_test": constraint_overrides.transition,
 }
 
 toolchain_rule_names = [
