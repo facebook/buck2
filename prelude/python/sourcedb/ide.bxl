@@ -19,7 +19,12 @@ def _build_entry_point(ctx: bxl.Context) -> None:
 
     output = {}
     for source in ctx.cli_args.source:
-        owning_targets = query.owner(source)
+        owning_targets_unfiltered = query.owner(source)
+        owning_targets = owning_targets_unfiltered - query.attrfilter(
+            "labels",
+            "conda",
+            owning_targets_unfiltered,
+        )
         targets_configured = do_query(ctx, query, actions, owning_targets)
         targets_configured += [target.label for target in ctx.configured_targets(ctx.cli_args.extra_source_targets)]
 
