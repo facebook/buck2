@@ -21,6 +21,7 @@ def _system_erlang_binary_impl(_ctx):
 
 system_erlang_binary = rule(
     impl = _system_erlang_binary_impl,
+    attrs = {},
 )
 
 def system_erlang_toolchain(
@@ -34,5 +35,7 @@ def system_erlang_toolchain(
     erlang_toolchain(
         name = name,
         otp_binaries = ":{}-binaries".format(name),
+        parse_transforms = [],
+        parse_transforms_filters = {},
         visibility = ["PUBLIC"],
     )
