@@ -308,7 +308,7 @@ impl ExactPathMetadata {
                             .path
                             .parent()
                             .expect("We pushed a component to this so it cannot be empty")
-                            .join_system(&dest)
+                            .join_system_normalized(&dest)
                             .with_buck_error_context(|| {
                                 format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                             })?;

@@ -665,7 +665,10 @@ impl ForwardRelativePath {
     /// Append a relative system path, obtained from e.g. `read_link`.
     ///
     /// The path will be converted to an internal path (i.e. forward slashes) before joining.
-    pub fn join_system(&self, path: &Path) -> buck2_error::Result<ForwardRelativePathBuf> {
+    pub fn join_system_normalized(
+        &self,
+        path: &Path,
+    ) -> buck2_error::Result<ForwardRelativePathBuf> {
         let path = fs_util::relative_path_from_system(path)?;
         self.join_normalized(path)
     }

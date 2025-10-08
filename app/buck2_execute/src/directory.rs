@@ -647,7 +647,7 @@ pub fn expand_selector_for_dependencies(
 
         let mut handle_link_at_path = |link_path: &ForwardRelativePath, link: &Symlink| {
             let link_dst = match link_path.parent() {
-                Some(parent) => parent.join_system(&link.target().to_path("")),
+                Some(parent) => parent.join_system_normalized(&link.target().to_path("")),
                 None => ForwardRelativePath::new(link.target().as_str()).map(ToOwned::to_owned),
             };
 
