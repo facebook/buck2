@@ -34,6 +34,8 @@ def _main(ctx: bxl.Context):
 
     index_stores = []
     for analysis_res in analysis_results:
+        if IndexStoreInfo not in analysis_res.providers():
+            continue
         index_store_info = analysis_res.providers()[IndexStoreInfo]
         if subtarget == "swift-index-store":
             # Only get the Swift index store for this target (not transitive dependencies)
