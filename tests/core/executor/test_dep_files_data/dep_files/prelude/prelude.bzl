@@ -13,22 +13,23 @@ def _c_binary_impl(ctx):
     }
 
     headers_tag = ctx.actions.artifact_tag()
+    use_content_based_paths = ctx.attrs.use_content_based_paths
 
-    headers_dir = ctx.actions.declare_output("headers", has_content_based_path = True, dir = True)
+    headers_dir = ctx.actions.declare_output("headers", has_content_based_path = use_content_based_paths, dir = True)
     headers_dir = ctx.actions.copied_dir(headers_dir, headers)
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
-    headers_dir_written, _ = ctx.actions.write("headers_dir_written", ctx.attrs.headers_dir_written, has_content_based_path = True, allow_args = True)
+    headers_dir_written, _ = ctx.actions.write("headers_dir_written", ctx.attrs.headers_dir_written, has_content_based_path = use_content_based_paths, allow_args = True)
     headers_dir_written = headers_tag.tag_artifacts(headers_dir_written)
     headers_dir_written_with_dep_files_placeholder, _ = ctx.actions.write(
         "headers_dir_written_with_dep_files_placeholder",
         ctx.attrs.headers_dir_written,
         use_dep_files_placeholder_for_content_based_paths = True,
-        has_content_based_path = True,
+        has_content_based_path = use_content_based_paths,
         allow_args = True,
     )
 
-    dep_file = ctx.actions.declare_output("depfile", has_content_based_path = True)
+    dep_file = ctx.actions.declare_output("depfile", has_content_based_path = use_content_based_paths)
     app = ctx.actions.declare_output(ctx.attrs.name)
 
     cmd = cmd_args([
@@ -67,6 +68,7 @@ c_binary = rule(
         "headers_dir_written": attrs.arg(),
         "main": attrs.source(),
         "unused_command_line_param": attrs.string(),
+        "use_content_based_paths": attrs.bool(default = read_config("test", "use_content_based_paths", "true") == "true"),
         "_cc": attrs.dep(default = "root//tools:gcc"),
         "_ignored": attrs.string(default = ""),
     },
@@ -84,7 +86,7 @@ def _headers_dir_impl(ctx):
         for h in ctx.attrs.headers
     }
 
-    headers_dir = ctx.actions.declare_output("headers", has_content_based_path = True, dir = True)
+    headers_dir = ctx.actions.declare_output("headers", has_content_based_path = ctx.attrs.use_content_based_paths, dir = True)
     headers_dir = ctx.actions.copied_dir(headers_dir, headers)
 
     return [
@@ -96,6 +98,7 @@ def _headers_dir_impl(ctx):
 headers_dir = rule(
     attrs = {
         "headers": attrs.list(attrs.source()),
+        "use_content_based_paths": attrs.bool(default = read_config("test", "use_content_based_paths", "true") == "true"),
     },
     impl = _headers_dir_impl,
 )

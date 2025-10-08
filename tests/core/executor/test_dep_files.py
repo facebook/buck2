@@ -107,13 +107,16 @@ def touch(buck: Buck, name: str) -> None:
         f.write(text.replace("__MARKER__", "__MARKER__{}".format(random_string())))
 
 
-# Flaky because of watchman on mac (and maybe windows)
-# Skipping on windows due to gcc dependency
-@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
-async def test_dep_files(buck: Buck) -> None:
+async def _test_dep_files_impl(buck: Buck, use_content_based_paths: bool) -> None:
+    """Common implementation for dep files tests."""
     # We query cache before we query dep file. Disable remote cache to make
     # sure that for the last build what-ran doesn't return cached entry.
-    args = ["app:app", "--no-remote-cache"]
+    args = [
+        "app:app",
+        "--no-remote-cache",
+        "-c",
+        f"test.use_content_based_paths={str(use_content_based_paths).lower()}",
+    ]
     await buck.build(*args)
     await expect_exec_count(buck, 1)
 
@@ -143,6 +146,20 @@ async def test_dep_files(buck: Buck) -> None:
         *args, "-c", "test.unused_command_line_param={}".format(random_string())
     )
     await expect_exec_count(buck, 1)
+
+
+# Flaky because of watchman on mac (and maybe windows)
+# Skipping on windows due to gcc dependency
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_dep_files_with_content_based_paths(buck: Buck) -> None:
+    await _test_dep_files_impl(buck, use_content_based_paths=True)
+
+
+# Flaky because of watchman on mac (and maybe windows)
+# Skipping on windows due to gcc dependency
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_dep_files_without_content_based_paths(buck: Buck) -> None:
+    await _test_dep_files_impl(buck, use_content_based_paths=False)
 
 
 async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
