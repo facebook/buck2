@@ -1,6 +1,8 @@
-load(":defs.bzl", "cp", "stat_path")
+load(":defs.bzl", "cp", "cp_via_builtin", "stat_path")
 
 cp(name = "cp", src = "src/link/file")
+
+cp_via_builtin(name = "cp_src_link_via_builtin", src = "src/link")
 
 cp(name = "ext", src = "ext/link/file", local_only = True)
 

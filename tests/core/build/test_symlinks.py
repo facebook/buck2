@@ -151,6 +151,28 @@ async def test_no_read_through_source_symlinks_to_file(buck: Buck) -> None:
     assert res.stdout.strip() == "True"
 
 
+@buck_test(extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}})
+async def test_no_read_through_source_symlinks_to_in_symlink_target(buck: Buck) -> None:
+    for s in ("dir", "dir2/dir"):
+        (buck.cwd / s).mkdir(parents=True, exist_ok=True)
+        (buck.cwd / s / "file").write_text(s)
+    setup_symlink(buck.cwd / "redirectvia", Path("dir2") / "dir")
+
+    setup_symlink(
+        buck.cwd / "src" / "link",
+        Path("..") / "redirectvia" / ".." / "dir" / "file",
+    )
+
+    res = await buck.build_without_report(
+        "//:cp_src_link_via_builtin",
+        "--out",
+        "-",
+    )
+    # FIXME(JakobDegen): Should be `dir2/dir`. The fact that `redirectvia`, found in the symlink
+    # target, is itself a symlink is completely ignored
+    assert res.stdout.strip() == "dir"
+
+
 @buck_test(setup_eden=True)
 async def test_eden_io_read_symlink_dir_build_target(buck: Buck) -> None:
     setup_symlink(buck.cwd / "testlink", buck.cwd / "symdir" / "dir")

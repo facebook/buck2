@@ -28,6 +28,17 @@ cp = rule(
     },
 )
 
+def _cp_via_builtin_impl(ctx: AnalysisContext):
+    out = ctx.actions.copy_file("out", ctx.attrs.src)
+    return [DefaultInfo(default_output = out)]
+
+cp_via_builtin = rule(
+    impl = _cp_via_builtin_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
+
 def _stat_path_impl(ctx: AnalysisContext):
     out = ctx.actions.declare_output("out")
     if ctx.attrs.project != None:
