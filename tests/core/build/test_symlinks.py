@@ -10,7 +10,6 @@
 
 
 import os
-import pathlib
 import shutil
 import tempfile
 from pathlib import Path
@@ -20,18 +19,15 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
-def setup_symlink(
-    symlink_path: Path, target: Path, target_is_directory: bool = True
-) -> Path:
-    # We want to check in a symlink but given Buck is running this and symlinks
-    # do not exist we need to put it back and make it be an actual symlink.
-    if os.path.isdir(symlink_path):
+def setup_symlink(symlink_path: Path, target: Path) -> None:
+    symlink_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not os.path.islink(symlink_path) and os.path.isdir(symlink_path):
         shutil.rmtree(symlink_path)
     else:
-        os.remove(symlink_path)
+        symlink_path.unlink(missing_ok=True)
 
-    os.symlink(target, symlink_path, target_is_directory=target_is_directory)
-    return symlink_path
+    os.symlink(target, symlink_path)
 
 
 @buck_test(extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}})
@@ -59,7 +55,7 @@ async def test_symlink_target_tracked_for_rebuild(buck: Buck) -> None:
     extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}},
 )
 async def test_symlinks_redirection(buck: Buck) -> None:
-    symlink_path = setup_symlink(buck.cwd / "src" / "link", Path("../dir"))
+    setup_symlink(buck.cwd / "src" / "link", Path("../dir"))
 
     await buck.build("//:cp")
     await expect_exec_count(buck, 1)
@@ -68,9 +64,7 @@ async def test_symlinks_redirection(buck: Buck) -> None:
     await expect_exec_count(buck, 0)
 
     # We change the symlink which should invalidate all files depending on it
-    os.remove(symlink_path)
-    src2 = pathlib.Path("../dir2")
-    os.symlink(src2, symlink_path)
+    setup_symlink(buck.cwd / "src" / "link", Path("../dir2"))
 
     await buck.build("//:cp")
     await expect_exec_count(buck, 1)
@@ -81,18 +75,14 @@ async def test_symlinks_redirection(buck: Buck) -> None:
     extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}},
 )
 async def test_symlinks_external(buck: Buck) -> None:
-    symlink_path = os.path.join(buck.cwd, "ext", "link")
-    shutil.rmtree(symlink_path)
-    top_level = tempfile.mkdtemp()
+    top_level = Path(tempfile.mkdtemp())
 
-    os.mkdir(os.path.join(top_level, "nested1"))
-    os.mkdir(os.path.join(top_level, "nested2"))
-    with open(os.path.join(top_level, "nested1", "file"), "w") as f:
-        f.write("HELLO")
-    with open(os.path.join(top_level, "nested2", "file"), "w") as f:
-        f.write("GOODBYE")
+    (top_level / "nested1").mkdir()
+    (top_level / "nested2").mkdir()
+    (top_level / "nested1" / "file").write_text("HELLO")
+    (top_level / "nested2" / "file").write_text("GOODBYE")
 
-    os.symlink(os.path.join(top_level, "nested1"), symlink_path)
+    setup_symlink(buck.cwd / "ext" / "link", top_level / "nested1")
 
     await buck.build("//:ext")
     await expect_exec_count(buck, 1)
@@ -100,8 +90,7 @@ async def test_symlinks_external(buck: Buck) -> None:
     await buck.build("//:ext")
     await expect_exec_count(buck, 0)
 
-    os.remove(symlink_path)
-    os.symlink(os.path.join(top_level, "nested2"), symlink_path)
+    setup_symlink(buck.cwd / "ext" / "link", top_level / "nested2")
 
     await buck.build("//:ext")
     await expect_exec_count(buck, 1)
@@ -151,7 +140,6 @@ async def test_no_read_through_source_symlinks_to_file(buck: Buck) -> None:
     setup_symlink(
         buck.cwd / "src" / "link",
         Path("..") / "dir" / "file",
-        target_is_directory=False,
     )
 
     res = await buck.build_without_report(
