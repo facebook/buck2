@@ -1,10 +1,10 @@
 [package]
-description = "A library providing gRPC client for Bazel remote execution"
+name = "bes_proto"
+version = "0.1.0"
 edition = "2024"
 license = { workspace = true }
-name = "re_grpc_proto"
 repository = { workspace = true }
-version = "0.1.0"
+description = "Protobuf definitions for Build Event Service"
 
 [dependencies]
 prost = { workspace = true }
