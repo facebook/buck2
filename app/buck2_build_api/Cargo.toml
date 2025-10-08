@@ -51,7 +51,6 @@ buck2_artifact = { workspace = true }
 buck2_build_api_derive = { workspace = true }
 buck2_build_info = { workspace = true }
 buck2_build_signals = { workspace = true }
-buck2_certs = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
@@ -73,4 +72,5 @@ buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
+buck2_certs = { workspace = true }
 buck2_wrapper_common = { workspace = true }

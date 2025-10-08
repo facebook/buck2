@@ -6,6 +6,7 @@ rust_library(
     name = "buck2_build_api",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
+        "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
     ],
     deps = [
@@ -42,7 +43,6 @@ rust_library(
         "//buck2/app/buck2_build_api_derive:buck2_build_api_derive",
         "//buck2/app/buck2_build_info:buck2_build_info",
         "//buck2/app/buck2_build_signals:buck2_build_signals",
-        "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
