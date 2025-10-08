@@ -99,6 +99,8 @@ pub(crate) struct ActionCgroups {
     // Total memory of buck2.slice (Which contains daemon, forkserver and workers cgroups) when the last freeze happened.
     // Used to calculate when we should unfreeze cgroups.
     total_memory_during_last_freeze: Option<u64>,
+    // Buck2 metadata for telemetry logging purposes
+    metadata: HashMap<String, String>,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -187,6 +189,7 @@ impl ActionCgroups {
             last_freeze_time: None,
             last_unfreeze_time: None,
             total_memory_during_last_freeze: None,
+            metadata: buck2_events::metadata::collect(),
         }
     }
 
@@ -350,6 +353,7 @@ impl ActionCgroups {
                             cgroup,
                             self.frozen_cgroups.len() as u64,
                             active_cgroups_count as u64,
+                            &self.metadata,
                         );
                     }
                     Err(e) => {
@@ -445,6 +449,7 @@ impl ActionCgroups {
                 frozen_cgroup,
                 self.frozen_cgroups.len() as u64,
                 active_cgroups_count as u64,
+                &self.metadata,
             );
         }
     }
@@ -484,6 +489,7 @@ fn emit_resource_control_event(
     cgroup: &ActionCgroup,
     frozen_cgroup_count: u64,
     active_cgroup_count: u64,
+    metadata: &HashMap<String, String>,
 ) {
     dispatcher.instant_event(buck2_data::ResourceControlEvents {
         uuid: dispatcher.trace_id().to_string(),
@@ -503,6 +509,8 @@ fn emit_resource_control_event(
 
         frozen_cgroup_count,
         active_cgroup_count,
+
+        metadata: metadata.clone(),
     });
 }
 
