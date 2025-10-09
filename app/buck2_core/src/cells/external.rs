@@ -9,13 +9,17 @@
  */
 
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
+use allocative::Allocative;
+use buck2_error::buck2_error;
+use derive_more::Display;
 use dupe::Dupe;
 
 use crate::cells::name::CellName;
 
-#[derive(Debug, Clone, Dupe, allocative::Allocative, PartialEq, Eq)]
+#[derive(Debug, Clone, Dupe, Allocative, PartialEq, Eq)]
 pub enum ExternalCellOrigin {
     Bundled(CellName),
     Git(GitCellSetup),
@@ -34,8 +38,9 @@ pub enum ExternalCellOrigin {
 #[display("git({}, {})", git_origin, commit)]
 pub struct GitCellSetup {
     pub git_origin: Arc<str>,
-    // Guaranteed to be a valid sha1 commit hash
+    // Guaranteed to be a valid commit hash
     pub commit: Arc<str>,
+    pub object_format: Option<GitObjectFormat>,
 }
 
 impl fmt::Display for ExternalCellOrigin {
@@ -43,6 +48,59 @@ impl fmt::Display for ExternalCellOrigin {
         match self {
             Self::Bundled(cell) => write!(f, "bundled({cell})"),
             Self::Git(git) => write!(f, "{git}"),
+        }
+    }
+}
+
+#[derive(Debug, Display, Eq, PartialEq, Clone, Dupe, Hash, Allocative)]
+pub enum GitObjectFormat {
+    #[display("sha1")]
+    Sha1,
+    #[display("sha256")]
+    Sha256,
+}
+
+impl FromStr for GitObjectFormat {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sha1" => Ok(GitObjectFormat::Sha1),
+            "sha256" => Ok(GitObjectFormat::Sha256),
+            _ => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "object_format must be one of `sha1` or `sha256` (got: {})",
+                &s,
+            )),
+        }
+    }
+}
+
+impl GitObjectFormat {
+    pub fn check(&self, s: &str) -> Result<(), buck2_error::Error> {
+        match self {
+            Self::Sha1 => {
+                if s.len() == 40 && s.chars().all(|c| c.is_ascii_hexdigit()) {
+                    Ok(())
+                } else {
+                    Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "not a valid SHA1 digest (got: {})",
+                        &s,
+                    ))
+                }
+            }
+            Self::Sha256 => {
+                if s.len() == 64 && s.chars().all(|c| c.is_ascii_hexdigit()) {
+                    Ok(())
+                } else {
+                    Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "not a valid SHA256 digest (got: {})",
+                        &s,
+                    ))
+                }
+            }
         }
     }
 }

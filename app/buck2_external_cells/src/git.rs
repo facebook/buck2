@@ -108,7 +108,13 @@ impl IoRequest for GitFetchIoRequest {
         }
 
         run_git(&path, |c| {
-            c.arg("init");
+            match &self.setup.object_format {
+                None => c.arg("init"),
+                Some(object_format) => c
+                    .arg("init")
+                    .arg("--object-format")
+                    .arg(object_format.to_string()),
+            };
         })?;
 
         run_git(&path, |c| {
