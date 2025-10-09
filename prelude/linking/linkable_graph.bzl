@@ -111,12 +111,6 @@ LinkableNode = record(
     # Don't follow dependents on this node even if has preferred linkage static
     ignore_force_static_follows_dependents = field(bool),
 
-    # Shared interface provider for this node.
-    # TODO(mattpayne): This type is incompatible with Autodeps.
-    # Once the pyautotargets service is rolled out, we can change it back.
-    # It should be SharedInterfaceInfo | None
-    shared_interface_info = field(typing.Any),
-
     # Should this library only be used for build time linkage
     stub = field(bool),
 
@@ -186,10 +180,6 @@ def create_linkable_node(
         include_in_android_mergemap: bool = True,
         linker_flags: [LinkerFlags, None] = None,
         ignore_force_static_follows_dependents: bool = False,
-        # TODO(mattpayne): This type is incompatible with Autodeps.
-        # Once the pyautotargets service is rolled out, we can change it back.
-        # It should be SharedInterfaceInfo | None
-        shared_interface_info: typing.Any = None,
         stub: bool = False) -> LinkableNode:
     for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
@@ -215,7 +205,6 @@ def create_linkable_node(
         default_soname = default_soname,
         linker_flags = linker_flags,
         ignore_force_static_follows_dependents = ignore_force_static_follows_dependents,
-        shared_interface_info = shared_interface_info,
         stub = stub,
         _private = _DisallowConstruction(),
     )

@@ -21,12 +21,10 @@ load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compil
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftDependencyInfo", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "ShlibInterfacesMode")
 load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//cxx:link_groups.bzl",
@@ -130,8 +128,6 @@ SwiftCompilationOutput = record(
     compilation_database = field(SwiftCompilationDatabase),
     # An artifact that represent the Swift module map for this target.
     output_map_artifact = field(Artifact | None),
-    # An optional artifact of the exported symbols emitted for this module.
-    exported_symbols = field(Artifact | None),
     # An optional artifact with files that support consuming the generated library with later versions of the swift compiler.
     swift_library_for_distribution_output = field(SwiftLibraryForDistributionOutput | None),
     # A list of artifacts that stores the index data
@@ -375,10 +371,6 @@ def compile_swift(
     elif _should_compile_with_swift_interface(ctx):
         swiftinterface_output = ctx.actions.declare_output(get_module_name(ctx) + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
-    output_symbols = None
-    if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
-        output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
-
     # When compiling with WMO (ie, not incrementally), we compile the
     # swiftmodule separately. In incremental mode, we generate the swiftmodule
     # as part of the compile action to make use of incrementality.
@@ -391,7 +383,6 @@ def compile_swift(
             swiftinterface_output,
             output_swiftmodule,
             output_header,
-            output_symbols,
             swift_framework_output,
             inputs_tag,
             compile_swiftmodule_category,
@@ -477,7 +468,6 @@ def compile_swift(
             (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []),
         ),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
-        exported_symbols = output_symbols,
         swift_library_for_distribution_output = swift_framework_output,
         index_store = index_store,
         swiftdeps = object_output.swiftdeps,
@@ -496,7 +486,6 @@ def _compile_swiftmodule(
         output_swiftinterface: Artifact | None,
         output_swiftmodule: Artifact,
         output_header: Artifact,
-        output_symbols: Artifact | None,
         swift_framework_output: SwiftLibraryForDistributionOutput | None,
         inputs_tag: ArtifactTag,
         category: str) -> CompileArgsfiles:
@@ -596,16 +585,6 @@ def _compile_swiftmodule(
             # TODO: use an output file map for this.
             cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
 
-    output_tbd = None
-    if output_symbols != None:
-        # Two step process, first we need to emit the TBD
-        output_tbd = ctx.actions.declare_output("__tbd__/" + ctx.attrs.name + "-Swift.tbd")
-        cmd.add([
-            "-emit-tbd",
-            "-emit-tbd-path",
-            output_tbd.as_output(),
-        ])
-
     dep_files = {}
     output_file_map = {}
     if toolchain.use_depsfiles and not output_swiftinterface:
@@ -624,19 +603,6 @@ def _compile_swiftmodule(
         dep_files = dep_files,
         output_file_map = output_file_map,
     )
-
-    if output_tbd != None:
-        # Now we have run the TBD action we need to extract the symbols
-        extract_cmd = cmd_args([
-            get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo],
-            "extract",
-            "-o",
-            output_symbols.as_output(),
-            "--tbd",
-            output_tbd,
-        ])
-        ctx.actions.run(extract_cmd, category = "extract_tbd_symbols", error_handler = apple_build_error_handler)
-
     return ret
 
 def _compile_typecheck_diagnostics(

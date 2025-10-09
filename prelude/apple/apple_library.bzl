@@ -528,7 +528,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
         extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
-        extra_shared_library_interfaces = [swift_compile.exported_symbols] if (swift_compile and swift_compile.exported_symbols) else None,
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
