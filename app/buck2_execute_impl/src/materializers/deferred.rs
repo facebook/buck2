@@ -86,7 +86,6 @@ use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
 use crate::materializers::deferred::command_processor::DeferredMaterializerCommandProcessor;
-use crate::materializers::deferred::command_processor::LogBuffer;
 use crate::materializers::deferred::command_processor::LowPriorityMaterializerCommand;
 use crate::materializers::deferred::command_processor::MaterializerCommand;
 use crate::materializers::deferred::file_tree::FileTree;
@@ -665,7 +664,6 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                     sqlite_db,
                     rt,
                     configs.defer_write_actions,
-                    LogBuffer::new(25),
                     command_sender,
                     tree,
                     cancellations,

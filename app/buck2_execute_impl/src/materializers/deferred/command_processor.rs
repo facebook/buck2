@@ -9,7 +9,6 @@
  */
 
 use std::collections::HashSet;
-use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -52,7 +51,6 @@ use futures::stream::FuturesOrdered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use pin_project::pin_project;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -100,7 +98,6 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// used by the rest of Buck.
     rt: Handle,
     pub(super) defer_write_actions: bool,
-    log_buffer: LogBuffer,
     /// Keep track of artifact versions to avoid callbacks clobbering state if the state has moved
     /// forward.
     version_tracker: VersionTracker,
@@ -281,35 +278,6 @@ impl VersionTracker {
     }
 }
 
-/// Simple ring buffer for tracking recent commands, to be shown on materializer error
-#[derive(Clone)]
-pub(super) struct LogBuffer {
-    inner: VecDeque<String>,
-}
-
-impl LogBuffer {
-    pub(super) fn new(capacity: usize) -> Self {
-        Self {
-            inner: VecDeque::with_capacity(capacity),
-        }
-    }
-
-    fn push(&mut self, item: String) {
-        if self.inner.len() == self.inner.capacity() {
-            self.inner.pop_front();
-            self.inner.push_back(item);
-        } else {
-            self.inner.push_back(item);
-        }
-    }
-}
-
-impl std::fmt::Display for LogBuffer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner.iter().join("\n"))
-    }
-}
-
 #[pin_project]
 struct CommandStream<T: 'static> {
     high_priority: UnboundedReceiver<MaterializerCommand<T>>,
@@ -377,7 +345,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         sqlite_db: Option<MaterializerStateSqliteDb>,
         rt: Handle,
         defer_write_actions: bool,
-        log_buffer: LogBuffer,
         command_sender: Arc<MaterializerSender<T>>,
         tree: ArtifactTree,
         cancellations: &'static CancellationContext,
@@ -396,7 +363,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             sqlite_db,
             rt,
             defer_write_actions,
-            log_buffer,
             version_tracker,
             command_sender,
             tree,
@@ -480,13 +446,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         while let Some(op) = stream.next().await {
             match op {
                 Op::Command(command) => {
-                    self.log_buffer.push(format!("{command:?}"));
                     self.process_one_command(command);
                     counters.ack_received();
                     self.flush_access_times(access_time_update_max_buffer_size);
                 }
                 Op::LowPriorityCommand(command) => {
-                    self.log_buffer.push(format!("{command:?}"));
                     self.process_one_low_priority_command(command);
                     counters.ack_received();
                 }
@@ -743,7 +707,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 {
                     soft_error!(
                         "materializer_materialize_error",
-                        e.context(format!("{}", self.log_buffer)).into(),
+                        e,
                         quiet: true
                     )
                     .unwrap();
@@ -791,7 +755,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let metadata = ArtifactMetadata::new(value.entry(), !persist_full_directory_structure);
         on_materialization(
             self.sqlite_db.as_mut(),
-            &self.log_buffer,
             &self.subscriptions,
             path,
             &metadata,
@@ -1018,7 +981,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        soft_error!("has_artifact_update_time", e.context(format!("{}", self.log_buffer)).into(), quiet: true).unwrap();
+                        soft_error!("has_artifact_update_time", e, quiet: true).unwrap();
                     }
                 }
             }
@@ -1411,7 +1374,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             // future on this path.
                             on_materialization(
                                 self.sqlite_db.as_mut(),
-                                &self.log_buffer,
                                 &self.subscriptions,
                                 &artifact_path,
                                 &metadata,
@@ -1455,7 +1417,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 /// Run callbacks for an artifact being materialized at `path`.
 fn on_materialization(
     sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-    log_buffer: &LogBuffer,
     subscriptions: &MaterializerSubscriptions,
     path: &ProjectRelativePath,
     metadata: &ArtifactMetadata,
@@ -1467,8 +1428,7 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            soft_error!(error_name, e.context(format!("{log_buffer}")).into(), quiet: true)
-                .unwrap();
+            soft_error!(error_name, e, quiet: true).unwrap();
         }
     }
 

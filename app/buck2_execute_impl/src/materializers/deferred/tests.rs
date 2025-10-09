@@ -453,7 +453,6 @@ mod state_machine {
                 Some(db),
                 Handle::current(),
                 true,
-                LogBuffer::new(1),
                 command_sender.dupe(),
                 tree,
                 CancellationContext::testing(),
