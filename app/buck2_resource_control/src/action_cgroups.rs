@@ -424,6 +424,7 @@ impl ActionCgroups {
                             self.frozen_cgroups.len() as u64,
                             active_cgroups_count as u64,
                             &self.metadata,
+                            &self.ancestor_cgroup_constraints,
                         );
                     }
                     Err(e) => {
@@ -520,6 +521,7 @@ impl ActionCgroups {
                 self.frozen_cgroups.len() as u64,
                 active_cgroups_count as u64,
                 &self.metadata,
+                &self.ancestor_cgroup_constraints,
             );
         }
     }
@@ -560,6 +562,7 @@ fn emit_resource_control_event(
     frozen_cgroup_count: u64,
     active_cgroup_count: u64,
     metadata: &HashMap<String, String>,
+    ancestor_cgroup_constraints: &Option<AncestorCgroupConstraints>,
 ) {
     dispatcher.instant_event(buck2_data::ResourceControlEvents {
         uuid: dispatcher.trace_id().to_string(),
@@ -581,6 +584,15 @@ fn emit_resource_control_event(
         active_cgroup_count,
 
         metadata: metadata.clone(),
+
+        ancestor_cgroup_constraints: ancestor_cgroup_constraints.as_ref().map(|constraints| {
+            buck2_data::AncestorCgroupConstraints {
+                memory_max: constraints.memory_max,
+                memory_high: constraints.memory_high,
+                memory_swap_max: constraints.memory_swap_max,
+                memory_swap_high: constraints.memory_swap_high,
+            }
+        }),
     });
 }
 

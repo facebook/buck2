@@ -753,6 +753,18 @@ message ResourceControlEvents {
   // about CI information for now, but I don't see any benefits in parsing them
   // out over just including everything
   map<string, string> metadata = 13;
+
+  // Ancestor cgroup constraints that may limit Buck2 processes
+  optional AncestorCgroupConstraints ancestor_cgroup_constraints = 14;
+}
+
+// Memory constraints inherited from ancestor cgroups in the hierarchy.
+// Captures memory limits that ancestor cgroups impose on Buck2 processes.
+message AncestorCgroupConstraints {
+  optional uint64 memory_max = 1;
+  optional uint64 memory_high = 2;
+  optional uint64 memory_swap_max = 3;
+  optional uint64 memory_swap_high = 4;
 }
 
 enum ResourceControlKind {
