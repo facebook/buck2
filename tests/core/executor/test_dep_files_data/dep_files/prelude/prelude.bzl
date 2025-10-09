@@ -106,6 +106,8 @@ headers_dir = rule(
 def _simple_dep_file_impl(ctx):
     has_content_based_path = ctx.attrs.use_content_based_paths
     used_input1 = ctx.actions.write("used_input1", ctx.attrs.used_input1_contents, has_content_based_path = has_content_based_path)
+    symlink_to_used_input1 = ctx.actions.symlink_file("symlink_to_used_input1", used_input1, has_content_based_path = has_content_based_path)
+    symlink_to_symlink_to_used_input1 = ctx.actions.symlink_file("symlink_to_symlink_to_used_input1", symlink_to_used_input1, has_content_based_path = has_content_based_path)
     used_input2 = ctx.actions.write("used_input2", ctx.attrs.used_input2_contents, has_content_based_path = has_content_based_path)
     unused_input1 = ctx.actions.write("unused_input1", ctx.attrs.unused_input1_contents, has_content_based_path = has_content_based_path)
     unused_input2 = ctx.actions.write("unused_input2", ctx.attrs.unused_input2_contents, has_content_based_path = has_content_based_path)
@@ -133,7 +135,7 @@ def _simple_dep_file_impl(ctx):
             script,
             out.as_output(),
             tag.tag_artifacts(dep_file.as_output()),
-            tag.tag_artifacts(used_input1),
+            tag.tag_artifacts(symlink_to_symlink_to_used_input1),
             tag.tag_artifacts(used_input2),
         ],
         hidden = tag.tag_artifacts(cmd_args([unused_input1, unused_input2])),
