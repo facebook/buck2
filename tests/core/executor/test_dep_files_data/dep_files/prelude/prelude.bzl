@@ -102,3 +102,54 @@ headers_dir = rule(
     },
     impl = _headers_dir_impl,
 )
+
+def _simple_dep_file_impl(ctx):
+    has_content_based_path = ctx.attrs.use_content_based_paths
+    used_input1 = ctx.actions.write("used_input1", ctx.attrs.used_input1_contents, has_content_based_path = has_content_based_path)
+    used_input2 = ctx.actions.write("used_input2", ctx.attrs.used_input2_contents, has_content_based_path = has_content_based_path)
+    unused_input1 = ctx.actions.write("unused_input1", ctx.attrs.unused_input1_contents, has_content_based_path = has_content_based_path)
+    unused_input2 = ctx.actions.write("unused_input2", ctx.attrs.unused_input2_contents, has_content_based_path = has_content_based_path)
+
+    dep_file = ctx.actions.declare_output("depfile", has_content_based_path = has_content_based_path)
+    out = ctx.actions.declare_output("out", has_content_based_path = has_content_based_path)
+
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('output')",
+            "with open(sys.argv[2], 'w') as dep_file:",
+            "  for arg in sys.argv[3:]:",
+            "    dep_file.write('{}\\n'.format(arg))",
+        ],
+        has_content_based_path = has_content_based_path,
+    )
+
+    tag = ctx.actions.artifact_tag()
+    args = cmd_args(
+        [
+            "fbpython",
+            script,
+            out.as_output(),
+            tag.tag_artifacts(dep_file.as_output()),
+            tag.tag_artifacts(used_input1),
+            tag.tag_artifacts(used_input2),
+        ],
+        hidden = tag.tag_artifacts(cmd_args([unused_input1, unused_input2])),
+    )
+
+    ctx.actions.run(args, category = "test_run", dep_files = {"used": tag})
+
+    return [DefaultInfo(default_output = out)]
+
+simple_dep_file = rule(
+    impl = _simple_dep_file_impl,
+    attrs = {
+        "unused_input1_contents": attrs.string(),
+        "unused_input2_contents": attrs.string(),
+        "use_content_based_paths": attrs.bool(default = read_config("test", "use_content_based_paths", "true") == "true"),
+        "used_input1_contents": attrs.string(),
+        "used_input2_contents": attrs.string(),
+    },
+)

@@ -162,6 +162,112 @@ async def test_dep_files_without_content_based_paths(buck: Buck) -> None:
     await _test_dep_files_impl(buck, use_content_based_paths=False)
 
 
+async def _test_dep_files_in_same_package_impl(
+    buck: Buck, use_content_based_paths: bool
+) -> None:
+    def make_args(
+        used_input1_contents: str,
+        used_input2_contents: str,
+        unused_input1_contents: str,
+        unused_input2_contents: str,
+    ) -> List[str]:
+        return [
+            "app:simple_dep_file",
+            "--no-remote-cache",
+            "-c",
+            f"test.used_input1_contents={used_input1_contents}",
+            "-c",
+            f"test.used_input2_contents={used_input2_contents}",
+            "-c",
+            f"test.unused_input1_contents={unused_input1_contents}",
+            "-c",
+            f"test.unused_input2_contents={unused_input2_contents}",
+            "-c",
+            f"test.use_content_based_paths={str(use_content_based_paths).lower()}",
+        ]
+
+    used_input1_contents = random_string()
+    used_input2_contents = random_string()
+    unused_input1_contents = random_string()
+    unused_input2_contents = random_string()
+
+    await buck.build(
+        *make_args(
+            used_input1_contents,
+            used_input2_contents,
+            unused_input1_contents,
+            unused_input2_contents,
+        )
+    )
+    await expect_exec_count(buck, 1)
+
+    used_input1_contents = random_string()
+    await buck.build(
+        *make_args(
+            used_input1_contents,
+            used_input2_contents,
+            unused_input1_contents,
+            unused_input2_contents,
+        )
+    )
+    await expect_exec_count(buck, 1)
+
+    used_input2_contents = random_string()
+    await buck.build(
+        *make_args(
+            used_input1_contents,
+            used_input2_contents,
+            unused_input1_contents,
+            unused_input2_contents,
+        )
+    )
+    await expect_exec_count(buck, 1)
+
+    unused_input1_contents = random_string()
+    await buck.build(
+        *make_args(
+            used_input1_contents,
+            used_input2_contents,
+            unused_input1_contents,
+            unused_input2_contents,
+        )
+    )
+    await expect_exec_count(buck, 0)
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+
+    unused_input2_contents = random_string()
+    await buck.build(
+        *make_args(
+            used_input1_contents,
+            used_input2_contents,
+            unused_input1_contents,
+            unused_input2_contents,
+        )
+    )
+    await expect_exec_count(buck, 0)
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+
+
+# Flaky because of watchman on mac (and maybe windows)
+# Skipping on windows due to gcc dependency
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_dep_files_in_same_package_with_content_based(buck: Buck) -> None:
+    await _test_dep_files_in_same_package_impl(buck, use_content_based_paths=True)
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_dep_files_in_same_package_without_content_based(buck: Buck) -> None:
+    await _test_dep_files_in_same_package_impl(buck, use_content_based_paths=False)
+
+
 async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
     return await filter_events(
         buck,
