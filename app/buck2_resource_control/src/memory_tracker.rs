@@ -267,7 +267,7 @@ pub async fn create_memory_tracker(
     if let SystemdCreationDecision::Create =
         ResourceControlRunner::creation_decision(&resource_control_config.status)
     {
-        let action_cgroups = ActionCgroups::init(resource_control_config);
+        let action_cgroups = ActionCgroups::init(resource_control_config).await?;
         let handle = MemoryTrackerHandleInner::new(action_cgroups);
         const MAX_RETRIES: u32 = 5;
         let memory_limit_bytes = resource_control_config

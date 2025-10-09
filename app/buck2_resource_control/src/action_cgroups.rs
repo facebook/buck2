@@ -40,6 +40,61 @@ use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
 
+/// Memory constraints inherited from ancestor cgroups in the hierarchy.
+///
+/// When Buck2 operates within a systemd slice or cgroup hierarchy, ancestor cgroups
+/// may impose memory limits that affect buck2 processes. This struct captures those
+/// constraints by traversing up the cgroup tree to find the nearest non-"max" values.
+/// None means that no ancestor cgroup has set a memory limit.
+///
+/// These constraints are particularly important for:
+/// - Understanding the actual resource bounds available to Buck2 processes
+/// - Respecting system-level resource policies set by administrators or orchestrators
+/// - Most effective in non-container environments, note that in container environments, processes often cannot see memory limits
+#[derive(Debug, Clone, Default)]
+pub(crate) struct AncestorCgroupConstraints {
+    pub memory_max: Option<u64>,
+    pub memory_high: Option<u64>,
+    pub memory_swap_max: Option<u64>,
+    pub memory_swap_high: Option<u64>,
+}
+
+impl AncestorCgroupConstraints {
+    pub(crate) async fn new() -> buck2_error::Result<Option<Self>> {
+        let cgroup_info = CGroupInfo::read()?;
+        if let Some(slice_path) = cgroup_info.get_slice() {
+            let mut constraints = Self::default();
+            let memory_fields = [
+                (CgroupMemoryFile::MemoryMax, &mut constraints.memory_max),
+                (CgroupMemoryFile::MemoryHigh, &mut constraints.memory_high),
+                (
+                    CgroupMemoryFile::MemorySwapMax,
+                    &mut constraints.memory_swap_max,
+                ),
+                (
+                    CgroupMemoryFile::MemorySwapHigh,
+                    &mut constraints.memory_swap_high,
+                ),
+            ];
+
+            for (memory_file, constraint_field) in memory_fields {
+                if let Some(memory_limit) = memory_file
+                    .find_ancestor_memory_limit_async(slice_path)
+                    .await?
+                {
+                    *constraint_field = Some(memory_limit.parse::<u64>()?);
+                }
+            }
+
+            tracing::trace!("Ancestor cgroup constraints: {constraints:?}");
+
+            Ok(Some(constraints))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ActionCgroupResult {
     pub memory_peak: Option<u64>,
@@ -101,6 +156,9 @@ pub(crate) struct ActionCgroups {
     total_memory_during_last_freeze: Option<u64>,
     // Buck2 metadata for telemetry logging purposes
     metadata: HashMap<String, String>,
+    #[allow(dead_code)]
+    // Constraints for the cgroup hierarchy
+    ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -166,7 +224,9 @@ impl ActionCgroupSession {
 }
 
 impl ActionCgroups {
-    pub fn init(resource_control_config: &ResourceControlConfig) -> Option<Self> {
+    pub async fn init(
+        resource_control_config: &ResourceControlConfig,
+    ) -> buck2_error::Result<Option<Self>> {
         let enable_action_cgroup_pool = resource_control_config
             .enable_action_cgroup_pool
             .unwrap_or(false);
@@ -175,12 +235,21 @@ impl ActionCgroups {
             .unwrap_or(false);
 
         if !enable_action_cgroup_pool {
-            return None;
+            return Ok(None);
         }
-        Some(Self::new(enable_freezing))
+
+        let ancestor_cgroup_constraints = AncestorCgroupConstraints::new().await?;
+
+        Ok(Some(Self::new(
+            enable_freezing,
+            ancestor_cgroup_constraints,
+        )))
     }
 
-    pub fn new(enable_freezing: bool) -> Self {
+    pub fn new(
+        enable_freezing: bool,
+        ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+    ) -> Self {
         Self {
             enable_freezing,
             active_cgroups: HashMap::new(),
@@ -190,6 +259,7 @@ impl ActionCgroups {
             last_unfreeze_time: None,
             total_memory_during_last_freeze: None,
             metadata: buck2_events::metadata::collect(),
+            ancestor_cgroup_constraints,
         }
     }
 
@@ -568,7 +638,7 @@ mod tests {
         fs::write(cgroup_1.join("memory.current"), "10")?;
         fs::write(cgroup_2.join("memory.current"), "10")?;
 
-        let mut action_cgroups = ActionCgroups::new(false);
+        let mut action_cgroups = ActionCgroups::new(false, None);
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
@@ -618,7 +688,7 @@ mod tests {
         fs::write(cgroup_1.join("cgroup.freeze"), "0")?;
         fs::write(cgroup_2.join("cgroup.freeze"), "0")?;
 
-        let mut action_cgroups = ActionCgroups::new(true);
+        let mut action_cgroups = ActionCgroups::new(true, None);
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
