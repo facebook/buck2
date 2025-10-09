@@ -83,6 +83,8 @@ pub enum ActionCgroupPoolConfig {
 pub enum CgroupMemoryFile {
     MemoryHigh,
     MemoryMax,
+    MemorySwapMax,
+    MemorySwapHigh,
 }
 
 impl std::fmt::Display for CgroupMemoryFile {
@@ -90,6 +92,8 @@ impl std::fmt::Display for CgroupMemoryFile {
         match self {
             CgroupMemoryFile::MemoryHigh => write!(f, "memory.high"),
             CgroupMemoryFile::MemoryMax => write!(f, "memory.max"),
+            CgroupMemoryFile::MemorySwapMax => write!(f, "memory.swap.max"),
+            CgroupMemoryFile::MemorySwapHigh => write!(f, "memory.swap.high"),
         }
     }
 }
@@ -113,6 +117,61 @@ impl CgroupMemoryFile {
         let file_path = path.as_ref().join(self.to_string());
         std::fs::write(file_path, value)?;
         Ok(())
+    }
+
+    /// Helper function to generate the sequence of paths to check when traversing up the cgroup hierarchy.
+    fn get_ancestor_paths(path: &Path) -> impl Iterator<Item = std::path::PathBuf> {
+        let cgroup_root = Path::new("/sys/fs/cgroup");
+        let current_path = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            cgroup_root.join(path)
+        };
+
+        // Start from the slice parent
+        let start_path = current_path.parent().map(|p| p.to_path_buf());
+        let cgroup_root_parent = cgroup_root
+            .parent()
+            .expect("The cgroup root has a parent")
+            .to_path_buf();
+
+        std::iter::successors(start_path, move |current| {
+            current.parent().and_then(|parent| {
+                // Stop if we've reached the cgroup root's parent
+                if parent == cgroup_root_parent {
+                    return None;
+                }
+                Some(parent.to_path_buf())
+            })
+        })
+    }
+
+    /// Finds the nearest ancestor memory limit by traversing up the cgroup hierarchy (async version).
+    ///
+    /// This function walks up the cgroup tree starting from the given path until it finds
+    /// a concrete memory limit (non-"max" value) or reaches the root. This is useful for
+    /// percentage-based memory calculations that need to know the parent limit.
+    ///
+    /// If the path is relative, it will be treated as relative to `/sys/fs/cgroup`.
+    pub async fn find_ancestor_memory_limit_async(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> buck2_error::Result<Option<String>> {
+        for current_path in Self::get_ancestor_paths(path.as_ref()) {
+            match self.read_async(&current_path).await {
+                Ok(content) => {
+                    let trimmed = content.trim();
+                    if trimmed != "max" {
+                        return Ok(Some(trimmed.to_owned()));
+                    }
+                }
+                Err(_) => {
+                    // File doesn't exist, continue to parent
+                }
+            }
+        }
+
+        Ok(None)
     }
 }
 
@@ -384,81 +443,6 @@ impl ResourceControlRunner {
         cmd.arg(program);
         cmd
     }
-    /// Finds the nearest ancestor memory limit by traversing up the cgroup hierarchy.
-    ///
-    /// This function walks up the cgroup tree starting from the given slice until it finds
-    /// a concrete memory limit (non-"max" value) or reaches the root. This is useful for
-    /// percentage-based memory calculations that need to know the parent limit.
-    async fn find_ancestor_memory_limit(
-        slice: &str,
-        memory_file_type: CgroupMemoryFile,
-    ) -> buck2_error::Result<Option<String>> {
-        // Get the cgroup path from systemctl
-        let mut cmd = process::async_background_command("systemctl");
-        cmd.args(["--user", "show", "-p", "ControlGroup", slice]);
-
-        let output = cmd.output().await?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
-                "Failed to get ControlGroup for slice {}: {}",
-                slice,
-                stderr
-            ));
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let cgroup_relative_path = stdout
-            .strip_prefix("ControlGroup=")
-            .and_then(|s| s.trim().strip_prefix('/'))
-            .ok_or_else(|| {
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
-                    "Unexpected ControlGroup output format: {}",
-                    stdout
-                )
-            })?;
-
-        // Construct absolute path
-        let cgroup_root = Path::new("/sys/fs/cgroup");
-        let mut current_path = cgroup_root.join(cgroup_relative_path);
-        // Start from the slice parent
-        current_path = match current_path.parent() {
-            Some(parent) => parent.to_path_buf(),
-            None => return Ok(None), // No parent to traverse from
-        };
-
-        // Traverse up the hierarchy
-        loop {
-            // Try to read the memory file
-            match memory_file_type.read_async(&current_path).await {
-                Ok(content) => {
-                    let trimmed = content.trim();
-                    // If we found a non-"max" value, return it
-                    if trimmed != "max" {
-                        return Ok(Some(trimmed.to_owned()));
-                    }
-                }
-                Err(_) => {
-                    // File doesn't exist, continue to parent
-                }
-            }
-
-            // Move to parent directory
-            if let Some(parent) = current_path.parent() {
-                // Stop if we've reached the cgroup root's parent
-                if parent == cgroup_root.parent().unwrap() {
-                    break;
-                }
-                current_path = parent.to_path_buf();
-            } else {
-                break;
-            }
-        }
-
-        Ok(None)
-    }
 
     pub async fn set_slice_memory_info(&self, slice: &str) -> buck2_error::Result<()> {
         if self.memory_limit.is_none() && self.memory_high.is_none() {
@@ -485,9 +469,10 @@ impl ResourceControlRunner {
                     .expect(
                         "if setting the percentage of the memory, the value should be an integer",
                     );
-                if let Some(parent_memory_restrictions) =
-                    ResourceControlRunner::find_ancestor_memory_limit(slice, memory_file_type)
-                        .await?
+                let cgroup_path = get_cgroup_path_async(slice).await?;
+                if let Some(parent_memory_restrictions) = memory_file_type
+                    .find_ancestor_memory_limit_async(&cgroup_path)
+                    .await?
                 {
                     // The value from the memory file is either "max" or a integer value representing bytes
                     let parent_memory_bytes = parent_memory_restrictions.parse::<u64>()?;
@@ -624,6 +609,37 @@ fn is_available() -> buck2_error::Result<()> {
         None => Ok(()),
         Some(r) => Err(r.clone()),
     }
+}
+
+/// Gets the cgroup path from systemctl asynchronously
+async fn get_cgroup_path_async(slice_name: &str) -> buck2_error::Result<String> {
+    let mut cmd = process::async_background_command("systemctl");
+    cmd.args(["--user", "show", "-p", "ControlGroup", slice_name]);
+
+    let output = cmd.output().await?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Failed to get ControlGroup for slice {}: {}",
+            slice_name,
+            stderr
+        ));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let cgroup_relative_path = stdout
+        .strip_prefix("ControlGroup=")
+        .and_then(|s| s.trim().strip_prefix('/'))
+        .ok_or_else(|| {
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Unexpected ControlGroup output format: {}",
+                stdout
+            )
+        })?;
+
+    Ok(cgroup_relative_path.to_owned())
 }
 
 #[cfg(test)]
