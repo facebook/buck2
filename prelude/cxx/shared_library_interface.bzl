@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_triple")
+load("@prelude//linking:link_info.bzl", "LinkArgs", "unpack_link_args_for_tbd_creation")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 
@@ -81,3 +83,36 @@ def shared_library_interface(
             shared_lib = shared_lib,
             identifier = shared_lib.short_path,
         )
+
+def shared_library_interface_from_linkables(
+        ctx: AnalysisContext,
+        link_args: list[LinkArgs],
+        shared_lib: Artifact,
+        install_name: str,
+        extension_safe: bool) -> Artifact:
+    """
+    Produces a shared library interface from the given link args, without actually linking.
+    The interface is derived from the linker inputs (ie. object files, archives, etc).
+    """
+
+    shared_library_interface = ctx.actions.declare_output(shared_lib.short_path + ".tbd")
+    shared_library_interface_from_linkable_generation_filelist = ctx.actions.declare_output(shared_lib.short_path + ".tbd-generation-filelist")
+    interface_generation_cmd_hidden_deps = cmd_args()
+
+    input_files = cmd_args()
+    input_files.add(filter(None, [unpack_link_args_for_tbd_creation(link_arg) for link_arg in link_args]))
+
+    interface_generation_cmd = cmd_args()
+    interface_generation_cmd.add(cmd_args(hidden = input_files))
+    ctx.actions.write(shared_library_interface_from_linkable_generation_filelist, input_files, allow_args = True)
+    interface_generation_tool = get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("llvm-tbd-gen", None)
+    interface_generation_cmd.add(interface_generation_tool)
+    interface_generation_cmd.add("--objects-file-list", shared_library_interface_from_linkable_generation_filelist)
+    interface_generation_cmd.add("--install-name", install_name)
+    interface_generation_cmd.add("--target", get_target_triple(ctx))
+    interface_generation_cmd.add("-o", shared_library_interface.as_output())
+    interface_generation_cmd.add("--app-extension-safe={}".format("true" if extension_safe else "false"))
+
+    interface_generation_cmd.add(cmd_args(hidden = interface_generation_cmd_hidden_deps))
+    ctx.actions.run(interface_generation_cmd, category = "generate_shared_library_interface_from_objects", identifier = shared_lib.short_path)
+    return shared_library_interface

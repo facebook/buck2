@@ -166,6 +166,9 @@ def cxx_use_shlib_intfs(ctx: AnalysisContext) -> bool:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return linker_info.shlib_interfaces != ShlibInterfacesMode("disabled")
 
+def cxx_can_generate_shlib_interface_from_linkables(ctx: AnalysisContext) -> bool:
+    return get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("llvm-tbd-gen", None) != None
+
 def cxx_use_shlib_intfs_mode(ctx: AnalysisContext, mode: ShlibInterfacesMode) -> bool:
     """
     Verify we are using a specific shared library interface mode.
