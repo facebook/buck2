@@ -10,6 +10,7 @@
 -moduledoc """
 Abstractions for pretty printing test results
 """.
+-compile(warn_missing_spec_all).
 
 %% Public API
 -export([print_result/2, print_summary/3]).
@@ -66,6 +67,11 @@ print_result(Name, Unstructured) ->
     io:format("~tp~n", [Unstructured]),
     fail.
 
+-spec print_error(Name, Type, Reason, Stacktrace) -> fail when
+    Name :: unicode:chardata(),
+    Type :: error | exit | throw,
+    Reason :: term(),
+    Stacktrace :: erlang:stacktrace() | term().
 print_error(Name, Type, Reason, Stacktrace) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("failed with ~tp:~n", [Type]),
@@ -73,6 +79,12 @@ print_error(Name, Type, Reason, Stacktrace) ->
     io:format("~ts~n", [Output]),
     fail.
 
+-spec print_skip_error(Name, Where, Type, Reason, Stacktrace) -> skip when
+    Name :: unicode:chardata(),
+    Where :: term(),
+    Type :: error | exit | throw,
+    Reason :: term(),
+    Stacktrace :: erlang:stacktrace() | term().
 print_skip_error(Name, Where, Type, Reason, Stacktrace) ->
     io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
     io:format("skipped at ~ts because of~n", [print_skip_location(Where)]),
@@ -80,14 +92,17 @@ print_skip_error(Name, Where, Type, Reason, Stacktrace) ->
     io:format("~ts~n", [Output]),
     skip.
 
-print_skip_location({_, GroupOrSuite}) ->
+-spec print_skip_location(Location) -> unicode:chardata() when
+    Location :: {_, atom()} | term().
+print_skip_location({_, GroupOrSuite}) when is_atom(GroupOrSuite) ->
     case re:run(atom_to_list(GroupOrSuite), "SUITE$", [unicode]) of
         nomatch -> io_lib:format("init_per_group of ~ts", [GroupOrSuite]);
         _ -> "init_per_suite"
     end;
 print_skip_location(Other) ->
-    Other.
+    io_lib:format("~ts", [Other]).
 
+-spec chop_stack(term()) -> term().
 chop_stack(E = {failed, _}) ->
     E;
 chop_stack(Stacktrace) when is_list(Stacktrace) ->
