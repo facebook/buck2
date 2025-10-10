@@ -142,6 +142,8 @@ func main() {
 	os.Args = loadArgs(os.Args)
 	var wrappedBinary = flag.String("go", "", "wrapped go binary")
 	var goRoot = flag.String("goroot", "", "go root")
+	var defaultGoOS = flag.String("default-goos", "", "default GOOS (if not set by env)")
+	var defaultGoArch = flag.String("default-goarch", "", "default GOARCH (if not set by env)")
 	var outputFile = flag.String("output", "", "file to redirect stdout to")
 	var workdir = flag.String("workdir", "", "directory to run the command in")
 	var useFakeGoroot = flag.Bool("use-fake-goroot", false, "use a fake GOROOT")
@@ -167,6 +169,13 @@ func main() {
 	goroot := *goRoot
 	if goroot == "" {
 		goroot = envs["GOROOT"]
+	}
+
+	if os.Getenv("GOOS") == "" && *defaultGoOS != "" {
+		envs["GOOS"] = *defaultGoOS
+	}
+	if os.Getenv("GOARCH") == "" && *defaultGoArch != "" {
+		envs["GOARCH"] = *defaultGoArch
 	}
 
 	if goroot != "" {
