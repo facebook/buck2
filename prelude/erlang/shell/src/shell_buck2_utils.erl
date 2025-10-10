@@ -183,7 +183,7 @@ get_additional_paths(Path) ->
             ~"buck2",
             ~"bxl",
             ~"--reuse-current-config",
-            ~"--console super",
+            ~"--console=super",
             get_buck2_args_from_env(),
             ~"prelude//erlang/shell/shell.bxl:ebin_paths",
             ~"--",
