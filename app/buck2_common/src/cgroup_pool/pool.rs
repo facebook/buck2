@@ -11,18 +11,21 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 
 use crate::cgroup_pool::cgroup::Cgroup;
 use crate::cgroup_pool::cgroup::CgroupError;
 use crate::cgroup_pool::cgroup::CgroupID;
+use crate::cgroup_pool::path::CgroupPath;
+use crate::cgroup_pool::path::CgroupPathBuf;
 
 pub struct PoolState {
     cgroups: HashMap<CgroupID, Cgroup>,
@@ -44,7 +47,7 @@ pub struct CgroupPool {
 }
 
 impl CgroupPool {
-    const POOL_NAME: &'static str = "actions_cgroup_pool";
+    const POOL_NAME: &'static FileName = FileName::unchecked_new("actions_cgroup_pool");
 
     pub fn new(
         capacity: usize,
@@ -56,8 +59,13 @@ impl CgroupPool {
             io_err: std::io::Error::other(format!("{e:#}")),
         })?;
 
-        let root_cgroup_path = Path::new(&cgroup_info.path);
-        let root_cgroup = Cgroup::try_from_path(root_cgroup_path.to_path_buf())?;
+        let root_cgroup_path = AbsNormPath::new(&cgroup_info.path).map_err(|_| {
+            CgroupError::ProcessCgroupNotAbsolutePath {
+                path: cgroup_info.path.clone(),
+            }
+        })?;
+        let root_cgroup_path = CgroupPath::new(root_cgroup_path);
+        let root_cgroup = Cgroup::try_from_path(root_cgroup_path.to_buf())?;
 
         // The newly created cgroup have no controllers, so we need to enable them by setting root cgroup's cgroup.subtree_control.
         // If we directly write to the cgroup.subtree_control of root cgroup, we will get an error "write: Device or resource busy".
@@ -71,14 +79,11 @@ impl CgroupPool {
         //
         // So we create a new cgroup under root cgroup, and move all processes from root cgroup to it.
         // Then we can safely write to cgroup.subtree_control to enable controllers for child cgroups.
-        let process_cgroup = Cgroup::new(root_cgroup_path.to_path_buf(), "process".to_owned())?;
+        let process_cgroup = Cgroup::new(root_cgroup_path, FileName::unchecked_new("process"))?;
         root_cgroup.move_process_to(&process_cgroup)?;
         root_cgroup.config_subtree_control()?;
 
-        let pool_cgroup = Cgroup::new(
-            root_cgroup_path.to_path_buf(),
-            CgroupPool::POOL_NAME.to_owned(),
-        )?;
+        let pool_cgroup = Cgroup::new(root_cgroup_path, CgroupPool::POOL_NAME)?;
         pool_cgroup.config_subtree_control()?;
 
         if let Some(pool_memory_high) = pool_memory_high {
@@ -107,7 +112,7 @@ impl CgroupPool {
         let mut state = self.state.lock().expect("Mutex poisoned");
         for i in 0..capacity {
             let worker_name = Self::worker_name(i);
-            let cgroup = Cgroup::new(self.pool_path().to_path_buf(), worker_name)?;
+            let cgroup = Cgroup::new(self.pool_path(), &worker_name)?;
             let cgroup_id = CgroupID::new(i);
 
             // Set memory.high limit if provided
@@ -121,15 +126,15 @@ impl CgroupPool {
         Ok(())
     }
 
-    fn worker_name(i: usize) -> String {
+    fn worker_name(i: usize) -> FileNameBuf {
         if i < 1000 {
-            format!("worker_{i:03}")
+            FileNameBuf::unchecked_new(format!("worker_{i:03}"))
         } else {
-            format!("worker_{i}")
+            FileNameBuf::unchecked_new(format!("worker_{i}"))
         }
     }
 
-    fn pool_path(&self) -> &Path {
+    fn pool_path(&self) -> &CgroupPath {
         self.pool_cgroup.path()
     }
 
@@ -137,7 +142,7 @@ impl CgroupPool {
         &self,
         cgroup_id: CgroupID,
         command: &mut Command,
-    ) -> Result<PathBuf, CgroupError> {
+    ) -> Result<CgroupPathBuf, CgroupError> {
         let mut state = self.state.lock().expect("Mutex poisoned");
         let cgroup = state
             .cgroups
@@ -145,7 +150,7 @@ impl CgroupPool {
             .ok_or(CgroupError::CgroupIDNotFound { id: cgroup_id })?;
 
         cgroup.setup_command(command)?;
-        Ok(cgroup.path().to_owned())
+        Ok(cgroup.path().to_buf())
     }
 
     /// Acquire a worker cgroup from the pool. If no available worker cgroup, create a new one.
@@ -161,7 +166,7 @@ impl CgroupPool {
             let id = state.available.len() + state.in_use.len();
             let new_worker_name = Self::worker_name(id);
 
-            let cgroup = Cgroup::new(self.pool_path().to_path_buf(), new_worker_name)?;
+            let cgroup = Cgroup::new(self.pool_path(), &new_worker_name)?;
             let cgroup_id = CgroupID::new(id);
 
             // Set memory.high limit if provided

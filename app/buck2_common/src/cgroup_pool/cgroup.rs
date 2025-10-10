@@ -17,16 +17,19 @@ use std::os::fd::AsRawFd;
 use std::os::fd::BorrowedFd;
 use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
+use buck2_core::fs::paths::file_name::FileName;
 use dupe::Dupe;
 use nix::dir::Dir;
 use nix::fcntl::OFlag;
 use nix::fcntl::openat;
 use nix::sys::stat::Mode;
 use nix::unistd;
+
+use crate::cgroup_pool::path::CgroupPath;
+use crate::cgroup_pool::path::CgroupPathBuf;
 
 /// A unique identifier for a cgroup
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]
@@ -72,18 +75,20 @@ pub enum CgroupError {
     CgroupIDNotFound { id: CgroupID },
     #[error("Integer conversion failed: {err}")]
     IntegerConversion { err: std::num::TryFromIntError },
+    #[error("Process cgroup is not an absolute path: {path}")]
+    ProcessCgroupNotAbsolutePath { path: String },
 }
 
 pub(super) struct Cgroup {
     /// FD for cgroup.procs
     procs_fd: OwnedFd,
-    path: PathBuf,
+    path: CgroupPathBuf,
 }
 
 impl Cgroup {
-    pub(super) fn new(root_path: PathBuf, name: String) -> Result<Self, CgroupError> {
-        let path = root_path.join(name.clone());
-        fs::create_dir_all(&path).map_err(|e| CgroupError::CreationFailed {
+    pub(super) fn new(root_path: &CgroupPath, name: &FileName) -> Result<Self, CgroupError> {
+        let path = root_path.join(name.into());
+        fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
             cgroup_path: path.to_string_lossy().to_string(),
             io_err: e,
         })?;
@@ -91,13 +96,11 @@ impl Cgroup {
         Self::try_from_path(path)
     }
 
-    pub(super) fn try_from_path(path: PathBuf) -> Result<Self, CgroupError> {
-        let dir: Dir =
-            nix::dir::Dir::open(&path, OFlag::O_CLOEXEC, Mode::empty()).map_err(|e| {
-                CgroupError::Io {
-                    msg: format!("Failed to open cgroup directory: {path:?}"),
-                    io_err: e.into(),
-                }
+    pub(super) fn try_from_path(path: CgroupPathBuf) -> Result<Self, CgroupError> {
+        let dir: Dir = nix::dir::Dir::open(path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
+            .map_err(|e| CgroupError::Io {
+                msg: format!("Failed to open cgroup directory: {path:?}"),
+                io_err: e.into(),
             })?;
 
         let procs_fd = openat(
@@ -116,21 +119,21 @@ impl Cgroup {
         Ok(cgroup)
     }
 
-    pub(super) fn path(&self) -> &Path {
+    pub(super) fn path(&self) -> &CgroupPath {
         &self.path
     }
 
     fn subtree_control_path(&self) -> PathBuf {
-        self.path().join("cgroup.subtree_control")
+        self.path().as_path().join("cgroup.subtree_control")
     }
 
     #[allow(dead_code)]
     fn memory_peak_path(&self) -> PathBuf {
-        self.path().join("memory.peak")
+        self.path().as_path().join("memory.peak")
     }
 
     fn memory_high_path(&self) -> PathBuf {
-        self.path().join("memory.high")
+        self.path().as_path().join("memory.high")
     }
 
     /// confgure cgroup.subtree_control to enable controllers for sub cgroups

@@ -12,7 +12,6 @@
 
 use std::borrow::Cow;
 use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
@@ -21,6 +20,7 @@ use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
@@ -87,7 +87,7 @@ pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
     Exit(GatherOutputStatus),
-    Cgroup(String),
+    Cgroup(CgroupPathBuf),
 }
 
 enum StdioEvent {
@@ -120,7 +120,7 @@ struct CommandEventStream<Status, Stdio> {
     #[pin]
     stdio: futures::stream::Fuse<Stdio>,
 
-    cgroup: Option<PathBuf>,
+    cgroup: Option<CgroupPathBuf>,
 }
 
 impl<Status, Stdio> CommandEventStream<Status, Stdio>
@@ -128,7 +128,7 @@ where
     Status: Future,
     Stdio: Stream,
 {
-    fn new(status: Status, stdio: Stdio, cgroup: Option<PathBuf>) -> Self {
+    fn new(status: Status, stdio: Stdio, cgroup: Option<CgroupPathBuf>) -> Self {
         Self {
             exit: None,
             done: false,
@@ -156,9 +156,7 @@ where
         // Take and send cgroup path as soon as the stream is polled. At this point the process
         // should have spawned and the path should exist.
         if let Some(cgroup) = this.cgroup.take() {
-            return Poll::Ready(Some(Ok(CommandEvent::Cgroup(
-                cgroup.to_string_lossy().to_string(),
-            ))));
+            return Poll::Ready(Some(Ok(CommandEvent::Cgroup(cgroup))));
         }
 
         // This future is fused so it's guaranteed to be ready once. If it does, capture the exit
@@ -331,7 +329,7 @@ where
             }
             CommandEvent::Cgroup(path) => {
                 if let Some(session) = cgroup_session.as_mut() {
-                    session.command_started(PathBuf::from(path)).await;
+                    session.command_started(path).await;
                 }
             }
         }

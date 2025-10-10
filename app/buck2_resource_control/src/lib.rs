@@ -47,8 +47,9 @@ impl std::fmt::Display for CommandType {
 
 #[cfg(not(unix))]
 pub mod action_cgroups {
-    use std::path::PathBuf;
     use std::time::Duration;
+
+    use buck2_common::cgroup_pool::path::CgroupPathBuf;
 
     use crate::CommandType;
     use crate::memory_tracker::MemoryTrackerHandle;
@@ -62,7 +63,7 @@ pub mod action_cgroups {
             None
         }
 
-        pub async fn command_started(&mut self, _cgroup_path: PathBuf) {}
+        pub async fn command_started(&mut self, _cgroup_path: CgroupPathBuf) {}
 
         pub async fn command_finished(&mut self) -> ActionCgroupResult {
             unreachable!("not supported");

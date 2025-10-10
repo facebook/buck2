@@ -8,7 +8,9 @@
  * above-listed licenses.
  */
 
+use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use buck2_common::convert::ProstDurationExt;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute_local::CommandEvent;
 use buck2_execute_local::GatherOutputStatus;
@@ -50,7 +52,9 @@ where
             CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason)) => {
                 Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason })
             }
-            CommandEvent::Cgroup(path) => Data::Cgroup(buck2_forkserver_proto::Cgroup { path }),
+            CommandEvent::Cgroup(path) => Data::Cgroup(buck2_forkserver_proto::Cgroup {
+                path: path.to_string(),
+            }),
         };
 
         buck2_forkserver_proto::CommandEvent { data: Some(data) }
@@ -98,7 +102,10 @@ where
             Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason }) => {
                 CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason))
             }
-            Data::Cgroup(buck2_forkserver_proto::Cgroup { path }) => CommandEvent::Cgroup(path),
+            Data::Cgroup(buck2_forkserver_proto::Cgroup { path }) => CommandEvent::Cgroup(
+                // Unchecked ok because we serialize it correctly above
+                CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(path.into())),
+            ),
         };
 
         Ok(event)

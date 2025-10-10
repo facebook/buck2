@@ -8,11 +8,11 @@
  * above-listed licenses.
  */
 
-use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 use std::process::Stdio;
 
+use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
@@ -47,11 +47,11 @@ impl From<io::Error> for SpawnError {
 
 pub struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
-    cgroup: Option<PathBuf>,
+    cgroup: Option<CgroupPathBuf>,
 }
 
 impl ProcessCommand {
-    pub fn new(mut cmd: StdCommand, cgroup: Option<PathBuf>) -> Self {
+    pub fn new(mut cmd: StdCommand, cgroup: Option<CgroupPathBuf>) -> Self {
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -81,7 +81,7 @@ impl ProcessCommand {
 
 pub struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
-    pub(crate) cgroup: Option<PathBuf>,
+    pub(crate) cgroup: Option<CgroupPathBuf>,
 }
 
 impl ProcessGroup {

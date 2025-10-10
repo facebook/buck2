@@ -12,12 +12,13 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::os::fd::AsFd;
 use std::os::fd::OwnedFd;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_common::cgroup_pool::path::CgroupPath;
+use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::CgroupMemoryFile;
 use buck2_core::soft_error;
@@ -125,7 +126,7 @@ impl ActionCgroupResult {
 
 #[derive(Debug)]
 struct ActionCgroup {
-    path: PathBuf,
+    path: CgroupPathBuf,
     memory_current_file: File,
     memory_initial: u64,
     memory_peak: u64,
@@ -144,8 +145,8 @@ struct ActionCgroup {
 
 pub(crate) struct ActionCgroups {
     enable_freezing: bool,
-    active_cgroups: HashMap<PathBuf, ActionCgroup>,
-    frozen_cgroups: VecDeque<PathBuf>,
+    active_cgroups: HashMap<CgroupPathBuf, ActionCgroup>,
+    frozen_cgroups: VecDeque<CgroupPathBuf>,
     /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
     /// memory pressure. Used to restore the limit when all cgroups are unfrozen.
     original_memory_high: Option<String>,
@@ -168,7 +169,7 @@ pub struct ActionCgroupSession {
     // when starting a command and then releasing it back to the pool when the command finishes.
     cgroup_pool: Arc<Mutex<ActionCgroups>>,
     dispatcher: EventDispatcher,
-    path: Option<PathBuf>,
+    path: Option<CgroupPathBuf>,
     start_error: Option<buck2_error::Error>,
     command_type: CommandType,
     action_digest: Option<String>,
@@ -194,7 +195,7 @@ impl ActionCgroupSession {
             })
     }
 
-    pub async fn command_started(&mut self, cgroup_path: PathBuf) {
+    pub async fn command_started(&mut self, cgroup_path: CgroupPathBuf) {
         let mut cgroups = self.cgroup_pool.lock().await;
         match cgroups
             .command_started(
@@ -265,12 +266,12 @@ impl ActionCgroups {
 
     pub async fn command_started(
         &mut self,
-        cgroup_path: PathBuf,
+        cgroup_path: CgroupPathBuf,
         dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
     ) -> buck2_error::Result<()> {
-        let mut memory_current_file = File::open(cgroup_path.join("memory.current"))
+        let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
 
@@ -305,7 +306,7 @@ impl ActionCgroups {
         Ok(())
     }
 
-    pub fn command_finished(&mut self, cgroup_path: &PathBuf) -> ActionCgroupResult {
+    pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
         if let Some(mut cgroup) = self.active_cgroups.remove(cgroup_path) {
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
@@ -313,7 +314,7 @@ impl ActionCgroups {
             if let Some(freeze_file) = cgroup.freeze_file.take() {
                 unfreeze_cgroup(freeze_file);
                 self.frozen_cgroups
-                    .retain(|frozen_cgroup_path| cgroup_path != frozen_cgroup_path);
+                    .retain(|frozen_cgroup_path| *cgroup_path != **frozen_cgroup_path);
             }
             ActionCgroupResult::from_info(cgroup)
         } else {
@@ -599,9 +600,9 @@ fn emit_resource_control_event(
 // From https://docs.kernel.org/admin-guide/cgroup-v2.html
 // Writing “1” to 'cgroup.freeze' causes freezing of the cgroup and all descendant cgroups. This means
 // that all belonging processes will be stopped and will not run until the cgroup will be explicitly unfrozen.
-fn freeze_cgroup(cgroup_path: &PathBuf) -> buck2_error::Result<OwnedFd> {
+fn freeze_cgroup(cgroup_path: &CgroupPath) -> buck2_error::Result<OwnedFd> {
     // Using nix APIs in case more precise control is needed for control file IO.
-    let dir: Dir = Dir::open(cgroup_path, OFlag::O_CLOEXEC, Mode::empty())
+    let dir: Dir = Dir::open(cgroup_path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
         .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup directory"))?;
     let freeze_file: OwnedFd = openat(
         &dir,
@@ -638,17 +639,21 @@ fn unfreeze_cgroup(freeze_file: OwnedFd) {
 mod tests {
     use std::fs;
 
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+
     use super::*;
 
     #[tokio::test]
     async fn test_peak_memory() -> buck2_error::Result<()> {
         let cgroup_1 = tempfile::tempdir()?;
         let cgroup_2 = tempfile::tempdir()?;
-        let cgroup_1 = cgroup_1.path().to_path_buf();
-        let cgroup_2 = cgroup_2.path().to_path_buf();
+        let cgroup_1 =
+            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_1.path().to_path_buf()));
+        let cgroup_2 =
+            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_2.path().to_path_buf()));
 
-        fs::write(cgroup_1.join("memory.current"), "10")?;
-        fs::write(cgroup_2.join("memory.current"), "10")?;
+        fs::write(cgroup_1.as_path().join("memory.current"), "10")?;
+        fs::write(cgroup_2.as_path().join("memory.current"), "10")?;
 
         let mut action_cgroups = ActionCgroups::new(false, None);
         action_cgroups
@@ -668,8 +673,8 @@ mod tests {
             )
             .await?;
 
-        fs::write(cgroup_1.join("memory.current"), "20")?;
-        fs::write(cgroup_2.join("memory.current"), "5")?;
+        fs::write(cgroup_1.as_path().join("memory.current").as_path(), "20")?;
+        fs::write(cgroup_2.as_path().join("memory.current").as_path(), "5")?;
 
         let memory_reading = MemoryReading {
             memory_current: 10000,
@@ -692,13 +697,15 @@ mod tests {
     async fn test_freeze() -> buck2_error::Result<()> {
         let cgroup_1 = tempfile::tempdir()?;
         let cgroup_2 = tempfile::tempdir()?;
-        let cgroup_1 = cgroup_1.path().to_path_buf();
-        let cgroup_2 = cgroup_2.path().to_path_buf();
+        let cgroup_1 =
+            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_1.path().to_path_buf()));
+        let cgroup_2 =
+            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_2.path().to_path_buf()));
 
-        fs::write(cgroup_1.join("memory.current"), "0")?;
-        fs::write(cgroup_2.join("memory.current"), "0")?;
-        fs::write(cgroup_1.join("cgroup.freeze"), "0")?;
-        fs::write(cgroup_2.join("cgroup.freeze"), "0")?;
+        fs::write(cgroup_1.as_path().join("memory.current"), "0")?;
+        fs::write(cgroup_2.as_path().join("memory.current"), "0")?;
+        fs::write(cgroup_1.as_path().join("cgroup.freeze"), "0")?;
+        fs::write(cgroup_2.as_path().join("cgroup.freeze"), "0")?;
 
         let mut action_cgroups = ActionCgroups::new(true, None);
         action_cgroups
@@ -718,8 +725,8 @@ mod tests {
             )
             .await?;
 
-        fs::write(cgroup_1.join("memory.current"), "1")?;
-        fs::write(cgroup_2.join("memory.current"), "2")?;
+        fs::write(cgroup_1.as_path().join("memory.current"), "1")?;
+        fs::write(cgroup_2.as_path().join("memory.current"), "2")?;
 
         let memory_reading = MemoryReading {
             memory_current: 10000,
