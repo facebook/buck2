@@ -400,9 +400,13 @@ impl<'a> BuckdLifecycle<'a> {
             })
             .collect::<Vec<_>>()
             .join("_");
+
+        let daemon_uuid = buck2_events::daemon_id::DAEMON_UUID.to_string();
+
         let slice_name = format!(
-            "buck2-daemon.{}.{}",
-            replace_unit_delimiter(&project_dir_underscore_string),
+            "buck2-daemon.{}.{}.{}",
+            replace_unit_delimiter(daemon_uuid.as_str()),
+            replace_unit_delimiter(project_dir_underscore_string.as_str()),
             replace_unit_delimiter(self.paths.isolation.as_str())
         );
         let resource_control_runner = ResourceControlRunner::create_if_enabled(
