@@ -438,7 +438,7 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     # Create private header tree and propagate via args.
     args = get_target_sdk_version_flags(ctx)
     file_prefix_args = []
-    header_root = prepare_headers(ctx, headers, "buck-private-headers")
+    header_root = prepare_headers(ctx, headers, "buck-private-headers", uses_experimental_content_based_path_hashing = True)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:
