@@ -476,8 +476,14 @@ async def test_run_action_with_incremental_metadata(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_resolve_promise_artifact(buck: Buck) -> None:
+async def test_resolve_promise_artifact(
+    buck: Buck,
+) -> None:
     await expect_failure(
-        buck.build("root//:resolve_promise_artifact"),
+        buck.build(
+            "root//:resolve_promise_artifact",
+            "-c",
+            "test.artifact_has_content_based_path=true",
+        ),
         stderr_regex="Artifact promise resolved to artifact that uses content based paths, this isn't allowed",
     )

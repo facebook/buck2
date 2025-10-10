@@ -513,21 +513,25 @@ incremental_action = rule(impl = _incremental_action_impl, attrs = {})
 HelloInfo = provider(fields = ["hello"])
 
 def _anon_impl(ctx: AnalysisContext) -> list[Provider]:
-    hello = ctx.actions.write("hello.out", "hello", has_content_based_path = True)
+    hello = ctx.actions.write("hello.out", "hello", has_content_based_path = ctx.attrs.has_content_based_path)
     return [DefaultInfo(), HelloInfo(hello = hello)]
 
 _anon = anon_rule(
     impl = _anon_impl,
-    attrs = {},
+    attrs = {
+        "has_content_based_path": attrs.bool(),
+    },
     artifact_promise_mappings = {
         "hello": lambda x: x[HelloInfo].hello,
     },
 )
 
 def _resolve_promise_artifact_impl(ctx: AnalysisContext) -> list[Provider]:
-    anon = ctx.actions.anon_target(_anon, {})
+    anon = ctx.actions.anon_target(_anon, {"has_content_based_path": ctx.attrs.artifact_has_content_based_path})
     hello_artifact = anon.artifact("hello")
 
     return [DefaultInfo(default_output = hello_artifact)]
 
-resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {})
+resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
+    "artifact_has_content_based_path": attrs.bool(),
+})
