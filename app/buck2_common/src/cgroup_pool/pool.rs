@@ -44,11 +44,6 @@ pub struct CgroupPool {
 }
 
 impl CgroupPool {
-    // safe to use usize::MAX, usize::MAX - 1 and usize::MAX - 2 as cgroup id, we will never create that many cgroups
-    const POOL_CGROUP_ID: usize = usize::MAX;
-    const PROCESS_CGROUP_ID: usize = usize::MAX - 1;
-    const ROOT_CGROUP_ID: usize = usize::MAX - 2;
-
     const POOL_NAME: &'static str = "actions_cgroup_pool";
 
     pub fn new(
@@ -62,8 +57,7 @@ impl CgroupPool {
         })?;
 
         let root_cgroup_path = Path::new(&cgroup_info.path);
-        let root_cgroup =
-            Cgroup::try_from_path(root_cgroup_path.to_path_buf(), CgroupPool::ROOT_CGROUP_ID)?;
+        let root_cgroup = Cgroup::try_from_path(root_cgroup_path.to_path_buf())?;
 
         // The newly created cgroup have no controllers, so we need to enable them by setting root cgroup's cgroup.subtree_control.
         // If we directly write to the cgroup.subtree_control of root cgroup, we will get an error "write: Device or resource busy".
@@ -77,18 +71,13 @@ impl CgroupPool {
         //
         // So we create a new cgroup under root cgroup, and move all processes from root cgroup to it.
         // Then we can safely write to cgroup.subtree_control to enable controllers for child cgroups.
-        let process_cgroup = Cgroup::new(
-            root_cgroup_path.to_path_buf(),
-            "process".to_owned(),
-            CgroupPool::PROCESS_CGROUP_ID,
-        )?;
+        let process_cgroup = Cgroup::new(root_cgroup_path.to_path_buf(), "process".to_owned())?;
         root_cgroup.move_process_to(&process_cgroup)?;
         root_cgroup.config_subtree_control()?;
 
         let pool_cgroup = Cgroup::new(
             root_cgroup_path.to_path_buf(),
             CgroupPool::POOL_NAME.to_owned(),
-            CgroupPool::POOL_CGROUP_ID,
         )?;
         pool_cgroup.config_subtree_control()?;
 
@@ -118,15 +107,15 @@ impl CgroupPool {
         let mut state = self.state.lock().expect("Mutex poisoned");
         for i in 0..capacity {
             let worker_name = Self::worker_name(i);
-            let cgroup = Cgroup::new(self.pool_path().to_path_buf(), worker_name, i)?;
+            let cgroup = Cgroup::new(self.pool_path().to_path_buf(), worker_name)?;
+            let cgroup_id = CgroupID::new(i);
 
             // Set memory.high limit if provided
             if let Some(per_cgroup_memory_high) = per_cgroup_memory_high {
                 cgroup.set_memory_high(per_cgroup_memory_high)?;
             }
 
-            let cgroup_id = cgroup.id().dupe();
-            state.available.push_back(cgroup_id.dupe());
+            state.available.push_back(cgroup_id);
             state.cgroups.insert(cgroup_id, cgroup);
         }
         Ok(())
@@ -172,16 +161,16 @@ impl CgroupPool {
             let id = state.available.len() + state.in_use.len();
             let new_worker_name = Self::worker_name(id);
 
-            let cgroup = Cgroup::new(self.pool_path().to_path_buf(), new_worker_name, id)?;
+            let cgroup = Cgroup::new(self.pool_path().to_path_buf(), new_worker_name)?;
+            let cgroup_id = CgroupID::new(id);
 
             // Set memory.high limit if provided
             if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {
                 cgroup.set_memory_high(per_cgroup_memory_high)?;
             }
 
-            let cgroup_id = cgroup.id().dupe();
-            state.in_use.insert(cgroup_id.dupe());
-            state.cgroups.insert(cgroup_id.dupe(), cgroup);
+            state.in_use.insert(cgroup_id);
+            state.cgroups.insert(cgroup_id, cgroup);
             cgroup_id
         };
 

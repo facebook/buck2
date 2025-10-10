@@ -29,7 +29,7 @@ use nix::sys::stat::Mode;
 use nix::unistd;
 
 /// A unique identifier for a cgroup
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Dupe)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]
 pub struct CgroupID(usize);
 
 impl CgroupID {
@@ -75,24 +75,23 @@ pub enum CgroupError {
 }
 
 pub(super) struct Cgroup {
-    id: CgroupID,
     /// FD for cgroup.procs
     procs_fd: OwnedFd,
     path: PathBuf,
 }
 
 impl Cgroup {
-    pub(super) fn new(root_path: PathBuf, name: String, id: usize) -> Result<Self, CgroupError> {
+    pub(super) fn new(root_path: PathBuf, name: String) -> Result<Self, CgroupError> {
         let path = root_path.join(name.clone());
         fs::create_dir_all(&path).map_err(|e| CgroupError::CreationFailed {
             cgroup_path: path.to_string_lossy().to_string(),
             io_err: e,
         })?;
 
-        Self::try_from_path(path, id)
+        Self::try_from_path(path)
     }
 
-    pub(super) fn try_from_path(path: PathBuf, id: usize) -> Result<Self, CgroupError> {
+    pub(super) fn try_from_path(path: PathBuf) -> Result<Self, CgroupError> {
         let dir: Dir =
             nix::dir::Dir::open(&path, OFlag::O_CLOEXEC, Mode::empty()).map_err(|e| {
                 CgroupError::Io {
@@ -112,16 +111,9 @@ impl Cgroup {
             io_err: e.into(),
         })?;
 
-        let id = CgroupID::new(id);
-
-        let cgroup = Self { id, procs_fd, path };
+        let cgroup = Self { procs_fd, path };
 
         Ok(cgroup)
-    }
-
-    /// Get the unique identifier for this cgroup
-    pub(super) fn id(&self) -> &CgroupID {
-        &self.id
     }
 
     pub(super) fn path(&self) -> &Path {
