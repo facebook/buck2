@@ -122,10 +122,10 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             AnonTargetAttr::None => Ok(Value::new_none()),
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),
             AnonTargetAttr::Dep(d) => Ok(DepAttrType::resolve_single(ctx, d)?),
-            AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
+            AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.dupe()))),
             AnonTargetAttr::Arg(a) => Ok(a.resolve(ctx, pkg)?),
             AnonTargetAttr::PromiseArtifact(promise_artifact_attr) => {
-                let promise_id = promise_artifact_attr.id.clone();
+                let promise_id = promise_artifact_attr.id.dupe();
                 // We validated that the analysis contains the promise artifact id earlier
                 let artifact = anon_resolution_ctx
                     .promised_artifacts_map
@@ -149,7 +149,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 }
 
                 let fulfilled = OnceLock::new();
-                fulfilled.set(artifact.clone()).unwrap();
+                fulfilled.set(artifact.dupe()).unwrap();
 
                 let fulfilled_promise_inner =
                     PromiseArtifact::new(Arc::new(fulfilled), Arc::new(promise_id));

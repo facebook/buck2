@@ -22,6 +22,7 @@ use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ANON_TARGE
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
+use dupe::Dupe;
 use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -79,7 +80,7 @@ impl<'v> StarlarkAnonTarget<'v> {
         if let Some(artifacts) = frozen_artifact_mappings {
             for (id, name) in artifacts.mappings.keys().enumerate() {
                 let artifact =
-                    registry.register_artifact(declaration_location.clone(), key.clone(), id)?;
+                    registry.register_artifact(declaration_location.dupe(), key.clone(), id)?;
                 artifacts_map.insert(*name, artifact);
             }
         }
@@ -137,7 +138,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
                         k.to_value().get_hashed()?,
                         eval.heap().alloc(StarlarkPromiseArtifact::new(
                             eval.call_stack_top_location(),
-                            v.clone(),
+                            v.dupe(),
                             None,
                         )),
                     ))
@@ -156,7 +157,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
         match this.artifacts.get(name) {
             Some(v) => Ok(eval.heap().alloc(StarlarkPromiseArtifact::new(
                 eval.call_stack_top_location(),
-                v.clone(),
+                v.dupe(),
                 None,
             ))),
             None => {
@@ -263,7 +264,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let owner_key = this.analysis_value_storage.self_key.owner();
         let key = registry.anon_target_key(rule, attrs, owner_key)?;
-        registry.register_one(anon_target_promise, key.clone())?;
+        registry.register_one(anon_target_promise, key.dupe())?;
 
         Ok(StarlarkAnonTarget::new(
             eval.call_stack_top_location(),
@@ -297,12 +298,12 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
 
             promises_to_join.push(anon_target_promise);
 
-            registry.register_one(anon_target_promise, key.clone())?;
+            registry.register_one(anon_target_promise, key.dupe())?;
             let anon_target = StarlarkAnonTarget::new(
-                declaration_location.clone(),
+                declaration_location.dupe(),
                 anon_target_promise,
                 rule.artifact_promise_mappings(),
-                key.clone(),
+                key.dupe(),
                 registry,
             )?;
 
@@ -330,13 +331,13 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         short_path: &'v str,
     ) -> starlark::Result<StarlarkPromiseArtifact> {
         let mut this = this.state()?;
-        let promise = artifact.artifact.clone();
+        let promise = artifact.artifact.dupe();
 
         let short_path = ForwardRelativePathBuf::new(short_path.to_owned())?;
         (*this).record_short_path_assertion(short_path.clone(), promise.id.as_ref().clone());
 
         Ok(StarlarkPromiseArtifact::new(
-            artifact.declaration_location.clone(),
+            artifact.declaration_location.dupe(),
             promise,
             Some(short_path),
         ))
