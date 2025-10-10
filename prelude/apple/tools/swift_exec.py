@@ -129,7 +129,7 @@ def _rewrite_dependency_file(command, out_path):
             # This can occur for Xcode toolchain plugins like libSwiftUIMacros.dylib
             print(f"Dependency file contains absolute path: {path}", file=sys.stderr)
         else:
-            relative_paths.append(path)
+            relative_paths.append(os.path.normpath(path))
 
     _make_path_user_writable(out_path)
     with open(out_path, "w") as f:
