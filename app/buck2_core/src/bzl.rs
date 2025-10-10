@@ -35,12 +35,17 @@ pub struct ImportPath {
     /// The path to the import as a 'CellPath', which contains the cell
     /// information and the cell relative path to the bzl file itself, including the bzl suffix
     path: CellPath,
+    #[cfg(fbcode_build)]
     /// The cell of the top-level build module that this is being loaded
     /// (perhaps transitively) into.
     build_file_cell: BuildFileCell,
 }
 
 impl ImportPath {
+    /// Create an `ImportPath` whose `build_file_cell` is the same as the import.
+    /// For example, an import path of `@abc//path/to/file.bzl`, this would return a path
+    /// as if a buildfile in cell `abc` had imported it.
+    ///
     /// We evaluate `bzl` files multiple times: for each cell we evaluate `bzl` file again.
     /// We want to stop doing that.
     /// This function is for call sites where we don't care about the build file cell.
@@ -49,6 +54,14 @@ impl ImportPath {
         Self::new_with_build_file_cells(path, build_file_cell)
     }
 
+    /// If cell-segmentation of starlark loads is enabled (fbcode_build), then this returns
+    /// an `ImportPath` with a custom build file cell.
+    ///
+    /// If cell-segmentation is disabled (not(fbcode_build)) this is no different from
+    /// [`ImportPath::new_same_cell`], and completely ignores the custom build file cell.
+    /// This ensures we do not create any segmented import paths anywhere in the codebase.
+    ///
+    #[cfg_attr(fbcode_build, allow(unused_mut))]
     pub fn new_with_build_file_cells(
         path: CellPath,
         build_file_cell: BuildFileCell,
@@ -65,8 +78,14 @@ impl ImportPath {
             return Err(ImportPathError::Suffix(path).into());
         }
 
+        #[cfg(not(fbcode_build))]
+        {
+            _ = build_file_cell;
+        }
+
         Ok(Self {
             path,
+            #[cfg(fbcode_build)]
             build_file_cell,
         })
     }
@@ -84,8 +103,14 @@ impl ImportPath {
             return Err(ImportPathError::Invalid(path).into());
         }
 
+        #[cfg(not(fbcode_build))]
+        {
+            _ = build_file_cell;
+        }
+
         Ok(Self {
             path,
+            #[cfg(fbcode_build)]
             build_file_cell,
         })
     }
@@ -119,7 +144,15 @@ impl ImportPath {
     }
 
     pub fn build_file_cell(&self) -> BuildFileCell {
-        self.build_file_cell
+        #[cfg(fbcode_build)]
+        {
+            self.build_file_cell
+        }
+
+        #[cfg(not(fbcode_build))]
+        {
+            BuildFileCell::new(self.path.cell())
+        }
     }
 
     pub fn path(&self) -> &CellPath {
@@ -136,10 +169,10 @@ impl ImportPath {
 
 impl Display for ImportPath {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.build_file_cell.name() == self.path.cell() {
+        if self.build_file_cell().name() == self.path.cell() {
             write!(f, "{}", self.path)
         } else {
-            write!(f, "{}@{}", self.path, self.build_file_cell.name())
+            write!(f, "{}@{}", self.path, self.build_file_cell().name())
         }
     }
 }
