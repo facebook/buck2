@@ -90,6 +90,7 @@ rust_library(
         "//buck2/shed/static_interner:static_interner",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         # @oss-disable[end= ]: "//common/rust/shed/detect_eden:detect_eden",
+        # @oss-disable[end= ]: "//common/rust/user:user",
     ],
 )
 
