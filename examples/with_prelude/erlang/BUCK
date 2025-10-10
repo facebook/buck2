@@ -1,0 +1,20 @@
+load("//:test_utils.bzl", "assert_output")
+
+oncall("whatsapp_build_infra")
+
+erlang_application(
+    name = "hello_world",
+    srcs = ["src/hello_world.erl"],
+)
+
+erlang_escript(
+    name = "script",
+    main_module = "hello_world",
+    deps = [":hello_world"],
+)
+
+assert_output(
+    name = "check_main",
+    command = "$(exe_target :script) Erlang",
+    output = "Hello Erlang!",
+)
