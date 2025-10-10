@@ -31,12 +31,19 @@ pub struct PoolState {
     cgroups: HashMap<CgroupID, Cgroup>,
     available: VecDeque<CgroupID>,
     in_use: HashSet<CgroupID>,
+    next_id: usize,
 }
 
 impl PoolState {
     pub fn release(&mut self, cgroup_id: CgroupID) {
         self.in_use.remove(&cgroup_id);
         self.available.push_back(cgroup_id);
+    }
+
+    fn allocate_id(&mut self) -> CgroupID {
+        let id = self.next_id;
+        self.next_id += 1;
+        CgroupID::new(id)
     }
 }
 
@@ -96,6 +103,7 @@ impl CgroupPool {
                 cgroups: HashMap::new(),
                 available: VecDeque::new(),
                 in_use: HashSet::new(),
+                next_id: 0,
             })),
             per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
         };
@@ -110,10 +118,10 @@ impl CgroupPool {
         per_cgroup_memory_high: Option<&str>,
     ) -> Result<(), CgroupError> {
         let mut state = self.state.lock().expect("Mutex poisoned");
-        for i in 0..capacity {
-            let worker_name = Self::worker_name(i);
+        for _ in 0..capacity {
+            let cgroup_id = state.allocate_id();
+            let worker_name = Self::worker_name(cgroup_id);
             let cgroup = Cgroup::new(self.pool_path(), &worker_name)?;
-            let cgroup_id = CgroupID::new(i);
 
             // Set memory.high limit if provided
             if let Some(per_cgroup_memory_high) = per_cgroup_memory_high {
@@ -126,7 +134,8 @@ impl CgroupPool {
         Ok(())
     }
 
-    fn worker_name(i: usize) -> FileNameBuf {
+    fn worker_name(id: CgroupID) -> FileNameBuf {
+        let i = id.0;
         if i < 1000 {
             FileNameBuf::unchecked_new(format!("worker_{i:03}"))
         } else {
@@ -163,11 +172,10 @@ impl CgroupPool {
             cgroup_id
         } else {
             // Create new worker if no available worker, capacity is not a hard limit
-            let id = state.available.len() + state.in_use.len();
-            let new_worker_name = Self::worker_name(id);
+            let cgroup_id = state.allocate_id();
+            let new_worker_name = Self::worker_name(cgroup_id);
 
             let cgroup = Cgroup::new(self.pool_path(), &new_worker_name)?;
-            let cgroup_id = CgroupID::new(id);
 
             // Set memory.high limit if provided
             if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {

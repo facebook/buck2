@@ -33,7 +33,7 @@ use crate::cgroup_pool::path::CgroupPathBuf;
 
 /// A unique identifier for a cgroup
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]
-pub struct CgroupID(usize);
+pub struct CgroupID(pub(super) usize);
 
 impl CgroupID {
     pub(super) fn new(id: usize) -> Self {
