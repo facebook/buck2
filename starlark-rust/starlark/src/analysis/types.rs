@@ -91,7 +91,7 @@ impl<T: LintWarning> LintT<T> {
 }
 
 /// A standardised set of severities.
-#[derive(Debug, Serialize, Dupe, Clone, Copy)]
+#[derive(Debug, Serialize, Dupe, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum EvalSeverity {
     /// An error while the program was being parsed.
