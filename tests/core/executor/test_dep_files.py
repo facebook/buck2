@@ -268,6 +268,75 @@ async def test_dep_files_in_same_package_without_content_based(buck: Buck) -> No
     await _test_dep_files_in_same_package_impl(buck, use_content_based_paths=False)
 
 
+async def _test_dep_files_in_same_dir_impl(
+    buck: Buck, use_content_based_paths: bool
+) -> None:
+    def make_args(
+        used_input_contents: str,
+        unused_input_contents: str,
+    ) -> List[str]:
+        return [
+            "app:shared_dir_dep_file",
+            "--no-remote-cache",
+            "-c",
+            f"test.used_input_contents={used_input_contents}",
+            "-c",
+            f"test.unused_input_contents={unused_input_contents}",
+            "-c",
+            f"test.use_content_based_paths={str(use_content_based_paths).lower()}",
+        ]
+
+    used_input_contents = random_string()
+    unused_input_contents = random_string()
+
+    await buck.build(
+        *make_args(
+            used_input_contents,
+            unused_input_contents,
+        )
+    )
+    await expect_exec_count(buck, 1)
+
+    used_input_contents = random_string()
+    await buck.build(
+        *make_args(
+            used_input_contents,
+            unused_input_contents,
+        )
+    )
+    await expect_exec_count(buck, 1)
+
+    unused_input_contents = random_string()
+    await buck.build(
+        *make_args(
+            used_input_contents,
+            unused_input_contents,
+        )
+    )
+    if use_content_based_paths:
+        # TODO(ianc) Bug! This should be a dep file hit
+        await expect_exec_count(buck, 1)
+    else:
+        await expect_exec_count(buck, 0)
+        await check_execution_kind(
+            buck,
+            [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+            ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        )
+
+
+# Flaky because of watchman on mac (and maybe windows)
+# Skipping on windows due to gcc dependency
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_dep_files_in_same_dir_with_content_based(buck: Buck) -> None:
+    await _test_dep_files_in_same_dir_impl(buck, use_content_based_paths=True)
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_dep_files_in_same_dir_without_content_based(buck: Buck) -> None:
+    await _test_dep_files_in_same_dir_impl(buck, use_content_based_paths=False)
+
+
 async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
     return await filter_events(
         buck,
