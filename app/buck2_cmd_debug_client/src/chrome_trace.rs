@@ -887,6 +887,11 @@ impl ChromeTraceWriter {
                     }
                     self.snapshot_counters.set(
                         event.timestamp(),
+                        "deferred_materializer_queue_size",
+                        snapshot.deferred_materializer_queue_size,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
                         "blocking_executor_io_queue_size",
                         snapshot.blocking_executor_io_queue_size,
                     )?;
