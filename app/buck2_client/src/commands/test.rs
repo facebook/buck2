@@ -159,7 +159,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     build_default_info: bool,
 
     /// Do not build DefaultInfo provider (this is the default)
-    #[allow(unused)]
     #[clap(long, group = "default-info")]
     skip_default_info: bool,
 
@@ -168,7 +167,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     build_run_info: bool,
 
     /// Do not build RunInfo provider (this is the default)
-    #[allow(unused)]
     #[clap(long, group = "run-info")]
     skip_run_info: bool,
 
@@ -205,6 +203,23 @@ impl StreamingCommand for TestCommand {
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
+
+        let build_default_info = if self.skip_default_info {
+            false
+        } else if self.build_default_info {
+            true
+        } else {
+            ctx.test_builds_targets()?
+        };
+
+        let build_run_info = if self.skip_run_info {
+            false
+        } else if self.build_run_info {
+            true
+        } else {
+            ctx.test_builds_targets()?
+        };
+
         let response = buckd
             .with_flushing()
             .test(
@@ -228,8 +243,8 @@ impl StreamingCommand for TestCommand {
                     }),
                     timeout: self.timeout_options.overall_timeout()?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
-                    build_default_info: self.build_default_info,
-                    build_run_info: self.build_run_info,
+                    build_default_info,
+                    build_run_info,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
