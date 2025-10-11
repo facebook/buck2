@@ -325,6 +325,7 @@ impl CommonDigests {
             // Instead of using the digest directly, we could use the constituent digests, or constituent paths
             // which might be useful for debugging.
             arguments: vec![inner_remote_dep_file_key],
+            #[allow(deprecated)]
             platform: Some(re_platform.clone()),
             ..Default::default()
         });

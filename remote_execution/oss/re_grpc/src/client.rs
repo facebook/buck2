@@ -747,6 +747,7 @@ impl REClient {
                     action_digest: Some(tdigest_to(request.action_digest)),
                     action_result: Some(convert_t_action_result2(request.action_result)?),
                     results_cache_policy: None,
+                    ..Default::default()
                 },
                 metadata,
                 self.runtime_opts.use_fbcode_metadata,
@@ -777,6 +778,7 @@ impl REClient {
             execution_policy: None,
             results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
             action_digest: Some(action_digest.clone()),
+            ..Default::default()
         };
 
         let stream = client
@@ -1037,6 +1039,7 @@ impl REClient {
                         FindMissingBlobsRequest {
                             instance_name: self.instance_name.as_str().to_owned(),
                             blob_digests: digests_to_check.map(|b| tdigest_to(b.0.clone())),
+                            ..Default::default()
                         },
                         metadata.clone(),
                         self.runtime_opts.use_fbcode_metadata,
@@ -1311,21 +1314,21 @@ fn convert_t_action_result2(t_action_result: TActionResult2) -> anyhow::Result<A
                 path: output_directory.path,
                 tree_digest: Some(digest.clone()),
                 is_topologically_sorted: false,
+                root_directory_digest: None,
             }
         });
 
     let action_result = ActionResult {
         output_files,
-        output_file_symlinks: Vec::new(),
         output_symlinks,
         output_directories,
-        output_directory_symlinks: Vec::new(),
         exit_code: t_action_result.exit_code,
         stdout_raw: Vec::new(),
         stdout_digest: t_action_result.stdout_digest.map(tdigest_to),
         stderr_raw: Vec::new(),
         stderr_digest: t_action_result.stderr_digest.map(tdigest_to),
         execution_metadata,
+        ..Default::default()
     };
 
     Ok(action_result)
@@ -1418,6 +1421,7 @@ where
                 instance_name: instance_name.as_str().to_owned(),
                 digests: std::mem::take(&mut curr_digests),
                 acceptable_compressors: vec![compressor::Value::Identity as i32],
+                ..Default::default()
             };
             requests.push(read_blob_req);
             curr_size = digest.size_bytes;
@@ -1430,6 +1434,7 @@ where
             instance_name: instance_name.as_str().to_owned(),
             digests: std::mem::take(&mut curr_digests),
             acceptable_compressors: vec![compressor::Value::Identity as i32],
+            ..Default::default()
         };
         requests.push(read_blob_req);
     }
@@ -1680,6 +1685,7 @@ where
             let mut re_request = BatchUpdateBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 requests: vec![],
+                ..Default::default()
             };
             for blob in batch {
                 match blob {
