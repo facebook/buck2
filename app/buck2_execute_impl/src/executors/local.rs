@@ -1063,17 +1063,9 @@ impl LocalExecutor {
                 }
             }
 
-            join_all(copy_futs).await.map(|result| {
-                if let Err(e) = result {
-                    // Builds can still pass without incremental outputs so we shouldn't error out, but would be good to track
-                    soft_error!(
-                        "content_based_incremental_copy_failed",
-                        buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e).into(),
-                        quiet: true
-                    )
-                    .unwrap();
-                };
-            });
+            // The materialization we do for incremental action outputs is best-effort. The copy
+            // will fail if the materialization failed, and that's okay.
+            join_all(copy_futs).await;
         }
 
         Ok(())

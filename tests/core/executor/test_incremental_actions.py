@@ -523,29 +523,15 @@ async def unmaterialized_incremental_action_not_persist_between_daemon_restart_h
 
     await buck.kill()
 
-    if use_content_based_path:
-        # TODO(ianc) Fix this, we shouldn't fail
-        await expect_failure(
-            buck.run(
-                "root//:basic_incremental_action",
-                "--local-only",
-                "-c",
-                f"test.seed={random_string()}",
-                "-c",
-                f"test.use_content_based_path={use_content_based_path}",
-            ),
-            stderr_regex="BUCK2_HARD_ERROR.*Error copying from src path",
-        )
-    else:
-        result = await buck.run(
-            "root//:basic_incremental_action",
-            "--local-only",
-            "-c",
-            f"test.seed={random_string()}",
-            "-c",
-            f"test.use_content_based_path={use_content_based_path}",
-        )
-        assert result.stdout == "foo"
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
 
 
 @buck_test()
