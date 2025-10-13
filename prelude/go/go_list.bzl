@@ -36,13 +36,14 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
     env["GO111MODULE"] = "off"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
-    go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
+    go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json", has_content_based_path = True)
 
     # Create file structure that `go list` can recognize
     # Use copied_dir, because embed doesn't work with symlinks
     srcs_dir = ctx.actions.copied_dir(
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
+        has_content_based_path = True,
     )
     all_tags = [] + go_toolchain.build_tags + build_tags
     if asan:

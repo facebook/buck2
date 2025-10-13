@@ -62,7 +62,7 @@ def _cgo(
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
-    gen_dir = ctx.actions.declare_output("cgo_gen_tmp", dir = True)
+    gen_dir = ctx.actions.declare_output("cgo_gen_tmp", dir = True, has_content_based_path = True)
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -123,13 +123,14 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
         name = "cxx_wrapper",
         cmd = cxx_cmd,
         language = ctx.attrs._exec_os_type[OsLookup].script,
+        has_content_based_path = True,
     )
 
 # build CPreprocessor similar as cxx_private_preprocessor_info does, but with our filtered headers
 def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
     namespace = cxx_attr_header_namespace(ctx)
     header_map = {paths.join(namespace, h.short_path): h for h in h_files}
-    header_root = prepare_headers(ctx, header_map, "h_files-private-headers")
+    header_root = prepare_headers(ctx, header_map, "h_files-private-headers", uses_experimental_content_based_path_hashing = True)
 
     return CPreprocessor(
         args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
@@ -149,7 +150,7 @@ def build_cgo(
                               For example, this API is NOT allowed in the context of the `AnalaysisActions#dynamic_outputs` callback.
     """
     if len(cgo_files) == 0:
-        return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {})
+        return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {}, has_content_based_path = True)
 
     # Gather preprocessor inputs.
     own_pre = _own_pre(ctx, h_files)
@@ -168,6 +169,7 @@ def build_cgo(
             ctx,
             {h.basename: h for h in c_gen_headers},
             "cgo-private-headers",
+            uses_experimental_content_based_path_hashing = True,
         ).include_path,
     ]))
 

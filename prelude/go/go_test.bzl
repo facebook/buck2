@@ -37,7 +37,7 @@ def _gen_test_main(
     """
     Generate a `main.go` which calls tests from the given sources.
     """
-    output = ctx.actions.declare_output("main.go")
+    output = ctx.actions.declare_output("main.go", has_content_based_path = True)
     cmd = []
     cmd.append(ctx.attrs._testmaingen[RunInfo])
 

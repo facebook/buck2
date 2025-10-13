@@ -45,13 +45,13 @@ def build_package(
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
-    out_x = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.x")
-    out_a = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.a")
+    out_x = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.x", has_content_based_path = True)
+    out_a = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.a", has_content_based_path = True)
 
-    out_shared_x = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.x")
-    out_shared_a = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.a")
+    out_shared_x = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.x", has_content_based_path = True)
+    out_shared_a = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.a", has_content_based_path = True)
 
-    cgo_gen_dir = ctx.actions.declare_output(cgo_gen_dir_name, dir = True)
+    cgo_gen_dir = ctx.actions.declare_output(cgo_gen_dir_name, dir = True, has_content_based_path = True)
 
     srcs = dedupe_by_value(srcs)
 
@@ -59,8 +59,8 @@ def build_package(
 
     go_list_out = go_list(ctx, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = with_tests, asan = asan)
 
-    test_go_files_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile")
-    coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")
+    test_go_files_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile", has_content_based_path = True)
+    coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile", has_content_based_path = True)
     dynamic_outputs = [out_x, out_a, out_shared_x, out_shared_a, test_go_files_argsfile, coverage_vars_argsfile, cgo_gen_dir]
 
     all_pkgs = merge_pkgs([
@@ -185,18 +185,18 @@ def _compile(
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     env = get_toolchain_env_vars(go_toolchain)
-    out_a = ctx.actions.declare_output("go_compile_out{}.a".format(suffix))
-    out_x = ctx.actions.declare_output("go_compile_out{}.x".format(suffix))
+    out_a = ctx.actions.declare_output("go_compile_out{}.a".format(suffix), has_content_based_path = True)
+    out_x = ctx.actions.declare_output("go_compile_out{}.x".format(suffix), has_content_based_path = True)
 
     if len(go_srcs) == 0:
         ctx.actions.write(out_a.as_output(), "")
         ctx.actions.write(out_x.as_output(), "")
         return out_x, out_a, None
 
-    asmhdr = ctx.actions.declare_output("__asmhdr__{}/go_asm.h".format(suffix)) if gen_asmhdr else None
+    asmhdr = ctx.actions.declare_output("__asmhdr__{}/go_asm.h".format(suffix), has_content_based_path = True) if gen_asmhdr else None
 
     # Use argsfile to avoid command length limit on Windows
-    srcs_argsfile = ctx.actions.write(paths.basename(pkg_name) + suffix + "_srcs.go_package_argsfile", go_srcs)
+    srcs_argsfile = ctx.actions.write(paths.basename(pkg_name) + suffix + "_srcs.go_package_argsfile", go_srcs, has_content_based_path = True)
 
     compile_cmd = cmd_args(
         [
@@ -247,8 +247,8 @@ def _symabis(
     # we have to supply "go_asm.h" with any content to make asm tool happy
     # its content doesn't matter if -gensymabis provided
     # https://github.com/golang/go/blob/3f8f929d60a90c4e4e2b07c8d1972166c1a783b1/src/cmd/go/internal/work/gc.go#L441-L443
-    fake_asmhdr = ctx.actions.write("__fake_asmhdr__/go_asm.h", "")
-    symabis = ctx.actions.declare_output("symabis")
+    fake_asmhdr = ctx.actions.write("__fake_asmhdr__/go_asm.h", "", has_content_based_path = True)
+    symabis = ctx.actions.declare_output("symabis", has_content_based_path = True)
     asm_cmd = [
         go_toolchain.go_wrapper,
         ["--go", go_toolchain.assembler],
@@ -288,7 +288,7 @@ def _asssembly(
     o_files = []
     identifier = paths.basename(pkg_name)
     for s_file in s_files:
-        o_file = ctx.actions.declare_output(s_file.short_path + suffix + ".o")
+        o_file = ctx.actions.declare_output(s_file.short_path + suffix + ".o", has_content_based_path = True)
         o_files.append(o_file)
 
         asm_cmd = [
@@ -317,7 +317,7 @@ def _pack(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, o_files: list[A
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
-    pkg_file = ctx.actions.declare_output("pkg{}.a".format(suffix))
+    pkg_file = ctx.actions.declare_output("pkg{}.a".format(suffix), has_content_based_path = True)
 
     pack_cmd = [
         go_toolchain.packer,

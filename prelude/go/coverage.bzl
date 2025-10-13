@@ -30,8 +30,8 @@ def cover_srcs(
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
-    cover_meta_file = ctx.actions.declare_output("cover_meta.bin")
-    out_config_file = ctx.actions.declare_output("out_config.json")
+    cover_meta_file = ctx.actions.declare_output("cover_meta.bin", has_content_based_path = True)
+    out_config_file = ctx.actions.declare_output("out_config.json", has_content_based_path = True)
 
     # Based on https://pkg.go.dev/cmd/internal/cov/covcmd#CoverPkgConfig
     pkgcfg = {
@@ -43,23 +43,23 @@ def cover_srcs(
         "PkgName": pkg_name,
         "PkgPath": pkg_import_path,
     }
-    pkgcfg_file = ctx.actions.write_json("pkg.cfg", pkgcfg)
+    pkgcfg_file = ctx.actions.write_json("pkg.cfg", pkgcfg, has_content_based_path = True)
 
     # Grab the first 16 characters of sha256.
     # This is sufficient to make the coverage variable unique enough
     # while keeping the instrumented file a bit more readable.
     var = "GoCover_" + sha256(pkg_import_path)[:16]
-    instrum_vars_file = ctx.actions.declare_output("with_instrumentation", "instrum_vars.go")
+    instrum_vars_file = ctx.actions.declare_output("with_instrumentation", "instrum_vars.go", has_content_based_path = True)
     instrum_go_files = [
-        ctx.actions.declare_output("with_instrumentation", go_file.short_path)
+        ctx.actions.declare_output("with_instrumentation", go_file.short_path, has_content_based_path = True)
         for go_file in go_files
     ]
     instrum_cgo_files = [
-        ctx.actions.declare_output("with_instrumentation", cgo_file.short_path)
+        ctx.actions.declare_output("with_instrumentation", cgo_file.short_path, has_content_based_path = True)
         for cgo_file in cgo_files
     ]
     instrum_all_files = [instrum_vars_file] + instrum_go_files + instrum_cgo_files
-    outfilelist = ctx.actions.write("outfilelist.txt", cmd_args(instrum_all_files, ""))
+    outfilelist = ctx.actions.write("outfilelist.txt", cmd_args(instrum_all_files, ""), has_content_based_path = True)
 
     cover_cmd = [
         go_toolchain.cover,

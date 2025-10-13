@@ -29,28 +29,31 @@ def cmd_script(
         name: str,
         cmd: cmd_args,
         language: ScriptLanguage = ScriptLanguage("sh"),
-        quote: str | None = "shell") -> cmd_args:
+        quote: str | None = "shell",
+        has_content_based_path: bool = False) -> cmd_args:
     cmd_kwargs = {} if quote == None else {"quote": quote}
     shell_quoted = cmd_args(cmd, **cmd_kwargs)
 
     if language == ScriptLanguage("sh"):
         wrapper, _ = ctx.actions.write(
-            ctx.actions.declare_output("{}.sh".format(name)),
+            ctx.actions.declare_output("{}.sh".format(name), has_content_based_path = has_content_based_path),
             [
                 "#!/usr/bin/env bash",
                 cmd_args(cmd_args(shell_quoted, delimiter = " \\\n"), format = "{} \"$@\"\n"),
             ],
             is_executable = True,
             allow_args = True,
+            has_content_based_path = has_content_based_path,
         )
     elif language == ScriptLanguage("bat"):
         wrapper, _ = ctx.actions.write(
-            ctx.actions.declare_output("{}.bat".format(name)),
+            ctx.actions.declare_output("{}.bat".format(name), has_content_based_path = has_content_based_path),
             [
                 "@echo off",
                 cmd_args(cmd_args(shell_quoted, delimiter = "^\n "), format = "{} %*\n"),
             ],
             allow_args = True,
+            has_content_based_path = has_content_based_path,
         )
     else:
         fail(language)

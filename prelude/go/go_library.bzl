@@ -124,7 +124,7 @@ def _combine_package(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, x_fi
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
-    pkg_file = ctx.actions.declare_output(paths.basename(pkg_name) + "-combined.a")
+    pkg_file = ctx.actions.declare_output(paths.basename(pkg_name) + "-combined.a", has_content_based_path = True)
 
     pack_cmd = [
         go_toolchain.packer,

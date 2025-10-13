@@ -14,13 +14,13 @@ PRE_STAMPED_SUFFIX = "-pre_stamped"
 def cxx_stamp_build_info(ctx: AnalysisContext) -> bool:
     return hasattr(ctx.attrs, "_build_info") and bool(ctx.attrs._build_info)
 
-def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifact | None = None) -> Artifact:
+def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifact | None = None, has_content_based_path: bool = False) -> Artifact:
     """
     If necessary, add fb_build_info section to binary via late-stamping
     """
     if cxx_stamp_build_info(ctx):
         ctx.attrs._build_info["late_stamping"] = True
-        build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", ctx.attrs._build_info)
+        build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", ctx.attrs._build_info, has_content_based_path = has_content_based_path)
         stem, ext = paths.split_extension(obj.short_path)
         if not stamped_output:
             name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"

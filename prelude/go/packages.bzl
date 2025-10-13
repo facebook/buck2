@@ -106,10 +106,10 @@ def make_importcfg(
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
-    own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(prefix_name, suffix))
+    own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(prefix_name, suffix), has_content_based_path = True)
     ctx.actions.write(own_importcfg, content)
 
-    final_importcfg = ctx.actions.declare_output("{}{}.final.importcfg".format(prefix_name, suffix))
+    final_importcfg = ctx.actions.declare_output("{}{}.final.importcfg".format(prefix_name, suffix), has_content_based_path = True)
     ctx.actions.run(
         [
             go_toolchain.concat_files,
@@ -132,5 +132,6 @@ def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> 
             ctx,
             {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
             "cgo-exported-headers",
+            uses_experimental_content_based_path_hashing = True,
         ).include_path,
     ]))
