@@ -40,6 +40,8 @@ KotlinToolchainInfo = provider(
         "kotlincd_main_class": provider_field(typing.Any, default = None),
         "kotlincd_worker": provider_field(typing.Any, default = None),
         "ksp2_enable_incremental_processing": provider_field(typing.Any, default = None),
+        "semanticdb_kotlinc": provider_field(typing.Any, default = None),
+        "semanticdb_sourceroot": provider_field(typing.Any, default = None),
         "track_class_usage_plugin": provider_field(typing.Any, default = None),
     },
 )

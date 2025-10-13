@@ -77,7 +77,7 @@ def create_jar_artifact_kotlincd(
         custom_jdk_info: CustomJdkInfo | None,
         is_building_android_binary: bool,
         friend_paths: list[Dependency],
-        kotlin_compiler_plugins: list[(Dependency, dict[str, str])],
+        kotlin_compiler_plugins: list[(Dependency, dict[str, [str, cmd_args]])],
         extra_kotlinc_arguments: list,
         incremental: bool,
         enable_used_classes: bool,
@@ -292,7 +292,7 @@ def create_jar_artifact_kotlincd(
 
 def _encode_kotlin_extra_params(
         kotlin_toolchain: KotlinToolchainInfo,
-        kotlin_compiler_plugins: list[(Dependency, dict[str, str])],
+        kotlin_compiler_plugins: list[(Dependency, dict[str, [str, cmd_args]])],
         extra_kotlinc_arguments: list,
         bootclasspath_entries: list[Artifact],
         bootclasspath_snapshot_entries: list[Artifact],

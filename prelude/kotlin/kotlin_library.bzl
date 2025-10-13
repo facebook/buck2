@@ -527,11 +527,12 @@ def build_kotlin_library(
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
             maybe_has_java_srcs = lazy.is_any(lambda src: src.extension == ".java" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
             if (
-                maybe_has_java_srcs and
                 not java_toolchain.is_bootstrap_toolchain and
                 not ctx.attrs._is_building_android_binary
             ):
-                extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_kotlincd_kwargs)
+                if maybe_has_java_srcs:
+                    extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_kotlincd_kwargs)
+                extra_sub_targets = _semanticdb_subtarget(ctx, extra_sub_targets, kotlin_toolchain, java_toolchain, common_kotlincd_kwargs)
 
             class_to_src_map, sources_jar, class_to_src_map_sub_targets = get_class_to_source_map_info(
                 ctx,
@@ -603,5 +604,49 @@ def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_ko
 
         extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
             DefaultInfo(default_output = nullsafe_info.output),
+        ]}
+    return extra_sub_targets
+
+def _semanticdb_subtarget(
+        ctx: AnalysisContext,
+        extra_sub_targets: dict,
+        kotlin_toolchain: KotlinToolchainInfo,
+        java_toolchain: JavaToolchainInfo,
+        common_kotlincd_kwargs: dict):
+    sourceroot = kotlin_toolchain.semanticdb_sourceroot
+    if not sourceroot:
+        return extra_sub_targets
+    semanticdb_javac = java_toolchain.semanticdb_javac
+    semanticdb_kotlinc = kotlin_toolchain.semanticdb_kotlinc
+    if semanticdb_javac or semanticdb_kotlinc:
+        semanticdb_output = ctx.actions.declare_output("semanticdb", dir = True)
+        semanticdb_javac_plugin_params = None
+        if semanticdb_javac:
+            javac_sourceroot_args = cmd_args(sourceroot, format = "-sourceroot:{}")
+            javac_targetroot_args = cmd_args(semanticdb_output.as_output(), format = "-targetroot:{}")
+            semanticdb_javac_plugin_params = create_plugin_params(
+                ctx,
+                [(semanticdb_javac, cmd_args(javac_sourceroot_args, javac_targetroot_args))],
+            )
+        kwargs = common_kotlincd_kwargs
+        if semanticdb_kotlinc:
+            kotlin_compiler_plugins = [(semanticdb_kotlinc, {
+                "plugin:semanticdb-kotlinc:sourceroot": sourceroot,
+                "plugin:semanticdb-kotlinc:targetroot": cmd_args(semanticdb_output.as_output()),
+            })]
+            kwargs = common_kotlincd_kwargs | {"kotlin_compiler_plugins": kotlin_compiler_plugins}
+        create_jar_artifact_kotlincd(
+            actions_identifier = "semanticdb",
+            plugin_params = semanticdb_javac_plugin_params,
+            extra_arguments = cmd_args(),
+            optional_dirs = [],
+            is_creating_subtarget = True,
+            incremental = False,
+            uses_content_based_paths = False,
+            bootclasspath_snapshot_entries = [],
+            **kwargs
+        )
+        extra_sub_targets = extra_sub_targets | {"semanticdb": [
+            DefaultInfo(default_output = semanticdb_output),
         ]}
     return extra_sub_targets

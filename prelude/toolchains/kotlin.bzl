@@ -86,6 +86,8 @@ def _kotlin_toolchain_rule_impl(ctx):
             track_class_usage_plugin = ctx.attrs.track_class_usage_plugin,
             kotlin_error_handler = None,
             kosabi_jvm_abi_gen_k2_plugin = ctx.attrs.kosabi_jvm_abi_gen_k2_plugin,
+            semanticdb_kotlinc = None,
+            semanticdb_sourceroot = None,
         ),
     ]
 
