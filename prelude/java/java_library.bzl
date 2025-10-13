@@ -661,20 +661,7 @@ def build_java_library(
         not java_toolchain.is_bootstrap_toolchain and
         not ctx.attrs._is_building_android_binary
     ):
-        nullsafe_info = get_nullsafe_info(ctx)
-        if nullsafe_info:
-            compile_to_jar(
-                ctx,
-                actions_identifier = "nullsafe",
-                plugin_params = nullsafe_info.plugin_params,
-                extra_arguments = nullsafe_info.extra_arguments,
-                is_creating_subtarget = True,
-                **common_compile_kwargs
-            )
-
-            extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
-                DefaultInfo(default_output = nullsafe_info.output),
-            ]}
+        extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_compile_kwargs)
 
     gwt_output = None
     if (
@@ -765,3 +752,20 @@ def build_java_library(
         class_to_src_map = class_to_src_map,
         validation_info = validation_info,
     )
+
+def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_compile_kwargs: dict):
+    nullsafe_info = get_nullsafe_info(ctx)
+    if nullsafe_info:
+        compile_to_jar(
+            ctx,
+            actions_identifier = "nullsafe",
+            plugin_params = nullsafe_info.plugin_params,
+            extra_arguments = nullsafe_info.extra_arguments,
+            is_creating_subtarget = True,
+            **common_compile_kwargs
+        )
+
+        extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
+            DefaultInfo(default_output = nullsafe_info.output),
+        ]}
+    return extra_sub_targets
