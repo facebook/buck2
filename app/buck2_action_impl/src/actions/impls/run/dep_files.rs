@@ -1379,20 +1379,6 @@ impl DeclaredDepFiles {
             return Ok(path);
         }
 
-        fn is_hash(s: &str) -> bool {
-            if s.len() != 16 {
-                return false;
-            }
-
-            for c in s.chars() {
-                if !c.is_ascii_hexdigit() {
-                    return false;
-                }
-            }
-
-            true
-        }
-
         let path_iter = path.as_ref().iter();
         // Paths always begin with "buck-out/<ISOLATION_DIR>/gen/<CELL>", so
         // we can skip the first 4 segments.
@@ -1612,6 +1598,20 @@ impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
             }
         }
     }
+}
+
+fn is_hash(s: &str) -> bool {
+    if s.len() != 16 {
+        return false;
+    }
+
+    for c in s.chars() {
+        if !c.is_ascii_hexdigit() {
+            return false;
+        }
+    }
+
+    true
 }
 
 #[derive(Allocative)]
