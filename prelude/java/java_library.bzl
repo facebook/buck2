@@ -654,6 +654,7 @@ def build_java_library(
         not ctx.attrs._is_building_android_binary
     ):
         extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_compile_kwargs)
+        extra_sub_targets = _semanticdb_subtarget(ctx, extra_sub_targets, java_toolchain, common_compile_kwargs)
 
     gwt_output = None
     if (
@@ -760,4 +761,29 @@ def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_co
         extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
             DefaultInfo(default_output = nullsafe_info.output),
         ]}
+    return extra_sub_targets
+
+def _semanticdb_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, java_toolchain: JavaToolchainInfo, common_compile_kwargs: dict):
+    semanticdb_javac_plugin = java_toolchain.semanticdb_javac
+    sourceroot = java_toolchain.semanticdb_sourceroot
+    if not sourceroot or not semanticdb_javac_plugin:
+        return extra_sub_targets
+    sourceroot_args = cmd_args(sourceroot, format = "-sourceroot:{}")
+    semanticdb_output = ctx.actions.declare_output("semanticdb", dir = True)
+    targetroot_args = cmd_args(semanticdb_output.as_output(), format = "-targetroot:{}")
+    semanticdb_plugin_params = create_plugin_params(
+        ctx,
+        [(semanticdb_javac_plugin, cmd_args(sourceroot_args, targetroot_args))],
+    )
+    compile_to_jar(
+        ctx,
+        actions_identifier = "semanticdb_javac",
+        plugin_params = semanticdb_plugin_params,
+        extra_arguments = None,
+        is_creating_subtarget = True,
+        **common_compile_kwargs
+    )
+    extra_sub_targets = extra_sub_targets | {"semanticdb": [
+        DefaultInfo(default_output = semanticdb_output),
+    ]}
     return extra_sub_targets
