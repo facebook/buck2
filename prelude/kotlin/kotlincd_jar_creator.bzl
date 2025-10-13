@@ -143,6 +143,7 @@ def create_jar_artifact_kotlincd(
         debug_port,
         uses_experimental_content_based_path_hashing,
         incremental_metadata_ignored_inputs_tag,
+        should_kosabi_jvm_abi_gen_use_k2 == True,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -442,6 +443,7 @@ def _define_kotlincd_action(
         debug_port: [int, None],
         uses_experimental_content_based_path_hashing: bool,
         incremental_metadata_ignored_inputs_tag: ArtifactTag,
+        should_kosabi_jvm_abi_gen_use_k2: bool,
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
@@ -493,7 +495,7 @@ def _define_kotlincd_action(
 
     dep_files = {}
     used_jars_json_output = None
-    if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
+    if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and (target_type == TargetType("library") or should_kosabi_jvm_abi_gen_use_k2 != True) and track_class_usage:
         used_classes_json_outputs = [
             cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1),
             cmd_args(output_paths.jar.as_output(), format = "{}/kotlin-used-classes.json", parent = 1),
