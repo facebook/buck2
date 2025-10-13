@@ -531,24 +531,7 @@ def build_kotlin_library(
                 not java_toolchain.is_bootstrap_toolchain and
                 not ctx.attrs._is_building_android_binary
             ):
-                nullsafe_info = get_nullsafe_info(ctx)
-                if nullsafe_info:
-                    create_jar_artifact_kotlincd(
-                        actions_identifier = "nullsafe",
-                        plugin_params = nullsafe_info.plugin_params,
-                        extra_arguments = nullsafe_info.extra_arguments,
-                        # To make sure that even for pure Kotlin targets empty output dir is always present
-                        optional_dirs = [nullsafe_info.output.as_output()],
-                        is_creating_subtarget = True,
-                        incremental = False,
-                        uses_content_based_paths = False,
-                        bootclasspath_snapshot_entries = [],
-                        **common_kotlincd_kwargs
-                    )
-
-                    extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
-                        DefaultInfo(default_output = nullsafe_info.output),
-                    ]}
+                extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_kotlincd_kwargs)
 
             class_to_src_map, sources_jar, class_to_src_map_sub_targets = get_class_to_source_map_info(
                 ctx,
@@ -601,3 +584,24 @@ def build_kotlin_library(
             )
         else:
             fail("unrecognized kotlinc protocol `{}`".format(kotlin_toolchain.kotlinc_protocol))
+
+def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_kotlincd_kwargs: dict):
+    nullsafe_info = get_nullsafe_info(ctx)
+    if nullsafe_info:
+        create_jar_artifact_kotlincd(
+            actions_identifier = "nullsafe",
+            plugin_params = nullsafe_info.plugin_params,
+            extra_arguments = nullsafe_info.extra_arguments,
+            # To make sure that even for pure Kotlin targets empty output dir is always present
+            optional_dirs = [nullsafe_info.output.as_output()],
+            is_creating_subtarget = True,
+            incremental = False,
+            uses_content_based_paths = False,
+            bootclasspath_snapshot_entries = [],
+            **common_kotlincd_kwargs
+        )
+
+        extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
+            DefaultInfo(default_output = nullsafe_info.output),
+        ]}
+    return extra_sub_targets
