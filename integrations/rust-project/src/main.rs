@@ -106,6 +106,9 @@ enum Command {
         #[clap(long)]
         buck2_command: Option<String>,
 
+        #[clap(long, default_value = "50", env = "RUST_PROJECT_EXTRA_TARGETS")]
+        max_extra_targets: Option<usize>,
+
         /// The name of the client invoking rust-project, such as 'vscode'.
         #[clap(long)]
         client: Option<String>,
@@ -139,6 +142,9 @@ enum Command {
         /// Command used to run `buck2`. Defaults to `"buck2"`.
         #[clap(long)]
         buck2_command: Option<String>,
+
+        #[clap(long, default_value = "50", env = "RUST_PROJECT_EXTRA_TARGETS")]
+        max_extra_targets: Option<usize>,
 
         args: JsonArguments,
     },
@@ -394,6 +400,7 @@ fn json_args_pass() {
             sysroot_mode: SysrootMode::Rustc,
             client: None,
             buck2_command: None,
+            max_extra_targets: None,
         }),
         version: false,
     };
@@ -412,6 +419,7 @@ fn json_args_pass() {
             sysroot_mode: SysrootMode::Rustc,
             client: None,
             buck2_command: None,
+            max_extra_targets: None,
         }),
         version: false,
     };
@@ -430,6 +438,7 @@ fn json_args_pass() {
             sysroot_mode: SysrootMode::Rustc,
             client: None,
             buck2_command: None,
+            max_extra_targets: None,
         }),
         version: false,
     };

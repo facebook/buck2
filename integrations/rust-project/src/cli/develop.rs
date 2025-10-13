@@ -44,6 +44,7 @@ pub(crate) struct Develop {
 pub(crate) struct OutputCfg {
     out: Output,
     pretty: bool,
+    max_extra_targets: usize,
 }
 
 #[derive(Debug)]
@@ -66,6 +67,7 @@ impl Develop {
             check_cycles,
             buck2_command,
             include_all_buildfiles,
+            max_extra_targets,
             ..
         } = command
         {
@@ -93,7 +95,12 @@ impl Develop {
                 invoked_by_ra: false,
                 include_all_buildfiles,
             };
-            let out = OutputCfg { out, pretty };
+            let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
+            let out = OutputCfg {
+                out,
+                pretty,
+                max_extra_targets,
+            };
 
             let input = if !targets.is_empty() {
                 let targets = targets.into_iter().map(Target::new).collect();
@@ -109,6 +116,7 @@ impl Develop {
             sysroot_mode,
             args,
             buck2_command,
+            max_extra_targets,
             ..
         } = command
         {
@@ -136,7 +144,12 @@ impl Develop {
                 invoked_by_ra: true,
                 include_all_buildfiles: false,
             };
-            let out = OutputCfg { out, pretty: false };
+            let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
+            let out = OutputCfg {
+                out,
+                pretty: false,
+                max_extra_targets,
+            };
 
             let input = match args {
                 crate::JsonArguments::Path(path) => Input::Files(vec![path]),
@@ -183,7 +196,7 @@ impl Develop {
             Output::Stdout => BufWriter::new(Box::new(std::io::stdout())),
         };
 
-        let targets = self.related_targets(input.clone())?;
+        let targets = self.related_targets(input.clone(), cfg.max_extra_targets)?;
         if targets.is_empty() {
             let err = anyhow::anyhow!("No owning target found")
                 .context(format!("Could not find owning target for {input:?}"));
@@ -275,14 +288,11 @@ impl Develop {
     pub(crate) fn related_targets(
         &self,
         input: Input,
+        max_extra_targets: usize,
     ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         // We want to load additional targets from the enclosing buildfile, to help users
         // who have a bunch of small targets in their buildfile. However, we want to set a limit
         // so we don't try to load everything in very large generated buildfiles.
-        let max_extra_targets: usize = match std::env::var("RUST_PROJECT_EXTRA_TARGETS") {
-            Ok(s) => s.parse::<usize>().unwrap_or(DEFAULT_EXTRA_TARGETS),
-            Err(_) => DEFAULT_EXTRA_TARGETS,
-        };
 
         // We always want the targets that directly own these Rust files.
         self.buck.query_owners(input, max_extra_targets)
