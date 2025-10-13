@@ -14,7 +14,7 @@ def _mirror_impl(ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo(), MirrorInfo(info = ctx.attrs)]
 
 _mirror_arg = rule(impl = _mirror_impl, attrs = {
-    "arg": attrs.arg(default = "foo"),
+    "arg_attr": attrs.arg(default = "foo"),
 })
 
 def _default_arg_fails(ctx: AnalysisContext) -> Promise:
