@@ -1092,6 +1092,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "iphoneos": (14, 0, 0),
         "maccatalyst": (14, 0, 0),
         "macosx": (11, 0, 0),
+        "watchos": (9, 0, 0),
     },
     "iAd": {"iphoneos": (4, 0, 0), "maccatalyst": (13, 0, 0)},
     "iTunesLibrary": {"maccatalyst": (14, 0, 0), "macosx": (10, 13, 0)},
