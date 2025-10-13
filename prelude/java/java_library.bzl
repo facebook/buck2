@@ -85,8 +85,7 @@ def _process_plugins(
         actions_identifier: [str, None],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
-        javac_args: cmd_args,
-        generated_sources_dir: Artifact) -> cmd_args:
+        javac_args: cmd_args) -> cmd_args:
     cmd = cmd_args()
     processors_classpath_tsets = []
 
@@ -109,17 +108,11 @@ def _process_plugins(
 
     # Process Javac Plugins
     if plugin_params:
-        def maybe_insert_codegen_dir(argument: str, generated_sources_dir: Artifact) -> [cmd_args, str]:
-            if "__codegen_dir__" not in argument:
-                return argument
-
-            return cmd_args(generated_sources_dir.as_output(), format = argument.replace("__codegen_dir__", "{}"))
-
         plugin, args = plugin_params.processors[0]
 
         # Produces "-Xplugin:PluginName arg1 arg2 arg3", as a single argument
         plugin_and_args = cmd_args(plugin)
-        plugin_and_args.add([maybe_insert_codegen_dir(arg, generated_sources_dir) for arg in args])
+        plugin_and_args.add(args)
         plugin_arg = cmd_args(format = "-Xplugin:{}", quote = "shell")
         plugin_arg.add(cmd_args(plugin_and_args, delimiter = " "))
 
@@ -224,7 +217,6 @@ def _append_javac_params(
         annotation_processor_properties,
         javac_plugin_params,
         shared_javac_args,
-        generated_sources_dir,
     ))
 
     cmd.add("--generated_sources_dir", generated_sources_dir.as_output())

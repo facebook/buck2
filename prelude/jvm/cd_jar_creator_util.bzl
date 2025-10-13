@@ -212,29 +212,22 @@ def encode_ap_params(annotation_processor_properties: AnnotationProcessorPropert
                 )
     return encoded_ap_params
 
-def encode_plugin_params(plugin_params: [PluginParams, None], output_paths: OutputPaths) -> [struct, None]:
+def encode_plugin_params(plugin_params: [PluginParams, None]) -> [struct, None]:
     encoded_plugin_params = None
     if plugin_params:
         encoded_plugin_params = struct(
             parameters = [],
             pluginProperties = [
-                encode_plugin_properties(processor, arguments, plugin_params, output_paths)
+                encode_plugin_properties(processor, arguments, plugin_params)
                 for processor, arguments in plugin_params.processors
             ],
         )
     return encoded_plugin_params
 
-def _maybe_insert_codegen_dir(argument: str, output_paths: OutputPaths) -> [cmd_args, str]:
-    if "__codegen_dir__" not in argument:
-        return argument
-
-    return cmd_args(output_paths.annotations.as_output(), format = argument.replace("__codegen_dir__", "{}"))
-
 def encode_plugin_properties(
         processor: str,
         arguments: list[str],
-        plugin_params: PluginParams,
-        output_paths: OutputPaths) -> struct:
+        plugin_params: PluginParams) -> struct:
     return struct(
         canReuseClassLoader = False,
         doesNotAffectAbi = False,
@@ -243,7 +236,7 @@ def encode_plugin_properties(
         processorNames = [processor],
         classpath = plugin_params.deps.project_as_json("javacd_json") if plugin_params.deps else [],
         pathParams = {},
-        arguments = [_maybe_insert_codegen_dir(argument, output_paths) for argument in arguments],
+        arguments = arguments,
     )
 
 def encode_base_jar_command(
@@ -307,7 +300,7 @@ def encode_base_jar_command(
         ),
         debug = True,
         javaAnnotationProcessorParams = encode_ap_params(annotation_processor_properties, target_type),
-        standardJavacPluginParams = encode_plugin_params(plugin_params, output_paths),
+        standardJavacPluginParams = encode_plugin_params(plugin_params),
         extraArguments = extra_arguments,
         systemImage = system_image,
     )
