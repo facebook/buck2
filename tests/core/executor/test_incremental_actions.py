@@ -11,6 +11,7 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
@@ -500,6 +501,67 @@ async def test_incremental_action_persist_between_daemon_restart_with_content_ba
     buck: Buck,
 ) -> None:
     await incremental_action_persist_between_daemon_restart_helper(
+        buck, use_content_based_path=True
+    )
+
+
+# If we haven't materialized the outputs, then we won't run incrementally on the first run
+# after a daemon restart
+async def unmaterialized_incremental_action_not_persist_between_daemon_restart_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    await buck.build(
+        "root//:basic_incremental_action",
+        "--remote-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+        "--materializations",
+        "none",
+    )
+
+    await buck.kill()
+
+    if use_content_based_path:
+        # TODO(ianc) Fix this, we shouldn't fail
+        await expect_failure(
+            buck.run(
+                "root//:basic_incremental_action",
+                "--local-only",
+                "-c",
+                f"test.seed={random_string()}",
+                "-c",
+                f"test.use_content_based_path={use_content_based_path}",
+            ),
+            stderr_regex="BUCK2_HARD_ERROR.*Error copying from src path",
+        )
+    else:
+        result = await buck.run(
+            "root//:basic_incremental_action",
+            "--local-only",
+            "-c",
+            f"test.seed={random_string()}",
+            "-c",
+            f"test.use_content_based_path={use_content_based_path}",
+        )
+        assert result.stdout == "foo"
+
+
+@buck_test()
+async def test_unmaterialized_incremental_action_not_persist_between_daemon_restart(
+    buck: Buck,
+) -> None:
+    await unmaterialized_incremental_action_not_persist_between_daemon_restart_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_unmaterialized_incremental_action_not_persist_between_daemon_restart_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await unmaterialized_incremental_action_not_persist_between_daemon_restart_helper(
         buck, use_content_based_path=True
     )
 
