@@ -105,7 +105,10 @@ pub struct ReDirectorySerializer {
 }
 
 impl ReDirectorySerializer {
-    fn create_re_directory<'a, D, I>(entries: I) -> RE::Directory
+    fn create_re_directory<'a, D, I>(
+        entries: I,
+        directory_renamer: Option<&dyn Fn(&str) -> Option<String>>,
+    ) -> RE::Directory
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
         D: ActionFingerprintedDirectoryRef<'a>,
@@ -115,10 +118,12 @@ impl ReDirectorySerializer {
         let mut symlinks: Vec<RE::SymlinkNode> = Vec::new();
 
         for (name, entry) in entries {
-            let name = name.as_str().into();
-
             match entry {
                 DirectoryEntry::Dir(d) => {
+                    let name = match directory_renamer {
+                        Some(renamer) => renamer(name.as_str()).unwrap_or(name.as_str().into()),
+                        None => name.as_str().into(),
+                    };
                     directories.push(RE::DirectoryNode {
                         name,
                         digest: Some(d.as_fingerprinted_dyn().fingerprint().to_grpc()),
@@ -126,7 +131,7 @@ impl ReDirectorySerializer {
                 }
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                     files.push(RE::FileNode {
-                        name,
+                        name: name.as_str().into(),
                         digest: Some(f.digest.to_grpc()),
                         is_executable: f.is_executable,
                         ..Default::default()
@@ -134,14 +139,14 @@ impl ReDirectorySerializer {
                 }
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                     symlinks.push(RE::SymlinkNode {
-                        name,
+                        name: name.as_str().into(),
                         target: s.to_string(),
                         ..Default::default()
                     });
                 }
                 DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
                     symlinks.push(RE::SymlinkNode {
-                        name,
+                        name: name.as_str().into(),
                         target: s.target_str().to_owned(),
                         ..Default::default()
                     });
@@ -150,7 +155,19 @@ impl ReDirectorySerializer {
         }
 
         files.sort_by(|a, b| a.name.cmp(&b.name));
-        directories.sort_by(|a, b| a.name.cmp(&b.name));
+        directories.sort_by(|a, b| {
+            a.name.cmp(&b.name).then(
+                // This never happens in the "normal" case without a directory_renamer, but the
+                // renamer breaks the standard CAS digesting scheme since we can now have two
+                // directories with the same name but different digests. Therefore we use the
+                // digest to get a deterministic ordering in those cases.
+                a.digest
+                    .as_ref()
+                    .expect("By construction")
+                    .hash
+                    .cmp(&b.digest.as_ref().expect("By construction").hash),
+            )
+        });
         symlinks.sort_by(|a, b| a.name.cmp(&b.name));
 
         RE::Directory {
@@ -166,7 +183,18 @@ impl ReDirectorySerializer {
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
         D: ActionFingerprintedDirectoryRef<'a>,
     {
-        proto_serialize(&Self::create_re_directory(entries))
+        proto_serialize(&Self::create_re_directory(entries, None))
+    }
+
+    pub fn rename_and_serialize_entries<'a, D, I>(
+        entries: I,
+        directory_renamer: &dyn Fn(&str) -> Option<String>,
+    ) -> Vec<u8>
+    where
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
+        D: ActionFingerprintedDirectoryRef<'a>,
+    {
+        proto_serialize(&Self::create_re_directory(entries, Some(directory_renamer)))
     }
 }
 
@@ -219,10 +247,10 @@ where
             DirectoryEntry::Dir(d) => Some(d),
             DirectoryEntry::Leaf(..) => None,
         })
-        .map(|d| ReDirectorySerializer::create_re_directory(d.entries()))
+        .map(|d| ReDirectorySerializer::create_re_directory(d.entries(), None))
         .collect();
 
-    let root = ReDirectorySerializer::create_re_directory(directory.as_ref().entries());
+    let root = ReDirectorySerializer::create_re_directory(directory.as_ref().entries(), None);
 
     RE::Tree {
         root: Some(root),
@@ -1184,6 +1212,88 @@ mod tests {
 
         extract_artifact_value(&builder, &path("d1/f1"), digest_config)?
             .buck_error_context("Not value!")?;
+        Ok(())
+    }
+
+    struct TestSerializer {
+        pub cas_digest_config: CasDigestConfig,
+    }
+
+    impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest> for TestSerializer {
+        fn hash_entries<'a, D, I>(&self, entries: I) -> TrackedFileDigest
+        where
+            I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
+            D: ActionFingerprintedDirectoryRef<'a>,
+        {
+            fn rename(file_name: &str) -> Option<String> {
+                if file_name == "a" || file_name == "b" {
+                    Some("replaced".into())
+                } else {
+                    None
+                }
+            }
+            TrackedFileDigest::from_content(
+                &ReDirectorySerializer::rename_and_serialize_entries(entries, &rename),
+                self.cas_digest_config,
+            )
+        }
+
+        fn leaf_size(&self, leaf: &ActionDirectoryMember) -> u64 {
+            match leaf {
+                ActionDirectoryMember::File(f) => f.digest.size(),
+                ActionDirectoryMember::Symlink(_) => 0,
+                ActionDirectoryMember::ExternalSymlink(_) => 0,
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_and_serialize() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        let mut builder1 = ActionDirectoryBuilder::empty();
+
+        insert_file(
+            &mut builder1,
+            path("a/aa"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+        insert_file(
+            &mut builder1,
+            path("b/bb"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+
+        let mut builder2 = ActionDirectoryBuilder::empty();
+        insert_file(
+            &mut builder2,
+            path("b/aa"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+        insert_file(
+            &mut builder2,
+            path("a/bb"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+
+        let non_renamed_fingerprint1 = builder1
+            .clone()
+            .fingerprint(digest_config.as_directory_serializer());
+        let non_renamed_fingerprint2 = builder2
+            .clone()
+            .fingerprint(digest_config.as_directory_serializer());
+
+        assert!(non_renamed_fingerprint1 != non_renamed_fingerprint2);
+
+        let renamed_fingerprint1 = builder1.fingerprint(&TestSerializer {
+            cas_digest_config: digest_config.cas_digest_config(),
+        });
+        let renamed_fingerprint2 = builder2.fingerprint(&TestSerializer {
+            cas_digest_config: digest_config.cas_digest_config(),
+        });
+
+        assert!(renamed_fingerprint1 == renamed_fingerprint2);
+
         Ok(())
     }
 }
