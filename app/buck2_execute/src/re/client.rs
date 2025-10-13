@@ -809,7 +809,11 @@ impl RemoteExecutionClientImpl {
                     .as_deref()
                     .unwrap_or(
                         if static_metadata.use_zippy_rich_client && cfg!(target_os = "linux") {
-                            "remote_execution/features/client_buck2"
+                            if static_metadata.shared_casd_address.is_some() {
+                                "remote_execution/features/client_buck2_pc"
+                            } else {
+                                "remote_execution/features/client_buck2"
+                            }
                         } else {
                             "remote_execution/features/client_buck2_alternative"
                         },
