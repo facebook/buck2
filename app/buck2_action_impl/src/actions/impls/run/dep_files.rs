@@ -28,6 +28,7 @@ use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineD
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
@@ -35,12 +36,15 @@ use buck2_core::buck2_env;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_directory::directory::directory_hasher::DirectoryDigester;
 use buck2_directory::directory::directory_selector::DirectorySelector;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
@@ -49,10 +53,13 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
+use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionFingerprintedDirectoryRef;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::directory::LazyActionDirectoryBuilder;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
@@ -1194,8 +1201,10 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
                 .map(|(k, v)| {
                     (
                         k,
-                        v.fingerprint(digest_config.as_directory_serializer())
-                            .shared(&*INTERNER),
+                        v.fingerprint(&TaggedInputsDirectorySerializer {
+                            cas_digest_config: digest_config.cas_digest_config(),
+                        })
+                        .shared(&*INTERNER),
                     )
                 })
                 .collect(),
@@ -1246,7 +1255,14 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
             tagged: self
                 .tagged
                 .into_iter()
-                .map(|(k, v)| (k, v.fingerprint(digest_config.as_directory_serializer())))
+                .map(|(k, v)| {
+                    (
+                        k,
+                        v.fingerprint(&TaggedInputsDirectorySerializer {
+                            cas_digest_config: digest_config.cas_digest_config(),
+                        }),
+                    )
+                })
                 .collect(),
         }
     }
@@ -1594,6 +1610,35 @@ impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
                 *output = Some(artifact);
                 return;
             }
+        }
+    }
+}
+
+#[derive(Allocative)]
+#[repr(transparent)]
+pub struct TaggedInputsDirectorySerializer {
+    pub cas_digest_config: CasDigestConfig,
+}
+
+impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest>
+    for TaggedInputsDirectorySerializer
+{
+    fn hash_entries<'a, D, I>(&self, entries: I) -> TrackedFileDigest
+    where
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
+        D: ActionFingerprintedDirectoryRef<'a>,
+    {
+        TrackedFileDigest::from_content(
+            &ReDirectorySerializer::serialize_entries(entries),
+            self.cas_digest_config,
+        )
+    }
+
+    fn leaf_size(&self, leaf: &ActionDirectoryMember) -> u64 {
+        match leaf {
+            ActionDirectoryMember::File(f) => f.digest.size(),
+            ActionDirectoryMember::Symlink(_) => 0,
+            ActionDirectoryMember::ExternalSymlink(_) => 0,
         }
     }
 }
