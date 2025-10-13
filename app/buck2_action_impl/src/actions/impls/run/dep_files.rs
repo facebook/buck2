@@ -1614,6 +1614,18 @@ fn is_hash(s: &str) -> bool {
     true
 }
 
+fn rename_hash_dirs(name: &str) -> Option<String> {
+    if is_hash(name) {
+        Some(
+            ContentBasedPathHash::DepFilesPlaceholder
+                .as_str()
+                .to_owned(),
+        )
+    } else {
+        None
+    }
+}
+
 #[derive(Allocative)]
 #[repr(transparent)]
 pub struct TaggedInputsDirectorySerializer {
@@ -1629,7 +1641,7 @@ impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest>
         D: ActionFingerprintedDirectoryRef<'a>,
     {
         TrackedFileDigest::from_content(
-            &ReDirectorySerializer::serialize_entries(entries),
+            &ReDirectorySerializer::rename_and_serialize_entries(entries, &rename_hash_dirs),
             self.cas_digest_config,
         )
     }
