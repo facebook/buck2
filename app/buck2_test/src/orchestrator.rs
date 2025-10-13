@@ -1262,6 +1262,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker,
             remote_dep_file_cache_checker: _,
             cache_uploader,
+            output_trees_download_config: _,
         } = dice.get_command_executor_from_dice(executor_config).await?;
 
         // Caching is enabled only for listings
@@ -1303,6 +1304,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker: _,
             remote_dep_file_cache_checker: _,
             cache_uploader: _,
+            output_trees_download_config: _,
         } = dice
             .get_command_executor_from_dice(&executor_config)
             .await?;

@@ -45,6 +45,7 @@ use buck2_execute::re::client::ExecuteResponseOrCancelled;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::error::get_re_error_tag;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -86,6 +87,7 @@ pub struct ReExecutor {
     pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub deduplicate_get_digests_ttl_calls: bool,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 impl ReExecutor {
@@ -421,6 +423,7 @@ impl PreparedCommandExecutor for ReExecutor {
             self.materialize_failed_inputs,
             self.materialize_failed_outputs,
             additional_message,
+            &self.output_trees_download_config,
         )
         .boxed()
         .await;

@@ -225,6 +225,10 @@ async fn make_default_dice_state(
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 platform: Default::default(),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
+                output_trees_download_config:
+                    buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig::new(
+                        None, true,
+                    ),
             })
         }
     }

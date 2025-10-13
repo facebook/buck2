@@ -269,6 +269,7 @@ pub fn re_tree_to_directory(
     tree: &RE::Tree,
     leaf_expires: &DateTime<Utc>,
     digest_config: DigestConfig,
+    fingerprint: bool,
 ) -> buck2_error::Result<ActionDirectoryBuilder> {
     /// A map of digests to directories, populated lazily when we access it based on the hash we
     /// use. We need this because in a RE tree, the directories in the tree don't carry their hash,
@@ -313,6 +314,7 @@ pub fn re_tree_to_directory(
         dirmap: &'_ mut DirMap<'_>,
         leaf_expires: &DateTime<Utc>,
         digest_config: DigestConfig,
+        fingerprint: bool,
     ) -> buck2_error::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
@@ -383,6 +385,7 @@ pub fn re_tree_to_directory(
                 dirmap,
                 leaf_expires,
                 digest_config,
+                fingerprint,
             )?;
             builder.insert(
                 FileNameBuf::try_from(dir_node.name.clone()).map_err(|_| {
@@ -398,7 +401,18 @@ pub fn re_tree_to_directory(
         // NOTE: We re-digest the directories we just received here (instead of trusting RE with
         // the hashes). But, since output directories tend to be small, that doesn't actually
         // matter.
-        Ok(builder)
+        // NOTE 2: We eagerly fingerprint since the only outputs we expect to
+        // receive from RE are the ones we requested, so accordingly if we are
+        // deserializing something here we expect to later turn it into an
+        // output.
+        if fingerprint {
+            Ok(builder
+                .fingerprint(digest_config.as_directory_serializer())
+                .shared(&*INTERNER)
+                .into_builder())
+        } else {
+            Ok(builder)
+        }
     }
 
     let root_dir = match &tree.root {
@@ -412,6 +426,7 @@ pub fn re_tree_to_directory(
         &mut DirMap::new(&tree.children),
         leaf_expires,
         digest_config,
+        fingerprint,
     )
 }
 
@@ -1106,7 +1121,7 @@ mod tests {
         let dir = builder.fingerprint(digest_config.as_directory_serializer());
 
         let tree = directory_to_re_tree(&dir);
-        let dir2 = re_tree_to_directory(&tree, &Utc::now(), digest_config)?;
+        let dir2 = re_tree_to_directory(&tree, &Utc::now(), digest_config, true)?;
 
         assert_dirs_eq(&dir, &dir2);
 

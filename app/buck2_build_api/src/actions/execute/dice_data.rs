@@ -21,6 +21,7 @@ use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceDataBuilder;
@@ -36,6 +37,7 @@ pub struct CommandExecutorResponse {
     pub action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     pub remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     pub cache_uploader: Arc<dyn UploadCache>,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 pub trait SetCommandExecutor {

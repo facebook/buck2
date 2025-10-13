@@ -52,6 +52,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
@@ -87,6 +88,7 @@ pub async fn download_action_results<'a>(
     materialize_failed_re_action_inputs: bool,
     materialize_failed_re_action_outputs: bool,
     additional_message: Option<String>,
+    output_trees_download_config: &OutputTreesDownloadConfig,
 ) -> DownloadResult {
     let std_streams = response.std_streams(re_client, digest_config);
     let std_streams = async {
@@ -119,6 +121,7 @@ pub async fn download_action_results<'a>(
         re_client,
         digest_config,
         paranoid,
+        output_trees_download_config,
     };
 
     let download = downloader.download(
@@ -257,6 +260,7 @@ pub struct CasDownloader<'a> {
     pub re_client: &'a ManagedRemoteExecutionClient,
     pub digest_config: DigestConfig,
     pub paranoid: Option<&'a ParanoidDownloader>,
+    pub output_trees_download_config: &'a OutputTreesDownloadConfig,
 }
 
 impl CasDownloader<'_> {
@@ -400,26 +404,55 @@ impl CasDownloader<'_> {
             input_dir.insert(re_forward_path(x.name.as_str())?, entry)?;
         }
 
-        // Compute the re_outputs from the output_directories
-        // This requires traversing the trees to find symlinks that point outside such trees
-        let trees = self
-            .re_client
-            .download_typed_blobs::<RE::Tree>(
-                Some(identity),
-                output_spec
+        {
+            let _permit = if let Some(semaphore) = self.output_trees_download_config.semaphore() {
+                let blob_size = output_spec
                     .output_directories()
-                    .map(|x| x.tree_digest.clone()),
-            )
-            .boxed()
-            .await
-            .buck_error_context(DownloadError::DownloadTrees)?;
+                    .iter()
+                    .map(|x| x.tree_digest.size_in_bytes)
+                    .sum::<i64>();
 
-        for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
-            let entry = re_tree_to_directory(&tree, &expires, self.digest_config)?;
-            input_dir.insert(
-                re_forward_path(dir.path.as_str())?,
-                DirectoryEntry::Dir(entry),
-            )?;
+                let blob_size: u32 = blob_size
+                    .try_into()
+                    .unwrap_or(semaphore.max_concurrent_bytes);
+
+                Some(
+                    semaphore
+                        .semaphore
+                        .acquire_many(blob_size.min(semaphore.max_concurrent_bytes))
+                        .await?,
+                )
+            } else {
+                None
+            };
+
+            // Compute the re_outputs from the output_directories
+            // This requires traversing the trees to find symlinks that point outside such trees
+            let trees = self
+                .re_client
+                .download_typed_blobs::<RE::Tree>(
+                    Some(identity),
+                    output_spec
+                        .output_directories()
+                        .map(|x| x.tree_digest.clone()),
+                )
+                .boxed()
+                .await
+                .buck_error_context(DownloadError::DownloadTrees)?;
+
+            for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
+                let entry = re_tree_to_directory(
+                    &tree,
+                    &expires,
+                    self.digest_config,
+                    self.output_trees_download_config
+                        .fingerprint_re_output_trees_eagerly(),
+                )?;
+                input_dir.insert(
+                    re_forward_path(dir.path.as_str())?,
+                    DirectoryEntry::Dir(entry),
+                )?;
+            }
         }
 
         let mut to_declare = Vec::with_capacity(output_paths.len());

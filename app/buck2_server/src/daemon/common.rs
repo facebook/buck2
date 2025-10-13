@@ -44,6 +44,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
 use buck2_execute_impl::executors::action_cache::RemoteDepFileCacheChecker;
 use buck2_execute_impl::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
@@ -96,6 +97,7 @@ pub struct CommandExecutorFactory {
     local_action_counter: Option<Arc<LocalActionCounter>>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
+    output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 impl CommandExecutorFactory {
@@ -120,6 +122,7 @@ impl CommandExecutorFactory {
         memory_tracker: Option<MemoryTrackerHandle>,
         incremental_db_state: Arc<IncrementalDbState>,
         deduplicate_get_digests_ttl_calls: bool,
+        output_trees_download_config: OutputTreesDownloadConfig,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
@@ -151,6 +154,7 @@ impl CommandExecutorFactory {
             local_action_counter,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
+            output_trees_download_config,
         }
     }
 
@@ -212,6 +216,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
+                output_trees_download_config: self.output_trees_download_config.dupe(),
             });
         }
 
@@ -238,6 +243,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
                     deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                    output_trees_download_config: self.output_trees_download_config.dupe(),
                 }
             };
 
@@ -252,6 +258,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
+                        output_trees_download_config: self.output_trees_download_config.dupe(),
                     })
                 }
             }
@@ -295,6 +302,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
                                 deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                                output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         } else {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
@@ -314,6 +322,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
                                 deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                                output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         };
 
@@ -438,6 +447,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     action_cache_checker,
                     remote_dep_file_cache_checker,
                     cache_uploader,
+                    output_trees_download_config: self.output_trees_download_config.dupe(),
                 })
             }
         };

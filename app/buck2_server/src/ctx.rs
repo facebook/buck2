@@ -84,6 +84,7 @@ use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::re::client::RemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_file_watcher::mergebase::SetMergebase;
@@ -740,6 +741,23 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(false);
 
+        let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
+            section: "buck2",
+            property: "output_trees_download_semaphore_size",
+        })?;
+
+        let fingerprint_re_output_trees_eagerly = root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "fingerprint_re_output_trees_eagerly",
+            })?
+            .unwrap_or(true);
+
+        let output_trees_download_config = OutputTreesDownloadConfig::new(
+            output_trees_download_semaphore_size,
+            fingerprint_re_output_trees_eagerly,
+        );
+
         _ = buck2_core::faster_directories::VALUE.store(
             root_config
                 .parse::<bool>(BuckconfigKeyRef {
@@ -799,6 +817,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,
+            output_trees_download_config.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
