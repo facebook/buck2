@@ -84,7 +84,11 @@ def assemble_bundle(
     tools = ctx.attrs._apple_tools[AppleToolsInfo]
     tool = tools.assemble_bundle
 
+    # Defines common codesign args that can be passed to all codesign-like tools
     codesign_args = []
+
+    # Defines codesign args for bundling only
+    codesign_bundle_extra_args = []
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
     if ctx.attrs._codesign_command_override:
@@ -136,8 +140,11 @@ def assemble_bundle(
         swift_args = []
 
     if codesign_required:
-        codesign_args = [
+        codesign_args += [
             "--codesign",
+        ]
+
+        codesign_bundle_extra_args += [
             "--codesign-tool",
             codesign_tool,
         ]
@@ -166,7 +173,7 @@ def assemble_bundle(
                 codesign_args.append("--embed-provisioning-profile-when-signing-ad-hoc")
 
         codesign_args += get_entitlements_codesign_args(ctx, codesign_type)
-        codesign_args += _get_extra_codesign_args(ctx)
+        codesign_bundle_extra_args += _get_extra_codesign_args(ctx)
 
         info_plist_args = [
             "--info-plist-source",
@@ -199,7 +206,7 @@ def assemble_bundle(
     #    Useful for debugging purposes.
     codesign_manifest_file_name = "codesign_manifest.json" if codesign_required else "placeholder_codesign_manifest.json"
     codesign_manifest = ctx.actions.declare_output(codesign_manifest_file_name)
-    codesign_args += [
+    codesign_bundle_extra_args += [
         "--codesign-manifest",
         codesign_manifest.as_output(),
     ]
@@ -211,7 +218,7 @@ def assemble_bundle(
             bundle.as_output(),
             "--spec",
             spec_file,
-        ] + codesign_args + platform_args + swift_args,
+        ] + codesign_args + codesign_bundle_extra_args + platform_args + swift_args,
         hidden =
             [part.source for part in all_parts] +
             [part.codesign_entitlements for part in all_parts if part.codesign_entitlements] +
