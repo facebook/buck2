@@ -436,7 +436,8 @@ impl ActionCgroups {
                         cgroup.freeze_start = Some(Instant::now());
                         cgroup.freeze_file = Some(freeze_file);
                         cgroup.memory_current_when_frozen = Some(cgroup.memory_current);
-                        self.total_memory_during_last_freeze = Some(memory_reading.memory_current);
+                        self.total_memory_during_last_freeze =
+                            Some(memory_reading.buck2_slice_memory_current);
                         self.last_freeze_time = Some(Instant::now());
                         self.frozen_cgroups.push_back(cgroup.path.clone());
 
@@ -490,7 +491,7 @@ impl ActionCgroups {
 
             // If the current memory use is less than the sum of memory of cgroup at the time it was frozen +
             // total memory when we last froze an action, we can start unfreezing earlier
-            let can_unfreeze_early = memory_reading.memory_current + memory_when_frozen
+            let can_unfreeze_early = memory_reading.buck2_slice_memory_current + memory_when_frozen
                 < total_memory_during_last_freeze;
 
             // If we can unfreeze early or if there are no actions running, start unfreezing.
@@ -597,9 +598,9 @@ fn emit_resource_control_event(
 
         event_time: Some(SystemTime::now().into()),
 
-        memory_current: memory_reading.memory_current,
-        memory_swap_current: memory_reading.memory_swap_current,
-        memory_pressure: memory_reading.memory_pressure,
+        memory_current: memory_reading.buck2_slice_memory_current,
+        memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
+        memory_pressure: memory_reading.buck2_slice_memory_pressure,
 
         cgroup_memory_current: cgroup.memory_current,
         cgroup_memory_peak: cgroup.memory_peak,
@@ -707,9 +708,9 @@ mod tests {
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "6")?;
 
         let memory_reading = MemoryReading {
-            memory_current: 10000,
-            memory_swap_current: 0,
-            memory_pressure: 12,
+            buck2_slice_memory_current: 10000,
+            buck2_slice_memory_swap_current: 0,
+            buck2_slice_memory_pressure: 12,
         };
         action_cgroups
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
@@ -763,9 +764,9 @@ mod tests {
         fs::write(cgroup_2.as_path().join("memory.current"), "2")?;
 
         let memory_reading = MemoryReading {
-            memory_current: 10000,
-            memory_swap_current: 0,
-            memory_pressure: 12,
+            buck2_slice_memory_current: 10000,
+            buck2_slice_memory_swap_current: 0,
+            buck2_slice_memory_pressure: 12,
         };
         action_cgroups
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
@@ -775,9 +776,9 @@ mod tests {
         assert_eq!(cgroup_1_res.was_frozen, false);
 
         let memory_reading_2 = MemoryReading {
-            memory_current: 0,
-            memory_swap_current: 0,
-            memory_pressure: 0,
+            buck2_slice_memory_current: 0,
+            buck2_slice_memory_swap_current: 0,
+            buck2_slice_memory_pressure: 0,
         };
         action_cgroups
             .update(MemoryPressureState::BelowPressureLimit, &memory_reading_2)
