@@ -170,11 +170,45 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] locations: NoneOr<
             UnpackListOrTuple<&'v StarlarkActionErrorLocation>,
         >,
+
+        #[starlark(require = named, default = NoneOr::None)] file: NoneOr<String>,
+        #[starlark(require = named, default = NoneOr::None)] lnum: NoneOr<u64>,
+        #[starlark(require = named, default = NoneOr::None)] end_lnum: NoneOr<u64>,
+        #[starlark(require = named, default = NoneOr::None)] col: NoneOr<u64>,
+        #[starlark(require = named, default = NoneOr::None)] end_col: NoneOr<u64>,
+        #[starlark(require = named, default = NoneOr::None)] error_type: NoneOr<String>,
+        #[starlark(require = named, default = NoneOr::None)] error_number: NoneOr<u64>,
     ) -> starlark::Result<StarlarkActionSubError<'v>> {
+        // For backwards compatibility, we use the first location in the list if it exists for file and line number.
+        // TODO(nero): clean `locations` after migration
+        let first_loc = locations
+            .clone()
+            .into_option()
+            .map(|locations| {
+                locations
+                    .items
+                    .first()
+                    .map(|item| (item.file.clone(), item.line))
+            })
+            .flatten();
+        let (file_from_first_loc, line_from_first_loc) =
+            first_loc.map_or((None, None), |(u, v)| (Some(u), Some(v)));
+        let line_from_first_loc = line_from_first_loc.flatten();
+
+        let file = file.into_option().or(file_from_first_loc);
+        let lnum = lnum.into_option().or(line_from_first_loc);
+
         Ok(StarlarkActionSubError {
             category,
             message: message.into_option(),
             locations: locations.into_option(),
+            file,
+            lnum,
+            end_lnum: end_lnum.into_option(),
+            col: col.into_option(),
+            end_col: end_col.into_option(),
+            error_type: error_type.into_option(),
+            error_number: error_number.into_option(),
         })
     }
 
@@ -303,6 +337,21 @@ pub(crate) struct StarlarkActionSubError<'v> {
     #[allocative(skip)]
     #[trace(unsafe_ignore)]
     locations: Option<UnpackListOrTuple<&'v StarlarkActionErrorLocation>>,
+
+    // file path for the error location
+    file: Option<String>,
+    // Line number
+    lnum: Option<u64>,
+    // End line (for multi-line spans)
+    end_lnum: Option<u64>,
+    //  Column number
+    col: Option<u64>,
+    // End column (for ranges)
+    end_col: Option<u64>,
+    // Type of error (error, warning, info, etc.)
+    error_type: Option<String>,
+    // Numeric error code (e.g., 404, 500)
+    error_number: Option<u64>,
 }
 
 impl<'v> Display for StarlarkActionSubError<'v> {
@@ -331,6 +380,7 @@ impl<'v> StarlarkActionSubError<'v> {
     ) -> Self {
         let location = entry
             .filename
+            .clone()
             .map(|f| StarlarkActionErrorLocation {
                 file: f,
                 line: entry.lnum.map(|l| l as u64),
@@ -343,6 +393,13 @@ impl<'v> StarlarkActionSubError<'v> {
             locations: location.map(|l| UnpackListOrTuple {
                 items: vec![l.as_ref()],
             }),
+            file: entry.filename,
+            lnum: entry.lnum.map(|x| x as u64),
+            end_lnum: entry.end_lnum.map(|x| x as u64),
+            col: entry.col.map(|x| x as u64),
+            end_col: entry.end_col.map(|x| x as u64),
+            error_type: entry.error_type,
+            error_number: entry.error_number.map(|x| x as u64),
         }
     }
 }
