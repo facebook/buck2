@@ -51,6 +51,7 @@ use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::superconsole::action_sub_error_display::ActionSubErrorDisplay;
 use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
@@ -66,6 +67,7 @@ use crate::subscribers::superconsole::timed_list::TimedList;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
 use crate::ticker::Tick;
 
+mod action_sub_error_display;
 mod commands;
 mod common;
 pub(crate) mod debug_events;
@@ -643,10 +645,9 @@ impl StatefulSuperConsoleImpl {
                     let sub_errors = &sub_errors.sub_errors;
                     if !sub_errors.is_empty() {
                         for sub_error in sub_errors {
-                            if let Some(message) = &sub_error.message {
+                            if let Some(message) = sub_error.display() {
                                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                                    format!("[{}] {}", sub_error.category, message)
-                                        .with(Color::DarkCyan),
+                                    message.with(Color::DarkCyan),
                                 )]));
                             }
                         }
