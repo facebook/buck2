@@ -43,6 +43,8 @@ The above commands install `buck2` into a suitable directory, such as
 
 Linux / macOS
 
+> **Note:** The following instructions are intended for POSIX-compliant shells (e.g., `bash`, `zsh`, `sh`). They do not cover non-POSIX shells such as `fish`.
+
 ```sh
 export PATH=$HOME/.cargo/bin:$PATH
 ```
