@@ -10,6 +10,5 @@
 
 #[cfg(unix)]
 pub mod cgroup;
-pub mod path;
 #[cfg(unix)]
 pub mod pool;

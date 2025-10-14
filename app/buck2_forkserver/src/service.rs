@@ -18,8 +18,6 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use buck2_common::cgroup_pool::cgroup::CgroupID;
-use buck2_common::cgroup_pool::pool::CgroupPool;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::ParentSlice;
@@ -51,6 +49,8 @@ use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
+use buck2_resource_control::cgroup_pool::cgroup::CgroupID;
+use buck2_resource_control::cgroup_pool::pool::CgroupPool;
 use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use dupe::Dupe;

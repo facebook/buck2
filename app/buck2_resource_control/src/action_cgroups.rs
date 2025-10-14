@@ -17,8 +17,6 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use buck2_common::cgroup_pool::path::CgroupPath;
-use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::CgroupMemoryFile;
 use buck2_core::soft_error;
@@ -40,6 +38,8 @@ use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
+use crate::path::CgroupPath;
+use crate::path::CgroupPathBuf;
 
 /// Memory constraints inherited from ancestor cgroups in the hierarchy.
 ///

@@ -12,7 +12,7 @@ use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 use std::process::Stdio;
 
-use buck2_common::cgroup_pool::path::CgroupPathBuf;
+use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;

@@ -8,12 +8,12 @@
  * above-listed licenses.
  */
 
-use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute_local::CommandEvent;
 use buck2_execute_local::GatherOutputStatus;
+use buck2_resource_control::path::CgroupPathBuf;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 

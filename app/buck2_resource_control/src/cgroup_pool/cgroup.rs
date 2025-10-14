@@ -28,8 +28,8 @@ use nix::fcntl::openat;
 use nix::sys::stat::Mode;
 use nix::unistd;
 
-use crate::cgroup_pool::path::CgroupPath;
-use crate::cgroup_pool::path::CgroupPathBuf;
+use crate::path::CgroupPath;
+use crate::path::CgroupPathBuf;
 
 /// A unique identifier for a cgroup
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]

@@ -8,6 +8,13 @@
  * above-listed licenses.
  */
 
+#[cfg(unix)]
+pub mod action_cgroups;
+pub mod cgroup_pool;
+#[cfg(unix)]
+pub mod memory_tracker;
+pub mod path;
+
 #[cfg(not(unix))]
 pub mod memory_tracker {
     use std::sync::Arc;
@@ -49,10 +56,9 @@ impl std::fmt::Display for CommandType {
 pub mod action_cgroups {
     use std::time::Duration;
 
-    use buck2_common::cgroup_pool::path::CgroupPathBuf;
-
     use crate::CommandType;
     use crate::memory_tracker::MemoryTrackerHandle;
+    use crate::path::CgroupPathBuf;
 
     pub struct ActionCgroupSession {}
     impl ActionCgroupSession {
@@ -77,8 +83,3 @@ pub mod action_cgroups {
         pub freeze_duration: Option<Duration>,
     }
 }
-
-#[cfg(unix)]
-pub mod action_cgroups;
-#[cfg(unix)]
-pub mod memory_tracker;

@@ -20,12 +20,12 @@ use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use buck2_common::cgroup_pool::path::CgroupPathBuf;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
+use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;

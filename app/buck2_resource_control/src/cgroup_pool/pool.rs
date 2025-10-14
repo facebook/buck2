@@ -24,8 +24,8 @@ use dupe::Dupe;
 use crate::cgroup_pool::cgroup::Cgroup;
 use crate::cgroup_pool::cgroup::CgroupError;
 use crate::cgroup_pool::cgroup::CgroupID;
-use crate::cgroup_pool::path::CgroupPath;
-use crate::cgroup_pool::path::CgroupPathBuf;
+use crate::path::CgroupPath;
+use crate::path::CgroupPathBuf;
 
 struct PoolState {
     pool_cgroup: Cgroup,

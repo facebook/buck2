@@ -6,7 +6,9 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+derive_more = { workspace = true }
 parking_lot = { workspace = true }
+ref-cast = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
