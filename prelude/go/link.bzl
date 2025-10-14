@@ -250,6 +250,6 @@ def link(
 
     output = stamp_build_info(ctx, output, has_content_based_path = True)
 
-    final_output = ctx.actions.copy_file(final_output_name, output, has_content_based_path = True)
+    final_output = ctx.actions.copy_file(final_output_name, output)
 
     return (final_output, executable_args.runtime_files, executable_args.external_debug_info)
