@@ -24,6 +24,7 @@
 //! ```
 
 pub mod build;
+pub mod profiling;
 pub mod target_cfg;
 pub mod timeout;
 pub mod ui;
