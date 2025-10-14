@@ -226,7 +226,7 @@ impl ResourceControlRunnerConfig {
         Self {
             status: config.status.clone(),
             parent_slice,
-            delegation: CgroupDelegation::Disabled,
+            delegation: CgroupDelegation::Enabled,
             config: ResourceControlRunnerConfigVariant::BuckDaemon {
                 memory_max: config.memory_max.clone(),
                 memory_high: config.memory_high.clone(),
