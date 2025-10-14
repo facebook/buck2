@@ -250,11 +250,15 @@ targets you've defined.
 buck2 targets :
 ```
 
+<FbInternalOnly>
+
 or
 
 ```bash
 buck2 targets fbcode//scripts/<unixname>/buck2_lab/greeter_bin:
 ```
+
+</FbInternalOnly>
 
 2. Expected Output:
 
