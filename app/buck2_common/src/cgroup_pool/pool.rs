@@ -122,27 +122,24 @@ impl CgroupPool {
             pool_cgroup.set_memory_high(pool_memory_high)?;
         }
 
-        let pool = Self {
-            state: Arc::new(Mutex::new(PoolState {
-                cgroups: HashMap::new(),
-                available: VecDeque::new(),
-                in_use: HashSet::new(),
-                next_id: 0,
-                per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
-                pool_cgroup,
-            })),
+        let mut state = PoolState {
+            cgroups: HashMap::new(),
+            available: VecDeque::new(),
+            in_use: HashSet::new(),
+            next_id: 0,
+            per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
+            pool_cgroup,
         };
 
-        pool.initialize_pool(capacity)?;
-        Ok(pool)
-    }
-
-    fn initialize_pool(&self, capacity: usize) -> Result<(), CgroupError> {
-        let mut state = self.state.lock().expect("Mutex poisoned");
         for _ in 0..capacity {
             state.reserve_additional_cgroup()?;
         }
-        Ok(())
+
+        let pool = Self {
+            state: Arc::new(Mutex::new(state)),
+        };
+
+        Ok(pool)
     }
 
     pub fn setup_command(
