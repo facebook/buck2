@@ -6,6 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
 def error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
     categories = []
 
@@ -65,6 +69,16 @@ def error_handler_errorformat_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
         error = ctx.stdout,
         errorformats = ["%f:%l: %m"],
     )
+    _assert_eq(len(res), 1)
+    _assert_eq(res[0].category, "test_failure")
+    _assert_eq(res[0].message, "expected `;`, found `}`")
+    _assert_eq(res[0].file, "main.rs")
+    _assert_eq(res[0].lnum, 10)
+    _assert_eq(res[0].col, None)
+    _assert_eq(res[0].end_lnum, None)
+    _assert_eq(res[0].end_col, None)
+    _assert_eq(res[0].error_type, None)
+    _assert_eq(res[0].error_number, None)
     return res
 
 def _error_handler_with_errorformat(ctx: AnalysisContext):

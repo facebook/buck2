@@ -439,14 +439,12 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
 #[starlark_module]
 fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     /// A more granular category for the action error.
-    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn category<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<&'v str> {
         Ok(&this.category)
     }
 
     /// An optional message to be displayed with the error, used to provide additoinal context
-    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn message<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
         Ok(match &this.message {
@@ -456,7 +454,6 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     }
 
     /// File/line information for the error, useful for external integration to highlight where the error resides
-    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn locations<'v>(
         this: &'v StarlarkActionSubError,
@@ -465,6 +462,54 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
             None => Ok(NoneOr::None),
             Some(locations) => Ok(NoneOr::Other(locations.items.cloned())),
         }
+    }
+
+    /// File path for the error location.
+    #[starlark(attribute)]
+    fn file<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
+        Ok(match &this.file {
+            Some(file) => NoneOr::Other(file.as_str()),
+            None => NoneOr::None,
+        })
+    }
+
+    /// Line number for the error location.
+    #[starlark(attribute)]
+    fn lnum<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<u64>> {
+        Ok(NoneOr::from_option(this.lnum))
+    }
+
+    /// End line number for multi-line error spans.
+    #[starlark(attribute)]
+    fn end_lnum<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<u64>> {
+        Ok(NoneOr::from_option(this.end_lnum))
+    }
+
+    /// Column number for the error location.
+    #[starlark(attribute)]
+    fn col<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<u64>> {
+        Ok(NoneOr::from_option(this.col))
+    }
+
+    /// End column number for error ranges.
+    #[starlark(attribute)]
+    fn end_col<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<u64>> {
+        Ok(NoneOr::from_option(this.end_col))
+    }
+
+    /// Type of error (e.g., error, warning, info).
+    #[starlark(attribute)]
+    fn error_type<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
+        Ok(match &this.error_type {
+            Some(error_type) => NoneOr::Other(error_type.as_str()),
+            None => NoneOr::None,
+        })
+    }
+
+    /// Numeric error code (e.g., 404, 500).
+    #[starlark(attribute)]
+    fn error_number<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<u64>> {
+        Ok(NoneOr::from_option(this.error_number))
     }
 }
 
