@@ -198,12 +198,12 @@ pub fn spawn_memory_reporter(
         loop {
             if let TrackedMemoryState::Reading(state) = *state_receiver.borrow() {
                 let mut span = span.lock();
-                match (span.is_some(), state.memory_current_state) {
-                    (false, MemoryCurrentState::AboveLimit) => {
+                match (span.is_some(), state.memory_pressure_state) {
+                    (false, MemoryPressureState::AbovePressureLimit) => {
                         let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
                         *span = Some(new_span);
                     }
-                    (true, MemoryCurrentState::BelowLimit) => {
+                    (true, MemoryPressureState::BelowPressureLimit) => {
                         if let Some(span) = span.take() {
                             span.end(buck2_data::MemoryPressureEnd {});
                         }
