@@ -185,6 +185,9 @@ def assemble_bundle(
         strict_provisioning_profile_search = value_or(ctx.attrs.strict_provisioning_profile_search, ctx.attrs._strict_provisioning_profile_search_default)
         if strict_provisioning_profile_search:
             codesign_args.append("--strict-provisioning-profile-search")
+
+        if ctx.attrs._fast_provisioning_profile_parsing_enabled:
+            codesign_args.append("--fast-provisioning-profile-parsing")
     elif codesign_type.value == "skip":
         pass
     else:
@@ -241,9 +244,6 @@ def assemble_bundle(
     if ctx.attrs._profile_bundling_enabled:
         profile_output = ctx.actions.declare_output("bundling_profile.txt").as_output()
         command.add("--profile-output", profile_output)
-
-    if ctx.attrs._fast_provisioning_profile_parsing_enabled:
-        command.add("--fast-provisioning-profile-parsing")
 
     subtargets = {}
     bundling_log_output = None
