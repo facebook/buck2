@@ -19,6 +19,13 @@
                   "sub_errors": [
                     {
                       "category": "syntax",
+                      "col": null,
+                      "end_col": null,
+                      "end_lnum": null,
+                      "error_number": null,
+                      "error_type": null,
+                      "file": "not_really_the_right_file",
+                      "lnum": 1,
                       "locations": [
                         {
                           "file": "not_really_the_right_file",

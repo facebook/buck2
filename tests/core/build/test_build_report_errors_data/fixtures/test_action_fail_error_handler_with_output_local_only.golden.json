@@ -19,11 +19,25 @@
                   "sub_errors": [
                     {
                       "category": "compilation",
+                      "col": null,
+                      "end_col": null,
+                      "end_lnum": null,
+                      "error_number": null,
+                      "error_type": null,
+                      "file": null,
+                      "lnum": null,
                       "locations": null,
                       "message_content": null
                     },
                     {
                       "category": "ErrorCode123",
+                      "col": null,
+                      "end_col": null,
+                      "end_lnum": null,
+                      "error_number": null,
+                      "error_type": null,
+                      "file": null,
+                      "lnum": null,
                       "locations": null,
                       "message_content": "<STRING_HASH>"
                     }

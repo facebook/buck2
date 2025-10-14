@@ -44,6 +44,20 @@ struct BuildReportActionSubError {
     category: String,
     message_content: Option<String>,
     locations: Option<Vec<BuildReportActionErrorLocation>>,
+    // file path for the error location
+    file: Option<String>,
+    // Line number
+    lnum: Option<u64>,
+    // End line (for multi-line spans)
+    end_lnum: Option<u64>,
+    //  Column number
+    col: Option<u64>,
+    // End column (for ranges)
+    end_col: Option<u64>,
+    // Type of error (error, warning, info, etc.)
+    error_type: Option<String>,
+    // Numeric error code (e.g., 404, 500)
+    error_number: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
@@ -114,6 +128,13 @@ impl BuildReportActionError {
                                     .clone()
                                     .map(|m| collector.update_string_cache(m)),
                                 locations,
+                                file: s.file.clone(),
+                                lnum: s.lnum,
+                                end_lnum: s.end_lnum,
+                                col: s.col,
+                                end_col: s.end_col,
+                                error_type: s.error_type.clone(),
+                                error_number: s.error_number,
                             }
                         })
                         .collect();
