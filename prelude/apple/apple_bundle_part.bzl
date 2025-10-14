@@ -11,7 +11,7 @@ load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_types.bzl", "AppleBundleCodesignManifestTree", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
+load(":apple_bundle_types.bzl", "AppleBundleCodesignManifestTree", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles", "AppleBundleSigningContextTree")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType", "get_code_signing_configuration_attr_value")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
@@ -47,6 +47,12 @@ AppleBundlePart = record(
 AppleBundleCodesignManifestTreePart = record(
     bundle_part = field(AppleBundlePart),
     codesign_manifest_tree = field(AppleBundleCodesignManifestTree),
+)
+
+# Represents an `AppleBundlePart` which has an associated signing context
+AppleBundleSigningContextTreePart = record(
+    bundle_part = field(AppleBundlePart),
+    signing_context_tree = field(AppleBundleSigningContextTree),
 )
 
 SwiftStdlibArguments = record(
