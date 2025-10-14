@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use buck2_common::cgroup_pool::CgroupID;
+use buck2_common::cgroup_pool::cgroup::CgroupID;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::ParentSlice;
@@ -53,6 +53,7 @@ use buck2_grpc::to_tonic;
 use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use futures::future::FutureExt;
 use futures::future::select;
 use futures::stream::Stream;
@@ -344,9 +345,9 @@ impl Forkserver for UnixForkserverService {
         let cgroup_pool = self
             .resource_control_runner
             .as_ref()
-            .and_then(|r| r.cgroup_pool());
+            .and_then(|r| r.cgroup_pool().duped());
 
-        let cgroup_id = if let Some(cgroup_pool) = cgroup_pool {
+        let cgroup_id = if let Some(cgroup_pool) = &cgroup_pool {
             Some(cgroup_pool.acquire().map_err(|e| {
                 Status::failed_precondition(format!(
                     "Cannot acquire cgroup from cgroup pool: {}",
@@ -356,8 +357,6 @@ impl Forkserver for UnixForkserverService {
         } else {
             None
         };
-
-        let cgroup_pool_state = cgroup_pool.map(|cgroup_pool| cgroup_pool.state.dupe());
 
         let cgroup_id_dup = cgroup_id.dupe();
 
@@ -390,11 +389,9 @@ impl Forkserver for UnixForkserverService {
             let on_exit = cgroup_id.map(|cgroup_id| {
                 Box::new(move || {
                     // realse cgroup on exit
-                    let cgroup_pool_state_arc = cgroup_pool_state
-                        .expect("Cgroup Pool should be present when we have cgroup id");
-                    let mut cgroup_pool_state_mutex =
-                        cgroup_pool_state_arc.lock().expect("Mutex poisoned");
-                    cgroup_pool_state_mutex.release(cgroup_id);
+                    cgroup_pool
+                        .expect("Cgroup Pool should be present when we have cgroup id")
+                        .release(cgroup_id);
                 }) as Box<dyn FnOnce() + Send>
             });
 

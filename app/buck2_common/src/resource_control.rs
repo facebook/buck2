@@ -20,7 +20,7 @@ use buck2_util::process;
 use tracing::info;
 
 #[cfg(unix)]
-use crate::cgroup_pool::CgroupPool;
+use crate::cgroup_pool::pool::CgroupPool;
 use crate::init::ResourceControlConfig;
 use crate::init::ResourceControlStatus;
 

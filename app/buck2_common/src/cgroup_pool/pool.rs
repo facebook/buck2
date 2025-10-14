@@ -27,7 +27,7 @@ use crate::cgroup_pool::cgroup::CgroupID;
 use crate::cgroup_pool::path::CgroupPath;
 use crate::cgroup_pool::path::CgroupPathBuf;
 
-pub struct PoolState {
+struct PoolState {
     pool_cgroup: Cgroup,
     per_cgroup_memory_high: Option<String>,
     cgroups: HashMap<CgroupID, Cgroup>,
@@ -37,7 +37,7 @@ pub struct PoolState {
 }
 
 impl PoolState {
-    pub fn release(&mut self, cgroup_id: CgroupID) {
+    fn release(&mut self, cgroup_id: CgroupID) {
         self.in_use.remove(&cgroup_id);
         self.available.push_back(cgroup_id);
     }
@@ -74,8 +74,9 @@ impl PoolState {
     }
 }
 
+#[derive(Clone, Dupe)]
 pub struct CgroupPool {
-    pub state: Arc<Mutex<PoolState>>,
+    state: Arc<Mutex<PoolState>>,
 }
 
 impl CgroupPool {
