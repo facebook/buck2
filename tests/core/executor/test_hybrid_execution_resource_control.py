@@ -345,10 +345,8 @@ async def test_local_action_running_count(
     buck: Buck,
 ) -> None:
     await buck.build(
-        ":merge_100",
+        ":sleep_merge",
         "--no-remote-cache",
-        "-c",
-        "test.prefer_local=True",
         "--local-only",
     )
 
