@@ -65,12 +65,12 @@ error_handler_nonetype_impl = rule(
 
 def error_handler_errorformat_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
     res = ctx.parse_with_errorformat(
-        category = "test_failure",
+        category = "test_failure0",
         error = ctx.stdout,
         errorformats = ["%f:%l: %m"],
     )
     _assert_eq(len(res), 1)
-    _assert_eq(res[0].category, "test_failure")
+    _assert_eq(res[0].category, "test_failure0")
     _assert_eq(res[0].message, "expected `;`, found `}`")
     _assert_eq(res[0].file, "main.rs")
     _assert_eq(res[0].lnum, 10)
@@ -79,6 +79,9 @@ def error_handler_errorformat_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
     _assert_eq(res[0].end_col, None)
     _assert_eq(res[0].error_type, None)
     _assert_eq(res[0].error_number, None)
+
+    res[0].category = "test_failure"
+    _assert_eq(res[0].category, "test_failure")
     return res
 
 def _error_handler_with_errorformat(ctx: AnalysisContext):

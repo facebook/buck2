@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::cell::RefCell;
+
 use allocative::Allocative;
 use buck2_data::ActionErrorLocation;
 use buck2_data::ActionErrorLocations;
@@ -199,7 +201,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         let lnum = lnum.into_option().or(line_from_first_loc);
 
         Ok(StarlarkActionSubError {
-            category,
+            category: RefCell::new(category),
             message: message.into_option(),
             locations: locations.into_option(),
             file,
@@ -319,20 +321,9 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    Debug,
-    NoSerialize,
-    Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq
-)]
+#[derive(ProvidesStaticType, Trace, Allocative, Debug, NoSerialize)]
 pub(crate) struct StarlarkActionSubError<'v> {
-    category: String,
+    category: RefCell<String>,
     message: Option<String>,
     #[allocative(skip)]
     #[trace(unsafe_ignore)]
@@ -358,7 +349,7 @@ impl<'v> Display for StarlarkActionSubError<'v> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let prefix = format!(
             "ActionSubError(category={}, message={}, locations=[",
-            self.category,
+            self.category.borrow(),
             self.message.clone().unwrap_or_default()
         );
         fmt_container(
@@ -371,6 +362,23 @@ impl<'v> Display for StarlarkActionSubError<'v> {
         )
     }
 }
+
+impl<'v> PartialEq for StarlarkActionSubError<'v> {
+    fn eq(&self, other: &Self) -> bool {
+        *self.category.borrow() == *other.category.borrow()
+            && self.message == other.message
+            && self.locations == other.locations
+            && self.file == other.file
+            && self.lnum == other.lnum
+            && self.end_lnum == other.end_lnum
+            && self.col == other.col
+            && self.end_col == other.end_col
+            && self.error_type == other.error_type
+            && self.error_number == other.error_number
+    }
+}
+
+impl<'v> Eq for StarlarkActionSubError<'v> {}
 
 impl<'v> StarlarkActionSubError<'v> {
     pub(crate) fn from_errorformat_entry(
@@ -388,7 +396,7 @@ impl<'v> StarlarkActionSubError<'v> {
             .map(|l| heap.alloc_typed(l));
 
         StarlarkActionSubError {
-            category,
+            category: RefCell::new(category),
             message: entry.message,
             locations: location.map(|l| UnpackListOrTuple {
                 items: vec![l.as_ref()],
@@ -417,19 +425,22 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
         RES.methods(action_sub_error_methods)
     }
 
+    fn set_attr(&self, attribute: &str, new_value: Value<'v>) -> starlark::Result<()> {
+        match attribute {
+            "category" => {
+                let new_category = new_value.unpack_str_err()?;
+                *self.category.borrow_mut() = new_category.to_owned();
+                Ok(())
+            }
+            _ => ValueError::unsupported(self, &format!(".{attribute}=")),
+        }
+    }
+
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.eq(other))
         } else {
             Ok(false)
-        }
-    }
-
-    fn compare(&self, other: Value<'v>) -> starlark::Result<std::cmp::Ordering> {
-        if let Some(other) = other.downcast_ref::<Self>() {
-            Ok(self.cmp(other))
-        } else {
-            ValueError::unsupported_with(self, "compare", other)
         }
     }
 }
@@ -440,8 +451,8 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
 fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     /// A more granular category for the action error.
     #[starlark(attribute)]
-    fn category<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<&'v str> {
-        Ok(&this.category)
+    fn category<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<String> {
+        Ok(this.category.borrow().clone())
     }
 
     /// An optional message to be displayed with the error, used to provide additoinal context
@@ -516,7 +527,7 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
 impl<'v> StarlarkActionSubError<'v> {
     pub(crate) fn to_proto(&self) -> ActionSubError {
         ActionSubError {
-            category: self.category.clone(),
+            category: self.category.borrow().clone(),
             message: self.message.clone(),
             locations: self
                 .locations
