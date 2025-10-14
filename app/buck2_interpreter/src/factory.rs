@@ -8,11 +8,14 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use dice::DiceComputations;
+use dice::UserComputationData;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -30,6 +33,7 @@ pub struct StarlarkEvaluatorProvider {
     pub(crate) profiler_data: ProfilerData,
     eval_kind: StarlarkEvalKind,
     debugger: Option<Box<dyn StarlarkDebugController>>,
+    profile_listener: Option<Arc<dyn ProfileEventListener>>,
     starlark_max_callstack_size: Option<usize>,
 }
 
@@ -43,6 +47,7 @@ pub struct StarlarkEvaluatorProvider {
 pub struct FinishedStarlarkEvaluation {
     pub(crate) profiler_data: ProfilerData,
     eval_kind: StarlarkEvalKind,
+    listener: Option<Arc<dyn ProfileEventListener>>,
 }
 
 impl FinishedStarlarkEvaluation {
@@ -50,8 +55,14 @@ impl FinishedStarlarkEvaluation {
     pub fn finish(
         self,
         frozen_module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
-        self.profiler_data.finish(frozen_module, self.eval_kind)
+    ) -> buck2_error::Result<Option<Arc<StarlarkProfileDataAndStats>>> {
+        let res = self.profiler_data.finish(frozen_module, self.eval_kind);
+        if let Ok(Some(res)) = &res {
+            if let Some(listener) = &self.listener {
+                listener.profile_collected(res.targets[0].clone(), res);
+            }
+        }
+        res
     }
 }
 
@@ -63,6 +74,7 @@ impl StarlarkEvaluatorProvider {
             eval_kind,
             debugger: None,
             starlark_max_callstack_size: None,
+            profile_listener: None,
         }
     }
 
@@ -76,6 +88,7 @@ impl StarlarkEvaluatorProvider {
         let profile_mode = ctx.get_starlark_profiler_mode(&eval_kind).await?;
 
         let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
+        let profile_listener = ctx.get_profile_event_listener().cloned();
 
         let starlark_max_callstack_size =
             root_buckconfig.view(ctx).parse::<usize>(BuckconfigKeyRef {
@@ -94,6 +107,7 @@ impl StarlarkEvaluatorProvider {
             eval_kind,
             debugger,
             starlark_max_callstack_size,
+            profile_listener,
         })
     }
 
@@ -251,11 +265,43 @@ impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
                 Ok(FinishedStarlarkEvaluation {
                     profiler_data: provider.profiler_data,
                     eval_kind: provider.eval_kind,
+                    listener: provider.profile_listener,
                 })
             }
             ReentrantStarlarkEvaluator::Wrapped { .. } => {
                 Err(internal_error!("Wrapped evaluator cannot be finished"))
             }
         }
+    }
+}
+
+pub trait ProfileEventListener: Send + Sync {
+    fn profile_collected(
+        &self,
+        eval_kind: StarlarkEvalKind,
+        profile_data: &Arc<StarlarkProfileDataAndStats>,
+    );
+}
+
+pub trait HasProfileEventListener {
+    fn get_profile_event_listener(&self) -> Option<&Arc<dyn ProfileEventListener>>;
+}
+
+impl HasProfileEventListener for DiceComputations<'_> {
+    fn get_profile_event_listener(&self) -> Option<&Arc<dyn ProfileEventListener>> {
+        self.per_transaction_data()
+            .data
+            .get::<Arc<dyn ProfileEventListener>>()
+            .ok()
+    }
+}
+
+pub trait SetProfileEventListener {
+    fn set(&mut self, listener: Arc<dyn ProfileEventListener>);
+}
+
+impl SetProfileEventListener for UserComputationData {
+    fn set(&mut self, listener: Arc<dyn ProfileEventListener>) {
+        self.data.set(listener)
     }
 }

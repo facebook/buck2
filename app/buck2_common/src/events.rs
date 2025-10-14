@@ -9,6 +9,7 @@
  */
 
 use buck2_events::dispatch::EventDispatcher;
+use dice::DiceComputations;
 use dice::UserComputationData;
 
 pub trait HasEvents {
@@ -20,5 +21,11 @@ impl HasEvents for UserComputationData {
         self.data
             .get::<EventDispatcher>()
             .expect("Event dispatcher should be set")
+    }
+}
+
+impl HasEvents for DiceComputations<'_> {
+    fn get_dispatcher(&self) -> &EventDispatcher {
+        self.per_transaction_data().get_dispatcher()
     }
 }

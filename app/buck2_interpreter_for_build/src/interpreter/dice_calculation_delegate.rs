@@ -622,7 +622,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                     Err(internal_error!("starlark_profile field must not be set yet").into()),
                 );
             }
-            eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
+            eval_result.starlark_profile = profile_data.map(|d| d as _);
             eval_result
         };
 

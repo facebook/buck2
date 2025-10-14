@@ -319,7 +319,7 @@ async fn run_analysis_with_env_underlying(
     let frozen_env = env.freeze().map_err(from_freeze_error)?;
     let recorded_values = registry_finalizer(&frozen_env)?;
 
-    let profile_data = finished_eval.finish(Some(&frozen_env))?.map(Arc::new);
+    let profile_data = finished_eval.finish(Some(&frozen_env))?;
 
     let validations = transitive_validations(
         validations_from_deps,

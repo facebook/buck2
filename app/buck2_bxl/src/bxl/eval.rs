@@ -138,7 +138,7 @@ pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
     key: BxlKey,
     liveness: CancellationObserver,
-) -> Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> Result<(BxlResult, Option<Arc<StarlarkProfileDataAndStats>>)> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -298,7 +298,7 @@ async fn eval_bxl_inner(
     dispatcher: EventDispatcher,
     key: BxlKey,
     liveness: CancellationObserver,
-) -> Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> Result<(BxlResult, Option<Arc<StarlarkProfileDataAndStats>>)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;

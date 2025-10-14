@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
@@ -78,7 +79,7 @@ impl ProfilerData {
         mut self,
         frozen_module: Option<&FrozenModule>,
         target: StarlarkEvalKind,
-    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
+    ) -> buck2_error::Result<Option<Arc<StarlarkProfileDataAndStats>>> {
         let mode = match self.profile_mode {
             None => {
                 return Ok(None);
@@ -106,7 +107,7 @@ impl ProfilerData {
             (None, false) => 0,
         };
 
-        Ok(Some(StarlarkProfileDataAndStats {
+        Ok(Some(Arc::new(StarlarkProfileDataAndStats {
             initialized_at: self.initialized_at.internal_error("did not initialize")?,
             finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes,
@@ -114,6 +115,6 @@ impl ProfilerData {
                 .profile_data
                 .internal_error("profile_data not initialized")??,
             targets: vec![target],
-        }))
+        })))
     }
 }
