@@ -486,6 +486,13 @@ impl<'v> StarlarkActionSubError<'v> {
                         })
                         .collect(),
                 }),
+            file: self.file.clone(),
+            lnum: self.lnum,
+            end_lnum: self.end_lnum,
+            col: self.col,
+            end_col: self.end_col,
+            error_type: self.error_type.clone(),
+            error_number: self.error_number,
         }
     }
 }

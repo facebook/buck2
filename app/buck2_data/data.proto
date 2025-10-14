@@ -1736,6 +1736,27 @@ message ActionSubError {
 
   // Optional list of file locations/lines for rule author to populate.
   optional ActionErrorLocations locations = 3;
+
+  // File path for the error location
+  optional string file = 4;
+
+  // Line number
+  optional uint64 lnum = 5;
+
+  // End line (for multi-line spans)
+  optional uint64 end_lnum = 6;
+
+  // Column number
+  optional uint64 col = 7;
+
+  // End column (for ranges)
+  optional uint64 end_col = 8;
+
+  // Type of error (error, warning, info, etc.)
+  optional string error_type = 9;
+
+  // Numeric error code (e.g., 404, 500)
+  optional uint64 error_number = 10;
 }
 
 // Wrapper around `ActionErrorLocation` so we can differentiate between null and
