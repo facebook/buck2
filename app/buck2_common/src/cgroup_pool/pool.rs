@@ -28,6 +28,8 @@ use crate::cgroup_pool::path::CgroupPath;
 use crate::cgroup_pool::path::CgroupPathBuf;
 
 pub struct PoolState {
+    pool_cgroup: Cgroup,
+    per_cgroup_memory_high: Option<String>,
     cgroups: HashMap<CgroupID, Cgroup>,
     available: VecDeque<CgroupID>,
     in_use: HashSet<CgroupID>,
@@ -40,17 +42,40 @@ impl PoolState {
         self.available.push_back(cgroup_id);
     }
 
+    fn worker_name(id: CgroupID) -> FileNameBuf {
+        let i = id.0;
+        if i < 1000 {
+            FileNameBuf::unchecked_new(format!("worker_{i:03}"))
+        } else {
+            FileNameBuf::unchecked_new(format!("worker_{i}"))
+        }
+    }
+
     fn allocate_id(&mut self) -> CgroupID {
         let id = self.next_id;
         self.next_id += 1;
         CgroupID::new(id)
     }
+
+    fn reserve_additional_cgroup(&mut self) -> Result<CgroupID, CgroupError> {
+        let cgroup_id = self.allocate_id();
+        let worker_name = Self::worker_name(cgroup_id);
+        let cgroup = Cgroup::new(self.pool_cgroup.path(), &worker_name)?;
+
+        // Set memory.high limit if provided
+        if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {
+            cgroup.set_memory_high(per_cgroup_memory_high)?;
+        }
+
+        self.available.push_back(cgroup_id);
+        self.cgroups.insert(cgroup_id, cgroup);
+
+        Ok(cgroup_id)
+    }
 }
 
 pub struct CgroupPool {
-    pool_cgroup: Cgroup,
     pub state: Arc<Mutex<PoolState>>,
-    per_cgroup_memory_high: Option<String>,
 }
 
 impl CgroupPool {
@@ -98,53 +123,26 @@ impl CgroupPool {
         }
 
         let pool = Self {
-            pool_cgroup,
             state: Arc::new(Mutex::new(PoolState {
                 cgroups: HashMap::new(),
                 available: VecDeque::new(),
                 in_use: HashSet::new(),
                 next_id: 0,
+                per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
+                pool_cgroup,
             })),
-            per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
         };
 
-        pool.initialize_pool(capacity, per_cgroup_memory_high)?;
+        pool.initialize_pool(capacity)?;
         Ok(pool)
     }
 
-    fn initialize_pool(
-        &self,
-        capacity: usize,
-        per_cgroup_memory_high: Option<&str>,
-    ) -> Result<(), CgroupError> {
+    fn initialize_pool(&self, capacity: usize) -> Result<(), CgroupError> {
         let mut state = self.state.lock().expect("Mutex poisoned");
         for _ in 0..capacity {
-            let cgroup_id = state.allocate_id();
-            let worker_name = Self::worker_name(cgroup_id);
-            let cgroup = Cgroup::new(self.pool_path(), &worker_name)?;
-
-            // Set memory.high limit if provided
-            if let Some(per_cgroup_memory_high) = per_cgroup_memory_high {
-                cgroup.set_memory_high(per_cgroup_memory_high)?;
-            }
-
-            state.available.push_back(cgroup_id);
-            state.cgroups.insert(cgroup_id, cgroup);
+            state.reserve_additional_cgroup()?;
         }
         Ok(())
-    }
-
-    fn worker_name(id: CgroupID) -> FileNameBuf {
-        let i = id.0;
-        if i < 1000 {
-            FileNameBuf::unchecked_new(format!("worker_{i:03}"))
-        } else {
-            FileNameBuf::unchecked_new(format!("worker_{i}"))
-        }
-    }
-
-    fn pool_path(&self) -> &CgroupPath {
-        self.pool_cgroup.path()
     }
 
     pub fn setup_command(
@@ -171,20 +169,7 @@ impl CgroupPool {
             state.in_use.insert(cgroup_id.dupe());
             cgroup_id
         } else {
-            // Create new worker if no available worker, capacity is not a hard limit
-            let cgroup_id = state.allocate_id();
-            let new_worker_name = Self::worker_name(cgroup_id);
-
-            let cgroup = Cgroup::new(self.pool_path(), &new_worker_name)?;
-
-            // Set memory.high limit if provided
-            if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {
-                cgroup.set_memory_high(per_cgroup_memory_high)?;
-            }
-
-            state.in_use.insert(cgroup_id);
-            state.cgroups.insert(cgroup_id, cgroup);
-            cgroup_id
+            state.reserve_additional_cgroup()?
         };
 
         Ok(cgroup_id)
