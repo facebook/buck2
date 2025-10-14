@@ -1180,7 +1180,7 @@ prebuilt_apple_framework = prelude_rule(
             """),
             "binary": attrs.option(attrs.string(), default = None, doc = """
               Optional name for the binary contained in the framework. Otherwise the framework name is used.
-              Therefore, if your framework binary is named something like `libFrameworkName-iPhone.a` instead 
+              Therefore, if your framework binary is named something like `libFrameworkName-iPhone.a` instead
               of `FrameworkName`, you can declare this here.
             """),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -1370,6 +1370,7 @@ apple_tools = prelude_rule(
         "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
         "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
         "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
+        "signing_context": attrs.exec_dep(providers = [RunInfo]),
         "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
         "spm_packager": attrs.exec_dep(providers = [RunInfo]),
         "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),

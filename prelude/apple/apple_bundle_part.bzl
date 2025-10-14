@@ -342,6 +342,19 @@ def assemble_bundle(
         ),
     ]
 
+    signing_context_output = ctx.actions.declare_output("signing-context.json")
+    ctx.actions.run(
+        cmd_args(
+            [
+                tools.signing_context,
+                "--output",
+                signing_context_output.as_output(),
+            ] + platform_args + codesign_args,
+        ),
+        category = "apple_signing_context",
+    )
+    subtargets["signing-context"] = [DefaultInfo(default_output = signing_context_output)]
+
     return AppleBundleConstructionResult(
         sub_targets = subtargets,
         providers = providers,

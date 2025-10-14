@@ -243,6 +243,23 @@ def write_empty_codesign_manifest(codesign_manifest_path: Path, bundle_path: Pat
         json.dump(codesign_manifest, codesign_manifest_file, indent=4)
 
 
+def selection_profile_context_from_signing_context(
+    signing_context: Optional[
+        Union[AdhocSigningContext, SigningContextWithProfileSelection]
+    ],
+) -> Optional[SigningContextWithProfileSelection]:
+    if signing_context:
+        if isinstance(signing_context, SigningContextWithProfileSelection):
+            selection_profile_context = signing_context
+        elif isinstance(signing_context, AdhocSigningContext):
+            selection_profile_context = signing_context.profile_selection_context
+        else:
+            raise RuntimeError(
+                f"Unexpected type of signing context `{type(signing_context)}`"
+            )
+        return selection_profile_context
+
+
 def codesign_bundle(
     bundle_path: CodesignedPath,
     signing_context: Union[AdhocSigningContext, SigningContextWithProfileSelection],
@@ -260,15 +277,9 @@ def codesign_bundle(
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        if isinstance(signing_context, SigningContextWithProfileSelection):
-            selection_profile_context = signing_context
-        elif isinstance(signing_context, AdhocSigningContext):
-            selection_profile_context = signing_context.profile_selection_context
-        else:
-            raise RuntimeError(
-                f"Unexpected type of signing context `{type(signing_context)}`"
-            )
-
+        selection_profile_context = selection_profile_context_from_signing_context(
+            signing_context
+        )
         if selection_profile_context:
             bundle_path_with_prepared_entitlements = (
                 _prepare_entitlements_and_info_plist(
