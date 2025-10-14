@@ -203,51 +203,47 @@ impl UnixForkserverService {
         validated_cmd: &ValidatedCommand,
         cgroup_id: Option<CgroupID>,
     ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
-        let resource_control_context = self
-            .resource_control_runner
-            .as_ref()
-            .zip(validated_cmd.cgroup_command_id.as_ref());
-
-        let (mut cmd, miniperf_output, cgroup_path) = match (
+        let (mut cmd, miniperf_output, cgroup_path, has_resource_control) = match (
             validated_cmd.enable_miniperf,
             &self.miniperf,
-            &resource_control_context,
+            &self.resource_control_runner,
+            validated_cmd.cgroup_command_id.as_ref(),
+            cgroup_id,
         ) {
             // Wraps the user command with miniperf for performance monitoring
-            (true, Some(miniperf), None) => {
+            (true, Some(miniperf), None, _, _) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path), None)
+                (cmd, Some(output_path), None, false)
+            }
+            (_, Some(miniperf), Some(resource_control_runner), Some(_), Some(cgroup_id)) => {
+                let mut cmd = background_command(miniperf.miniperf.as_path());
+                // safe to unwarp, because we have cgroup_id which means we have cgroup pool
+                let cgroup_pool = resource_control_runner.cgroup_pool().unwrap();
+                let cgroup_path = cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
+                let output_path = miniperf.allocate_output_path();
+                cmd.arg(output_path.as_path());
+                cmd.arg(&validated_cmd.exe);
+                (cmd, Some(output_path), Some(cgroup_path), true)
             }
             // Uses systemd-run + miniperf for resource control + monitoring
             // systemd-run --scope --unit=<cgroup_command_id> miniperf <output_path> <user_executable>
-            (_, Some(miniperf), Some((resource_control_runner, cgroup_command_id))) => {
-                if let Some(cgroup_id) = cgroup_id {
-                    let mut cmd = background_command(miniperf.miniperf.as_path());
-                    // safe to unwarp, because we have cgroup_id which means we have cgroup pool
-                    let cgroup_pool = resource_control_runner.cgroup_pool().unwrap();
-                    let cgroup_path = cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
-                    let output_path = miniperf.allocate_output_path();
-                    cmd.arg(output_path.as_path());
-                    cmd.arg(&validated_cmd.exe);
-                    (cmd, Some(output_path), Some(cgroup_path))
-                } else {
-                    let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
-                    let mut cmd = resource_control_runner.cgroup_scoped_command(
-                        miniperf.miniperf.as_path(),
-                        &replace_unit_delimiter(cgroup_command_id),
-                        workding_dir,
-                    );
-                    let output_path = miniperf.allocate_output_path();
-                    cmd.arg(output_path.as_path());
-                    cmd.arg(&validated_cmd.exe);
-                    (cmd, Some(output_path), None)
-                }
+            (_, Some(miniperf), Some(resource_control_runner), Some(cgroup_command_id), None) => {
+                let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
+                let mut cmd = resource_control_runner.cgroup_scoped_command(
+                    miniperf.miniperf.as_path(),
+                    &replace_unit_delimiter(cgroup_command_id),
+                    workding_dir,
+                );
+                let output_path = miniperf.allocate_output_path();
+                cmd.arg(output_path.as_path());
+                cmd.arg(&validated_cmd.exe);
+                (cmd, Some(output_path), None, true)
             }
             // Direct execution of the command
-            _ => (background_command(&validated_cmd.exe), None, None),
+            _ => (background_command(&validated_cmd.exe), None, None, false),
         };
 
         cmd.current_dir(&validated_cmd.cwd);
@@ -263,7 +259,7 @@ impl UnixForkserverService {
             cmd.env("XDG_RUNTIME_DIR", value);
         }
 
-        if resource_control_context.is_some() {
+        if has_resource_control {
             // we set env var to enable reading peak memory from cgroup in miniperf
             cmd.env("MINIPERF_READ_CGROUP", "1");
         }
