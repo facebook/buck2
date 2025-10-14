@@ -604,6 +604,9 @@ fn emit_resource_control_event(
         cgroup_memory_current: cgroup.memory_current,
         cgroup_memory_peak: cgroup.memory_peak,
 
+        cgroup_swap_current: cgroup.swap_current,
+        cgroup_swap_peak: cgroup.swap_peak,
+
         frozen_cgroup_count,
         active_cgroup_count,
 

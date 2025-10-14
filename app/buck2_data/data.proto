@@ -746,6 +746,8 @@ message ResourceControlEvents {
   // Information related to the cgroup that's frozen
   uint64 cgroup_memory_current = 8;
   uint64 cgroup_memory_peak = 9;
+  uint64 cgroup_swap_current = 15;
+  uint64 cgroup_swap_peak = 16;
   uint64 frozen_cgroup_count = 10;
   uint64 active_cgroup_count = 11;
 
