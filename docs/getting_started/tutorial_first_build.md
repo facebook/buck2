@@ -144,8 +144,10 @@ rust_binary(
 Let's briefly see what this does (we'll keep explanations minimal, just enough
 for this step! ):
 
+<FbInternalOnly>
 - `load(...)` is a load statement. It tells Buck2 to load the definition of the
   `rust_binary`.
+</FbInternalOnly>
 - `rust_binary` is a Buck2 rule that tells Buck2 how to build a Rust binary.
 - `name = "main"`: We're giving our build target a name, "main". This is how
   we'll refer to it in Buck2 commands.
@@ -195,7 +197,7 @@ fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main buck-out/v2/gen/fbcode/c32
 ```
 ...
 BUILD SUCCEEDED
-root//buck2_lab/greeter_bin:main /.../buck2_lab/buck-out/v2/gen/root/200212f73efcd57d/buck2_lab/greeter_bin/__main__/main
+root//buck2_lab/greeter_bin:main buck-out/v2/gen/root/7171795d350c5b11/buck2_lab/greeter_bin/__main__/main
 ```
 
 </OssOnly>
