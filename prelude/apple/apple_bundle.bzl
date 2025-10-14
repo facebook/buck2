@@ -362,6 +362,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         bundle,
         apple_bundle_part_list_output.parts,
         apple_bundle_part_list_output.codesign_manifest_parts,
+        apple_bundle_part_list_output.signing_context_parts,
         apple_bundle_part_list_output.info_plist_part,
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
         validation_deps_outputs,
@@ -473,6 +474,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
             codesign_manifest_tree = bundle_result.codesign_manifest_tree,
+            signing_context_tree = bundle_result.signing_context_tree,
         ),
         AppleDebuggableInfo(
             dsyms = dsym_artifacts,

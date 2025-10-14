@@ -63,6 +63,7 @@ AppleBundleConstructionResult = record(
     providers = field(list[Provider]),
     sub_targets = field(dict[str, list[Provider]]),
     codesign_manifest_tree = field(AppleBundleCodesignManifestTree),
+    signing_context_tree = field(AppleBundleSigningContextTree),
 )
 
 def bundle_output(ctx: AnalysisContext) -> Artifact:
@@ -75,6 +76,7 @@ def assemble_bundle(
         bundle: Artifact,
         parts: list[AppleBundlePart],
         codesign_manifest_parts: list[AppleBundleCodesignManifestTreePart],
+        signing_context_parts: list[AppleBundleSigningContextTreePart],
         info_plist_part: [AppleBundlePart, None],
         swift_stdlib_args: [SwiftStdlibArguments, None],
         extra_hidden: list[Artifact] = [],
@@ -359,12 +361,25 @@ def assemble_bundle(
         ),
         category = "apple_signing_context",
     )
+
+    signing_context_tree = _make_signing_context_tree(ctx, signing_context_output, signing_context_parts)
+    signing_context_tree_json = _get_signing_context_tree_as_json(signing_context_tree)
+    signing_context_tree_json_file = ctx.actions.declare_output("signing-context-tree.json")
+    signing_context_tree_json_cmd_args = ctx.actions.write_json(
+        signing_context_tree_json_file,
+        signing_context_tree_json,
+        with_inputs = True,
+        pretty = True,
+    )
+
+    subtargets["signing-context-tree"] = [DefaultInfo(default_output = signing_context_tree_json_file, other_outputs = [signing_context_tree_json_cmd_args])]
     subtargets["signing-context"] = [DefaultInfo(default_output = signing_context_output)]
 
     return AppleBundleConstructionResult(
         sub_targets = subtargets,
         providers = providers,
         codesign_manifest_tree = codesign_manifest_tree,
+        signing_context_tree = signing_context_tree,
     )
 
 def _make_codesign_manifest_tree(ctx: AnalysisContext, codesign_manifest: Artifact, inner_parts: list[AppleBundleCodesignManifestTreePart]) -> AppleBundleCodesignManifestTree:
@@ -389,6 +404,30 @@ def _get_codesign_manifest_tree_as_json(codesign_manifest_tree: AppleBundleCodes
         inner_manifests[relative_path] = _get_codesign_manifest_tree_as_json(inner_codesign_manifest_tree)
 
     json_obj["inner_codesign_manifests"] = inner_manifests
+    return json_obj
+
+def _make_signing_context_tree(ctx: AnalysisContext, signing_context: Artifact, inner_parts: list[AppleBundleSigningContextTreePart]) -> AppleBundleSigningContextTree:
+    inner_context_trees = {}
+
+    for signing_context_tree_part in inner_parts:
+        relative_path = get_apple_bundle_part_relative_destination_path(ctx, signing_context_tree_part.bundle_part)
+        inner_context_trees[relative_path] = signing_context_tree_part.signing_context_tree
+
+    return AppleBundleSigningContextTree(
+        signing_context = signing_context,
+        inner_signing_contexts = inner_context_trees,
+    )
+
+def _get_signing_context_tree_as_json(signing_context_tree: AppleBundleSigningContextTree) -> dict[str, typing.Any]:
+    json_obj = {
+        "signing_context": signing_context_tree.signing_context,
+    }
+
+    inner_contexts = {}
+    for relative_path, inner_signing_context_tree in signing_context_tree.inner_signing_contexts.items():
+        inner_contexts[relative_path] = _get_signing_context_tree_as_json(inner_signing_context_tree)
+
+    json_obj["inner_signing_contexts"] = inner_contexts
     return json_obj
 
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:

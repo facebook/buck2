@@ -28,6 +28,7 @@ def apple_xcuitest_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         info_plist_part = process_info_plist(ctx, override_input = None),
         parts = bundle_parts,
         codesign_manifest_parts = [],
+        signing_context_parts = [],
         swift_stdlib_args = None,
     )
 
