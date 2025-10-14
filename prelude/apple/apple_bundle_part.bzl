@@ -350,7 +350,7 @@ def assemble_bundle(
         ),
     ]
 
-    signing_context_output = ctx.actions.declare_output("signing-context.json")
+    signing_context_output = ctx.actions.declare_output("provisioning-manifest.json")
     ctx.actions.run(
         cmd_args(
             [
@@ -359,12 +359,12 @@ def assemble_bundle(
                 signing_context_output.as_output(),
             ] + platform_args + codesign_args,
         ),
-        category = "apple_signing_context",
+        category = "apple_provisioning_manifest",
     )
 
     signing_context_tree = _make_signing_context_tree(ctx, signing_context_output, signing_context_parts)
     signing_context_tree_json = _get_signing_context_tree_as_json(signing_context_tree)
-    signing_context_tree_json_file = ctx.actions.declare_output("signing-context-tree.json")
+    signing_context_tree_json_file = ctx.actions.declare_output("provisioning-manifest-tree.json")
     signing_context_tree_json_cmd_args = ctx.actions.write_json(
         signing_context_tree_json_file,
         signing_context_tree_json,
@@ -372,7 +372,7 @@ def assemble_bundle(
         pretty = True,
     )
 
-    postprocessed_signing_context_tree = ctx.actions.declare_output("postprocessed-signing-context-tree.json")
+    postprocessed_signing_context_tree = ctx.actions.declare_output("postprocessed-provisioning-manifest-tree.json")
     ctx.actions.run(
         cmd_args(
             [
@@ -383,10 +383,10 @@ def assemble_bundle(
                 postprocessed_signing_context_tree.as_output(),
             ],
         ),
-        category = "signing_context_tree_postprocess",
+        category = "apple_provisioning_manifest_tree_postprocess",
     )
 
-    subtargets["signing-context"] = [DefaultInfo(default_output = postprocessed_signing_context_tree)]
+    subtargets["provisioning-manifest"] = [DefaultInfo(default_output = postprocessed_signing_context_tree)]
 
     return AppleBundleConstructionResult(
         sub_targets = subtargets,

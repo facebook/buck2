@@ -86,7 +86,7 @@ def _main() -> None:
             json.dump(
                 {
                     "version": _FORMAT_VERSION,
-                    "signing_contexts": flattened_contexts,
+                    "provisioned_bundles": flattened_contexts,
                 },
                 output_file,
                 indent=4,
