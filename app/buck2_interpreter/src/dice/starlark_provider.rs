@@ -74,7 +74,6 @@ pub enum StarlarkEvalKind {
     Load(Arc<OwnedStarlarkModulePath>),
     LoadPackageFile(PackageLabel),
     LoadBuildFile(PackageLabel),
-    LoadJson(Arc<OwnedStarlarkModulePath>),
     Transition(Arc<TransitionId>),
     // These types are defined in higher crates, so we just accept dyn DynEvalKindKey here.
     AnonTarget(Arc<dyn DynEvalKindKey>),
@@ -113,9 +112,6 @@ impl std::fmt::Display for StarlarkEvalKind {
                 write!(f, "load_package/{}", package_label)
             }
             StarlarkEvalKind::LoadBuildFile(package_label) => write!(f, "load/{}", package_label),
-            StarlarkEvalKind::LoadJson(module_path) => {
-                write!(f, "load_json/{}", module_path)
-            }
             StarlarkEvalKind::Transition(t) => write!(f, "transition/{}", t),
             StarlarkEvalKind::AnonTarget(target) => write!(f, "anon_target/{}", target),
             StarlarkEvalKind::Bxl(bxl) => write!(f, "bxl/{}", bxl),
