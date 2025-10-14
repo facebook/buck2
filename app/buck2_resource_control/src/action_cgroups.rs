@@ -38,6 +38,7 @@ use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
+use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
@@ -99,6 +100,7 @@ impl AncestorCgroupConstraints {
 #[derive(Debug, Clone)]
 pub struct ActionCgroupResult {
     pub memory_peak: Option<u64>,
+    pub swap_peak: Option<u64>,
     pub error: Option<buck2_error::Error>,
     pub was_frozen: bool,
     pub freeze_duration: Option<Duration>,
@@ -108,6 +110,7 @@ impl ActionCgroupResult {
     fn from_info(cgroup_info: ActionCgroup) -> Self {
         Self {
             memory_peak: Some(cgroup_info.memory_peak),
+            swap_peak: Some(cgroup_info.swap_peak),
             error: cgroup_info.error,
             was_frozen: cgroup_info.was_frozen,
             freeze_duration: cgroup_info.freeze_duration,
@@ -117,6 +120,7 @@ impl ActionCgroupResult {
     pub fn from_error(e: buck2_error::Error) -> Self {
         Self {
             memory_peak: None,
+            swap_peak: None,
             error: Some(e),
             was_frozen: false,
             freeze_duration: None,
@@ -128,9 +132,13 @@ impl ActionCgroupResult {
 struct ActionCgroup {
     path: CgroupPathBuf,
     memory_current_file: File,
+    memory_swap_current_file: File,
     memory_initial: u64,
     memory_peak: u64,
     memory_current: u64,
+    swap_initial: u64,
+    swap_current: u64,
+    swap_peak: u64,
     error: Option<buck2_error::Error>,
     was_frozen: bool,
     freeze_start: Option<Instant>,
@@ -274,17 +282,26 @@ impl ActionCgroups {
         let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
+        let mut memory_swap_current_file =
+            File::open(cgroup_path.as_path().join("memory.swap.current"))
+                .await
+                .with_buck_error_context(|| "failed to open memory.swap.current")?;
 
         let memory_initial = read_memory_current(&mut memory_current_file).await?;
+        let swap_initial = read_memory_swap_current(&mut memory_swap_current_file).await?;
 
         let existing = self.active_cgroups.insert(
             cgroup_path.clone(),
             ActionCgroup {
                 path: cgroup_path,
                 memory_current_file,
+                memory_swap_current_file,
                 memory_initial,
                 memory_current: memory_initial,
                 memory_peak: 0,
+                swap_initial,
+                swap_current: swap_initial,
+                swap_peak: 0,
                 error: None,
                 was_frozen: false,
                 freeze_start: None,
@@ -333,14 +350,20 @@ impl ActionCgroups {
         for cgroup in self.active_cgroups.values_mut() {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
             // in kernels older than 6.12.
-            match read_memory_current(&mut cgroup.memory_current_file).await {
-                Ok(cgroup_memory_current) => {
-                    cgroup.memory_current = cgroup_memory_current;
+            match tokio::try_join!(
+                read_memory_current(&mut cgroup.memory_current_file),
+                read_memory_swap_current(&mut cgroup.memory_swap_current_file)
+            ) {
+                Ok((memory_current, swap_current)) => {
+                    cgroup.memory_current = memory_current;
                     if let Some(memory_delta) =
                         cgroup.memory_current.checked_sub(cgroup.memory_initial)
-                        && memory_delta > cgroup.memory_peak
                     {
-                        cgroup.memory_peak = memory_delta;
+                        cgroup.memory_peak = cgroup.memory_peak.max(memory_delta);
+                    }
+                    cgroup.swap_current = swap_current;
+                    if let Some(swap_delta) = cgroup.swap_current.checked_sub(cgroup.swap_initial) {
+                        cgroup.swap_peak = cgroup.swap_peak.max(swap_delta);
                     }
                 }
                 Err(e) => {
@@ -644,7 +667,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_peak_memory() -> buck2_error::Result<()> {
+    async fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
         let cgroup_1 = tempfile::tempdir()?;
         let cgroup_2 = tempfile::tempdir()?;
         let cgroup_1 =
@@ -654,6 +677,8 @@ mod tests {
 
         fs::write(cgroup_1.as_path().join("memory.current"), "10")?;
         fs::write(cgroup_2.as_path().join("memory.current"), "10")?;
+        fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
+        fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
 
         let mut action_cgroups = ActionCgroups::new(false, None);
         action_cgroups
@@ -675,6 +700,8 @@ mod tests {
 
         fs::write(cgroup_1.as_path().join("memory.current").as_path(), "20")?;
         fs::write(cgroup_2.as_path().join("memory.current").as_path(), "5")?;
+        fs::write(cgroup_1.as_path().join("memory.swap.current"), "18")?;
+        fs::write(cgroup_2.as_path().join("memory.swap.current"), "6")?;
 
         let memory_reading = MemoryReading {
             memory_current: 10000,
@@ -689,6 +716,8 @@ mod tests {
         let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
         assert_eq!(cgroup_1_res.memory_peak, Some(10));
         assert_eq!(cgroup_2_res.memory_peak, Some(0));
+        assert_eq!(cgroup_1_res.swap_peak, Some(3));
+        assert_eq!(cgroup_2_res.swap_peak, Some(0));
 
         Ok(())
     }
@@ -706,6 +735,8 @@ mod tests {
         fs::write(cgroup_2.as_path().join("memory.current"), "0")?;
         fs::write(cgroup_1.as_path().join("cgroup.freeze"), "0")?;
         fs::write(cgroup_2.as_path().join("cgroup.freeze"), "0")?;
+        fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
+        fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
 
         let mut action_cgroups = ActionCgroups::new(true, None);
         action_cgroups
