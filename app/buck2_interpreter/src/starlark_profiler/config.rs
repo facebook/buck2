@@ -26,13 +26,11 @@ use dice::InjectedKey;
 use dice::Key;
 use dice::ProjectionKey;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use ref_cast::RefCast;
 use starlark::eval::ProfileMode;
 
 use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_profiler::mode::StarlarkProfileMode;
-use crate::starlark_profiler::profiler::StarlarkProfiler;
 
 /// Global profiling configuration.
 #[derive(PartialEq, Eq, Clone, Debug, Allocative)]
@@ -265,17 +263,6 @@ pub trait GetStarlarkProfilerInstrumentation {
         &mut self,
         eval_kind: &StarlarkEvalKind,
     ) -> buck2_error::Result<StarlarkProfileMode>;
-
-    async fn get_starlark_profiler(
-        &mut self,
-        eval_kind: &StarlarkEvalKind,
-    ) -> buck2_error::Result<StarlarkProfiler> {
-        let profile_mode = self.get_starlark_profiler_mode(eval_kind).await?;
-        Ok(StarlarkProfiler::new(
-            profile_mode.profile_mode().duped(),
-            eval_kind.to_profile_target()?,
-        ))
-    }
 }
 
 #[async_trait]

@@ -31,37 +31,6 @@ enum StarlarkProfilerError {
     RetainedMemoryNotFrozen,
 }
 
-pub struct StarlarkProfiler {
-    pub(crate) profiler_data: ProfilerData,
-    target: ProfileTarget,
-}
-
-impl StarlarkProfiler {
-    pub fn new(profile_mode: Option<ProfileMode>, target: ProfileTarget) -> StarlarkProfiler {
-        Self {
-            profiler_data: ProfilerData {
-                profile_mode,
-                initialized_at: None,
-                finalized_at: None,
-                profile_data: None,
-            },
-            target,
-        }
-    }
-
-    pub fn disabled() -> Self {
-        Self::new(None, ProfileTarget::Unknown)
-    }
-
-    /// Collect all profiling data.
-    pub fn finish(
-        self,
-        frozen_module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
-        self.profiler_data.finish(frozen_module, self.target)
-    }
-}
-
 pub struct ProfilerData {
     profile_mode: Option<ProfileMode>,
 
@@ -71,6 +40,15 @@ pub struct ProfilerData {
 }
 
 impl ProfilerData {
+    pub(crate) fn new(profile_mode: Option<ProfileMode>) -> Self {
+        ProfilerData {
+            profile_mode,
+            initialized_at: None,
+            finalized_at: None,
+            profile_data: None,
+        }
+    }
+
     /// Prepare an Evaluator to capture output relevant to this profiler.
     pub(crate) fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
         self.initialized_at = Some(Instant::now());

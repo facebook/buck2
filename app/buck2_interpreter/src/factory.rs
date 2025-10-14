@@ -25,10 +25,11 @@ use crate::starlark_debug::StarlarkDebugController;
 use crate::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use crate::starlark_profiler::data::ProfileTarget;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
-use crate::starlark_profiler::profiler::StarlarkProfiler;
+use crate::starlark_profiler::profiler::ProfilerData;
 
 pub struct StarlarkEvaluatorProvider {
-    profiler: StarlarkProfiler,
+    pub(crate) profiler_data: ProfilerData,
+    target: ProfileTarget,
     debugger: Option<Box<dyn StarlarkDebugController>>,
     starlark_max_callstack_size: Option<usize>,
 }
@@ -41,7 +42,8 @@ pub struct StarlarkEvaluatorProvider {
 /// unfinished (silent by default, non-silent when profiling actually enabled)
 #[must_use]
 pub struct FinishedStarlarkEvaluation {
-    profiler: StarlarkProfiler,
+    pub(crate) profiler_data: ProfilerData,
+    target: ProfileTarget,
 }
 
 impl FinishedStarlarkEvaluation {
@@ -50,7 +52,7 @@ impl FinishedStarlarkEvaluation {
         self,
         frozen_module: Option<&FrozenModule>,
     ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
-        self.profiler.finish(frozen_module)
+        self.profiler_data.finish(frozen_module, self.target)
     }
 }
 
@@ -58,7 +60,8 @@ impl StarlarkEvaluatorProvider {
     /// Trivial provider that just constructs an Evaluator. Useful for tests (but not necessarily limited to them).
     pub fn passthrough() -> Self {
         Self {
-            profiler: StarlarkProfiler::new(None, ProfileTarget::Unknown),
+            profiler_data: ProfilerData::new(None),
+            target: ProfileTarget::Unknown,
             debugger: None,
             starlark_max_callstack_size: None,
         }
@@ -71,7 +74,8 @@ impl StarlarkEvaluatorProvider {
         ctx: &mut DiceComputations<'_>,
         kind: &StarlarkEvalKind,
     ) -> buck2_error::Result<StarlarkEvaluatorProvider> {
-        let profiler = ctx.get_starlark_profiler(kind).await?;
+        let profile_mode = ctx.get_starlark_profiler_mode(kind).await?;
+
         let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
         let starlark_max_callstack_size =
@@ -87,7 +91,8 @@ impl StarlarkEvaluatorProvider {
         };
 
         Ok(Self {
-            profiler,
+            profiler_data: ProfilerData::new(profile_mode.profile_mode().copied()),
+            target: kind.to_profile_target()?,
             debugger,
             starlark_max_callstack_size,
         })
@@ -124,7 +129,7 @@ impl StarlarkEvaluatorProvider {
             }
         }
 
-        let is_profiling_enabled = self.profiler.profiler_data.initialize(&mut eval)?;
+        let is_profiling_enabled = self.profiler_data.initialize(&mut eval)?;
         if let Some(v) = &mut self.debugger {
             v.initialize(&mut eval)?;
         }
@@ -243,12 +248,10 @@ impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
                 mut provider,
                 ..
             } => {
-                provider
-                    .profiler
-                    .profiler_data
-                    .evaluation_complete(&mut eval);
+                provider.profiler_data.evaluation_complete(&mut eval);
                 Ok(FinishedStarlarkEvaluation {
-                    profiler: provider.profiler,
+                    profiler_data: provider.profiler_data,
+                    target: provider.target,
                 })
             }
             ReentrantStarlarkEvaluator::Wrapped { .. } => {
