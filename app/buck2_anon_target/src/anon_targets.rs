@@ -424,7 +424,7 @@ impl AnonTargetKey {
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
         let eval_kind = self.0.dupe().eval_kind();
-        let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
         let mut reentrant_eval = provider.make_reentrant_evaluator(&env, cancellation.into())?;
         let (ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
             eval.set_print_handler(&print);

@@ -18,7 +18,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
 
-use crate::starlark_profiler::data::ProfileTarget;
+use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
 
 #[derive(Debug, buck2_error::Error)]
@@ -77,7 +77,7 @@ impl ProfilerData {
     pub fn finish(
         mut self,
         frozen_module: Option<&FrozenModule>,
-        target: ProfileTarget,
+        target: StarlarkEvalKind,
     ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
         let mode = match self.profile_mode {
             None => {

@@ -322,7 +322,7 @@ async fn eval_bxl_inner(
     };
 
     let eval_kind = key.as_starlark_eval_kind();
-    let eval_provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+    let eval_provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
     let result = eval_ctx.do_eval(eval_provider, ctx);
     match result {
         Ok((finished_eval, eval_result)) => {

@@ -148,7 +148,7 @@ async fn do_apply_transition(
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
     let eval_kind = StarlarkEvalKind::Transition(Arc::new(transition_id.clone()));
-    let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+    let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
     let module = Module::new();
     let (_finished_eval, res) = provider
         .with_evaluator(&module, cancellation.into(), |eval, _| {

@@ -50,7 +50,7 @@ pub(crate) async fn check_starlark_stack_size(
             cancellation: &CancellationContext,
         ) -> Self::Value {
             let eval_kind = StarlarkEvalKind::Unknown("Check starlark stack size".into());
-            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+            let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
             let env = Module::new();
             let _finished_eval =
                 provider.with_evaluator(&env, cancellation.into(), move |eval, _| {

@@ -257,7 +257,7 @@ async fn eval_bxl_for_anon_target_inner(
     let anon_impl = AnonImpl::new(dice, anon_target.dupe()).await?;
 
     let eval_kind = anon_target.dupe().eval_kind();
-    let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind).await?;
+    let provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
     let env = Module::new();
     let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
         dice,

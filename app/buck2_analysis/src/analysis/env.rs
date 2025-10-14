@@ -274,7 +274,7 @@ async fn run_analysis_with_env_underlying(
     )?;
 
     let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
-    let eval_provider = StarlarkEvaluatorProvider::new(dice, &eval_kind).await?;
+    let eval_provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
     let mut reentrant_eval =
         eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
 

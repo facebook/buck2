@@ -225,7 +225,7 @@ async fn eval_underlying(
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
     let eval_kind = StarlarkEvalKind::Unknown("constraint-analysis invocation".into());
-    let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+    let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
     let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
 
     // Pre constraint-analysis

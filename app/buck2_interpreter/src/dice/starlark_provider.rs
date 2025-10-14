@@ -25,7 +25,6 @@ use buck2_util::arc_str::ThinArcStr;
 use dupe::Dupe;
 
 use crate::paths::module::OwnedStarlarkModulePath;
-use crate::starlark_profiler::data::ProfileTarget;
 
 pub trait DynEvalKindKey: Display + Send + Sync + Debug + Allocative + 'static {
     fn hash(&self, state: &mut dyn Hasher);
@@ -82,18 +81,6 @@ pub enum StarlarkEvalKind {
     Bxl(Arc<dyn DynEvalKindKey>),
     BxlDynamic(Arc<dyn DynEvalKindKey>),
     Unknown(ThinArcStr),
-}
-
-impl StarlarkEvalKind {
-    pub fn to_profile_target(&self) -> buck2_error::Result<ProfileTarget> {
-        match self {
-            StarlarkEvalKind::Analysis(label) => Ok(ProfileTarget::Analysis(label.dupe())),
-            StarlarkEvalKind::LoadBuildFile(package) => Ok(ProfileTarget::Loading(package.dupe())),
-            StarlarkEvalKind::Bxl(_) => Ok(ProfileTarget::Bxl),
-            StarlarkEvalKind::BxlDynamic(_) => Ok(ProfileTarget::Bxl),
-            _ => Ok(ProfileTarget::Unknown),
-        }
-    }
 }
 
 impl std::fmt::Display for StarlarkEvalKind {

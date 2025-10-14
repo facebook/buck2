@@ -289,7 +289,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned()));
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
         let (_finished_eval, evaluation) = configs
@@ -427,7 +427,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::LoadPackageFile(path.dupe());
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
@@ -569,7 +569,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ctx = &mut *self.ctx;
 
             now = Some(Instant::now());
-            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+            let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 

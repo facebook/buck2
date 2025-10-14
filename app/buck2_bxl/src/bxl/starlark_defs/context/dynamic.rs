@@ -134,8 +134,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
             s.spawn_cancellable(
                 limited_executor.execute(async move {
                     let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned()));
-                    let eval_provider =
-                        StarlarkEvaluatorProvider::new(dice_ctx, &eval_kind).await?;
+                    let eval_provider = StarlarkEvaluatorProvider::new(dice_ctx, eval_kind).await?;
                     tokio::task::block_in_place(|| eval_ctx.do_eval(eval_provider, dice_ctx))
                 }),
                 || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
