@@ -70,7 +70,6 @@ PythonToolchainInfo = provider(
         "native_library_runtime_paths": provider_field(ArgLike, default = []),
         "native_library_env_var": provider_field(ArgLike | None, default = None),
         "make_py_package_live": provider_field(Dependency | None, default = None),
-        "lazy_imports_analyzer": provider_field(Dependency | None, default = None),
         "make_py_package_standalone": provider_field(ArgLike | None, default = None),
         "pex_extension": provider_field(str, default = ".par"),
         "type_checker": provider_field(RunInfo | None, default = None),
