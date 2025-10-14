@@ -24,7 +24,7 @@ load(
     "AppleAssetCatalogSpec",  # @unused Used as a type
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart")
+load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "AppleBundleSigningContextTreePart")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeExtensionKitExtension", "AppleBundleTypeWatchApp")
 load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_is_watch_bundle", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
@@ -64,6 +64,9 @@ AppleBundleResourcePartListOutput = record(
     # Parts which have an associated codesign manifest, it would contain
     # a _subset_ of the `resource_parts` parts.
     codesign_manifest_parts = field(list[AppleBundleCodesignManifestTreePart]),
+    # Parts which have an associated signing context, it would contain
+    # a _subset_ of the `resource_parts` parts.
+    signing_context_parts = field(list[AppleBundleSigningContextTreePart]),
 )
 
 def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleResourcePartListOutput:
@@ -136,7 +139,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         parts.append(scene_kit_assets_part)
 
     parts.extend(_copy_resources(ctx, resource_specs))
-    first_level_parts, first_level_codesign_manifest_parts = _copy_first_level_bundles(ctx)
+    first_level_parts, first_level_codesign_manifest_parts, first_level_signing_context_parts = _copy_first_level_bundles(ctx)
     parts.extend(first_level_parts)
     parts.extend(_copy_public_headers(ctx))
     parts.extend(_copy_module_map(ctx))
@@ -146,6 +149,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         resource_parts = parts,
         info_plist_part = info_plist_part,
         codesign_manifest_parts = first_level_codesign_manifest_parts,
+        signing_context_parts = first_level_signing_context_parts,
     )
 
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
@@ -328,11 +332,12 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> lis
 
     return result
 
-def _copy_first_level_bundles(ctx: AnalysisContext) -> (list[AppleBundlePart], list[AppleBundleCodesignManifestTreePart]):
+def _copy_first_level_bundles(ctx: AnalysisContext) -> (list[AppleBundlePart], list[AppleBundleCodesignManifestTreePart], list[AppleBundleSigningContextTreePart]):
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])
 
     bundle_parts = []
     codesign_manifest_parts = []
+    signing_context_parts = []
     for bundle_info in first_level_bundle_infos:
         first_level_part = _copied_bundle_spec(bundle_info)
         if first_level_part != None:
@@ -342,8 +347,13 @@ def _copy_first_level_bundles(ctx: AnalysisContext) -> (list[AppleBundlePart], l
                     bundle_part = first_level_part,
                     codesign_manifest_tree = bundle_info.codesign_manifest_tree,
                 ))
+            if bundle_info.signing_context_tree:
+                signing_context_parts.append(AppleBundleSigningContextTreePart(
+                    bundle_part = first_level_part,
+                    signing_context_tree = bundle_info.signing_context_tree,
+                ))
 
-    return bundle_parts, codesign_manifest_parts
+    return bundle_parts, codesign_manifest_parts, signing_context_parts
 
 def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]:
     bundle = bundle_info.bundle

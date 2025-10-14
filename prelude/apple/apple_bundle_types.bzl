@@ -77,6 +77,7 @@ AppleBundleInfo = provider(
         # List of extra paths (relative to bundle root) to be codesigned.
         "extra_codesign_paths": provider_field([list[str], None], default = None),
         "codesign_manifest_tree": provider_field(AppleBundleCodesignManifestTree | None, default = None),
+        "signing_context_tree": provider_field(AppleBundleSigningContextTree | None, default = None),
     },
 )
 
