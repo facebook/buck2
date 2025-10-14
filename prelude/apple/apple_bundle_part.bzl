@@ -372,8 +372,21 @@ def assemble_bundle(
         pretty = True,
     )
 
-    subtargets["signing-context-tree"] = [DefaultInfo(default_output = signing_context_tree_json_file, other_outputs = [signing_context_tree_json_cmd_args])]
-    subtargets["signing-context"] = [DefaultInfo(default_output = signing_context_output)]
+    postprocessed_signing_context_tree = ctx.actions.declare_output("postprocessed-signing-context-tree.json")
+    ctx.actions.run(
+        cmd_args(
+            [
+                tools.signing_context_tree_postprocessor,
+                "--signing-context-tree",
+                signing_context_tree_json_cmd_args,
+                "--output",
+                postprocessed_signing_context_tree.as_output(),
+            ],
+        ),
+        category = "signing_context_tree_postprocess",
+    )
+
+    subtargets["signing-context"] = [DefaultInfo(default_output = postprocessed_signing_context_tree)]
 
     return AppleBundleConstructionResult(
         sub_targets = subtargets,

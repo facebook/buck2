@@ -18,6 +18,7 @@ def apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
             adhoc_codesign_tool = ctx.attrs.adhoc_codesign_tool[RunInfo],
             codesign_manifest_tree_postprocessor = ctx.attrs.codesign_manifest_tree_postprocessor[RunInfo],
+            signing_context_tree_postprocessor = ctx.attrs.signing_context_tree_postprocessor[RunInfo],
             info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
             ipa_package_maker = ctx.attrs.ipa_package_maker[RunInfo],
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],
