@@ -247,7 +247,7 @@ impl UnixForkserverService {
                 _,
                 Some(miniperf),
                 ForkserverResourceControlRunner::CgroupPool(cgroup_pool),
-                Some(_),
+                _,
                 Some(cgroup_id),
             ) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
