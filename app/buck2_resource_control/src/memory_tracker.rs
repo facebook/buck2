@@ -72,6 +72,10 @@ pub struct MemoryReading {
     /// This is a sliding window average of the % where any action is under memory pressure
     /// over the last 10 seconds
     pub buck2_slice_memory_pressure: u64,
+    /// Contains value from `memory.current` file for daemon cgroup.
+    pub daemon_memory_current: u64,
+    /// Contains value from `memory.swap.current` file for daemon cgroup.
+    pub daemon_memory_swap_current: u64,
 }
 
 #[derive(Allocative)]
@@ -138,15 +142,22 @@ impl MemoryTrackerHandleInner {
 
 #[derive(Allocative)]
 pub struct MemoryTracker {
-    /// Open `memory.current` file in buck2.slice cgroup of our process
+    /// Open `memory.current` file for buck2.slice cgroup of our process
     #[allocative(skip)]
     buck2_slice_memory_current: File,
-    /// Open `memory.swap.current` file in buck2.slice cgroup of our process
+    /// Open `memory.swap.current` file for buck2.slice cgroup of our process
     #[allocative(skip)]
     buck2_slice_memory_swap_current: File,
-    /// Open `memory.pressure` file in buck2.slice cgroup of our process
+    /// Open `memory.pressure` file for buck2.slice cgroup of our process
     #[allocative(skip)]
     buck2_slice_memory_pressure: File,
+
+    /// Open `memory.current` file for daemon cgroup of our process
+    #[allocative(skip)]
+    daemon_memory_current: File,
+    /// Open `memory.swap.current` file for daemon cgroup of our process
+    #[allocative(skip)]
+    daemon_memory_swap_current: File,
 
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
@@ -162,9 +173,14 @@ enum MemoryTrackerError {
     ParentSliceExpected(String),
 }
 
+async fn open_daemon_memory_file(file_name: &str) -> buck2_error::Result<File> {
+    let path = CGroupInfo::read_async().await?.path + "/" + file_name;
+    File::open(&path)
+        .await
+        .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
+}
+
 async fn open_buck2_cgroup_memory_file(file_name: &str) -> buck2_error::Result<File> {
-    // This contains daemon cgroup scope path
-    // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
     let info = CGroupInfo::read_async().await?;
     // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
     // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
@@ -276,6 +292,8 @@ pub async fn create_memory_tracker(
             open_buck2_cgroup_memory_file("memory.current").await?,
             open_buck2_cgroup_memory_file("memory.swap.current").await?,
             open_buck2_cgroup_memory_file("memory.pressure").await?,
+            open_daemon_memory_file("memory.current").await?,
+            open_daemon_memory_file("memory.swap.current").await?,
             MAX_RETRIES,
             memory_limit_bytes,
             resource_control_config
@@ -296,6 +314,8 @@ impl MemoryTracker {
         buck2_slice_memory_current: File,
         buck2_slice_memory_swap_current: File,
         buck2_slice_memory_pressure: File,
+        daemon_memory_current: File,
+        daemon_memory_swap_current: File,
         max_retries: u32,
         memory_limit_bytes: Option<u64>,
         memory_pressure_threshold: u64,
@@ -305,6 +325,8 @@ impl MemoryTracker {
             buck2_slice_memory_current,
             buck2_slice_memory_swap_current,
             buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap_current,
             max_retries,
             memory_limit_bytes,
             memory_pressure_threshold,
@@ -344,6 +366,8 @@ impl MemoryTracker {
                 ref mut buck2_slice_memory_current,
                 ref mut buck2_slice_memory_swap_current,
                 ref mut buck2_slice_memory_pressure,
+                ref mut daemon_memory_current,
+                ref mut daemon_memory_swap_current,
                 ref handle,
                 memory_pressure_threshold,
                 ..
@@ -353,11 +377,15 @@ impl MemoryTracker {
                 read_memory_current(buck2_slice_memory_current),
                 read_memory_swap_current(buck2_slice_memory_swap_current),
                 read_some_memory_pressure_avg10(buck2_slice_memory_pressure),
+                read_memory_current(daemon_memory_current),
+                read_memory_swap_current(daemon_memory_swap_current),
             ) {
                 Ok((
                     buck2_slice_memory_current,
                     buck2_slice_memory_swap_current,
                     buck2_slice_avg_mem_pressure,
+                    daemon_memory_current,
+                    daemon_memory_swap_current,
                 )) => {
                     let memory_current_state =
                         if let Some(memory_limit_bytes) = self.memory_limit_bytes {
@@ -381,6 +409,8 @@ impl MemoryTracker {
                         buck2_slice_memory_current,
                         buck2_slice_memory_swap_current,
                         buck2_slice_memory_pressure: pressure_percent,
+                        daemon_memory_current,
+                        daemon_memory_swap_current,
                     };
 
                     if let Some(action_cgroups) = handle.action_cgroups.as_ref() {
@@ -517,23 +547,31 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
-        let memory_current = File::open(current.clone()).await?;
+        let buck2_slice_memory_current = File::open(current.clone()).await?;
         let swap = dir.path().join("current.swap");
         fs::write(&swap, "2").unwrap();
-        let memory_swap_current = File::open(swap.clone()).await?;
+        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
             "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
         )
         .unwrap();
-        let memory_pressure = File::open(pressure.clone()).await?;
+        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
+        let daemon_current = dir.path().join("daemon.memory");
+        fs::write(&daemon_current, "4").unwrap();
+        let daemon_memory_current = File::open(daemon_current.clone()).await?;
+        let daemon_memory_swap_current = dir.path().join("daemon.swap");
+        fs::write(&daemon_memory_swap_current, "1").unwrap();
+        let daemon_memory_swap = File::open(daemon_memory_swap_current.clone()).await?;
         let handle = MemoryTrackerHandleInner::new(None);
         let tracker = MemoryTracker::new(
             handle,
-            memory_current,
-            memory_swap_current,
-            memory_pressure,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap,
             0,
             Some(7),
             10,
@@ -562,8 +600,12 @@ mod tests {
         assert_eq!(reading.buck2_slice_memory_current, 6);
         assert_eq!(reading.buck2_slice_memory_swap_current, 2);
         assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 4);
+        assert_eq!(reading.daemon_memory_swap_current, 1);
         fs::write(&current, "9").unwrap();
         fs::write(&swap, "3").unwrap();
+        fs::write(&daemon_current, "7").unwrap();
+        fs::write(&daemon_memory_swap_current, "2").unwrap();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -578,6 +620,8 @@ mod tests {
         assert_eq!(reading.buck2_slice_memory_current, 9);
         assert_eq!(reading.buck2_slice_memory_swap_current, 3);
         assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 7);
+        assert_eq!(reading.daemon_memory_swap_current, 2);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
@@ -588,6 +632,8 @@ mod tests {
         assert_eq!(reading.buck2_slice_memory_current, 10);
         assert_eq!(reading.buck2_slice_memory_swap_current, 4);
         assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 7);
+        assert_eq!(reading.daemon_memory_swap_current, 2);
         // expect timeout error, no state change
         assert!(
             tokio::time::timeout(TIMEOUT_DURATION, state_rx.changed())
@@ -603,23 +649,34 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
-        let memory_current = File::open(current.clone()).await?;
+        let buck2_slice_memory_current = File::open(current.clone()).await?;
         let swap = dir.path().join("current.swap");
         fs::write(&swap, "1").unwrap();
-        let memory_swap_current = File::open(swap.clone()).await?;
+        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
             "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
         )
         .unwrap();
-        let memory_pressure = File::open(pressure.clone()).await?;
+        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
+
+        let daemon_memory = dir.path().join("daemon.memory");
+        fs::write(&daemon_memory, "3").unwrap();
+        let daemon_memory_current = File::open(daemon_memory.clone()).await?;
+
+        let daemon_swap = dir.path().join("daemon.swap");
+        fs::write(&daemon_swap, "4").unwrap();
+        let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
+
         let handle = MemoryTrackerHandleInner::new(None);
         let tracker = MemoryTracker::new(
             handle,
-            memory_current,
-            memory_swap_current,
-            memory_pressure,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap_current,
             0,
             Some(7),
             10,
@@ -647,6 +704,8 @@ mod tests {
         assert_eq!(reading.buck2_slice_memory_current, 6);
         assert_eq!(reading.buck2_slice_memory_swap_current, 1);
         assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 3);
+        assert_eq!(reading.daemon_memory_swap_current, 4);
         fs::write(
             &pressure,
             "some avg10=15.95 avg60=0.00 avg300=0.00 total=440000",
@@ -665,6 +724,8 @@ mod tests {
         assert_eq!(reading.buck2_slice_memory_current, 6);
         assert_eq!(reading.buck2_slice_memory_swap_current, 1);
         assert_eq!(reading.buck2_slice_memory_pressure, 16);
+        assert_eq!(reading.daemon_memory_current, 3);
+        assert_eq!(reading.daemon_memory_swap_current, 4);
 
         // change reading but not state
         fs::write(
@@ -677,6 +738,8 @@ mod tests {
         assert_eq!(reading.buck2_slice_memory_current, 6);
         assert_eq!(reading.buck2_slice_memory_swap_current, 1);
         assert_eq!(reading.buck2_slice_memory_pressure, 18);
+        assert_eq!(reading.daemon_memory_current, 3);
+        assert_eq!(reading.daemon_memory_swap_current, 4);
 
         Ok(())
     }
@@ -690,15 +753,23 @@ mod tests {
         fs::write(&swap, "xyz").unwrap();
         let pressure = dir.path().join("current.pressure");
         fs::write(&pressure, "idk").unwrap();
-        let memory_current = File::open(current.clone()).await?;
-        let memory_swap_current = File::open(swap.clone()).await?;
-        let memory_pressure = File::open(pressure.clone()).await?;
+        let daemon_current = dir.path().join("daemon.swap");
+        fs::write(&daemon_current, "aaa").unwrap();
+        let daemon_swap = dir.path().join("daemon.pressure");
+        fs::write(&daemon_swap, "idc").unwrap();
+        let buck2_slice_memory_current = File::open(current.clone()).await?;
+        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
+        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
+        let daemon_memory_current = File::open(daemon_current.clone()).await?;
+        let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
         let handle = MemoryTrackerHandleInner::new(None);
         let tracker = MemoryTracker::new(
             handle,
-            memory_current,
-            memory_swap_current,
-            memory_pressure,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap_current,
             3,
             Some(0),
             0,

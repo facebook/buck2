@@ -711,6 +711,8 @@ mod tests {
             buck2_slice_memory_current: 10000,
             buck2_slice_memory_swap_current: 0,
             buck2_slice_memory_pressure: 12,
+            daemon_memory_current: 8000,
+            daemon_memory_swap_current: 0,
         };
         action_cgroups
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
@@ -767,6 +769,8 @@ mod tests {
             buck2_slice_memory_current: 10000,
             buck2_slice_memory_swap_current: 0,
             buck2_slice_memory_pressure: 12,
+            daemon_memory_current: 8000,
+            daemon_memory_swap_current: 0,
         };
         action_cgroups
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
@@ -779,6 +783,8 @@ mod tests {
             buck2_slice_memory_current: 0,
             buck2_slice_memory_swap_current: 0,
             buck2_slice_memory_pressure: 0,
+            daemon_memory_current: 0,
+            daemon_memory_swap_current: 0,
         };
         action_cgroups
             .update(MemoryPressureState::BelowPressureLimit, &memory_reading_2)
