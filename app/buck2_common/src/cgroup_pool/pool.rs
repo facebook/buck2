@@ -115,8 +115,22 @@ impl CgroupPool {
         let process_cgroup = Cgroup::new(root_cgroup_path, FileName::unchecked_new("process"))?;
         root_cgroup.move_process_to(&process_cgroup)?;
         root_cgroup.config_subtree_control()?;
+        Self::create_in_parent_cgroup(
+            &root_cgroup_path,
+            capacity,
+            per_cgroup_memory_high,
+            pool_memory_high,
+        )
+    }
 
-        let pool_cgroup = Cgroup::new(root_cgroup_path, CgroupPool::POOL_NAME)?;
+    /// Create a cgroup pool in the provided parent cgroup.
+    pub fn create_in_parent_cgroup(
+        parent: &CgroupPath,
+        capacity: usize,
+        per_cgroup_memory_high: Option<&str>,
+        pool_memory_high: Option<&str>,
+    ) -> buck2_error::Result<Self> {
+        let pool_cgroup = Cgroup::new(parent, CgroupPool::POOL_NAME)?;
         pool_cgroup.config_subtree_control()?;
 
         if let Some(pool_memory_high) = pool_memory_high {
