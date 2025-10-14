@@ -11,6 +11,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::fmt;
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -21,11 +22,36 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 
-use crate::cgroup_pool::cgroup::Cgroup;
-use crate::cgroup_pool::cgroup::CgroupError;
-use crate::cgroup_pool::cgroup::CgroupID;
+use crate::cgroup::Cgroup;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
+pub enum CgroupPoolError {
+    #[error("{msg} IO error: {io_err}")]
+    Io { msg: String, io_err: std::io::Error },
+    #[error("Failed to find cgroup with id {id} in cgroup pool")]
+    CgroupIDNotFound { id: CgroupID },
+    #[error("Process cgroup is not an absolute path: {path}")]
+    ProcessCgroupNotAbsolutePath { path: String },
+}
+
+/// A unique identifier for a cgroup
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]
+pub struct CgroupID(usize);
+
+impl CgroupID {
+    fn new(id: usize) -> Self {
+        Self(id)
+    }
+}
+
+impl fmt::Display for CgroupID {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "CgroupID {}", self.0)
+    }
+}
 
 struct PoolState {
     pool_cgroup: Cgroup,
@@ -57,7 +83,7 @@ impl PoolState {
         CgroupID::new(id)
     }
 
-    fn reserve_additional_cgroup(&mut self) -> Result<CgroupID, CgroupError> {
+    fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
         let cgroup_id = self.allocate_id();
         let worker_name = Self::worker_name(cgroup_id);
         let cgroup = Cgroup::new(self.pool_cgroup.path(), &worker_name)?;
@@ -87,13 +113,13 @@ impl CgroupPool {
         per_cgroup_memory_high: Option<&str>,
         pool_memory_high: Option<&str>,
     ) -> buck2_error::Result<Self> {
-        let cgroup_info = CGroupInfo::read().map_err(|e| CgroupError::Io {
+        let cgroup_info = CGroupInfo::read().map_err(|e| CgroupPoolError::Io {
             msg: "Failed to read cgroup info".to_owned(),
             io_err: std::io::Error::other(format!("{e:#}")),
         })?;
 
         let root_cgroup_path = AbsNormPath::new(&cgroup_info.path).map_err(|_| {
-            CgroupError::ProcessCgroupNotAbsolutePath {
+            CgroupPoolError::ProcessCgroupNotAbsolutePath {
                 path: cgroup_info.path.clone(),
             }
         })?;
@@ -166,7 +192,7 @@ impl CgroupPool {
         let cgroup = state
             .cgroups
             .get_mut(&cgroup_id)
-            .ok_or(CgroupError::CgroupIDNotFound { id: cgroup_id })?;
+            .ok_or(CgroupPoolError::CgroupIDNotFound { id: cgroup_id })?;
 
         cgroup.setup_command(command)?;
         Ok(cgroup.path().to_buf())

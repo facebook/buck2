@@ -8,9 +8,7 @@
  * above-listed licenses.
  */
 
-use std::fmt;
 use std::fs;
-use std::hash::Hash;
 use std::io::Write;
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
@@ -21,7 +19,6 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use buck2_core::fs::paths::file_name::FileName;
-use dupe::Dupe;
 use nix::dir::Dir;
 use nix::fcntl::OFlag;
 use nix::fcntl::openat;
@@ -31,25 +28,9 @@ use nix::unistd;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
-/// A unique identifier for a cgroup
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]
-pub struct CgroupID(pub(super) usize);
-
-impl CgroupID {
-    pub(super) fn new(id: usize) -> Self {
-        Self(id)
-    }
-}
-
-impl fmt::Display for CgroupID {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "CgroupID {}", self.0)
-    }
-}
-
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Environment)]
-pub(super) enum CgroupError {
+enum CgroupError {
     #[error("{msg} IO error: {io_err}")]
     Io { msg: String, io_err: std::io::Error },
     #[error("Failed to create cgroup: {cgroup_path}, because of error {io_err}")]
@@ -69,22 +50,18 @@ pub(super) enum CgroupError {
         bytes_written: usize,
         expected_bytes: usize,
     },
-    #[error("Failed to find cgroup with id {id} in cgroup pool")]
-    CgroupIDNotFound { id: CgroupID },
     #[error("Integer conversion failed: {err}")]
     IntegerConversion { err: std::num::TryFromIntError },
-    #[error("Process cgroup is not an absolute path: {path}")]
-    ProcessCgroupNotAbsolutePath { path: String },
 }
 
-pub(super) struct Cgroup {
+pub struct Cgroup {
     /// FD for cgroup.procs
     procs_fd: OwnedFd,
     path: CgroupPathBuf,
 }
 
 impl Cgroup {
-    pub(super) fn new(root_path: &CgroupPath, name: &FileName) -> Result<Self, CgroupError> {
+    pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
         let path = root_path.join(name.into());
         fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
             cgroup_path: path.to_string_lossy().to_string(),
@@ -94,7 +71,7 @@ impl Cgroup {
         Self::try_from_path(path)
     }
 
-    pub(super) fn try_from_path(path: CgroupPathBuf) -> Result<Self, CgroupError> {
+    pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
         let dir: Dir = nix::dir::Dir::open(path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
             .map_err(|e| CgroupError::Io {
                 msg: format!("Failed to open cgroup directory: {path:?}"),
@@ -117,7 +94,7 @@ impl Cgroup {
         Ok(cgroup)
     }
 
-    pub(super) fn path(&self) -> &CgroupPath {
+    pub fn path(&self) -> &CgroupPath {
         &self.path
     }
 
@@ -146,10 +123,10 @@ impl Cgroup {
     /// a "Device or resource busy" error.
     ///
     /// For more info, see:
-    /// https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#no-internal-processes
+    /// <https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#no-internal-processes>
     ///
     /// Maybe need two types of cgroup to distinguish.
-    pub(super) fn config_subtree_control(&self) -> Result<(), CgroupError> {
+    pub fn config_subtree_control(&self) -> buck2_error::Result<()> {
         // We only need to configure this once, so no need to hold the fd.
         let sub_tree_control_file_path = self.subtree_control_path();
 
@@ -175,7 +152,7 @@ impl Cgroup {
     /// Child process: pre_exec() closure runs (cgroup migration)
     ///                  ↓
     /// Child process: exec() run the command
-    pub fn setup_command(&self, command: &mut Command) -> Result<(), CgroupError> {
+    pub fn setup_command(&self, command: &mut Command) -> buck2_error::Result<()> {
         let procs_fd_raw = self.procs_fd.as_raw_fd();
 
         // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
@@ -215,7 +192,7 @@ impl Cgroup {
         Ok(())
     }
 
-    pub(super) fn move_process_to(&self, cgroup: &Cgroup) -> Result<(), CgroupError> {
+    pub fn move_process_to(&self, cgroup: &Cgroup) -> buck2_error::Result<()> {
         // Read process IDs from current cgroup's procs_fd
         let content = read_file(&self.procs_fd)?;
         if content.is_empty() {
@@ -241,7 +218,8 @@ impl Cgroup {
                     return Err(CgroupError::IncompleteProcsWrite {
                         bytes_written,
                         expected_bytes: pid.len(),
-                    });
+                    }
+                    .into());
                 }
             }
         }
@@ -250,7 +228,7 @@ impl Cgroup {
     }
 
     /// Set the memory.high limit for this cgroup
-    pub(super) fn set_memory_high(&self, memory_high: &str) -> Result<(), CgroupError> {
+    pub fn set_memory_high(&self, memory_high: &str) -> buck2_error::Result<()> {
         let memory_high_file_path = self.memory_high_path();
         fs::write(&memory_high_file_path, memory_high).map_err(|e| {
             CgroupError::ConfigurationFailed {

@@ -10,10 +10,13 @@
 
 #[cfg(unix)]
 pub mod action_cgroups;
-pub mod cgroup_pool;
+#[cfg(unix)]
+pub mod cgroup;
 #[cfg(unix)]
 pub mod memory_tracker;
 pub mod path;
+#[cfg(unix)]
+pub mod pool;
 
 #[cfg(not(unix))]
 pub mod memory_tracker {
