@@ -49,7 +49,7 @@ impl fmt::Display for CgroupID {
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Environment)]
-pub enum CgroupError {
+pub(super) enum CgroupError {
     #[error("{msg} IO error: {io_err}")]
     Io { msg: String, io_err: std::io::Error },
     #[error("Failed to create cgroup: {cgroup_path}, because of error {io_err}")]
@@ -62,8 +62,6 @@ pub enum CgroupError {
         path: String,
         io_err: std::io::Error,
     },
-    #[error("Cgroup v2 is not available.")]
-    CgroupV2NotAvailable,
     #[error(
         "Incomplete write to cgroup.procs: wrote {bytes_written} bytes, expected {expected_bytes}"
     )]

@@ -85,7 +85,7 @@ impl CgroupPool {
         capacity: usize,
         per_cgroup_memory_high: Option<&str>,
         pool_memory_high: Option<&str>,
-    ) -> Result<Self, CgroupError> {
+    ) -> buck2_error::Result<Self> {
         let cgroup_info = CGroupInfo::read().map_err(|e| CgroupError::Io {
             msg: "Failed to read cgroup info".to_owned(),
             io_err: std::io::Error::other(format!("{e:#}")),
@@ -146,7 +146,7 @@ impl CgroupPool {
         &self,
         cgroup_id: CgroupID,
         command: &mut Command,
-    ) -> Result<CgroupPathBuf, CgroupError> {
+    ) -> buck2_error::Result<CgroupPathBuf> {
         let mut state = self.state.lock().expect("Mutex poisoned");
         let cgroup = state
             .cgroups
@@ -159,7 +159,7 @@ impl CgroupPool {
 
     /// Acquire a worker cgroup from the pool. If no available worker cgroup, create a new one.
     /// Return a CgroupGuard which will release the cgroup back to the pool when dropped.
-    pub fn acquire(&self) -> Result<CgroupID, CgroupError> {
+    pub fn acquire(&self) -> buck2_error::Result<CgroupID> {
         let mut state = self.state.lock().expect("Mutex poisoned");
 
         let cgroup_id = if let Some(cgroup_id) = state.available.pop_front() {

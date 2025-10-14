@@ -14,8 +14,6 @@ pub mod path;
 #[cfg(unix)]
 mod pool;
 #[cfg(unix)]
-pub use cgroup::CgroupError;
-#[cfg(unix)]
 pub use cgroup::CgroupID;
 #[cfg(unix)]
 pub use pool::CgroupPool;
