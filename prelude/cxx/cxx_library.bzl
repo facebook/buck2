@@ -2011,7 +2011,12 @@ def _shared_library(
             )
         elif mode == ShlibInterfacesMode("stub_from_object_files"):
             if cxx_can_generate_shlib_interface_from_linkables(ctx):
-                is_extension_safe = "-fapplication-extension" in ctx.attrs.linker_flags
+                is_extension_safe = False
+                for flag in ctx.attrs.linker_flags:
+                    flag = str(flag)
+                    if "-fapplication-extension" in flag:
+                        is_extension_safe = True
+                        break
                 exported_shlib = shared_library_interface_from_linkables(
                     ctx = ctx,
                     link_args = links,
