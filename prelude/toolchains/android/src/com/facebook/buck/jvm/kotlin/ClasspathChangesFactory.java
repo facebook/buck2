@@ -23,7 +23,7 @@ public class ClasspathChangesFactory {
   private ClasspathChangesFactory() {}
 
   public static ClasspathChanges create(
-      JarsActionMetadata actionMetadata, ImmutableList<AbsPath> classpathSnapshots) {
+      SnapshotsActionMetadata actionMetadata, ImmutableList<AbsPath> classpathSnapshots) {
     if (actionMetadata.hasClasspathChanged()) {
       LOG.info("Classpath changes: Detected changes on the classpath");
       return new ClasspathChanges.ToBeComputedByIncrementalCompiler(

@@ -18,31 +18,31 @@ import kotlin.collections.Map
 import kotlin.collections.component1
 import kotlin.collections.component2
 
-class JarsActionMetadata(actionMetaData: ActionMetadata) {
+class SnapshotsActionMetadata(actionMetaData: ActionMetadata) {
 
-  val previousJarsDigest: Map<Path, String> =
+  val previousSnapshotsDigest: Map<Path, String> =
       actionMetaData.previousDigest.filter { (path, _) ->
         val relPath = RelPath.of(path)
-        JAR_PATH_MATCHER.matches(relPath)
+        SNAPSHOT_PATH_MATCHER.matches(relPath)
       }
 
-  val currentJarsDigest: Map<Path, String> =
+  val currentSnapshotsDigest: Map<Path, String> =
       actionMetaData.currentDigest.filter { (path, _) ->
         val relPath = RelPath.of(path)
-        JAR_PATH_MATCHER.matches(relPath)
+        SNAPSHOT_PATH_MATCHER.matches(relPath)
       }
 
   fun hasClasspathChanged(): Boolean {
-    if (currentJarsDigest.size != previousJarsDigest.size) {
+    if (currentSnapshotsDigest.size != previousSnapshotsDigest.size) {
       return true
     }
 
-    return currentJarsDigest.any { (path, digest) ->
-      !previousJarsDigest.contains(path) || digest != previousJarsDigest.getValue(path)
+    return currentSnapshotsDigest.any { (path, digest) ->
+      !previousSnapshotsDigest.contains(path) || digest != previousSnapshotsDigest.getValue(path)
     }
   }
 
   companion object {
-    private val JAR_PATH_MATCHER = FileExtensionMatcher.of("jar")
+    private val SNAPSHOT_PATH_MATCHER = FileExtensionMatcher.of("bin")
   }
 }

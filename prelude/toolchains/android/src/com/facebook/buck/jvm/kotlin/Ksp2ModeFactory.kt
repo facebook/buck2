@@ -47,8 +47,8 @@ fun Ksp2Mode(
             IllegalStateException("incremental_state_dir/ksp2_caches_dir is not created")
           }
       val sourceFilesMetadata = SourceFilesActionMetadata(requireNotNull(actionMetadata))
-      val jarsMetadata = JarsActionMetadata(requireNotNull(actionMetadata))
-      val hasClasspathChanged = jarsMetadata.hasClasspathChanged()
+      val snapshotsActionMetadata = SnapshotsActionMetadata(requireNotNull(actionMetadata))
+      val hasClasspathChanged = snapshotsActionMetadata.hasClasspathChanged()
 
       if (hasClasspathChanged) {
         // TODO(ijurcikova) implement support for classpath changes and move the logic into Ksp2Step
