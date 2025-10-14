@@ -97,7 +97,9 @@ impl RemoteExecutorDependency {
         fn username() -> Option<String> {
             #[cfg(fbcode_build)]
             {
-                user::current_username().ok()
+                user::current_username()
+                    .ok()
+                    .filter(|u| user::is_human_unixname(u))
             }
             #[cfg(not(fbcode_build))]
             {
@@ -118,7 +120,7 @@ impl RemoteExecutorDependency {
             if let Some(username) = username {
                 id.replace("$(username)", &username)
             } else {
-                id.to_string()
+                id.replace("$(username)", "")
             }
         } else {
             id.to_string()
