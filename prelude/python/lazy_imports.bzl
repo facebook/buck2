@@ -24,15 +24,6 @@ def run_lazy_imports_analyzer(
     }
     """
 
-    # Get the lazy imports analyzer (lifeguard) from the toolchain
-    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    lazy_imports_analyzer = python_toolchain.lazy_imports_analyzer
-    if lazy_imports_analyzer == None:
-        # If no lazy imports tool is configured, write an empty dict to the
-        # output file
-        ctx.actions.write_json(output, {})
-        return DefaultInfo(default_output = output)
-
     # Create a converter script to transform dbg-db.json to the format expected
     # by lifeguard
     # TODO(T239924112): Remove the need for a converter script
@@ -66,6 +57,7 @@ with open(sys.argv[2], 'w') as f:
 
     # Convert dbg-db.json to the format expected by lifeguard
     converted_db = ctx.actions.declare_output("converted-db.json")
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     convert_cmd = cmd_args([
         python_toolchain.interpreter,
         converter_script,
@@ -79,8 +71,8 @@ with open(sys.argv[2], 'w') as f:
         error_handler = python_toolchain.python_error_handler,
     )
 
-    # Run the lazy imports analyzer with the converted data
-    cmd = cmd_args(lazy_imports_analyzer[RunInfo], hidden = resources)
+    # Run the lazy imports analyzer (lifeguard) with the converted data
+    cmd = cmd_args(ctx.attrs.lazy_imports_analyzer[RunInfo], hidden = resources)
     cmd.add(converted_db)  # First arg: <MERGED_DB_PATH>
     cmd.add(output.as_output())  # Second arg: <OUTPUT_PATH>
 
