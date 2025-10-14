@@ -56,8 +56,7 @@ Navigate to the `buck2_lab` folder we created in the
 2. Create the folders needed for your library
 
 ```bash
-mkdir greeter_lib
-mkdir greeter_lib/src
+mkdir -p greeter_lib/src
 ```
 
 Your project should be like this
