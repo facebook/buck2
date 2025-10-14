@@ -602,6 +602,9 @@ fn emit_resource_control_event(
         memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
         memory_pressure: memory_reading.buck2_slice_memory_pressure,
 
+        daemon_memory_current: memory_reading.daemon_memory_current,
+        daemon_swap_current: memory_reading.daemon_memory_swap_current,
+
         cgroup_memory_current: cgroup.memory_current,
         cgroup_memory_peak: cgroup.memory_peak,
 

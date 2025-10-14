@@ -738,10 +738,14 @@ message ResourceControlEvents {
   // Information related to what's frozen
   string action_digest = 5;
 
-  // Memory
+  // Memory information regarding buck2.slice cgroup
   uint64 memory_current = 6;
   uint64 memory_pressure = 7;
   uint64 memory_swap_current = 12;
+
+  // Memory information regarding the buck2 daemon cgroup
+  uint64 daemon_memory_current = 17;
+  uint64 daemon_swap_current = 18;
 
   // Information related to the cgroup that's frozen
   uint64 cgroup_memory_current = 8;
