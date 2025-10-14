@@ -19,8 +19,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 use tracing::info;
 
-#[cfg(unix)]
-use crate::cgroup_pool::pool::CgroupPool;
 use crate::init::ResourceControlConfig;
 use crate::init::ResourceControlStatus;
 
@@ -67,16 +65,6 @@ pub enum ParentSlice {
 pub enum CgroupDelegation {
     Enabled,
     Disabled,
-}
-
-#[derive(PartialEq, Clone)]
-pub enum ActionCgroupPoolConfig {
-    Disabled,
-    Enabled {
-        pool_memory_high: Option<String>,
-        /// Size of cgroup pool for action processes
-        pool_size: Option<u64>,
-    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -200,8 +188,6 @@ pub enum ResourceControlRunnerConfigVariant {
         memory_max_per_action: Option<String>,
         /// The memory limit before tasks start to be throttled for each action processes
         memory_high_per_action: Option<String>,
-        /// Cgroup pool configuration for action processes
-        action_cgroup_pool_config: ActionCgroupPoolConfig,
     },
     /// Configuration for forkserver
     Forkserver,
@@ -233,19 +219,6 @@ impl ResourceControlRunnerConfigVariant {
             ResourceControlRunnerConfigVariant::Forkserver => None,
         }
     }
-
-    pub fn action_cgroup_pool_config(&self) -> &ActionCgroupPoolConfig {
-        match self {
-            ResourceControlRunnerConfigVariant::BuckDaemon { .. } => {
-                &ActionCgroupPoolConfig::Disabled
-            }
-            ResourceControlRunnerConfigVariant::ActionRunner {
-                action_cgroup_pool_config,
-                ..
-            } => action_cgroup_pool_config,
-            ResourceControlRunnerConfigVariant::Forkserver => &ActionCgroupPoolConfig::Disabled,
-        }
-    }
 }
 
 impl ResourceControlRunnerConfig {
@@ -269,14 +242,6 @@ impl ResourceControlRunnerConfig {
             config: ResourceControlRunnerConfigVariant::ActionRunner {
                 memory_max_per_action: config.memory_max_per_action.clone(),
                 memory_high_per_action: config.memory_high_per_action.clone(),
-                action_cgroup_pool_config: if config.enable_action_cgroup_pool.unwrap_or(false) {
-                    ActionCgroupPoolConfig::Enabled {
-                        pool_memory_high: config.memory_high_action_cgroup_pool.clone(),
-                        pool_size: config.cgroup_pool_size,
-                    }
-                } else {
-                    ActionCgroupPoolConfig::Disabled
-                },
             },
         }
     }
@@ -295,8 +260,6 @@ pub struct ResourceControlRunner {
     fixed_systemd_args: Vec<String>,
     memory_limit: Option<String>,
     memory_high: Option<String>,
-    #[cfg(unix)]
-    cgroup_pool: Option<CgroupPool>,
 }
 
 impl ResourceControlRunner {
@@ -319,7 +282,6 @@ impl ResourceControlRunner {
             ResourceControlRunnerConfigVariant::ActionRunner {
                 memory_max_per_action,
                 memory_high_per_action,
-                action_cgroup_pool_config: _,
             } => {
                 if let Some(memory_max) = &memory_max_per_action {
                     args.push(format!("--property=MemoryMax={memory_max}"));
@@ -359,29 +321,6 @@ impl ResourceControlRunner {
             fixed_systemd_args: args,
             memory_limit: config_variant.memory_max().map(|x| x.to_owned()),
             memory_high: config_variant.memory_high().map(|x| x.to_owned()),
-
-            #[cfg(unix)]
-            cgroup_pool: match config_variant.action_cgroup_pool_config() {
-                ActionCgroupPoolConfig::Enabled {
-                    pool_memory_high,
-                    pool_size,
-                } => {
-                    // Use num_cpus to set the capacity of the cgroup pool.
-                    use buck2_error::BuckErrorContext;
-                    // if cgroup pool size is not set, use the number of available cpus
-                    let capacity = pool_size
-                        .map(|x| x as usize)
-                        .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-                    let cgroup_pool = CgroupPool::new(
-                        capacity,
-                        config_variant.memory_high(),
-                        pool_memory_high.as_deref(),
-                    )
-                    .buck_error_context("Failed to create cgroup pool")?;
-                    Some(cgroup_pool)
-                }
-                ActionCgroupPoolConfig::Disabled => None,
-            },
         })
     }
 
@@ -540,11 +479,6 @@ impl ResourceControlRunner {
         cmd.arg("stop").arg("--user").arg(scope);
         cmd.spawn()?.wait().await?;
         Ok(())
-    }
-
-    #[cfg(unix)]
-    pub fn cgroup_pool(&self) -> Option<&CgroupPool> {
-        self.cgroup_pool.as_ref()
     }
 }
 

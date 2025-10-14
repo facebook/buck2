@@ -19,6 +19,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_common::cgroup_pool::cgroup::CgroupID;
+use buck2_common::cgroup_pool::pool::CgroupPool;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::ParentSlice;
@@ -53,7 +54,6 @@ use buck2_grpc::to_tonic;
 use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use futures::future::FutureExt;
 use futures::future::select;
 use futures::stream::Stream;
@@ -123,6 +123,12 @@ impl ValidatedCommand {
     }
 }
 
+pub(crate) enum ForkserverResourceControlRunner {
+    Systemd(ResourceControlRunner),
+    CgroupPool(CgroupPool),
+    None,
+}
+
 pub(crate) struct UnixForkserverService {
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
 
@@ -130,7 +136,7 @@ pub(crate) struct UnixForkserverService {
     miniperf: Option<MiniperfContainer>,
 
     /// Systemd runner for resource control
-    resource_control_runner: Option<ResourceControlRunner>,
+    resource_control_runner: ForkserverResourceControlRunner,
 
     /// Whether this forkserver is running in a cgroup
     has_cgroup: bool,
@@ -144,14 +150,33 @@ impl UnixForkserverService {
         has_cgroup: bool,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let resource_control_runner = ResourceControlRunner::create_if_enabled(
-            &ResourceControlRunnerConfig::action_runner_config(
-                &resource_control,
-                // we want to create forkserver in the same hierarchy where buck-daemon scope
-                // for this we inherit slice
-                ParentSlice::Inherit("forkserver".to_owned()),
-            ),
-        )?;
+        let resource_control_runner =
+            if ResourceControlRunner::is_enabled(&resource_control.status)? {
+                if resource_control.enable_action_cgroup_pool == Some(true) {
+                    let capacity = resource_control
+                        .cgroup_pool_size
+                        .map(|x| x as usize)
+                        .unwrap_or(buck2_util::threads::available_parallelism_fresh());
+                    let cgroup_pool = CgroupPool::new(
+                        capacity,
+                        resource_control.memory_high_per_action.as_deref(),
+                        resource_control.memory_high_action_cgroup_pool.as_deref(),
+                    )
+                    .buck_error_context("Failed to create cgroup pool")?;
+                    ForkserverResourceControlRunner::CgroupPool(cgroup_pool)
+                } else {
+                    ForkserverResourceControlRunner::Systemd(ResourceControlRunner::create(
+                        &ResourceControlRunnerConfig::action_runner_config(
+                            &resource_control,
+                            // we want to create forkserver in the same hierarchy where buck-daemon scope
+                            // for this we inherit slice
+                            ParentSlice::Inherit("forkserver".to_owned()),
+                        ),
+                    )?)
+                }
+            } else {
+                ForkserverResourceControlRunner::None
+            };
         Ok(Self {
             log_reload_handle,
             miniperf,
@@ -211,17 +236,21 @@ impl UnixForkserverService {
             cgroup_id,
         ) {
             // Wraps the user command with miniperf for performance monitoring
-            (true, Some(miniperf), None, _, _) => {
+            (true, Some(miniperf), ForkserverResourceControlRunner::None, _, _) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
                 (cmd, Some(output_path), None, false)
             }
-            (_, Some(miniperf), Some(resource_control_runner), Some(_), Some(cgroup_id)) => {
+            (
+                _,
+                Some(miniperf),
+                ForkserverResourceControlRunner::CgroupPool(cgroup_pool),
+                Some(_),
+                Some(cgroup_id),
+            ) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
-                // safe to unwarp, because we have cgroup_id which means we have cgroup pool
-                let cgroup_pool = resource_control_runner.cgroup_pool().unwrap();
                 let cgroup_path = cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
@@ -230,7 +259,13 @@ impl UnixForkserverService {
             }
             // Uses systemd-run + miniperf for resource control + monitoring
             // systemd-run --scope --unit=<cgroup_command_id> miniperf <output_path> <user_executable>
-            (_, Some(miniperf), Some(resource_control_runner), Some(cgroup_command_id), None) => {
+            (
+                _,
+                Some(miniperf),
+                ForkserverResourceControlRunner::Systemd(resource_control_runner),
+                Some(cgroup_command_id),
+                None,
+            ) => {
                 let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
                 let mut cmd = resource_control_runner.cgroup_scoped_command(
                     miniperf.miniperf.as_path(),
@@ -338,23 +373,19 @@ impl Forkserver for UnixForkserverService {
         &self,
         req: Request<Streaming<RequestEvent>>,
     ) -> Result<Response<Self::RunStream>, Status> {
-        let cgroup_pool = self
-            .resource_control_runner
-            .as_ref()
-            .and_then(|r| r.cgroup_pool().duped());
-
-        let cgroup_id = if let Some(cgroup_pool) = &cgroup_pool {
-            Some(cgroup_pool.acquire().map_err(|e| {
+        let id_and_pool = if let ForkserverResourceControlRunner::CgroupPool(cgroup_pool) =
+            &self.resource_control_runner
+        {
+            let id = cgroup_pool.acquire().map_err(|e| {
                 Status::failed_precondition(format!(
                     "Cannot acquire cgroup from cgroup pool: {}",
                     e
                 ))
-            })?)
+            })?;
+            Some((cgroup_pool.dupe(), id))
         } else {
             None
         };
-
-        let cgroup_id_dup = cgroup_id.dupe();
 
         to_tonic(async move {
             let mut stream = req.into_inner();
@@ -374,7 +405,7 @@ impl Forkserver for UnixForkserverService {
             };
 
             let (mut cmd, miniperf_output) =
-                self.setup_process_command(&validated_cmd, cgroup_id_dup)?;
+                self.setup_process_command(&validated_cmd, id_and_pool.as_ref().map(|x| x.1))?;
             let process_group = cmd.spawn().map_err(buck2_error::Error::from);
 
             let timeout = timeout_into_cancellation(validated_cmd.timeout);
@@ -382,12 +413,10 @@ impl Forkserver for UnixForkserverService {
 
             let stream_stdio = validated_cmd.std_redirects.is_none();
 
-            let on_exit = cgroup_id.map(|cgroup_id| {
+            let on_exit = id_and_pool.map(|(pool, cgroup_id)| {
                 Box::new(move || {
                     // realse cgroup on exit
-                    cgroup_pool
-                        .expect("Cgroup Pool should be present when we have cgroup id")
-                        .release(cgroup_id);
+                    pool.release(cgroup_id);
                 }) as Box<dyn FnOnce() + Send>
             });
 
