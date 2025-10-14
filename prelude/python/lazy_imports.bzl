@@ -10,6 +10,7 @@ load(":toolchain.bzl", "PythonToolchainInfo")
 
 def run_lazy_imports_analyzer(
         ctx: AnalysisContext,
+        resources,
         output: Artifact,
         dbg_source_db_output: Artifact) -> DefaultInfo:
     """
@@ -79,7 +80,7 @@ with open(sys.argv[2], 'w') as f:
     )
 
     # Run the lazy imports analyzer with the converted data
-    cmd = cmd_args(lazy_imports_analyzer[RunInfo])
+    cmd = cmd_args(lazy_imports_analyzer[RunInfo], hidden = resources)
     cmd.add(converted_db)  # First arg: <MERGED_DB_PATH>
     cmd.add(output.as_output())  # Second arg: <OUTPUT_PATH>
 
@@ -87,6 +88,10 @@ with open(sys.argv[2], 'w') as f:
         cmd,
         category = "py_lazy_import_analysis",
         error_handler = python_toolchain.python_error_handler,
+        # Without the prefer_local attribute set, we were seeing issues with
+        # remote execution hosts not having fbsource checkouts available. This
+        # was causing lifeguard to fail its static analysis
+        prefer_local = True,
     )
 
     return DefaultInfo(default_output = output)
