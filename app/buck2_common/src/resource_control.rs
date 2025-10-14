@@ -300,11 +300,10 @@ pub struct ResourceControlRunner {
 }
 
 impl ResourceControlRunner {
-    fn create(
-        config_variant: &ResourceControlRunnerConfigVariant,
-        parent_slice: &ParentSlice,
-        delegation: CgroupDelegation,
-    ) -> buck2_error::Result<Self> {
+    pub fn create(config: &ResourceControlRunnerConfig) -> buck2_error::Result<Self> {
+        let config_variant = &config.config;
+        let parent_slice = &config.parent_slice;
+        let delegation = config.delegation;
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -404,27 +403,31 @@ impl ResourceControlRunner {
         }
     }
 
-    pub fn create_if_enabled(
-        config: &ResourceControlRunnerConfig,
-    ) -> buck2_error::Result<Option<Self>> {
-        let decision = Self::creation_decision(&config.status);
+    pub fn is_enabled(config: &ResourceControlStatus) -> buck2_error::Result<bool> {
+        let decision = Self::creation_decision(config);
         match decision {
-            SystemdCreationDecision::SkipNotNeeded => Ok(None),
+            SystemdCreationDecision::SkipNotNeeded => Ok(false),
             SystemdCreationDecision::SkipPreferredButNotRequired { e } => {
                 tracing::warn!(
                     "Systemd is not available on this system. Continuing without resource control: {:#}",
                     e
                 );
-                Ok(None)
+                Ok(false)
             }
             SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
-            SystemdCreationDecision::Create => Ok(Some(Self::create(
-                &config.config,
-                &config.parent_slice,
-                config.delegation,
-            )?)),
+            SystemdCreationDecision::Create => Ok(true),
+        }
+    }
+
+    pub fn create_if_enabled(
+        config: &ResourceControlRunnerConfig,
+    ) -> buck2_error::Result<Option<Self>> {
+        if Self::is_enabled(&config.status)? {
+            Ok(Some(Self::create(&config)?))
+        } else {
+            Ok(None)
         }
     }
 
