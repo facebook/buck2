@@ -23,10 +23,9 @@ pub(crate) async fn trace_io_command(
     context: &ServerCommandContext<'_>,
     req: buck2_cli_proto::TraceIoRequest,
 ) -> buck2_error::Result<buck2_cli_proto::TraceIoResponse> {
-    let start_event = buck2_data::CommandStart {
-        metadata: context.request_metadata().await?,
-        data: Some(buck2_data::TraceIoCommandStart {}.into()),
-    };
+    let start_event = context
+        .command_start_event(buck2_data::TraceIoCommandStart {}.into())
+        .await?;
     span_async(start_event, async move {
         let tracing_provider = TracingIoProvider::from_io(&*context.base_context.daemon.io);
         let respond_with_trace = matches!(

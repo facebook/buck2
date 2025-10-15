@@ -32,11 +32,9 @@ impl AuditServerCommand for AuditServerCommandImpl {
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> buck2_error::Result<buck2_cli_proto::GenericResponse> {
-        let start_event = buck2_data::CommandStart {
-            metadata: ctx.request_metadata().await?,
-            data: Some(buck2_data::AuditCommandStart {}.into()),
-        };
-
+        let start_event = ctx
+            .command_start_event(buck2_data::AuditCommandStart {}.into())
+            .await?;
         span_async(
             start_event,
             server_audit_command_inner(ctx, partial_result_dispatcher, req),

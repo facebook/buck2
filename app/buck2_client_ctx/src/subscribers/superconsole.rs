@@ -1124,8 +1124,8 @@ mod tests {
                 buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                     data: Some(
                         buck2_data::CommandStart {
-                            metadata: Default::default(),
                             data: Some(buck2_data::BuildCommandStart {}.into()),
+                            ..Default::default()
                         }
                         .into(),
                     ),

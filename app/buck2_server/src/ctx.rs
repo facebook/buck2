@@ -1036,6 +1036,18 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         })
     }
 
+    /// Create command start event with metadata
+    async fn command_start_event(
+        &self,
+        data: buck2_data::command_start::Data,
+    ) -> buck2_error::Result<buck2_data::CommandStart> {
+        Ok(buck2_data::CommandStart {
+            metadata: self.request_metadata().await?,
+            data: Some(data),
+            ..Default::default()
+        })
+    }
+
     /// Gathers metadata to attach to events for when a command starts and stops.
     async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
