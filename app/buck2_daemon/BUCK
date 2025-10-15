@@ -40,6 +40,7 @@ rust_library(
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_resource_control:buck2_resource_control",
         "//buck2/app/buck2_server:buck2_server",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/dice/dice:dice",

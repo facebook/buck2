@@ -63,6 +63,7 @@ use buck2_futures::spawn::spawn_dropcancel;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
@@ -241,6 +242,7 @@ impl BuckdServer {
         delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
+        cgroup_tree: Option<BuckCgroupTree>,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
@@ -270,7 +272,16 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let daemon_state = Arc::new(
-            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await?,
+            DaemonState::new(
+                fb,
+                paths,
+                init_ctx,
+                rt.clone(),
+                materializations,
+                cwd,
+                cgroup_tree,
+            )
+            .await?,
         );
 
         #[cfg(fbcode_build)]

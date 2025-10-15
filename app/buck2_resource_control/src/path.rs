@@ -56,7 +56,8 @@ impl CgroupPath {
     PartialEq,
     Eq,
     PartialOrd,
-    Ord
+    Ord,
+    allocative::Allocative
 )]
 #[display("{}", _0.display())]
 pub struct CgroupPathBuf(AbsNormPathBuf);

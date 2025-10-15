@@ -68,6 +68,7 @@ use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
@@ -187,6 +188,9 @@ pub struct DaemonStateData {
     /// Config used to display system warnings
     pub system_warning_config: SystemWarningConfig,
 
+    #[allocative(skip)]
+    pub cgroup_tree: Option<BuckCgroupTree>,
+
     /// Tracks memory usage. Used to make scheduling decisions.
     #[allocative(skip)]
     pub memory_tracker: Option<MemoryTrackerHandle>,
@@ -232,13 +236,21 @@ impl DaemonState {
         rt: Handle,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
+        cgroup_tree: Option<BuckCgroupTree>,
     ) -> Result<Self, buck2_error::Error> {
-        let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
-            .await
-            .map_err(|e| {
-                e.context("Error initializing DaemonStateData")
-                    .tag([ErrorTag::DaemonStateInitFailed])
-            })?;
+        let data = Self::init_data(
+            fb,
+            paths.clone(),
+            init_ctx,
+            rt.clone(),
+            materializations,
+            cgroup_tree,
+        )
+        .await
+        .map_err(|e| {
+            e.context("Error initializing DaemonStateData")
+                .tag([ErrorTag::DaemonStateInitFailed])
+        })?;
 
         crate::daemon::panic::initialize(data.dupe());
 
@@ -262,6 +274,7 @@ impl DaemonState {
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
         materializations: MaterializationMethod,
+        cgroup_tree: Option<BuckCgroupTree>,
     ) -> buck2_error::Result<Arc<DaemonStateData>> {
         if buck2_env!(
             "BUCK2_TEST_INIT_DAEMON_ERROR",
@@ -674,6 +687,7 @@ impl DaemonState {
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 tags,
                 system_warning_config,
+                cgroup_tree,
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,

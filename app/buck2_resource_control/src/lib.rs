@@ -11,12 +11,25 @@
 #[cfg(unix)]
 pub mod action_cgroups;
 #[cfg(unix)]
+pub mod buck_cgroup_tree;
+#[cfg(unix)]
 pub mod cgroup;
 #[cfg(unix)]
 pub mod memory_tracker;
 pub mod path;
 #[cfg(unix)]
 pub mod pool;
+
+#[cfg(not(unix))]
+pub mod buck_cgroup_tree {
+    pub struct BuckCgroupTree;
+
+    impl BuckCgroupTree {
+        pub fn set_up_for_process() -> buck2_error::Result<Self> {
+            unreachable!("not used on windows")
+        }
+    }
+}
 
 #[cfg(not(unix))]
 pub mod memory_tracker {

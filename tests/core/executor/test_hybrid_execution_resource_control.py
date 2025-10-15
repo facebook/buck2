@@ -480,7 +480,7 @@ async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
     pid = await get_daemon_pid(buck)
     daemon_cgroup_path = get_daemon_cgroup_path(pid)
     # the parent of the cgroup that contains daemon, forkserver and workers cgroups
-    parent_cgroup_path = daemon_cgroup_path.parent.parent
+    parent_cgroup_path = daemon_cgroup_path.parent.parent.parent
 
     try:
         parent_cgroup_memory_high = 200 * 1024 * 1024 * 1024  # 10 GB
@@ -494,7 +494,7 @@ async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
         pid = await get_daemon_pid(buck)
         daemon_cgroup_path = get_daemon_cgroup_path(pid)
         # the cgroup that contains daemon, forkserver and workers cgroups
-        slice_cgroup_path = daemon_cgroup_path.parent
+        slice_cgroup_path = daemon_cgroup_path.parent.parent
         with open(slice_cgroup_path / "memory.high", "r") as f:
             slice_memory_high = int(f.read().strip())
         assert slice_memory_high == (parent_cgroup_memory_high * 0.5)
@@ -518,7 +518,7 @@ async def test_reading_ancestor_cgroup_constraints(buck: Buck) -> None:
     pid = await get_daemon_pid(buck)
     daemon_cgroup_path = get_daemon_cgroup_path(pid)
     # the cgroup that contains all the isolation dirs buck2 cgroup slices (buck2.slice)
-    buck2_slice_cgroup_path: Path = daemon_cgroup_path.parent.parent
+    buck2_slice_cgroup_path: Path = daemon_cgroup_path.parent.parent.parent
 
     memory_high = 200 * 1024 * 1024 * 1024  # 200 GB
     memory_max = 300 * 1024 * 1024 * 1024  # 300 GB
