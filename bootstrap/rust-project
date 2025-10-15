@@ -4,86 +4,86 @@
   "name": "rust-project",
   "platforms": {
     "macos-aarch64": {
-      "size": 983748,
+      "size": 989297,
       "hash": "blake3",
-      "digest": "43024f8c5b0e9f7acea16dea374fa56dbd95972236bc8bbf856e2d10aaaff7b2",
+      "digest": "b62a6611770eb205e1eb2ddc80dc1c4c506c4c436c544d6455fe4c1bfe6a35fa",
       "format": "zst",
       "path": "rust-project-aarch64-apple-darwin",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-aarch64-apple-darwin.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-aarch64-apple-darwin.zst"
         }
       ]
     },
     "windows-aarch64": {
-      "size": 838934,
+      "size": 845033,
       "hash": "blake3",
-      "digest": "9369f88172fc2b85095b0daaa23dd88738fb2a25739235ae9ee2029089aea83c",
+      "digest": "e29e1f953438d92b5191c506967e53275002a7f5191bec1f87db32642d09d712",
       "format": "zst",
       "path": "rust-project-aarch64-pc-windows-msvc.exe",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-aarch64-pc-windows-msvc.exe.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-aarch64-pc-windows-msvc.exe.zst"
         }
       ]
     },
     "linux-aarch64": {
-      "size": 1101559,
+      "size": 1109143,
       "hash": "blake3",
-      "digest": "2cc5d124ffa6df85f4a741a2573c259d28eb681186da871b19b4b3255329a7d8",
+      "digest": "05b973ac11296ff97063913ca1d976accd3421582a4fda1d50b5580e049cc98b",
       "format": "zst",
       "path": "rust-project-aarch64-unknown-linux-musl",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-aarch64-unknown-linux-musl.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-aarch64-unknown-linux-musl.zst"
         }
       ]
     },
     "linux-riscv64": {
-      "size": 1120670,
+      "size": 1128544,
       "hash": "blake3",
-      "digest": "6c64ef0310700c43a4dcee5ba98ef9d74cc1af66906a7a7aff5ad9bac6526d20",
+      "digest": "bcb0fef70767319962eb9ad368857fb9518719d5cbfe239eaabb43a37c215028",
       "format": "zst",
       "path": "rust-project-riscv64gc-unknown-linux-gnu",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-riscv64gc-unknown-linux-gnu.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-riscv64gc-unknown-linux-gnu.zst"
         }
       ]
     },
     "macos-x86_64": {
-      "size": 1055474,
+      "size": 1060688,
       "hash": "blake3",
-      "digest": "4776fc1c6e3d541af54a93e26b1697d4d54e32dbad888479f87eef9efa638973",
+      "digest": "dbb0380b42daa418a13c3d0415b1bcde318a2f862d384dcaecb19d78320e93d4",
       "format": "zst",
       "path": "rust-project-x86_64-apple-darwin",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-x86_64-apple-darwin.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-x86_64-apple-darwin.zst"
         }
       ]
     },
     "windows-x86_64": {
-      "size": 878164,
+      "size": 884393,
       "hash": "blake3",
-      "digest": "a719e2b722deb4d07b935aaac301e19a535c0e3a7af2d20c639b83db1c61c1ac",
+      "digest": "7b56fddc5382c258d83591b81485b0363013ed4cb477ff0438810ad89e7b4ed8",
       "format": "zst",
       "path": "rust-project-x86_64-pc-windows-msvc.exe",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-x86_64-pc-windows-msvc.exe.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-x86_64-pc-windows-msvc.exe.zst"
         }
       ]
     },
     "linux-x86_64": {
-      "size": 1168923,
+      "size": 1174109,
       "hash": "blake3",
-      "digest": "df320c3298480dba2beb7e2a22b89d8140d1b71d620d18a055da7029169f22c4",
+      "digest": "9b5e1f12c6a4ec3c56433647b4e2d601f2edb1e7ed3348458750662a70a04f49",
       "format": "zst",
       "path": "rust-project-x86_64-unknown-linux-musl",
       "providers": [
         {
-          "url": "https://github.com/facebook/buck2/releases/download/2025-10-01/rust-project-x86_64-unknown-linux-musl.zst"
+          "url": "https://github.com/facebook/buck2/releases/download/2025-10-15/rust-project-x86_64-unknown-linux-musl.zst"
         }
       ]
     }
