@@ -1050,6 +1050,10 @@ message CommandStart {
   //
   // The metadata cannot contain information from buckconfig or dice state
   map<string, string> metadata = 1;
+
+  repeated string cli_args = 2;
+  repeated string tags = 3;
+
   oneof data {
     BuildCommandStart build = 20;
     TargetsCommandStart targets = 21;

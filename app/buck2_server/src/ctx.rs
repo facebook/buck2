@@ -1044,6 +1044,8 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         Ok(buck2_data::CommandStart {
             metadata: self.request_metadata().await?,
             data: Some(data),
+            cli_args: self.sanitized_argv.clone(),
+            tags: self.base_context.daemon.tags.clone(),
             ..Default::default()
         })
     }
