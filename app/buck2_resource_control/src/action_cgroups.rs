@@ -224,10 +224,17 @@ impl ActionCgroupSession {
             return ActionCgroupResult::from_error(error);
         }
 
-        let path = self
-            .path
-            .take()
-            .expect("command_finished called without calling command_started");
+        // In case spawn fails, we expect to not know a cgroup path
+        let Some(path) = self.path.take() else {
+            return ActionCgroupResult {
+                memory_peak: None,
+                swap_peak: None,
+                error: None,
+                was_frozen: false,
+                freeze_duration: None,
+            };
+        };
+
         self.cgroup_pool.lock().await.command_finished(&path)
     }
 }
