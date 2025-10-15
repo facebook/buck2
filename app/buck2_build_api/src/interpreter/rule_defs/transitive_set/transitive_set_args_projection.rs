@@ -44,6 +44,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::artifact_groups::TransitiveSetProjectionWrapper;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -256,14 +257,15 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectio
             .buck_error_context("Invalid transitive_set")?;
 
         visitor.visit_input(
-            ArtifactGroup::TransitiveSetProjection(Arc::new(TransitiveSetProjectionKey {
-                key: set.key().dupe(),
-                projection: self.projection,
-                uses_content_based_paths: *set
-                    .projection_uses_content_based_paths
+            ArtifactGroup::TransitiveSetProjection(Arc::new(TransitiveSetProjectionWrapper::new(
+                TransitiveSetProjectionKey {
+                    key: set.key().dupe(),
+                    projection: self.projection,
+                },
+                *set.projection_uses_content_based_paths
                     .get(self.projection)
                     .expect("by construction"),
-            })),
+            ))),
             vec![],
         );
 

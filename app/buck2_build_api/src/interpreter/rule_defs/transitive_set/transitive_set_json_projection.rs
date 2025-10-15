@@ -38,6 +38,7 @@ use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::starlark_value;
 
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::artifact_groups::TransitiveSetProjectionWrapper;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
@@ -84,18 +85,21 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
             .projection_name(self.projection)
     }
 
-    pub(crate) fn to_projection_key(&self) -> buck2_error::Result<TransitiveSetProjectionKey> {
+    pub(crate) fn to_projection_key_wrapper(
+        &self,
+    ) -> buck2_error::Result<TransitiveSetProjectionWrapper> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .buck_error_context("Invalid transitive_set")?;
 
-        Ok(TransitiveSetProjectionKey {
-            key: set.key().dupe(),
-            projection: self.projection,
-            uses_content_based_paths: *set
-                .projection_uses_content_based_paths
+        Ok(TransitiveSetProjectionWrapper::new(
+            TransitiveSetProjectionKey {
+                key: set.key().dupe(),
+                projection: self.projection,
+            },
+            *set.projection_uses_content_based_paths
                 .get(self.projection)
                 .expect("Valid ID"),
-        })
+        ))
     }
 }
 

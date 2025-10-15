@@ -108,13 +108,13 @@ impl<'a> Graph<'a> {
                 Ok(artifact.action_key().map(|key| Key::Action(key.dupe())))
             }
             ArtifactGroup::TransitiveSetProjection(key) => {
-                let holder_key = key.key.holder_key();
+                let holder_key = key.key.key.holder_key();
                 match self.lookup_deferred(holder_key) {
                     Some(v) => {
-                        let tset = v.lookup_transitive_set(&key.key)?;
+                        let tset = v.lookup_transitive_set(&key.key.key)?;
                         Ok(Some(Key::ResolvedTransitiveSetProjection(
                             ResolvedTransitiveSetProjection {
-                                projection: key.projection,
+                                projection: key.key.projection,
                                 tset,
                             },
                         )))

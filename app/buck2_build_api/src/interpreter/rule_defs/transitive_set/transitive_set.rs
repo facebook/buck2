@@ -55,6 +55,7 @@ use crate::actions::impls::json::validate_json;
 use crate::actions::impls::json::visit_json_artifacts;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::artifact_groups::TransitiveSetProjectionWrapper;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -223,7 +224,6 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         TransitiveSetProjectionKey {
             key: self.key.dupe(),
             projection,
-            uses_content_based_paths: self.projection_uses_content_based_paths[projection],
         }
     }
 
@@ -266,11 +266,13 @@ impl FrozenTransitiveSet {
             let v =
                 TransitiveSet::from_value(v.to_value()).buck_error_context("Invalid deferred")?;
             sub_inputs.push(ArtifactGroup::TransitiveSetProjection(Arc::new(
-                TransitiveSetProjectionKey {
-                    key: v.key().dupe(),
-                    projection,
-                    uses_content_based_paths: v.projection_uses_content_based_paths[projection],
-                },
+                TransitiveSetProjectionWrapper::new(
+                    TransitiveSetProjectionKey {
+                        key: v.key().dupe(),
+                        projection,
+                    },
+                    v.projection_uses_content_based_paths[projection],
+                ),
             )));
         }
         Ok(sub_inputs)

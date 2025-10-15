@@ -47,6 +47,22 @@ impl PromiseArtifactWrapper {
     }
 }
 
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[display("{} {}", key, has_content_based_path)]
+pub struct TransitiveSetProjectionWrapper {
+    pub key: TransitiveSetProjectionKey,
+    pub has_content_based_path: bool,
+}
+
+impl TransitiveSetProjectionWrapper {
+    pub fn new(key: TransitiveSetProjectionKey, has_content_based_path: bool) -> Self {
+        Self {
+            key,
+            has_content_based_path,
+        }
+    }
+}
+
 /// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts will be made available
 /// to Actions when they execute.
 #[derive(
@@ -62,7 +78,7 @@ impl PromiseArtifactWrapper {
 )]
 pub enum ArtifactGroup {
     Artifact(Artifact),
-    TransitiveSetProjection(Arc<TransitiveSetProjectionKey>),
+    TransitiveSetProjection(Arc<TransitiveSetProjectionWrapper>),
     Promise(Arc<PromiseArtifactWrapper>),
 }
 
@@ -82,7 +98,7 @@ impl ArtifactGroup {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
             ArtifactGroup::TransitiveSetProjection(a) => {
-                ResolvedArtifactGroup::TransitiveSetProjection(a)
+                ResolvedArtifactGroup::TransitiveSetProjection(&a.key)
             }
             ArtifactGroup::Promise(p) => match p.promise_artifact.get() {
                 Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
@@ -97,7 +113,7 @@ impl ArtifactGroup {
     pub fn uses_content_based_path(&self) -> bool {
         match self {
             ArtifactGroup::Artifact(a) => a.has_content_based_path(),
-            ArtifactGroup::TransitiveSetProjection(a) => a.uses_content_based_paths,
+            ArtifactGroup::TransitiveSetProjection(a) => a.has_content_based_path,
             ArtifactGroup::Promise(p) => p.has_content_based_path,
         }
     }
@@ -122,5 +138,4 @@ pub enum ResolvedArtifactGroupBuildSignalsKey {
 pub struct TransitiveSetProjectionKey {
     pub key: TransitiveSetKey,
     pub projection: usize,
-    pub uses_content_based_paths: bool,
 }
