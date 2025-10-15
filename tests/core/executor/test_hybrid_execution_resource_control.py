@@ -312,7 +312,7 @@ async def test_resource_control_events_created(
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
         f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
+        f.write("enable_action_cgroup_pool_v2 = true\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")

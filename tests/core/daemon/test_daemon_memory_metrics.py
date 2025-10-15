@@ -46,7 +46,7 @@ def write_config(
         buckconfig.write("[buck2_resource_control]\n")
         buckconfig.write(f"status = {"required" if resource_control else "off"}\n")
         buckconfig.write(
-            f"enable_action_cgroup_pool = {"true" if action_cgroup_pool else "false"}\n"
+            f"enable_action_cgroup_pool_v2 = {"true" if action_cgroup_pool else "false"}\n"
         )
 
 

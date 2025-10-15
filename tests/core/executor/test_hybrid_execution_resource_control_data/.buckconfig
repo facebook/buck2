@@ -7,4 +7,4 @@
 
 [buck2_resource_control]
     status = required
-    enable_action_cgroup_pool = true
+    enable_action_cgroup_pool_v2 = true

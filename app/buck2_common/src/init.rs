@@ -340,7 +340,7 @@ impl ResourceControlConfig {
             })?;
             let enable_action_cgroup_pool = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
-                property: "enable_action_cgroup_pool",
+                property: "enable_action_cgroup_pool_v2",
             })?;
             let memory_high_action_cgroup_pool = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
