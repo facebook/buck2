@@ -48,6 +48,10 @@ pub(crate) struct ForkserverCommand {
     /// If set, indicates this forkserver is running in a dedicated cgroup.
     #[clap(long)]
     has_cgroup: bool,
+
+    /// Indicates that the forkserver should create a cgroup pool using the given parent cgroup.
+    #[clap(long)]
+    create_cgroup_pool_in: Option<String>,
 }
 
 impl ForkserverCommand {
@@ -81,6 +85,7 @@ impl ForkserverCommand {
                 state_dir,
                 self.resource_control,
                 self.has_cgroup,
+                self.create_cgroup_pool_in,
             ))?)
         }
 

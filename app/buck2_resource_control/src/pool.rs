@@ -16,10 +16,8 @@ use std::process::Command;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 
 use crate::cgroup::Cgroup;
@@ -107,47 +105,6 @@ pub struct CgroupPool {
 
 impl CgroupPool {
     const POOL_NAME: &'static FileName = FileName::unchecked_new("actions_cgroup_pool");
-
-    pub fn new(
-        capacity: usize,
-        per_cgroup_memory_high: Option<&str>,
-        pool_memory_high: Option<&str>,
-    ) -> buck2_error::Result<Self> {
-        let cgroup_info = CGroupInfo::read().map_err(|e| CgroupPoolError::Io {
-            msg: "Failed to read cgroup info".to_owned(),
-            io_err: std::io::Error::other(format!("{e:#}")),
-        })?;
-
-        let root_cgroup_path = AbsNormPath::new(&cgroup_info.path).map_err(|_| {
-            CgroupPoolError::ProcessCgroupNotAbsolutePath {
-                path: cgroup_info.path.clone(),
-            }
-        })?;
-        let root_cgroup_path = CgroupPath::new(root_cgroup_path);
-        let root_cgroup = Cgroup::try_from_path(root_cgroup_path.to_buf())?;
-
-        // The newly created cgroup have no controllers, so we need to enable them by setting root cgroup's cgroup.subtree_control.
-        // If we directly write to the cgroup.subtree_control of root cgroup, we will get an error "write: Device or resource busy".
-        // It is because of cgroups v2 no internal processes rule.
-        //
-        // https://man7.org/linux/man-pages/man7/cgroups.7.html
-        // > Thus, it is possible for a cgroup to have both member
-        //   processes and child cgroups, but before controllers can be enabled
-        //   for that cgroup, the member processes must be moved out of the
-        //   cgroup (e.g., perhaps into the child cgroups).
-        //
-        // So we create a new cgroup under root cgroup, and move all processes from root cgroup to it.
-        // Then we can safely write to cgroup.subtree_control to enable controllers for child cgroups.
-        let process_cgroup = Cgroup::new(root_cgroup_path, FileName::unchecked_new("process"))?;
-        root_cgroup.move_process_to(&process_cgroup)?;
-        root_cgroup.config_subtree_control()?;
-        Self::create_in_parent_cgroup(
-            &root_cgroup_path,
-            capacity,
-            per_cgroup_memory_high,
-            pool_memory_high,
-        )
-    }
 
     /// Create a cgroup pool in the provided parent cgroup.
     pub fn create_in_parent_cgroup(

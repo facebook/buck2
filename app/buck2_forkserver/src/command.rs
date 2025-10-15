@@ -32,6 +32,7 @@ pub async fn run_forkserver(
     state_dir: AbsNormPathBuf,
     resource_control: ResourceControlConfig,
     has_cgroup: bool,
+    create_cgroup_pool_in: Option<String>,
 ) -> buck2_error::Result<()> {
     let io = match (fd, socket_path) {
         (Some(fd), None) => {
@@ -58,9 +59,14 @@ pub async fn run_forkserver(
         DuplexChannel::new(read, write)
     };
 
-    let service =
-        UnixForkserverService::new(log_reload_handle, &state_dir, resource_control, has_cgroup)
-            .buck_error_context("Failed to create UnixForkserverService")?;
+    let service = UnixForkserverService::new(
+        log_reload_handle,
+        &state_dir,
+        resource_control,
+        has_cgroup,
+        create_cgroup_pool_in,
+    )
+    .buck_error_context("Failed to create UnixForkserverService")?;
 
     let router = tonic::transport::Server::builder().add_service(
         forkserver_server::ForkserverServer::new(service)

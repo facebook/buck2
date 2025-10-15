@@ -574,6 +574,7 @@ impl DaemonState {
                 root_config,
                 &paths.forkserver_state_dir(),
                 &init_ctx.daemon_startup_config.resource_control,
+                cgroup_tree.as_ref(),
                 memory_tracker.dupe(),
             )
             .await?;

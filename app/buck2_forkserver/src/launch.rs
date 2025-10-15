@@ -22,6 +22,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
@@ -35,6 +36,7 @@ pub async fn launch_forkserver(
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
     state_dir: &AbsNormPath,
     resource_control: &ResourceControlConfig,
+    cgroup_tree: Option<&BuckCgroupTree>,
     memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<ForkserverClient> {
     let (client_io, server_io) =
@@ -46,11 +48,15 @@ pub async fn launch_forkserver(
 
     let exe = exe.as_ref();
 
-    let mut has_cgroup = false;
-
-    let mut command = {
-        // When cgroup pool is enabled, we use systemd to start forkserver
-
+    let (mut command, has_cgroup, create_cgroup_pool_in) = if let Some(cgroup_tree) = cgroup_tree {
+        let mut command = background_command(exe);
+        cgroup_tree.forkserver().setup_command(&mut command)?;
+        (
+            command,
+            true,
+            Some(cgroup_tree.forkserver_and_actions().path().to_buf()),
+        )
+    } else {
         let forkserver_process_resource_control_runner = ResourceControlRunner::create_if_enabled(
             &ResourceControlRunnerConfig::forkserver_config(
                 &resource_control,
@@ -68,13 +74,15 @@ pub async fn launch_forkserver(
                     .buck_error_context("Can't find slice in cgroup path")?
             );
 
-            has_cgroup = true;
-
             fs_util::create_dir_all(state_dir).map_err(buck2_error::Error::from)?;
-            forkserver_process_resource_control_runner
-                .cgroup_scoped_command(exe, &unit_name, state_dir)
+            (
+                forkserver_process_resource_control_runner
+                    .cgroup_scoped_command(exe, &unit_name, state_dir),
+                true,
+                None,
+            )
         } else {
-            background_command(exe)
+            (background_command(exe), false, None)
         }
     };
 
@@ -93,6 +101,11 @@ pub async fn launch_forkserver(
 
     if has_cgroup {
         command.arg("--has-cgroup");
+    }
+
+    if let Some(create_cgroup_pool_in) = create_cgroup_pool_in {
+        command.arg("--create-cgroup-pool-in");
+        command.arg(create_cgroup_pool_in.as_path());
     }
 
     let fds = [server_io.as_raw_fd()];

@@ -28,12 +28,11 @@ enum BuckCgroupTreeError {
 pub struct BuckCgroupTree {
     #[allow(unused)]
     daemon: Cgroup,
+    forkserver_and_actions: Cgroup,
+    forkserver: Cgroup,
 }
 
 impl BuckCgroupTree {
-    /// The path of the daemon cgroup relative to the root
-    const DAEMON_GROUP: &FileName = FileName::unchecked_new("daemon");
-
     /// Called at daemon startup.
     ///
     /// Expectation is that the current process was started with something like systemd-run and:
@@ -50,14 +49,35 @@ impl BuckCgroupTree {
         })?;
         let root_cgroup = Cgroup::try_from_path(CgroupPath::new(root_cgroup_path).to_buf())?;
 
-        let daemon_cgroup = Cgroup::new(root_cgroup.path(), Self::DAEMON_GROUP.into())?;
+        let daemon_cgroup =
+            Cgroup::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
         // FIXME(JakobDegen): Eventually, use something less complicated than this
         root_cgroup.move_process_to(&daemon_cgroup)?;
-
         root_cgroup.config_subtree_control()?;
+
+        let forkserver_and_actions = Cgroup::new(
+            root_cgroup.path(),
+            FileName::unchecked_new("forkserver_and_actions").into(),
+        )?;
+        forkserver_and_actions.config_subtree_control()?;
+
+        let forkserver = Cgroup::new(
+            forkserver_and_actions.path(),
+            FileName::unchecked_new("forkserver").into(),
+        )?;
 
         Ok(Self {
             daemon: daemon_cgroup,
+            forkserver_and_actions,
+            forkserver,
         })
+    }
+
+    pub fn forkserver_and_actions(&self) -> &Cgroup {
+        &self.forkserver_and_actions
+    }
+
+    pub fn forkserver(&self) -> &Cgroup {
+        &self.forkserver
     }
 }

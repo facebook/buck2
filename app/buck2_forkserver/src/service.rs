@@ -49,6 +49,7 @@ use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
+use buck2_resource_control::path::CgroupPath;
 use buck2_resource_control::pool::CgroupID;
 use buck2_resource_control::pool::CgroupPool;
 use buck2_util::cgroup_info::CGroupInfo;
@@ -148,35 +149,37 @@ impl UnixForkserverService {
         state_dir: &AbsNormPath,
         resource_control: ResourceControlConfig,
         has_cgroup: bool,
+        create_cgroup_pool_in: Option<String>,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let resource_control_runner =
-            if ResourceControlRunner::is_enabled(&resource_control.status)? {
-                if resource_control.enable_action_cgroup_pool == Some(true) {
-                    let capacity = resource_control
-                        .cgroup_pool_size
-                        .map(|x| x as usize)
-                        .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-                    let cgroup_pool = CgroupPool::new(
-                        capacity,
-                        resource_control.memory_high_per_action.as_deref(),
-                        resource_control.memory_high_action_cgroup_pool.as_deref(),
-                    )
-                    .buck_error_context("Failed to create cgroup pool")?;
-                    ForkserverResourceControlRunner::CgroupPool(cgroup_pool)
-                } else {
-                    ForkserverResourceControlRunner::Systemd(ResourceControlRunner::create(
-                        &ResourceControlRunnerConfig::action_runner_config(
-                            &resource_control,
-                            // we want to create forkserver in the same hierarchy where buck-daemon scope
-                            // for this we inherit slice
-                            ParentSlice::Inherit("forkserver".to_owned()),
-                        ),
-                    )?)
-                }
-            } else {
-                ForkserverResourceControlRunner::None
-            };
+        let resource_control_runner = if let Some(create_cgroup_pool_in) = create_cgroup_pool_in {
+            let parent = CgroupPath::new(
+                AbsNormPath::new(&create_cgroup_pool_in).expect("Set correctly by caller"),
+            );
+            let capacity = resource_control
+                .cgroup_pool_size
+                .map(|x| x as usize)
+                .unwrap_or(buck2_util::threads::available_parallelism_fresh());
+            let cgroup_pool = CgroupPool::create_in_parent_cgroup(
+                parent,
+                capacity,
+                resource_control.memory_high_per_action.as_deref(),
+                resource_control.memory_high_action_cgroup_pool.as_deref(),
+            )
+            .buck_error_context("Failed to create cgroup pool")?;
+            ForkserverResourceControlRunner::CgroupPool(cgroup_pool)
+        } else if ResourceControlRunner::is_enabled(&resource_control.status)? {
+            ForkserverResourceControlRunner::Systemd(ResourceControlRunner::create(
+                &ResourceControlRunnerConfig::action_runner_config(
+                    &resource_control,
+                    // we want to create forkserver in the same hierarchy where buck-daemon scope
+                    // for this we inherit slice
+                    ParentSlice::Inherit("forkserver".to_owned()),
+                ),
+            )?)
+        } else {
+            ForkserverResourceControlRunner::None
+        };
         Ok(Self {
             log_reload_handle,
             miniperf,

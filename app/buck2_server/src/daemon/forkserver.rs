@@ -12,6 +12,7 @@ use buck2_common::init::ResourceControlConfig;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_execute_impl::executors::local::ForkserverAccess;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 
 #[cfg(unix)]
@@ -19,6 +20,7 @@ pub async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
     forkserver_state_dir: &AbsNormPath,
     resource_control: &ResourceControlConfig,
+    cgroup_tree: Option<&BuckCgroupTree>,
     memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<ForkserverAccess> {
     use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -43,6 +45,7 @@ pub async fn maybe_launch_forkserver(
             &["forkserver"],
             forkserver_state_dir,
             resource_control,
+            cgroup_tree,
             memory_tracker,
         )
         .await?,
@@ -54,6 +57,7 @@ pub async fn maybe_launch_forkserver(
     _root_config: &LegacyBuckConfig,
     _forkserver_state_dir: &AbsNormPath,
     _resource_control: &ResourceControlConfig,
+    _cgroup_tree: Option<&BuckCgroupTree>,
     _memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<ForkserverAccess> {
     Ok(ForkserverAccess::None)
