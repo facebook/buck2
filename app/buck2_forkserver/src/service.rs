@@ -157,17 +157,8 @@ impl UnixForkserverService {
             let parent = CgroupPath::new(
                 AbsNormPath::new(&create_cgroup_pool_in).expect("Set correctly by caller"),
             );
-            let capacity = resource_control
-                .cgroup_pool_size
-                .map(|x| x as usize)
-                .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-            let cgroup_pool = CgroupPool::create_in_parent_cgroup(
-                parent,
-                capacity,
-                resource_control.memory_high_per_action.as_deref(),
-                resource_control.memory_high_action_cgroup_pool.as_deref(),
-            )
-            .buck_error_context("Failed to create cgroup pool")?;
+            let cgroup_pool = CgroupPool::create_in_parent_cgroup(parent, &resource_control)
+                .buck_error_context("Failed to create cgroup pool")?;
             ForkserverResourceControlRunner::CgroupPool(cgroup_pool)
         } else if ResourceControlRunner::is_enabled(&resource_control.status)? {
             ForkserverResourceControlRunner::Systemd(ResourceControlRunner::create(

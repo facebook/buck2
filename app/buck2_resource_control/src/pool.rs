@@ -16,6 +16,7 @@ use std::process::Command;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
@@ -109,14 +110,12 @@ impl CgroupPool {
     /// Create a cgroup pool in the provided parent cgroup.
     pub fn create_in_parent_cgroup(
         parent: &CgroupPath,
-        capacity: usize,
-        per_cgroup_memory_high: Option<&str>,
-        pool_memory_high: Option<&str>,
+        config: &ResourceControlConfig,
     ) -> buck2_error::Result<Self> {
         let pool_cgroup = Cgroup::new(parent, CgroupPool::POOL_NAME)?;
         pool_cgroup.config_subtree_control()?;
 
-        if let Some(pool_memory_high) = pool_memory_high {
+        if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
             pool_cgroup.set_memory_high(pool_memory_high)?;
         }
 
@@ -125,9 +124,14 @@ impl CgroupPool {
             available: VecDeque::new(),
             in_use: HashSet::new(),
             next_id: 0,
-            per_cgroup_memory_high: per_cgroup_memory_high.map(|s| s.to_owned()),
+            per_cgroup_memory_high: config.memory_high_per_action.clone(),
             pool_cgroup,
         };
+
+        let capacity = config
+            .cgroup_pool_size
+            .map(|x| x as usize)
+            .unwrap_or(buck2_util::threads::available_parallelism_fresh());
 
         for _ in 0..capacity {
             state.reserve_additional_cgroup()?;
