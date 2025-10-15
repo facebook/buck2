@@ -76,7 +76,7 @@ def create_class_to_source_map_from_jar(
         jar: Artifact,
         srcs: list[Artifact],
         sources_jar_name: [str, None] = None) -> (Artifact, Artifact | None):
-    output = actions.declare_output(name)
+    output = actions.declare_output(name, has_content_based_path = True)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
     if java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages != None:
         for item in java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages:
@@ -86,7 +86,7 @@ def create_class_to_source_map_from_jar(
     cmd.add(at_argfile(actions = actions, name = "class_to_srcs_map_argsfile.txt", args = srcs))
     sources_jar = None
     if sources_jar_name:
-        sources_jar = actions.declare_output(sources_jar_name)
+        sources_jar = actions.declare_output(sources_jar_name, has_content_based_path = True)
         cmd.add("--sources_jar", sources_jar.as_output())
     actions.run(cmd, category = "class_to_srcs_map")
     return (output, sources_jar)
@@ -100,7 +100,7 @@ def maybe_create_class_to_source_map_debuginfo(
     if java_toolchain.gen_class_to_source_map_debuginfo == None:
         return None
 
-    output = actions.declare_output(name)
+    output = actions.declare_output(name, has_content_based_path = True)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
     cmd.add("gen")
     cmd.add("-o", output.as_output())
@@ -114,7 +114,7 @@ def merge_class_to_source_map_from_jar(
         java_toolchain: JavaToolchainInfo,
         relative_to: [CellRoot, None],
         deps: list[JavaClassToSourceMapInfo]) -> Artifact:
-    output = actions.declare_output(name)
+    output = actions.declare_output(name, has_content_based_path = True)
 
     tset = actions.tset(
         JavaClassToSourceMapTset,
@@ -122,7 +122,7 @@ def merge_class_to_source_map_from_jar(
         children = [d.tset for d in deps],
     )
     class_to_source_files = tset.project_as_args("class_to_src_map")
-    mappings_file = actions.write("class_to_src_map.txt", class_to_source_files)
+    mappings_file = actions.write("class_to_src_map.txt", class_to_source_files, has_content_based_path = True)
 
     cmd = cmd_args(
         java_toolchain.merge_class_to_source_maps[RunInfo],
@@ -139,7 +139,7 @@ def _create_merged_debug_info(
         java_toolchain: JavaToolchainInfo,
         tset_debuginfo: TransitiveSet,
         name: str):
-    output = actions.declare_output(name)
+    output = actions.declare_output(name, has_content_based_path = True)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
     cmd.add("merge")
     cmd.add(cmd_args(output.as_output(), format = "-o={}"))
