@@ -24,6 +24,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+use buck2_resource_control::pool::CgroupPool;
 use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
@@ -48,14 +49,14 @@ pub async fn launch_forkserver(
 
     let exe = exe.as_ref();
 
-    let (mut command, has_cgroup, create_cgroup_pool_in) = if let Some(cgroup_tree) = cgroup_tree {
+    let (mut command, has_cgroup, cgroup_pool) = if let Some(cgroup_tree) = cgroup_tree {
         let mut command = background_command(exe);
         cgroup_tree.forkserver().setup_command(&mut command)?;
-        (
-            command,
-            true,
-            Some(cgroup_tree.forkserver_and_actions().path().to_buf()),
-        )
+        let cgroup_pool = CgroupPool::create_in_parent_cgroup(
+            cgroup_tree.forkserver_and_actions().path(),
+            &resource_control,
+        )?;
+        (command, true, Some(cgroup_pool))
     } else {
         let forkserver_process_resource_control_runner = ResourceControlRunner::create_if_enabled(
             &ResourceControlRunnerConfig::forkserver_config(
@@ -103,9 +104,8 @@ pub async fn launch_forkserver(
         command.arg("--has-cgroup");
     }
 
-    if let Some(create_cgroup_pool_in) = create_cgroup_pool_in {
-        command.arg("--create-cgroup-pool-in");
-        command.arg(create_cgroup_pool_in.as_path());
+    if cgroup_pool.is_some() {
+        command.arg("--using-cgroup-pool");
     }
 
     let fds = [server_io.as_raw_fd()];
@@ -140,7 +140,7 @@ pub async fn launch_forkserver(
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .buck_error_context("Error connecting to Forkserver")?;
 
-    ForkserverClient::new(child, channel, memory_tracker)
+    ForkserverClient::new(child, channel, memory_tracker, cgroup_pool)
         .await
         .buck_error_context("Error creating ForkserverClient")
 }

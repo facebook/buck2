@@ -22,6 +22,7 @@ use buck2_execute_local::decode_command_event_stream;
 use buck2_resource_control::CommandType;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+use buck2_resource_control::pool::CgroupPool;
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use futures::future;
@@ -60,6 +61,8 @@ struct ForkserverClientInner {
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
     /// The cgroup info of the forkserver process, if available.
     cgroup_info: Option<CGroupInfoWrapper>,
+    #[allocative(skip)]
+    cgroup_pool: Option<CgroupPool>,
 }
 
 #[derive(Allocative)]
@@ -76,6 +79,7 @@ impl ForkserverClient {
         mut child: Child,
         channel: Channel,
         memory_tracker: Option<MemoryTrackerHandle>,
+        cgroup_pool: Option<CgroupPool>,
     ) -> buck2_error::Result<Self> {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
@@ -123,6 +127,7 @@ impl ForkserverClient {
                 pid,
                 rpc,
                 cgroup_info,
+                cgroup_pool,
             }),
             memory_tracker,
         })
@@ -138,7 +143,7 @@ impl ForkserverClient {
 
     pub async fn execute<C>(
         &self,
-        req: buck2_forkserver_proto::CommandRequest,
+        mut req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
         command_type: CommandType,
         dispatcher: EventDispatcher,
@@ -157,6 +162,35 @@ impl ForkserverClient {
             .into());
         }
 
+        let cgroup_state = if let Some(cgroup_pool) = &self.inner.cgroup_pool {
+            let (cgroup_id, cgroup_path) = cgroup_pool.acquire()?;
+            req.command_cgroup = Some(cgroup_path.to_str()?.to_owned());
+            Some((cgroup_id, cgroup_pool))
+        } else {
+            None
+        };
+
+        let res = self
+            .execute_with_cgroup(req, cancel, command_type, dispatcher)
+            .await;
+
+        if let Some((id, pool)) = cgroup_state {
+            pool.release(id);
+        }
+
+        res
+    }
+
+    async fn execute_with_cgroup<C>(
+        &self,
+        req: buck2_forkserver_proto::CommandRequest,
+        cancel: C,
+        command_type: CommandType,
+        dispatcher: EventDispatcher,
+    ) -> buck2_error::Result<CommandResult>
+    where
+        C: Future<Output = ()> + Send + 'static,
+    {
         let action_digest = req.action_digest.clone();
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
             data: Some(req.into()),

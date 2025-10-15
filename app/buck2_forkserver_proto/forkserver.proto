@@ -45,6 +45,8 @@ message CommandRequest {
   optional string action_digest = 15;
   // Used to create an unique cgroup name for action
   optional string cgroup_command_id = 16;
+  // The cgroup that the command should be spawned into. Must already exist.
+  optional string command_cgroup = 17;
 }
 
 message WorkingDirectory {

@@ -49,9 +49,9 @@ pub(crate) struct ForkserverCommand {
     #[clap(long)]
     has_cgroup: bool,
 
-    /// Indicates that the forkserver should create a cgroup pool using the given parent cgroup.
+    /// Indicates that requests to the forkserver will send the cgroup path they should be spawned in.
     #[clap(long)]
-    create_cgroup_pool_in: Option<String>,
+    using_cgroup_pool: bool,
 }
 
 impl ForkserverCommand {
@@ -85,7 +85,7 @@ impl ForkserverCommand {
                 state_dir,
                 self.resource_control,
                 self.has_cgroup,
-                self.create_cgroup_pool_in,
+                self.using_cgroup_pool,
             ))?)
         }
 

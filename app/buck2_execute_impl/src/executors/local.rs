@@ -1529,6 +1529,7 @@ mod unix {
             graceful_shutdown_timeout_s: None,
             action_digest: Some(action_digest.to_owned()),
             cgroup_command_id: Some(cgroup_command_id.to_owned()),
+            command_cgroup: None,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver

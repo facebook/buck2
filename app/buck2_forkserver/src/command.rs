@@ -32,7 +32,7 @@ pub async fn run_forkserver(
     state_dir: AbsNormPathBuf,
     resource_control: ResourceControlConfig,
     has_cgroup: bool,
-    create_cgroup_pool_in: Option<String>,
+    using_cgroup_pool: bool,
 ) -> buck2_error::Result<()> {
     let io = match (fd, socket_path) {
         (Some(fd), None) => {
@@ -64,7 +64,7 @@ pub async fn run_forkserver(
         &state_dir,
         resource_control,
         has_cgroup,
-        create_cgroup_pool_in,
+        using_cgroup_pool,
     )
     .buck_error_context("Failed to create UnixForkserverService")?;
 

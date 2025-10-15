@@ -161,7 +161,7 @@ impl CgroupPool {
 
     /// Acquire a worker cgroup from the pool. If no available worker cgroup, create a new one.
     /// Return a CgroupGuard which will release the cgroup back to the pool when dropped.
-    pub fn acquire(&self) -> buck2_error::Result<CgroupID> {
+    pub fn acquire(&self) -> buck2_error::Result<(CgroupID, CgroupPathBuf)> {
         let mut state = self.state.lock().expect("Mutex poisoned");
 
         let cgroup_id = if let Some(cgroup_id) = state.available.pop_front() {
@@ -171,7 +171,7 @@ impl CgroupPool {
             state.reserve_additional_cgroup()?
         };
 
-        Ok(cgroup_id)
+        Ok((cgroup_id, state.cgroups[&cgroup_id].path().to_buf()))
     }
 
     pub fn release(&self, cgroup_id: CgroupID) {
