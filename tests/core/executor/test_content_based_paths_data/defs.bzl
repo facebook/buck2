@@ -530,8 +530,14 @@ def _resolve_promise_artifact_impl(ctx: AnalysisContext) -> list[Provider]:
     anon = ctx.actions.anon_target(_anon, {"has_content_based_path": ctx.attrs.artifact_has_content_based_path})
     hello_artifact = anon.artifact("hello")
 
-    return [DefaultInfo(default_output = hello_artifact)]
+    if ctx.attrs.assert_promised_artifact_has_content_based_path:
+        hello_artifact = ctx.actions.assert_has_content_based_path(hello_artifact)
+
+    written = ctx.actions.write("hello.out", hello_artifact)
+
+    return [DefaultInfo(default_output = written)]
 
 resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
     "artifact_has_content_based_path": attrs.bool(),
+    "assert_promised_artifact_has_content_based_path": attrs.bool(),
 })

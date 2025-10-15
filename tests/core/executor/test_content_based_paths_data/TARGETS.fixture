@@ -167,6 +167,7 @@ incremental_action(
 resolve_promise_artifact(
     name = "resolve_promise_artifact",
     artifact_has_content_based_path = read_config("test", "artifact_has_content_based_path", "false") == "true",
+    assert_promised_artifact_has_content_based_path = read_config("test", "assert_promised_artifact_has_content_based_path", "false") == "true",
 )
 
 platform(

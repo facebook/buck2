@@ -31,6 +31,22 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[display("{} {}", promise_artifact, has_content_based_path)]
+pub struct PromiseArtifactWrapper {
+    pub promise_artifact: PromiseArtifact,
+    pub has_content_based_path: bool,
+}
+
+impl PromiseArtifactWrapper {
+    pub fn new(artifact: PromiseArtifact, has_content_based_path: bool) -> Self {
+        Self {
+            promise_artifact: artifact,
+            has_content_based_path,
+        }
+    }
+}
+
 /// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts will be made available
 /// to Actions when they execute.
 #[derive(
@@ -47,7 +63,7 @@ use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 pub enum ArtifactGroup {
     Artifact(Artifact),
     TransitiveSetProjection(Arc<TransitiveSetProjectionKey>),
-    Promise(Arc<PromiseArtifact>),
+    Promise(Arc<PromiseArtifactWrapper>),
 }
 
 assert_eq_size!(ArtifactGroup, [usize; 2]);
@@ -68,10 +84,10 @@ impl ArtifactGroup {
             ArtifactGroup::TransitiveSetProjection(a) => {
                 ResolvedArtifactGroup::TransitiveSetProjection(a)
             }
-            ArtifactGroup::Promise(p) => match p.get() {
+            ArtifactGroup::Promise(p) => match p.promise_artifact.get() {
                 Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
                 None => {
-                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, ctx).await?;
+                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(&p.promise_artifact, ctx).await?;
                     ResolvedArtifactGroup::Artifact(artifact)
                 }
             },
@@ -82,8 +98,7 @@ impl ArtifactGroup {
         match self {
             ArtifactGroup::Artifact(a) => a.has_content_based_path(),
             ArtifactGroup::TransitiveSetProjection(a) => a.uses_content_based_paths,
-            // Promised artifacts are not allowed to use content-based paths
-            ArtifactGroup::Promise(_) => false,
+            ArtifactGroup::Promise(p) => p.has_content_based_path,
         }
     }
 }

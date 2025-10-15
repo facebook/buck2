@@ -108,18 +108,24 @@ impl<'v> AnalysisActions<'v> {
         &self,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<()> {
-        let (short_path_assertions, consumer_analysis_artifacts) = {
+        let (short_path_assertions, content_based_path_assertions, consumer_analysis_artifacts) = {
             let state = self.state()?;
             (
                 state.short_path_assertions.clone(),
+                state.content_based_path_assertions.clone(),
                 state.consumer_analysis_artifacts(),
             )
         };
 
         for consumer_artifact in consumer_analysis_artifacts {
             let artifact = (GET_PROMISED_ARTIFACT.get()?)(&consumer_artifact, dice).await?;
-            let short_path = short_path_assertions.get(consumer_artifact.id()).cloned();
-            consumer_artifact.resolve(artifact.clone(), &short_path)?;
+            let id = consumer_artifact.id();
+            let short_path = short_path_assertions.get(id).cloned();
+            consumer_artifact.resolve(
+                artifact.clone(),
+                &short_path,
+                content_based_path_assertions.contains(id),
+            )?;
         }
         Ok(())
     }

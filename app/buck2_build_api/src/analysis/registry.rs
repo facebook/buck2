@@ -10,6 +10,7 @@
 
 use std::cell::OnceCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -95,6 +96,7 @@ pub struct AnalysisRegistry<'v> {
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     pub analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
+    pub content_based_path_assertions: HashSet<PromiseArtifactId>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -125,6 +127,7 @@ impl<'v> AnalysisRegistry<'v> {
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),
             short_path_assertions: HashMap::new(),
+            content_based_path_assertions: HashSet::new(),
         })
     }
 
@@ -299,6 +302,14 @@ impl<'v> AnalysisRegistry<'v> {
             .insert(promise_artifact_id, short_path);
     }
 
+    pub fn record_has_content_based_path_assertion(
+        &mut self,
+        promise_artifact_id: PromiseArtifactId,
+    ) {
+        self.content_based_path_assertions
+            .insert(promise_artifact_id);
+    }
+
     pub fn assert_no_promises(&self) -> buck2_error::Result<()> {
         self.anon_targets.assert_no_promises()
     }
@@ -324,6 +335,7 @@ impl<'v> AnalysisRegistry<'v> {
             anon_targets: _,
             analysis_value_storage,
             short_path_assertions: _,
+            content_based_path_assertions: _,
         } = self;
 
         let finalize_actions = actions.finalize()?;

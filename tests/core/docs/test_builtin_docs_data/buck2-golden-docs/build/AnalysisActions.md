@@ -4,6 +4,7 @@
 ## AnalysisActions.anon\_target
 ## AnalysisActions.anon\_targets
 ## AnalysisActions.artifact\_tag
+## AnalysisActions.assert\_has\_content\_based\_path
 ## AnalysisActions.assert\_short\_path
 ## AnalysisActions.cas\_artifact
 ## AnalysisActions.copied\_dir

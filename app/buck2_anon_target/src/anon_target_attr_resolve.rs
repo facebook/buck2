@@ -132,6 +132,14 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                     .get(&promise_artifact_attr)
                     .unwrap();
 
+                let promise_has_content_based_path = promise_artifact_attr.has_content_based_path;
+                let artifact_has_content_based_path = artifact.has_content_based_path();
+                if artifact_has_content_based_path && !promise_has_content_based_path {
+                    return Err(PromiseArtifactResolveError::UsesContentBasedPath.into());
+                } else if !artifact_has_content_based_path && promise_has_content_based_path {
+                    return Err(PromiseArtifactResolveError::DoesNotUseContentBasedPath.into());
+                }
+
                 // Assert the short path, since we have the real artifact now
                 if let Some(expected_short_path) = &promise_artifact_attr.short_path {
                     artifact.get_path().with_short_path(|artifact_short_path| {
@@ -158,6 +166,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                     None,
                     fulfilled_promise_inner,
                     promise_artifact_attr.short_path.clone(),
+                    promise_artifact_attr.has_content_based_path,
                 );
 
                 // To resolve the promise artifact attr, we end up creating a new `StarlarkPromiseArtifact` with the `OnceLock` set

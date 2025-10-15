@@ -122,7 +122,8 @@ impl<'a> Graph<'a> {
                     None => Ok(Some(Key::MissingAnalysis(holder_key.dupe()))),
                 }
             }
-            ArtifactGroup::Promise(promise_artifact) => Ok(promise_artifact
+            ArtifactGroup::Promise(p) => Ok(p
+                .promise_artifact
                 .unwrap()
                 .action_key()
                 .map(|key| Key::Action(key.dupe()))),

@@ -40,6 +40,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::PromiseArtifactWrapper;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -99,6 +100,7 @@ pub struct StarlarkPromiseArtifact {
     pub declaration_location: Option<FileSpan>,
     pub artifact: PromiseArtifact,
     pub short_path: Option<ForwardRelativePathBuf>,
+    pub has_content_based_path: bool,
 }
 
 starlark_simple_value!(StarlarkPromiseArtifact);
@@ -125,18 +127,23 @@ impl StarlarkPromiseArtifact {
         declaration_location: Option<FileSpan>,
         artifact: PromiseArtifact,
         short_path: Option<ForwardRelativePathBuf>,
+        has_content_based_path: bool,
     ) -> Self {
         Self {
             declaration_location,
             artifact,
             short_path,
+            has_content_based_path,
         }
     }
 
     pub fn as_artifact(&self) -> ArtifactGroup {
         match self.artifact.get() {
             Some(artifact) => ArtifactGroup::Artifact(artifact.dupe()),
-            None => ArtifactGroup::Promise(Arc::new(self.artifact.dupe())),
+            None => ArtifactGroup::Promise(Arc::new(PromiseArtifactWrapper::new(
+                self.artifact.dupe(),
+                self.has_content_based_path,
+            ))),
         }
     }
 

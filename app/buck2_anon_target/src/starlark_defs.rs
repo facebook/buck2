@@ -140,6 +140,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
                             eval.call_stack_top_location(),
                             v.dupe(),
                             None,
+                            false,
                         )),
                     ))
                 })
@@ -159,6 +160,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
                 eval.call_stack_top_location(),
                 v.dupe(),
                 None,
+                false,
             ))),
             None => {
                 let buck2_error: buck2_error::Error =
@@ -340,6 +342,24 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             artifact.declaration_location.dupe(),
             promise,
             Some(short_path),
+            artifact.has_content_based_path,
+        ))
+    }
+
+    fn assert_has_content_based_path<'v>(
+        this: &AnalysisActions<'v>,
+        artifact: ValueTyped<'v, StarlarkPromiseArtifact>,
+    ) -> starlark::Result<StarlarkPromiseArtifact> {
+        let mut this = this.state()?;
+        let promise = artifact.artifact.dupe();
+
+        (*this).record_has_content_based_path_assertion(promise.id.as_ref().clone());
+
+        Ok(StarlarkPromiseArtifact::new(
+            artifact.declaration_location.dupe(),
+            promise,
+            artifact.short_path.clone(),
+            artifact.has_content_based_path,
         ))
     }
 }
