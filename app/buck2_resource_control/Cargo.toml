@@ -28,4 +28,4 @@ tempfile = { workspace = true }
 nix = { workspace = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)", "cfg(fbcode_build)"] }

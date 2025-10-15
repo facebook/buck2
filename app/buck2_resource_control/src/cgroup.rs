@@ -265,3 +265,62 @@ fn read_file(fd: &OwnedFd) -> Result<Vec<u8>, CgroupError> {
     data.truncate(filled);
     Ok(data)
 }
+
+#[cfg(test)]
+impl Cgroup {
+    pub(crate) fn create_for_test() -> Option<Self> {
+        use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+        use buck2_util::process::background_command;
+
+        if !cfg!(buck_build) || !cfg!(target_os = "linux") {
+            return None;
+        }
+
+        let prep_script = std::env::var("PREP_CGROUP_SCRIPT").unwrap();
+        let path = background_command(&prep_script)
+            .stdout(std::process::Stdio::piped())
+            .output()
+            .unwrap()
+            .stdout;
+        let path = String::from_utf8(path).unwrap();
+        let path = CgroupPath::new(AbsNormPath::new(path.trim()).unwrap());
+        Some(Self::try_from_path(path.to_buf()).unwrap())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::fs::fs_util;
+    use buck2_util::process::background_command;
+
+    use crate::cgroup::Cgroup;
+    use crate::cgroup::read_file;
+
+    #[test]
+    fn self_test_harness() {
+        let Some(cgroup) = Cgroup::create_for_test() else {
+            return;
+        };
+
+        assert_eq!(
+            fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
+            true
+        );
+        assert_eq!(read_file(&cgroup.procs_fd).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn repro_drop_cgroup_before_command_spawn() {
+        let Some(cgroup) = Cgroup::create_for_test() else {
+            return;
+        };
+
+        let mut cmd = background_command("true");
+        cgroup.setup_command(&mut cmd).unwrap();
+
+        drop(cgroup);
+
+        // TODO(JakobDegen): Fix
+        // assert!(cmd.status().unwrap().success());
+    }
+}

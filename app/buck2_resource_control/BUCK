@@ -24,6 +24,9 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:tempfile",
     ],
+    test_env = {
+        "PREP_CGROUP_SCRIPT": "$(location fbcode//buck2/shed/cgroups:prep_cgroup)",
+    },
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:parking_lot",

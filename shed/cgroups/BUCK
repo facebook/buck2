@@ -1,0 +1,8 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_sh_binary")
+
+oncall("build_infra")
+
+buck_sh_binary(
+    name = "prep_cgroup",
+    main = "prep_cgroup.sh",
+)
