@@ -11,14 +11,14 @@
 use std::fs;
 use std::io::Write;
 use std::os::fd::AsFd;
-use std::os::fd::AsRawFd;
-use std::os::fd::BorrowedFd;
 use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Arc;
 
 use buck2_core::fs::paths::file_name::FileName;
+use dupe::Dupe;
 use nix::dir::Dir;
 use nix::fcntl::OFlag;
 use nix::fcntl::openat;
@@ -56,7 +56,7 @@ enum CgroupError {
 
 pub struct Cgroup {
     /// FD for cgroup.procs
-    procs_fd: OwnedFd,
+    procs_fd: Arc<OwnedFd>,
     path: CgroupPathBuf,
 }
 
@@ -89,7 +89,10 @@ impl Cgroup {
             io_err: e.into(),
         })?;
 
-        let cgroup = Self { procs_fd, path };
+        let cgroup = Self {
+            procs_fd: Arc::new(procs_fd),
+            path,
+        };
 
         Ok(cgroup)
     }
@@ -153,7 +156,18 @@ impl Cgroup {
     ///                  ↓
     /// Child process: exec() run the command
     pub fn setup_command(&self, command: &mut Command) -> buck2_error::Result<()> {
-        let procs_fd_raw = self.procs_fd.as_raw_fd();
+        // NOTE: We need to make sure that this fd is kept alive until the point where the command
+        // is spawned/forked. The lifetimes on this type don't prevent the user from dropping the
+        // `Cgroup` before that happens.
+        //
+        // This is accomplished by capturing the `Arc<OwnedFd>` into the `pre_exec` closure. The
+        // closure is not dropped until the surrounding command is dropped, at which point the spawn
+        // must have happened.
+        //
+        // Some testing shows that the closure is not dropped in the child process at all; that's
+        // good, as we don't actually want to do the `free` that may be implicated by dropping the
+        // `Arc`
+        let procs_fd = self.procs_fd.dupe();
 
         let pre_exec = move || {
             let pid = std::process::id();
@@ -165,12 +179,11 @@ impl Cgroup {
             let pos = cursor.position() as usize;
             let pid_bytes = &buf[..pos];
 
-            // SAFETY: The file descriptor is inherited by the forked process and so valid (wrong)
-            let procs_fd = unsafe { BorrowedFd::borrow_raw(procs_fd_raw) };
             // Append the process pid to cgroup.procs
             // Note: Unlike regular files, cgroup.procs writes are atomic for single PID entries.
             // So we don't need to worry too much about partial writes.
-            let bytes_written = unistd::write(procs_fd, pid_bytes).map_err(std::io::Error::from)?;
+            let bytes_written =
+                unistd::write(&procs_fd, pid_bytes).map_err(std::io::Error::from)?;
 
             if bytes_written != pid_bytes.len() {
                 return Err(std::io::Error::other(format!(
@@ -320,7 +333,6 @@ mod tests {
 
         drop(cgroup);
 
-        // TODO(JakobDegen): Fix
-        // assert!(cmd.status().unwrap().success());
+        assert!(cmd.status().unwrap().success());
     }
 }
