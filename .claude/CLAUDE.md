@@ -28,7 +28,34 @@ arc rust-check fbcode//buck2/app/...
 Follow by normal buck2 commands, e.g. `./buck2.py build fbcode//buck2:buck2` to
 using local changed buck2 binary to build buck2
 
-### Testing and Linting
+### Testing
+
+Buck2 has extensive test suites located in the `tests/` directory:
+
+**tests/core/** - Core integration tests
+
+- Tests for individual Buck2 subsystems and features
+- Covers: analysis, audit commands, build system, BXL, configurations, DICE,
+  query language, etc.
+
+**tests/e2e/** - End-to-end tests
+
+- Full workflow tests that exercise Buck2 as users would
+- Tests for: audit, build, BXL scripts, configurations, test command, etc.
+
+**Running tests:**
+
+```bash
+# Run all tests in a Python file (e.g., tests/core/analysis/test_cmd_args.py)
+buck2 test fbcode//buck2/tests/core/analysis:test_cmd_args
+
+# Run a specific test function within a Python file
+# (e.g., test_output_artifact_in_relative_to in tests/core/analysis/test_cmd_args.py)
+buck2 test fbcode//buck2/tests/core/analysis:test_cmd_args -- test_output_artifact_in_relative_to
+
+# Run all tests in a directory
+buck2 test fbcode//buck2/tests/core/analysis/...
+```
 
 ## Code Architecture
 
