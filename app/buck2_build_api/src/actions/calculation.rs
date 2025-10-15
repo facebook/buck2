@@ -668,6 +668,7 @@ async fn command_execution_report_to_proto(
     buck2_data::CommandExecution {
         details: Some(details),
         status: Some(status),
+        inline_environment_metadata: Some(report.inline_environment_metadata),
     }
 }
 

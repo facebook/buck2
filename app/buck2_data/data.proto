@@ -1536,6 +1536,12 @@ message CommandExecution {
     Cancelled cancelled = 7;
     WorkerFailure worker_failure = 8;
   }
+
+  InlineCommandExecutionEnvironmentMetadata inline_environment_metadata = 20;
+}
+
+message InlineCommandExecutionEnvironmentMetadata {
+  optional uint64 sandcastle_instance_id = 1;
 }
 
 // NOTE: This is an empty message. When this is returned as an error, the
