@@ -498,15 +498,7 @@ impl<'v> TransitiveSet<'v> {
 
         impl<'v> CommandLineArtifactVisitor<'v> for HasContentBasedInputVisitor {
             fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-                let is_content_based_input = match input {
-                    ArtifactGroup::Artifact(a) => a.has_content_based_path(),
-                    // Promised artifacts are not allowed to use content-based paths
-                    ArtifactGroup::Promise(_) => false,
-                    ArtifactGroup::TransitiveSetProjection(transitive_set_projection_key) => {
-                        transitive_set_projection_key.uses_content_based_paths
-                    }
-                };
-                if is_content_based_input {
+                if input.uses_content_based_path() {
                     self.has_content_based_input = true;
                 }
             }
