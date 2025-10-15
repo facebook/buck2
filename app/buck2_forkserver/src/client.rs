@@ -22,7 +22,6 @@ use buck2_execute_local::decode_command_event_stream;
 use buck2_resource_control::CommandType;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
-#[cfg(unix)]
 use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use futures::future;
@@ -66,16 +65,13 @@ struct ForkserverClientInner {
 #[derive(Allocative)]
 pub struct CGroupInfoWrapper {
     /// The forkserver itself.
-    #[cfg(unix)]
     pub scope: CGroupInfo,
 
     /// The forkserver and the processes it spawned.
-    #[cfg(unix)]
     pub slice: CGroupInfo,
 }
 
 impl ForkserverClient {
-    #[allow(unused)] // Unused on Windows
     pub(crate) async fn new(
         mut child: Child,
         channel: Channel,
@@ -105,26 +101,21 @@ impl ForkserverClient {
 
         // Query the forkserver's Cgroup now that it's started. This might return
         // None if we didn't enable it.
-        let mut cgroup_info = None;
+        let response = rpc
+            .clone()
+            .get_cgroup(tonic::Request::new(
+                buck2_forkserver_proto::GetCgroupRequest {},
+            ))
+            .await
+            .buck_error_context("Failed to query forkserver cgroup")?;
 
-        #[cfg(unix)]
-        {
-            let response = rpc
-                .clone()
-                .get_cgroup(tonic::Request::new(
-                    buck2_forkserver_proto::GetCgroupRequest {},
-                ))
-                .await
-                .buck_error_context("Failed to query forkserver cgroup")?;
-
-            cgroup_info = response.into_inner().cgroup_path.and_then(|path| {
-                let scope = CGroupInfo { path };
-                let slice = CGroupInfo {
-                    path: scope.get_slice()?.to_owned(),
-                };
-                Some(CGroupInfoWrapper { scope, slice })
-            });
-        };
+        let cgroup_info = response.into_inner().cgroup_path.and_then(|path| {
+            let scope = CGroupInfo { path };
+            let slice = CGroupInfo {
+                path: scope.get_slice()?.to_owned(),
+            };
+            Some(CGroupInfoWrapper { scope, slice })
+        });
 
         Ok(Self {
             inner: Arc::new(ForkserverClientInner {
@@ -141,7 +132,6 @@ impl ForkserverClient {
         self.inner.pid
     }
 
-    #[cfg(unix)]
     pub fn cgroup_info(&self) -> Option<&CGroupInfoWrapper> {
         self.inner.cgroup_info.as_ref()
     }

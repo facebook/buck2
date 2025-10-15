@@ -10,6 +10,7 @@ arc-swap = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 libc = { workspace = true }
+nix = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
@@ -26,9 +27,6 @@ buck2_forkserver_proto = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_resource_control = { workspace = true }
 buck2_util = { workspace = true }
-
-[target.'cfg(unix)'.dependencies]
-nix = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

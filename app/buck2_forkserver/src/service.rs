@@ -13,6 +13,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -505,11 +506,7 @@ impl MiniperfContainer {
         opts.create_new(true);
         opts.write(true);
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            opts.mode(0o755);
-        }
+        opts.mode(0o755);
 
         let mut miniperf_writer = opts
             .open(miniperf.as_path())
