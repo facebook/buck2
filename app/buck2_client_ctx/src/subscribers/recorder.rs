@@ -585,7 +585,9 @@ impl InvocationRecorder {
             // Should not have returned success.
             (Some(ExitCode::Success), true) => InvocationOutcome::Unknown,
             // Ignore errors if the command was cancelled.
-            (Some(ExitCode::SignalInterrupt), _) => InvocationOutcome::Cancelled,
+            (Some(ExitCode::SignalInterrupt) | Some(ExitCode::ClientIoBrokenPipe), _) => {
+                InvocationOutcome::Cancelled
+            }
             // Remaining exit codes indicate failed commands, these should always have errors.
             (Some(_), true) => match crashed {
                 true => InvocationOutcome::Crashed,
@@ -2393,7 +2395,9 @@ mod tests {
     use std::time::SystemTime;
 
     use buck2_data::InvocationOutcome;
+    use buck2_error::ErrorTag;
     use buck2_error::ExitCode;
+    use buck2_error::buck2_error;
     use buck2_error::internal_error;
     use buck2_wrapper_common::invocation_id::TraceId;
 
@@ -2434,5 +2438,9 @@ mod tests {
 
         let exit_result = ExitResult::exec(OsString::new(), vec![], None, vec![]);
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
+
+        let err = buck2_error!(ErrorTag::IoClientBrokenPipe, "test");
+        let exit_result = ExitResult::err(err);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Cancelled);
     }
 }
