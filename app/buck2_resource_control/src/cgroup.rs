@@ -155,39 +155,39 @@ impl Cgroup {
     pub fn setup_command(&self, command: &mut Command) -> buck2_error::Result<()> {
         let procs_fd_raw = self.procs_fd.as_raw_fd();
 
+        let pre_exec = move || {
+            let pid = std::process::id();
+
+            // Write PID to stack-allocated buffer instead of heap allocating by `pid.to_string().as_bytes()`
+            let mut buf = [0u8; 16]; // u32::MAX is 10 digits, so 16 bytes is plenty
+            let mut cursor = std::io::Cursor::new(&mut buf[..]);
+            write!(cursor, "{pid}").map_err(std::io::Error::from)?;
+            let pos = cursor.position() as usize;
+            let pid_bytes = &buf[..pos];
+
+            // SAFETY: The file descriptor is inherited by the forked process and so valid (wrong)
+            let procs_fd = unsafe { BorrowedFd::borrow_raw(procs_fd_raw) };
+            // Append the process pid to cgroup.procs
+            // Note: Unlike regular files, cgroup.procs writes are atomic for single PID entries.
+            // So we don't need to worry too much about partial writes.
+            let bytes_written = unistd::write(procs_fd, pid_bytes).map_err(std::io::Error::from)?;
+
+            if bytes_written != pid_bytes.len() {
+                return Err(std::io::Error::other(format!(
+                    "cgroup.procs write was incomplete: wrote {} bytes, expected {}",
+                    bytes_written,
+                    pid_bytes.len()
+                )));
+            }
+
+            Ok(())
+        };
         // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
         // However, it's safe here because:
         // 1. We only call async-signal-safe functions (write to file)
         // 2. No memory allocation or complex operations that could deadlock
-        // 3. The raw FD remains valid post-fork since file descriptors are inherited
         unsafe {
-            command.pre_exec(move || {
-                let pid = std::process::id();
-
-                // Write PID to stack-allocated buffer instead of heap allocating by `pid.to_string().as_bytes()`
-                let mut buf = [0u8; 16]; // u32::MAX is 10 digits, so 16 bytes is plenty
-                let mut cursor = std::io::Cursor::new(&mut buf[..]);
-                write!(cursor, "{pid}").map_err(std::io::Error::from)?;
-                let pos = cursor.position() as usize;
-                let pid_bytes = &buf[..pos];
-
-                // Append the process pid to cgroup.procs
-                // Note: Unlike regular files, cgroup.procs writes are atomic for single PID entries.
-                // So we don't need to worry too much about partial writes.
-                let procs_fd = BorrowedFd::borrow_raw(procs_fd_raw);
-                let bytes_written =
-                    unistd::write(procs_fd, pid_bytes).map_err(std::io::Error::from)?;
-
-                if bytes_written != pid_bytes.len() {
-                    return Err(std::io::Error::other(format!(
-                        "cgroup.procs write was incomplete: wrote {} bytes, expected {}",
-                        bytes_written,
-                        pid_bytes.len()
-                    )));
-                }
-
-                Ok(())
-            });
+            command.pre_exec(pre_exec);
         }
         Ok(())
     }
