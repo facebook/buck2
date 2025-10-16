@@ -101,6 +101,41 @@ fn parse_to_get_file_name() -> Result<(), ParseEfmError> {
     Ok(())
 }
 
+#[test]
+fn parse_literal_brackets() -> Result<(), ParseEfmError> {
+    let error_format = "(): %m";
+    let line = "(): the error message";
+    let efm = SingleErrorFormatRule::new(error_format)?;
+    let res = efm.match_line(line);
+    assert!(res.is_ok());
+    let res = res.unwrap();
+    assert!(res.is_some());
+
+    let res = res.unwrap();
+    assert!(res.message.is_some());
+    assert_eq!(res.message.unwrap(), "the error message");
+
+    Ok(())
+}
+
+#[test]
+fn parse_escape_brackets() -> Result<(), ParseEfmError> {
+    let error_format = r"\(abc\)\+: %m";
+    // it will be parsed as regex pattern: ^(abc)+: (?<m>.+)$
+    let line = "abcabc: the error message";
+    let efm = SingleErrorFormatRule::new(error_format)?;
+    let res = efm.match_line(line);
+    assert!(res.is_ok());
+    let res = res.unwrap();
+    assert!(res.is_some());
+
+    let res = res.unwrap();
+    assert!(res.message.is_some());
+    assert_eq!(res.message.unwrap(), "the error message");
+
+    Ok(())
+}
+
 fn assert_entry_matches(
     result: Result<Option<Entry>, ParseEfmError>,
     line: &str,
