@@ -73,7 +73,6 @@ mod tests {
         let error = ActionSubError {
             category: "rust_error".to_owned(),
             message: Some("undefined variable".to_owned()),
-            locations: None,
             file: None,
             lnum: None,
             end_lnum: None,
@@ -92,7 +91,6 @@ mod tests {
         let error = ActionSubError {
             category: "compile_error".to_owned(),
             message: Some("syntax error".to_owned()),
-            locations: None,
             file: Some("src/main.rs".to_owned()),
             lnum: Some(42),
             end_lnum: None,
@@ -114,7 +112,6 @@ mod tests {
         let error = ActionSubError {
             category: "lint_warning".to_owned(),
             message: Some("unused import".to_owned()),
-            locations: None,
             file: Some("lib.rs".to_owned()),
             lnum: Some(10),
             end_lnum: Some(15),
@@ -136,7 +133,6 @@ mod tests {
         let error = ActionSubError {
             category: "type_error".to_owned(),
             message: Some("type mismatch".to_owned()),
-            locations: None,
             file: Some("test.rs".to_owned()),
             lnum: Some(5),
             end_lnum: None,
@@ -158,7 +154,6 @@ mod tests {
         let error = ActionSubError {
             category: "parse_error".to_owned(),
             message: Some("unexpected token".to_owned()),
-            locations: None,
             file: Some("parser.rs".to_owned()),
             lnum: Some(20),
             end_lnum: None,
@@ -180,7 +175,6 @@ mod tests {
         let error = ActionSubError {
             category: "semantic_error".to_owned(),
             message: Some("invalid operation".to_owned()),
-            locations: None,
             file: Some("analyzer.rs".to_owned()),
             lnum: Some(100),
             end_lnum: Some(105),
@@ -202,7 +196,6 @@ mod tests {
         let error = ActionSubError {
             category: "gcc_error".to_owned(),
             message: Some("undefined reference".to_owned()),
-            locations: None,
             file: Some("main.c".to_owned()),
             lnum: Some(50),
             end_lnum: None,
@@ -224,7 +217,6 @@ mod tests {
         let error = ActionSubError {
             category: "http_error".to_owned(),
             message: Some("Not Found".to_owned()),
-            locations: None,
             file: None,
             lnum: None,
             end_lnum: None,
@@ -243,7 +235,6 @@ mod tests {
         let error = ActionSubError {
             category: "rustc".to_owned(),
             message: Some("cannot borrow as mutable".to_owned()),
-            locations: None,
             file: Some("borrow.rs".to_owned()),
             lnum: Some(15),
             end_lnum: None,
@@ -265,7 +256,6 @@ mod tests {
         let error = ActionSubError {
             category: "unknown".to_owned(),
             message: None,
-            locations: None,
             file: None,
             lnum: None,
             end_lnum: None,
@@ -285,7 +275,6 @@ mod tests {
         let error = ActionSubError {
             category: "file_error".to_owned(),
             message: Some("file not found".to_owned()),
-            locations: None,
             file: Some("missing.txt".to_owned()),
             lnum: None,
             end_lnum: None,
@@ -304,7 +293,6 @@ mod tests {
         let error = ActionSubError {
             category: "complex_error".to_owned(),
             message: Some("comprehensive error message".to_owned()),
-            locations: None,
             file: Some("complex.rs".to_owned()),
             lnum: Some(25),
             end_lnum: Some(30),

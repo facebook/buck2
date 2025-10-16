@@ -26,7 +26,6 @@
                       "error_type": null,
                       "file": null,
                       "lnum": null,
-                      "locations": null,
                       "message_content": null
                     },
                     {
@@ -38,7 +37,6 @@
                       "error_type": null,
                       "file": null,
                       "lnum": null,
-                      "locations": null,
                       "message_content": "<STRING_HASH>"
                     }
                   ]

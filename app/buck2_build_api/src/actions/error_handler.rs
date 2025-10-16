@@ -502,7 +502,6 @@ impl StarlarkActionSubError {
         ActionSubError {
             category: self.category.borrow().clone(),
             message: self.message.clone(),
-            locations: None,
             file: self.file.clone(),
             lnum: self.lnum,
             end_lnum: self.end_lnum,

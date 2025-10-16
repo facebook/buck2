@@ -1750,9 +1750,6 @@ message ActionSubError {
 
   optional string message = 2;
 
-  // Optional list of file locations/lines for rule author to populate.
-  optional ActionErrorLocations locations = 3;
-
   // File path for the error location
   optional string file = 4;
 
@@ -1773,18 +1770,6 @@ message ActionSubError {
 
   // Numeric error code (e.g., 404, 500)
   optional uint64 error_number = 10;
-}
-
-// Wrapper around `ActionErrorLocation` so we can differentiate between null and
-// empty locations
-message ActionErrorLocations {
-  repeated ActionErrorLocation locations = 1;
-}
-
-message ActionErrorLocation {
-  // The file path of the error location. Should be project relative or absolute
-  string file = 1;
-  optional uint64 line = 2;
 }
 
 message ActionErrorHandlerExecutionStart {}

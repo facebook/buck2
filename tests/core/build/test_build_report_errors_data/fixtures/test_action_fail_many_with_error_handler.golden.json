@@ -26,7 +26,6 @@
                       "error_type": null,
                       "file": "not_really_the_right_file",
                       "lnum": 1,
-                      "locations": null,
                       "message_content": "<STRING_HASH>"
                     }
                   ]
@@ -63,7 +62,6 @@
                       "error_type": null,
                       "file": null,
                       "lnum": null,
-                      "locations": null,
                       "message_content": "<STRING_HASH>"
                     }
                   ]
