@@ -161,11 +161,20 @@ impl ErrorFormat {
     }
 }
 
+#[derive(Debug, Clone)]
 enum ParseLineResult {
     Valid(Entry),
     Invalid(Entry),
     // the line is on multi-line, but not complete
-    MatchingMultiLine(Entry),
+    MatchingMultiLine {
+        // The entry that is combined from the previous multi-line parsing,
+        // It is not None if the previous if the previous state is also a multi-line state, and current enter a new multi-line state
+        // It is None if the previous state is a single-line state, and current enter a new multi-line state
+        valid_entry: Option<Entry>,
+        // The current multi-line entry that is not complete
+        // It is boxed to avoid inflating the overall enum size (since Entry is large),
+        matching_entry: Box<Entry>,
+    },
     Ignore(Entry),
     // Not match any pattern, but we can still return the entry if the line is on multi-line, if the entry is available.
     NoMatch(Option<Entry>),
@@ -178,7 +187,10 @@ impl ParseLineResult {
         match self {
             Self::Valid(entry) => Self::Ignore(entry),
             Self::Invalid(entry) => Self::Ignore(entry),
-            Self::MatchingMultiLine(entry) => Self::Ignore(entry),
+            Self::MatchingMultiLine {
+                valid_entry,
+                matching_entry,
+            } => Self::Ignore(valid_entry.unwrap_or(*matching_entry)),
             other => other,
         }
     }
@@ -222,6 +234,12 @@ trait ParseMode {
             .current_file(current_parsed_file)
             .map(|s| s.to_owned())
     }
+
+    // pop the valid entry if the current state still contains valid entry
+    // In multi-line state, we will pop the valid entry if the current state have valid entries
+    fn pop_valid_entry(&mut self) -> Option<Entry> {
+        None
+    }
 }
 
 #[derive(Default)]
@@ -236,13 +254,14 @@ struct MultiLineState {
 }
 
 impl MultiLineState {
-    fn combine_entries(&self) -> Entry {
+    fn combine_entries(&mut self) -> Entry {
         let mut entry = Entry::new();
         for e in self.prev_entries.iter() {
             entry = entry.combine(e);
         }
         // We respect the error_type from the entery multi-line type specifier
         entry.error_type = Some(self.multi_line_type.error_char().to_string());
+        self.prev_entries.clear();
         entry
     }
 }
@@ -269,7 +288,10 @@ impl ParseMode for SingleLineState {
                     };
                     (
                         Box::new(state) as Box<dyn ParseMode>,
-                        ParseLineResult::MatchingMultiLine(entry),
+                        ParseLineResult::MatchingMultiLine {
+                            valid_entry: None,
+                            matching_entry: Box::new(entry),
+                        },
                     )
                 }
                 // Cannot happen in this case now, since we just ignore in parse_line_with_one_efm
@@ -378,6 +400,11 @@ impl ParseMode for MultiLineState {
                 Some(ref specifier) if specifier.is_enter_multi_line() => {
                     // New a new state for multi-line
                     let multi_line_type = specifier.enter_multi_line_type().unwrap();
+                    let prev_muti_line_entry = if self.prev_entries.is_empty() {
+                        None
+                    } else {
+                        Some(self.combine_entries())
+                    };
                     let state = MultiLineState {
                         multi_line_type,
                         prev_entries: vec![entry.clone()],
@@ -386,14 +413,20 @@ impl ParseMode for MultiLineState {
                     };
                     (
                         Box::new(state) as Box<dyn ParseMode>,
-                        ParseLineResult::MatchingMultiLine(entry),
+                        ParseLineResult::MatchingMultiLine {
+                            valid_entry: prev_muti_line_entry,
+                            matching_entry: Box::new(entry),
+                        },
                     )
                 }
                 Some(ref specifier) if specifier.is_continuation_multi_line() => {
                     self.prev_entries.push(entry.clone());
                     (
                         self as Box<dyn ParseMode>,
-                        ParseLineResult::MatchingMultiLine(entry),
+                        ParseLineResult::MatchingMultiLine {
+                            valid_entry: None,
+                            matching_entry: Box::new(entry),
+                        },
                     )
                 }
                 Some(ref specifier) if specifier.is_end_multi_line() => {
@@ -483,6 +516,15 @@ impl ParseMode for MultiLineState {
     fn shared_context(&self) -> &RefCell<ShareContext> {
         &self.ctx
     }
+
+    fn pop_valid_entry(&mut self) -> Option<Entry> {
+        if !self.prev_entries.is_empty() {
+            let entry = self.combine_entries();
+            Some(entry)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Default)]
@@ -547,6 +589,10 @@ impl ErrorFormatParser {
         self.state = next_state;
         result
     }
+
+    fn pop_valid_entry(&mut self) -> Option<Entry> {
+        self.state.pop_valid_entry()
+    }
 }
 
 pub fn parse_error_format(
@@ -560,7 +606,14 @@ pub fn parse_error_format(
         let result = parser.parse_line(&line);
         match result {
             ParseLineResult::Valid(entry) => entries.push(entry),
-            ParseLineResult::MatchingMultiLine(_entry) => {}
+            ParseLineResult::MatchingMultiLine {
+                valid_entry,
+                matching_entry: _,
+            } => {
+                if let Some(entry) = valid_entry {
+                    entries.push(entry);
+                }
+            }
             ParseLineResult::Invalid(_entry) => {}
             ParseLineResult::Ignore(_entry) => {}
             ParseLineResult::NoMatch(entry) => {
@@ -571,6 +624,11 @@ pub fn parse_error_format(
             }
         }
     }
+    // pop the valid entry if the current state still contains valid entry
+    if let Some(entry) = parser.pop_valid_entry() {
+        entries.push(entry);
+    }
+    // parser.state
     Ok(entries)
 }
 
