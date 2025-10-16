@@ -133,6 +133,12 @@ impl ErrorFormat {
 
         for efm in efms {
             let e = SingleErrorFormatRule::new(&efm)?;
+            tracing::debug!(
+                errorformat = %efm,
+                regex = %e.regex,
+                format_specifier = ?e.format_specifier,
+                "Parsed error format to regex"
+            );
             error_format.efms.push(e);
         }
 
