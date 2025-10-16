@@ -26,12 +26,7 @@
                       "error_type": null,
                       "file": "not_really_the_right_file",
                       "lnum": 1,
-                      "locations": [
-                        {
-                          "file": "not_really_the_right_file",
-                          "line": 1
-                        }
-                      ],
+                      "locations": null,
                       "message_content": "<STRING_HASH>"
                     }
                   ]

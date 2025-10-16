@@ -21,11 +21,8 @@ def _error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
         categories.append(ctx.new_sub_error(
             category = "syntax",
             message = "Syntax error!",
-            locations = [
-                # Using regex to find the file is a pain, but let's at least show
-                # that `location` is emitted to the build report as expected
-                ctx.new_error_location(file = "not_really_the_right_file", line = 1),
-            ],
+            file = "not_really_the_right_file",
+            lnum = 1,
         ))
 
     return categories

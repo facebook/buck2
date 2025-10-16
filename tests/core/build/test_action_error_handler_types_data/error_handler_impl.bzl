@@ -17,18 +17,16 @@ def error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
         categories.append(ctx.new_sub_error(
             category = "foo_category",
             message = "foo message",
-            locations = [
-                ctx.new_error_location(file = "foo_file", line = 1),
-            ],
+            file = "foo_file",
+            lnum = 1,
         ))
 
     if "bar" in ctx.stderr:
         categories.append(ctx.new_sub_error(
             category = "bar_category",
             message = "bar message",
-            locations = [
-                ctx.new_error_location(file = "bar_file", line = 1),
-            ],
+            file = "bar_file",
+            lnum = 1,
         ))
 
     return categories

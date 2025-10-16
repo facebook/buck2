@@ -13,12 +13,12 @@
 [<TIMESTAMP>] Could not produce error diagnostics:
 Error handler failed: Traceback (most recent call last):
   File <builtin>, in <module>
-  * fail_action/fail_action_with_error_handler.bzl:72, in f
+  * fail_action/fail_action_with_error_handler.bzl:69, in f
       fail("something went wrong")
 error: fail: something went wrong
-  --> fail_action/fail_action_with_error_handler.bzl:72:9
+  --> fail_action/fail_action_with_error_handler.bzl:69:9
    |
-72 |         fail("something went wrong")
+69 |         fail("something went wrong")
    |
    |
 
@@ -37,12 +37,12 @@ error: fail: something went wrong
 [<TIMESTAMP>] Could not produce error diagnostics:
 Error handler failed: Traceback (most recent call last):
   File <builtin>, in <module>
-  * fail_action/fail_action_with_error_handler.bzl:72, in f
+  * fail_action/fail_action_with_error_handler.bzl:69, in f
       fail("something went wrong")
 error: fail: something went wrong
-  --> fail_action/fail_action_with_error_handler.bzl:72:9
+  --> fail_action/fail_action_with_error_handler.bzl:69:9
    |
-72 |         fail("something went wrong")
+69 |         fail("something went wrong")
    |
    |
 
