@@ -135,21 +135,6 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         Ok(this.output_artifacts)
     }
 
-    /// Create a new error location, specifying a file path and an optional line number.
-    ///
-    /// The file path should be either a project-relative path, or an absolute path.
-    fn new_error_location<'v>(
-        #[starlark(this)] _this: &'v StarlarkActionErrorContext,
-        #[starlark(require = named)] file: String,
-        #[starlark(require = named, default = NoneOr::None)] line: NoneOr<u64>,
-    ) -> starlark::Result<StarlarkActionErrorLocation> {
-        // @TODO(wendyy) - actually enforce/validate the path types.
-        Ok(StarlarkActionErrorLocation {
-            file,
-            line: line.into_option(),
-        })
-    }
-
     /// Create a new sub error, specifying an error category name, optional message, and
     /// an optional list of error locations.
     ///
