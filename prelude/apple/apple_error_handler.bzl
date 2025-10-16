@@ -96,11 +96,6 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             if not _valid_error(error_json):
                 continue
 
-            location = ctx.new_error_location(
-                file = error_json["path"],
-                line = error_json["line"],
-            )
-
             # Clang optionally populates a category and flag field. We are only
             # interested in the flag for now, which helps to know which flag to
             # disable to bypass an error.
@@ -119,7 +114,9 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 ctx.new_sub_error(
                     category = category,
                     message = error_json["message"] + postfix,
-                    locations = [location],
+                    file = error_json["path"],
+                    lnum = error_json["line"],
+                    col = error_json["col"],
                 ),
             )
 
@@ -137,10 +134,6 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             if not _valid_error(error_json):
                 continue
 
-            location = ctx.new_error_location(
-                file = error_json["path"],
-                line = error_json["line"],
-            )
             category = "swift_" + error_json["severity"]
 
             # Swift serializes the category in the form:
@@ -164,7 +157,9 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 ctx.new_sub_error(
                     category = category,
                     message = error_json["message"] + postfix,
-                    locations = [location],
+                    file = error_json["path"],
+                    lnum = error_json["line"],
+                    col = error_json["col"],
                 ),
             )
 

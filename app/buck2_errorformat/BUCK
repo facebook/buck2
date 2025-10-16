@@ -10,6 +10,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:nom",
+        "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_error:buck2_error",
     ],
 )

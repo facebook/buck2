@@ -8,5 +8,6 @@ version = "0.1.0"
 [dependencies]
 fancy-regex = { workspace = true }
 nom = { workspace = true }
+tracing = { workspace = true }
 
 buck2_error = { workspace = true }

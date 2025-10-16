@@ -37,6 +37,8 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             lipo = ctx.attrs.lipo[RunInfo],
             mapc = ctx.attrs.mapc[RunInfo] if ctx.attrs.mapc else None,
             merge_index_store = ctx.attrs.merge_index_store[RunInfo],
+            metal = ctx.attrs.metal[RunInfo] if ctx.attrs.metal else None,
+            metallib = ctx.attrs.metallib[RunInfo] if ctx.attrs.metallib else None,
             momc = ctx.attrs.momc[RunInfo],
             objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
             platform_path = platform_path,

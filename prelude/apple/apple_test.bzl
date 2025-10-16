@@ -48,6 +48,7 @@ load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "EXTENDED_
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_tests")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(":apple_sdk_metadata.bzl", "WatchSimulatorSdkMetadata")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "XCTestSwiftSupportInfo")
@@ -146,7 +147,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
         bundle_parts = part_list_output.parts
-        if not ctx.attrs.embed_xctest_frameworks_in_test_host_app:
+        if not ctx.attrs.embed_xctest_frameworks_in_test_host_app and get_apple_sdk_name(ctx) != WatchSimulatorSdkMetadata.name:
             # The XCTest frameworks should only be embedded in a single place,
             # either the test host (as per Xcode) or in the test itself
             if test_host_app_bundle != None or read_root_config("apple", "exclude_xctest_libraries", "false").lower() != "true":

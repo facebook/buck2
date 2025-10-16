@@ -565,6 +565,9 @@ async fn test_command_details_omission() {
         },
         exit_code: Some(1),
         additional_message: None,
+        inline_environment_metadata: buck2_data::InlineCommandExecutionEnvironmentMetadata {
+            sandcastle_instance_id: Some(123),
+        },
     };
 
     let proto = command_details(&report, false).await;

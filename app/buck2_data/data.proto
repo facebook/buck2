@@ -981,9 +981,9 @@ message Snapshot {
   optional uint32 client_cpu_percents = 2002;
 
   // Memory usage of the buck2 daemon's slice from cgroup (if available)
-  optional UnixCgroupMemoryStats daemon_cgroup = 2003;
+  optional UnixCgroupMemoryStats allprocs_cgroup = 2003;
   // Memory usage of the forkserver daemon's slice from cgroup (if available)
-  optional UnixCgroupMemoryStats forkserver_cgroup = 2004;
+  optional UnixCgroupMemoryStats forkserver_actions_cgroup = 2004;
 }
 
 message UnixCgroupMemoryStats {
@@ -1536,6 +1536,12 @@ message CommandExecution {
     Cancelled cancelled = 7;
     WorkerFailure worker_failure = 8;
   }
+
+  InlineCommandExecutionEnvironmentMetadata inline_environment_metadata = 20;
+}
+
+message InlineCommandExecutionEnvironmentMetadata {
+  optional uint64 sandcastle_instance_id = 1;
 }
 
 // NOTE: This is an empty message. When this is returned as an error, the
@@ -2004,6 +2010,7 @@ message ExecutorStageEnd {}
 message TestDiscoveryStart {
   // Trying to find the test suite(s) associated with this binary.
   string suite_name = 1;
+  ConfiguredTargetLabel target_label = 2;
 }
 
 message TestDiscoveryEnd {
@@ -2012,6 +2019,7 @@ message TestDiscoveryEnd {
   bool re_cache_enabled = 3;
   optional buck.host_sharing.HostSharingRequirements
       command_host_sharing_requirements = 4;
+  ConfiguredTargetLabel target_label = 5;
 }
 
 message TestRunStart {
@@ -2610,19 +2618,10 @@ message InvocationRecord {
   // Maximum in-progress remote uploads tracked during the command.
   optional uint64 max_in_progress_remote_uploads = 407;
 
-  // Maximum buck2 daemon anonymous memory usage tracked during the command.
-  optional uint64 max_buck2_anon = 408;
-
-  // Maximum buck2 forkserver anonymous memory usage tracked during the command.
-  optional uint64 max_buck2_forkserver_anon = 409;
-
-  // Maximum total buck2 daemon memory usage (anon+file+kernel) tracked during
-  // the command.
-  optional uint64 max_buck2_total_memory = 410;
-
-  // Maximum total buck2 forkserver memory usage (anon+file+kernel) tracked
-  // during the command.
-  optional uint64 max_buck2_forkserver_total_memory = 411;
+  optional uint64 memory_max_anon_allprocs = 408;
+  optional uint64 memory_max_anon_forkserver_actions = 409;
+  optional uint64 memory_max_total_allprocs = 410;
+  optional uint64 memory_max_total_forkserver_actions = 411;
 
   // CommandOptions data
   optional CommandOptions command_options = 412;

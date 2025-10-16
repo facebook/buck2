@@ -1032,6 +1032,7 @@ impl BuckTestOrchestrator<'_> {
         let command_exec_result = match stage {
             TestStage::Listing { suite, cacheable } => {
                 let start = TestDiscoveryStart {
+                    target_label: Some(test_target.target.as_proto()),
                     suite_name: suite.clone(),
                 };
                 let (result, cached) = events
@@ -1057,6 +1058,7 @@ impl BuckTestOrchestrator<'_> {
                         };
                         let end = TestDiscoveryEnd {
                             suite_name: suite.clone(),
+                            target_label: Some(test_target.target.as_proto()),
                             command_report: Some(
                                 result
                                     .report

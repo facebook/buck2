@@ -1077,6 +1077,8 @@ apple_toolchain = prelude_rule(
             "lipo": attrs.exec_dep(providers = [RunInfo]),
             "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "merge_index_store": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools/index:merge_index_store")),
+            "metal": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "metallib": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "min_version": attrs.string(default = ""),
             "momc": attrs.exec_dep(providers = [RunInfo]),
             "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

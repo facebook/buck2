@@ -567,11 +567,17 @@ impl<'v> TransitiveSet<'v> {
             })
             .collect::<Result<Box<[_]>, _>>()?;
 
+        // Cast lifetime from 'v to 'static
+        let definition =
+            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<
+                FrozenTransitiveSetDefinition,
+            >::to_frozen_value(
+                definition
+            ))
+            .buck_error_context("internal error")?;
         Ok(Self {
             key,
-            definition:
-            // Cast lifetime from 'v to 'static
-            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).buck_error_context("internal error")?,
+            definition,
             node,
             reductions,
             projection_uses_content_based_paths,

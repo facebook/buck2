@@ -19,18 +19,25 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_metrics_cgroup_neither(buck: Buck) -> None:
     write_config(buck, resource_control=False, action_cgroup_pool=False)
     snapshot = await start_daemon_and_get_snapshot(buck)
-    assert snapshot["daemon_cgroup"] is None
-    assert snapshot["forkserver_cgroup"] is None
+    assert snapshot["allprocs_cgroup"] is None
+    assert snapshot["forkserver_actions_cgroup"] is None
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
 async def test_metrics_cgroup_both(buck: Buck) -> None:
     write_config(buck, resource_control=True, action_cgroup_pool=True)
     snapshot = await start_daemon_and_get_snapshot(buck)
-    assert snapshot["daemon_cgroup"]["anon"] >= snapshot["forkserver_cgroup"]["anon"]
-    assert snapshot["daemon_cgroup"]["file"] >= snapshot["forkserver_cgroup"]["file"]
     assert (
-        snapshot["daemon_cgroup"]["kernel"] >= snapshot["forkserver_cgroup"]["kernel"]
+        snapshot["allprocs_cgroup"]["anon"]
+        >= snapshot["forkserver_actions_cgroup"]["anon"]
+    )
+    assert (
+        snapshot["allprocs_cgroup"]["file"]
+        >= snapshot["forkserver_actions_cgroup"]["file"]
+    )
+    assert (
+        snapshot["allprocs_cgroup"]["kernel"]
+        >= snapshot["forkserver_actions_cgroup"]["kernel"]
     )
 
 
