@@ -11,14 +11,10 @@
 use std::cell::RefCell;
 
 use allocative::Allocative;
-use buck2_data::ActionErrorLocation;
-use buck2_data::ActionErrorLocations;
 use buck2_data::ActionSubError;
 use buck2_data::CommandExecution;
 use console::strip_ansi_codes;
 use derive_more::Display;
-use display_container::fmt_container;
-use gazebo::prelude::SliceClonedExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -45,7 +41,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact
 use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use crate::starlark::values::ValueLike;
 
-pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError<'a>>;
+pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError>;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -165,9 +161,8 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] end_col: NoneOr<u64>,
         #[starlark(require = named, default = NoneOr::None)] error_type: NoneOr<String>,
         #[starlark(require = named, default = NoneOr::None)] error_number: NoneOr<u64>,
-    ) -> starlark::Result<StarlarkActionSubError<'v>> {
+    ) -> starlark::Result<StarlarkActionSubError> {
         // For backwards compatibility, we use the first location in the list if it exists for file and line number.
-        // TODO(nero): clean `locations` after migration
         let first_loc = locations
             .clone()
             .into_option()
@@ -188,7 +183,6 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkActionSubError {
             category: RefCell::new(category),
             message: message.into_option(),
-            locations: locations.into_option(),
             file,
             lnum,
             end_lnum: end_lnum.into_option(),
@@ -220,14 +214,14 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] category: String,
         #[starlark(require = named)] error: String,
         #[starlark(require = named)] errorformats: UnpackListOrTuple<String>,
-        heap: &'v Heap,
-    ) -> starlark::Result<Vec<StarlarkActionSubError<'v>>> {
+        _heap: &'v Heap,
+    ) -> starlark::Result<Vec<StarlarkActionSubError>> {
         let error_lines = buck2_errorformat::split_lines(&error);
         let error_entries = buck2_errorformat::parse_error_format(errorformats.items, error_lines)
             .map_err(buck2_error::Error::from)?;
         let res = error_entries
             .into_iter()
-            .map(|e| StarlarkActionSubError::from_errorformat_entry(e, category.clone(), heap))
+            .map(|e| StarlarkActionSubError::from_errorformat_entry(e, category.clone()))
             .collect();
         Ok(res)
     }
@@ -307,12 +301,9 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
 }
 
 #[derive(ProvidesStaticType, Trace, Allocative, Debug, NoSerialize)]
-pub(crate) struct StarlarkActionSubError<'v> {
+pub(crate) struct StarlarkActionSubError {
     category: RefCell<String>,
     message: Option<String>,
-    #[allocative(skip)]
-    #[trace(unsafe_ignore)]
-    locations: Option<UnpackListOrTuple<&'v StarlarkActionErrorLocation>>,
 
     // file path for the error location
     file: Option<String>,
@@ -330,29 +321,50 @@ pub(crate) struct StarlarkActionSubError<'v> {
     error_number: Option<u64>,
 }
 
-impl<'v> Display for StarlarkActionSubError<'v> {
+impl Display for StarlarkActionSubError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let prefix = format!(
-            "ActionSubError(category={}, message={}, locations=[",
-            self.category.borrow(),
-            self.message.clone().unwrap_or_default()
-        );
-        fmt_container(
-            f,
-            &prefix,
-            "])",
-            self.locations
-                .as_ref()
-                .map_or(Vec::new(), |l| l.items.iter().collect()),
-        )
+        write!(f, "ActionSubError(category={}", self.category.borrow())?;
+
+        if let Some(ref message) = self.message {
+            write!(f, ", message={}", message)?;
+        }
+
+        if let Some(ref file) = self.file {
+            write!(f, ", file={}", file)?;
+        }
+
+        if let Some(lnum) = self.lnum {
+            write!(f, ", lnum={}", lnum)?;
+        }
+
+        if let Some(end_lnum) = self.end_lnum {
+            write!(f, ", end_lnum={}", end_lnum)?;
+        }
+
+        if let Some(col) = self.col {
+            write!(f, ", col={}", col)?;
+        }
+
+        if let Some(end_col) = self.end_col {
+            write!(f, ", end_col={}", end_col)?;
+        }
+
+        if let Some(ref error_type) = self.error_type {
+            write!(f, ", error_type={}", error_type)?;
+        }
+
+        if let Some(error_number) = self.error_number {
+            write!(f, ", error_number={}", error_number)?;
+        }
+
+        write!(f, ")")
     }
 }
 
-impl<'v> PartialEq for StarlarkActionSubError<'v> {
+impl PartialEq for StarlarkActionSubError {
     fn eq(&self, other: &Self) -> bool {
         *self.category.borrow() == *other.category.borrow()
             && self.message == other.message
-            && self.locations == other.locations
             && self.file == other.file
             && self.lnum == other.lnum
             && self.end_lnum == other.end_lnum
@@ -363,29 +375,16 @@ impl<'v> PartialEq for StarlarkActionSubError<'v> {
     }
 }
 
-impl<'v> Eq for StarlarkActionSubError<'v> {}
+impl Eq for StarlarkActionSubError {}
 
-impl<'v> StarlarkActionSubError<'v> {
+impl StarlarkActionSubError {
     pub(crate) fn from_errorformat_entry(
         entry: buck2_errorformat::Entry,
         category: String,
-        heap: &'v Heap,
     ) -> Self {
-        let location = entry
-            .filename
-            .clone()
-            .map(|f| StarlarkActionErrorLocation {
-                file: f,
-                line: entry.lnum.map(|l| l as u64),
-            })
-            .map(|l| heap.alloc_typed(l));
-
         StarlarkActionSubError {
             category: RefCell::new(category),
             message: entry.message,
-            locations: location.map(|l| UnpackListOrTuple {
-                items: vec![l.as_ref()],
-            }),
             file: entry.filename,
             lnum: entry.lnum.map(|x| x as u64),
             end_lnum: entry.end_lnum.map(|x| x as u64),
@@ -397,14 +396,14 @@ impl<'v> StarlarkActionSubError<'v> {
     }
 }
 
-impl<'v> AllocValue<'v> for StarlarkActionSubError<'v> {
+impl<'v> AllocValue<'v> for StarlarkActionSubError {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
 
 #[starlark_value(type = "ActionSubError", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
+impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(action_sub_error_methods)
@@ -447,17 +446,6 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
             Some(message) => NoneOr::Other(message.as_str()),
             None => NoneOr::None,
         })
-    }
-
-    /// File/line information for the error, useful for external integration to highlight where the error resides
-    #[starlark(attribute)]
-    fn locations<'v>(
-        this: &'v StarlarkActionSubError,
-    ) -> starlark::Result<NoneOr<Vec<StarlarkActionErrorLocation>>> {
-        match &this.locations {
-            None => Ok(NoneOr::None),
-            Some(locations) => Ok(NoneOr::Other(locations.items.cloned())),
-        }
     }
 
     /// File path for the error location.
@@ -509,24 +497,12 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-impl<'v> StarlarkActionSubError<'v> {
+impl StarlarkActionSubError {
     pub(crate) fn to_proto(&self) -> ActionSubError {
         ActionSubError {
             category: self.category.borrow().clone(),
             message: self.message.clone(),
-            locations: self
-                .locations
-                .clone()
-                .map(|locations| ActionErrorLocations {
-                    locations: locations
-                        .items
-                        .iter()
-                        .map(|l| ActionErrorLocation {
-                            file: l.file.clone(),
-                            line: l.line,
-                        })
-                        .collect(),
-                }),
+            locations: None,
             file: self.file.clone(),
             lnum: self.lnum,
             end_lnum: self.end_lnum,
