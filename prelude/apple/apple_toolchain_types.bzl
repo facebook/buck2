@@ -32,6 +32,8 @@ AppleToolchainInfo = provider(
         "lipo": provider_field(RunInfo),
         "mapc": provider_field(RunInfo | None, default = None),
         "merge_index_store": provider_field(RunInfo),
+        "metal": provider_field(RunInfo | None, default = None),
+        "metallib": provider_field(RunInfo | None, default = None),
         "momc": provider_field(RunInfo),
         "objdump": provider_field(RunInfo | None, default = None),
         "platform_path": provider_field(str | Artifact),
