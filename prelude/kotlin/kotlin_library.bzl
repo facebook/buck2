@@ -617,7 +617,8 @@ def _semanticdb_subtarget(
     if not sourceroot:
         return extra_sub_targets
     semanticdb_javac = java_toolchain.semanticdb_javac
-    semanticdb_kotlinc = kotlin_toolchain.semanticdb_kotlinc
+    kotlin_version = get_language_version(ctx)
+    semanticdb_kotlinc = kotlin_toolchain.semanticdb_kotlinc.get(kotlin_version)
     if semanticdb_javac or semanticdb_kotlinc:
         semanticdb_output = ctx.actions.declare_output("semanticdb", dir = True)
         semanticdb_javac_plugin_params = None
