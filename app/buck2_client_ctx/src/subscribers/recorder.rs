@@ -260,13 +260,13 @@ pub struct InvocationRecorder {
     // Track executor stage types by span ID to know which counter to decrement on end
     executor_stages_by_span: HashMap<u64, ExecutorStageType>,
     // Track maximum buck2 daemon anon memory usage
-    max_buck2_anon: Option<u64>,
+    memory_max_anon_allprocs: Option<u64>,
     // Track maximum buck2 forkserver anon memory usage
-    max_buck2_forkserver_anon: Option<u64>,
+    memory_max_anon_forkserver_actions: Option<u64>,
     // Track maximum total buck2 daemon memory usage (anon+file+kernel)
-    max_buck2_total_memory: Option<u64>,
+    memory_max_total_allprocs: Option<u64>,
     // Track maximum total buck2 forkserver memory usage (anon+file+kernel)
-    max_buck2_forkserver_total_memory: Option<u64>,
+    memory_max_total_forkserver_actions: Option<u64>,
     // CommandOptions data
     command_options: Option<buck2_data::CommandOptions>,
 }
@@ -449,10 +449,10 @@ impl InvocationRecorder {
             current_in_progress_remote_uploads: 0,
             max_in_progress_remote_uploads: 0,
             executor_stages_by_span: HashMap::new(),
-            max_buck2_anon: None,
-            max_buck2_forkserver_anon: None,
-            max_buck2_total_memory: None,
-            max_buck2_forkserver_total_memory: None,
+            memory_max_anon_allprocs: None,
+            memory_max_anon_forkserver_actions: None,
+            memory_max_total_allprocs: None,
+            memory_max_total_forkserver_actions: None,
             command_options: None,
         }
     }
@@ -1056,10 +1056,10 @@ impl InvocationRecorder {
             max_in_progress_local_actions: Some(self.max_in_progress_local_actions),
             max_in_progress_remote_actions: Some(self.max_in_progress_remote_actions),
             max_in_progress_remote_uploads: Some(self.max_in_progress_remote_uploads),
-            max_buck2_anon: self.max_buck2_anon,
-            max_buck2_forkserver_anon: self.max_buck2_forkserver_anon,
-            max_buck2_total_memory: self.max_buck2_total_memory,
-            max_buck2_forkserver_total_memory: self.max_buck2_forkserver_total_memory,
+            memory_max_anon_allprocs: self.memory_max_anon_allprocs,
+            memory_max_anon_forkserver_actions: self.memory_max_anon_forkserver_actions,
+            memory_max_total_allprocs: self.memory_max_total_allprocs,
+            memory_max_total_forkserver_actions: self.memory_max_total_forkserver_actions,
             command_options: self.command_options,
         };
 
@@ -1809,22 +1809,26 @@ impl InvocationRecorder {
         );
 
         // Track maximum buck2 daemon memory usage from cgroup
-        if let Some(daemon_cgroup) = &update.daemon_cgroup {
-            self.max_buck2_anon = max(self.max_buck2_anon, Some(daemon_cgroup.anon));
+        if let Some(allprocs_cgroup) = &update.allprocs_cgroup {
+            self.memory_max_anon_allprocs =
+                max(self.memory_max_anon_allprocs, Some(allprocs_cgroup.anon));
             let total_daemon_memory =
-                daemon_cgroup.anon + daemon_cgroup.file + daemon_cgroup.kernel;
-            self.max_buck2_total_memory =
-                max(self.max_buck2_total_memory, Some(total_daemon_memory));
+                allprocs_cgroup.anon + allprocs_cgroup.file + allprocs_cgroup.kernel;
+            self.memory_max_total_allprocs =
+                max(self.memory_max_total_allprocs, Some(total_daemon_memory));
         }
 
         // Track maximum buck2 forkserver memory usage from cgroup
-        if let Some(forkserver_cgroup) = &update.forkserver_cgroup {
-            self.max_buck2_forkserver_anon =
-                max(self.max_buck2_forkserver_anon, Some(forkserver_cgroup.anon));
-            let total_forkserver_memory =
-                forkserver_cgroup.anon + forkserver_cgroup.file + forkserver_cgroup.kernel;
-            self.max_buck2_forkserver_total_memory = max(
-                self.max_buck2_forkserver_total_memory,
+        if let Some(forkserver_actions_cgroup) = &update.forkserver_actions_cgroup {
+            self.memory_max_anon_forkserver_actions = max(
+                self.memory_max_anon_forkserver_actions,
+                Some(forkserver_actions_cgroup.anon),
+            );
+            let total_forkserver_memory = forkserver_actions_cgroup.anon
+                + forkserver_actions_cgroup.file
+                + forkserver_actions_cgroup.kernel;
+            self.memory_max_total_forkserver_actions = max(
+                self.memory_max_total_forkserver_actions,
                 Some(total_forkserver_memory),
             );
         }
