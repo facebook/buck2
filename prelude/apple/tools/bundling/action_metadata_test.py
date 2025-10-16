@@ -20,8 +20,9 @@ class TestActionMetadata(unittest.TestCase):
         return resources / filename
 
     def test_valid_metadata_is_parsed_successfully(self):
-        file_content = self._resource_content("valid_action_metadata.json")
-        result = parse_action_metadata(file_content)
+        path = self._resource_content("valid_action_metadata.json")
+        with path.open() as file_content:
+            result = parse_action_metadata(file_content)
         self.assertEqual(
             result,
             {
@@ -31,14 +32,16 @@ class TestActionMetadata(unittest.TestCase):
         )
 
     def test_error_when_invalid_metadata(self):
-        file_content = self._resource_content("the.broken_json")
+        path = self._resource_content("the.broken_json")
         with self.assertRaises(JSONDecodeError):
-            _ = parse_action_metadata(file_content)
+            with path.open() as file_content:
+                _ = parse_action_metadata(file_content)
 
     def test_user_friendly_error_when_metadata_with_newer_version(self):
-        file_content = self._resource_content("newer_version_action_metadata.json")
+        path = self._resource_content("newer_version_action_metadata.json")
         with self.assertRaises(Exception) as context:
-            _ = parse_action_metadata(file_content)
+            with path.open() as file_content:
+                _ = parse_action_metadata(file_content)
             self.assertEqual(
                 context.exception,
                 RuntimeError("Expected metadata version to be `1` got `2`."),
