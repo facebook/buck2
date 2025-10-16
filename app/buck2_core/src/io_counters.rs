@@ -56,6 +56,27 @@ static IN_PROGRESS: [AtomicU32; IoCounterKey::COUNT] = [
     AtomicU32::new(0),
 ];
 
+static FINISHED: [AtomicU32; IoCounterKey::COUNT] = [
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+];
+
 impl IoCounterKey {
     pub const ALL: &'static [IoCounterKey] = &[
         IoCounterKey::Copy,
@@ -84,6 +105,10 @@ impl IoCounterKey {
         IN_PROGRESS[*self as usize].load(Ordering::Relaxed)
     }
 
+    pub fn get_finished(&self) -> u32 {
+        FINISHED[*self as usize].load(Ordering::Relaxed)
+    }
+
     pub fn guard(&self) -> IoCounterGuard {
         IN_PROGRESS[*self as usize].fetch_add(1, Ordering::Relaxed);
         IoCounterGuard(*self)
@@ -96,6 +121,9 @@ pub struct IoCounterGuard(IoCounterKey);
 impl Drop for IoCounterGuard {
     fn drop(&mut self) {
         IN_PROGRESS[self.0 as usize].fetch_sub(1, Ordering::Relaxed);
+        // Note: Relaxed ordering is sufficient since these counters are only
+        // used for metrics/debugging.
+        FINISHED[self.0 as usize].fetch_add(1, Ordering::Relaxed);
     }
 }
 

@@ -2610,6 +2610,26 @@ message InvocationRecord {
 
   // CommandOptions data
   optional CommandOptions command_options = 412;
+
+  // IO operation counts captured since the beginning of the invocation
+  optional uint32 io_copy_count = 413;
+  optional uint32 io_symlink_count = 414;
+  optional uint32 io_hardlink_count = 415;
+  optional uint32 io_mkdir_count = 416;
+  optional uint32 io_readdir_count = 417;
+  optional uint32 io_readdir_eden_count = 418;
+  optional uint32 io_rmdir_count = 419;
+  optional uint32 io_rmdir_all_count = 420;
+  optional uint32 io_stat_count = 421;
+  optional uint32 io_stat_eden_count = 422;
+  optional uint32 io_chmod_count = 423;
+  optional uint32 io_readlink_count = 424;
+  optional uint32 io_remove_count = 425;
+  optional uint32 io_rename_count = 426;
+  optional uint32 io_read_count = 427;
+  optional uint32 io_write_count = 428;
+  optional uint32 io_canonicalize_count = 429;
+  optional uint32 io_eden_settle_count = 430;
 }
 
 enum InvocationOutcome {

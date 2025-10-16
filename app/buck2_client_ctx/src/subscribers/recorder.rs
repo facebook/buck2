@@ -29,6 +29,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::io_counters::IoCounterKey;
 use buck2_core::soft_error;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
@@ -269,6 +270,25 @@ pub struct InvocationRecorder {
     memory_max_total_forkserver_actions: Option<u64>,
     // CommandOptions data
     command_options: Option<buck2_data::CommandOptions>,
+    // Initial IO counters captured at invocation start
+    initial_io_copy_count: u32,
+    initial_io_symlink_count: u32,
+    initial_io_hardlink_count: u32,
+    initial_io_mkdir_count: u32,
+    initial_io_readdir_count: u32,
+    initial_io_readdir_eden_count: u32,
+    initial_io_rmdir_count: u32,
+    initial_io_rmdir_all_count: u32,
+    initial_io_stat_count: u32,
+    initial_io_stat_eden_count: u32,
+    initial_io_chmod_count: u32,
+    initial_io_readlink_count: u32,
+    initial_io_remove_count: u32,
+    initial_io_rename_count: u32,
+    initial_io_read_count: u32,
+    initial_io_write_count: u32,
+    initial_io_canonicalize_count: u32,
+    initial_io_eden_settle_count: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -454,6 +474,24 @@ impl InvocationRecorder {
             memory_max_total_allprocs: None,
             memory_max_total_forkserver_actions: None,
             command_options: None,
+            initial_io_copy_count: IoCounterKey::Copy.get_finished(),
+            initial_io_symlink_count: IoCounterKey::Symlink.get_finished(),
+            initial_io_hardlink_count: IoCounterKey::Hardlink.get_finished(),
+            initial_io_mkdir_count: IoCounterKey::MkDir.get_finished(),
+            initial_io_readdir_count: IoCounterKey::ReadDir.get_finished(),
+            initial_io_readdir_eden_count: IoCounterKey::ReadDirEden.get_finished(),
+            initial_io_rmdir_count: IoCounterKey::RmDir.get_finished(),
+            initial_io_rmdir_all_count: IoCounterKey::RmDirAll.get_finished(),
+            initial_io_stat_count: IoCounterKey::Stat.get_finished(),
+            initial_io_stat_eden_count: IoCounterKey::StatEden.get_finished(),
+            initial_io_chmod_count: IoCounterKey::Chmod.get_finished(),
+            initial_io_readlink_count: IoCounterKey::ReadLink.get_finished(),
+            initial_io_remove_count: IoCounterKey::Remove.get_finished(),
+            initial_io_rename_count: IoCounterKey::Rename.get_finished(),
+            initial_io_read_count: IoCounterKey::Read.get_finished(),
+            initial_io_write_count: IoCounterKey::Write.get_finished(),
+            initial_io_canonicalize_count: IoCounterKey::Canonicalize.get_finished(),
+            initial_io_eden_settle_count: IoCounterKey::EdenSettle.get_finished(),
         }
     }
 
@@ -1061,6 +1099,96 @@ impl InvocationRecorder {
             memory_max_total_allprocs: self.memory_max_total_allprocs,
             memory_max_total_forkserver_actions: self.memory_max_total_forkserver_actions,
             command_options: self.command_options,
+            io_copy_count: Some(
+                IoCounterKey::Copy
+                    .get_finished()
+                    .saturating_sub(self.initial_io_copy_count),
+            ),
+            io_symlink_count: Some(
+                IoCounterKey::Symlink
+                    .get_finished()
+                    .saturating_sub(self.initial_io_symlink_count),
+            ),
+            io_hardlink_count: Some(
+                IoCounterKey::Hardlink
+                    .get_finished()
+                    .saturating_sub(self.initial_io_hardlink_count),
+            ),
+            io_mkdir_count: Some(
+                IoCounterKey::MkDir
+                    .get_finished()
+                    .saturating_sub(self.initial_io_mkdir_count),
+            ),
+            io_readdir_count: Some(
+                IoCounterKey::ReadDir
+                    .get_finished()
+                    .saturating_sub(self.initial_io_readdir_count),
+            ),
+            io_readdir_eden_count: Some(
+                IoCounterKey::ReadDirEden
+                    .get_finished()
+                    .saturating_sub(self.initial_io_readdir_eden_count),
+            ),
+            io_rmdir_count: Some(
+                IoCounterKey::RmDir
+                    .get_finished()
+                    .saturating_sub(self.initial_io_rmdir_count),
+            ),
+            io_rmdir_all_count: Some(
+                IoCounterKey::RmDirAll
+                    .get_finished()
+                    .saturating_sub(self.initial_io_rmdir_all_count),
+            ),
+            io_stat_count: Some(
+                IoCounterKey::Stat
+                    .get_finished()
+                    .saturating_sub(self.initial_io_stat_count),
+            ),
+            io_stat_eden_count: Some(
+                IoCounterKey::StatEden
+                    .get_finished()
+                    .saturating_sub(self.initial_io_stat_eden_count),
+            ),
+            io_chmod_count: Some(
+                IoCounterKey::Chmod
+                    .get_finished()
+                    .saturating_sub(self.initial_io_chmod_count),
+            ),
+            io_readlink_count: Some(
+                IoCounterKey::ReadLink
+                    .get_finished()
+                    .saturating_sub(self.initial_io_readlink_count),
+            ),
+            io_remove_count: Some(
+                IoCounterKey::Remove
+                    .get_finished()
+                    .saturating_sub(self.initial_io_remove_count),
+            ),
+            io_rename_count: Some(
+                IoCounterKey::Rename
+                    .get_finished()
+                    .saturating_sub(self.initial_io_rename_count),
+            ),
+            io_read_count: Some(
+                IoCounterKey::Read
+                    .get_finished()
+                    .saturating_sub(self.initial_io_read_count),
+            ),
+            io_write_count: Some(
+                IoCounterKey::Write
+                    .get_finished()
+                    .saturating_sub(self.initial_io_write_count),
+            ),
+            io_canonicalize_count: Some(
+                IoCounterKey::Canonicalize
+                    .get_finished()
+                    .saturating_sub(self.initial_io_canonicalize_count),
+            ),
+            io_eden_settle_count: Some(
+                IoCounterKey::EdenSettle
+                    .get_finished()
+                    .saturating_sub(self.initial_io_eden_settle_count),
+            ),
         };
 
         let event = BuckEvent::new(
