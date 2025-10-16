@@ -136,6 +136,50 @@ fn parse_escape_brackets() -> Result<(), ParseEfmError> {
     Ok(())
 }
 
+#[test]
+fn parse_literal_bar() -> Result<(), ParseEfmError> {
+    let error_format = "|: %m";
+    let line = "|: the error message";
+    let efm = SingleErrorFormatRule::new(error_format)?;
+    let res = efm.match_line(line);
+    assert!(res.is_ok());
+    let res = res.unwrap();
+    assert!(res.is_some());
+
+    let res = res.unwrap();
+    assert!(res.message.is_some());
+    assert_eq!(res.message.unwrap(), "the error message");
+
+    Ok(())
+}
+
+#[test]
+fn parse_regex_bar() -> Result<(), ParseEfmError> {
+    let error_format = r"\(abc\|efg\): %m";
+    let line = "abc: the error message";
+    let efm = SingleErrorFormatRule::new(error_format)?;
+    let res = efm.match_line(line);
+    assert!(res.is_ok());
+    let res = res.unwrap();
+    assert!(res.is_some());
+
+    let res = res.unwrap();
+    assert!(res.message.is_some());
+    assert_eq!(res.message.unwrap(), "the error message");
+
+    let line2 = "efg: the error message";
+    let res2 = efm.match_line(line2);
+    assert!(res2.is_ok());
+    let res2 = res2.unwrap();
+    assert!(res2.is_some());
+
+    let res2 = res2.unwrap();
+    assert!(res2.message.is_some());
+    assert_eq!(res2.message.unwrap(), "the error message");
+
+    Ok(())
+}
+
 fn assert_entry_matches(
     result: Result<Option<Entry>, ParseEfmError>,
     line: &str,
