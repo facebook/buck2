@@ -218,10 +218,15 @@ impl ReExecutor {
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
             Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats)) => {
-                let reason = cancelled.reason.map(|reason| match reason {
-                    CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
-                    CancellationReason::ReQueueTimeout => CommandCancellationReason::ReQueueTimeout,
-                });
+                let reason = cancelled
+                    .reason
+                    .map(|reason| match reason {
+                        CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
+                        CancellationReason::ReQueueTimeout => {
+                            CommandCancellationReason::ReQueueTimeout
+                        }
+                    })
+                    .unwrap_or(CommandCancellationReason::NotSpecified);
                 return ControlFlow::Break(manager.cancel(
                     CommandExecutionKind::Remote {
                         details: remote_details,
@@ -230,10 +235,10 @@ impl ReExecutor {
                         materialized_outputs_for_failed_actions: None,
                     },
                     reason,
-                    Some(CommandExecutionMetadata {
+                    CommandExecutionMetadata {
                         queue_duration: Some(queue_stats.cumulative_queue_duration),
                         ..Default::default()
-                    }),
+                    },
                 ));
             }
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
