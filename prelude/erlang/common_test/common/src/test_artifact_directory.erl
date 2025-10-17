@@ -72,6 +72,7 @@ prepare(ExecutionDir, TestInfo) ->
     with_artifact_dir(
         fun(_ArtifactDir) ->
             link_tar_ball(ExecutionDir),
+            link_to_artifact_dir(join_paths(ExecutionDir, "erlang.perfetto-trace"), ExecutionDir, TestInfo),
             case find_log_private(ExecutionDir) of
                 {error, log_private_not_found} ->
                     ok;
