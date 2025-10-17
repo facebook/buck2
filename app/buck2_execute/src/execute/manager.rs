@@ -106,11 +106,15 @@ impl CommandExecutionManager {
 
     pub fn cancel(
         self,
+        execution_kind: CommandExecutionKind,
         reason: Option<CommandCancellationReason>,
         metadata: Option<CommandExecutionMetadata>,
     ) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled { reason },
+            CommandExecutionStatus::Cancelled {
+                execution_kind,
+                reason,
+            },
             IndexMap::new(),
             Default::default(),
             None,
@@ -202,9 +206,16 @@ impl CommandExecutionManagerWithClaim {
         )
     }
 
-    pub fn cancel_claim(self, timing: Option<CommandExecutionMetadata>) -> CommandExecutionResult {
+    pub fn cancel_claim(
+        self,
+        execution_kind: CommandExecutionKind,
+        timing: Option<CommandExecutionMetadata>,
+    ) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled { reason: None },
+            CommandExecutionStatus::Cancelled {
+                execution_kind,
+                reason: None,
+            },
             IndexMap::new(),
             Default::default(),
             None,

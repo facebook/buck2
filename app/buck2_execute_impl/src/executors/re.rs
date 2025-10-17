@@ -207,6 +207,14 @@ impl ReExecutor {
                 execute_response_fut.await
             };
 
+        let remote_details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            None,
+            self.re_client.get_session_id().await.ok(),
+            self.re_client.use_case,
+            &platform,
+        );
+
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
             Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats)) => {
@@ -215,6 +223,12 @@ impl ReExecutor {
                     CancellationReason::ReQueueTimeout => CommandCancellationReason::ReQueueTimeout,
                 });
                 return ControlFlow::Break(manager.cancel(
+                    CommandExecutionKind::Remote {
+                        details: remote_details,
+                        queue_time: queue_stats.cumulative_queue_duration,
+                        materialized_inputs_for_failed: None,
+                        materialized_outputs_for_failed_actions: None,
+                    },
                     reason,
                     Some(CommandExecutionMetadata {
                         queue_duration: Some(queue_stats.cumulative_queue_duration),
@@ -224,14 +238,6 @@ impl ReExecutor {
             }
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
-
-        let remote_details = RemoteCommandExecutionDetails::new(
-            action_digest.dupe(),
-            None,
-            self.re_client.get_session_id().await.ok(),
-            self.re_client.use_case,
-            &platform,
-        );
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());

@@ -717,7 +717,7 @@ impl LocalExecutor {
                     None,
                 )
             }
-            GatherOutputStatus::Cancelled => manager.cancel_claim(Some(*timing)),
+            GatherOutputStatus::Cancelled => manager.cancel_claim(execution_kind, Some(*timing)),
         };
 
         if let Some(run_action_key) = request.run_action_key()

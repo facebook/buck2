@@ -70,6 +70,7 @@ pub enum CommandExecutionStatus {
     },
     // TODO: We should rename this.
     Cancelled {
+        execution_kind: CommandExecutionKind,
         reason: Option<CommandCancellationReason>,
     },
 }
@@ -82,7 +83,7 @@ impl CommandExecutionStatus {
             CommandExecutionStatus::WorkerFailure { execution_kind } => Some(execution_kind),
             CommandExecutionStatus::Error { execution_kind, .. } => execution_kind.as_ref(),
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
-            CommandExecutionStatus::Cancelled { reason: _ } => None,
+            CommandExecutionStatus::Cancelled { execution_kind, .. } => Some(execution_kind),
         }
     }
 }
@@ -118,11 +119,14 @@ impl Display for CommandExecutionStatus {
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 write!(f, "timed out after {:.3}s", duration.as_secs_f64())
             }
-            CommandExecutionStatus::Cancelled { reason } => {
+            CommandExecutionStatus::Cancelled {
+                execution_kind,
+                reason,
+            } => {
                 if let Some(reason) = reason {
-                    write!(f, "Cancelled due to {reason:?}")
+                    write!(f, "Cancelled {execution_kind} due to {reason:?}")
                 } else {
-                    write!(f, "Cancelled")
+                    write!(f, "Cancelled {execution_kind}")
                 }
             }
         }

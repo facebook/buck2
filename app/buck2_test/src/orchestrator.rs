@@ -1211,7 +1211,10 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind,
                 outputs,
             },
-            CommandExecutionStatus::Cancelled { reason } => {
+            CommandExecutionStatus::Cancelled {
+                execution_kind: _,
+                reason,
+            } => {
                 let reason = reason.map(|reason| match reason {
                     CommandCancellationReason::NotSpecified => CancellationReason::NotSpecified,
                     CommandCancellationReason::ReQueueTimeout => CancellationReason::ReQueueTimeout,
