@@ -1088,6 +1088,9 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 2, 0),
     },
+    "WiFiAware": {
+        "iphoneos": (26, 0, 0),
+    },
     "WidgetKit": {
         "iphoneos": (14, 0, 0),
         "maccatalyst": (14, 0, 0),
