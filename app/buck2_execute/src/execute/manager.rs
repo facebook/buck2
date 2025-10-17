@@ -104,13 +104,17 @@ impl CommandExecutionManager {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn cancel(self, reason: Option<CommandCancellationReason>) -> CommandExecutionResult {
+    pub fn cancel(
+        self,
+        reason: Option<CommandCancellationReason>,
+        metadata: Option<CommandExecutionMetadata>,
+    ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::Cancelled { reason },
             IndexMap::new(),
             Default::default(),
             None,
-            CommandExecutionMetadata::default(),
+            metadata.unwrap_or_default(),
             None,
         )
     }
