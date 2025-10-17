@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//utils:selects.bzl", "selects")
+
 """
 Handle labels used to opt-out genrules from running remotely.
 """
@@ -236,7 +238,16 @@ _GENRULE_LOCAL_LABELS = set([
 ])
 
 def genrule_labels_require_local(labels):
-    for label in labels:
-        if label in _GENRULE_LOCAL_LABELS:
-            return True
-    return False
+    def check_labels(labels_list):
+        if labels_list == None:
+            return False
+
+        for label in labels_list:
+            if selects.is_select(label):
+                return selects.apply(label, lambda val: val in _GENRULE_LOCAL_LABELS if val else False)
+
+            elif label in _GENRULE_LOCAL_LABELS:
+                return True
+        return False
+
+    return selects.apply(labels, check_labels)
