@@ -543,7 +543,6 @@ prebuilt_jar = prelude_rule(
             "required_for_source_only_abi": attrs.bool(default = False),
             "uses_content_based_paths": attrs.bool(default = select({
                 # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
-                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
                 "DEFAULT": False,
             })),
         } | jvm_common.content_based_path_for_jar_snapshot()
