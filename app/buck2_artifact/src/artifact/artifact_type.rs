@@ -212,6 +212,13 @@ impl Artifact {
             BaseArtifactKind::Build(b) => b.get_path().is_content_based_path(),
         }
     }
+
+    pub fn has_configuration_based_path(&self) -> bool {
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(_) => false,
+            BaseArtifactKind::Build(b) => b.get_path().is_configuration_based_path(),
+        }
+    }
 }
 
 impl ArtifactDyn for Artifact {
