@@ -121,6 +121,8 @@ def get_android_binary_native_library_info(
 
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
         enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
+        enhance_ctx.debug_output("linker_argsfiles", ctx.actions.symlinked_dir("linker_argsfiles", {}))
+        enhance_ctx.debug_output("linker_commands", ctx.actions.write("linker_commands", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         enhance_ctx.debug_output("unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}))
@@ -144,6 +146,8 @@ def get_android_binary_native_library_info(
     non_root_module_metadata_assets = ctx.actions.declare_output("non_root_module_metadata_assets_symlink")
     non_root_module_lib_assets = ctx.actions.declare_output("non_root_module_lib_assets_symlink")
 
+    linker_argsfiles = ctx.actions.declare_output("linker_argsfiles", dir = True)
+    linker_commands = ctx.actions.declare_output("linker_commands")
     unstripped_native_libraries = ctx.actions.declare_output("unstripped_native_libraries")
     unstripped_native_libraries_json = ctx.actions.declare_output("unstripped_native_libraries_json")
     unstripped_native_libraries_files = ctx.actions.declare_output("unstripped_native_libraries.links", dir = True)
@@ -153,6 +157,8 @@ def get_android_binary_native_library_info(
         native_libs_metadata,
         native_libs_always_in_primary_apk,
         native_lib_assets_for_primary_apk,
+        linker_argsfiles,
+        linker_commands,
         unstripped_native_libraries,
         unstripped_native_libraries_json,
         unstripped_native_libraries_files,
@@ -364,6 +370,8 @@ def get_android_binary_native_library_info(
                 fail("Native libraries in modules should only depend on libraries in the same module or the root. Remove these deps:\n" + "\n".join(cross_module_link_errors))
 
         native_lib_dynamic_outputs = {
+            "linker_argsfiles": outputs[linker_argsfiles],
+            "linker_commands": outputs[linker_commands],
             "native_lib_assets_for_primary_apk": outputs[native_lib_assets_for_primary_apk],
             "native_libs": outputs[native_libs],
             "native_libs_always_in_primary_apk": outputs[native_libs_always_in_primary_apk],
@@ -446,6 +454,8 @@ def get_android_binary_native_library_info(
     if native_merge_debug:
         enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
 
+    enhance_ctx.debug_output("linker_argsfiles", linker_argsfiles)
+    enhance_ctx.debug_output("linker_commands", linker_commands)
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
@@ -472,6 +482,8 @@ def _post_native_lib_graph_finalization_steps(
         final_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
         all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
         get_module_from_target: typing.Callable,
+        linker_argsfiles: Artifact,
+        linker_commands: Artifact,
         unstripped_native_libraries: Artifact,
         unstripped_native_libraries_json: Artifact,
         unstripped_native_libraries_files: Artifact,
@@ -489,9 +501,24 @@ def _post_native_lib_graph_finalization_steps(
         final_shared_libs_by_platform, pre_bolt_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
 
     unstripped_libs = {}
+    linker_argsfiles_list = []
+    linker_commands_json = []
     for platform, libs in final_shared_libs_by_platform.items() + pre_bolt_libs_by_platform.items():
         for lib in libs.values():
             unstripped_libs[lib.lib.output] = platform
+            if lib.lib.linker_argsfile:
+                linker_argsfiles_list.append(lib.lib)
+            linker_commands_json.append({
+                "argsfile": lib.lib.linker_argsfile,
+                "command": lib.lib.linker_command,
+                "filename": lib.lib.output.short_path,
+            })
+
+    ctx.actions.symlinked_dir(linker_argsfiles, {
+        "{}".format(lib.output.basename): lib.linker_argsfile
+        for lib in linker_argsfiles_list
+    })
+    ctx.actions.write_json(linker_commands, linker_commands_json, with_inputs = False)
     ctx.actions.write(unstripped_native_libraries, unstripped_libs.keys())
     ctx.actions.write_json(unstripped_native_libraries_json, unstripped_libs)
     ctx.actions.symlinked_dir(unstripped_native_libraries_files, {
