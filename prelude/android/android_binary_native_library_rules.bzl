@@ -948,15 +948,22 @@ def _get_native_libs_as_assets_metadata(
 def _get_native_libs_as_assets_dir(module: str) -> str:
     return "assets/{}".format("lib" if is_root_module(module) else module)
 
-def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared_libraries_to_exclude) -> dict[str, SharedLibrary]:
+def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared_libraries_to_exclude: set) -> dict[str, SharedLibrary]:
     shared_library_info = merge_shared_libraries(
         ctx.actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
     )
+
+    # Filter out shared libraries whose label.raw_target() is in shared_libraries_to_exclude
+    # Do it before calling with_unique_str_sonames to skip duplication check for excluded libs
+    shared_libraries = [
+        shared_lib
+        for shared_lib in traverse_shared_library_info(shared_library_info, transformation_provider = None)
+        if (shared_lib.label.raw_target() not in shared_libraries_to_exclude)
+    ]
     return {
         soname: shared_lib
-        for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info, transformation_provider = None)).items()
-        if shared_lib.label.raw_target() not in shared_libraries_to_exclude
+        for soname, shared_lib in with_unique_str_sonames(shared_libraries).items()
     }
 
 _LinkableSharedNode = record(
@@ -1134,6 +1141,7 @@ def _shared_lib_for_prebuilt_shared(
             not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
             "prebuilt shared library `{}` with deps not supported by somerge".format(target),
         )
+
     for dep in node_data.exported_deps:
         expect(
             not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),

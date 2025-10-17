@@ -76,7 +76,8 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     if target_to_module_mapping_file:
         enhancement_ctx.debug_output("module.mapping", target_to_module_mapping_file)
 
-    native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
+    shared_libraries_to_exclude_set = set([label.raw_target() for label in ctx.attrs.shared_libraries_to_exclude])
+    native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file, shared_libraries_to_exclude = shared_libraries_to_exclude_set)
     java_packaging_deps.extend([create_java_packaging_dep(
         ctx,
         library_output,
