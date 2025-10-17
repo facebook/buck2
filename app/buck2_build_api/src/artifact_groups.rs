@@ -53,13 +53,19 @@ impl PromiseArtifactWrapper {
 pub struct TransitiveSetProjectionWrapper {
     pub key: TransitiveSetProjectionKey,
     pub has_content_based_path: bool,
+    pub is_eligible_for_dedupe: bool,
 }
 
 impl TransitiveSetProjectionWrapper {
-    pub fn new(key: TransitiveSetProjectionKey, has_content_based_path: bool) -> Self {
+    pub fn new(
+        key: TransitiveSetProjectionKey,
+        has_content_based_path: bool,
+        is_eligible_for_dedupe: bool,
+    ) -> Self {
         Self {
             key,
             has_content_based_path,
+            is_eligible_for_dedupe,
         }
     }
 }
@@ -133,8 +139,7 @@ impl ArtifactGroup {
     pub fn is_eligible_for_dedupe(&self, target_platform: Option<&ConfigurationData>) -> bool {
         let is_artifact_group_eligible_for_dedupe = match self {
             ArtifactGroup::Artifact(a) => !a.has_configuration_based_path(),
-            // TODO(ianc) Account for TransitiveSets correctly
-            ArtifactGroup::TransitiveSetProjection(_) => false,
+            ArtifactGroup::TransitiveSetProjection(p) => p.is_eligible_for_dedupe,
             ArtifactGroup::Promise(p) => p.has_content_based_path,
         };
 

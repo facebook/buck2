@@ -265,6 +265,9 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectio
                 *set.projection_uses_content_based_paths
                     .get(self.projection)
                     .expect("by construction"),
+                *set.projection_is_eligible_for_dedupe
+                    .get(self.projection)
+                    .expect("by construction"),
             ))),
             vec![],
         );

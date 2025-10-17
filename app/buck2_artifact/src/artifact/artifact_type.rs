@@ -480,6 +480,13 @@ impl<'v> DeclaredArtifact<'v> {
             DeclaredArtifactKind::Unbound(b) => b.0.is_content_based_path(),
         }
     }
+
+    pub fn has_configuration_based_path(&self) -> bool {
+        match &*self.artifact().borrow() {
+            DeclaredArtifactKind::Bound(b) => b.get_path().is_configuration_based_path(),
+            DeclaredArtifactKind::Unbound(b) => b.0.is_configuration_based_path(),
+        }
+    }
 }
 
 impl Hash for DeclaredArtifact<'_> {

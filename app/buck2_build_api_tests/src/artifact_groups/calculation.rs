@@ -212,6 +212,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
                     projection: 0,
                 },
                 false,
+                false,
             ),
         )))
         .await?

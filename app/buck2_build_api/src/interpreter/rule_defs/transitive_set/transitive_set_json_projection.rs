@@ -99,6 +99,9 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
             *set.projection_uses_content_based_paths
                 .get(self.projection)
                 .expect("Valid ID"),
+            *set.projection_is_eligible_for_dedupe
+                .get(self.projection)
+                .expect("Valid ID"),
         ))
     }
 }
