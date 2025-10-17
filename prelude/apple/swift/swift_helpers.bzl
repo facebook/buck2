@@ -68,7 +68,7 @@ def compile_with_argsfile_cmd(
 
     # Many tests rely on the path of the argsfile, so you probably don't
     # want to change this.
-    argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True)
+    argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "", hidden = shared_flags)
     cmd.add(argsfile_cmd_form)
 
