@@ -15,6 +15,7 @@ load(
     "GoCoverageMode",  # @Unused used as type
     "cover_srcs",
 )
+load(":go_error_handler.bzl", "go_build_error_handler")
 load(":go_list.bzl", "go_list", "parse_go_list_out")
 load(":packages.bzl", "GoPackageInfo", "GoPkg", "make_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
@@ -227,7 +228,7 @@ def _compile(
     )
 
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(compile_cmd, env = env, category = "go_compile", identifier = identifier + suffix)
+    ctx.actions.run(compile_cmd, env = env, category = "go_compile", identifier = identifier + suffix, error_handler = go_build_error_handler)
 
     return (out_x, out_a, asmhdr)
 
