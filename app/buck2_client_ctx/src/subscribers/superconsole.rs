@@ -646,8 +646,14 @@ impl StatefulSuperConsoleImpl {
                     if !sub_errors.is_empty() {
                         for sub_error in sub_errors {
                             if let Some(message) = sub_error.display() {
+                                let mut color = Color::Red;
+                                if let Some(ref t) = sub_error.error_type
+                                    && matches!(t.to_lowercase().as_str(), "w" | "warning" | "warn")
+                                {
+                                    color = Color::DarkYellow;
+                                }
                                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                                    message.with(Color::DarkCyan),
+                                    message.with(color).bold(),
                                 )]));
                             }
                         }
