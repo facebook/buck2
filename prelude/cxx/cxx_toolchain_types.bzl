@@ -334,21 +334,25 @@ def cxx_toolchain_infos(
 
     # TODO(minglunli): Should probably dedup from Buck2 side instead
     def cxx_combined_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
-        categories = []
-        seen_categories = set()
+        errors = []
+        error_set = set()
 
         # cxx specific error handler is called if it's defined
         if cxx_error_handler != None:
             specific_errors = cxx_error_handler(ctx)
-            categories.extend(specific_errors)
-            seen_categories.update([err.category for err in specific_errors])
+            for err in specific_errors:
+                # TDOO(nero): Impllment hash for ActionSubError, so no need to convert to string
+                err_str = str(err)
+                if err_str not in error_set:
+                    errors.append(err)
+                    error_set.add(err_str)
 
-        # generic error handler is always called
         for generic in cxx_generic_error_handler(ctx):
-            if generic.category not in seen_categories:
-                categories.append(generic)
-                seen_categories.add(generic.category)
-        return categories
+            err_str = str(generic)
+            if err_str not in error_set:
+                errors.append(generic)
+                error_set.add(err_str)
+        return errors
 
     toolchain_info = CxxToolchainInfo(
         as_compiler_info = as_compiler_info,
