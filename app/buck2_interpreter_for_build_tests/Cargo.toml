@@ -28,3 +28,6 @@ buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_transition = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
