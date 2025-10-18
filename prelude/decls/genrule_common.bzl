@@ -195,6 +195,32 @@ def _env_arg():
 """),
     }
 
+def _error_handler_arg():
+    return {
+        "error_handler_category": attrs.option(attrs.string(), default = None, doc = """
+                The error category name for errors produced by this genrule's error handler.
+                 Used in conjunction with `error_handler_stderr_errorformats` and `error_handler_stdout_errorformats`
+                 when calling `ActionErrorCtx.parse_with_errorformat()` to categorize parsed errors.
+
+                 See https://buck2.build/docs/api/build/ActionErrorCtx/#actionerrorctxparse_with_errorformat for more details.
+            """),
+        "error_handler_stderr_errorformats": attrs.option(attrs.list(attrs.string()), default = None, doc = """
+                List of Vim errorformat pattern strings used to parse error messages from
+                 stderr of failed genrule commands. These patterns extract structured error information
+                 (file paths, line numbers, error messages) from command output.
+
+                 When a genrule fails, the error handler attempts to match the stderr
+                 against these patterns.
+
+                 See https://buck2.build/docs/api/build/ActionErrorCtx/#actionerrorctxparse_with_errorformat for more details.
+            """),
+        "error_handler_stdout_errorformats": attrs.option(attrs.list(attrs.string()), default = None, doc = """
+                Same as `error_handler_stderr_errorformats`, but for stdout.
+
+                 See https://buck2.build/docs/api/build/ActionErrorCtx/#actionerrorctxparse_with_errorformat for more details.
+            """),
+    }
+
 genrule_common = struct(
     srcs_arg = _srcs_arg,
     cmd_arg = _cmd_arg,
@@ -205,4 +231,5 @@ genrule_common = struct(
     weight_arg = _weight_arg,
     environment_expansion_separator = _environment_expansion_separator,
     env_arg = _env_arg,
+    error_handler_arg = _error_handler_arg,
 )

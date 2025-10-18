@@ -131,6 +131,27 @@ def _project_output(out: Artifact, path: str) -> Artifact:
     else:
         return out.project(path, hide_prefix = True)
 
+def _generate_error_handler(category: str, stderr_errorformats: list[str] | None, stdout_errorformats: list[str] | None) -> typing.Callable[[ActionErrorCtx], list[ActionSubError]]:
+    def handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+        structured_errors = []
+        if stderr_errorformats != None:
+            structured_errors = ctx.parse_with_errorformat(
+                category = category,
+                error = ctx.stderr,
+                errorformats = stderr_errorformats,
+            )
+
+        if stdout_errorformats != None:
+            errors = ctx.parse_with_errorformat(
+                category = category,
+                error = ctx.stdout,
+                errorformats = stdout_errorformats,
+            )
+            structured_errors += errors
+        return structured_errors
+
+    return handler
+
 def process_genrule(
         ctx: AnalysisContext,
         out_attr: [str, None],
@@ -374,6 +395,17 @@ def process_genrule(
         metadata_args["metadata_path"] = ctx.attrs.metadata_path
     if ctx.attrs.remote_execution_dependencies:
         metadata_args["remote_execution_dependencies"] = ctx.attrs.remote_execution_dependencies
+
+    if genrule_error_handler == None:
+        error_handler_category = getattr(ctx.attrs, "error_handler_category", None)
+        error_handler_stderr_errorformats = getattr(ctx.attrs, "error_handler_stderr_errorformats", None)
+        error_handler_stdout_errorformats = getattr(ctx.attrs, "error_handler_stdout_errorformats", None)
+        if error_handler_category != None and (error_handler_stderr_errorformats != None or error_handler_stdout_errorformats != None):
+            genrule_error_handler = _generate_error_handler(
+                error_handler_category,
+                error_handler_stderr_errorformats,
+                error_handler_stdout_errorformats,
+            )
 
     category = "genrule"
     if ctx.attrs.type != None:

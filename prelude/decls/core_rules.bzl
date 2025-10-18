@@ -713,7 +713,8 @@ genrule = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "_exec_os_type": buck.exec_os_type_arg(),
-        }
+        } |
+        genrule_common.error_handler_arg()
     ),
     cfg = constraint_overrides.transition,
 )
