@@ -261,6 +261,7 @@ pub struct BuildReportOpts {
     pub unstable_include_artifact_hash_information: bool,
     pub unstable_build_report_filename: String,
     pub graph_properties_opts: GraphPropertiesOptions,
+    pub unstable_streaming_build_report_filename: String,
 }
 
 pub struct BuildReportCollector<'a> {
@@ -941,6 +942,9 @@ pub async fn build_report_opts<'a>(
             .unstable_include_artifact_hash_information,
         unstable_build_report_filename: esto.clone(),
         graph_properties_opts,
+        unstable_streaming_build_report_filename: build_opts
+            .unstable_streaming_build_report_filename
+            .clone(),
     };
 
     Ok(build_report_opts)

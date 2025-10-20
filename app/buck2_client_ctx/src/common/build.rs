@@ -89,6 +89,13 @@ pub struct CommonBuildOptions {
     )]
     build_report_options: Vec<BuildReportOption>,
 
+    /// Stream intermediary build reports to a file in json lines format.
+    ///
+    /// Each output materialization will trigger a new build report which
+    /// will be written to the file as a single line json.
+    #[clap(long = "streaming-build-report", value_name = "PATH")]
+    streaming_build_report: Option<String>,
+
     /// Number of threads to use during execution (default is # cores)
     // TODO(cjhopman): This only limits the threads used for action execution and it doesn't work correctly with concurrent commands.
     #[clap(short = 'j', long = "num-threads", value_name = "THREADS")]
@@ -195,6 +202,8 @@ impl CommonBuildOptions {
 
     pub fn to_proto(&self) -> buck2_cli_proto::CommonBuildOptions {
         let (unstable_print_build_report, unstable_build_report_filename) = self.build_report();
+        let unstable_streaming_build_report_filename =
+            self.streaming_build_report.clone().unwrap_or_default();
         let unstable_include_failures_build_report = self
             .build_report_options
             .iter()
@@ -247,6 +256,7 @@ impl CommonBuildOptions {
             unstable_include_failures_build_report,
             unstable_include_package_project_relative_paths,
             unstable_include_artifact_hash_information,
+            unstable_streaming_build_report_filename,
         }
     }
 }

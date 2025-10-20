@@ -77,6 +77,12 @@ Options:
           `package-project-relative-paths`: emit the project-relative path of packages for the
           targets that were built.
 
+      --streaming-build-report <PATH>
+          Stream intermediary build reports to a file in json lines format.
+
+          Each output materialization will trigger a new build report which will be written to the
+          file as a single line json.
+
   -j, --num-threads <THREADS>
           Number of threads to use during execution (default is # cores)
 
