@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-use quote::quote_spanned;
-use syn::spanned::Spanned;
+use quote::quote;
 
 use crate::util::GenericsUtil;
 use crate::v_lifetime::find_v_lifetime;
@@ -118,10 +117,6 @@ fn is_impl_starlark_value(
 }
 
 impl ImplStarlarkValue {
-    fn span(&self) -> proc_macro2::Span {
-        self.input.span()
-    }
-
     /// Impl `UnpackValue for &T`.
     fn impl_unpack_value(&self) -> syn::Result<proc_macro2::TokenStream> {
         if !self.attrs.unpack_value && !self.attrs.starlark_type_repr {
@@ -143,9 +138,7 @@ impl ImplStarlarkValue {
         //   if there's something `Self: Xxx` constraint, it should be `*Self: Xxx`.
         let where_clause = &self.input.generics.where_clause;
         let self_ty = &self.input.self_ty;
-        Ok(quote_spanned! {
-            self.span() =>
-
+        Ok(quote! {
             impl<#params> starlark::values::type_repr::StarlarkTypeRepr for &#lt #self_ty
             #where_clause
             {
@@ -169,21 +162,21 @@ impl ImplStarlarkValue {
     }
 
     fn please_use_starlark_type_macro(&self) -> syn::Result<syn::ImplItem> {
-        syn::parse2(quote_spanned! { self.span() =>
+        syn::parse2(quote! {
             fn please_use_starlark_type_macro() {}
         })
     }
 
     fn const_type(&self) -> syn::Result<syn::ImplItem> {
         let typ = &self.attrs.typ;
-        syn::parse2(quote_spanned! { self.span() =>
+        syn::parse2(quote! {
             const TYPE: &'static str = #typ;
         })
     }
 
     fn get_type_value_static(&self) -> syn::Result<syn::ImplItem> {
         let typ = &self.attrs.typ;
-        syn::parse2(quote_spanned! { self.span() =>
+        syn::parse2(quote! {
             #[inline]
             fn get_type_value_static() -> starlark::values::FrozenStringValue {
                 starlark::const_frozen_string!(#typ)
@@ -197,7 +190,7 @@ impl ImplStarlarkValue {
         for item in &fixed_trait.items {
             if let syn::ImplItem::Fn(f) = item {
                 let has_name = vtable_has_field_name(&f.sig.ident);
-                flags.push(syn::parse_quote_spanned! { f.span() =>
+                flags.push(syn::parse_quote! {
                     const #has_name: bool = true;
                 });
             }
@@ -237,10 +230,9 @@ impl ImplStarlarkValue {
     }
 
     fn bin_op_arm(&self, bin_op: &str, impl_name: &str) -> Option<syn::Arm> {
-        let bin_op = syn::Ident::new(bin_op, self.span());
+        let bin_op = syn::Ident::new(bin_op, proc_macro2::Span::call_site());
         if self.has_fn(impl_name) || (impl_name == "bit_or" && self.has_fn("eval_type")) {
-            Some(syn::parse_quote_spanned! {
-                self.span()=>
+            Some(syn::parse_quote! {
                 starlark::typing::TypingBinOp::#bin_op => {
                     Some(starlark::typing::Ty::any())
                 }
@@ -273,12 +265,12 @@ impl ImplStarlarkValue {
         let default_arm: Option<syn::Arm> = if arms.iter().all(Option::is_some) {
             None
         } else {
-            Some(syn::parse_quote_spanned! {self.span()=>
+            Some(syn::parse_quote! {
                 _ => { None }
             })
         };
         let arms = arms.into_iter().flatten();
-        Ok(Some(syn::parse_quote_spanned! {self.span()=>
+        Ok(Some(syn::parse_quote! {
             fn bin_op_ty(op: starlark::typing::TypingBinOp, _rhs: &starlark::typing::TyBasic) -> Option<starlark::typing::Ty> {
                 match op {
                     #( #arms )*
@@ -297,7 +289,7 @@ impl ImplStarlarkValue {
             // Use default implementation.
             return Ok(None);
         }
-        Ok(Some(syn::parse_quote_spanned! {self.span()=>
+        Ok(Some(syn::parse_quote! {
             fn rbin_op_ty(_lhs: &starlark::typing::TyBasic, op: starlark::typing::TypingBinOp) -> Option<starlark::typing::Ty> {
                 match op {
                     #( #arms )*
@@ -333,7 +325,7 @@ impl ImplStarlarkValue {
             // User has custom `attr_ty` implementation.
             Ok(None)
         } else if !self.has_fn("get_attr") {
-            Ok(Some(syn::parse2(quote_spanned! { self.span() =>
+            Ok(Some(syn::parse2(quote! {
                 fn attr_ty(_attr: &str) -> ::std::option::Option<starlark::typing::Ty> {
                     ::std::option::Option::None
                 }
@@ -355,7 +347,7 @@ impl ImplStarlarkValue {
                 "types with `eval_type` implemented can only have generated `bit_or`",
             ));
         }
-        Ok(Some(syn::parse2(quote_spanned! { self.span() =>
+        Ok(Some(syn::parse2(quote! {
             fn bit_or(&self, other: starlark::values::Value<'v>, heap: &'v starlark::values::Heap) -> starlark::Result<starlark::values::Value<'v>> {
                 starlark::values::typing::macro_refs::starlark_value_bit_or_for_type(self, other, heap)
             }
@@ -436,7 +428,7 @@ impl ImplStarlarkValue {
         impl syn::visit_mut::VisitMut for PatchTypesVisitor<'_> {
             fn visit_type_mut(&mut self, i: &mut syn::Type) {
                 let lifetime = self.lifetime;
-                *i = syn::parse_quote_spanned! { i.span() =>
+                *i = syn::parse_quote! {
                     starlark::values::Value< #lifetime >
                 };
             }
@@ -449,7 +441,7 @@ impl ImplStarlarkValue {
             &mut path,
         );
 
-        Ok(syn::parse_quote_spanned! { self.span() => #path })
+        Ok(syn::parse_quote! { #path })
     }
 
     fn make_canonical_type(&self) -> syn::Result<syn::Type> {
@@ -491,7 +483,7 @@ impl ImplStarlarkValue {
             Ok(None)
         } else {
             let ty = self.make_canonical_type()?;
-            Ok(Some(syn::parse_quote_spanned! { self.span() =>
+            Ok(Some(syn::parse_quote! {
                 type Canonical = #ty;
             }))
         }
@@ -533,9 +525,7 @@ fn derive_starlark_value_impl(
     let has_fn_flags = impl_starlark_value.has_fn_flags(&input)?;
     input.items.extend(has_fn_flags);
 
-    Ok(quote_spanned! {
-        input.span() =>
-
+    Ok(quote! {
         #impl_unpack_value
 
         #input
