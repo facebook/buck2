@@ -41,6 +41,10 @@ public class CrashAnalyzer {
         Pattern.compile("java\\.lang\\.StackOverflowError"),
         "Stack overflow error detected",
         false),
+    new CrashType(
+        Pattern.compile("java\\.lang\\.NullPointerException"),
+        "Null pointer exception detected",
+        false),
   };
 
   /**

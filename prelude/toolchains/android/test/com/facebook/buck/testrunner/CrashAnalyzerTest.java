@@ -356,4 +356,146 @@ public class CrashAnalyzerTest {
     assertTrue(
         "Should extract at least one stack frame", errorOutput.contains("at com.facebook.example"));
   }
+
+  @Test
+  public void testDetectsNullPointerException() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): FATAL EXCEPTION: main\n"
+            + "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MyClass.handleObject(MyClass.java:50)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MainActivity.onCreate(MainActivity.java:123)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue(
+        "Should include NullPointerException",
+        errorOutput.contains("java.lang.NullPointerException"));
+    assertTrue("Should include stack trace", errorOutput.contains("handleObject"));
+  }
+
+  @Test
+  public void testDetectsNullPointerExceptionWithMessage() {
+    String logcatOutput =
+        "E/AndroidRuntime(67890): java.lang.NullPointerException: Attempt to invoke virtual"
+            + " method 'java.lang.String.toString()' on a null object reference\n"
+            + "E/AndroidRuntime(67890): \tat com.facebook.example.Utils.process(Utils.java:100)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should include error message", errorOutput.contains("Attempt to invoke virtual method"));
+  }
+
+  @Test
+  public void testDetectsNullPointerExceptionWithoutStackTrace() {
+    String logcatOutput = "E/AndroidRuntime(12345): java.lang.NullPointerException";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException without stack trace",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue("Should include error line", errorOutput.contains("java.lang.NullPointerException"));
+  }
+
+  @Test
+  public void testDetectsAllThreeErrorTypes() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.OutOfMemoryError: Failed allocation\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.StackOverflowError\n"
+            + "I/AnotherLog(11111): Another log\n"
+            + "E/AndroidRuntime(11122): java.lang.NullPointerException\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect OutOfMemoryError", errorOutput.contains("Out of memory error detected"));
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue("Should include OOM", errorOutput.contains("Failed allocation"));
+    assertTrue("Should include SOE", errorOutput.contains("java.lang.StackOverflowError"));
+    assertTrue("Should include NPE", errorOutput.contains("java.lang.NullPointerException"));
+  }
+
+  @Test
+  public void testNullPointerAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "E/AndroidRuntime(12345): java.lang.NullPointerException";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException at end of logcat",
+        errorOutput.contains("Null pointer exception detected"));
+  }
+
+  @Test
+  public void testNullPointerAtStartOfLogcat() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException at start of logcat",
+        errorOutput.contains("Null pointer exception detected"));
+  }
+
+  @Test
+  public void testNullPointerWithKotlinStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MyKotlinClass.doSomething(MyKotlinClass.kt:42)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MyKotlinClass$lambda$0(MyKotlinClass.kt:50)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException with Kotlin stack trace",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue("Should include Kotlin file", errorOutput.contains("MyKotlinClass.kt"));
+  }
+
+  @Test
+  public void testMultipleNullPointerExceptions() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException: First NPE\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.NullPointerException: Second NPE\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple NullPointerExceptions",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue("Should include first NPE", errorOutput.contains("First NPE"));
+  }
 }
