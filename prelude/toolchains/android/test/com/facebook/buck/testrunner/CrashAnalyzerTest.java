@@ -239,4 +239,121 @@ public class CrashAnalyzerTest {
     String errorOutput = errContent.toString();
     assertTrue("Should detect OOM at start of logcat", errorOutput.contains("At start of log"));
   }
+
+  @Test
+  public void testDetectsStackOverflowError() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): FATAL EXCEPTION: main\n"
+            + "E/AndroidRuntime(12345): java.lang.StackOverflowError\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.RecursiveClass.recursiveMethod(RecursiveClass.java:42)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.RecursiveClass.recursiveMethod(RecursiveClass.java:42)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue(
+        "Should include StackOverflowError", errorOutput.contains("java.lang.StackOverflowError"));
+    assertTrue("Should include stack trace", errorOutput.contains("recursiveMethod"));
+  }
+
+  @Test
+  public void testDetectsStackOverflowErrorWithMessage() {
+    String logcatOutput =
+        "E/AndroidRuntime(67890): java.lang.StackOverflowError: stack size 8MB\n"
+            + "E/AndroidRuntime(67890): \tat java.lang.Thread.run(Thread.java:100)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue("Should include error message", errorOutput.contains("stack size 8MB"));
+  }
+
+  @Test
+  public void testDetectsStackOverflowErrorWithoutStackTrace() {
+    String logcatOutput = "E/AndroidRuntime(12345): java.lang.StackOverflowError";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect StackOverflowError without stack trace",
+        errorOutput.contains("Stack overflow error detected"));
+    assertTrue("Should include error line", errorOutput.contains("java.lang.StackOverflowError"));
+  }
+
+  @Test
+  public void testDetectsBothOOMAndStackOverflow() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.OutOfMemoryError: Failed allocation\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.StackOverflowError\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect OutOfMemoryError", errorOutput.contains("Out of memory error detected"));
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue("Should include OOM", errorOutput.contains("Failed allocation"));
+    assertTrue("Should include SOE", errorOutput.contains("java.lang.StackOverflowError"));
+  }
+
+  @Test
+  public void testStackOverflowAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "E/AndroidRuntime(12345): java.lang.StackOverflowError";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect StackOverflowError at end of logcat",
+        errorOutput.contains("Stack overflow error detected"));
+  }
+
+  @Test
+  public void testStackOverflowAtStartOfLogcat() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.StackOverflowError\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect StackOverflowError at start of logcat",
+        errorOutput.contains("Stack overflow error detected"));
+  }
+
+  @Test
+  public void testStackOverflowWithDeepStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.StackOverflowError\n"
+            + "E/AndroidRuntime(12345): \tat com.facebook.example.A.method(A.java:10)\n"
+            + "E/AndroidRuntime(12345): \tat com.facebook.example.B.method(B.java:20)\n"
+            + "E/AndroidRuntime(12345): \tat com.facebook.example.C.method(C.java:30)\n"
+            + "E/AndroidRuntime(12345): \tat com.facebook.example.A.method(A.java:10)\n"
+            + "E/AndroidRuntime(12345): \tat com.facebook.example.B.method(B.java:20)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect StackOverflowError with deep stack trace",
+        errorOutput.contains("Stack overflow error detected"));
+    assertTrue(
+        "Should extract at least one stack frame", errorOutput.contains("at com.facebook.example"));
+  }
 }
