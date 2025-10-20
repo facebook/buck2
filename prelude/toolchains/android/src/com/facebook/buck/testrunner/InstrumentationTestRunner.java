@@ -118,6 +118,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
+  private volatile boolean testRunFailed = false;
 
   public InstrumentationTestRunner(
       DeviceArgs deviceArgs,
@@ -387,6 +388,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return this.device;
   }
 
+  public boolean hasTestRunFailed() {
+    return this.testRunFailed;
+  }
+
   public void addReportLayer(ReportLayer reportLayer) {
     reportLayers.add(reportLayer);
   }
@@ -423,9 +428,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
-    if (argsParser.collectTombstones) {
-      runner.addReportLayer(new TombstonesReportLayer(runner));
-    }
+    runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }
@@ -664,6 +667,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             @Override
             public void testRunFailed(String errorMessage) {
               System.err.println("Test Run Failed: " + errorMessage);
+              testRunFailed = true;
             }
 
             @Override

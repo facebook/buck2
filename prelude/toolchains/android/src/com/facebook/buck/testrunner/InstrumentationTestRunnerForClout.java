@@ -106,9 +106,7 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
-    if (argsParser.collectTombstones) {
-      runner.addReportLayer(new TombstonesReportLayer(runner));
-    }
+    runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
     return runner;
   }
 

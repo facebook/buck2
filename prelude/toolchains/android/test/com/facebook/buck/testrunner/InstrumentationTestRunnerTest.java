@@ -625,9 +625,7 @@ public class InstrumentationTestRunnerTest {
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
-    if (argsParser.collectTombstones) {
-      runner.addReportLayer(new TombstonesReportLayer(runner));
-    }
+    runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }
