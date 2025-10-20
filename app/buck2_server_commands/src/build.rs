@@ -22,6 +22,8 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::build_report::initialize_streaming_build_report;
+use buck2_build_api::build::build_report::stream_build_report;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
@@ -142,7 +144,7 @@ async fn build(
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let cwd = server_ctx.working_dir();
 
-    let build_opts = expect_build_opts(request);
+    let build_opts: &CommonBuildOptions = expect_build_opts(request);
 
     let timeout = request
         .timeout
@@ -281,35 +283,46 @@ async fn build(
         total_per_configuration_sketch: want_total_per_configuration_sketch,
     };
 
-    let (streaming_build_result_tx, _streaming_build_result_rx) =
+    let (streaming_build_result_tx, streaming_build_result_rx) =
         tokio::sync::mpsc::unbounded_channel();
-    let should_stream_build_result = !build_opts
+    // Avoid computing and generating streaming build results if we don't have to
+    let build_command_streaming_build_result_tx = if !build_opts
         .unstable_streaming_build_report_filename
-        .is_empty();
-    let build_command_streaming_build_result_tx = if should_stream_build_result {
+        .is_empty()
+    {
         Some(streaming_build_result_tx)
     } else {
         None
     };
 
-    let build_result = ctx
-        .with_linear_recompute(|ctx| async move {
-            build_targets(
-                &ctx,
-                resolved_pattern,
-                target_resolution_config,
-                build_providers,
-                &(final_artifact_materializations, final_artifact_uploads).into(),
-                build_opts.fail_fast,
-                MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
-                build_opts.skip_incompatible_targets,
-                graph_properties.dupe(),
-                timeout_observer.as_ref(),
-                build_command_streaming_build_result_tx,
-            )
-            .await
-        })
-        .await?;
+    let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
+    let build_future = ctx.with_linear_recompute(|ctx| async move {
+        build_targets(
+            &ctx,
+            resolved_pattern,
+            target_resolution_config,
+            build_providers,
+            &(final_artifact_materializations, final_artifact_uploads).into(),
+            build_opts.fail_fast,
+            MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+            build_opts.skip_incompatible_targets,
+            graph_properties.dupe(),
+            timeout_observer.as_ref(),
+            build_command_streaming_build_result_tx,
+        )
+        .await
+    });
+
+    let build_result = maybe_stream_build_reports(
+        build_future,
+        build_opts,
+        cloned_ctx,
+        graph_properties.dupe(),
+        server_ctx,
+        request,
+        streaming_build_result_rx,
+    )
+    .await?;
 
     let want_detailed_metrics = ctx
         .parse_legacy_config_property(
@@ -346,6 +359,116 @@ async fn build(
         graph_properties,
     )
     .await
+}
+
+async fn process_streaming_build_result(
+    server_ctx: &dyn ServerCommandContextTrait,
+    mut ctx: DiceTransaction,
+    request: &buck2_cli_proto::BuildRequest,
+    build_result: BuildTargetResult,
+    detailed_metrics: Option<DetailedAggregatedMetrics>,
+    graph_properties_opts: GraphPropertiesOptions,
+) -> buck2_error::Result<()> {
+    let build_opts = expect_build_opts(request);
+    let fs = server_ctx.project_root();
+    let cwd: &buck2_core::fs::project_rel_path::ProjectRelativePath = server_ctx.working_dir();
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let artifact_fs = ctx.get_artifact_fs().await?;
+
+    let build_report_opts =
+        build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
+
+    stream_build_report(
+        build_report_opts,
+        &artifact_fs,
+        &cell_resolver,
+        fs,
+        cwd,
+        server_ctx.events().trace_id(),
+        &build_result.configured,
+        &build_result.configured_to_pattern_modifiers,
+        &build_result.other_errors,
+        detailed_metrics,
+    )?;
+
+    Ok(())
+}
+
+async fn init_streaming_build_report(
+    server_ctx: &dyn ServerCommandContextTrait,
+    mut ctx: DiceTransaction,
+    request: &buck2_cli_proto::BuildRequest,
+    graph_properties_opts: GraphPropertiesOptions,
+) -> buck2_error::Result<()> {
+    let build_opts = expect_build_opts(request);
+    let fs = server_ctx.project_root();
+    let cwd: &buck2_core::fs::project_rel_path::ProjectRelativePath = server_ctx.working_dir();
+    let cell_resolver = ctx.get_cell_resolver().await?;
+
+    let build_report_opts =
+        build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
+
+    initialize_streaming_build_report(build_report_opts, fs, cwd)?;
+
+    Ok(())
+}
+
+async fn maybe_stream_build_reports(
+    build_future: impl std::future::Future<Output = buck2_error::Result<BuildTargetResult>>,
+    build_opts: &CommonBuildOptions,
+    ctx: DiceTransaction,
+    graph_properties: GraphPropertiesOptions,
+    server_ctx: &dyn ServerCommandContextTrait,
+    request: &buck2_cli_proto::BuildRequest,
+    mut streaming_build_result_rx: tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
+) -> buck2_error::Result<BuildTargetResult> {
+    if build_opts
+        .unstable_streaming_build_report_filename
+        .is_empty()
+    {
+        return build_future.await;
+    }
+
+    init_streaming_build_report(server_ctx, ctx.clone(), request, graph_properties).await?;
+
+    let mut build_future = std::pin::pin!(build_future);
+    loop {
+        tokio::select! {
+            // Wait for the final build result
+            result = &mut build_future => {
+                // Drain any remaining streaming results
+                while let Ok(streaming_result) = streaming_build_result_rx.try_recv() {
+                    process_streaming_build_result(
+                            server_ctx,
+                            ctx.clone(),
+                            request,
+                            streaming_result,
+                            None, // no detailed metrics for streaming build reports to avoid the computation/copy
+                            graph_properties,
+                        ).await?;
+                }
+                return result;
+            }
+            // Process streaming build results as they arrive
+            streaming_result = streaming_build_result_rx.recv() => {
+                match streaming_result {
+                    Some(result) => {
+                        process_streaming_build_result(
+                            server_ctx,
+                            ctx.clone(),
+                            request,
+                            result,
+                            None, // no detailed metrics for streaming build reports to avoid the computation/copy
+                            graph_properties,
+                        ).await?;
+                    }
+                    None => {
+                        // Channel closed, but continue waiting for build completion
+                    }
+                }
+            }
+        }
+    }
 }
 
 async fn process_build_result(

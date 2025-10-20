@@ -1012,11 +1012,7 @@ pub fn stream_build_report(
     configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
-) -> Result<Option<String>, buck2_error::Error> {
-    if opts.unstable_streaming_build_report_filename.is_empty() {
-        return Ok(None);
-    }
-
+) -> buck2_error::Result<()> {
     let build_report = BuildReportCollector::convert(
         trace_id,
         artifact_fs,
@@ -1049,7 +1045,7 @@ pub fn stream_build_report(
     file.write_all(serialized_build_report.as_ref().unwrap().as_bytes())?;
     file.write_all(b"\n")?;
 
-    Ok(serialized_build_report)
+    Ok(())
 }
 
 pub fn initialize_streaming_build_report(
@@ -1057,10 +1053,6 @@ pub fn initialize_streaming_build_report(
     project_root: &ProjectRoot,
     cwd: &ProjectRelativePath,
 ) -> Result<(), buck2_error::Error> {
-    if opts.unstable_streaming_build_report_filename.is_empty() {
-        return Ok(());
-    }
-
     let path = project_root
         .resolve(cwd)
         .as_abs_path()
