@@ -282,29 +282,27 @@ impl BuildTargetResultBuilder {
         Ok(FailFastState::Continue)
     }
 
-    pub fn build(self) -> BuildTargetResult {
-        let Self {
-            res,
-            configured_to_pattern_modifiers,
-            other_errors,
-            build_failed,
-            incompatible_targets,
-        } = self;
-        if !incompatible_targets.is_empty() {
+    pub fn build(&self) -> BuildTargetResult {
+        // This function can be called several times during a build in order to produce
+        // intermediary/streaming build reports as well as the final build report.
+        // It intentionally does not consume self and copies the arrays in the return object.
+
+        if !self.incompatible_targets.is_empty() {
             // TODO(cjhopman): Probably better to return this in the result and let the caller decide what to do with it.
             console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
-                &incompatible_targets,
+                &self.incompatible_targets,
             ));
         }
 
         // Sort our outputs within each individual BuildTargetResult, then return those.
         // Also, turn our HashMap into a BTreeMap.
-        let res = res
-            .into_iter()
+        let res = self
+            .res
+            .iter()
             .map(|(label, result)| {
-                let result = result.map(|result| {
+                let result = result.as_ref().map(|result| {
                     let ConfiguredBuildTargetResultGen {
-                        mut outputs,
+                        outputs,
                         provider_collection,
                         target_rule_type_name,
                         graph_properties,
@@ -312,39 +310,46 @@ impl BuildTargetResultBuilder {
                     } = result;
 
                     // No need for a stable sort: the indices are unique (see below).
-                    outputs.sort_unstable_by_key(|(index, _outputs)| *index);
+                    let mut cloned_outputs = outputs.clone();
+                    cloned_outputs.sort_unstable_by_key(|(index, _outputs)| *index);
 
                     // TODO: This whole building thing needs quite a bit of refactoring. We might
                     // request the same targets multiple times here, but since we know that
                     // ConfiguredTargetLabel -> Output is going to be deterministic, we just dedupe
                     // them using the index.
                     ConfiguredBuildTargetResult {
-                        outputs: outputs
+                        outputs: cloned_outputs
                             .into_iter()
                             .unique_by(|(index, _outputs)| *index)
                             .map(|(_index, outputs)| outputs)
                             .collect(),
-                        provider_collection,
-                        target_rule_type_name,
-                        graph_properties,
-                        errors,
+                        provider_collection: provider_collection.clone(),
+                        target_rule_type_name: target_rule_type_name.clone(),
+                        graph_properties: graph_properties.clone(),
+                        errors: errors.clone(),
                     }
                 });
 
-                (label, result)
+                (label.clone(), result)
             })
             .collect();
 
-        let configured_to_pattern_modifiers = configured_to_pattern_modifiers
-            .into_iter()
-            .map(|(label, modifiers)| (label, BTreeSet::from_iter(modifiers.into_iter())))
+        let configured_to_pattern_modifiers = self
+            .configured_to_pattern_modifiers
+            .iter()
+            .map(|(label, modifiers)| {
+                (
+                    label.clone(),
+                    BTreeSet::from_iter(modifiers.iter().cloned()),
+                )
+            })
             .collect();
 
         BuildTargetResult {
             configured: res,
             configured_to_pattern_modifiers,
-            other_errors,
-            build_failed,
+            other_errors: self.other_errors.clone(),
+            build_failed: self.build_failed,
         }
     }
 }
