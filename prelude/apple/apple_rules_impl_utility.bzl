@@ -28,6 +28,9 @@ AppleFrameworkBundleModuleMapType = ["auto"]
 def get_apple_bundle_toolchain_attr():
     return attrs.toolchain_dep(default = "toolchains//:apple-bundle", providers = [AppleToolchainInfo])
 
+def get_apple_resources_toolchain_attr():
+    return attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo])
+
 def get_apple_xctoolchain_attr():
     return attrs.toolchain_dep(default = "toolchains//:apple-xctoolchain")
 

@@ -21,7 +21,7 @@ load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModule
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
@@ -71,6 +71,7 @@ load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_xcuitest_extra_attrs",
+    "get_apple_resources_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
@@ -1512,7 +1513,7 @@ apple_resource_bundle = prelude_rule(
             "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
             "universal": attrs.option(attrs.bool(), default = None),
             # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
-            "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo]),
+            "_apple_toolchain": get_apple_resources_toolchain_attr(),
             # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
             # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
             "_bundle_target_name": attrs.string(),
