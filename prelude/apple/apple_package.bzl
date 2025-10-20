@@ -8,6 +8,7 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
+load(":apple_package_types.bzl", "ApplePackageInfo")
 
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     package_name = ctx.attrs.package_name if ctx.attrs.package_name else ctx.attrs.bundle.label.name
@@ -49,7 +50,7 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo(
         default_output = package,
         sub_targets = sub_targets,
-    )]
+    ), ApplePackageInfo(name = package_name, extension = ctx.attrs.ext, package = package)]
 
 def _get_ipa_contents(ctx: AnalysisContext) -> Artifact:
     ipa_package_dep = ctx.attrs._ipa_package
