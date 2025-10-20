@@ -45,6 +45,11 @@ public class CrashAnalyzer {
         Pattern.compile("java\\.lang\\.NullPointerException"),
         "Null pointer exception detected",
         false),
+    new CrashType(
+        Pattern.compile(
+            "java\\.lang\\.IndexOutOfBoundsException|java\\.lang\\.ArrayIndexOutOfBoundsException"),
+        "Index out of bounds exception detected",
+        false),
   };
 
   /**

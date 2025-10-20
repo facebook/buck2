@@ -498,4 +498,170 @@ public class CrashAnalyzerTest {
         errorOutput.contains("Null pointer exception detected"));
     assertTrue("Should include first NPE", errorOutput.contains("First NPE"));
   }
+
+  @Test
+  public void testDetectsArrayIndexOutOfBoundsException() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): FATAL EXCEPTION: main\n"
+            + "E/AndroidRuntime(12345): java.lang.ArrayIndexOutOfBoundsException: length=5;"
+            + " index=10\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.ArrayProcessor.process(ArrayProcessor.java:50)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MainActivity.onCreate(MainActivity.java:123)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ArrayIndexOutOfBoundsException",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue(
+        "Should include ArrayIndexOutOfBoundsException",
+        errorOutput.contains("java.lang.ArrayIndexOutOfBoundsException"));
+    assertTrue("Should include error details", errorOutput.contains("length=5; index=10"));
+  }
+
+  @Test
+  public void testDetectsIndexOutOfBoundsException() {
+    String logcatOutput =
+        "E/AndroidRuntime(67890): java.lang.IndexOutOfBoundsException: Index: 10, Size: 3\n"
+            + "E/AndroidRuntime(67890): \tat java.util.ArrayList.get(ArrayList.java:437)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IndexOutOfBoundsException",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue("Should include error message", errorOutput.contains("Index: 10, Size: 3"));
+  }
+
+  @Test
+  public void testDetectsIndexOutOfBoundsExceptionWithoutStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IndexOutOfBoundsException: Index out of range";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IndexOutOfBoundsException without stack trace",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue(
+        "Should include error line", errorOutput.contains("java.lang.IndexOutOfBoundsException"));
+  }
+
+  @Test
+  public void testDetectsAllFourErrorTypes() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.OutOfMemoryError: Failed allocation\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.StackOverflowError\n"
+            + "I/AnotherLog(11111): Another log\n"
+            + "E/AndroidRuntime(11122): java.lang.NullPointerException\n"
+            + "I/MoreLog(22222): More log\n"
+            + "E/AndroidRuntime(33344): java.lang.ArrayIndexOutOfBoundsException: index=5\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect OutOfMemoryError", errorOutput.contains("Out of memory error detected"));
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect ArrayIndexOutOfBoundsException",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue("Should include OOM", errorOutput.contains("Failed allocation"));
+    assertTrue("Should include SOE", errorOutput.contains("java.lang.StackOverflowError"));
+    assertTrue("Should include NPE", errorOutput.contains("java.lang.NullPointerException"));
+    assertTrue(
+        "Should include AIOOBE", errorOutput.contains("java.lang.ArrayIndexOutOfBoundsException"));
+  }
+
+  @Test
+  public void testIndexOutOfBoundsAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "E/AndroidRuntime(12345): java.lang.IndexOutOfBoundsException: Index: 5, Size: 3";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IndexOutOfBoundsException at end of logcat",
+        errorOutput.contains("Index out of bounds exception detected"));
+  }
+
+  @Test
+  public void testIndexOutOfBoundsAtStartOfLogcat() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ArrayIndexOutOfBoundsException: index=10\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ArrayIndexOutOfBoundsException at start of logcat",
+        errorOutput.contains("Index out of bounds exception detected"));
+  }
+
+  @Test
+  public void testIndexOutOfBoundsWithKotlinStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IndexOutOfBoundsException\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MyKotlinList.getItem(MyKotlinList.kt:42)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MyKotlinList$process$1.invoke(MyKotlinList.kt:50)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IndexOutOfBoundsException with Kotlin stack trace",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue("Should include Kotlin file", errorOutput.contains("MyKotlinList.kt"));
+  }
+
+  @Test
+  public void testMultipleIndexOutOfBoundsExceptions() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ArrayIndexOutOfBoundsException: First error\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.IndexOutOfBoundsException: Second error\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple IndexOutOfBoundsExceptions",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue("Should include first error", errorOutput.contains("First error"));
+  }
+
+  @Test
+  public void testArrayIndexOutOfBoundsWithNegativeIndex() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ArrayIndexOutOfBoundsException: length=5; index=-1\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.ArrayHandler.get(ArrayHandler.java:10)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect negative index error",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue("Should include negative index", errorOutput.contains("index=-1"));
+  }
 }
