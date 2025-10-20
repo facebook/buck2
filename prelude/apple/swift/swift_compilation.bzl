@@ -602,6 +602,7 @@ def _compile_swiftmodule(
         num_threads = 1,
         dep_files = dep_files,
         output_file_map = output_file_map,
+        artifact_tag = inputs_tag,
     )
     return ret
 
@@ -635,6 +636,7 @@ def _compile_typecheck_diagnostics(
         incremental_remote_outputs = False,
         objects = [],
         incremental_artifacts = None,
+        artifact_tag = None,
     )
 
     typecheck_file = ctx.actions.declare_output("swift-typecheck-stderr", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
@@ -724,6 +726,7 @@ def _compile_object(
         skip_incremental_outputs = skip_incremental_outputs,
         objects = objects,
         incremental_artifacts = IncrementalCompilationInput(depfiles = depfiles, swiftdeps = swiftdeps),
+        artifact_tag = inputs_tag,
     )
 
     return SwiftObjectOutput(
@@ -856,7 +859,8 @@ def _compile_with_argsfile(
         cacheable = True,
         skip_incremental_outputs = False,
         objects = [],
-        incremental_artifacts: IncrementalCompilationInput | None = None) -> (CompileArgsfiles | None, Artifact | None):
+        incremental_artifacts: IncrementalCompilationInput | None = None,
+        artifact_tag: ArtifactTag | None = None) -> (CompileArgsfiles | None, Artifact | None):
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
@@ -889,6 +893,7 @@ def _compile_with_argsfile(
         skip_incremental_outputs = skip_incremental_outputs,
         objects = objects,
         incremental_artifacts = incremental_artifacts,
+        artifact_tag = artifact_tag,
     )
 
     if extension:

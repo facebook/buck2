@@ -44,7 +44,8 @@ def compile_with_argsfile_cmd(
         skip_incremental_outputs: bool,
         incremental_remote_outputs: bool,
         objects: list[Artifact],
-        incremental_artifacts: IncrementalCompilationInput | None) -> CompileWithArgsFileCmdOutput:
+        incremental_artifacts: IncrementalCompilationInput | None,
+        artifact_tag: ArtifactTag | None) -> CompileWithArgsFileCmdOutput:
     object_outputs = [obj.as_output() for obj in objects]
 
     uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
@@ -66,10 +67,23 @@ def compile_with_argsfile_cmd(
     # input tracking.
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
 
-    # Many tests rely on the path of the argsfile, so you probably don't
-    # want to change this.
-    argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
-    argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "", hidden = shared_flags)
+    if artifact_tag != None and uses_experimental_content_based_path_hashing:
+        # This is a little bit convoluted due to the way that content-based paths affect argfiles.
+        # If an unused tagged input changes, we don't want to re-run the action, but if it is a
+        # content-based input that is written to the argfile, then the argfile will also change
+        # and that would cause a re-run.
+        #
+        # We therefore write the argfile twice: the "real" argfile, which is used in the action
+        # and tagged as unused so that it is not used for dep-file comparison, and an argfile
+        # that uses placeholders instead of content-based paths, which is not tagged for dep-files
+        # and therefore causes a dep-file miss if it changes.
+        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        placeholder_argsfile, _ = ctx.actions.write(".{}_argsfile_placeholder".format(category), shell_quoted_args, allow_args = True, use_dep_files_placeholder_for_content_based_paths = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        cmd.add(cmd_args(hidden = placeholder_argsfile))
+        argsfile_cmd_form = cmd_args(artifact_tag.tag_artifacts(argsfile), format = "@{}", delimiter = "", hidden = shared_flags)
+    else:
+        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "", hidden = shared_flags)
     cmd.add(argsfile_cmd_form)
 
     # Assemble argsfile with Swift source files.
@@ -153,7 +167,8 @@ def compile_with_argsfile(
         skip_incremental_outputs = False,
         incremental_remote_outputs = False,
         objects = [],
-        incremental_artifacts: IncrementalCompilationInput | None = None) -> (CompileArgsfile, Artifact | None):
+        incremental_artifacts: IncrementalCompilationInput | None = None,
+        artifact_tag: ArtifactTag | None = None) -> (CompileArgsfile, Artifact | None):
     cmd_output = compile_with_argsfile_cmd(
         ctx = ctx,
         category = category,
@@ -168,6 +183,7 @@ def compile_with_argsfile(
         incremental_remote_outputs = incremental_remote_outputs,
         objects = objects,
         incremental_artifacts = incremental_artifacts,
+        artifact_tag = artifact_tag,
     )
 
     ctx.actions.run(
