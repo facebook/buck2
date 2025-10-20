@@ -53,22 +53,23 @@ main([TestInfoFile]) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
     test_logger:set_up_logger(OutputDir, test_runner, true),
-    try list_and_run(TestInfoFile, OutputDir) of
-        true ->
-            io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
-                OutputDir
-            ]),
-            erlang:halt(1);
-        false ->
-            erlang:halt(0)
-    catch
-        Class:Reason:StackTrace ->
-            io:format("~ts~n", [erl_error:format_exception(Class, Reason, StackTrace)]),
-            erlang:halt(1)
-    after
-        test_logger:flush()
-        % ok
-    end;
+    ExitCode =
+        try list_and_run(TestInfoFile, OutputDir) of
+            true ->
+                io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
+                    OutputDir
+                ]),
+                1;
+            false ->
+                0
+        catch
+            Class:Reason:StackTrace ->
+                io:format("~ts~n", [erl_error:format_exception(Class, Reason, StackTrace)]),
+                1
+        after
+            test_logger:flush()
+        end,
+    erlang:halt(ExitCode);
 main(Other) ->
     io:format(
         "Wrong arguments, should be called with ~n - TestInfoFile list OutputDir ~n - TestInfoFile run OuptutDir Tests ~n"
