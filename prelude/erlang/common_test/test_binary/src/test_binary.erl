@@ -20,56 +20,34 @@ main() ->
 
 -spec main([string()]) -> no_return().
 main([TestInfoFile, "list", OutputDir]) ->
-    test_logger:set_up_logger(OutputDir, test_listing),
-    ExitCode =
-        try listing(TestInfoFile, OutputDir) of
-            _ ->
-                ?LOG_DEBUG("Listing done"),
-                0
-        catch
-            Class:Reason:StackTrace ->
-                ?LOG_ERROR(erl_error:format_exception(Class, Reason, StackTrace)),
-                1
-        after
-            test_logger:flush()
-        end,
-    erlang:halt(ExitCode);
+    run_action_and_halt(fun() ->
+        test_logger:set_up_logger(OutputDir, test_listing),
+        ok = listing(TestInfoFile, OutputDir),
+        ?LOG_DEBUG("Listing done"),
+        ok
+    end);
 main([TestInfoFile, "run", OutputDir | Tests]) ->
-    test_logger:set_up_logger(OutputDir, test_runner),
-    ExitCode =
-        try running(TestInfoFile, OutputDir, Tests) of
-            _ ->
-                ?LOG_DEBUG("Running done"),
-                0
-        catch
-            Class:Reason:StackTrace ->
-                ?LOG_ERROR(erl_error:format_exception(Class, Reason, StackTrace)),
-                1
-        after
-            test_logger:flush()
-        end,
-    erlang:halt(ExitCode);
+    run_action_and_halt(fun() ->
+        test_logger:set_up_logger(OutputDir, test_runner),
+        ok = running(TestInfoFile, OutputDir, Tests),
+        ?LOG_DEBUG("Running done"),
+        ok
+    end);
 main([TestInfoFile]) ->
-    %% without test runner support we run all tests and need to create our own test dir
-    OutputDir = string:trim(os:cmd("mktemp -d")),
-    test_logger:set_up_logger(OutputDir, test_runner, true),
-    ExitCode =
-        try list_and_run(TestInfoFile, OutputDir) of
+    run_action_and_halt(fun() ->
+        %% without test runner support we run all tests and need to create our own test dir
+        OutputDir = string:trim(os:cmd("mktemp -d")),
+        test_logger:set_up_logger(OutputDir, test_runner, true),
+        case list_and_run(TestInfoFile, OutputDir) of
             true ->
                 io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
                     OutputDir
                 ]),
-                1;
+                {exit_code, 1};
             false ->
-                0
-        catch
-            Class:Reason:StackTrace ->
-                io:format("~ts~n", [erl_error:format_exception(Class, Reason, StackTrace)]),
-                1
-        after
-            test_logger:flush()
-        end,
-    erlang:halt(ExitCode);
+                ok
+        end
+    end);
 main(Other) ->
     io:format(
         "Wrong arguments, should be called with ~n - TestInfoFile list OutputDir ~n - TestInfoFile run OuptutDir Tests ~n"
@@ -79,6 +57,22 @@ main(Other) ->
         [Other]
     ),
     erlang:halt(3).
+
+-spec run_action_and_halt(Action) -> no_return() when
+    Action :: fun(() -> ok | {exit_code, non_neg_integer()}).
+run_action_and_halt(Action) ->
+    ExitCode =
+        try Action() of
+            ok -> 0;
+            {exit_code, N} when is_integer(N) -> N
+        catch
+            Class:Reason:StackTrace ->
+                ?LOG_ERROR(erl_error:format_exception(Class, Reason, StackTrace)),
+                1
+        after
+            test_logger:flush()
+        end,
+    erlang:halt(ExitCode).
 
 -spec load_suite(binary()) -> atom().
 load_suite(SuitePath) ->
