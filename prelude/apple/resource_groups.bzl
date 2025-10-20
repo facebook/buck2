@@ -13,7 +13,7 @@ load(
 )
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
-load(":apple_resource_types.bzl", "AppleResourceSpec", "CxxResourceSpec")
+load(":apple_resource_types.bzl", "AppleResourceSelectionOutput", "AppleResourceSpec", "CxxResourceSpec")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
 ResourceGroupInfo = provider(
@@ -148,7 +148,7 @@ def get_filtered_resources(
         root: Label,
         resource_graph_node_map_func,
         resource_group: [str, None],
-        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec], list[CxxResourceSpec]):
+        resource_group_mappings: [dict[Label, str], None]) -> AppleResourceSelectionOutput:
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
@@ -197,4 +197,10 @@ def get_filtered_resources(
             if cxx_resource_spec:
                 cxx_resource_specs.append(cxx_resource_spec)
 
-    return resource_specs, asset_catalog_specs, core_data_specs, scene_kit_assets_specs, cxx_resource_specs
+    return AppleResourceSelectionOutput(
+        resource_specs = resource_specs,
+        asset_catalog_specs = asset_catalog_specs,
+        core_data_specs = core_data_specs,
+        scene_kit_assets_spec = scene_kit_assets_specs,
+        cxx_resource_specs = cxx_resource_specs,
+    )
