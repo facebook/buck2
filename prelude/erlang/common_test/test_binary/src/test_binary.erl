@@ -9,54 +9,86 @@
 -module(test_binary).
 -compile(warn_missing_spec_all).
 
--export([main/1, main/0]).
+-export([main/0]).
+
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -spec main() -> no_return().
 main() ->
-    main(init:get_plain_arguments()).
+    Args = init:get_plain_arguments(),
+    run_action_and_halt(fun() -> argparse:run(Args, cli(), #{}) end).
 
--spec main([string()]) -> no_return().
-main([TestInfoFile, "list", OutputDir]) ->
-    run_action_and_halt(fun() ->
-        test_logger:set_up_logger(OutputDir, test_listing),
-        ok = listing(TestInfoFile, OutputDir),
-        ?LOG_DEBUG("Listing done"),
-        ok
-    end);
-main([TestInfoFile, "run", OutputDir | Tests]) ->
-    run_action_and_halt(fun() ->
-        test_logger:set_up_logger(OutputDir, test_runner),
-        ok = running(TestInfoFile, OutputDir, Tests),
-        ?LOG_DEBUG("Running done"),
-        ok
-    end);
-main([TestInfoFile]) ->
-    run_action_and_halt(fun() ->
-        %% without test runner support we run all tests and need to create our own test dir
-        OutputDir = string:trim(os:cmd("mktemp -d")),
-        test_logger:set_up_logger(OutputDir, test_runner, true),
-        case list_and_run(TestInfoFile, OutputDir) of
-            true ->
-                io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
-                    OutputDir
-                ]),
-                {exit_code, 1};
-            false ->
-                ok
-        end
-    end);
-main(Other) ->
-    io:format(
-        "Wrong arguments, should be called with ~n - TestInfoFile list OutputDir ~n - TestInfoFile run OuptutDir Tests ~n"
-    ),
-    io:format(
-        "Instead, arguments where: ~tp~n",
-        [Other]
-    ),
-    erlang:halt(3).
+-spec cli() -> argparse:command().
+cli() ->
+    #{
+        handler => fun handle_list_and_run/1,
+        arguments => [
+            #{name => test_info_file, long => "-test-info-file", type => string, required => true}
+        ],
+        commands => #{
+            "list" => #{
+                handler => fun handle_list/1,
+                arguments => [
+                    #{name => output_dir_legacy, type => string, nargs => 'maybe', default => none},
+                    #{name => output_dir, long => "-output-dir", type => string, default => none}
+                ]
+            },
+            "run" => #{
+                handler => fun handle_run/1,
+                arguments => [
+                    #{name => output_dir, long => "-output-dir", type => string, default => none},
+                    #{name => tests, type => string, nargs => list, default => []}
+                ]
+            }
+        }
+    }.
+
+-spec handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir, output_dir_legacy := OutputDir}) -> ok when
+    TestInfoFile :: file:filename(),
+    OutputDir :: none | file:filename().
+handle_list(Opts = #{output_dir := none, output_dir_legacy := OutputDir}) when OutputDir /= none ->
+    % To be removed once TPX uses --output-dir
+    handle_list(Opts#{output_dir := OutputDir, output_dir_legacy := none});
+handle_list(#{
+    test_info_file := TestInfoFile,
+    output_dir := OutputDir,
+    output_dir_legacy := none
+}) when OutputDir /= none ->
+    test_logger:set_up_logger(OutputDir, test_listing),
+    ok = listing(TestInfoFile, OutputDir),
+    ?LOG_DEBUG("Listing done"),
+    ok.
+
+-spec handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) -> ok when
+    TestInfoFile :: file:filename(),
+    OutputDir :: none | file:filename(),
+    Tests :: [string()].
+handle_run(Opts = #{output_dir := none, tests := [OutputDir | Tests]}) ->
+    % To be removed once TPX uses --output-dir
+    handle_run(Opts#{output_dir := OutputDir, tests := Tests});
+handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) when OutputDir /= none ->
+    test_logger:set_up_logger(OutputDir, test_runner),
+    ok = running(TestInfoFile, OutputDir, Tests),
+    ?LOG_DEBUG("Running done"),
+    ok.
+
+-spec handle_list_and_run(#{test_info_file := TestInfoFile}) -> ok | {exit_code, 1} when
+    TestInfoFile :: file:filename_all().
+handle_list_and_run(#{test_info_file := TestInfoFile}) ->
+    %% without test runner support we run all tests and need to create our own test dir
+    OutputDir = string:trim(os:cmd("mktemp -d")),
+    test_logger:set_up_logger(OutputDir, test_runner, true),
+    case list_and_run(TestInfoFile, OutputDir) of
+        true ->
+            io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
+                OutputDir
+            ]),
+            {exit_code, 1};
+        false ->
+            ok
+    end.
 
 -spec run_action_and_halt(Action) -> no_return() when
     Action :: fun(() -> ok | {exit_code, non_neg_integer()}).

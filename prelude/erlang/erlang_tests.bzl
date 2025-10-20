@@ -191,7 +191,10 @@ def _build_erlang_test(
         raw_target = str(ctx.label.raw_target()) if ctx.label else "",
         inner_trampolines = [trampoline[RunInfo].args for trampoline in ctx.attrs._inner_trampolines],
     )
-    cmd.add(test_info_file)
+
+    # Everything that comes after the `-extra` will be interpreted by the test_binary
+    cmd.add("-extra")
+    cmd.add(cmd_args(test_info_file, format = "--test-info-file={}"))
 
     default_info = _build_default_info(dep_info, output_dir)
 
