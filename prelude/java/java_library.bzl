@@ -61,12 +61,14 @@ def _process_classpath(
         actions: AnalysisActions,
         classpath_args: cmd_args,
         args_file_name: str,
-        option_name: str) -> cmd_args:
+        option_name: str,
+        has_content_based_path: bool) -> cmd_args:
     # write joined classpath string into args file
     classpath_args_file, _ = actions.write(
         args_file_name,
         classpath_args,
         allow_args = True,
+        has_content_based_path = has_content_based_path,
     )
 
     return cmd_args(
@@ -85,7 +87,8 @@ def _process_plugins(
         actions_identifier: [str, None],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
-        javac_args: cmd_args) -> cmd_args:
+        javac_args: cmd_args,
+        use_content_based_paths: bool) -> cmd_args:
     cmd = cmd_args()
     processors_classpath_tsets = []
 
@@ -134,6 +137,7 @@ def _process_plugins(
             processors_classpath,
             declare_prefixed_name("plugin_cp_args", actions_identifier),
             "--javac_processors_classpath_file",
+            use_content_based_paths,
         ))
 
     return cmd
@@ -167,7 +171,8 @@ def _append_javac_params(
         extra_arguments: cmd_args,
         additional_classpath_entries: JavaCompilingDepsTSet | None,
         custom_jdk_info: CustomJdkInfo | None,
-        generated_sources_dir: Artifact) -> cmd_args:
+        generated_sources_dir: Artifact,
+        use_content_based_paths: bool) -> cmd_args:
     cmd = cmd_args()
     shared_javac_args = cmd_args(
         "-encoding",
@@ -198,6 +203,7 @@ def _append_javac_params(
                 _classpath_args(ctx, bootclasspath_list),
                 declare_prefixed_name("bootclasspath_args", actions_identifier),
                 "--javac_bootclasspath_file",
+                use_content_based_paths,
             ))
 
     compiling_classpath = _build_classpath(ctx.actions, deps, additional_classpath_entries, "args_for_compiling", additional_classpath_entries_list)
@@ -207,6 +213,7 @@ def _append_javac_params(
             _classpath_args(ctx, compiling_classpath),
             declare_prefixed_name("classpath_args", actions_identifier),
             "--javac_classpath_file",
+            use_content_based_paths,
         ))
     else:
         shared_javac_args.add("-classpath ''")
@@ -217,6 +224,7 @@ def _append_javac_params(
         annotation_processor_properties,
         javac_plugin_params,
         shared_javac_args,
+        use_content_based_paths,
     ))
 
     cmd.add("--generated_sources_dir", generated_sources_dir.as_output())
@@ -235,6 +243,7 @@ def _append_javac_params(
         declare_prefixed_name("javac_args", actions_identifier),
         javac_args,
         allow_args = True,
+        has_content_based_path = use_content_based_paths,
     )
     cmd.add(cmd_args(hidden = javac_args))
 
@@ -252,16 +261,17 @@ def _append_javac_params(
                 declare_prefixed_name("multi_release_args.java{}".format(min_release_version), actions_identifier),
                 release_args,
                 allow_args = True,
+                has_content_based_path = use_content_based_paths,
             )
             cmd.add("--multi_release_args_file", release_args_file)
             cmd.add(cmd_args(hidden = release_srcs))
 
     if zipped_sources:
-        cmd.add("--zipped_sources_file", ctx.actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources))
+        cmd.add("--zipped_sources_file", ctx.actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources, has_content_based_path = use_content_based_paths))
         cmd.add(cmd_args(hidden = zipped_sources))
 
     if remove_classes:
-        cmd.add("--remove_classes", ctx.actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
+        cmd.add("--remove_classes", ctx.actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes, has_content_based_path = use_content_based_paths))
 
     return cmd
 
@@ -294,9 +304,10 @@ def _copy_resources(
         java_toolchain: JavaToolchainInfo,
         package: str,
         resources: list[Artifact],
-        resources_root: [str, None]) -> Artifact:
+        resources_root: [str, None],
+        use_content_based_paths: bool) -> Artifact:
     resources_to_copy = get_resources_map(java_toolchain, package, resources, resources_root)
-    resource_output = actions.symlinked_dir(declare_prefixed_name("resources", actions_identifier), resources_to_copy)
+    resource_output = actions.symlinked_dir(declare_prefixed_name("resources", actions_identifier), resources_to_copy, has_content_based_path = use_content_based_paths)
     return resource_output
 
 def _jar_creator(
@@ -418,8 +429,9 @@ def _create_jar_artifact(
 
     Returns a single artifacts that represents jar output file
     """
+    use_content_based_paths = ctx.attrs.uses_content_based_paths_for_classic_java
     javac_tool = javac_tool or derive_javac(java_toolchain.javac)
-    jar_out = output or ctx.actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)))
+    jar_out = output or ctx.actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)), has_content_based_path = use_content_based_paths)
 
     # since create_jar_artifact_javacd does not support this, it will not be added to common_compile_kwargs
     concat_resources = getattr(ctx.attrs, "concat_resources", False)
@@ -439,7 +451,7 @@ def _create_jar_artifact(
         args += ["--javac_tool", javac_tool]
 
     if resources:
-        resource_dir = _copy_resources(ctx.actions, actions_identifier, java_toolchain, label.package, resources, resources_root)
+        resource_dir = _copy_resources(ctx.actions, actions_identifier, java_toolchain, label.package, resources, resources_root, use_content_based_paths)
         args += ["--resources_dir", resource_dir]
     if concat_resources:
         args += ["--concat_resources"]
@@ -454,7 +466,7 @@ def _create_jar_artifact(
 
     generated_sources_dir = None
     if not skip_javac:
-        generated_sources_dir = ctx.actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier), dir = True)
+        generated_sources_dir = ctx.actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier), dir = True, has_content_based_path = use_content_based_paths)
         compile_and_package_cmd.add(_append_javac_params(
             ctx,
             actions_identifier,
@@ -470,6 +482,7 @@ def _create_jar_artifact(
             additional_classpath_entries,
             custom_jdk_info,
             generated_sources_dir,
+            use_content_based_paths,
         ))
 
     ctx.actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
@@ -666,7 +679,7 @@ def build_java_library(
         entries = []
 
         if srcs or resources:
-            entries.append(_copy_resources(ctx.actions, "gwt_module", java_toolchain, ctx.label.package, srcs + resources, resources_root))
+            entries.append(_copy_resources(ctx.actions, "gwt_module", java_toolchain, ctx.label.package, srcs + resources, resources_root, False))
         if outputs and outputs.annotation_processor_output:
             entries.append(outputs.annotation_processor_output)
 

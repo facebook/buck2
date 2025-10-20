@@ -296,6 +296,14 @@ def _kotlincd_content_based_paths():
         })),
     }
 
+def _classic_java_content_based_paths():
+    return {
+        "uses_content_based_paths_for_classic_java": attrs.bool(default = select({
+            "DEFAULT": False,
+            # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+        })),
+    }
+
 def _javac():
     return {
         "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None, doc = """
@@ -331,6 +339,7 @@ jvm_common = struct(
     enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
     should_kosabi_jvm_abi_gen_use_k2 = _should_kosabi_jvm_abi_gen_use_k2,
+    classic_java_content_based_paths = _classic_java_content_based_paths,
     content_based_path_for_jar_snapshot = _content_based_path_for_jar_snapshot,
     kotlincd_content_based_paths = _kotlincd_content_based_paths,
 )

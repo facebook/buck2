@@ -786,6 +786,7 @@ android_library = prelude_rule(
         jvm_common.javac() |
         jvm_common.enable_used_classes() |
         jvm_common.content_based_path_for_jar_snapshot() |
+        jvm_common.classic_java_content_based_paths() |
         {
             "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
                 List of classes to remove from the output jar. It only removes classes from the target's own
@@ -1450,6 +1451,7 @@ robolectric_test = prelude_rule(
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.javac() |
         jvm_common.enable_used_classes() |
+        jvm_common.classic_java_content_based_paths() |
         re_test_common.test_args() |
         test_common.attributes()
     ),
