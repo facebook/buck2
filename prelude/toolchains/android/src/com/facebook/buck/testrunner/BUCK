@@ -86,6 +86,7 @@ buck_java_library(
     name = "instrumentation",
     srcs = [
         "BuckXmlTestRunListener.java",
+        "CrashAnalyzer.java",
         "CrashCapturer.java",
         "DeviceRunner.java",
         "InstrumentationMain.java",

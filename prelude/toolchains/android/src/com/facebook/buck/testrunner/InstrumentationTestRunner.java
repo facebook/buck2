@@ -115,6 +115,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private final String preTestSetupScript;
   private final List<String> apexesToInstall;
 
+  private final CrashAnalyzer crashAnalyzer = new CrashAnalyzer();
+
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
@@ -805,6 +807,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
   @SuppressWarnings("PMD.BlacklistedSystemGetenv")
   private void collectAdbLogs(IDevice device) {
     try {
+      StringBuilder allLogOutput = new StringBuilder();
+
       for (LogcatBuffer buffer : this.collectedLogcatBuffers) {
         String bufferName = buffer.getCliArgument();
         Path traPath = this.createPathForLogcatBuffer(bufferName);
@@ -815,10 +819,19 @@ public class InstrumentationTestRunner extends DeviceRunner {
         if (logOutput == null) {
           continue;
         }
+
+        // Accumulate all log output for crash analysis
+        allLogOutput.append("=== ").append(bufferName.toUpperCase()).append(" BUFFER ===\n");
+        allLogOutput.append(logOutput).append("\n");
+
         try (FileWriter logWriter = new FileWriter(traPath.toString())) {
           logWriter.write(logOutput);
         }
       }
+
+      // Analyze all collected logcat output for crash information
+      crashAnalyzer.analyzeCrashInformation(allLogOutput.toString());
+
     } catch (IOException e) {
       e.printStackTrace(System.err);
       System.err.printf("Failed to write logs from buffer failed with error: %s\n", e);
