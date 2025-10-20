@@ -17,7 +17,27 @@ from typing import List
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import read_what_ran
+from buck2.tests.e2e_util.helper.utils import filter_events, read_what_ran
+
+
+async def is_eligible_for_action_dedup(buck: Buck) -> bool:
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "eligible_for_dedupe",
+    )
+
+    assert len(events) >= 1
+    return events[-1]
+
+
+ELIGIBLE_FOR_DEDUPE = 0
+INELIGIBLE_INPUT = 1
+INELIGIBLE_OUTPUT = 2
 
 
 async def build_target_with_different_platforms_and_verify_output_paths_are_identical(
@@ -34,6 +54,7 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
         "--show-output",
         *args,
     )
+    assert await is_eligible_for_action_dedup(buck) == ELIGIBLE_FOR_DEDUPE
     result2 = await buck.build(
         target,
         "--target-platforms",
@@ -41,6 +62,7 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
         "--show-output",
         *args,
     )
+    assert await is_eligible_for_action_dedup(buck) == ELIGIBLE_FOR_DEDUPE
 
     path1 = result1.get_target_to_build_output().get(target)
     path2 = result2.get_target_to_build_output().get(target)
@@ -309,7 +331,8 @@ async def test_dynamic_new_with_content_based_path(buck: Buck) -> None:
 @buck_test()
 async def test_projection_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
-        buck, "root//:use_projection_with_content_based_path"
+        buck,
+        "root//:use_projection_with_content_based_path",
     )
 
 
@@ -508,3 +531,24 @@ async def test_resolve_promise_artifact(
         "-c",
         "test.assert_promised_artifact_has_content_based_path=true",
     )
+
+
+@buck_test()
+async def test_not_eligible_for_dedupe(buck: Buck) -> None:
+    await buck.build(
+        "root//:not_eligible_for_dedupe",
+        "--target-platforms",
+        "root//:p_default",
+    )
+
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "eligible_for_dedupe",
+    )
+
+    assert events == [INELIGIBLE_OUTPUT, INELIGIBLE_INPUT]

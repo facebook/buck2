@@ -1654,6 +1654,9 @@ message ActionExecutionEnd {
   // Whether the action was incremental or not, and if it is, if it's
   // incremental locally or if it's incremental remotely
   optional IncrementalKind incremental_kind = 44;
+
+  // Whether the action is eligible for deduplication across configurations.
+  EligibleForDedupe eligible_for_dedupe = 45;
 }
 
 enum IncrementalKind {
@@ -1686,6 +1689,12 @@ enum SchedulingMode {
   FALLBACK = 13;
   // Remote queue estimate exceeded threshold, raced local with queued action
   FALLBACK_RE_QUEUE_ESTIMATE = 14;
+}
+
+enum EligibleForDedupe {
+  ELIGIBLE = 0;
+  INELIGIBLE_INPUT = 1;
+  INELIGIBLE_OUTPUT = 2;
 }
 
 message CommandInvalidationInfo {

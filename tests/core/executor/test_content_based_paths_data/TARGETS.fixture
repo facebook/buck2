@@ -10,6 +10,7 @@ load(
     "failing_validation_with_content_based_path",
     "ignores_content_based_artifact",
     "incremental_action",
+    "not_eligible_for_dedupe",
     "resolve_promise_artifact",
     "run_with_content_based_path",
     "sets_inconsistent_params",
@@ -168,6 +169,10 @@ resolve_promise_artifact(
     name = "resolve_promise_artifact",
     artifact_has_content_based_path = read_config("test", "artifact_has_content_based_path", "false") == "true",
     assert_promised_artifact_has_content_based_path = read_config("test", "assert_promised_artifact_has_content_based_path", "false") == "true",
+)
+
+not_eligible_for_dedupe(
+    name = "not_eligible_for_dedupe",
 )
 
 platform(

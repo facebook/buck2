@@ -344,6 +344,7 @@ def _use_projection_with_content_based_path_impl(ctx):
             "import sys",
             "shutil.copyfile(sys.argv[1], sys.argv[2])",
         ],
+        uses_experimental_content_based_path_hashing = True,
     )
 
     first_copy_projection1 = ctx.actions.declare_output("first_copied_projection1.txt", has_content_based_path = True)
@@ -541,3 +542,26 @@ resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
     "artifact_has_content_based_path": attrs.bool(),
     "assert_promised_artifact_has_content_based_path": attrs.bool(),
 })
+
+def _not_eligible_for_dedupe_impl(ctx) -> list[Provider]:
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('hello')",
+        ],
+        uses_experimental_content_based_path_hashing = False,
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["fbpython", script, out.as_output()])
+
+    ctx.actions.run(
+        args,
+        category = "test_run",
+    )
+
+    return [DefaultInfo(out)]
+
+not_eligible_for_dedupe = rule(impl = _not_eligible_for_dedupe_impl, attrs = {})
