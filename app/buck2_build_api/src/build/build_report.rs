@@ -15,9 +15,11 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
+use std::fs::OpenOptions;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::BufWriter;
+use std::io::Write;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
@@ -997,4 +999,79 @@ pub fn generate_build_report(
     };
 
     Ok(serialized_build_report)
+}
+
+pub fn stream_build_report(
+    opts: BuildReportOpts,
+    artifact_fs: &ArtifactFs,
+    cell_resolver: &CellResolver,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: &TraceId,
+    configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+    configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
+    other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+    detailed_metrics: Option<DetailedAggregatedMetrics>,
+) -> Result<Option<String>, buck2_error::Error> {
+    if opts.unstable_streaming_build_report_filename.is_empty() {
+        return Ok(None);
+    }
+
+    let build_report = BuildReportCollector::convert(
+        trace_id,
+        artifact_fs,
+        cell_resolver,
+        project_root,
+        opts.print_unconfigured_section,
+        opts.unstable_include_failures_build_report,
+        opts.unstable_include_package_project_relative_paths,
+        opts.unstable_include_artifact_hash_information,
+        configured,
+        configured_to_pattern_modifiers,
+        other_errors,
+        detailed_metrics,
+        opts.graph_properties_opts,
+    )?;
+
+    let serialized_build_report = Some(serde_json::to_string(&build_report)?);
+
+    let path = project_root
+        .resolve(cwd)
+        .as_abs_path()
+        .join(opts.unstable_streaming_build_report_filename);
+
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path.clone())
+        .buck_error_context("Error opening streaming build report file for appending")?;
+    let mut file = BufWriter::new(file);
+    file.write_all(serialized_build_report.as_ref().unwrap().as_bytes())?;
+    file.write_all(b"\n")?;
+
+    Ok(serialized_build_report)
+}
+
+pub fn initialize_streaming_build_report(
+    opts: BuildReportOpts,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+) -> Result<(), buck2_error::Error> {
+    if opts.unstable_streaming_build_report_filename.is_empty() {
+        return Ok(());
+    }
+
+    let path = project_root
+        .resolve(cwd)
+        .as_abs_path()
+        .join(opts.unstable_streaming_build_report_filename);
+    if let Some(parent) = path.parent() {
+        fs_util::create_dir_all(parent)?;
+    }
+
+    // create and clear the file
+    let _file = fs_util::create_file(path.clone())
+        .buck_error_context("Error initializing streaming build report")?;
+
+    Ok(())
 }
