@@ -452,6 +452,12 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.call_stack.top_location()
     }
 
+    /// Obtain the nth location on the call-stack. May be [`None`] if the
+    /// stack is not that deep. n=0 is the top of the stack.
+    pub fn call_stack_nth_location(&self, n: usize) -> Option<FileSpan> {
+        self.call_stack.nth_location(n)
+    }
+
     pub(crate) fn before_stmt_fn(
         &mut self,
         f: &'a dyn for<'v1, 'a2> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a2, 'e>),
