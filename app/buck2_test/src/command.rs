@@ -754,7 +754,7 @@ async fn test_targets(
                     .context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
-                let mut builder = BuildTargetResultBuilder::new();
+                let mut builder = BuildTargetResultBuilder::new(None);
                 for event in driver.error_events {
                     builder.event(event)?;
                 }
@@ -1325,7 +1325,7 @@ async fn build_target_result(
     }
 
     let materialization_and_upload = MaterializationAndUploadContext::skip();
-    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new(None);
     consumer.consume(BuildEvent::new_configured(
         label.dupe(),
         ConfiguredBuildEventVariant::MapModifiers { modifiers },

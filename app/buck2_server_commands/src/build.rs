@@ -75,6 +75,7 @@ use futures::stream::StreamExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use itertools::Either;
 use itertools::Itertools;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::build::result_report::ResultReporter;
 use crate::build::result_report::ResultReporterOptions;
@@ -280,6 +281,17 @@ async fn build(
         total_per_configuration_sketch: want_total_per_configuration_sketch,
     };
 
+    let (streaming_build_result_tx, _streaming_build_result_rx) =
+        tokio::sync::mpsc::unbounded_channel();
+    let should_stream_build_result = !build_opts
+        .unstable_streaming_build_report_filename
+        .is_empty();
+    let build_command_streaming_build_result_tx = if should_stream_build_result {
+        Some(streaming_build_result_tx)
+    } else {
+        None
+    };
+
     let build_result = ctx
         .with_linear_recompute(|ctx| async move {
             build_targets(
@@ -293,6 +305,7 @@ async fn build(
                 build_opts.skip_incompatible_targets,
                 graph_properties.dupe(),
                 timeout_observer.as_ref(),
+                build_command_streaming_build_result_tx,
             )
             .await
         })
@@ -448,8 +461,9 @@ async fn build_targets(
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+    streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 ) -> buck2_error::Result<BuildTargetResult> {
-    let (builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    let (builder, consumer) = AsyncBuildTargetResultBuilder::new(streaming_build_result_tx);
     let fut = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
             let spec = spec.convert_pattern().buck_error_context(

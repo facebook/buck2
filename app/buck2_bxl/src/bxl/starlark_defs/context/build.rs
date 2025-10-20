@@ -197,7 +197,7 @@ pub(crate) fn build<'v>(
                 )
                 .await?;
 
-                let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+                let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new(None);
                 result_builder
                     .wait_for(
                         // TODO (torozco): support --fail-fast in BXL.

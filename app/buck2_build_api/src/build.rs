@@ -100,7 +100,9 @@ pub struct AsyncBuildTargetResultBuilder {
 }
 
 impl AsyncBuildTargetResultBuilder {
-    pub fn new() -> (Self, impl BuildEventConsumer + Clone) {
+    pub fn new(
+        mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+    ) -> (Self, impl BuildEventConsumer + Clone) {
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
         #[derive(Clone)]
         struct EventConsumer {
@@ -116,7 +118,7 @@ impl AsyncBuildTargetResultBuilder {
         (
             Self {
                 event_rx,
-                builder: BuildTargetResultBuilder::new(),
+                builder: BuildTargetResultBuilder::new(streaming_build_result_tx.take()),
             },
             EventConsumer { event_tx },
         )
@@ -170,16 +172,18 @@ pub struct BuildTargetResultBuilder {
     other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     build_failed: bool,
     incompatible_targets: SmallSet<ConfiguredTargetLabel>,
+    streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 }
 
 impl BuildTargetResultBuilder {
-    pub fn new() -> Self {
+    pub fn new(mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>) -> Self {
         Self {
             res: HashMap::new(),
             configured_to_pattern_modifiers: HashMap::new(),
             other_errors: BTreeMap::new(),
             incompatible_targets: SmallSet::new(),
             build_failed: false,
+            streaming_build_result_tx: streaming_build_result_tx.take(),
         }
     }
 
@@ -236,6 +240,12 @@ impl BuildTargetResultBuilder {
                         ConfiguredBuildEventExecutionVariant::BuildOutput { index, output } => {
                             let is_err = output.is_err();
                             results.outputs.push((index, output));
+                            // update the streaming build result
+                            if let Some(tx) = &self.streaming_build_result_tx.clone() {
+                                let result = self.build();
+                                let _ignored = tx.send(result);
+                            }
+
                             is_err
                         }
                     }
