@@ -364,7 +364,8 @@ def build_kotlin_library(
         additional_classpath_entries: JavaCompilingDepsTSet | None = None,
         custom_jdk_info: CustomJdkInfo | None = None,
         extra_sub_targets: dict = {},
-        validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
+        validation_deps_outputs: [list[Artifact], None] = None,
+        extra_arguments = []) -> JavaProviders:
     srcs = ctx.attrs.srcs
     has_kotlin_srcs = lazy.is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 
@@ -378,6 +379,7 @@ def build_kotlin_library(
             override_abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode) or AbiGenerationMode("class"),
             extra_sub_targets = extra_sub_targets,
             validation_deps_outputs = validation_deps_outputs,
+            extra_arguments = extra_arguments,
         )
 
     else:
@@ -447,6 +449,7 @@ def build_kotlin_library(
                 generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
                 extra_sub_targets = extra_sub_targets,
                 validation_deps_outputs = validation_deps_outputs,
+                extra_arguments = extra_arguments,
             )
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
@@ -457,7 +460,7 @@ def build_kotlin_library(
             )
             source_level, target_level = get_java_version_attributes(ctx)
             extra_arguments = cmd_args(
-                ctx.attrs.extra_arguments,
+                ctx.attrs.extra_arguments + extra_arguments,
                 # The outputs of validation_deps need to be added as hidden arguments
                 # to an action for the validation_deps targets to be built and enforced.
                 hidden = validation_deps_outputs or [],

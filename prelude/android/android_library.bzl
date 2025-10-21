@@ -27,7 +27,11 @@ load(
     "single_library_compiling_deps",
     "to_list",
 )
-load("@prelude//java/utils:java_utils.bzl", "CustomJdkInfo")
+load(
+    "@prelude//java/utils:java_utils.bzl",
+    "CustomJdkInfo",
+    "get_java_version_attributes",
+)
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:label_provider.bzl", "LabelInfo")
@@ -128,6 +132,12 @@ def build_android_library(
         children = additional_classpath_entries_children,
     ) if additional_classpath_entries_children else None
 
+    extra_arguments = []
+    source_level, _ = get_java_version_attributes(ctx)
+    if source_level >= 9:
+        # Force javac to avoid generating bytecode that uses java.lang.invoke.StringConcatFactory. This is only present in Android build tools SDK 36+.
+        extra_arguments.append("-XDstringConcat=inline")
+
     if ctx.attrs.language != None and ctx.attrs.language.lower() == "kotlin":
         return build_kotlin_library(
             ctx,
@@ -135,6 +145,7 @@ def build_android_library(
             custom_jdk_info = custom_jdk_info,
             extra_sub_targets = extra_sub_targets,
             validation_deps_outputs = validation_deps_outputs,
+            extra_arguments = extra_arguments,
         ), android_library_intellij_info
     else:
         return build_java_library(
@@ -144,6 +155,7 @@ def build_android_library(
             custom_jdk_info = custom_jdk_info,
             extra_sub_targets = extra_sub_targets,
             validation_deps_outputs = validation_deps_outputs,
+            extra_arguments = extra_arguments,
         ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(

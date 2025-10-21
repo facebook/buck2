@@ -582,7 +582,8 @@ def build_java_library(
         generated_sources: list[Artifact] = [],
         override_abi_generation_mode: [AbiGenerationMode, None] = None,
         extra_sub_targets: dict = {},
-        validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
+        validation_deps_outputs: [list[Artifact], None] = None,
+        extra_arguments = []) -> JavaProviders:
     expect(
         not getattr(ctx.attrs, "_build_only_native_code", False),
         "Shouldn't call build_java_library if we're only building native code!",
@@ -648,7 +649,7 @@ def build_java_library(
         # The outputs of validation_deps need to be added as hidden arguments
         # to an action for the validation_deps targets to be built and enforced.
         extra_arguments = cmd_args(
-            ctx.attrs.extra_arguments,
+            ctx.attrs.extra_arguments + extra_arguments,
             hidden = validation_deps_outputs or [],
         )
 
