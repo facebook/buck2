@@ -1127,7 +1127,7 @@ def _platform_output_path(path: str, platform: [str, None] = None):
         return platform + "/" + path
     return path
 
-def _transitive_has_linkable(
+def _transitive_has_linkable_deps(
         target: Label,
         linkable_nodes: dict[Label, LinkableNode],
         transitive_linkable_cache: dict[Label, bool]) -> bool:
@@ -1136,11 +1136,11 @@ def _transitive_has_linkable(
 
     target_node = linkable_nodes.get(target)
     for dep in target_node.deps:
-        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache):
+        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
             transitive_linkable_cache[target] = True
             return True
     for dep in target_node.exported_deps:
-        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache):
+        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
             transitive_linkable_cache[target] = True
             return True
 
@@ -1163,17 +1163,10 @@ def _shared_lib_for_prebuilt_shared(
     # TODO(cjhopman): We don't currently support prebuilt shared libs with deps on other libs because
     # we don't compute the shared lib deps of prebuilt shared libs here. That
     # shouldn't be too hard, but we haven't needed it.
-    for dep in node_data.deps:
-        expect(
-            not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
-            "prebuilt shared library `{}` with deps not supported by somerge".format(target),
-        )
-
-    for dep in node_data.exported_deps:
-        expect(
-            not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
-            "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target),
-        )
+    expect(
+        not _transitive_has_linkable_deps(target, linkable_nodes, transitive_linkable_cache),
+        "prebuilt shared library `{}` with linkable deps not supported by somerge".format(target),
+    )
 
     shlib = node_data.shared_libs.libraries[0]
     soname = shlib.soname.ensure_str()
