@@ -245,7 +245,7 @@ def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensio
     return extension_info, extension_info_reduced
 
 def _cxx_exe_allow_cache_upload(ctx) -> bool:
-    return hasattr(ctx.attrs, "exe_allow_cache_uplod") and bool(ctx.attrs.exe_allow_cache_uplod)
+    return hasattr(ctx.attrs, "exe_allow_cache_upload") and bool(ctx.attrs.exe_allow_cache_upload)
 
 def _compute_cxx_executable_info(
         ctx,
