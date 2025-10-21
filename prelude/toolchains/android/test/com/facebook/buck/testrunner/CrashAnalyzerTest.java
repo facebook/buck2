@@ -1388,4 +1388,353 @@ public class CrashAnalyzerTest {
         "Should detect segmentation fault case-insensitively",
         errorOutput.contains("SIGSEGV signal detected (native crash)"));
   }
+
+  @Test
+  public void testDetectsSIGILLSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 (ILL_ILLOPC), fault addr 0x12345678\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_x86_64/generic_x86_64:11'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue("Should include signal line", errorOutput.contains("Fatal signal 4"));
+    assertTrue("Should include backtrace", errorOutput.contains("backtrace:"));
+  }
+
+  @Test
+  public void testDetectsSIGILLWithUppercase() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with uppercase",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include signal info", errorOutput.contains("SIGILL"));
+  }
+
+  @Test
+  public void testDetectsSIGILLWithLowercase() {
+    String logcatOutput =
+        "F/libc(12345): fatal signal 4 (sigill), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL case-insensitively",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testDetectsSignal4() {
+    String logcatOutput =
+        "F/libc(12345): signal 4 received\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect signal 4",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include signal info", errorOutput.contains("signal 4"));
+  }
+
+  @Test
+  public void testDetectsIllegalInstructionKeyword() {
+    String logcatOutput =
+        "F/libc(12345): Illegal instruction\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect illegal instruction keyword",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue(
+        "Should include illegal instruction text", errorOutput.contains("Illegal instruction"));
+  }
+
+  @Test
+  public void testSIGILLWithILL_ILLOPC() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 (ILL_ILLOPC), fault addr 0x12345678 in"
+            + " tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with ILL_ILLOPC",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include fault address", errorOutput.contains("fault addr 0x12345678"));
+    assertTrue("Should include ILL_ILLOPC", errorOutput.contains("ILL_ILLOPC"));
+  }
+
+  @Test
+  public void testSIGILLWithILL_ILLOPN() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 2 (ILL_ILLOPN), fault addr 0xabcdef00\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with ILL_ILLOPN",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include ILL_ILLOPN", errorOutput.contains("ILL_ILLOPN"));
+  }
+
+  @Test
+  public void testSIGILLWithMultipleBacktraceLines() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (executeCode+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (runFunction+45)\n"
+            + "I/DEBUG(1234):     #02 pc 00009abc  /system/lib64/libart.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with multiple backtrace lines",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include first backtrace line", errorOutput.contains("#00 pc"));
+  }
+
+  @Test
+  public void testSIGILLWithNativeLibrary() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libfacebook.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with native library",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include native library", errorOutput.contains("libfacebook.so"));
+  }
+
+  @Test
+  public void testSIGILLAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL at end of logcat",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGILLAtStartOfLogcat() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL at start of logcat",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGILLWithDebugInfo() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 (ILL_ILLOPC), fault addr 0x1234 in tid"
+            + " 12345 (ExecutorThread)\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_arm64/generic_arm64:12'\n"
+            + "I/DEBUG(1234): Revision: '0'\n"
+            + "I/DEBUG(1234): ABI: 'arm64'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with debug info",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include thread name", errorOutput.contains("ExecutorThread"));
+  }
+
+  @Test
+  public void testMultipleSIGILLOccurrences() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 4 (SIGILL), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple SIGILL occurrences",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGILLWithExceptionAndSignals() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 4 (SIGILL), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGILLAndOtherSignalsTogether() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 11 (SIGSEGV), code 1 in tid 67890\n"
+            + "I/MoreLog(11111): More log\n"
+            + "F/libc(33344): Fatal signal 6 (SIGABRT), code -6 in tid 33344\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should detect SIGABRT signal", errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testSIGILLWithPcAndSymbol() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00012345  /system/lib64/libc.so (someFunction+256)\n"
+            + "I/DEBUG(1234):     #01 pc 00067890 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (executeInstruction+128)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with symbols",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include pc info", errorOutput.contains("pc 00012345"));
+  }
+
+  @Test
+  public void testSIGILLWithJNICall() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 1 (ILL_ILLOPC), fault addr 0x1234\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so"
+            + " (Java_com_facebook_jni_NativeClass_executeNative+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678  /system/lib64/libart.so"
+            + " (art_quick_generic_jni_trampoline+152)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL in JNI call",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include JNI method name", errorOutput.contains("Java_com_facebook_jni"));
+  }
+
+  @Test
+  public void testIllegalInstructionCaseInsensitive() {
+    String logcatOutput =
+        "F/libc(12345): ILLEGAL INSTRUCTION\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect illegal instruction case-insensitively",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGILLWithUserSentSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 0 (SI_USER) in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL sent by user",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include SI_USER", errorOutput.contains("SI_USER"));
+  }
+
+  @Test
+  public void testSIGILLWithILL_PRVOPC() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 4 (SIGILL), code 3 (ILL_PRVOPC), fault addr 0x1000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGILL with ILL_PRVOPC",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue("Should include ILL_PRVOPC", errorOutput.contains("ILL_PRVOPC"));
+  }
 }

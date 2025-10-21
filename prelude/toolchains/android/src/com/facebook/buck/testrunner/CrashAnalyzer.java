@@ -61,7 +61,11 @@ public class CrashAnalyzer {
     new CrashType(
         Pattern.compile("(?i)Fatal signal 11|signal 11|SIGSEGV|segmentation fault"),
         "SIGSEGV signal detected (native crash)",
-        true)
+        true),
+    new CrashType(
+        Pattern.compile("(?i)Fatal signal 4|signal 4|SIGILL|illegal instruction"),
+        "SIGILL signal detected (illegal instruction)",
+        true),
   };
 
   /**
@@ -204,6 +208,13 @@ public class CrashAnalyzer {
       return "SIGSEGV";
     }
 
+    // Check for SIGILL (signal 4)
+    if (upperLine.contains("SIGILL")
+        || upperLine.matches(".*SIGNAL\\s+4\\b.*")
+        || upperLine.contains("ILLEGAL INSTRUCTION")) {
+      return "SIGILL";
+    }
+
     return "UNKNOWN";
   }
 
@@ -225,6 +236,14 @@ public class CrashAnalyzer {
         return "SIGSEGV due to invalid memory access (address not mapped)";
       } else if (signalLine.contains("code 2") && signalLine.contains("SEGV_ACCERR")) {
         return "SIGSEGV due to invalid permissions (access violation)";
+      }
+    } else if ("SIGILL".equals(signalType)) {
+      if (signalLine.contains("code 1") && signalLine.contains("ILL_ILLOPC")) {
+        return "SIGILL due to illegal opcode";
+      } else if (signalLine.contains("code 2") && signalLine.contains("ILL_ILLOPN")) {
+        return "SIGILL due to illegal operand";
+      } else if (signalLine.contains("code 3") && signalLine.contains("ILL_PRVOPC")) {
+        return "SIGILL due to privileged opcode";
       }
     }
 
