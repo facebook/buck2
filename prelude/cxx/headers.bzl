@@ -9,7 +9,6 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:compile_types.bzl", "HeadersDepFiles")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerType")
-load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
@@ -249,6 +248,7 @@ def prepare_headers(
         srcs: dict[str, Artifact],
         name: str,
         header_mode: [HeaderMode, None] = None,
+        allow_cache_upload: bool = False,
         uses_experimental_content_based_path_hashing: bool = False) -> [Headers, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
@@ -275,7 +275,7 @@ def prepare_headers(
 
     if header_mode == HeaderMode("header_map_only"):
         headers = {h: (a, "{}") for h, a in srcs.items()}
-        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, uses_experimental_content_based_path_hashing)
+        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_experimental_content_based_path_hashing)
         return Headers(
             include_path = cmd_args(hmap, hidden = srcs.values()),
         )
@@ -288,7 +288,7 @@ def prepare_headers(
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
-        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, uses_experimental_content_based_path_hashing)
+        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_experimental_content_based_path_hashing)
         file_prefix_args = _get_debug_prefix_args(cxx_toolchain_info, symlink_dir)
         return Headers(
             include_path = cmd_args(hmap, hidden = symlink_dir),
@@ -414,7 +414,7 @@ def _get_debug_prefix_args(cxx_toolchain_info: CxxToolchainInfo, header_dir: Art
         cmd_args(header_dir, format = fmt),
     )
 
-def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: str, headers: dict[str, (Artifact, str)], uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
+def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: str, headers: dict[str, (Artifact, str)], allow_cache_upload: bool, uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
     output = ctx.actions.declare_output(
         name + ".hmap",
         uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
@@ -436,7 +436,7 @@ def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: s
         ["--output", output.as_output()] +
         ["--mappings-file", hmap_args_file],
     )
-    ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs))
+    ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = allow_cache_upload)
     return output
 
 def add_headers_dep_files(

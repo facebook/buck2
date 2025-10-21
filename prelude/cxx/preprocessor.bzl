@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
@@ -296,12 +297,14 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
 
 def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
     header_root = prepare_headers(
         ctx,
         cxx_toolchain_info,
         headers,
         "buck-headers",
         map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None)),
+        allow_cache_upload = allow_cache_upload,
         uses_experimental_content_based_path_hashing = True,
     )
     precompile_root = prepare_headers(
@@ -310,6 +313,7 @@ def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
         headers,
         "buck-pre-headers",
         HeaderMode("header_map_only"),
+        allow_cache_upload = allow_cache_upload,
         uses_experimental_content_based_path_hashing = True,
     )
 
@@ -445,7 +449,8 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     file_prefix_args = []
     header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
-    header_root = prepare_headers(ctx, cxx_toolchain_info, headers, "buck-private-headers", header_mode = header_mode, uses_experimental_content_based_path_hashing = True)
+    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
+    header_root = prepare_headers(ctx, cxx_toolchain_info, headers, "buck-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload, uses_experimental_content_based_path_hashing = True)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

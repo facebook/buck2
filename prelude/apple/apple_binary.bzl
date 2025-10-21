@@ -43,6 +43,7 @@ load(
     "CxxRuleAdditionalParams",
     "CxxRuleConstructorParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//cxx:headers.bzl",
     "HeaderMode",
@@ -316,7 +317,8 @@ def _get_bridging_header_flags(ctx: AnalysisContext) -> list[ArgLike]:
         # We need to expose private headers to swift-compile action, in case something is imported to bridging header.
         cxx_toolchain_info = get_cxx_toolchain_info(ctx)
         header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
-        header_root = prepare_headers(ctx, cxx_toolchain_info, header_map, "apple-binary-private-headers", header_mode = header_mode)
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
+        header_root = prepare_headers(ctx, cxx_toolchain_info, header_map, "apple-binary-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload)
         if header_root != None:
             private_headers_args = [cmd_args("-I"), header_root.include_path]
         else:
