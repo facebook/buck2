@@ -15,6 +15,7 @@ load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
+load("@prelude//apple:apple_metal_library.bzl", "apple_metal_library_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
@@ -744,6 +745,45 @@ apple_library_for_distribution = prelude_rule(
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
     cfg = target_sdk_version_transition,
+)
+
+apple_metal_library = prelude_rule(
+    name = "apple_metal_library",
+    impl = apple_metal_library_impl,
+    docs = """
+        An `apple_metal_library()` rule contains .metal and .h source files
+        to be bundled together to create a .metallib
+    """,
+    examples = """
+        ```
+
+        apple_metal_library(
+          name = 'MyShaderLibrary',
+          srcs = [
+              MyShaderFile.metal,
+              SharedShaderHelpers.metal,
+          ],
+          headers = [ SharedShaderHelpers.h ],
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        {
+            "headers": attrs.list(attrs.source(), default = []),
+            "labels": attrs.list(attrs.string(), default = []),
+            "metal_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+                Flags to use when compiling Metal sources.
+            """),
+            "metal_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+                Flags to use when linking Metal `.air` files using `metallib`.
+            """),
+            "metal_version": attrs.option(attrs.string(), default = None),
+            "srcs": attrs.list(attrs.source(), default = []),
+            "_apple_toolchain": get_apple_resources_toolchain_attr(),
+        }
+    ),
 )
 
 apple_package = prelude_rule(
@@ -1592,6 +1632,7 @@ apple_rules = struct(
     apple_library = apple_library,
     apple_library_for_distribution = apple_library_for_distribution,
     apple_macos_bundle = apple_macos_bundle,
+    apple_metal_library = apple_metal_library,
     apple_package = apple_package,
     apple_ipa_package = apple_ipa_package,
     apple_resource = apple_resource,

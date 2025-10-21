@@ -16,7 +16,7 @@ load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:rules.bzl", __rules__ = "rules")
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
-load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_bundle_macro_impl", "apple_library_for_distribution_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl", "apple_test_macro_impl", "apple_universal_executable_macro_impl", "apple_xcuitest_macro_impl", "prebuilt_apple_framework_macro_impl")
+load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_bundle_macro_impl", "apple_library_for_distribution_macro_impl", "apple_library_macro_impl", "apple_metal_library_macro_impl", "apple_package_macro_impl", "apple_test_macro_impl", "apple_universal_executable_macro_impl", "apple_xcuitest_macro_impl", "prebuilt_apple_framework_macro_impl")
 load("@prelude//apple:prebuilt_apple_xcframework_macro_impl.bzl", "prebuilt_apple_xcframework_macro_impl")
 load("@prelude//apple/swift:swift_toolchain_macro_layer.bzl", "swift_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_inheriting_target_platform")
@@ -432,6 +432,12 @@ def _apple_library_macro_stub(**kwargs):
         **kwargs
     )
 
+def _apple_metal_library_macro_stub(**kwargs):
+    apple_metal_library_macro_impl(
+        apple_metal_library_rule = __rules__["apple_metal_library"],
+        **kwargs
+    )
+
 def _apple_library_for_distribution_macro_stub(**kwargs):
     apple_library_for_distribution_macro_impl(
         apple_library_for_distribution_rule = __rules__["apple_library_for_distribution"],
@@ -533,6 +539,7 @@ __extra_rules__ = {
     "apple_library": _apple_library_macro_stub,
     "apple_library_for_distribution": _apple_library_for_distribution_macro_stub,
     "apple_macos_bundle": _apple_macos_bundle_macro_stub,
+    "apple_metal_library": _apple_metal_library_macro_stub,
     "apple_package": _apple_package_macro_stub,
     "apple_test": _apple_test_macro_stub,
     "apple_universal_executable": _apple_universal_executable_macro_stub,
