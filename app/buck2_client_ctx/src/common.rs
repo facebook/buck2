@@ -45,6 +45,7 @@ use buck2_core::fs::working_dir::AbsWorkingDir;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
+use crate::common::profiling::BuckProfileMode;
 use crate::common::ui::CommonConsoleOptions;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::path_arg::PathArg;
@@ -411,6 +412,53 @@ pub struct CommonStarlarkOptions {
     /// This is a hack for TD. Do not use this option.
     #[clap(long, hide = true)]
     pub(crate) skip_targets_with_duplicate_names: bool,
+
+    /// Enables profiling for all evaluations whose evaluation identifier matches one of the provided patterns.
+    ///
+    /// Some examples identifiers:
+    ///    analysis/cell//buck2/app/buck2_action_impl:buck2_action_impl (cfg:linux-x86_64#27ac5723e0c99706)
+    ///    load/cell//build_defs/json.bzl
+    ///    load/prelude//playground/test.bxl
+    ///    load/cell//build_defs/json.bzl@other_cell
+    ///    load_buildfile/fbcode//third-party-buck/platform010/build/ncurses
+    ///    load_packagefile/fbcode//cli/rust/cli_delegate
+    ///    anon_analysis/anon//:_anon_link_rule (anon: 766183dc9b6f680a) (fbcode//buck2/platform/execution:linux-x86_64#08961b14cfb182aa)
+    ///    bxl/prelude//playground/test.bxl:playground
+    ///
+    /// You can pass `--profile-patterns=.*` to enable no-op profiling for everything (additionally pass `--profile-patterns-mode=none` to
+    /// use no-op profiling to just get a list of all the identifiers).
+    ///
+    /// The profile results will be written to individual .profile files in `<ROOT_OUTPUT>/<data+time>-<uuid>/` where ROOT_OUTPUT comes from
+    /// the --profile-patterns-output flag. In that directory there will also be a file listing all the identifiers that were profiled.
+    ///
+    /// Enabling/disabling profiling of an evaluation will invalidate the results of that evaluation and it will be recomputed. In some
+    /// cases, this will cause other work to also need to be redone (for example, invalidating the result of loading PACKAGE files
+    /// causes all consumers to be recomputed). But if you keep profiling options consistent between commands, only the work that is
+    /// otherwise invalidated will be redone (and only for those would profiling results be created).
+    ///
+    /// You must also pass --profile-patterns-mode and --profile-patterns-output.
+    #[clap(
+        long,
+        requires = "profile_patterns_output",
+        requires = "profile_patterns_mode"
+    )]
+    pub(crate) profile_patterns: Option<Vec<String>>,
+
+    #[clap(long, value_name = "PATH")]
+    profile_patterns_output: Option<PathArg>,
+
+    /// Profile mode.
+    ///
+    /// Memory profiling modes have suffixes either `-allocated` or `-retained`.
+    ///
+    /// `-retained` means memory kept in frozen starlark heaps after analysis completes.
+    /// `-retained` does not work when profiling loading,
+    /// because no memory is retained after loading and frozen heap is not even created.
+    /// This is probably what you want when profiling analysis.
+    ///
+    /// `-allocated` means allocated memory, including memory which is later garbage collected.
+    #[clap(long, value_enum)]
+    profile_patterns_mode: Option<BuckProfileMode>,
 }
 
 impl CommonStarlarkOptions {
@@ -420,8 +468,29 @@ impl CommonStarlarkOptions {
             unstable_typecheck: false,
             target_call_stacks: false,
             skip_targets_with_duplicate_names: false,
+            profile_patterns: None,
+            profile_patterns_output: None,
+            profile_patterns_mode: None,
         };
         &DEFAULT
+    }
+
+    pub(crate) fn profile_pattern_opts(
+        &self,
+        working_dir: &AbsWorkingDir,
+    ) -> Option<buck2_cli_proto::client_context::ProfilePatternOptions> {
+        self.profile_patterns.as_ref().map(|v| {
+            buck2_cli_proto::client_context::ProfilePatternOptions {
+                profile_patterns: v.clone(),
+                profile_mode: self.profile_patterns_mode.as_ref().unwrap().to_proto() as i32,
+                profile_output: self
+                    .profile_patterns_output
+                    .as_ref()
+                    .unwrap()
+                    .resolve(working_dir)
+                    .to_string(),
+            }
+        })
     }
 }
 

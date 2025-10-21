@@ -116,6 +116,7 @@ use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
 use crate::profile::profile_command;
+use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot;
 use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
@@ -486,10 +487,18 @@ impl BuckdServer {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
 
+                        let client_ctx = req.client_context()?;
+
+                        let profiling_manager = StarlarkProfilingManager::new(
+                            client_ctx.profile_pattern_opts.as_ref(),
+                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            &base_context.events,
+                        )?;
+
                         let context = ServerCommandContext::new(
                             base_context,
-                            req.client_context()?,
-                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            client_ctx,
+                            profiling_manager,
                             req.build_options(),
                             &daemon_state.paths,
                             cert_state.dupe(),
@@ -497,8 +506,14 @@ impl BuckdServer {
                             cancellations,
                         )?;
 
-                        func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
+                        let res =
+                            func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
+                                .await;
+
+                        context.finalize()?;
+                        res?
                     };
+
                     // Do not kill the process prematurely.
                     drop(version_control_revision_collector);
                     #[cfg(unix)]

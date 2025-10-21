@@ -10,7 +10,15 @@
 
 use dupe::Dupe;
 
-#[derive(clap::ValueEnum, Dupe, Clone, Copy, Debug)]
+#[derive(
+    clap::ValueEnum,
+    Dupe,
+    Clone,
+    Copy,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize
+)]
 pub enum BuckProfileMode {
     TimeFlame,
     HeapAllocated,

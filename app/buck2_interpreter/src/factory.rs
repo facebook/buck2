@@ -296,12 +296,10 @@ impl HasProfileEventListener for DiceComputations<'_> {
     }
 }
 
-pub trait SetProfileEventListener {
-    fn set(&mut self, listener: Arc<dyn ProfileEventListener>);
-}
+pub struct SetProfileEventListener;
 
-impl SetProfileEventListener for UserComputationData {
-    fn set(&mut self, listener: Arc<dyn ProfileEventListener>) {
-        self.data.set(listener)
+impl SetProfileEventListener {
+    pub fn set(data: &mut UserComputationData, listener: Arc<dyn ProfileEventListener>) {
+        data.data.set(listener)
     }
 }

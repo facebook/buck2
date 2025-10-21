@@ -19,6 +19,7 @@ flate2 = { workspace = true }
 futures = { workspace = true }
 host_sharing = { workspace = true }
 inferno = { workspace = true }
+itertools = { workspace = true }
 lsp-server = { workspace = true }
 lsp-types = { workspace = true }
 once_cell = { workspace = true }

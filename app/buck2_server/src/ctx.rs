@@ -93,8 +93,8 @@ use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
+use buck2_interpreter::factory::SetProfileEventListener;
 use buck2_interpreter::prelude_path::prelude_path;
-use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
@@ -130,6 +130,8 @@ use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
+use crate::profile_patterns::FileWritingProfileEventListener;
+use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot::SnapshotCollector;
 
 #[derive(Debug, buck2_error::Error)]
@@ -196,7 +198,7 @@ pub struct ServerCommandContext<'a> {
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
-    pub starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    pub starlark_profiling_manager: StarlarkProfilingManager,
 
     debugger_handle: Option<BuckStarlarkDebuggerHandle>,
 
@@ -238,7 +240,7 @@ impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
-        starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+        starlark_profiling_manager: StarlarkProfilingManager,
         build_options: Option<&CommonBuildOptions>,
         paths: &InvocationPaths,
         cert_state: CertState,
@@ -332,7 +334,7 @@ impl<'a> ServerCommandContext<'a> {
             client_id_from_client_metadata,
             _re_connection_handle: re_connection_handle,
             cert_state,
-            starlark_profiler_instrumentation_override,
+            starlark_profiling_manager,
             buck_out_dir: paths.buck_out_dir(),
             isolation_prefix: paths.isolation.clone(),
             build_options: build_options.cloned(),
@@ -439,6 +441,10 @@ impl<'a> ServerCommandContext<'a> {
                 .build_options
                 .as_ref()
                 .is_some_and(|opts| opts.materialize_failed_outputs),
+            profile_event_listener: self
+                .starlark_profiling_manager
+                .profile_event_listener
+                .dupe(),
         })
     }
 
@@ -447,6 +453,12 @@ impl<'a> ServerCommandContext<'a> {
             .daemon
             .re_client_manager
             .get_re_connection()
+    }
+
+    // Called at the end of the command to perform any necessary final actions or cleanup.
+    pub(crate) fn finalize(self) -> buck2_error::Result<()> {
+        self.starlark_profiling_manager.finalize()?;
+        Ok(())
     }
 }
 
@@ -529,6 +541,7 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     concurrency: Option<usize>,
     executor_config: Arc<CommandExecutorConfig>,
     re_connection: Arc<ReConnectionHandle>,
+    profile_event_listener: Option<Arc<FileWritingProfileEventListener>>,
     build_signals: BuildSignalsInstaller,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
@@ -581,14 +594,15 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
 
         ctx.set_enabled_optional_validations(optional_validations)?;
 
+        let profiler_instrumentation_override =
+            &self.cmd_ctx.starlark_profiling_manager.configuration;
+
         setup_interpreter(
             &mut ctx,
             cell_resolver,
             configuror,
             cells_and_configs.external_data,
-            self.cmd_ctx
-                .starlark_profiler_instrumentation_override
-                .clone(),
+            profiler_instrumentation_override.clone(),
             self.cmd_ctx.disable_starlark_types,
             self.cmd_ctx.unstable_typecheck,
         )?;
@@ -796,6 +810,9 @@ impl DiceCommandUpdater<'_, '_> {
         // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
         // We should not override the cas_artifact usecase or else the ttl may not match the action declaration.
         data.set_re_client(self.re_connection.get_client());
+        if let Some(v) = &self.profile_event_listener {
+            SetProfileEventListener::set(&mut data, v.clone());
+        }
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,

@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_futures::cancellation::CancellationContext;
@@ -80,6 +81,18 @@ pub enum StarlarkEvalKind {
     Bxl(Arc<dyn DynEvalKindKey>),
     BxlDynamic(Arc<dyn DynEvalKindKey>),
     Unknown(ThinArcStr),
+}
+impl StarlarkEvalKind {
+    pub fn as_path(&self) -> buck2_error::Result<ForwardRelativePathBuf> {
+        let mut path = self.to_string();
+
+        // Just replace some characters to make a path that's a little easier to deal with in the shell.
+        for c in ",(): ".chars() {
+            path = path.replace(c, "_");
+        }
+
+        ForwardRelativePathBuf::new(path)
+    }
 }
 
 impl std::fmt::Display for StarlarkEvalKind {

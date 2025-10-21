@@ -176,6 +176,15 @@ message ClientContext {
   }
   /// Whether to proceed with or fail this invocation based on the daemon state.
   ExitWhen exit_when = 24;
+
+  message ProfilePatternOptions {
+    repeated string profile_patterns = 1;
+    ProfileMode profile_mode = 2;
+    string profile_output = 3;
+  }
+  /// Options for starlark profiling via --profile-patterns and related
+  /// arguments.
+  optional ProfilePatternOptions profile_pattern_opts = 25;
 }
 
 message TargetsRequest {

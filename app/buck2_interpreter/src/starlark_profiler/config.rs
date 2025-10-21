@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args_typed;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::pattern::package::PackagePredicate;
 use buck2_core::pattern::pattern::ParsedPatternPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -26,7 +27,9 @@ use dice::InjectedKey;
 use dice::Key;
 use dice::ProjectionKey;
 use dupe::Dupe;
+use itertools::Itertools;
 use ref_cast::RefCast;
+use regex::Regex;
 use starlark::eval::ProfileMode;
 
 use crate::dice::starlark_provider::StarlarkEvalKind;
@@ -51,6 +54,25 @@ pub enum StarlarkProfilerConfiguration {
     ),
     /// Profile BXL
     ProfileBxl(ProfileMode),
+    /// Profile any evaluation with StarlarkEvalKind matching pattern
+    ProfilePattern(ProfileMode, ProfileRegex, AbsPathBuf),
+}
+
+#[derive(Clone, Debug, Allocative)]
+pub struct ProfileRegex(#[allocative(skip)] Regex);
+impl ProfileRegex {
+    pub fn new(patterns: &[String]) -> buck2_error::Result<Self> {
+        Ok(Self(Regex::new(&patterns.iter().join("|"))?))
+    }
+    fn matches(&self, arg: &StarlarkEvalKind) -> bool {
+        self.0.is_match(&arg.to_string())
+    }
+}
+impl Eq for ProfileRegex {}
+impl PartialEq for ProfileRegex {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_str() == other.0.as_str()
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Allocative)]
@@ -59,6 +81,7 @@ enum StarlarkProfilerConfigurationResolved {
     ProfileLastLoading(ProfileMode, PackagePredicate),
     ProfileAnalysis(ProfileMode, ParsedPatternPredicate<TargetPatternExtra>),
     ProfileBxl(ProfileMode),
+    ProfilePattern(ProfileMode, ProfileRegex),
 }
 
 #[derive(
@@ -145,6 +168,9 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
             StarlarkProfilerConfiguration::ProfileBxl(mode) => {
                 StarlarkProfilerConfigurationResolved::ProfileBxl(mode.dupe())
             }
+            StarlarkProfilerConfiguration::ProfilePattern(mode, pattern, _) => {
+                StarlarkProfilerConfigurationResolved::ProfilePattern(mode.dupe(), pattern.clone())
+            }
         };
         Ok(Arc::new(new))
     }
@@ -208,6 +234,13 @@ impl ProjectionKey for StarlarkProfileModeForKind {
                 StarlarkEvalKind::Bxl(..) => Ok(StarlarkProfileMode::Profile(mode.dupe())),
                 _ => Ok(StarlarkProfileMode::None),
             },
+            StarlarkProfilerConfigurationResolved::ProfilePattern(mode, pattern) => {
+                if pattern.matches(&self.0) {
+                    Ok(StarlarkProfileMode::Profile(mode.dupe()))
+                } else {
+                    Ok(StarlarkProfileMode::None)
+                }
+            }
         }
     }
 

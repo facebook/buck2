@@ -12,7 +12,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 fancy-regex = { workspace = true }
-futures = { workspace = true }
+itertools = { workspace = true }
 plist = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }

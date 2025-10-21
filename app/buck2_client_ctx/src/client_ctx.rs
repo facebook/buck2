@@ -240,6 +240,7 @@ impl<'a> ClientCommandContext<'a> {
                 Some(ExitWhen::NotIdle) => GrpcExitWhen::ExitNotIdle,
             }
             .into(),
+            profile_pattern_opts: starlark_opts.profile_pattern_opts(&self.working_dir),
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -282,6 +283,7 @@ impl<'a> ClientCommandContext<'a> {
             preemptible: Default::default(),
             representative_config_flags: Vec::new(),
             exit_when: Default::default(),
+            profile_pattern_opts: None,
         })
     }
 
