@@ -1127,7 +1127,7 @@ def _platform_output_path(path: str, platform: [str, None] = None):
         return platform + "/" + path
     return path
 
-def _transitive_has_linkable_deps(
+def _transitive_has_non_prebuilt_linkable_deps(
         target: Label,
         linkable_nodes: dict[Label, LinkableNode],
         transitive_linkable_cache: dict[Label, bool]) -> bool:
@@ -1136,11 +1136,17 @@ def _transitive_has_linkable_deps(
 
     target_node = linkable_nodes.get(target)
     for dep in target_node.deps:
-        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
+        dep_node = linkable_nodes.get(dep)
+        if (
+            _has_linkable(dep_node) and not _is_prebuilt_shared(dep_node)
+        ) or _transitive_has_non_prebuilt_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
             transitive_linkable_cache[target] = True
             return True
     for dep in target_node.exported_deps:
-        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
+        dep_node = linkable_nodes.get(dep)
+        if (
+            _has_linkable(dep_node) and not _is_prebuilt_shared(dep_node)
+        ) or _transitive_has_non_prebuilt_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
             transitive_linkable_cache[target] = True
             return True
 
@@ -1164,8 +1170,8 @@ def _shared_lib_for_prebuilt_shared(
     # we don't compute the shared lib deps of prebuilt shared libs here. That
     # shouldn't be too hard, but we haven't needed it.
     expect(
-        not _transitive_has_linkable_deps(target, linkable_nodes, transitive_linkable_cache),
-        "prebuilt shared library `{}` with linkable deps not supported by somerge".format(target),
+        not _transitive_has_non_prebuilt_linkable_deps(target, linkable_nodes, transitive_linkable_cache),
+        "prebuilt shared library `{}` with non-prebuilt linkable deps not supported by somerge".format(target),
     )
 
     shlib = node_data.shared_libs.libraries[0]
