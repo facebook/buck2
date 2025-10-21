@@ -1737,4 +1737,364 @@ public class CrashAnalyzerTest {
         errorOutput.contains("SIGILL signal detected (illegal instruction)"));
     assertTrue("Should include ILL_PRVOPC", errorOutput.contains("ILL_PRVOPC"));
   }
+
+  @Test
+  public void testDetectsSIGFPESignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 (FPE_INTDIV), fault addr 0x12345678\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_x86_64/generic_x86_64:11'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE signal",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue("Should include signal line", errorOutput.contains("Fatal signal 8"));
+    assertTrue("Should include backtrace", errorOutput.contains("backtrace:"));
+  }
+
+  @Test
+  public void testDetectsSIGFPEWithUppercase() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with uppercase",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include signal info", errorOutput.contains("SIGFPE"));
+  }
+
+  @Test
+  public void testDetectsSIGFPEWithLowercase() {
+    String logcatOutput =
+        "F/libc(12345): fatal signal 8 (sigfpe), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE case-insensitively",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+  }
+
+  @Test
+  public void testDetectsSignal8() {
+    String logcatOutput =
+        "F/libc(12345): signal 8 received\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect signal 8",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include signal info", errorOutput.contains("signal 8"));
+  }
+
+  @Test
+  public void testDetectsFloatingPointExceptionKeyword() {
+    String logcatOutput =
+        "F/libc(12345): Floating point exception\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect floating point exception keyword",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue(
+        "Should include floating point exception text",
+        errorOutput.contains("Floating point exception"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_INTDIV() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 (FPE_INTDIV), fault addr 0x12345678 in"
+            + " tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_INTDIV",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("integer divide by zero"));
+    assertTrue("Should include FPE_INTDIV", errorOutput.contains("FPE_INTDIV"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_INTOVF() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 2 (FPE_INTOVF), fault addr 0xabcdef00\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_INTOVF",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("integer overflow"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_FLTDIV() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 3 (FPE_FLTDIV), fault addr 0x1000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_FLTDIV",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("floating point divide by zero"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_FLTOVF() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 4 (FPE_FLTOVF), fault addr 0x2000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_FLTOVF",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("floating point overflow"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_FLTUND() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 5 (FPE_FLTUND), fault addr 0x3000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_FLTUND",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("floating point underflow"));
+  }
+
+  @Test
+  public void testSIGFPEWithMultipleBacktraceLines() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (divideNumbers+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (calculate+45)\n"
+            + "I/DEBUG(1234):     #02 pc 00009abc  /system/lib64/libart.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with multiple backtrace lines",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include first backtrace line", errorOutput.contains("#00 pc"));
+  }
+
+  @Test
+  public void testSIGFPEAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 in tid 12345";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE at end of logcat",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+  }
+
+  @Test
+  public void testSIGFPEAtStartOfLogcat() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 in tid 12345\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE at start of logcat",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+  }
+
+  @Test
+  public void testMultipleSIGFPEOccurrences() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 8 (SIGFPE), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple SIGFPE occurrences",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+  }
+
+  @Test
+  public void testSIGFPEWithExceptionAndSignals() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 8 (SIGFPE), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect SIGFPE signal",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+  }
+
+  @Test
+  public void testSIGFPEAndOtherSignalsTogether() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 11 (SIGSEGV), code 1 in tid 67890\n"
+            + "I/MoreLog(11111): More log\n"
+            + "F/libc(33344): Fatal signal 4 (SIGILL), code 1 in tid 33344\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE signal",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGFPEWithJNICall() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 1 (FPE_INTDIV), fault addr 0x1234\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so"
+            + " (Java_com_facebook_jni_NativeClass_divide+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678  /system/lib64/libart.so"
+            + " (art_quick_generic_jni_trampoline+152)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE in JNI call",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include JNI method name", errorOutput.contains("Java_com_facebook_jni"));
+  }
+
+  @Test
+  public void testFloatingPointExceptionCaseInsensitive() {
+    String logcatOutput =
+        "F/libc(12345): FLOATING POINT EXCEPTION\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect floating point exception case-insensitively",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+  }
+
+  @Test
+  public void testSIGFPEWithUserSentSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 0 (SI_USER) in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE sent by user",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include SI_USER", errorOutput.contains("SI_USER"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_FLTRES() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 6 (FPE_FLTRES), fault addr 0x4000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_FLTRES",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("inexact result"));
+  }
+
+  @Test
+  public void testSIGFPEWithFPE_FLTINV() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 8 (SIGFPE), code 7 (FPE_FLTINV), fault addr 0x5000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGFPE with FPE_FLTINV",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue("Should include root cause", errorOutput.contains("invalid operation"));
+  }
 }

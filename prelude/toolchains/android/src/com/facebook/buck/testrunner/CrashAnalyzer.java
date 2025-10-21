@@ -66,6 +66,10 @@ public class CrashAnalyzer {
         Pattern.compile("(?i)Fatal signal 4|signal 4|SIGILL|illegal instruction"),
         "SIGILL signal detected (illegal instruction)",
         true),
+    new CrashType(
+        Pattern.compile("(?i)Fatal signal 8|signal 8|SIGFPE|floating point exception"),
+        "SIGFPE signal detected (floating point exception)",
+        true),
   };
 
   /**
@@ -188,7 +192,7 @@ public class CrashAnalyzer {
    * Determines the signal type from a signal line.
    *
    * @param signalLine The signal line from logcat
-   * @return The signal type (e.g., "SIGABRT", "SIGSEGV", "SIGILL"), or "UNKNOWN" if not
+   * @return The signal type (e.g., "SIGABRT", "SIGSEGV", "SIGILL", "SIGFPE"), or "UNKNOWN" if not
    *     determinable
    */
   private String determineSignalType(String signalLine) {
@@ -215,6 +219,13 @@ public class CrashAnalyzer {
       return "SIGILL";
     }
 
+    // Check for SIGFPE (signal 8)
+    if (upperLine.contains("SIGFPE")
+        || upperLine.matches(".*SIGNAL\\s+8\\b.*")
+        || upperLine.contains("FLOATING POINT EXCEPTION")) {
+      return "SIGFPE";
+    }
+
     return "UNKNOWN";
   }
 
@@ -222,7 +233,7 @@ public class CrashAnalyzer {
    * Extracts signal code information from a signal line to provide context about the signal origin.
    *
    * @param signalLine The signal line from logcat
-   * @param signalType The type of signal (e.g., "SIGABRT")
+   * @param signalType The type of signal (e.g., "SIGABRT", "SIGSEGV", "SIGILL", "SIGFPE")
    * @return A description of the signal code, or empty string if not determinable
    */
   private String extractSignalCode(String signalLine, String signalType) {
@@ -244,6 +255,24 @@ public class CrashAnalyzer {
         return "SIGILL due to illegal operand";
       } else if (signalLine.contains("code 3") && signalLine.contains("ILL_PRVOPC")) {
         return "SIGILL due to privileged opcode";
+      }
+    } else if ("SIGFPE".equals(signalType)) {
+      if (signalLine.contains("code 1") && signalLine.contains("FPE_INTDIV")) {
+        return "SIGFPE due to integer divide by zero";
+      } else if (signalLine.contains("code 2") && signalLine.contains("FPE_INTOVF")) {
+        return "SIGFPE due to integer overflow";
+      } else if (signalLine.contains("code 3") && signalLine.contains("FPE_FLTDIV")) {
+        return "SIGFPE due to floating point divide by zero";
+      } else if (signalLine.contains("code 4") && signalLine.contains("FPE_FLTOVF")) {
+        return "SIGFPE due to floating point overflow";
+      } else if (signalLine.contains("code 5") && signalLine.contains("FPE_FLTUND")) {
+        return "SIGFPE due to floating point underflow";
+      } else if (signalLine.contains("code 6") && signalLine.contains("FPE_FLTRES")) {
+        return "SIGFPE due to floating point inexact result";
+      } else if (signalLine.contains("code 7") && signalLine.contains("FPE_FLTINV")) {
+        return "SIGFPE due to floating point invalid operation";
+      } else if (signalLine.contains("code 8") && signalLine.contains("FPE_FLTSUB")) {
+        return "SIGFPE due to subscript out of range";
       }
     }
 
