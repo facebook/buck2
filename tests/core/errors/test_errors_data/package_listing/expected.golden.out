@@ -75,6 +75,18 @@ Caused by:
              ^-----------------------------^
        path `root//package_listing/data.file` is a file, not a directory
 
+Command failed:
+Error evaluating expression:
+    //package_listing/data.file:targets:
+    ^-----------------^
+
+
+Caused by:
+    package `root//package_listing/data.file:targets:` does not exist
+             ^--------------------^
+        dir `root//package_listing/data.file:targets` does not exist. Did you mean `root//package_listing/data.file:target`?
+
+
 
 
 Command failed: 
