@@ -1058,4 +1058,334 @@ public class CrashAnalyzerTest {
         "Should detect SIGABRT with symbols", errorOutput.contains("SIGABRT signal detected"));
     assertTrue("Should include pc info", errorOutput.contains("pc 00012345"));
   }
+
+  @Test
+  public void testDetectsSIGSEGVSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_x86_64/generic_x86_64:11'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue("Should include signal line", errorOutput.contains("Fatal signal 11"));
+    assertTrue("Should include backtrace", errorOutput.contains("backtrace:"));
+  }
+
+  @Test
+  public void testDetectsSIGSEGVWithUppercase() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with uppercase",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include signal info", errorOutput.contains("SIGSEGV"));
+  }
+
+  @Test
+  public void testDetectsSIGSEGVWithLowercase() {
+    String logcatOutput =
+        "F/libc(12345): fatal signal 11 (sigsegv), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV case-insensitively",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+  }
+
+  @Test
+  public void testDetectsSignal11() {
+    String logcatOutput =
+        "F/libc(12345): signal 11 received\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect signal 11", errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include signal info", errorOutput.contains("signal 11"));
+  }
+
+  @Test
+  public void testDetectsSegmentationFaultKeyword() {
+    String logcatOutput =
+        "F/libc(12345): Segmentation fault\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect segmentation fault keyword",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue(
+        "Should include segmentation fault text", errorOutput.contains("Segmentation fault"));
+  }
+
+  @Test
+  public void testSIGSEGVWithNullPointerDereference() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid"
+            + " 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so"
+            + " (Java_com_facebook_native_crash+42)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with null pointer dereference",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include fault address", errorOutput.contains("fault addr 0x0"));
+    assertTrue("Should include SEGV_MAPERR", errorOutput.contains("SEGV_MAPERR"));
+  }
+
+  @Test
+  public void testSIGSEGVWithInvalidAddress() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0xdeadbeef\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with invalid address",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include fault address", errorOutput.contains("fault addr 0xdeadbeef"));
+  }
+
+  @Test
+  public void testSIGSEGVWithMultipleBacktraceLines() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (nativeMethod+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (callNative+45)\n"
+            + "I/DEBUG(1234):     #02 pc 00009abc  /system/lib64/libart.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with multiple backtrace lines",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include first backtrace line", errorOutput.contains("#00 pc"));
+  }
+
+  @Test
+  public void testSIGSEGVWithNativeLibrary() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libfacebook.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with native library",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include native library", errorOutput.contains("libfacebook.so"));
+  }
+
+  @Test
+  public void testSIGSEGVAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV at end of logcat",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+  }
+
+  @Test
+  public void testSIGSEGVAtStartOfLogcat() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV at start of logcat",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+  }
+
+  @Test
+  public void testSIGSEGVWithDebugInfo() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid"
+            + " 12345 (NativeThread)\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_arm64/generic_arm64:12'\n"
+            + "I/DEBUG(1234): Revision: '0'\n"
+            + "I/DEBUG(1234): ABI: 'arm64'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with debug info",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include thread name", errorOutput.contains("NativeThread"));
+  }
+
+  @Test
+  public void testMultipleSIGSEGVOccurrences() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 11 (SIGSEGV), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple SIGSEGV occurrences",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+  }
+
+  @Test
+  public void testSIGSEGVWithExceptionAndSignals() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 11 (SIGSEGV), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+  }
+
+  @Test
+  public void testSIGSEGVAndSIGABRTTogether() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 6 (SIGABRT), code -6 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should detect SIGABRT signal", errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testSIGSEGVWithPcAndSymbol() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00012345  /system/lib64/libc.so (strcmp+256)\n"
+            + "I/DEBUG(1234):     #01 pc 00067890 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (processString+128)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with symbols",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include pc info", errorOutput.contains("pc 00012345"));
+  }
+
+  @Test
+  public void testSIGSEGVWithSEGVACCERR() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 2 (SEGV_ACCERR), fault addr 0x12345678 in"
+            + " tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV with SEGV_ACCERR",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include SEGV_ACCERR", errorOutput.contains("SEGV_ACCERR"));
+    assertTrue("Should include fault address", errorOutput.contains("fault addr 0x12345678"));
+  }
+
+  @Test
+  public void testSIGSEGVWithJNICall() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so"
+            + " (Java_com_facebook_jni_NativeClass_nativeMethod+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678  /system/lib64/libart.so"
+            + " (art_quick_generic_jni_trampoline+152)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGSEGV in JNI call",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue("Should include JNI method name", errorOutput.contains("Java_com_facebook_jni"));
+  }
+
+  @Test
+  public void testSegmentationFaultCaseInsensitive() {
+    String logcatOutput =
+        "F/libc(12345): SEGMENTATION FAULT\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect segmentation fault case-insensitively",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+  }
 }

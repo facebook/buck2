@@ -57,6 +57,10 @@ public class CrashAnalyzer {
     new CrashType(
         Pattern.compile("(?i)Fatal signal 6|signal 6|SIGABRT|Abort"),
         "SIGABRT signal detected",
+        true),
+    new CrashType(
+        Pattern.compile("(?i)Fatal signal 11|signal 11|SIGSEGV|segmentation fault"),
+        "SIGSEGV signal detected (native crash)",
         true)
   };
 
@@ -193,6 +197,13 @@ public class CrashAnalyzer {
       return "SIGABRT";
     }
 
+    // Check for SIGSEGV first (signal 11)
+    if (upperLine.contains("SIGSEGV")
+        || upperLine.matches(".*SIGNAL\\s+11\\b.*")
+        || upperLine.contains("SEGMENTATION")) {
+      return "SIGSEGV";
+    }
+
     return "UNKNOWN";
   }
 
@@ -208,6 +219,12 @@ public class CrashAnalyzer {
     if ("SIGABRT".equals(signalType)) {
       if (signalLine.contains("code -6") || signalLine.contains("SI_TKILL")) {
         return "SIGABRT from abort() or assertion failure - check for Abort message in logs";
+      }
+    } else if ("SIGSEGV".equals(signalType)) {
+      if (signalLine.contains("code 1") && signalLine.contains("SEGV_MAPERR")) {
+        return "SIGSEGV due to invalid memory access (address not mapped)";
+      } else if (signalLine.contains("code 2") && signalLine.contains("SEGV_ACCERR")) {
+        return "SIGSEGV due to invalid permissions (access violation)";
       }
     }
 
