@@ -33,8 +33,8 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
-use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
@@ -239,101 +239,105 @@ async fn run_analysis_with_env_underlying(
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
 ) -> buck2_error::Result<AnalysisResult> {
-    let env = Module::new();
-    let print = EventDispatcherPrintHandler(get_dispatcher());
+    BuckStarlarkModule::with_profiling_async(|env_provider| async move {
+        let env = env_provider.make();
+        let print = EventDispatcherPrintHandler(get_dispatcher());
 
-    let validations_from_deps = analysis_env
-        .deps
-        .iter()
-        .filter_map(|(label, analysis_result)| {
-            analysis_result
-                .validations
-                .dupe()
-                .map(|v| ((*label).dupe(), v))
-        })
-        .collect::<SmallMap<_, _>>();
+        let validations_from_deps = analysis_env
+            .deps
+            .iter()
+            .filter_map(|(label, analysis_result)| {
+                analysis_result
+                    .validations
+                    .dupe()
+                    .map(|v| ((*label).dupe(), v))
+            })
+            .collect::<SmallMap<_, _>>();
 
-    let (attributes, plugins) = {
-        let dep_analysis_results = get_deps_from_analysis_results(analysis_env.deps)?;
-        let resolution_ctx = RuleAnalysisAttrResolutionContext {
-            module: &env,
-            dep_analysis_results,
-            query_results: analysis_env.query_results,
-            execution_platform_resolution: node.execution_platform_resolution().clone(),
+        let (attributes, plugins) = {
+            let dep_analysis_results = get_deps_from_analysis_results(analysis_env.deps)?;
+            let resolution_ctx = RuleAnalysisAttrResolutionContext {
+                module: &env,
+                dep_analysis_results,
+                query_results: analysis_env.query_results,
+                execution_platform_resolution: node.execution_platform_resolution().clone(),
+            };
+
+            (
+                node_to_attrs_struct(node, &resolution_ctx)?,
+                plugins_to_starlark_value(node, &resolution_ctx)?,
+            )
         };
 
-        (
-            node_to_attrs_struct(node, &resolution_ctx)?,
-            plugins_to_starlark_value(node, &resolution_ctx)?,
-        )
-    };
+        let registry = AnalysisRegistry::new_from_owner(
+            BaseDeferredKey::TargetLabel(node.label().dupe()),
+            analysis_env.execution_platform.dupe(),
+        )?;
 
-    let registry = AnalysisRegistry::new_from_owner(
-        BaseDeferredKey::TargetLabel(node.label().dupe()),
-        analysis_env.execution_platform.dupe(),
-    )?;
+        let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
+        let eval_provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
+        let mut reentrant_eval =
+            eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
 
-    let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
-    let eval_provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
-    let mut reentrant_eval =
-        eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
+        let (ctx, list_res) = reentrant_eval.with_evaluator(|mut eval| {
+            eval.set_print_handler(&print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-    let (ctx, list_res) = reentrant_eval.with_evaluator(|mut eval| {
-        eval.set_print_handler(&print);
-        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+            let ctx = AnalysisContext::prepare(
+                eval.heap(),
+                Some(attributes),
+                Some(analysis_env.label),
+                Some(plugins.into()),
+                registry,
+                dice.global_data().get_digest_config(),
+            );
 
-        let ctx = AnalysisContext::prepare(
-            eval.heap(),
-            Some(attributes),
-            Some(analysis_env.label),
-            Some(plugins.into()),
-            registry,
-            dice.global_data().get_digest_config(),
+            let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
+
+            Ok((ctx, list_res))
+        })?;
+
+        ctx.actions.run_promises(dice, &mut reentrant_eval).await?;
+
+        // Pull the ctx object back out, and steal ctx.action's state back
+        let analysis_registry = ctx.take_state();
+
+        // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
+        let res_typed = ProviderCollection::try_from_value(list_res)?;
+        {
+            let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
+                .internal_error("Just allocated provider collection")?;
+            analysis_registry
+                .analysis_value_storage
+                .set_result_value(provider_collection)?;
+        }
+
+        let finished_eval = reentrant_eval.finish_evaluation()?;
+
+        let declared_actions = analysis_registry.num_declared_actions();
+        let declared_artifacts = analysis_registry.num_declared_artifacts();
+        let registry_finalizer = analysis_registry.finalize(&env)?;
+        let (token, frozen_env, profile_data) = finished_eval.freeze_and_finish(env)?;
+        let recorded_values = registry_finalizer(&frozen_env)?;
+
+        let validations = transitive_validations(
+            validations_from_deps,
+            recorded_values.provider_collection()?,
         );
 
-        let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
-
-        Ok((ctx, list_res))
-    })?;
-
-    ctx.actions.run_promises(dice, &mut reentrant_eval).await?;
-
-    // Pull the ctx object back out, and steal ctx.action's state back
-    let analysis_registry = ctx.take_state();
-
-    // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
-    let res_typed = ProviderCollection::try_from_value(list_res)?;
-    {
-        let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
-            .internal_error("Just allocated provider collection")?;
-        analysis_registry
-            .analysis_value_storage
-            .set_result_value(provider_collection)?;
-    }
-
-    let finished_eval = reentrant_eval.finish_evaluation()?;
-
-    let declared_actions = analysis_registry.num_declared_actions();
-    let declared_artifacts = analysis_registry.num_declared_artifacts();
-    let registry_finalizer = analysis_registry.finalize(&env)?;
-    let frozen_env = env.freeze().map_err(from_freeze_error)?;
-    let recorded_values = registry_finalizer(&frozen_env)?;
-
-    let profile_data = finished_eval.finish(Some(&frozen_env))?;
-
-    let validations = transitive_validations(
-        validations_from_deps,
-        recorded_values.provider_collection()?,
-    );
-
-    Ok(AnalysisResult::new(
-        recorded_values,
-        profile_data,
-        HashMap::new(),
-        declared_actions,
-        declared_artifacts,
-        validations,
-    ))
+        Ok((
+            token,
+            AnalysisResult::new(
+                recorded_values,
+                profile_data,
+                HashMap::new(),
+                declared_actions,
+                declared_artifacts,
+                validations,
+            ),
+        ))
+    })
+    .await
 }
 
 pub fn transitive_validations(

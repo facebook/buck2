@@ -252,7 +252,7 @@ impl Tester {
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
 
-        let (_finished_eval, env) = interpreter.eval_module(
+        let env = interpreter.eval_module(
             StarlarkModulePath::LoadFile(path),
             &mut buckconfigs,
             ast,

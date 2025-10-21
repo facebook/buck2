@@ -292,7 +292,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
-        let (_finished_eval, evaluation) = configs
+        let evaluation = configs
             .eval_module(
                 starlark_file,
                 &mut buckconfigs,
@@ -573,7 +573,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
-            let (finished_eval, eval_result) = span(start_event, move || {
+            let (profile_data, eval_result) = span(start_event, move || {
                 let result_with_stats = configs
                     .eval_build_file(
                         &build_file_path,
@@ -615,7 +615,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             })?;
 
             let mut eval_result = eval_result.result;
-            let profile_data = finished_eval.finish(None)?;
+
             if eval_result.starlark_profile.is_some() {
                 return (
                     now.unwrap().elapsed(),

@@ -24,6 +24,7 @@ use starlark::eval::Evaluator;
 use crate::dice::starlark_debug::HasStarlarkDebugger;
 use crate::dice::starlark_provider::CancellationPoller;
 use crate::dice::starlark_provider::StarlarkEvalKind;
+use crate::from_freeze::from_freeze_error;
 use crate::starlark_debug::StarlarkDebugController;
 use crate::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -40,9 +41,6 @@ pub struct StarlarkEvaluatorProvider {
 /// Holds profiler data associated with completed Starlark evaluation.
 ///
 /// The caller is responsible for calling finish() to ensure that profile data collection is completed.
-///
-/// TODO(cjhopman): Once we are automatically reporting profile data, make it a soft error to leave this
-/// unfinished (silent by default, non-silent when profiling actually enabled)
 #[must_use]
 pub struct FinishedStarlarkEvaluation {
     pub(crate) profiler_data: ProfilerData,
@@ -55,14 +53,30 @@ impl FinishedStarlarkEvaluation {
     pub fn finish(
         self,
         frozen_module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<Option<Arc<StarlarkProfileDataAndStats>>> {
+    ) -> buck2_error::Result<(
+        ProfilingReportedToken,
+        Option<Arc<StarlarkProfileDataAndStats>>,
+    )> {
         let res = self.profiler_data.finish(frozen_module, self.eval_kind);
         if let Ok(Some(res)) = &res {
             if let Some(listener) = &self.listener {
                 listener.profile_collected(res.targets[0].clone(), res);
             }
         }
-        res
+        res.map(|res| (ProfilingReportedToken(()), res))
+    }
+
+    pub fn freeze_and_finish(
+        self,
+        env: BuckStarlarkModule,
+    ) -> buck2_error::Result<(
+        ProfilingReportedToken,
+        FrozenModule,
+        Option<Arc<StarlarkProfileDataAndStats>>,
+    )> {
+        let frozen = env.0.freeze().map_err(from_freeze_error)?;
+        let (token, profile_data) = self.finish(Some(&frozen))?;
+        Ok((token, frozen, profile_data))
     }
 }
 
@@ -121,11 +135,11 @@ impl StarlarkEvaluatorProvider {
     ///  (3) re-enter evaluation to resolve promises.
     pub fn make_reentrant_evaluator<'x, 'v, 'a, 'e>(
         mut self,
-        module: &'v Module,
+        module: &'v BuckStarlarkModule,
         cancellation: CancellationPoller<'a>,
     ) -> buck2_error::Result<ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e>> {
         let (_, _v) = (buck2_error::Ok(()), 1);
-        let mut eval = Evaluator::new(module);
+        let mut eval = Evaluator::new(&module.0);
         if let Some(stack_size) = self.starlark_max_callstack_size {
             eval.set_max_callstack_size(stack_size)
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
@@ -159,7 +173,7 @@ impl StarlarkEvaluatorProvider {
     /// when debugging.
     pub fn with_evaluator<'v, 'a, 'e: 'a, R>(
         self,
-        module: &'v Module,
+        module: &'v BuckStarlarkModule,
         cancellation: CancellationPoller<'a>,
         closure: impl FnOnce(&mut Evaluator<'v, 'a, 'e>, bool) -> buck2_error::Result<R>,
     ) -> buck2_error::Result<(FinishedStarlarkEvaluation, R)> {
@@ -301,5 +315,53 @@ pub struct SetProfileEventListener;
 impl SetProfileEventListener {
     pub fn set(data: &mut UserComputationData, listener: Arc<dyn ProfileEventListener>) {
         data.data.set(listener)
+    }
+}
+
+/// A token that simply indicates that profiling has been reported. Used with
+/// BuckStarlarkModule::with_profiling to ensure that profiling is reported.
+pub struct ProfilingReportedToken(());
+
+/// A simple wrapper around a starlark Module that allows us to ensure that profiling is reported.
+pub struct BuckStarlarkModule(Module);
+
+impl std::ops::Deref for BuckStarlarkModule {
+    type Target = Module;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub struct BuckStarlarkModuleProvider(());
+
+impl BuckStarlarkModuleProvider {
+    pub fn make(self) -> BuckStarlarkModule {
+        BuckStarlarkModule(Module::new())
+    }
+}
+
+impl BuckStarlarkModule {
+    /// This function allows us to ensure that profiling is reported (in the successful path) of any starlark evaluation.
+    pub fn with_profiling<R, E>(
+        func: impl FnOnce(BuckStarlarkModuleProvider) -> Result<(ProfilingReportedToken, R), E>,
+    ) -> Result<R, E> {
+        match func(BuckStarlarkModuleProvider(())) {
+            Ok((ProfilingReportedToken(..), res)) => Ok(res),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// This function allows us to ensure that profiling is reported (in the successful path) of any starlark evaluation.
+    pub async fn with_profiling_async<
+        R,
+        F: Future<Output = buck2_error::Result<(ProfilingReportedToken, R)>>,
+    >(
+        func: impl FnOnce(BuckStarlarkModuleProvider) -> F,
+    ) -> buck2_error::Result<R> {
+        match func(BuckStarlarkModuleProvider(())).await {
+            Ok((ProfilingReportedToken(..), res)) => Ok(res),
+            Err(e) => Err(e),
+        }
     }
 }
