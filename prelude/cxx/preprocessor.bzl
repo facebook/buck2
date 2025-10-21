@@ -299,7 +299,7 @@ def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
     header_root = prepare_headers(
-        ctx,
+        ctx.actions,
         cxx_toolchain_info,
         headers,
         "buck-headers",
@@ -308,7 +308,7 @@ def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
         uses_experimental_content_based_path_hashing = True,
     )
     precompile_root = prepare_headers(
-        ctx,
+        ctx.actions,
         cxx_toolchain_info,
         headers,
         "buck-pre-headers",
@@ -450,7 +450,7 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     file_prefix_args = []
     header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
-    header_root = prepare_headers(ctx, cxx_toolchain_info, headers, "buck-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload, uses_experimental_content_based_path_hashing = True)
+    header_root = prepare_headers(ctx.actions, cxx_toolchain_info, headers, "buck-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload, uses_experimental_content_based_path_hashing = True)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

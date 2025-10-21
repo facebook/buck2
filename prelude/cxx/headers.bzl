@@ -243,7 +243,7 @@ def _header_mode(cxx_toolchain_info: CxxToolchainInfo, header_mode: HeaderMode |
     return toolchain_header_mode
 
 def prepare_headers(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         cxx_toolchain_info: CxxToolchainInfo,
         srcs: dict[str, Artifact],
         name: str,
@@ -275,11 +275,11 @@ def prepare_headers(
 
     if header_mode == HeaderMode("header_map_only"):
         headers = {h: (a, "{}") for h, a in srcs.items()}
-        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_experimental_content_based_path_hashing)
+        hmap = _mk_hmap(actions, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_experimental_content_based_path_hashing)
         return Headers(
             include_path = cmd_args(hmap, hidden = srcs.values()),
         )
-    symlink_dir = ctx.actions.symlinked_dir(
+    symlink_dir = actions.symlinked_dir(
         output_name,
         _normalize_header_srcs(srcs),
         uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
@@ -288,7 +288,7 @@ def prepare_headers(
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
-        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_experimental_content_based_path_hashing)
+        hmap = _mk_hmap(actions, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_experimental_content_based_path_hashing)
         file_prefix_args = _get_debug_prefix_args(cxx_toolchain_info, symlink_dir)
         return Headers(
             include_path = cmd_args(hmap, hidden = symlink_dir),
@@ -414,8 +414,8 @@ def _get_debug_prefix_args(cxx_toolchain_info: CxxToolchainInfo, header_dir: Art
         cmd_args(header_dir, format = fmt),
     )
 
-def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: str, headers: dict[str, (Artifact, str)], allow_cache_upload: bool, uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
-    output = ctx.actions.declare_output(
+def _mk_hmap(actions: AnalysisActions, cxx_toolchain_info: CxxToolchainInfo, name: str, headers: dict[str, (Artifact, str)], allow_cache_upload: bool, uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
+    output = actions.declare_output(
         name + ".hmap",
         uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
     )
@@ -425,7 +425,7 @@ def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: s
         header_args.add(n)
         header_args.add(cmd_args(path, format = fmt))
 
-    hmap_args_file = ctx.actions.write(
+    hmap_args_file = actions.write(
         output.basename + ".cxx_hmap_argsfile",
         cmd_args(header_args, quote = "shell"),
         uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
@@ -436,7 +436,7 @@ def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: s
         ["--output", output.as_output()] +
         ["--mappings-file", hmap_args_file],
     )
-    ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = allow_cache_upload)
+    actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = allow_cache_upload)
     return output
 
 def add_headers_dep_files(

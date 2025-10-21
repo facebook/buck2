@@ -131,7 +131,7 @@ def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
     namespace = cxx_attr_header_namespace(ctx)
     header_map = {paths.join(namespace, h.short_path): h for h in h_files}
     cxx_toolchain_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    header_root = prepare_headers(ctx, cxx_toolchain_info, header_map, "h_files-private-headers", uses_experimental_content_based_path_hashing = True)
+    header_root = prepare_headers(ctx.actions, cxx_toolchain_info, header_map, "h_files-private-headers", uses_experimental_content_based_path_hashing = True)
 
     return CPreprocessor(
         args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
@@ -169,7 +169,7 @@ def build_cgo(
     cgo_headers_pre = CPreprocessor(args = CPreprocessorArgs(args = [
         "-I",
         prepare_headers(
-            ctx,
+            ctx.actions,
             cxx_toolchain_info,
             {h.basename: h for h in c_gen_headers},
             "cgo-private-headers",

@@ -131,7 +131,7 @@ def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> 
     return CPreprocessor(args = CPreprocessorArgs(args = [
         "-I",
         prepare_headers(
-            ctx,
+            ctx.actions,
             cxx_toolchain_info,
             {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
             "cgo-exported-headers",
