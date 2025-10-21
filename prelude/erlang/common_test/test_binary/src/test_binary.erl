@@ -31,31 +31,23 @@ cli() ->
             "list" => #{
                 handler => fun handle_list/1,
                 arguments => [
-                    #{name => output_dir_legacy, type => string, nargs => 'maybe', default => none},
-                    #{name => output_dir, long => "-output-dir", type => string, default => none}
+                    #{name => output_dir, long => "-output-dir", type => string, required => true}
                 ]
             },
             "run" => #{
                 handler => fun handle_run/1,
                 arguments => [
-                    #{name => output_dir, long => "-output-dir", type => string, default => none},
+                    #{name => output_dir, long => "-output-dir", type => string, required => true},
                     #{name => tests, type => string, nargs => list, default => []}
                 ]
             }
         }
     }.
 
--spec handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir, output_dir_legacy := OutputDir}) -> ok when
+-spec handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir}) -> ok when
     TestInfoFile :: file:filename(),
-    OutputDir :: none | file:filename().
-handle_list(Opts = #{output_dir := none, output_dir_legacy := OutputDir}) when OutputDir /= none ->
-    % To be removed once TPX uses --output-dir
-    handle_list(Opts#{output_dir := OutputDir, output_dir_legacy := none});
-handle_list(#{
-    test_info_file := TestInfoFile,
-    output_dir := OutputDir,
-    output_dir_legacy := none
-}) when OutputDir /= none ->
+    OutputDir :: file:filename().
+handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir}) ->
     test_logger:set_up_logger(OutputDir, test_listing),
     ok = listing(TestInfoFile, OutputDir),
     ?LOG_DEBUG("Listing done"),
@@ -63,12 +55,9 @@ handle_list(#{
 
 -spec handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) -> ok when
     TestInfoFile :: file:filename(),
-    OutputDir :: none | file:filename(),
+    OutputDir :: file:filename(),
     Tests :: [string()].
-handle_run(Opts = #{output_dir := none, tests := [OutputDir | Tests]}) ->
-    % To be removed once TPX uses --output-dir
-    handle_run(Opts#{output_dir := OutputDir, tests := Tests});
-handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) when OutputDir /= none ->
+handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) ->
     test_logger:set_up_logger(OutputDir, test_runner),
     ok = running(TestInfoFile, OutputDir, Tests),
     ?LOG_DEBUG("Running done"),
