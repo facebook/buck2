@@ -18,13 +18,12 @@ JAVA_PACKAGE_FILENAME = "java_package.txt"
 def _convert_to_artifact_dir(
         ctx: AnalysisContext,
         attr: [Dependency, dict, Artifact, None],
-        attr_name: str,
-        uses_experimental_content_based_path_hashing: bool) -> Artifact | None:
+        attr_name: str) -> Artifact | None:
     if isinstance(attr, Dependency):
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
     elif type(attr) == "dict":
-        return None if len(attr) == 0 else ctx.actions.symlinked_dir(attr_name, attr, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        return None if len(attr) == 0 else ctx.actions.symlinked_dir(attr_name, attr, has_content_based_path = True)
     else:
         return attr
 
@@ -36,8 +35,8 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
     default_output = None
 
-    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res", uses_experimental_content_based_path_hashing = True)
-    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets", uses_experimental_content_based_path_hashing = True)
+    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res")
+    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets")
 
     if res:
         aapt2_compile_output = aapt2_compile(ctx, res, ctx.attrs._android_toolchain[AndroidToolchainInfo])
@@ -98,7 +97,7 @@ def aapt2_compile(
     aapt2_command.extend(["--dir", resources_dir])
     aapt2_output = ctx.actions.declare_output(
         "{}_resources.flata".format(identifier) if identifier else "resources.flata",
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
     aapt2_command.extend(["-o", aapt2_output.as_output()])
 
@@ -108,13 +107,13 @@ def aapt2_compile(
 
 def _get_package(ctx: AnalysisContext, package: [str, None], manifest: Artifact | None) -> Artifact:
     if package:
-        return ctx.actions.write(JAVA_PACKAGE_FILENAME, package, uses_experimental_content_based_path_hashing = True)
+        return ctx.actions.write(JAVA_PACKAGE_FILENAME, package, has_content_based_path = True)
     else:
         expect(manifest != None, "if package is not declared then a manifest must be")
         return extract_package_from_manifest(ctx, manifest)
 
 def extract_package_from_manifest(ctx: AnalysisContext, manifest: Artifact) -> Artifact:
-    r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME, uses_experimental_content_based_path_hashing = True)
+    r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME, has_content_based_path = True)
     extract_package_cmd = cmd_args(
         ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo],
         "--manifest-path",
@@ -146,7 +145,7 @@ def get_text_symbols(
 
     mini_aapt_cmd.add(["--dep-symbol-paths", dep_symbol_paths_file])
 
-    text_symbols = ctx.actions.declare_output("{}_R.txt".format(identifier) if identifier else "R.txt", uses_experimental_content_based_path_hashing = True)
+    text_symbols = ctx.actions.declare_output("{}_R.txt".format(identifier) if identifier else "R.txt", has_content_based_path = True)
     mini_aapt_cmd.add(["--output-path", text_symbols.as_output()])
 
     ctx.actions.run(mini_aapt_cmd, category = "mini_aapt", identifier = identifier)
