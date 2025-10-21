@@ -10,3 +10,8 @@ XPluginsSocketUsageInfo = provider(fields = {
     "target": provider_field(Label),
     "usage_info": provider_field(Artifact),
 })
+
+XPluginsPluginUsageInfo = provider(fields = {
+    "target": provider_field(Label),
+    "usage_info": provider_field(Artifact),
+})
