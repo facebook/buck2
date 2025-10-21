@@ -140,7 +140,7 @@ def get_text_symbols(
         actions = ctx.actions,
         name = "{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file",
         args = dep_symbols,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     mini_aapt_cmd.add(["--dep-symbol-paths", dep_symbol_paths_file])

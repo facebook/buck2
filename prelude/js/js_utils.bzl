@@ -153,7 +153,7 @@ def run_worker_commands(
             actions = ctx.actions,
             name = paths.join(identifier, "{}.js_worker_argsfile".format(category)),
             args = worker_args,
-            uses_experimental_content_based_path_hashing = has_content_based_path,
+            has_content_based_path = has_content_based_path,
         ),
         hidden = [
             hidden_artifacts,
