@@ -139,7 +139,7 @@ def run_worker_commands(
         identifier: str,
         category: str,
         hidden_artifacts = [cmd_args],
-        uses_experimental_content_based_path_hashing: bool = False):
+        has_content_based_path: bool = False):
     worker_args = cmd_args(
         "--command-args-file",
         command_args_files,
@@ -153,7 +153,7 @@ def run_worker_commands(
             actions = ctx.actions,
             name = paths.join(identifier, "{}.js_worker_argsfile".format(category)),
             args = worker_args,
-            uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+            uses_experimental_content_based_path_hashing = has_content_based_path,
         ),
         hidden = [
             hidden_artifacts,
