@@ -228,7 +228,7 @@ def as_raw_headers(
         no_fail = mode != HeadersAsRawHeadersMode("required"),
     )
 
-def _header_mode(cxx_toolchain_info: CxxToolchainInfo, header_mode: [HeaderMode, None]) -> HeaderMode:
+def _header_mode(cxx_toolchain_info: CxxToolchainInfo, header_mode: HeaderMode | None) -> HeaderMode:
     toolchain_header_mode = cxx_toolchain_info.header_mode
 
     # If the toolchain disabled header maps, respect that since the compiler
