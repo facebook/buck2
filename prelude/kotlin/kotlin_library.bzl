@@ -74,7 +74,7 @@ def _create_kotlin_sources(
     kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
     compile_kotlin_tool = kotlin_toolchain.compile_kotlin[RunInfo]
     kotlinc = kotlin_toolchain.kotlinc[RunInfo]
-    kotlinc_output = ctx.actions.declare_output("kotlinc_classes_output", dir = True, uses_experimental_content_based_path_hashing = True)
+    kotlinc_output = ctx.actions.declare_output("kotlinc_classes_output", dir = True, has_content_based_path = True)
 
     compile_kotlin_cmd_args = [
         compile_kotlin_tool,
@@ -156,17 +156,17 @@ def _create_kotlin_sources(
         compile_kotlin_cmd_args.extend(["--kapt_classpath_file", kapt_classpath_file])
         compile_kotlin_cmd_hidden.add(annotation_processor_classpath)
 
-        sources_output = ctx.actions.declare_output("kapt_sources_output", uses_experimental_content_based_path_hashing = True)
+        sources_output = ctx.actions.declare_output("kapt_sources_output", has_content_based_path = True)
         compile_kotlin_cmd_args.append(["--kapt_sources_output", sources_output.as_output()])
-        classes_output = ctx.actions.declare_output("kapt_classes_output", uses_experimental_content_based_path_hashing = True)
+        classes_output = ctx.actions.declare_output("kapt_classes_output", has_content_based_path = True)
         compile_kotlin_cmd_args.append(["--kapt_classes_output", classes_output.as_output()])
-        stubs = ctx.actions.declare_output("kapt_stubs", uses_experimental_content_based_path_hashing = True)
+        stubs = ctx.actions.declare_output("kapt_stubs", has_content_based_path = True)
         compile_kotlin_cmd_args.append(["--kapt_stubs", stubs.as_output()])
 
-        kapt_generated_sources_output = ctx.actions.declare_output("kapt_generated_sources_output.src.zip", uses_experimental_content_based_path_hashing = True)
+        kapt_generated_sources_output = ctx.actions.declare_output("kapt_generated_sources_output.src.zip", has_content_based_path = True)
         compile_kotlin_cmd_args.append(["--kapt_generated_sources_output", kapt_generated_sources_output.as_output()])
         compile_kotlin_cmd_args.append(["--kapt_base64_encoder", cmd_args(kotlin_toolchain.kapt_base64_encoder[RunInfo], delimiter = " ")])
-        generated_kotlin_output = ctx.actions.declare_output("kapt_generated_kotlin_output", uses_experimental_content_based_path_hashing = True)
+        generated_kotlin_output = ctx.actions.declare_output("kapt_generated_kotlin_output", has_content_based_path = True)
         compile_kotlin_cmd_args.append(["--kapt_generated_kotlin_output", generated_kotlin_output.as_output()])
         if jvm_target:
             compile_kotlin_cmd_args.append(["--kapt_jvm_target", jvm_target])
@@ -195,13 +195,13 @@ def _create_kotlin_sources(
             ksp_cmd.append(cmd_args(ksp_annotation_processor_classpath, delimiter = ","))
 
         ksp_cmd.extend(["--ksp_classpath", classpath_args])
-        ksp_classes_and_resources_output = ctx.actions.declare_output("ksp_output_dir/ksp_classes_and_resources_output", uses_experimental_content_based_path_hashing = True)
+        ksp_classes_and_resources_output = ctx.actions.declare_output("ksp_output_dir/ksp_classes_and_resources_output", has_content_based_path = True)
         ksp_cmd.extend(["--ksp_classes_and_resources_output", ksp_classes_and_resources_output.as_output()])
         ksp_output = cmd_args(ksp_classes_and_resources_output.as_output(), parent = 1)
         ksp_cmd.extend(["--ksp_output", ksp_output])
-        ksp_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_sources_output", uses_experimental_content_based_path_hashing = True)
+        ksp_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_sources_output", has_content_based_path = True)
         ksp_cmd.extend(["--ksp_sources_output", ksp_sources_output.as_output()])
-        ksp_zipped_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_zipped_sources_output.src.zip", uses_experimental_content_based_path_hashing = True)
+        ksp_zipped_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_zipped_sources_output.src.zip", has_content_based_path = True)
         ksp_cmd.extend(["--ksp_zipped_sources_output", ksp_zipped_sources_output.as_output()])
         ksp_cmd.extend(["--ksp_project_base_dir", ctx.label.path])
 
@@ -280,7 +280,7 @@ def _add_plugins(
         for option_key, option_val in plugin_options.items():
             # "_codegen_dir_" means buck should provide a dir
             if option_val == "__codegen_dir__":
-                option_val = ctx.actions.declare_output("kotlin_compiler_plugin_dir", uses_experimental_content_based_path_hashing = True)
+                option_val = ctx.actions.declare_output("kotlin_compiler_plugin_dir", has_content_based_path = True)
                 options.append(cmd_args([option_key, option_val.as_output()], delimiter = "="))
                 compile_kotlin_cmd.add(["--kotlin_compiler_plugin_dir", option_val.as_output()])
             else:

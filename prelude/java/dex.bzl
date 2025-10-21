@@ -40,7 +40,7 @@ def get_dex_produced_from_java_library(
 
     library_path = jar_to_dex.short_path
     prefix = "dex/{}".format(library_path)
-    output_dex_file = ctx.actions.declare_output(prefix + ".dex.jar", uses_experimental_content_based_path_hashing = True)
+    output_dex_file = ctx.actions.declare_output(prefix + ".dex.jar", has_content_based_path = True)
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
     d8_cmd.add(["--file-to-dex", jar_to_dex])
@@ -50,19 +50,19 @@ def get_dex_produced_from_java_library(
     if not needs_desugar:
         d8_cmd.add("--no-desugar")
     else:
-        desugar_deps_file = ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps or [], uses_experimental_content_based_path_hashing = True)
+        desugar_deps_file = ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps or [], has_content_based_path = True)
         d8_cmd.add(["--classpath-files", desugar_deps_file])
         d8_cmd.add(cmd_args(hidden = desugar_deps or []))
 
-    referenced_resources_file = ctx.actions.declare_output(prefix + "_referenced_resources.txt", uses_experimental_content_based_path_hashing = True)
+    referenced_resources_file = ctx.actions.declare_output(prefix + "_referenced_resources.txt", has_content_based_path = True)
     d8_cmd.add(["--referenced-resources-path", referenced_resources_file.as_output()])
 
-    weight_estimate_file = ctx.actions.declare_output(prefix + "_weight_estimate.txt", uses_experimental_content_based_path_hashing = True)
+    weight_estimate_file = ctx.actions.declare_output(prefix + "_weight_estimate.txt", has_content_based_path = True)
     d8_cmd.add(["--weight-estimate-path", weight_estimate_file.as_output()])
 
     d8_cmd.add(["--weight-factor", str(weight_factor)])
 
-    class_names_file = ctx.actions.declare_output(prefix + "_class_names.txt", uses_experimental_content_based_path_hashing = True)
+    class_names_file = ctx.actions.declare_output(prefix + "_class_names.txt", has_content_based_path = True)
     d8_cmd.add(["--class-names-path", class_names_file.as_output()])
 
     min_sdk_version = getattr(ctx.attrs, "_dex_min_sdk_version", None) or getattr(ctx.attrs, "min_sdk_version", None)
