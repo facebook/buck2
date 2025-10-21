@@ -11,6 +11,7 @@ load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
+    "map_val",
     "value_or",
 )
 load(":attr_selection.bzl", "cxx_by_language_ext")
@@ -298,6 +299,7 @@ def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
         ctx,
         headers,
         "buck-headers",
+        map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None)),
         uses_experimental_content_based_path_hashing = True,
     )
     precompile_root = prepare_headers(
@@ -438,7 +440,8 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     # Create private header tree and propagate via args.
     args = get_target_sdk_version_flags(ctx)
     file_prefix_args = []
-    header_root = prepare_headers(ctx, headers, "buck-private-headers", uses_experimental_content_based_path_hashing = True)
+    header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
+    header_root = prepare_headers(ctx, headers, "buck-private-headers", header_mode = header_mode, uses_experimental_content_based_path_hashing = True)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

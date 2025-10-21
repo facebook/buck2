@@ -12,7 +12,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
-load("@prelude//utils:utils.bzl", "from_named_set", "map_val", "value_or")
+load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":platform.bzl", "cxx_by_platform")
 
@@ -229,7 +229,7 @@ def as_raw_headers(
         no_fail = mode != HeadersAsRawHeadersMode("required"),
     )
 
-def _header_mode(ctx: AnalysisContext) -> HeaderMode:
+def _header_mode(ctx: AnalysisContext, header_mode: [HeaderMode, None]) -> HeaderMode:
     toolchain_header_mode = get_cxx_toolchain_info(ctx).header_mode
 
     # If the toolchain disabled header maps, respect that since the compiler
@@ -239,7 +239,6 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode:
 
     # If the target specifies a header mode, use that in case it needs
     # a symlink tree (even with header maps)
-    header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
     if header_mode != None:
         return header_mode
 
@@ -262,8 +261,7 @@ def prepare_headers(
     if len(srcs) == 0:
         return None
 
-    if header_mode == None:
-        header_mode = _header_mode(ctx)
+    header_mode = _header_mode(ctx, header_mode)
 
     # TODO(T110378135): There's a bug in clang where using header maps w/o
     # explicit `-I` anchors breaks module map lookups.  This will be fixed

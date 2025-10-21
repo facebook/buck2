@@ -44,6 +44,7 @@ load(
 )
 load(
     "@prelude//cxx:headers.bzl",
+    "HeaderMode",
     "cxx_attr_headers",
     "cxx_get_regular_cxx_headers_layout",
     "prepare_headers",
@@ -68,6 +69,7 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "map_val")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -311,7 +313,8 @@ def _get_bridging_header_flags(ctx: AnalysisContext) -> list[ArgLike]:
         header_map = {paths.join(h.namespace, h.name): h.artifact for h in headers}
 
         # We need to expose private headers to swift-compile action, in case something is imported to bridging header.
-        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers")
+        header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
+        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers", header_mode = header_mode)
         if header_root != None:
             private_headers_args = [cmd_args("-I"), header_root.include_path]
         else:
