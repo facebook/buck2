@@ -54,6 +54,10 @@ public class CrashAnalyzer {
         Pattern.compile("java\\.lang\\.IllegalStateException"),
         "Illegal state exception detected",
         false),
+    new CrashType(
+        Pattern.compile("(?i)Fatal signal 6|signal 6|SIGABRT|Abort"),
+        "SIGABRT signal detected",
+        true)
   };
 
   /**
@@ -144,6 +148,15 @@ public class CrashAnalyzer {
     String signalLine = logcatOutput.substring(lineStart, lineEnd).trim();
     if (!signalLine.isEmpty()) {
       System.err.println("Signal: " + signalLine);
+
+      // Determine which signal type this is
+      String signalType = determineSignalType(signalLine);
+
+      // Extract signal code information as potential root cause indicator
+      String signalCode = extractSignalCode(signalLine, signalType);
+      if (!signalCode.isEmpty()) {
+        System.err.println("ROOT CAUSE: " + signalCode);
+      }
     }
 
     // Look for additional signal information (like backtrace) in following lines
@@ -161,5 +174,53 @@ public class CrashAnalyzer {
       }
       nextLineStart = nextLineEnd + 1;
     }
+  }
+
+  /**
+   * Determines the signal type from a signal line.
+   *
+   * @param signalLine The signal line from logcat
+   * @return The signal type (e.g., "SIGABRT", "SIGSEGV", "SIGILL"), or "UNKNOWN" if not
+   *     determinable
+   */
+  private String determineSignalType(String signalLine) {
+    String upperLine = signalLine.toUpperCase();
+
+    // Check for SIGABRT (signal 6)
+    if (upperLine.contains("SIGABRT")
+        || upperLine.matches(".*SIGNAL\\s+6\\b.*")
+        || upperLine.contains("ABORT")) {
+      return "SIGABRT";
+    }
+
+    return "UNKNOWN";
+  }
+
+  /**
+   * Extracts signal code information from a signal line to provide context about the signal origin.
+   *
+   * @param signalLine The signal line from logcat
+   * @param signalType The type of signal (e.g., "SIGABRT")
+   * @return A description of the signal code, or empty string if not determinable
+   */
+  private String extractSignalCode(String signalLine, String signalType) {
+    // Check signal-specific codes first
+    if ("SIGABRT".equals(signalType)) {
+      if (signalLine.contains("code -6") || signalLine.contains("SI_TKILL")) {
+        return "SIGABRT from abort() or assertion failure - check for Abort message in logs";
+      }
+    }
+
+    // Generic signal codes that apply to any signal type
+    if (signalLine.contains("code 0") && signalLine.contains("SI_USER")) {
+      return signalType + " sent by user code (android.os.Process.sendSignal or kill command)";
+    } else if (signalLine.contains("SI_QUEUE")) {
+      return signalType + " sent via sigqueue()";
+    } else if (signalLine.contains("code -1")) {
+      return signalType + " from kernel";
+    }
+
+    // If we can't determine the code, return empty
+    return "";
   }
 }

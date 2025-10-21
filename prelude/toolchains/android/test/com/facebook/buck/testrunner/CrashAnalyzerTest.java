@@ -850,4 +850,212 @@ public class CrashAnalyzerTest {
         errorOutput.contains("Illegal state exception detected"));
     assertTrue("Should include view error message", errorOutput.contains("already has a parent"));
   }
+
+  @Test
+  public void testDetectsSIGABRTSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345 (com.facebook.app)\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_x86_64/generic_x86_64:11'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00000000000a1234  /system/lib64/libc.so (abort+123)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue("Should detect SIGABRT signal", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue("Should include signal line", errorOutput.contains("Fatal signal 6"));
+    assertTrue("Should include backtrace", errorOutput.contains("backtrace:"));
+  }
+
+  @Test
+  public void testDetectsSIGABRTWithUppercase() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT with uppercase", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include signal info", errorOutput.contains("SIGABRT"));
+  }
+
+  @Test
+  public void testDetectsSIGABRTWithLowercase() {
+    String logcatOutput =
+        "F/libc(12345): fatal signal 6 (sigabrt), code -6 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT case-insensitively",
+        errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testDetectsSignal6() {
+    String logcatOutput =
+        "F/libc(12345): signal 6 received\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue("Should detect signal 6", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include signal info", errorOutput.contains("signal 6"));
+  }
+
+  @Test
+  public void testDetectsAbortKeyword() {
+    String logcatOutput =
+        "F/libc(12345): Abort message: 'some error message'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue("Should detect Abort keyword", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include abort message", errorOutput.contains("Abort message"));
+  }
+
+  @Test
+  public void testSIGABRTWithMultipleBacktraceLines() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so (abort+123)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678  /system/lib64/libc.so (raise+45)\n"
+            + "I/DEBUG(1234):     #02 pc 00009abc "
+            + " /data/app/com.facebook.app/lib/x86_64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT with multiple backtrace lines",
+        errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include first backtrace line", errorOutput.contains("#00 pc"));
+  }
+
+  @Test
+  public void testSIGABRTWithNativeLibrary() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT with native library",
+        errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include native library", errorOutput.contains("libnative.so"));
+  }
+
+  @Test
+  public void testSIGABRTAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT at end of logcat", errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testSIGABRTAtStartOfLogcat() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT at start of logcat",
+        errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testSIGABRTWithDebugInfo() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345 (Thread-5)\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_x86_64/generic_x86_64:11'\n"
+            + "I/DEBUG(1234): Revision: '0'\n"
+            + "I/DEBUG(1234): ABI: 'x86_64'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT with debug info", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include thread name", errorOutput.contains("Thread-5"));
+  }
+
+  @Test
+  public void testMultipleSIGABRTOccurrences() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 6 (SIGABRT), code -6 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple SIGABRT occurrences",
+        errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testSIGABRTWithExceptionAndSignal() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 6 (SIGABRT), code -6 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue("Should detect SIGABRT signal", errorOutput.contains("SIGABRT signal detected"));
+  }
+
+  @Test
+  public void testSIGABRTWithPcAndSymbol() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00012345  /system/lib64/libc.so (abort+256)\n"
+            + "I/DEBUG(1234):     #01 pc 00067890  /system/lib64/libc.so (__assert_fail+128)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGABRT with symbols", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue("Should include pc info", errorOutput.contains("pc 00012345"));
+  }
 }
