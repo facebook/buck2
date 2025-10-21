@@ -459,7 +459,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) ->
     # 'cmxs_order' without regard for which.
     cmxs_order = ctx.actions.declare_output("cmxs_order_" + build_mode.value + ".lst")
 
-    pre = cxx_merge_cpreprocessors(ctx, [], filter(None, [d.get(CPreprocessorInfo) for d in _attr_deps(ctx)]))
+    pre = cxx_merge_cpreprocessors(ctx.actions, [], filter(None, [d.get(CPreprocessorInfo) for d in _attr_deps(ctx)]))
     pre_args = pre.set.project_as_args("args")
     cc_sh_filename = "cc_" + build_mode.value + ".sh"
     cc = _mk_cc(ctx, [pre_args], cc_sh_filename)

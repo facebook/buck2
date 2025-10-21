@@ -284,7 +284,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
         args += ["-isystem", inc_dir]
     preprocessor = CPreprocessor(args = CPreprocessorArgs(args = args, precompile_args = args))
     inherited_pp_info = cxx_inherited_preprocessor_infos(exported_deps)
-    providers.append(cxx_merge_cpreprocessors(ctx, [preprocessor], inherited_pp_info))
+    providers.append(cxx_merge_cpreprocessors(ctx.actions, [preprocessor], inherited_pp_info))
 
     # Figure out all the link styles we'll be building archives/shlibs for.
     preferred_linkage = _linkage(ctx)

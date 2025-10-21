@@ -150,7 +150,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         # (e.g `raw_headers`) because of that we need to provide search paths of such targets to
         # pcm compilation actions in order for them to be successful.
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(uncompiled_pcm_info.exported_deps)
-        preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
+        preprocessors = cxx_merge_cpreprocessors(ctx.actions, [], inherited_preprocessor_infos)
         cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
 
         # When compiling pcm files, module's exported pps and inherited pps

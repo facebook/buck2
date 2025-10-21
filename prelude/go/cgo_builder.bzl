@@ -96,7 +96,7 @@ def project_go_and_c_files(cgo_srcs: list[Artifact], gen_dir: Artifact) -> CGoTo
     )
 
 def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_pre: list[CPreprocessorInfo]) -> cmd_args:
-    pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
+    pre = cxx_merge_cpreprocessors(ctx.actions, own_pre, inherited_pre)
     pre_args = pre.set.project_as_args("args")
     pre_include_dirs = pre.set.project_as_args("include_dirs")
 

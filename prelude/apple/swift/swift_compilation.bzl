@@ -1200,7 +1200,7 @@ def _add_clang_deps_flags(
         cmd.add(inputs_tag.tag_artifacts(clang_flags))
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []))
-        preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
+        preprocessors = cxx_merge_cpreprocessors(ctx.actions, [], inherited_preprocessor_infos)
         cmd.add(cmd_args(preprocessors.set.project_as_args("args"), prepend = "-Xcc"))
         cmd.add(cmd_args(preprocessors.set.project_as_args("modular_args"), prepend = "-Xcc"))
         cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))

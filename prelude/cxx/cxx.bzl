@@ -482,7 +482,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if args:
         exported_items.append(CPreprocessor(args = CPreprocessorArgs(args = args, precompile_args = args)))
     propagated_preprocessor = cxx_merge_cpreprocessors(
-        ctx,
+        ctx.actions,
         exported_items,
         inherited_pp_infos,
     )
@@ -799,7 +799,7 @@ def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
     inherited_link = cxx_inherited_link_info(ctx.attrs.deps)
     return [
         DefaultInfo(default_output = ctx.attrs.src),
-        cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
+        cxx_merge_cpreprocessors(ctx.actions, [], inherited_pp_infos),
         create_merged_link_info_for_propagation(ctx, inherited_link),
         CPrecompiledHeaderInfo(header = ctx.attrs.src, compiled = False),
     ]

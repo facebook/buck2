@@ -799,7 +799,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         sub_targets = add_header_unit_clang_trace_sub_target(filter(None, [h.clang_trace for h in x.header_units])),
                     ),
                     cxx_merge_cpreprocessors(
-                        ctx,
+                        ctx.actions,
                         own_exported_preprocessors + header_unit_preprocessors,
                         propagated_preprocessor_merge_list,
                     ),
@@ -824,14 +824,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             sub_targets["header-unit"] = [
                 DefaultInfo(),
                 cxx_merge_cpreprocessors(
-                    ctx,
+                    ctx.actions,
                     own_exported_preprocessors,
                     propagated_preprocessor_merge_list,
                 ),
             ]
 
     propagated_preprocessor = cxx_merge_cpreprocessors(
-        ctx,
+        ctx.actions,
         own_exported_preprocessors,
         propagated_preprocessor_merge_list,
     )
@@ -1244,7 +1244,7 @@ def cxx_compile_srcs(
     header_unit_preprocessors = []
     if own_exported_preprocessors:
         header_preprocessor_info = cxx_merge_cpreprocessors(
-            ctx,
+            ctx.actions,
             own_exported_preprocessors,
             inherited_exported_preprocessor_infos,
         )

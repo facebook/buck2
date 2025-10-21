@@ -161,6 +161,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             deps = ctx.attrs.deps,
         ),
-        cxx_merge_cpreprocessors(ctx, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
+        cxx_merge_cpreprocessors(ctx.actions, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]

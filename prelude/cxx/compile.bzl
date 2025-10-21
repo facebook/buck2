@@ -216,7 +216,7 @@ def create_compile_cmds(
 
     # Combine all preprocessor info and prepare it for compilations.
     pre = cxx_merge_cpreprocessors(
-        ctx,
+        ctx.actions,
         filter(None, own_preprocessors + impl_params.extra_preprocessors),
         inherited_preprocessor_infos,
     )
@@ -890,7 +890,7 @@ module "{}" {{
         extra_argsfile = _mk_header_units_argsfile(
             ctx = ctx,
             compiler_info = compiler_info,
-            preprocessor = cxx_merge_cpreprocessors(ctx, extra_preprocessors, []),
+            preprocessor = cxx_merge_cpreprocessors(ctx.actions, extra_preprocessors, []),
             ext = CxxExtension(".cpp"),
             uses_experimental_content_based_path_hashing = True,
             filename_prefix = "export{}_".format(group_name),
