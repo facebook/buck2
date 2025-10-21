@@ -8,12 +8,11 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:compile_types.bzl", "HeadersDepFiles")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerType")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":platform.bzl", "cxx_by_platform")
 
 # Defines the varying bits of implementation affecting on how the end user
@@ -229,8 +228,8 @@ def as_raw_headers(
         no_fail = mode != HeadersAsRawHeadersMode("required"),
     )
 
-def _header_mode(ctx: AnalysisContext, header_mode: [HeaderMode, None]) -> HeaderMode:
-    toolchain_header_mode = get_cxx_toolchain_info(ctx).header_mode
+def _header_mode(cxx_toolchain_info: CxxToolchainInfo, header_mode: [HeaderMode, None]) -> HeaderMode:
+    toolchain_header_mode = cxx_toolchain_info.header_mode
 
     # If the toolchain disabled header maps, respect that since the compiler
     # simply cannot accept anything else.
@@ -246,6 +245,7 @@ def _header_mode(ctx: AnalysisContext, header_mode: [HeaderMode, None]) -> Heade
 
 def prepare_headers(
         ctx: AnalysisContext,
+        cxx_toolchain_info: CxxToolchainInfo,
         srcs: dict[str, Artifact],
         name: str,
         header_mode: [HeaderMode, None] = None,
@@ -261,7 +261,7 @@ def prepare_headers(
     if len(srcs) == 0:
         return None
 
-    header_mode = _header_mode(ctx, header_mode)
+    header_mode = _header_mode(cxx_toolchain_info, header_mode)
 
     # TODO(T110378135): There's a bug in clang where using header maps w/o
     # explicit `-I` anchors breaks module map lookups.  This will be fixed
@@ -275,7 +275,7 @@ def prepare_headers(
 
     if header_mode == HeaderMode("header_map_only"):
         headers = {h: (a, "{}") for h, a in srcs.items()}
-        hmap = _mk_hmap(ctx, output_name, headers, uses_experimental_content_based_path_hashing)
+        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, uses_experimental_content_based_path_hashing)
         return Headers(
             include_path = cmd_args(hmap, hidden = srcs.values()),
         )
@@ -288,8 +288,8 @@ def prepare_headers(
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
-        hmap = _mk_hmap(ctx, output_name, headers, uses_experimental_content_based_path_hashing)
-        file_prefix_args = _get_debug_prefix_args(ctx, symlink_dir)
+        hmap = _mk_hmap(ctx, cxx_toolchain_info, output_name, headers, uses_experimental_content_based_path_hashing)
+        file_prefix_args = _get_debug_prefix_args(cxx_toolchain_info, symlink_dir)
         return Headers(
             include_path = cmd_args(hmap, hidden = symlink_dir),
             symlink_tree = symlink_dir,
@@ -404,9 +404,9 @@ def _get_dict_header_namespace(namespace: str, naming: CxxHeadersNaming) -> str:
     else:
         fail("Unsupported header naming: {}".format(naming))
 
-def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_args, None]:
+def _get_debug_prefix_args(cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact) -> [cmd_args, None]:
     # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
-    if get_cxx_toolchain_info(ctx).linker_info.type != LinkerType("gnu"):
+    if cxx_toolchain_info.linker_info.type != LinkerType("gnu"):
         return None
 
     fmt = "-fdebug-prefix-map={}=" + value_or(header_dir.owner.cell, ".")
@@ -414,7 +414,7 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_a
         cmd_args(header_dir, format = fmt),
     )
 
-def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
+def _mk_hmap(ctx: AnalysisContext, cxx_toolchain_info: CxxToolchainInfo, name: str, headers: dict[str, (Artifact, str)], uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
     output = ctx.actions.declare_output(
         name + ".hmap",
         uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
@@ -432,7 +432,7 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     )
 
     cmd = cmd_args(
-        [get_cxx_toolchain_info(ctx).internal_tools.hmap_wrapper] +
+        [cxx_toolchain_info.internal_tools.hmap_wrapper] +
         ["--output", output.as_output()] +
         ["--mappings-file", hmap_args_file],
     )

@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:headers.bzl", "prepare_headers")
 load(
     "@prelude//cxx:preprocessor.bzl",
@@ -126,10 +127,12 @@ def make_importcfg(
 
 # Return "_cgo_export.h" to expose exported C declarations to non-Go rules
 def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> CPreprocessor:
+    cxx_toolchain_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
     return CPreprocessor(args = CPreprocessorArgs(args = [
         "-I",
         prepare_headers(
             ctx,
+            cxx_toolchain_info,
             {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
             "cgo-exported-headers",
             uses_experimental_content_based_path_hashing = True,

@@ -295,8 +295,10 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
     )
 
 def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     header_root = prepare_headers(
         ctx,
+        cxx_toolchain_info,
         headers,
         "buck-headers",
         map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None)),
@@ -304,6 +306,7 @@ def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     )
     precompile_root = prepare_headers(
         ctx,
+        cxx_toolchain_info,
         headers,
         "buck-pre-headers",
         HeaderMode("header_map_only"),
@@ -439,9 +442,10 @@ def _cxx_private_preprocessor_info(
 def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact]) -> CPreprocessorArgs:
     # Create private header tree and propagate via args.
     args = get_target_sdk_version_flags(ctx)
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     file_prefix_args = []
     header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
-    header_root = prepare_headers(ctx, headers, "buck-private-headers", header_mode = header_mode, uses_experimental_content_based_path_hashing = True)
+    header_root = prepare_headers(ctx, cxx_toolchain_info, headers, "buck-private-headers", header_mode = header_mode, uses_experimental_content_based_path_hashing = True)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

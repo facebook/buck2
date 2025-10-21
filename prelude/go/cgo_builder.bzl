@@ -130,7 +130,8 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
 def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
     namespace = cxx_attr_header_namespace(ctx)
     header_map = {paths.join(namespace, h.short_path): h for h in h_files}
-    header_root = prepare_headers(ctx, header_map, "h_files-private-headers", uses_experimental_content_based_path_hashing = True)
+    cxx_toolchain_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+    header_root = prepare_headers(ctx, cxx_toolchain_info, header_map, "h_files-private-headers", uses_experimental_content_based_path_hashing = True)
 
     return CPreprocessor(
         args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
@@ -162,11 +163,14 @@ def build_cgo(
     c_gen_headers = [cgo_tool_out.cgo_export_h]
     c_gen_srcs = [cgo_tool_out.cgo_export_c] + cgo_tool_out.cgo2_c_files
 
+    cxx_toolchain_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
     cgo_headers_pre = CPreprocessor(args = CPreprocessorArgs(args = [
         "-I",
         prepare_headers(
             ctx,
+            cxx_toolchain_info,
             {h.basename: h for h in c_gen_headers},
             "cgo-private-headers",
             uses_experimental_content_based_path_hashing = True,
