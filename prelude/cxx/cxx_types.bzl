@@ -271,4 +271,6 @@ CxxRuleConstructorParams = record(
     # Any extra diagnostics to include in [check] subtarget, maps from
     # identifier (usually filename) to diagnostic output.
     extra_diagnostics = field(dict[str, Artifact] | None, None),
+    # Whether to use fbcc Rust wrapper
+    use_fbcc_rust_wrapper = field(bool, False),
 )

@@ -1579,9 +1579,7 @@ def _generate_base_compile_command(
     toolchain = get_cxx_toolchain_info(ctx)
     compiler_info = _get_compiler_info(toolchain, ext)
 
-    use_wrapper = ctx.attrs.use_fbcc_rust_wrapper if hasattr(ctx.attrs, "use_fbcc_rust_wrapper") else False
-
-    base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper)
+    base_compile_cmd = _get_compile_base(toolchain, compiler_info, impl_params.use_fbcc_rust_wrapper)
     category = _get_category(ext)
 
     headers_dep_files = None
