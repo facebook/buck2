@@ -664,4 +664,190 @@ public class CrashAnalyzerTest {
         errorOutput.contains("Index out of bounds exception detected"));
     assertTrue("Should include negative index", errorOutput.contains("index=-1"));
   }
+
+  @Test
+  public void testDetectsIllegalStateException() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): FATAL EXCEPTION: main\n"
+            + "E/AndroidRuntime(12345): java.lang.IllegalStateException: Test illegal state crash\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.StateManager.doAction(StateManager.java:50)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MainActivity.onCreate(MainActivity.java:123)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IllegalStateException",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue(
+        "Should include IllegalStateException",
+        errorOutput.contains("java.lang.IllegalStateException"));
+    assertTrue("Should include error message", errorOutput.contains("Test illegal state crash"));
+  }
+
+  @Test
+  public void testDetectsIllegalStateExceptionWithDetailedMessage() {
+    String logcatOutput =
+        "E/AndroidRuntime(67890): java.lang.IllegalStateException: Fragment not attached to"
+            + " Activity\n"
+            + "E/AndroidRuntime(67890): \tat"
+            + " androidx.fragment.app.Fragment.getContext(Fragment.java:100)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IllegalStateException",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue(
+        "Should include error message", errorOutput.contains("Fragment not attached to Activity"));
+  }
+
+  @Test
+  public void testDetectsIllegalStateExceptionWithoutStackTrace() {
+    String logcatOutput = "E/AndroidRuntime(12345): java.lang.IllegalStateException: Invalid state";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IllegalStateException without stack trace",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue(
+        "Should include error line", errorOutput.contains("java.lang.IllegalStateException"));
+  }
+
+  @Test
+  public void testDetectsAllFiveErrorTypes() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.OutOfMemoryError: Failed allocation\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.StackOverflowError\n"
+            + "I/AnotherLog(11111): Another log\n"
+            + "E/AndroidRuntime(11122): java.lang.NullPointerException\n"
+            + "I/MoreLog(22222): More log\n"
+            + "E/AndroidRuntime(33344): java.lang.ArrayIndexOutOfBoundsException: index=5\n"
+            + "I/EvenMoreLog(44444): Even more log\n"
+            + "E/AndroidRuntime(55566): java.lang.IllegalStateException: Invalid state\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect OutOfMemoryError", errorOutput.contains("Out of memory error detected"));
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect ArrayIndexOutOfBoundsException",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue(
+        "Should detect IllegalStateException",
+        errorOutput.contains("Illegal state exception detected"));
+  }
+
+  @Test
+  public void testIllegalStateAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "E/AndroidRuntime(12345): java.lang.IllegalStateException: At end";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IllegalStateException at end of logcat",
+        errorOutput.contains("Illegal state exception detected"));
+  }
+
+  @Test
+  public void testIllegalStateAtStartOfLogcat() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IllegalStateException: At start\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IllegalStateException at start of logcat",
+        errorOutput.contains("Illegal state exception detected"));
+  }
+
+  @Test
+  public void testIllegalStateWithKotlinStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IllegalStateException: Coroutine state error\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.MyCoroutine.execute(MyCoroutine.kt:42)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " kotlinx.coroutines.CoroutineScope.launch(CoroutineScope.kt:50)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect IllegalStateException with Kotlin stack trace",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue("Should include Kotlin file", errorOutput.contains("MyCoroutine.kt"));
+  }
+
+  @Test
+  public void testMultipleIllegalStateExceptions() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IllegalStateException: First error\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.IllegalStateException: Second error\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple IllegalStateExceptions",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue("Should include first error", errorOutput.contains("First error"));
+  }
+
+  @Test
+  public void testIllegalStateWithFragmentError() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IllegalStateException: Can not perform this action"
+            + " after onSaveInstanceState\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " androidx.fragment.app.FragmentManager.checkStateLoss(FragmentManager.java:1500)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect fragment IllegalStateException",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue(
+        "Should include fragment error message", errorOutput.contains("after onSaveInstanceState"));
+  }
+
+  @Test
+  public void testIllegalStateWithViewError() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.IllegalStateException: The specified child already"
+            + " has a parent\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " android.view.ViewGroup.addViewInner(ViewGroup.java:4950)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect view IllegalStateException",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue("Should include view error message", errorOutput.contains("already has a parent"));
+  }
 }

@@ -50,6 +50,10 @@ public class CrashAnalyzer {
             "java\\.lang\\.IndexOutOfBoundsException|java\\.lang\\.ArrayIndexOutOfBoundsException"),
         "Index out of bounds exception detected",
         false),
+    new CrashType(
+        Pattern.compile("java\\.lang\\.IllegalStateException"),
+        "Illegal state exception detected",
+        false),
   };
 
   /**
