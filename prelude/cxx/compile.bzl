@@ -212,7 +212,7 @@ def create_compile_cmds(
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
     # at compile time, but that doing that here/eagerly might be expensive (but
     # we should figure out something).
-    _validate_target_headers(ctx, own_preprocessors)
+    _validate_target_headers(ctx.label, own_preprocessors)
 
     # Combine all preprocessor info and prepare it for compilations.
     pre = cxx_merge_cpreprocessors(
@@ -1071,7 +1071,7 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
         )]
     return objects_sub_targets
 
-def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreprocessor]):
+def _validate_target_headers(label: Label, preprocessor: list[CPreprocessor]):
     path_to_artifact = {}
     all_headers = flatten([x.headers for x in preprocessor])
     for header in all_headers:
@@ -1079,7 +1079,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
         artifact = path_to_artifact.get(header_path)
         if artifact != None:
             if artifact != header.artifact:
-                fail("Conflicting headers {} and {} map to {} in target {}".format(artifact, header.artifact, header_path, ctx.label))
+                fail("Conflicting headers {} and {} map to {} in target {}".format(artifact, header.artifact, header_path, label))
         else:
             path_to_artifact[header_path] = header.artifact
 
