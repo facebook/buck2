@@ -171,6 +171,7 @@ def get_header_language_mode(source_extension: CxxExtension) -> str | None:
 
 def create_compile_cmds(
         ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo],
@@ -237,7 +238,7 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, ext)
+        cmd = _generate_base_compile_command(ctx, toolchain, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
@@ -1567,6 +1568,7 @@ def get_compiler_type(ctx: AnalysisContext, ext: CxxExtension) -> typing.Any:
 
 def _generate_base_compile_command(
         ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
         impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
@@ -1576,7 +1578,6 @@ def _generate_base_compile_command(
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
     """
-    toolchain = get_cxx_toolchain_info(ctx)
     compiler_info = _get_compiler_info(toolchain, ext)
 
     base_compile_cmd = _get_compile_base(toolchain, compiler_info, impl_params.use_fbcc_rust_wrapper)
