@@ -441,7 +441,7 @@ def rust_compile(
         )
 
         linker_args = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = common_args.subdir + "/linker_wrapper",
             cmd = linker_cmd,
             language = ctx.attrs._exec_os_type[OsLookup].script,

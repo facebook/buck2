@@ -17,7 +17,7 @@ load("@prelude//os_lookup:defs.bzl", "ScriptLanguage")
 #
 #     linker_cmd = cmd_args(linker_info.linker, ctx.attrs.linker_flags)
 #     linker_wrapper = cmd_script(
-#         ctx = ctx,
+#         actions = actions,
 #         name = "linker_wrapper",
 #         cmd = linker_cmd,
 #         language = ctx.attrs._exec_os_type[OsLookup].script,
@@ -25,7 +25,7 @@ load("@prelude//os_lookup:defs.bzl", "ScriptLanguage")
 #     return cmd_args(linker_wrapper, format = "-Clinker={}")
 #
 def cmd_script(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         name: str,
         cmd: cmd_args,
         language: ScriptLanguage = ScriptLanguage("sh"),
@@ -35,8 +35,8 @@ def cmd_script(
     shell_quoted = cmd_args(cmd, **cmd_kwargs)
 
     if language == ScriptLanguage("sh"):
-        wrapper, _ = ctx.actions.write(
-            ctx.actions.declare_output("{}.sh".format(name), has_content_based_path = has_content_based_path),
+        wrapper, _ = actions.write(
+            actions.declare_output("{}.sh".format(name), has_content_based_path = has_content_based_path),
             [
                 "#!/usr/bin/env bash",
                 cmd_args(cmd_args(shell_quoted, delimiter = " \\\n"), format = "{} \"$@\"\n"),
@@ -46,8 +46,8 @@ def cmd_script(
             has_content_based_path = has_content_based_path,
         )
     elif language == ScriptLanguage("bat"):
-        wrapper, _ = ctx.actions.write(
-            ctx.actions.declare_output("{}.bat".format(name), has_content_based_path = has_content_based_path),
+        wrapper, _ = actions.write(
+            actions.declare_output("{}.bat".format(name), has_content_based_path = has_content_based_path),
             [
                 "@echo off",
                 cmd_args(cmd_args(shell_quoted, delimiter = "^\n "), format = "{} %*\n"),

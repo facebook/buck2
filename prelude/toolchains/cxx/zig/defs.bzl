@@ -328,25 +328,25 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     zig = ctx.attrs.distribution[RunInfo]
     target = ["-target", ctx.attrs.target] if ctx.attrs.target else []
     zig_cc = cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "zig_cc",
         cmd = cmd_args(zig, "cc"),
         language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_cxx = cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "zig_cxx",
         cmd = cmd_args(zig, "c++"),
         language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ar = cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "zig_ar",
         cmd = cmd_args(zig, "ar"),
         language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ranlib = cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "zig_ranlib",
         cmd = cmd_args(zig, "ranlib"),
         language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),

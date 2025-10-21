@@ -119,7 +119,7 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
 
     # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
     return cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "cxx_wrapper",
         cmd = cxx_cmd,
         language = ctx.attrs._exec_os_type[OsLookup].script,

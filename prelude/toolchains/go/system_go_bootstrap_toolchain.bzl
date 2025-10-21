@@ -37,7 +37,7 @@ def _system_go_bootstrap_toolchain_impl(ctx):
     script_language = ScriptLanguage("bat" if go_os == "windows" else "sh")
     go = "go.exe" if go_os == "windows" else "go"
 
-    go_cmd = cmd_script(ctx, "go", cmd_args(go), script_language)
+    go_cmd = cmd_script(ctx.actions, "go", cmd_args(go), script_language)
 
     return [
         DefaultInfo(),

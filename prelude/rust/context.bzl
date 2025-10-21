@@ -182,7 +182,7 @@ def _linker_args(
     )
 
     return cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "linker_wrapper",
         cmd = linker,
         language = ctx.attrs._exec_os_type[OsLookup].script,
