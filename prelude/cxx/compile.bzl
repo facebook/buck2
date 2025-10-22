@@ -1300,9 +1300,12 @@ def _mk_argsfiles(
     argsfiles = []
     args_list = []
 
+    # TODO(michaelpo): Create local variable to simplify tracking of remaining ctx usages.
+    actions = ctx.actions
+
     def mk_argsfile(filename: str, args, use_dep_files_placeholder_for_content_based_paths: bool = False) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
-        argsfile, _ = ctx.actions.write(
+        argsfile, _ = actions.write(
             filename,
             content,
             allow_args = True,
@@ -1325,7 +1328,7 @@ def _mk_argsfiles(
             compiler_info_argsfile = mk_argsfile(compiler_info_filename, compiler_info_flags)
 
         if is_precompile:
-            filtered_info_argsfile = ctx.actions.anon_target(_filter_precompile_argsfile_anon_rule, {
+            filtered_info_argsfile = actions.anon_target(_filter_precompile_argsfile_anon_rule, {
                 "allow_cache_upload": impl_params.allow_cache_upload,
                 "src": compiler_info_argsfile,
                 # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
@@ -1338,7 +1341,7 @@ def _mk_argsfiles(
             # anon rule to the compiler_info target instead, but this would require some
             # refactoring, so we do this for now to experiment with content-based
             # configuration merging.
-            compiler_info_argsfile = ctx.actions.copy_file(
+            compiler_info_argsfile = actions.copy_file(
                 filename_prefix + "filtered_toolchain_cxx_args",
                 filtered_info_argsfile,
                 uses_experimental_content_based_path_hashing = True,
@@ -1353,7 +1356,7 @@ def _mk_argsfiles(
         compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
 
         if impl_params.anon_targets_allowed:
-            compiler_type_flags_anon_target = ctx.actions.anon_target(_compiler_type_flags_anon_rule, {
+            compiler_type_flags_anon_target = actions.anon_target(_compiler_type_flags_anon_rule, {
                 "compiler_type": compiler_info.compiler_type,
                 "is_xcode_argsfile": is_xcode_argsfile,
                 "src_extension": ext.value,
@@ -1475,7 +1478,7 @@ def _mk_argsfiles(
     file_name = filename_prefix + "cxx_compile_argsfile"
 
     # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
-    argsfile, _ = ctx.actions.write(
+    argsfile, _ = actions.write(
         file_name,
         file_args,
         allow_args = True,
