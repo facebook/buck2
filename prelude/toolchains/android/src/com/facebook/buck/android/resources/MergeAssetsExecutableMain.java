@@ -97,6 +97,7 @@ public class MergeAssetsExecutableMain {
         AbsPath.of(Paths.get(".").normalize().toAbsolutePath()),
         dirs,
         ImmutableSet.copyOf(extraNoCompressAssetExtensions),
+        Optional.empty(),
         MergeAssetsUtils.BinaryType.valueOf(binaryType.toUpperCase()));
 
     if (outputApkHash != null) {
