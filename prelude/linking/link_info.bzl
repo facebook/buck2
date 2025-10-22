@@ -865,11 +865,14 @@ def get_link_args_for_strategy(
         ),
     )
 
-def get_link_info_for_transformation(transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+def _get_non_transformed_info(link_infos: LinkInfos, prefer_stripped: bool) -> LinkInfo:
     if prefer_stripped:
         return link_infos.stripped or link_infos.default
+    return link_infos.default
 
-    info = link_infos.default
+def get_link_info_for_transformation(transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+    info = None
+
     if label:
         transformation_kind = transformation_spec_context.provider.determine_transformation(label, transformation_spec_context.graph_info)
         if transformation_kind:
@@ -878,7 +881,7 @@ def get_link_info_for_transformation(transformation_spec_context: Transformation
             elif transformation_kind == TransformationKind("optimized"):
                 info = link_infos.optimized
 
-    return info or link_infos.default
+    return info or _get_non_transformed_info(link_infos, prefer_stripped)
 
 def get_lib_output_style(
         requested_link_strategy: LinkStrategy,
