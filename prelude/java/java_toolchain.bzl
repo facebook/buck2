@@ -20,7 +20,6 @@ JavaPlatformInfo = provider(
 )
 
 JavaToolchainInfo = provider(
-    # @unsorted-dict-items
     doc = "Java toolchain info",
     fields = {
         "abi_generation_mode": provider_field(typing.Any, default = None),
@@ -76,7 +75,6 @@ JavaToolchainInfo = provider(
 )
 
 JavaTestToolchainInfo = provider(
-    # @unsorted-dict-items
     doc = "Java test toolchain info",
     fields = {
         "junit5_test_runner_main_class_args": provider_field(typing.Any, default = None),

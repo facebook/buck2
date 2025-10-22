@@ -9,7 +9,6 @@
 KotlincProtocol = enum("classic", "kotlincd")
 
 KotlinToolchainInfo = provider(
-    # @unsorted-dict-items
     doc = "Kotlin toolchain info",
     fields = {
         "allow_experimental_content_based_path_hashing": provider_field(bool, default = False),
