@@ -2491,4 +2491,367 @@ public class CrashAnalyzerTest {
     assertTrue(
         "Should detect SIGBUS signal", errorOutput.contains("SIGBUS signal detected (bus error)"));
   }
+
+  @Test
+  public void testDetectsClassNotFoundException() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): FATAL EXCEPTION: main\n"
+            + "E/AndroidRuntime(12345): java.lang.ClassNotFoundException:"
+            + " com.nonexistent.FakeClass\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.ClassLoader.loadClass(ClassLoader.java:379)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue(
+        "Should include ClassNotFoundException",
+        errorOutput.contains("java.lang.ClassNotFoundException"));
+    assertTrue("Should include class name", errorOutput.contains("com.nonexistent.FakeClass"));
+  }
+
+  @Test
+  public void testDetectsClassNotFoundExceptionWithDetailedMessage() {
+    String logcatOutput =
+        "E/AndroidRuntime(67890): java.lang.ClassNotFoundException: Didn't find class"
+            + " \"com.example.MissingClass\" on path: DexPathList\n"
+            + "E/AndroidRuntime(67890): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include detailed message", errorOutput.contains("Didn't find class"));
+  }
+
+  @Test
+  public void testDetectsClassNotFoundExceptionWithoutStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: com.test.MissingService";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException without stack trace",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue(
+        "Should include error line", errorOutput.contains("java.lang.ClassNotFoundException"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: com.example.TestClass";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException at end of logcat",
+        errorOutput.contains("Class not found exception detected"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionAtStartOfLogcat() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: com.example.TestClass\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException at start of logcat",
+        errorOutput.contains("Class not found exception detected"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithLongStackTrace() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: com.example.Plugin\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.ClassLoader.loadClass(ClassLoader.java:379)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.ClassLoader.loadClass(ClassLoader.java:312)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.Class.forName(Native Method)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.PluginLoader.load(PluginLoader.java:50)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException with long stack trace",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue(
+        "Should extract at least one stack frame",
+        errorOutput.contains("at dalvik.system.BaseDexClassLoader"));
+  }
+
+  @Test
+  public void testMultipleClassNotFoundExceptions() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: com.example.FirstClass\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.ClassNotFoundException:"
+            + " com.example.SecondClass\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple ClassNotFoundExceptions",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include first class", errorOutput.contains("com.example.FirstClass"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithOtherExceptions() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.ClassNotFoundException:"
+            + " com.example.MissingClass\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect ClassNotFoundException",
+        errorOutput.contains("Class not found exception detected"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithNestedClass() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException:"
+            + " com.example.OuterClass$InnerClass\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException for nested class",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include nested class name", errorOutput.contains("OuterClass$InnerClass"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionFromClassForName() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: com.facebook.TestClass\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.Class.classForName(Native Method)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.Class.forName(Class.java:453)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.example.Loader.loadClass(Loader.java:100)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException from Class.forName",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include forName in stack", errorOutput.contains("classForName"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithPackageName() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException:"
+            + " com.facebook.app.plugins.example.MyPlugin\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException with long package name",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include package name", errorOutput.contains("com.facebook.app.plugins"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithDexPath() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException: Didn't find class"
+            + " \"com.example.Test\" on path: DexPathList[[zip file"
+            + " \"/data/app/com.facebook.app.apk\"]]\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException with DexPathList",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include DexPathList info", errorOutput.contains("DexPathList"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionInTestRunner() {
+    String logcatOutput =
+        "E/TestRunner(12345): java.lang.ClassNotFoundException: com.facebook.test.MyTestClass\n"
+            + "E/TestRunner(12345): \tat java.lang.Class.classForName(Native Method)\n"
+            + "E/TestRunner(12345): \tat"
+            + " android.test.InstrumentationTestRunner.getTargetContext(InstrumentationTestRunner.java:123)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException in test runner",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include test class name", errorOutput.contains("MyTestClass"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithCausedBy() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.RuntimeException: Unable to instantiate activity\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " android.app.ActivityThread.performLaunchActivity(ActivityThread.java:3270)\n"
+            + "E/AndroidRuntime(12345): Caused by: java.lang.ClassNotFoundException:"
+            + " com.example.MainActivity\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException in Caused by",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include activity name", errorOutput.contains("MainActivity"));
+  }
+
+  @Test
+  public void testAllExceptionTypesTogether() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.OutOfMemoryError: Failed allocation\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.StackOverflowError\n"
+            + "I/AnotherLog(11111): Another log\n"
+            + "E/AndroidRuntime(11122): java.lang.NullPointerException\n"
+            + "I/MoreLog(22222): More log\n"
+            + "E/AndroidRuntime(33344): java.lang.ArrayIndexOutOfBoundsException: index=5\n"
+            + "I/EvenMoreLog(44444): Even more log\n"
+            + "E/AndroidRuntime(55566): java.lang.IllegalStateException: Invalid state\n"
+            + "I/MoreLog2(66666): More log 2\n"
+            + "E/AndroidRuntime(77788): java.lang.ClassNotFoundException: com.example.Test\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect OutOfMemoryError", errorOutput.contains("Out of memory error detected"));
+    assertTrue(
+        "Should detect StackOverflowError", errorOutput.contains("Stack overflow error detected"));
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect ArrayIndexOutOfBoundsException",
+        errorOutput.contains("Index out of bounds exception detected"));
+    assertTrue(
+        "Should detect IllegalStateException",
+        errorOutput.contains("Illegal state exception detected"));
+    assertTrue(
+        "Should detect ClassNotFoundException",
+        errorOutput.contains("Class not found exception detected"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionWithReflection() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException:"
+            + " com.facebook.reflect.ReflectionTarget\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.Class.classForName(Native Method)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.Class.forName(Class.java:453)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " java.lang.Class.forName(Class.java:378)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " com.facebook.reflection.Reflector.instantiate(Reflector.java:42)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException with reflection",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include reflection target", errorOutput.contains("ReflectionTarget"));
+  }
+
+  @Test
+  public void testClassNotFoundExceptionInServiceLoader() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.ClassNotFoundException:"
+            + " com.facebook.service.MyService\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)\n"
+            + "E/AndroidRuntime(12345): \tat"
+            + " android.app.LoadedApk.makeApplication(LoadedApk.java:1234)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect ClassNotFoundException in service loader",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue("Should include service name", errorOutput.contains("MyService"));
+  }
+
+  @Test
+  public void testAllExceptionAndSignalTypesTogether() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.OutOfMemoryError: Failed allocation\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "E/AndroidRuntime(67890): java.lang.ClassNotFoundException: com.example.Test\n"
+            + "I/AnotherLog(11111): Another log\n"
+            + "F/libc(33344): Fatal signal 11 (SIGSEGV), code 1 in tid 33344\n"
+            + "I/MoreLog(44444): More log\n"
+            + "F/libc(55566): Fatal signal 4 (SIGILL), code 1 in tid 55566\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect OutOfMemoryError", errorOutput.contains("Out of memory error detected"));
+    assertTrue(
+        "Should detect ClassNotFoundException",
+        errorOutput.contains("Class not found exception detected"));
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
 }

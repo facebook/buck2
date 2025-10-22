@@ -74,6 +74,10 @@ public class CrashAnalyzer {
         Pattern.compile("(?i)Fatal signal 7|signal 7|SIGBUS|bus error"),
         "SIGBUS signal detected (bus error)",
         true),
+    new CrashType(
+        Pattern.compile("java\\.lang\\.ClassNotFoundException"),
+        "Class not found exception detected",
+        false),
   };
 
   /**
