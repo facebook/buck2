@@ -11,7 +11,7 @@
 This module interfaces with the epmd daemon. It allows one to start/stop one for
 each suite execution.
 """.
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -include_lib("common/include/buck_ct_records.hrl").
 
@@ -34,7 +34,7 @@ start_link(#test_env{} = TestEnv) ->
     gen_server:start_link(
         {local, ?MODULE},
         ?MODULE,
-        [TestEnv],
+        TestEnv,
         [{debug, [trace, log]}]
     ).
 
@@ -44,11 +44,26 @@ get_port() ->
 
 %% ---------------- gen_server callbacks---------------
 
-init([#test_env{output_dir = OutputDir}]) ->
-    process_flag(trap_exit, true),
-    GlobalEpmdPort = application:get_env(test_exec, global_epmd_port),
+-type local_epmd_state() ::
+    #{
+        global_epmd := false,
+        epmd_port := inet:port_number(),
+        epmd_erlang_port := erlang:port(),
+        log_handle := io:device()
+    }.
+-type global_epmd_state() :: #{
+    global_epmd := true,
+    epmd_port := inet:port_number()
+}.
 
-    case GlobalEpmdPort of
+-type state() :: local_epmd_state() | global_epmd_state().
+
+-spec init(#test_env{}) -> {ok, state()} | {stop, Reason} when
+    Reason :: {epmd_start_failed, Error :: term()}.
+init(#test_env{output_dir = OutputDir}) ->
+    process_flag(trap_exit, true),
+
+    case application:get_env(test_exec, global_epmd_port) of
         undefined ->
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
@@ -60,23 +75,54 @@ init([#test_env{output_dir = OutputDir}]) ->
                         global_epmd => false
                     }};
                 Error ->
-                    {stop, {epmd_start_failed, Error}, #{}}
+                    {stop, {epmd_start_failed, Error}}
             end;
         {ok, Port} ->
-            {ok, #{epmd_port => Port, log_handle => undefined, global_epmd => true}}
+            {ok, #{epmd_port => Port, global_epmd => true}}
     end.
 
+-spec handle_cast(Request, State) -> {noreply, State} when
+    Request :: term(),
+    State :: state().
 handle_cast(_Request, State) -> {noreply, State}.
 
+-spec handle_call(get_port, From, State) -> {reply, Port, State} when
+    From :: gen_server:from(),
+    State :: state(),
+    Port :: inet:port_number().
 handle_call(get_port, _From, State = #{epmd_port := Port}) -> {reply, Port, State}.
 
-handle_info({PortEpmd, {exit_status, ExitStatus}}, #{epmd_port := PortEpmd} = State) ->
+-spec handle_info
+    ({PortEpmd, {exit_status, ExitStatus}}, State) -> {stop, {epmd_crashed, ExitStatus}, State} when
+        PortEpmd :: erlang:port(),
+        ExitStatus :: integer(),
+        State :: local_epmd_state();
+    ({PortEpmd, closed}, State) -> {stop, epmd_port_closed, State} when
+        PortEpmd :: erlang:port(),
+        State :: local_epmd_state();
+    ({'EXIT', PortEpmd, Reason}, State) -> {stop, {epmd_exit, Reason}, State} when
+        PortEpmd :: erlang:port(),
+        Reason :: term(),
+        State :: local_epmd_state();
+    ({PortEpmd, {data, TaggedData}}, State) -> {noreply, State} when
+        PortEpmd :: erlang:port(),
+        TaggedData :: {noeol, Data} | {eol, Data},
+        Data :: string(),
+        State :: local_epmd_state();
+    (none(), State) -> {noreply, State} when
+        State :: state().
+
+handle_info({PortEpmd, {exit_status, ExitStatus}}, State) ->
+    #{epmd_erlang_port := PortEpmd} = State,
     {stop, {epmd_crashed, ExitStatus}, State};
-handle_info({PortEpmd, closed}, #{epmd_port := PortEpmd} = State) ->
+handle_info({PortEpmd, closed}, State) ->
+    #{epmd_erlang_port := PortEpmd} = State,
     {stop, epmd_port_closed, State};
-handle_info({'EXIT', PortEpmd, Reason}, #{epmd_port := PortEpmd} = State) ->
+handle_info({'EXIT', PortEpmd, Reason}, State) ->
+    #{epmd_erlang_port := PortEpmd} = State,
     {stop, {epmd_exit, Reason}, State};
-handle_info({PortEpmd, {data, TaggedData}}, #{epmd_port := PortEpmd, log_handle := LogHandle} = State) ->
+handle_info({PortEpmd, {data, TaggedData}}, State) ->
+    #{epmd_erlang_port := PortEpmd, log_handle := LogHandle} = State,
     UntaggedData =
         case TaggedData of
             {noeol, Data} -> Data;
@@ -87,7 +133,10 @@ handle_info({PortEpmd, {data, TaggedData}}, #{epmd_port := PortEpmd, log_handle 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #{epmd_erlang_port := EpmdPort, global_epmd := false}) ->
+-spec terminate(Reason, State) -> ok when
+    Reason :: normal | shutdown | {shutdown, term()} | term(),
+    State :: state().
+terminate(_Reason, #{epmd_erlang_port := EpmdPort}) ->
     test_exec:kill_process(EpmdPort);
 terminate(_Reason, _State) ->
     ok.
@@ -99,11 +148,20 @@ Find a new port and starts this epmd daemon on this new port, then ensures it is
  We may have to retry in case the port becomes busy between the time
 it is discovered and the time the epmd is ran.
 """.
--spec start_epmd(file:filename()) ->
-    {ok, inet:port_number(), erlang:port(), pid()} | {error, {epmd_starting_failed, term()}}.
-start_epmd(EpmdOutPath) -> start_epmd(EpmdOutPath, 3, no_error).
--spec start_epmd(file:filename(), integer(), term()) ->
-    {ok, inet:port_number(), erlang:port(), pid()} | {error, {epmd_starting_failed, term()}}.
+-spec start_epmd(EpmdOutPath) ->
+    {ok, inet:port_number(), erlang:port(), io:device()} | {error, {epmd_starting_failed, Error}}
+when
+    EpmdOutPath :: file:filename_all(),
+    Error :: term().
+start_epmd(EpmdOutPath) ->
+    start_epmd(EpmdOutPath, 3, no_error).
+
+-spec start_epmd(EpmdOutPath, Attempts, Error) ->
+    {ok, inet:port_number(), erlang:port(), io:device()} | {error, {epmd_starting_failed, Error}}
+when
+    EpmdOutPath :: file:filename_all(),
+    Attempts :: integer(),
+    Error :: term().
 start_epmd(EpmdOutPath, Attempts, _Error) when Attempts > 0 ->
     case find_free_port() of
         {ok, Port} ->
@@ -138,7 +196,7 @@ find_free_port() ->
 Starts the epmd daemon on the given port,
 and writes stdout, stderr to files in the LogDir.
 """.
--spec start_epmd_instance(inet:port_number(), file:filename_all()) -> {ok, port(), pid()} | {failed, term()}.
+-spec start_epmd_instance(inet:port_number(), file:filename_all()) -> {ok, port(), io:device()} | {failed, term()}.
 start_epmd_instance(Port, EpmdOutPath) ->
     %% Note on the -d flag from `man 1 epmd`:
     %% Enables debug output. The more -d flags specified, the more
@@ -164,12 +222,17 @@ start_epmd_instance(Port, EpmdOutPath) ->
     case listen_loop(ProcessPort, LogHandle, []) of
         ok ->
             {ok, ProcessPort, LogHandle};
+        {failed, _} = Error when is_pid(LogHandle) ->
+            file:close(LogHandle),
+            Error;
         {failed, _} = Error ->
-            exit(LogHandle, closing_epmd),
             Error
     end.
 
--spec listen_loop(port(), pid(), Acc :: [string()]) -> {failed, term()} | ok.
+-spec listen_loop(ProcessPort, LogHandle, Acc) -> {failed, term()} | ok when
+    ProcessPort :: erlang:port(),
+    LogHandle :: io:device(),
+    Acc :: [string()].
 listen_loop(ProcessPort, LogHandle, Acc) ->
     receive
         {ProcessPort, {exit_status, Exit}} ->
@@ -192,7 +255,7 @@ listen_loop(ProcessPort, LogHandle, Acc) ->
         {failed, timeout}
     end.
 
--spec get_log_handle(file:name_all()) -> file:io_device().
+-spec get_log_handle(file:name_all()) -> io:device().
 get_log_handle(EpmdOutPath) ->
     case filelib:is_file(EpmdOutPath, ?raw_file_access) of
         true -> ok = file:delete(EpmdOutPath, [raw]);
@@ -202,9 +265,13 @@ get_log_handle(EpmdOutPath) ->
     {ok, LogHandle} = file:open(EpmdOutPath, [write]),
     LogHandle.
 
--spec log_input_data(string(), pid()) -> ok.
+-spec log_input_data(Data, LogHandle) -> ok when
+    Data :: unicode:chardata(),
+    LogHandle :: io:device().
 log_input_data(Data, LogHandle) ->
     io:format(LogHandle, "~ts", [Data]).
 
+-spec get_epmd_out_path(OutDir) -> file:filename_all() when
+    OutDir :: file:filename_all().
 get_epmd_out_path(OutputDir) ->
     filename:join(OutputDir, "epmd_out.log").
