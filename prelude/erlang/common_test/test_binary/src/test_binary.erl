@@ -25,7 +25,15 @@ cli() ->
     #{
         handler => fun handle_list_and_run/1,
         arguments => [
-            #{name => test_info_file, long => "-test-info-file", type => string, required => true}
+            #{name => test_info_file, long => "-test-info-file", type => string, required => true},
+            #{
+                name => edb_code,
+                long => "-edb-code",
+                type => string,
+                default => none,
+                help =>
+                    "EDB code to inject for debugging. Can be actual code or the environment variable that contains the code."
+            }
         ],
         commands => #{
             "list" => #{
@@ -53,23 +61,27 @@ handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir}) ->
     ?LOG_DEBUG("Listing done"),
     ok.
 
--spec handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) -> ok when
+-spec handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests, edb_code := EdbCode}) ->
+    ok
+when
     TestInfoFile :: file:filename(),
     OutputDir :: file:filename(),
-    Tests :: [string()].
-handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests}) ->
+    Tests :: [string()],
+    EdbCode :: string() | none.
+handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests, edb_code := EdbCode}) ->
     test_logger:set_up_logger(OutputDir, test_runner),
-    ok = running(TestInfoFile, OutputDir, Tests),
+    ok = running(TestInfoFile, OutputDir, Tests, EdbCode),
     ?LOG_DEBUG("Running done"),
     ok.
 
--spec handle_list_and_run(#{test_info_file := TestInfoFile}) -> ok | {exit_code, 1} when
-    TestInfoFile :: file:filename_all().
-handle_list_and_run(#{test_info_file := TestInfoFile}) ->
+-spec handle_list_and_run(#{test_info_file := TestInfoFile, edb_code := EdbCode}) -> ok | {exit_code, 1} when
+    TestInfoFile :: file:filename_all(),
+    EdbCode :: string() | none.
+handle_list_and_run(#{test_info_file := TestInfoFile, edb_code := EdbCode}) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
     test_logger:set_up_logger(OutputDir, test_runner, true),
-    case list_and_run(TestInfoFile, OutputDir) of
+    case list_and_run(TestInfoFile, OutputDir, EdbCode) of
         true ->
             io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
                 OutputDir
@@ -121,15 +133,18 @@ listing(TestInfoFile, OutputDir) ->
     Listing = get_listing(TestInfo, OutputDir),
     listing_interfacer:produce_xml_file(OutputDir, Listing).
 
--spec running(TestInfoFile, OutputDir, Tests) -> ok when
+-spec running(TestInfoFile, OutputDir, Tests, EdbCode) -> ok when
     TestInfoFile :: file:filename_all(),
     OutputDir :: file:filename_all(),
-    Tests :: [string()].
-running(TestInfoFile, OutputDir, Tests) ->
+    Tests :: [string()],
+    EdbCode :: string() | none.
+running(TestInfoFile, OutputDir, Tests, EdbCode) ->
     AbsOutputDir = filename:absname(OutputDir),
-    TestInfo = test_info:load_from_file(TestInfoFile),
-    Listing = get_listing(TestInfo, AbsOutputDir),
-    test_runner:run_tests(Tests, TestInfo, AbsOutputDir, Listing).
+    TestInfo0 = test_info:load_from_file(TestInfoFile),
+    Listing = get_listing(TestInfo0, AbsOutputDir),
+    ExtraEmuFlags = edb_extra_emu_flags(EdbCode),
+    TestInfo1 = TestInfo0#test_info{extra_flags = ExtraEmuFlags ++ TestInfo0#test_info.extra_flags},
+    test_runner:run_tests(Tests, TestInfo1, AbsOutputDir, Listing).
 
 -spec get_listing(TestInfo, OutputDir) -> #test_spec_test_case{} when
     TestInfo :: #test_info{},
@@ -159,15 +174,16 @@ get_listing(TestInfo, OutputDir) ->
 
 %% rudimantary implementation for running tests with buck2 open-sourced test runner
 
--spec list_and_run(TestInfoFile, OutputDir) -> boolean() when
+-spec list_and_run(TestInfoFile, OutputDir, EdbCode) -> boolean() when
     TestInfoFile :: file:filename_all(),
-    OutputDir :: file:filename_all().
-list_and_run(TestInfoFile, OutputDir) ->
+    OutputDir :: file:filename_all(),
+    EdbCode :: string() | none.
+list_and_run(TestInfoFile, OutputDir, EdbCode) ->
     os:putenv("ERLANG_BUCK_DEBUG_PRINT", "disabled"),
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
     Tests = listing_to_testnames(Listing),
-    running(TestInfoFile, OutputDir, Tests),
+    running(TestInfoFile, OutputDir, Tests, EdbCode),
     ResultsFile = filename:join(OutputDir, "result_exec.json"),
     print_results(ResultsFile).
 
@@ -179,6 +195,18 @@ listing_to_testnames(Listing) ->
         end
      || TestCase <- Listing#test_spec_test_case.testcases
     ].
+
+-spec edb_extra_emu_flags(EdbCode) -> [binary()] when
+    EdbCode :: string() | none.
+edb_extra_emu_flags(none) ->
+    [];
+edb_extra_emu_flags(EdbCode) ->
+    CodeToInject =
+        case os:getenv(EdbCode) of
+            false -> unicode_characters_to_binary(EdbCode);
+            Value -> unicode_characters_to_binary(Value)
+        end,
+    [~"-eval", CodeToInject].
 
 -spec print_results(file:filename()) -> boolean().
 print_results(ResultsFile) ->
@@ -226,3 +254,9 @@ filename_all_to_filename(Filename) when is_binary(Filename) ->
     end;
 filename_all_to_filename(Filename) ->
     Filename.
+
+-spec unicode_characters_to_binary(unicode:chardata()) -> binary().
+unicode_characters_to_binary(Chars) ->
+    case unicode:characters_to_binary(Chars) of
+        Bin when is_binary(Bin) -> Bin
+    end.
