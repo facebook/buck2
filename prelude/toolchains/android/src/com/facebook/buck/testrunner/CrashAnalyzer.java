@@ -70,6 +70,10 @@ public class CrashAnalyzer {
         Pattern.compile("(?i)Fatal signal 8|signal 8|SIGFPE|floating point exception"),
         "SIGFPE signal detected (floating point exception)",
         true),
+    new CrashType(
+        Pattern.compile("(?i)Fatal signal 7|signal 7|SIGBUS|bus error"),
+        "SIGBUS signal detected (bus error)",
+        true),
   };
 
   /**
@@ -192,8 +196,8 @@ public class CrashAnalyzer {
    * Determines the signal type from a signal line.
    *
    * @param signalLine The signal line from logcat
-   * @return The signal type (e.g., "SIGABRT", "SIGSEGV", "SIGILL", "SIGFPE"), or "UNKNOWN" if not
-   *     determinable
+   * @return The signal type (e.g., "SIGABRT", "SIGSEGV", "SIGILL", "SIGFPE", "SIGBUS"), or
+   *     "UNKNOWN" if not determinable
    */
   private String determineSignalType(String signalLine) {
     String upperLine = signalLine.toUpperCase();
@@ -226,6 +230,13 @@ public class CrashAnalyzer {
       return "SIGFPE";
     }
 
+    // Check for SIGBUS (signal 7)
+    if (upperLine.contains("SIGBUS")
+        || upperLine.matches(".*SIGNAL\\s+7\\b.*")
+        || upperLine.contains("BUS ERROR")) {
+      return "SIGBUS";
+    }
+
     return "UNKNOWN";
   }
 
@@ -233,7 +244,7 @@ public class CrashAnalyzer {
    * Extracts signal code information from a signal line to provide context about the signal origin.
    *
    * @param signalLine The signal line from logcat
-   * @param signalType The type of signal (e.g., "SIGABRT", "SIGSEGV", "SIGILL", "SIGFPE")
+   * @param signalType The type of signal (e.g., "SIGABRT", "SIGSEGV", "SIGILL", "SIGFPE", "SIGBUS")
    * @return A description of the signal code, or empty string if not determinable
    */
   private String extractSignalCode(String signalLine, String signalType) {
@@ -273,6 +284,14 @@ public class CrashAnalyzer {
         return "SIGFPE due to floating point invalid operation";
       } else if (signalLine.contains("code 8") && signalLine.contains("FPE_FLTSUB")) {
         return "SIGFPE due to subscript out of range";
+      }
+    } else if ("SIGBUS".equals(signalType)) {
+      if (signalLine.contains("code 1") && signalLine.contains("BUS_ADRALN")) {
+        return "SIGBUS due to invalid address alignment";
+      } else if (signalLine.contains("code 2") && signalLine.contains("BUS_ADRERR")) {
+        return "SIGBUS due to non-existent physical address";
+      } else if (signalLine.contains("code 3") && signalLine.contains("BUS_OBJERR")) {
+        return "SIGBUS due to object-specific hardware error";
       }
     }
 

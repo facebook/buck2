@@ -2097,4 +2097,398 @@ public class CrashAnalyzerTest {
         errorOutput.contains("SIGFPE signal detected (floating point exception)"));
     assertTrue("Should include root cause", errorOutput.contains("invalid operation"));
   }
+
+  @Test
+  public void testDetectsSIGBUSSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 (BUS_ADRALN), fault addr 0x12345678\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_x86_64/generic_x86_64:11'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS signal", errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue(
+        "Should print crash analysis header", errorOutput.contains("=== AIT CRASH ANALYSIS ==="));
+    assertTrue("Should include signal line", errorOutput.contains("Fatal signal 7"));
+    assertTrue("Should include backtrace", errorOutput.contains("backtrace:"));
+  }
+
+  @Test
+  public void testDetectsSIGBUSWithUppercase() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with uppercase",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include signal info", errorOutput.contains("SIGBUS"));
+  }
+
+  @Test
+  public void testDetectsSIGBUSWithLowercase() {
+    String logcatOutput =
+        "F/libc(12345): fatal signal 7 (sigbus), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS case-insensitively",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
+
+  @Test
+  public void testDetectsSignal7() {
+    String logcatOutput =
+        "F/libc(12345): signal 7 received\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect signal 7", errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include signal info", errorOutput.contains("signal 7"));
+  }
+
+  @Test
+  public void testDetectsBusErrorKeyword() {
+    String logcatOutput =
+        "F/libc(12345): Bus error\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect bus error keyword",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include bus error text", errorOutput.contains("Bus error"));
+  }
+
+  @Test
+  public void testSIGBUSWithBUS_ADRALN() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 (BUS_ADRALN), fault addr 0x12345678 in tid"
+            + " 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libnative.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with BUS_ADRALN",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include root cause", errorOutput.contains("invalid address alignment"));
+    assertTrue("Should include BUS_ADRALN", errorOutput.contains("BUS_ADRALN"));
+  }
+
+  @Test
+  public void testSIGBUSWithBUS_ADRERR() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 2 (BUS_ADRERR), fault addr 0xabcdef00\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with BUS_ADRERR",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include root cause", errorOutput.contains("non-existent physical address"));
+  }
+
+  @Test
+  public void testSIGBUSWithBUS_OBJERR() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 3 (BUS_OBJERR), fault addr 0x1000\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with BUS_OBJERR",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include root cause", errorOutput.contains("object-specific hardware error"));
+  }
+
+  @Test
+  public void testSIGBUSWithMultipleBacktraceLines() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (accessMemory+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (processData+45)\n"
+            + "I/DEBUG(1234):     #02 pc 00009abc  /system/lib64/libart.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with multiple backtrace lines",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include first backtrace line", errorOutput.contains("#00 pc"));
+  }
+
+  @Test
+  public void testSIGBUSWithNativeLibrary() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234"
+            + "  /data/app/com.facebook.app/lib/arm64/libfacebook.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with native library",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include native library", errorOutput.contains("libfacebook.so"));
+  }
+
+  @Test
+  public void testSIGBUSAtEndOfLogcat() {
+    String logcatOutput =
+        "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n"
+            + "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS at end of logcat",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
+
+  @Test
+  public void testSIGBUSAtStartOfLogcat() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345\n"
+            + "I/SomeLog(1234): Normal log entry\n"
+            + "D/AnotherLog(5678): Debug message\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS at start of logcat",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
+
+  @Test
+  public void testSIGBUSWithDebugInfo() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 (BUS_ADRALN), fault addr 0x1234 in tid"
+            + " 12345 (MemoryThread)\n"
+            + "I/DEBUG(1234): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+            + "I/DEBUG(1234): Build fingerprint: 'google/sdk_gphone64_arm64/generic_arm64:12'\n"
+            + "I/DEBUG(1234): Revision: '0'\n"
+            + "I/DEBUG(1234): ABI: 'arm64'\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with debug info",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include thread name", errorOutput.contains("MemoryThread"));
+  }
+
+  @Test
+  public void testMultipleSIGBUSOccurrences() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 7 (SIGBUS), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect multiple SIGBUS occurrences",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
+
+  @Test
+  public void testSIGBUSWithExceptionAndSignals() {
+    String logcatOutput =
+        "E/AndroidRuntime(12345): java.lang.NullPointerException\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 7 (SIGBUS), code 1 in tid 67890\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect NullPointerException",
+        errorOutput.contains("Null pointer exception detected"));
+    assertTrue(
+        "Should detect SIGBUS signal", errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
+
+  @Test
+  public void testSIGBUSAndOtherSignalsTogether() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 11 (SIGSEGV), code 1 in tid 67890\n"
+            + "I/MoreLog(11111): More log\n"
+            + "F/libc(33344): Fatal signal 4 (SIGILL), code 1 in tid 33344\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS signal", errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+  }
+
+  @Test
+  public void testSIGBUSWithPcAndSymbol() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00012345  /system/lib64/libc.so (memcpy+256)\n"
+            + "I/DEBUG(1234):     #01 pc 00067890 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (copyData+128)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS with symbols",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include pc info", errorOutput.contains("pc 00012345"));
+  }
+
+  @Test
+  public void testSIGBUSWithJNICall() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 (BUS_ADRALN), fault addr 0x1234\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so"
+            + " (Java_com_facebook_jni_NativeClass_readMemory+100)\n"
+            + "I/DEBUG(1234):     #01 pc 00005678  /system/lib64/libart.so"
+            + " (art_quick_generic_jni_trampoline+152)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS in JNI call",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include JNI method name", errorOutput.contains("Java_com_facebook_jni"));
+  }
+
+  @Test
+  public void testBusErrorCaseInsensitive() {
+    String logcatOutput =
+        "F/libc(12345): BUS ERROR\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect bus error case-insensitively",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
+
+  @Test
+  public void testSIGBUSWithUserSentSignal() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 0 (SI_USER) in tid 12345\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234  /system/lib64/libc.so\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS sent by user",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include SI_USER", errorOutput.contains("SI_USER"));
+  }
+
+  @Test
+  public void testSIGBUSWithAlignmentIssue() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 7 (SIGBUS), code 1 (BUS_ADRALN), fault addr 0x12345679\n"
+            + "I/DEBUG(1234): backtrace:\n"
+            + "I/DEBUG(1234):     #00 pc 00001234 "
+            + " /data/app/com.facebook.app/lib/arm64/libnative.so (readInt+42)\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue(
+        "Should detect SIGBUS alignment issue",
+        errorOutput.contains("SIGBUS signal detected (bus error)"));
+    assertTrue("Should include alignment info", errorOutput.contains("invalid address alignment"));
+    assertTrue("Should include odd address", errorOutput.contains("0x12345679"));
+  }
+
+  @Test
+  public void testAllSignalTypesTogether() {
+    String logcatOutput =
+        "F/libc(12345): Fatal signal 6 (SIGABRT), code -6 in tid 12345\n"
+            + "I/SomeLog(99999): Some normal log\n"
+            + "F/libc(67890): Fatal signal 11 (SIGSEGV), code 1 in tid 67890\n"
+            + "I/MoreLog(11111): More log\n"
+            + "F/libc(33344): Fatal signal 4 (SIGILL), code 1 in tid 33344\n"
+            + "I/EvenMoreLog(22222): Even more log\n"
+            + "F/libc(55566): Fatal signal 8 (SIGFPE), code 1 in tid 55566\n"
+            + "I/MoreLog2(33333): More log 2\n"
+            + "F/libc(77788): Fatal signal 7 (SIGBUS), code 1 in tid 77788\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertTrue("Should detect SIGABRT signal", errorOutput.contains("SIGABRT signal detected"));
+    assertTrue(
+        "Should detect SIGSEGV signal",
+        errorOutput.contains("SIGSEGV signal detected (native crash)"));
+    assertTrue(
+        "Should detect SIGILL signal",
+        errorOutput.contains("SIGILL signal detected (illegal instruction)"));
+    assertTrue(
+        "Should detect SIGFPE signal",
+        errorOutput.contains("SIGFPE signal detected (floating point exception)"));
+    assertTrue(
+        "Should detect SIGBUS signal", errorOutput.contains("SIGBUS signal detected (bus error)"));
+  }
 }
