@@ -68,12 +68,16 @@ use dupe::Dupe;
 
 use crate::check_user_allowed::check_user_allowed;
 use crate::process_context::ProcessContext;
+#[cfg(target_os = "windows")]
+use crate::windows::windows_cpu_group_workaround;
 
 mod check_user_allowed;
 mod cli_style;
 pub(crate) mod commands;
 pub mod panic;
 pub mod process_context;
+#[cfg(target_os = "windows")]
+pub mod windows;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned())
@@ -192,6 +196,15 @@ impl Opt {
 }
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
+    #[cfg(target_os = "windows")]
+    {
+        process.shared.windows_cpu_group_workaround.call_once(|| {
+            process.shared.windows_cpu_group_workaround_result = windows_cpu_group_workaround()
+                .buck_error_context("Failed to perform CPU group workaround for windows");
+        });
+        process.shared.windows_cpu_group_workaround_result.dupe()?;
+    }
+
     let cwd = process.shared.working_dir.clone();
     let mut immediate_config = ImmediateConfigContext::new(&cwd);
     let arg0_override = buck2_env!("BUCK2_ARG0")?;

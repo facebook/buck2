@@ -23,6 +23,12 @@ rust_library(
                 "fbsource//third-party/rust:nix",
             ],
         ),
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:windows",
+            ],
+        ),
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

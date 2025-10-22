@@ -33,6 +33,7 @@ rust_library(
             "windows",
             [
                 "fbsource//third-party/rust:winapi",
+                "fbsource//third-party/rust:windows",
             ],
         ),
     ],

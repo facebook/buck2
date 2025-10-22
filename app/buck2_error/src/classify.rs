@@ -284,6 +284,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::InvalidErrorReport => rank!(tier0),
 
         ErrorTag::WindowsUnsupported => rank!(tier0),
+        ErrorTag::WindowsResult => rank!(tier0),
 
         ErrorTag::LocalResourceSetup => rank!(tier0),
         ErrorTag::TestOrchestrator => rank!(tier0),
