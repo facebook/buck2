@@ -15,6 +15,7 @@ load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//cxx:groups_types.bzl",
     "Group",
@@ -338,6 +339,7 @@ def _compute_cxx_executable_info(
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         error_handler = python_toolchain.python_error_handler,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
     )
 
     return cxx_executable(ctx, impl_params)

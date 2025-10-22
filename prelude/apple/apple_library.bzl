@@ -42,6 +42,7 @@ load(
     "AsmExtensions",
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library.bzl",
     "CxxLibraryOutput",  # @unused Used as a type
@@ -69,6 +70,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
 load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
@@ -542,6 +544,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         index_stores = [swift_compile.index_store] if swift_compile else None,
         extra_transitive_diagnostics = [swift_compile.typecheck_file] if swift_compile else [],
         extra_diagnostics = {"swift": swift_compile.typecheck_file} if swift_compile else None,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:

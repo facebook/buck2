@@ -231,6 +231,8 @@ CxxRuleConstructorParams = record(
     # and the last parameter a list of matching dictionaries representing all the opt outputs
     # to be merged to bind the final outputs.
     extra_distributed_thin_lto_opt_outputs_merger = field(typing.Callable | None, None),
+    # Whether to allow cache uploads for locally-executed actions (except for linking, see "exe_allow_cache_upload").
+    allow_cache_upload = field(bool, False),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.

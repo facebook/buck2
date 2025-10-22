@@ -28,7 +28,6 @@ load(
     "cuda_compile",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARG_SUBSTITUTIONS",
@@ -1006,7 +1005,7 @@ def precompile_cxx(
             headers_dep_files = None,
             compiler_type = compiler_info.compiler_type,
             category = "cxx_modules_precompile",
-            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
+            allow_cache_upload = impl_params.allow_cache_upload,
             allow_content_based_paths = True,  # Unused: we always use content-based paths for precompile
         )
 
@@ -1327,7 +1326,7 @@ def _mk_argsfiles(
 
         if is_precompile:
             filtered_info_argsfile = ctx.actions.anon_target(_filter_precompile_argsfile_anon_rule, {
-                "allow_cache_upload": cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
+                "allow_cache_upload": impl_params.allow_cache_upload,
                 "src": compiler_info_argsfile,
                 # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
                 # AppleToolchain for C++20 modules. Update this if that changes.
@@ -1622,7 +1621,6 @@ def _generate_base_compile_command(
         uses_experimental_content_based_path_hashing = True,
     )
 
-    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     allow_content_based_paths = bool(compiler_info.supports_content_based_paths and getattr(ctx.attrs, "use_content_based_paths", False))
     return CxxCompileCommand(
         base_compile_cmd = base_compile_cmd,
@@ -1632,7 +1630,7 @@ def _generate_base_compile_command(
         headers_dep_files = headers_dep_files,
         compiler_type = compiler_info.compiler_type,
         category = category,
-        allow_cache_upload = allow_cache_upload,
+        allow_cache_upload = impl_params.allow_cache_upload,
         allow_content_based_paths = allow_content_based_paths,
     )
 

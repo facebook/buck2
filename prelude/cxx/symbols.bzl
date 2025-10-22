@@ -12,7 +12,6 @@ load(
     "CxxToolchainInfo",
     "LinkerType",
 )
-load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _extract_symbol_names(
@@ -167,7 +166,7 @@ def _anon_extract_symbol_names_impl(ctx):
         prefer_local = ctx.attrs.prefer_local,
         undefined_only = ctx.attrs.undefined_only,
         undefined_weak = ctx.attrs.undefined_weak,
-        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
     return [DefaultInfo(), _SymbolsInfo(artifact = output)]
 
