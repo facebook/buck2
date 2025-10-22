@@ -11,7 +11,9 @@
 use buck2_data::ActionSubError;
 
 pub(super) trait ActionSubErrorDisplay {
+    #[allow(dead_code)]
     fn display(&self) -> Option<String>;
+    fn has_location_info(&self) -> bool;
 }
 
 impl ActionSubErrorDisplay for ActionSubError {
@@ -61,6 +63,14 @@ impl ActionSubErrorDisplay for ActionSubError {
         }
 
         Some(res)
+    }
+
+    fn has_location_info(&self) -> bool {
+        self.file.is_some()
+            || self.lnum.is_some()
+            || self.col.is_some()
+            || self.end_lnum.is_some()
+            || self.end_col.is_some()
     }
 }
 

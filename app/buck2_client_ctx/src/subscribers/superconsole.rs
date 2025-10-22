@@ -645,15 +645,16 @@ impl StatefulSuperConsoleImpl {
                     let sub_errors = &sub_errors.sub_errors;
                     if !sub_errors.is_empty() {
                         for sub_error in sub_errors {
-                            if let Some(message) = sub_error.display() {
-                                let mut color = Color::Red;
-                                if let Some(ref t) = sub_error.error_type
-                                    && matches!(t.to_lowercase().as_str(), "w" | "warning" | "warn")
-                                {
-                                    color = Color::DarkYellow;
-                                }
+                            // Display only sub-errors with messages but no location information.
+                            // Errors with location info are filtered out due to user feedback about console noise.
+                            // TODO(nero): Improve presentation of errors with location info; may require redesigning Buck's diagnostic output
+                            if let Some(msg) = &sub_error.message
+                                && !msg.is_empty()
+                                && !sub_error.has_location_info()
+                            {
                                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                                    message.with(color).bold(),
+                                    format!("[{}] {}", sub_error.category, msg)
+                                        .with(Color::DarkCyan),
                                 )]));
                             }
                         }
