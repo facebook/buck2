@@ -13,7 +13,7 @@ buck_kotlin_library(
     ]),
     labels = ["codegen_rule"],  # see: https://fburl.com/workplace/fhud6fe6
     visibility = [
-        "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/cd/logger/...",
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/kotlin/cd/logger/...",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/...",
         "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin/cd/analytics/...",
     ],

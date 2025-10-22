@@ -12,7 +12,7 @@ buck_java_library(
         "KotlinCDCommand.java",
     ],
     runtime_deps = [
-        "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",
     ] if is_full_meta_repo() else [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop",
     ],
