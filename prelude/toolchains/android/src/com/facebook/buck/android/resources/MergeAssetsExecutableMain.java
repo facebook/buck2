@@ -56,6 +56,11 @@ public class MergeAssetsExecutableMain {
       usage = "list of asset extensions that should not be compressed")
   private List<String> extraNoCompressAssetExtensions = new ArrayList<>();
 
+  @Option(
+      name = "--extra_no_compress_asset_regex",
+      usage = "regex pattern to match asset paths that should not be compressed")
+  private String extraNoCompressRegex = null;
+
   @Option(name = "--binary-type", usage = "either 'apk' or 'aab'")
   private String binaryType;
 
@@ -97,7 +102,7 @@ public class MergeAssetsExecutableMain {
         AbsPath.of(Paths.get(".").normalize().toAbsolutePath()),
         dirs,
         ImmutableSet.copyOf(extraNoCompressAssetExtensions),
-        Optional.empty(),
+        Optional.ofNullable(extraNoCompressRegex),
         MergeAssetsUtils.BinaryType.valueOf(binaryType.toUpperCase()));
 
     if (outputApkHash != null) {

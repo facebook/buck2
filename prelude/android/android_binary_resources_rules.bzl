@@ -585,6 +585,10 @@ def _merge_assets(
             merge_assets_cmd.add("--extra-no-compress-asset-extensions")
             merge_assets_cmd.add(ctx.attrs.extra_no_compress_asset_extensions)
 
+        if getattr(ctx.attrs, "extra_no_compress_asset_regex", None):
+            merge_assets_cmd.add("--extra_no_compress_asset_regex")
+            merge_assets_cmd.add(ctx.attrs.extra_no_compress_asset_regex)
+
         if is_exopackaged_enabled_for_resources:
             merged_assets_output_hash = ctx.actions.declare_output("merged_assets.ap_.hash")
             merge_assets_cmd.add(["--output-apk-hash", merged_assets_output_hash.as_output()])
