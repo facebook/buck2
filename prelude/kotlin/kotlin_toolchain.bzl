@@ -12,7 +12,6 @@ KotlinToolchainInfo = provider(
     doc = "Kotlin toolchain info",
     fields = {
         "allow_experimental_content_based_path_hashing": provider_field(bool, default = False),
-        "allow_k2_usage": provider_field(typing.Any, default = None),
         "annotation_processing_jar": provider_field(typing.Any, default = None),
         "class_loader_bootstrapper": provider_field(typing.Any, default = None),
         "compile_kotlin": provider_field(typing.Any, default = None),

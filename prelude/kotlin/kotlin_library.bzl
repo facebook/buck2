@@ -303,7 +303,7 @@ def get_language_version(ctx: AnalysisContext) -> str:
         if "-language-version" in str(arg):
             current_language_version = str(arg).split("=")[1].strip(' "')
 
-    if ctx.attrs.k2 != False and kotlin_toolchain.allow_k2_usage:
+    if ctx.attrs.k2 != False:
         if not current_language_version or current_language_version < "2.0":
             if current_kotlin_release_version < "2.0":
                 current_language_version = "2.0"

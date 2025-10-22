@@ -58,7 +58,6 @@ def _kotlin_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         KotlinToolchainInfo(
-            allow_k2_usage = ctx.attrs.allow_k2_usage,
             annotation_processing_jar = ctx.attrs.annotation_processing_jar,
             class_loader_bootstrapper = ctx.attrs.class_loader_bootstrapper,
             compile_kotlin = ctx.attrs.compile_kotlin,
@@ -93,7 +92,6 @@ def _kotlin_toolchain_rule_impl(ctx):
 
 _kotlin_toolchain_rule = rule(
     attrs = {
-        "allow_k2_usage": attrs.option(attrs.bool(), default = None),
         "annotation_processing_jar": attrs.dep(),
         "class_loader_bootstrapper": attrs.option(attrs.source(), default = None),
         "compile_kotlin": attrs.dep(providers = [RunInfo]),
