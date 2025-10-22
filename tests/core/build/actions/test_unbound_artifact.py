@@ -25,6 +25,14 @@ async def test_unbound_artifact(buck: Buck) -> None:
 
 @buck_test()
 async def test_unbound_artifact_inside_tset(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("root//:action_with_unbound_artifact_inside_tset"),
+        stderr_regex="Declared artifact `out` is not bound",
+    )
+
+
+@buck_test(allow_soft_errors=True)
+async def test_unbound_artifact_inside_tset_no_soft_error(buck: Buck) -> None:
     # TODO(ianc): this should fail with an error message.
     try:
         async with asyncio.timeout(10):
