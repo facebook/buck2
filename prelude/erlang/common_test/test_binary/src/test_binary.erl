@@ -25,7 +25,12 @@ cli() ->
     #{
         handler => fun handle_list_and_run/1,
         arguments => [
-            #{name => test_info_file, long => "-test-info-file", type => string, required => true},
+            #{
+                name => test_info_file,
+                long => "-test-info-file",
+                type => string,
+                required => true
+            },
             #{
                 name => edb_code,
                 long => "-edb-code",
@@ -52,36 +57,48 @@ cli() ->
         }
     }.
 
--spec handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir}) -> ok when
-    TestInfoFile :: file:filename(),
-    OutputDir :: file:filename().
-handle_list(#{test_info_file := TestInfoFile, output_dir := OutputDir}) ->
+-type list_args() :: #{
+    test_info_file := file:filename(),
+    output_dir := file:filename()
+}.
+
+-type run_args() :: #{
+    test_info_file := file:filename(),
+    output_dir := file:filename(),
+    tests := [string()],
+    edb_code := string() | none
+}.
+
+-type list_and_run_args() :: #{
+    test_info_file := file:filename(),
+    edb_code := string() | none
+}.
+
+-spec handle_list(Args) -> ok when
+    Args :: list_args().
+handle_list(Args) ->
+    #{output_dir := OutputDir} = Args,
     test_logger:set_up_logger(OutputDir, test_listing),
-    ok = listing(TestInfoFile, OutputDir),
+    ok = listing(Args),
     ?LOG_DEBUG("Listing done"),
     ok.
 
--spec handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests, edb_code := EdbCode}) ->
-    ok
-when
-    TestInfoFile :: file:filename(),
-    OutputDir :: file:filename(),
-    Tests :: [string()],
-    EdbCode :: string() | none.
-handle_run(#{test_info_file := TestInfoFile, output_dir := OutputDir, tests := Tests, edb_code := EdbCode}) ->
+-spec handle_run(Args) -> ok when
+    Args :: run_args().
+handle_run(Args) ->
+    #{output_dir := OutputDir} = Args,
     test_logger:set_up_logger(OutputDir, test_runner),
-    ok = running(TestInfoFile, OutputDir, Tests, EdbCode),
+    ok = running(Args),
     ?LOG_DEBUG("Running done"),
     ok.
 
--spec handle_list_and_run(#{test_info_file := TestInfoFile, edb_code := EdbCode}) -> ok | {exit_code, 1} when
-    TestInfoFile :: file:filename_all(),
-    EdbCode :: string() | none.
-handle_list_and_run(#{test_info_file := TestInfoFile, edb_code := EdbCode}) ->
+-spec handle_list_and_run(Args) -> ok | {exit_code, 1} when
+    Args :: list_and_run_args().
+handle_list_and_run(Args) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
     test_logger:set_up_logger(OutputDir, test_runner, true),
-    case list_and_run(TestInfoFile, OutputDir, EdbCode) of
+    case list_and_run(Args, OutputDir) of
         true ->
             io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
                 OutputDir
@@ -125,20 +142,23 @@ get_hooks(TestInfo) ->
      || HookSpec <- Hooks
     ].
 
--spec listing(TestInfoFile, OutputDir) -> ok when
-    TestInfoFile :: file:filename_all(),
-    OutputDir :: file:filename_all().
-listing(TestInfoFile, OutputDir) ->
+-spec listing(Args) -> ok when
+    Args :: list_args().
+listing(Args) ->
+    #{test_info_file := TestInfoFile, output_dir := OutputDir} = Args,
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
     listing_interfacer:produce_xml_file(OutputDir, Listing).
 
--spec running(TestInfoFile, OutputDir, Tests, EdbCode) -> ok when
-    TestInfoFile :: file:filename_all(),
-    OutputDir :: file:filename_all(),
-    Tests :: [string()],
-    EdbCode :: string() | none.
-running(TestInfoFile, OutputDir, Tests, EdbCode) ->
+-spec running(Args) -> ok when
+    Args :: run_args().
+running(Args) ->
+    #{
+        test_info_file := TestInfoFile,
+        output_dir := OutputDir,
+        tests := Tests,
+        edb_code := EdbCode
+    } = Args,
     AbsOutputDir = filename:absname(OutputDir),
     TestInfo0 = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo0, AbsOutputDir),
@@ -174,16 +194,16 @@ get_listing(TestInfo, OutputDir) ->
 
 %% rudimantary implementation for running tests with buck2 open-sourced test runner
 
--spec list_and_run(TestInfoFile, OutputDir, EdbCode) -> boolean() when
-    TestInfoFile :: file:filename_all(),
-    OutputDir :: file:filename_all(),
-    EdbCode :: string() | none.
-list_and_run(TestInfoFile, OutputDir, EdbCode) ->
+-spec list_and_run(Args, OutputDir) -> boolean() when
+    Args :: list_and_run_args(),
+    OutputDir :: file:filename().
+list_and_run(Args, OutputDir) ->
     os:putenv("ERLANG_BUCK_DEBUG_PRINT", "disabled"),
+    #{test_info_file := TestInfoFile} = Args,
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
     Tests = listing_to_testnames(Listing),
-    running(TestInfoFile, OutputDir, Tests, EdbCode),
+    running(Args#{output_dir => OutputDir, tests => Tests}),
     ResultsFile = filename:join(OutputDir, "result_exec.json"),
     print_results(ResultsFile).
 
