@@ -250,13 +250,6 @@ def cxx_link_into(
     else:
         bitcode_artifact = None
 
-    external_debug_info = link_external_debug_info(
-        ctx = ctx,
-        links = opts.links,
-        split_debug_output = split_debug_output,
-        pdb = link_args_output.pdb_artifact,
-    )
-
     all_link_args.add(link_cmd_parts.post_linker_flags)
 
     if linker_info.type == LinkerType("windows"):
@@ -277,10 +270,14 @@ def cxx_link_into(
         cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and
         cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
     ):
-        external_debug_artifacts = project_artifacts(ctx.actions, [external_debug_info])
+        links_to_rewrite = make_artifact_tset(
+            ctx.actions,
+            ctx.label,
+            children = [unpack_external_debug_info(ctx.actions, link) for link in opts.links],
+        )
         separate_debug_info_path_file, _ = ctx.actions.write(
             output.short_path + ".split_debug_paths",
-            external_debug_artifacts,
+            project_artifacts(ctx.actions, [links_to_rewrite]),
             allow_args = True,
         )
         separate_debug_info_args = cmd_args(
@@ -338,6 +335,14 @@ def cxx_link_into(
         allow_cache_upload = opts.allow_cache_upload or enable_late_build_info_stamping,
         error_handler = opts.error_handler,
     )
+
+    external_debug_info = link_external_debug_info(
+        ctx = ctx,
+        links = opts.links,
+        split_debug_output = split_debug_output,
+        pdb = link_args_output.pdb_artifact,
+    )
+
     unstripped_output = output
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
