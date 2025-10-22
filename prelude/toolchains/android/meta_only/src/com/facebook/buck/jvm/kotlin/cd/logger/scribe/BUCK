@@ -8,12 +8,9 @@ source_listing()
 buck_kotlin_library(
     name = "scribe",
     srcs = glob([
-        "*.kt",
+        "**/*.kt",
+        "**/*.java",
     ]),
-    compatible_with = [
-        "ovr_config//os:linux",
-        "ovr_config//os:macos",
-    ],
     labels = ["codegen_rule"],  # see: https://fburl.com/workplace/fhud6fe6
     resources = glob(["resources/**/*"]),
     resources_root = "resources",
@@ -22,8 +19,7 @@ buck_kotlin_library(
         "fbsource//third-party/java/org/slf4j/slf4j-nop:slf4j-nop",
     ],
     deps = [
-        "fbcode//dsi/logger/log_entry/KotlinCDLoggerConfig:kotlin_c_d_log_entry-java-swift-java17",
-        "fbcode//scribe/api/producer/thrift/experimental:structured_producer-java-swift-java17",
+        "fbsource//third-party/java/org/apache/thrift/libthrift:libthrift",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger:logger",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/model:model",
     ],

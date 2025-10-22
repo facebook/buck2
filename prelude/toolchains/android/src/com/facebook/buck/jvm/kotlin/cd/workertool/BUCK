@@ -11,16 +11,11 @@ buck_java_library(
     srcs = [
         "KotlinCDCommand.java",
     ],
-    runtime_deps = select({
-        "DEFAULT": [
-            "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",
-        ] if is_full_meta_repo() else [
-            "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop",
-        ],
-        "config//os/constraints:windows": [
-            "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop",
-        ],
-    }),
+    runtime_deps = [
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",
+    ] if is_full_meta_repo() else [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop",
+    ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:kotlincd-model",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
