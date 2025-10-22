@@ -19,11 +19,25 @@
 
 load("@prelude//python:typing.bzl", "DEFAULT_PY_VERSION")
 
+_MODULE_SUFFIXES = set([
+    ".dll",
+    ".py",
+    ".pyi",
+    ".pyd",
+    ".so",
+])
+
 def _append_to_or_set_list(mapping: dict[str, list[typing.Any]], key: str, value: typing.Any) -> None:
     if key in mapping:
         mapping[key].append(value)
     else:
         mapping[key] = [value]
+
+def _append_or_default_if_module(srcs: dict[str, list[typing.Any]], module: str, path: typing.Any) -> None:
+    for suffix in _MODULE_SUFFIXES:
+        if path.endswith(suffix):
+            _append_to_or_set_list(srcs, module, path)
+            return
 
 # Produce a list of all the targets that I care about.
 # This should be everything reachable from the command line arguments.
@@ -40,7 +54,7 @@ def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
 
 def _clean_module(base_module: str, module: str) -> str:
     base_module = base_module.removesuffix("/").replace("/", ".")
-    module = module.replace("/", ".").removesuffix(".py").removesuffix("__init__").removesuffix(".")
+    module = module.replace("/", ".").removesuffix(".pyi").removesuffix(".py").removesuffix("__init__").removesuffix(".")
     sep = ""
     if len(base_module) != 0 and len(module) != 0:
         sep = "."
@@ -111,7 +125,7 @@ def _main(ctx: bxl.Context) -> None:
         if type(attr_srcs) == type([]):
             for v in attr_srcs:
                 if getattr(v, "is_source", False):
-                    _append_to_or_set_list(
+                    _append_or_default_if_module(
                         srcs,
                         _clean_module(base_module, v.short_path),
                         fs.project_rel_path(v),
@@ -122,7 +136,7 @@ def _main(ctx: bxl.Context) -> None:
         elif type(attr_srcs) == type({}):
             for k, v in attr_srcs.items():
                 if getattr(v, "is_source", False):
-                    _append_to_or_set_list(
+                    _append_or_default_if_module(
                         srcs,
                         _clean_module(base_module, k),
                         fs.project_rel_path(v),
@@ -135,7 +149,7 @@ def _main(ctx: bxl.Context) -> None:
         built = ctx.build(to_build)
         ensured = ctx.output.ensure_multiple(built)
         for srcs, key, target in to_insert:
-            _append_to_or_set_list(srcs, key, ensured[target][0].rel_path())
+            _append_or_default_if_module(srcs, key, ensured[target][0].rel_path())
 
     ctx.output.print_json(json)
 
