@@ -1,0 +1,42 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("pyre")
+
+source_listing()
+
+python_library(
+    name = "main",
+    srcs = ["main.py"],
+    deps = [":lib"],
+)
+
+python_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    deps = [
+        ":alias",
+        ":subdir",
+    ],
+)
+
+python_library(
+    name = "subdir",
+    srcs = [
+        "subdir/__init__.py",
+        "subdir/__init__.pyi",
+        "subdir/util.py",
+        "subdir/util.pyi",
+    ],
+)
+
+alias(
+    name = "alias",
+    actual = ":alias_lib",
+)
+
+python_library(
+    name = "alias_lib",
+    srcs = ["alias.py"],
+    # @lint-ignore BUCKLINT tests Python type checking sourcedb functionality with base_module
+    base_module = "",
+)
