@@ -53,9 +53,11 @@ def run_bxl_and_merge_index(
     subtarget_arg = f" --subtarget {subtarget}" if subtarget else ""
     if configs:
         config_flags = " ".join([f"-c {config}" for config in configs])
-        command = f"buck2 --isolation-dir bxl_build_index bxl {config_flags} {BXL} -- --target {targets_str}{subtarget_arg}"
+        command = (
+            f"buck2 bxl {config_flags} {BXL} -- --target {targets_str}{subtarget_arg}"
+        )
     else:
-        command = f"buck2 --isolation-dir bxl_build_index bxl {BXL} -- --target {targets_str}{subtarget_arg}"
+        command = f"buck2 bxl {BXL} -- --target {targets_str}{subtarget_arg}"
     process = subprocess.Popen(
         command,
         shell=True,
