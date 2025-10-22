@@ -166,6 +166,7 @@ struct InterpreterLoadResolver {
     config: Arc<InterpreterForDir>,
     loader_file_type: StarlarkFileType,
     build_file_cell: BuildFileCell,
+    cell_segmentation: bool,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -259,11 +260,19 @@ impl LoadResolver for InterpreterLoadResolver {
         }
         if path.path().extension() == Some("json") {
             Ok(OwnedStarlarkModulePath::JsonFile(
-                ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
+                ImportPath::new_with_build_file_cells(
+                    path,
+                    self.build_file_cell,
+                    self.cell_segmentation,
+                )?,
             ))
         } else {
             Ok(OwnedStarlarkModulePath::LoadFile(
-                ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
+                ImportPath::new_with_build_file_cells(
+                    path,
+                    self.build_file_cell,
+                    self.cell_segmentation,
+                )?,
             ))
         }
     }
@@ -402,6 +411,7 @@ impl InterpreterForDir {
             config: self.dupe(),
             loader_file_type: current_file_path.file_type(),
             build_file_cell: current_file_path.build_file_cell(),
+            cell_segmentation: self.implicit_import_paths.cell_segmentation,
         }
     }
 
