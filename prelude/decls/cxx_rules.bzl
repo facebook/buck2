@@ -477,6 +477,7 @@ library_attrs = (
     native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
     native_common.soname() |
     cxx_common.raw_headers_arg() |
+    cxx_common.supports_stripping() |
     cxx_common.raw_headers_as_headers_mode_arg() |
     cxx_common.include_directories_arg() |
     cxx_common.public_include_directories_arg() |

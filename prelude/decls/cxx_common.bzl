@@ -410,6 +410,13 @@ def _raw_headers_arg():
 """),
     }
 
+def _supports_stripping():
+    return {
+        "supports_stripping": attrs.bool(default = True, doc = """
+    Whether this rule supports stripping outputs via `strip` command for exporting.
+"""),
+    }
+
 def _raw_headers_as_headers_mode_arg():
     return {
         "raw_headers_as_headers_mode": attrs.option(attrs.enum(RawHeadersAsHeadersMode), default = None, doc = """
@@ -522,4 +529,5 @@ cxx_common = struct(
     runtime_dependency_handling_arg = _runtime_dependency_handling_arg,
     use_fbcc_rust_wrapper_arg = _use_fbcc_rust_wrapper_arg,
     use_content_based_paths_arg = _use_content_based_paths_arg,
+    supports_stripping = _supports_stripping,
 )

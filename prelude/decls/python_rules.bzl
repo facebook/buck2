@@ -231,6 +231,7 @@ cxx_python_extension = prelude_rule(
         cxx_common.linker_flags_arg() |
         cxx_common.local_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
+        cxx_common.supports_stripping() |
         third_party_common.create_third_party_build_root_attrs() |
         {
             "contacts": attrs.list(attrs.string(), default = []),

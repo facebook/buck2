@@ -1645,6 +1645,10 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
        cxx_toolchain_info.binary_utilities_info.strip == None:
         return objects
 
+    # Disable stripping if library opted out from it
+    if not getattr(ctx.attrs, "supports_stripping", True):
+        return objects
+
     outs = []
 
     for obj in objects:
