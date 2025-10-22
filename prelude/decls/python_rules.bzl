@@ -97,7 +97,6 @@ def _python_executable_attrs():
         "runtime_bundle": attrs.option(attrs.dep(providers = [PythonRuntimeBundleInfo]), default = None),
         "runtime_bundle_full": attrs.bool(default = False),
         "runtime_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
-        "safer_lazy_imports": attrs.bool(default = False),  # TODO(T240038931) When enabling lazy imports by default, remove this line
         "standalone_build_args": attrs.list(attrs.arg(), default = []),
         "static_extension_finder": attrs.source(default = "prelude//python/tools:static_extension_finder.py"),
         "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
@@ -123,6 +122,7 @@ def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs["_test_main"] = attrs.source(default = "prelude//python/tools:__test_main__.py")
     test_attrs["implicit_test_library"] = attrs.option(attrs.dep(providers = [PythonLibraryInfo]), default = None)
+    test_attrs["safer_lazy_imports"] = attrs.bool(default = False)  # TODO(T240038931) When enabling lazy imports by default, remove this line
     test_attrs.update(re_test_common.test_args())
     return test_attrs
 
