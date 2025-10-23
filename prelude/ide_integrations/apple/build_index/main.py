@@ -85,9 +85,10 @@ def run_bxl_and_merge_index(
     return_code = process.wait()
 
     if return_code != 0:
-        error_output = process.stderr.read()
+        error_output = process.stderr.read() if process.stderr else ""
         print(f"\033[91mError: {error_output}\033[0m")
-        process.stderr.close()
+        if process.stderr:
+            process.stderr.close()
         raise SystemExit(1)
 
 
