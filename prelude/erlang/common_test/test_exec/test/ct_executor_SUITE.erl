@@ -5,6 +5,7 @@
 %% of this source tree.
 %%% % @format
 -module(ct_executor_SUITE).
+-typing([eqwalizer]).
 
 -include_lib("stdlib/include/assert.hrl").
 
