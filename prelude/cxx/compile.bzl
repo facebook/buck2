@@ -47,7 +47,7 @@ load(
     "get_headers_dep_files_flags_factory",
     "get_output_flags",
 )
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
 load(":cxx_types.bzl", "CxxRuleConstructorParams")
@@ -1303,6 +1303,7 @@ def _mk_argsfiles(
     # TODO(michaelpo): Create local variables to keep refactoring within this function.
     actions = ctx.actions
     target_label = ctx.label
+    cxx_platform_info = get_cxx_platform_info(ctx)
 
     def mk_argsfile(filename: str, args, use_dep_files_placeholder_for_content_based_paths: bool = False) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
@@ -1417,14 +1418,14 @@ def _mk_argsfiles(
             # preprocessor
             impl_params.preprocessor_flags,
             cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
-            cxx_by_platform(ctx, impl_params.platform_preprocessor_flags),
-            cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext.value)),
+            cxx_by_platform(cxx_platform_info, impl_params.platform_preprocessor_flags),
+            cxx_by_platform(cxx_platform_info, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext.value)),
             get_flags_for_compiler_type(compiler_info.compiler_type),
 
             # compiler
             cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
-            cxx_by_platform(ctx, impl_params.platform_compiler_flags),
-            cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext.value)),
+            cxx_by_platform(cxx_platform_info, impl_params.platform_compiler_flags),
+            cxx_by_platform(cxx_platform_info, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext.value)),
 
             # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
             # flags ordering-dependent build errors

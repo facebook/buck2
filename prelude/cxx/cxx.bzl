@@ -93,7 +93,7 @@ load(
     "filter_and_map_idx",
     "value_or",
 )
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
 load(
     ":cxx_library.bzl",
@@ -377,8 +377,9 @@ def _prebuilt_item(
     if item != None:
         return item
 
+    cxx_platform_info = get_cxx_platform_info(ctx)
     if platform_items != None:
-        items = dedupe(cxx_by_platform(ctx, platform_items))
+        items = dedupe(cxx_by_platform(cxx_platform_info, platform_items))
         if len(items) == 0:
             return None
         if len(items) != 1:

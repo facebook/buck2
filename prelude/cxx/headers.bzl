@@ -12,6 +12,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerType")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
+load(":cxx_context.bzl", "get_cxx_platform_info")
 load(":platform.bzl", "cxx_by_platform")
 
 # Defines the varying bits of implementation affecting on how the end user
@@ -197,7 +198,8 @@ def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming) 
 
 def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> typing.Any:
     res = {}
-    for deps in cxx_by_platform(ctx, xs):
+    cxx_platform_info = get_cxx_platform_info(ctx)
+    for deps in cxx_by_platform(cxx_platform_info, xs):
         res.update(from_named_set(deps))
     return res
 

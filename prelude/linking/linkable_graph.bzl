@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:platform.bzl", "cxx_by_platform")
@@ -164,7 +165,8 @@ def _get_target_sources(ctx: AnalysisContext) -> list[_TargetSourceType]:
     if hasattr(ctx.attrs, "srcs"):
         srcs.extend(ctx.attrs.srcs)
     if hasattr(ctx.attrs, "platform_srcs"):
-        srcs.extend(flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs)))
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        srcs.extend(flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.platform_srcs)))
     return srcs
 
 def create_linkable_node(

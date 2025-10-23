@@ -6,11 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
-load(":cxx_context.bzl", "get_cxx_platform_info")
 
-def cxx_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> list[typing.Any]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
+def cxx_by_platform(cxx_platform_info: CxxPlatformInfo, xs: list[(str, typing.Any)]) -> list[typing.Any]:
     platform_flavors = [cxx_platform_info.name]
     if cxx_platform_info.deps_aliases:
         platform_flavors.extend(cxx_platform_info.deps_aliases)

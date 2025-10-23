@@ -42,23 +42,26 @@ OBJECTS_SUBTARGET = "objects"
 
 # The dependencies
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.deps +
-        flatten(cxx_by_platform(ctx, getattr(ctx.attrs, "platform_deps", []))) +
+        flatten(cxx_by_platform(cxx_platform_info, getattr(ctx.attrs, "platform_deps", []))) +
         (getattr(ctx.attrs, "deps_query", []) or [])
     )
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return getattr(ctx.attrs, "exported_deps", []) + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
+    cxx_platform_info = get_cxx_platform_info(ctx)
+    return getattr(ctx.attrs, "exported_deps", []) + flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_platform_deps))
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     flags = (
         cxx_attr_linker_flags(ctx) +
         (ctx.attrs.local_linker_script_flags if hasattr(ctx.attrs, "local_linker_script_flags") else [])
     )
     post_flags = (
         (ctx.attrs.post_linker_flags if hasattr(ctx.attrs, "post_linker_flags") else []) +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags)) if hasattr(ctx.attrs, "post_platform_linker_flags") else [])
+        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.post_platform_linker_flags)) if hasattr(ctx.attrs, "post_platform_linker_flags") else [])
     )
     exported_flags = cxx_attr_exported_linker_flags(ctx)
     exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
@@ -70,15 +73,17 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     )
 
 def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.exported_linker_flags +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags)) if hasattr(ctx.attrs, "exported_platform_linker_flags") else [])
+        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_platform_linker_flags)) if hasattr(ctx.attrs, "exported_platform_linker_flags") else [])
     )
 
 def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.exported_post_linker_flags +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags)) if hasattr(ctx.attrs, "exported_post_platform_linker_flags") else [])
+        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_post_platform_linker_flags)) if hasattr(ctx.attrs, "exported_post_platform_linker_flags") else [])
     )
 
 def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLinkInfo]:
@@ -93,9 +98,10 @@ def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLi
 
 # Linker flags
 def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.linker_flags +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
+        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
     )
 
 # Even though we're returning the shared library links, we must still
