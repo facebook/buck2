@@ -334,6 +334,7 @@ pub struct WorkerSpec {
     pub concurrency: Option<usize>,
     pub streaming: bool,
     pub remote_key: Option<TrackedFileDigest>,
+    pub input_paths: CommandExecutionPaths,
 }
 
 pub struct RemoteWorkerSpec {

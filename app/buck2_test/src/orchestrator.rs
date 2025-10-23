@@ -1423,6 +1423,7 @@ impl BuckTestOrchestrator<'_> {
                 fs: executor_fs,
                 cmd,
                 env,
+                digest_config: dice.global_data().get_digest_config(),
             };
 
             let inputs = expander.get_inputs()?;
@@ -1783,6 +1784,7 @@ struct Execute2RequestExpander<'a> {
     fs: &'a ExecutorFs<'a>,
     cmd: Cow<'a, [ArgValue]>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+    digest_config: DigestConfig,
 }
 
 fn make_visit_arg_artifacts<'v>(
@@ -1866,6 +1868,7 @@ impl<'a> Execute2RequestExpander<'a> {
             fs,
             cmd,
             env,
+            digest_config,
         } = self;
         let cli_args_for_interpolation = test_info
             .command()
@@ -1971,6 +1974,14 @@ impl<'a> Execute2RequestExpander<'a> {
                     concurrency: worker.concurrency(),
                     streaming: worker.streaming(),
                     remote_key: None,
+                    // TODO(ianc): Support input_paths on test workers
+                    input_paths: CommandExecutionPaths::new(
+                        vec![],
+                        indexset![],
+                        fs.fs(),
+                        digest_config,
+                        None,
+                    )?,
                 })
             }
             _ => None,
