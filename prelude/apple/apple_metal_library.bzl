@@ -47,11 +47,61 @@ def apple_metal_library_impl(ctx: AnalysisContext) -> list[Provider]:
         xcode_data_info,
     ]
 
+# Versioning extracted from Metal spec https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
+_IOS_MIN_OS_TO_METAL_VERSION = {
+    "10": "1.2",
+    "11": "2.0",
+    "12": "2.1",
+    "13": "2.2",
+    "14": "2.3",
+    "15": "2.4",
+    "16": "3.0",
+    "17": "3.1",
+    "18": "3.2",
+    "26": "4.0",
+    "8": "1.0",
+    "9": "1.1",
+}
+
+_MACOS_MIN_OS_TO_METAL_VERSION = {
+    "10.11": "1.1",
+    "10.12": "1.2",
+    "10.13": "2.0",
+    "10.14": "2.1",
+    "10.15": "2.2",
+    "11": "2.3",
+    "12": "2.4",
+    "13": "3.0",
+    "14": "3.1",
+    "15": "3.2",
+    "26": "4.0",
+}
+
+def _derive_metal_version_from_min_os_version(ctx: AnalysisContext, min_os_version: str) -> str | None:
+    platform_info = get_cxx_platform_info(ctx)
+    version_components = min_os_version.split(".")
+    if "macosx" in platform_info.name:
+        major = version_components[0]
+        if major == "10":
+            minor = version_components[1] if len(version_components) > 1 else "0"
+            key = "{major}.{minor}".format(
+                major = major,
+                minor = minor,
+            )
+        else:
+            key = major
+        return _MACOS_MIN_OS_TO_METAL_VERSION.get(key)
+    if "iphone" in platform_info.name or "maccatalyst" in platform_info.name:
+        # Mac Catalyst uses iOS versioning numbers
+        return _IOS_MIN_OS_TO_METAL_VERSION.get(version_components[0])
+    return None
+
 # Reference: `-std=` section in https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
-def _compute_metal_std_compiler_arg(ctx: AnalysisContext) -> list[str]:
-    version = ctx.attrs.metal_version
+def _compute_metal_std_compiler_arg(ctx: AnalysisContext, min_os_version: str) -> list[str]:
+    version = ctx.attrs.metal_version or _derive_metal_version_from_min_os_version(ctx, min_os_version)
     if version == None:
         return []
+
     if "." not in version:
         version = version + ".0"
 
@@ -94,7 +144,7 @@ def _compile_apple_metal_library(ctx: AnalysisContext) -> Artifact:
     air_files = []
 
     min_os_version = get_min_deployment_version_for_node(ctx)
-    compile_std_arg = _compute_metal_std_compiler_arg(ctx)
+    compile_std_arg = _compute_metal_std_compiler_arg(ctx, min_os_version)
     for metal_file in ctx.attrs.srcs:
         air_output = ctx.actions.declare_output(paths.replace_extension(ctx.attrs.name + "_" + metal_file.basename, ".air"))
         air_compile_cmd = cmd_args(toolchain.metal)
