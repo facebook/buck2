@@ -8,12 +8,15 @@
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
-load(":types.bzl", "XPluginsSocketUsageInfo", "XPluginsUsageInfo")
+load(":types.bzl", "XPluginsPluginUsageInfo", "XPluginsSocketUsageInfo", "XPluginsUsageInfo")
 
 def get_xplugins_usage_info(ctx: AnalysisContext) -> XPluginsUsageInfo | None:
+    plugin_manifests = []
     socket_manifests = []
     usage_infos = []
     for d in cxx_attr_deps(ctx):
+        if XPluginsPluginUsageInfo in d:
+            plugin_manifests.append(d[XPluginsPluginUsageInfo].usage_info)
         if XPluginsSocketUsageInfo in d:
             socket_manifests.append(d[XPluginsSocketUsageInfo].usage_info)
         if XPluginsUsageInfo in d:
@@ -24,14 +27,22 @@ def get_xplugins_usage_info(ctx: AnalysisContext) -> XPluginsUsageInfo | None:
         if XPluginsUsageInfo in d:
             usage_infos.append(d[XPluginsUsageInfo])
 
-    if socket_manifests or usage_infos:
-        # Combine into a new tset
-        tset = make_artifact_tset(
+    if plugin_manifests or socket_manifests or usage_infos:
+        plugin_info_tset = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = plugin_manifests,
+            children = [u.plugin_info_tset for u in usage_infos],
+        )
+        socket_info_tset = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
             artifacts = socket_manifests,
             children = [u.socket_info_tset for u in usage_infos],
         )
-        return XPluginsUsageInfo(socket_info_tset = tset)
+        return XPluginsUsageInfo(
+            plugin_info_tset = plugin_info_tset,
+            socket_info_tset = socket_info_tset,
+        )
     else:
         return None

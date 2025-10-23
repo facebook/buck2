@@ -8,16 +8,17 @@
 
 load("@prelude//:artifact_tset.bzl", "ArtifactTSet")
 
-XPluginsSocketUsageInfo = provider(fields = {
-    "target": provider_field(Label),
-    "usage_info": provider_field(Artifact),
-})
-
 XPluginsPluginUsageInfo = provider(fields = {
     "target": provider_field(Label),
     "usage_info": provider_field(Artifact),
 })
 
+XPluginsSocketUsageInfo = provider(fields = {
+    "target": provider_field(Label),
+    "usage_info": provider_field(Artifact),
+})
+
 XPluginsUsageInfo = provider(fields = {
+    "plugin_info_tset": provider_field(ArtifactTSet),
     "socket_info_tset": provider_field(ArtifactTSet),
 })
