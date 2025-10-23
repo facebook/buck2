@@ -92,6 +92,7 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -442,6 +443,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     extra_apple_providers = []
     if not is_test_target:
         extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution_output)
+
+    # Propagate xplugins socket usage info
+    xplugins_usage_info = get_xplugins_usage_info(ctx)
+    if xplugins_usage_info:
+        extra_apple_providers.append(xplugins_usage_info)
 
     # Always provide a valid JSON object, so that tooling can depend on its existance
     modulemap_info_json = {"modulemap": exported_pre.modulemap_path} if (exported_pre and exported_pre.modulemap_path) else {}
