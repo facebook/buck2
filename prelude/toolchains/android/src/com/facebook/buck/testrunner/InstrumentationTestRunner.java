@@ -43,10 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -465,46 +461,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     if (this.instrumentationApkPath != null) {
       DdmPreferences.setTimeOut(60000);
+      installPackage(device, this.instrumentationApkPath);
       if (this.apkUnderTestPath != null) {
-        // Install both APKs in parallel to improve performance
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-          Future<Void> instrumentationFuture =
-              executor.submit(
-                  () -> {
-                    try {
-                      installPackage(device, this.instrumentationApkPath);
-                      return null;
-                    } catch (Throwable t) {
-                      throw new RuntimeException("Failed to install instrumentation APK", t);
-                    }
-                  });
-
-          Future<Void> apkUnderTestFuture =
-              executor.submit(
-                  () -> {
-                    try {
-                      installPackage(device, this.apkUnderTestPath);
-                      return null;
-                    } catch (Throwable t) {
-                      throw new RuntimeException("Failed to install APK under test", t);
-                    }
-                  });
-
-          // Wait for both installations to complete and handle any exceptions
-          try {
-            instrumentationFuture.get();
-            apkUnderTestFuture.get();
-          } catch (ExecutionException e) {
-            throw e.getCause();
-          }
-        } finally {
-          executor.shutdown();
-          executor.awaitTermination(60, TimeUnit.SECONDS);
-        }
-      } else {
-        // Single APK installation (no APK under test)
-        installPackage(device, this.instrumentationApkPath);
+        installPackage(device, this.apkUnderTestPath);
       }
     }
 
