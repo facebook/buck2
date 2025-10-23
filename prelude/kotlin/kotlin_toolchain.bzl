@@ -36,6 +36,7 @@ KotlinToolchainInfo = provider(
         "kotlincd_jvm_args": provider_field(typing.Any, default = None),
         "kotlincd_jvm_args_target": provider_field(typing.Any, default = None),
         "kotlincd_main_class": provider_field(typing.Any, default = None),
+        "kotlincd_remote_worker": provider_field(typing.Any, default = None),
         "kotlincd_worker": provider_field(typing.Any, default = None),
         "ksp2_enable_incremental_processing": provider_field(typing.Any, default = None),
         "semanticdb_kotlinc": provider_field(typing.Any, default = None),

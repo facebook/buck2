@@ -359,6 +359,7 @@ def prepare_cd_exe(
         compiler: Artifact,
         main_class: str,
         worker: WorkerInfo | None,
+        remote_worker: WorkerInfo | None,
         target_specified_debug_port: [int, None],
         toolchain_specified_debug_port: [int, None],
         toolchain_specified_debug_target: [Label, None],
@@ -431,6 +432,7 @@ def prepare_cd_exe(
             # Specifies the command to initialize a new worker process.
             # This is used for local execution if `build.use_persistent_workers=True`
             worker = worker,
+            remote_worker = remote_worker,
         )
         return worker_run_info, FORCE_PERSISTENT_WORKERS
 

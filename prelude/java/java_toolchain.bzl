@@ -51,6 +51,7 @@ JavaToolchainInfo = provider(
         "javacd_jvm_args": provider_field(typing.Any, default = None),
         "javacd_jvm_args_target": provider_field(typing.Any, default = None),
         "javacd_main_class": provider_field(typing.Any, default = None),
+        "javacd_remote_worker": provider_field(typing.Any, default = None),
         "javacd_worker": provider_field(typing.Any, default = None),
         "jlink": provider_field(typing.Any, default = None),
         "jmod": provider_field(typing.Any, default = None),

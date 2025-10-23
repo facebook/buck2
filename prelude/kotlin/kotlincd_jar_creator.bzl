@@ -467,6 +467,7 @@ def _define_kotlincd_action(
         compiler = compiler,
         main_class = kotlin_toolchain.kotlincd_main_class,
         worker = kotlin_toolchain.kotlincd_worker[WorkerInfo] if kotlin_toolchain.kotlincd_worker else None,
+        remote_worker = kotlin_toolchain.kotlincd_remote_worker[WorkerInfo] if kotlin_toolchain.kotlincd_remote_worker else None,
         target_specified_debug_port = debug_port,
         toolchain_specified_debug_port = kotlin_toolchain.kotlincd_debug_port,
         toolchain_specified_debug_target = kotlin_toolchain.kotlincd_debug_target,
