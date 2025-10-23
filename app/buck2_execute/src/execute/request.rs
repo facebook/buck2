@@ -337,6 +337,12 @@ pub struct WorkerSpec {
     pub input_paths: CommandExecutionPaths,
 }
 
+impl WorkerSpec {
+    pub fn inputs(&self) -> &[CommandExecutionInput] {
+        &self.input_paths.inputs
+    }
+}
+
 pub struct RemoteWorkerSpec {
     pub id: WorkerId,
     pub init: Vec<String>,

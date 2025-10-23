@@ -1192,7 +1192,13 @@ pub async fn materialize_inputs(
     let mut scratch = ScratchPath(None);
     let mut configuration_path_to_content_based_path_symlinks = vec![];
 
-    for input in request.inputs() {
+    for input in request.inputs().iter().chain(
+        request
+            .worker()
+            .as_ref()
+            .map(|w| w.inputs())
+            .unwrap_or_default(),
+    ) {
         match input {
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, artifact_value) in group.iter() {
