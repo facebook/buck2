@@ -542,6 +542,11 @@ impl RunAction {
                 &mut cli_ctx,
                 &artifact_path_mapping,
             )?;
+            worker.exe.add_to_command_line(
+                &mut command_line_digest_for_dep_files,
+                &mut cli_ctx,
+                &artifact_path_mapping_for_dep_files,
+            )?;
             worker.exe.visit_artifacts(artifact_visitor)?;
             let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
                 .env
@@ -555,6 +560,14 @@ impl RunAction {
                         &artifact_path_mapping,
                     )?;
                     v.visit_artifacts(artifact_visitor)?;
+
+                    command_line_digest_for_dep_files.push_arg(k.to_owned());
+                    v.add_to_command_line(
+                        &mut command_line_digest_for_dep_files,
+                        &mut ctx,
+                        &artifact_path_mapping_for_dep_files,
+                    )?;
+                    command_line_digest_for_dep_files.push_count();
                     Ok((k.to_owned(), env))
                 })
                 .collect();
@@ -604,6 +617,11 @@ impl RunAction {
                 &mut cli_ctx,
                 &artifact_path_mapping,
             )?;
+            remote_worker.exe.add_to_command_line(
+                &mut command_line_digest_for_dep_files,
+                &mut cli_ctx,
+                &artifact_path_mapping_for_dep_files,
+            )?;
             remote_worker
                 .exe
                 .visit_artifacts(&mut remote_worker_init_visitor)?;
@@ -620,6 +638,14 @@ impl RunAction {
                         &artifact_path_mapping,
                     )?;
                     v.visit_artifacts(&mut remote_worker_init_visitor)?;
+
+                    command_line_digest_for_dep_files.push_arg(k.to_owned());
+                    v.add_to_command_line(
+                        &mut command_line_digest_for_dep_files,
+                        &mut ctx,
+                        &artifact_path_mapping_for_dep_files,
+                    )?;
+                    command_line_digest_for_dep_files.push_count();
                     Ok((k.to_owned(), env))
                 })
                 .collect();
