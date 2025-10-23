@@ -124,16 +124,24 @@ fmt_skip(Reason) ->
 fmt_fail(Reason) ->
     fmt_stack(Reason, "FAILED").
 
+-spec fmt_init_or_end(Suite, Callback, Reason, Label) -> unicode:chardata() when
+    Suite :: ct_suite(),
+    Callback :: init_per_suite | end_per_suite | init_per_group | end_per_group | init_per_testcase | end_per_testcase,
+    Reason :: term(),
+    Label :: unicode:chardata().
+fmt_init_or_end(Suite, Callback, {failed, {Suite, Callback, ActualReason}}, Label) ->
+    fmt_init_or_end(Suite, Callback, ActualReason, Label);
+fmt_init_or_end(_Suite, Callback, Reason, Label) ->
+    fmt_stack(Reason, io_lib:format("~ts ~ts", [Callback, Label])).
+
 -spec fmt_stack(Reason, Label) -> unicode:chardata() when
     Reason :: term(),
-    Label :: string().
-fmt_stack({_Outcome, {_Suite, end_per_testcase, {'EXIT', {Reason, ST}}}}, Label) ->
-    fmt_stack({Reason, ST}, Label);
-fmt_stack({_Class, {Reason, ST}}, Label) ->
+    Label :: unicode:chardata().
+fmt_stack({'EXIT', {Reason, ST}}, Label) ->
     fmt_stack({Reason, ST}, Label);
 fmt_stack(Reason, _Label) ->
     Output = ct_error_printer:format_error(Reason, true),
-    unicode_characters_to_string(io_lib:format("~ts", [Output])).
+    io_lib:format("~ts", [Output]).
 
 %% -----------------------------------------------------------------------------
 %% CT hooks functions
@@ -227,31 +235,31 @@ pre_init_per_suite(Suite, Config, HookState) ->
 
 -spec post_init_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
     {ct_config_or_skip_or_fail_or_term(), hook_state()}.
-post_init_per_suite(_Suite, _Config, {skip, {failed, _Reason}} = Error, HookState) ->
+post_init_per_suite(Suite, _Config, {skip, {failed, _} = Reason} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
-        Desc = fmt_stack(Error, "init_per_suite FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_suite, Reason, ~"FAILED"),
         {Error, add_result(?INIT_PER_SUITE, failed, Desc, State)}
     end);
-post_init_per_suite(_Suite, _Config, {skip, _Reason} = Error, HookState) ->
+post_init_per_suite(Suite, _Config, {skip, Reason} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         % In this case the init_per_suite returns with a {skip, Reason}
         % It then passed fine.
-        Desc = fmt_stack(Error, "init_per_suite SKIPPED"),
+        Desc = fmt_init_or_end(Suite, init_per_suite, Reason, ~"SKIPPED"),
         {Error, add_result(?INIT_PER_SUITE, passed, Desc, State)}
     end);
-post_init_per_suite(_Suite, _Config, {fail, _Reason} = Error, HookState) ->
+post_init_per_suite(Suite, _Config, {fail, Reason} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
-        Desc = fmt_stack(Error, "init_per_suite FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_suite, Reason, ~"FAILED"),
         {Error, add_result(?INIT_PER_SUITE, failed, Desc, State)}
     end);
-post_init_per_suite(_Suite, _Config, Error, HookState) when not is_list(Error) ->
+post_init_per_suite(Suite, _Config, Error, HookState) when not is_list(Error) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
-        Desc = fmt_stack(Error, "init_per_suite FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_suite, Error, ~"FAILED"),
         {Error, add_result(?INIT_PER_SUITE, failed, Desc, State)}
     end);
 post_init_per_suite(_Suite, _Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State) ->
-        {Return, add_result(?INIT_PER_SUITE, passed, <<"">>, State)}
+        {Return, add_result(?INIT_PER_SUITE, passed, ~"", State)}
     end).
 
 -spec pre_end_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
@@ -264,42 +272,42 @@ pre_end_per_suite(_Suite, Config, HookState) ->
 -spec post_end_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
     {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_end_per_suite(
-    _Suite,
+    Suite,
     _Config,
-    {skip, _Reason} = Error,
+    {skip, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0) ->
-        Desc = fmt_stack(Error, "end_per_suite SKIPPED"),
+        Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"SKIPPED"),
         State1 = add_result(?END_PER_SUITE, skipped, Desc, State0),
         {Error, clear_suite(State1)}
     end);
 post_end_per_suite(
-    _Suite,
+    Suite,
     _Config,
-    {fail, _Reason} = Error,
+    {fail, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0) ->
-        Desc = fmt_stack(Error, "end_per_suite FAILED"),
+        Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"FAILED"),
         State1 = add_result(?END_PER_SUITE, failed, Desc, State0),
         {Error, clear_suite(State1)}
     end);
 post_end_per_suite(
-    _Suite,
+    Suite,
     _Config,
-    {error, _Reason} = Error,
+    {error, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0) ->
-        Desc = fmt_stack(Error, "end_per_suite FAILED"),
+        Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"FAILED"),
         State1 = add_result(?END_PER_SUITE, failed, Desc, State0),
         {Error, clear_suite(State1)}
     end);
 post_end_per_suite(_Suite, _Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0) ->
         %% clean TC state
-        State1 = add_result(?END_PER_SUITE, passed, <<"">>, State0),
+        State1 = add_result(?END_PER_SUITE, passed, ~"", State0),
         {Return, clear_suite(State1)}
     end).
 
@@ -331,55 +339,55 @@ pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
 -spec post_init_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
     {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_init_per_group(
-    _SuiteName,
+    Suite,
     Group,
     _Config,
-    {skip, {failed, _Reason}} = Error,
+    {skip, {failed, _} = Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Error, "init_per_group FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_group, Reason, ~"FAILED"),
         State2 = add_result(?INIT_PER_GROUP, failed, Desc, State1),
         {Error, fail_group(State2)}
     end);
 post_init_per_group(
-    _SuiteName,
+    Suite,
     Group,
     _Config,
-    {skip, _Reason} = Error,
+    {skip, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Error, "init_per_group SKIPPED"),
+        Desc = fmt_init_or_end(Suite, init_per_group, Reason, ~"SKIPPED"),
         State2 = add_result(?INIT_PER_GROUP, skipped, Desc, State1),
         {Error, fail_group(State2)}
     end);
 post_init_per_group(
-    _SuiteName,
+    Suite,
     Group,
     _Config,
-    {fail, _Reason} = Error,
+    {fail, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Error, "init_per_group FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_group, Reason, ~"FAILED"),
         State2 = add_result(?INIT_PER_GROUP, failed, Desc, State1),
         {Error, fail_group(State2)}
     end);
-post_init_per_group(_SuiteName, Group, _Config, Error, HookState) when not is_list(Error) ->
+post_init_per_group(Suite, Group, _Config, Error, HookState) when not is_list(Error) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        Desc = fmt_stack(Error, "init_per_group FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_group, Error, ~"FAILED"),
         State2 = add_result(?INIT_PER_GROUP, failed, Desc, State1),
         {Error, fail_group(State2)}
     end);
-post_init_per_group(_SuiteName, Group, _Config, Return, HookState) ->
+post_init_per_group(_Suite, Group, _Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0 = #state{groups = Groups}) ->
         State1 = State0#state{groups = [Group | Groups]},
-        State2 = add_result(?INIT_PER_GROUP, passed, <<"">>, State1),
+        State2 = add_result(?INIT_PER_GROUP, passed, ~"", State1),
         {Return, ok_group(State2)}
     end).
 
@@ -401,49 +409,49 @@ pre_end_per_group(_SuiteName, _Group, Config, HookState) ->
 -spec post_end_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
     {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_end_per_group(
-    _SuiteName,
+    Suite,
     _Group,
     _Config,
-    {skip, _Reason} = Error,
+    {skip, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
-        Desc = fmt_stack(Error, "end_per_group SKIPPED"),
+        Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"SKIPPED"),
         State1 = add_result(?END_PER_GROUP, skipped, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
 post_end_per_group(
-    _SuiteName,
+    Suite,
     _Group,
     _Config,
-    {fail, _Reason} = Error,
+    {fail, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
-        Desc = fmt_stack(Error, "end_per_group FAILED"),
+        Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"FAILED"),
         State1 = add_result(?END_PER_GROUP, failed, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
 post_end_per_group(
-    _SuiteName,
+    Suite,
     _Group,
     _Config,
-    {error, _Reason} = Error,
+    {error, _} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
-        Desc = fmt_stack(Error, "end_per_group FAILED"),
+        Desc = fmt_init_or_end(Suite, end_per_group, Error, ~"FAILED"),
         State1 = add_result(?END_PER_GROUP, failed, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
-post_end_per_group(_SuiteName, _Group, _Config, Return, HookState) ->
+post_end_per_group(_Suite, _Group, _Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0 = #state{groups = Groups}) ->
-        State1 = add_result(?END_PER_GROUP, passed, <<"">>, State0),
+        State1 = add_result(?END_PER_GROUP, passed, ~"", State0),
         {Return, State1#state{groups = tl(Groups)}}
     end).
 
 -spec pre_init_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_init_per_testcase(_SuiteName, TestCase, Config, HookState) ->
+pre_init_per_testcase(_Suite, TestCase, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
         %% store name and start time for current test case
@@ -461,45 +469,45 @@ pre_init_per_testcase(_SuiteName, TestCase, Config, HookState) ->
 -spec post_init_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
     {ct_config_or_skip_or_fail_or_term(), hook_state()}.
 post_init_per_testcase(
-    _SuiteName,
+    Suite,
     TestCase,
     _Config,
-    {skip, {failed, _Reason}} = Error,
+    {skip, {failed, _} = Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         %% ct skip because of failed init is reported as error
-        Desc = fmt_stack(Error, "init_per_testcase FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_testcase, Reason, ~"FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
 post_init_per_testcase(
-    _SuiteName, TestCase, _Config, {skip, _Reason} = Error, HookState
+    Suite, TestCase, _Config, {skip, Reason} = Error, HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         %% other skips (user skip) are reported as skips
-        Desc = fmt_stack(Error, "init_per_testcase SKIPPED"),
+        Desc = fmt_init_or_end(Suite, init_per_testcase, Reason, ~"SKIPPED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, skipped, Desc, State)}
     end);
 post_init_per_testcase(
-    _SuiteName, TestCase, _Config, {fail, _Reason} = Error, HookState
+    Suite, TestCase, _Config, {fail, Reason} = Error, HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         %% fails are reported as errors
-        Desc = fmt_stack(Error, "init_per_testcase FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_testcase, Reason, ~"FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
-post_init_per_testcase(_SuiteName, TestCase, _Config, Error, HookState) when
+post_init_per_testcase(Suite, TestCase, _Config, Error, HookState) when
     not is_list(Error) andalso ok =/= Error
 ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         %% terms are reported as errors except ok (missing in CT doc)
-        Desc = fmt_stack(Error, "init_per_testcase FAILED"),
+        Desc = fmt_init_or_end(Suite, init_per_testcase, Error, ~"FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
-post_init_per_testcase(_SuiteName, TestCase, _Config, Return, HookState) ->
+post_init_per_testcase(_Suite, TestCase, _Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State) ->
         %% everything else is ok
-        State1 = add_result({TestCase, ?INIT_PER_TESTCASE}, passed, <<"">>, State),
+        State1 = add_result({TestCase, ?INIT_PER_TESTCASE}, passed, ~"", State),
         {Return, State1}
     end).
 
@@ -579,19 +587,19 @@ method_name(Method, Groups) ->
     cth_tpx_test_tree:qualified_name(Groups, MethodName).
 
 -spec pre_end_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_testcase(_SuiteName, TC, Config, HookState) ->
+pre_end_per_testcase(_Suite, TC, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         {Config, capture_starting_time(State, {TC, ?END_PER_TESTCASE})}
     end).
 
 -spec post_end_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
     {ct_config_or_skip_or_fail_or_term(), hook_state()}.
-post_end_per_testcase(_SuiteName, TC, _Config, ok = Return, HookState) ->
+post_end_per_testcase(_Suite, TC, _Config, ok = Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0) ->
-        State1 = add_result({TC, ?END_PER_TESTCASE}, passed, <<"">>, State0),
-        {ok, add_result({TC, ?MAIN_TESTCASE}, passed, <<"">>, State1)}
+        State1 = add_result({TC, ?END_PER_TESTCASE}, passed, ~"", State0),
+        {ok, add_result({TC, ?MAIN_TESTCASE}, passed, ~"", State1)}
     end);
-post_end_per_testcase(_SuiteName, TC, Config, Error, HookState) ->
+post_end_per_testcase(Suite, TC, Config, Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0) ->
         NextState =
             case lists:keyfind(tc_status, 1, Config) of
@@ -599,13 +607,19 @@ post_end_per_testcase(_SuiteName, TC, Config, Error, HookState) ->
                     %% Test case passed, but we still ended in an error
                     %% same description as ct output
                     %% first report testcase itself
-                    State1 = add_result({TC, ?MAIN_TESTCASE}, passed, <<"">>, State0),
+                    State1 = add_result({TC, ?MAIN_TESTCASE}, passed, ~"", State0),
                     %% now report end per failure
-                    Desc = fmt_stack(Error, "end_per_testcase FAILED"),
+                    Reason =
+                        case Error of
+                            {skip, Reason0} -> Reason0;
+                            {fail, Reason0} -> Reason0;
+                            _ -> Error
+                        end,
+                    Desc = fmt_init_or_end(Suite, end_per_testcase, Reason, ~"FAILED"),
                     add_result({TC, ?END_PER_TESTCASE}, failed, Desc, State1);
                 _ ->
                     %% Test case failed, in which case on_tc_fail already reports it
-                    add_result({TC, ?END_PER_TESTCASE}, passed, <<"">>, State0)
+                    add_result({TC, ?END_PER_TESTCASE}, passed, ~"", State0)
             end,
         {Error, NextState}
     end).
