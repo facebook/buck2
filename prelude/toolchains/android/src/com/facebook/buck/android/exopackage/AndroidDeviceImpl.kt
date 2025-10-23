@@ -45,9 +45,23 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           throw AndroidInstallException.tempFolderNotWritable()
         }
       }
-      // TODO consider using --fastdeploy after intaller is stable
+
+      val sdkVersion =
+          try {
+            getProperty("ro.build.version.sdk").toInt()
+          } catch (e: Exception) {
+            LOG.warn("Unable to determine SDK version, defaulting to legacy install: ${e.message}")
+            -1
+          }
+
+      val installArgs = buildString {
+        append("-r -d")
+        if (sdkVersion >= MIN_SDK_VERSION_FOR_FASTDEPLOY) append(" --fastdeploy")
+        if (stagedInstallMode) append(" --staged")
+      }
+
       executeAdbCommandCatching(
-          "install -r -d${if (stagedInstallMode) " --staged" else ""} ${apk.absolutePath}",
+          "install $installArgs ${apk.absolutePath}",
           "Failed to install ${apk.name}.",
       )
     }
@@ -434,5 +448,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   companion object {
     private val LINE_ENDING: Pattern = Pattern.compile("\r?\n")
     private val LOG: Logger = Logger.get(AndroidDeviceImpl::class.java.name)
+
+    // --fastdeploy is only supported on Android 10+ (API 29+)
+    // https://developer.android.com/tools/releases/platform-tools#2905_october_2019
+    private const val MIN_SDK_VERSION_FOR_FASTDEPLOY = 29
   }
 }
