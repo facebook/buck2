@@ -1021,6 +1021,7 @@ impl RunAction {
             run_action_visitor.dep_files_visitor,
             cmdline_digest_for_dep_files,
             &prepared_run_action.paths,
+            prepared_run_action.worker.as_ref().map(|w| &w.input_paths),
         )?;
 
         // First, check in the local dep file cache if an identical action can be found there.

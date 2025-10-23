@@ -183,6 +183,7 @@ pub(crate) struct DepFileState {
 pub(crate) struct CommandDigests {
     pub(crate) cli: ExpandedCommandLineDigest,
     pub(crate) directory: FileDigest,
+    pub(crate) local_worker_directory: Option<TrackedFileDigest>,
 }
 
 impl DepFileState {
@@ -294,6 +295,8 @@ pub(crate) struct CommonDigests {
     output_paths_digest: CasDigestData,
     // A digest of inputs that are untagged (not tied to a dep file)
     untagged_inputs_digest: TrackedFileDigest,
+    // A digest of local worker inputs
+    local_worker_inputs_digest: Option<TrackedFileDigest>,
 }
 impl CommonDigests {
     // Take the digest of everythig in the structure
@@ -303,6 +306,9 @@ impl CommonDigests {
         digester.update(self.output_paths_digest.raw_digest().as_bytes());
         digester.update(self.commandline_cli_digest.as_bytes());
         digester.update(self.untagged_inputs_digest.raw_digest().as_bytes());
+        if let Some(local_worker_inputs_digest) = &self.local_worker_inputs_digest {
+            digester.update(local_worker_inputs_digest.raw_digest().as_bytes());
+        }
 
         digester.finalize()
     }
@@ -473,6 +479,7 @@ impl DepFileBundle {
                 ctx,
                 &self.dep_files_key,
                 &self.input_directory_digest,
+                &self.common_digests.local_worker_inputs_digest,
                 &self.common_digests.commandline_cli_digest,
                 declared_outputs,
                 &self.declared_dep_files,
@@ -507,6 +514,7 @@ impl DepFileBundle {
                 ctx,
                 &self.dep_files_key,
                 &self.input_directory_digest,
+                &self.common_digests.local_worker_inputs_digest,
                 &self.common_digests.commandline_cli_digest,
                 &self.shared_declared_inputs,
                 declared_outputs,
@@ -641,6 +649,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
     visitor: DepFilesCommandLineVisitor<'_>,
     expanded_command_line_digest: ExpandedCommandLineDigest,
     execution_paths: &'a CommandExecutionPaths,
+    local_worker_execution_paths: Option<&'a CommandExecutionPaths>,
 ) -> buck2_error::Result<DepFileBundle> {
     let input_directory_digest = execution_paths.input_directory().fingerprint();
     let dep_files_key = RunActionKey::from_action_execution_target(ctx.target());
@@ -682,6 +691,8 @@ pub(crate) fn make_dep_file_bundle<'a>(
             ctx.digest_config(),
             execution_paths.output_paths(),
         ),
+        local_worker_inputs_digest: local_worker_execution_paths
+            .map(|p| p.input_directory().fingerprint().dupe()),
     };
 
     Ok(DepFileBundle {
@@ -702,6 +713,7 @@ pub(crate) async fn match_if_identical_action(
     ctx: &dyn ActionExecutionCtx,
     key: &RunActionKey,
     input_directory_digest: &FileDigest,
+    local_worker_digest: &Option<TrackedFileDigest>,
     cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
@@ -715,6 +727,7 @@ pub(crate) async fn match_if_identical_action(
         key,
         &previous_state,
         input_directory_digest,
+        local_worker_digest,
         cli_digest,
         declared_outputs,
         declared_dep_files,
@@ -741,6 +754,7 @@ pub(crate) async fn match_or_clear_dep_file(
     ctx: &dyn ActionExecutionCtx,
     key: &RunActionKey,
     input_directory_digest: &FileDigest,
+    local_worker_digest: &Option<TrackedFileDigest>,
     cli_digest: &ExpandedCommandLineDigest,
     declared_inputs: &Option<PartitionedInputs<ActionSharedDirectory>>,
     declared_outputs: &[BuildArtifact],
@@ -755,6 +769,7 @@ pub(crate) async fn match_or_clear_dep_file(
         key,
         &previous_state,
         input_directory_digest,
+        local_worker_digest,
         cli_digest,
         declared_inputs,
         declared_outputs,
@@ -813,6 +828,7 @@ fn check_action(
     key: &RunActionKey,
     previous_state: &DepFileState,
     input_directory_digest: &FileDigest,
+    local_worker_digest: &Option<TrackedFileDigest>,
     cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
@@ -837,6 +853,12 @@ fn check_action(
         return InitialDepFileLookupResult::Miss;
     }
 
+    if *local_worker_digest != previous_state.digests.local_worker_directory {
+        tracing::trace!("Dep files miss: Local worker directory has changed");
+        DEP_FILES.remove(key);
+        return InitialDepFileLookupResult::Miss;
+    }
+
     if *input_directory_digest == previous_state.digests.directory {
         // The actions are identical
         tracing::trace!("Dep files hit: Command line and directory have not changed");
@@ -849,6 +871,7 @@ async fn dep_files_match(
     key: &RunActionKey,
     previous_state: &DepFileState,
     input_directory_digest: &FileDigest,
+    local_worker_digest: &Option<TrackedFileDigest>,
     cli_digest: &ExpandedCommandLineDigest,
     declared_inputs: &Option<PartitionedInputs<ActionSharedDirectory>>,
     declared_outputs: &[BuildArtifact],
@@ -859,6 +882,7 @@ async fn dep_files_match(
         key,
         previous_state,
         input_directory_digest,
+        local_worker_digest,
         cli_digest,
         declared_outputs,
         declared_dep_files,
@@ -1028,6 +1052,7 @@ pub(crate) async fn populate_dep_files(
     let digests = CommandDigests {
         cli: common_digests.commandline_cli_digest,
         directory: input_directory_digest,
+        local_worker_directory: common_digests.local_worker_inputs_digest,
     };
 
     let state = if declared_dep_files.is_empty() {
