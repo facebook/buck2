@@ -8,6 +8,7 @@
 
 """Module containing java macros."""
 
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//:native.bzl", "native")
 # @oss-disable[end= ]: load("@prelude//android/meta_only:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
@@ -66,9 +67,17 @@ def _set_buck2_dex_toolchain(**kwargs):
 def _set_versioned_java_srcs(**kwargs):
     if not kwargs.pop("versioned_java_srcs", False):
         return kwargs
-    java_version = native.read_config("java", "buck2_java_version", "21")
-    versioned_srcs = native.glob(["java{}/*.java".format(java_version)])
-    kwargs["srcs"] = kwargs.get("srcs", []) + versioned_srcs
+    java_version = select({
+        "DEFAULT": native.read_config("java", "buck2_java_version", "21"),
+        "fbsource//third-party/toolchains/jdk:constraint-value-version-11": "11",
+        "fbsource//third-party/toolchains/jdk:constraint-value-version-17": "17",
+        "fbsource//third-party/toolchains/jdk:constraint-value-version-21": "21",
+    })
+    versioned_srcs = selects.apply(
+        java_version,
+        lambda value: kwargs.get("srcs", []) + native.glob(["java{}/*.java".format(value)]),
+    )
+    kwargs["srcs"] = versioned_srcs
     return kwargs
 
 def _add_kotlin_deps(**kwargs):
