@@ -323,7 +323,6 @@ uuid = { version = "=1.17.0", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
 winapi = { version = "0.3", features = ["everything", "std"] }
-windows = { version = "0.54.0" }
 x509-parser = "0.14.0"
 xattr = "0.2.2"
 zip = "0.5"

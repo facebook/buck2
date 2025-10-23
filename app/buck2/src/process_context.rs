@@ -9,8 +9,6 @@
  */
 
 use std::sync::Arc;
-#[cfg(target_os = "windows")]
-use std::sync::Once;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
@@ -40,10 +38,6 @@ pub struct SharedProcessContext {
     pub args: Vec<String>,
     pub restarter: Restarter,
     pub force_want_restart: bool,
-    #[cfg(target_os = "windows")]
-    pub windows_cpu_group_workaround: Once,
-    #[cfg(target_os = "windows")]
-    pub windows_cpu_group_workaround_result: Result<(), buck2_error::Error>,
 }
 
 pub struct ClientRuntime(pub OnceLock<Runtime>);

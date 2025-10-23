@@ -31,8 +31,6 @@ pub mod tokio;
 pub mod tonic;
 pub mod uuid;
 pub mod watchman;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 use buck2_data::error::ErrorTag;
 

@@ -79,7 +79,6 @@ buck2_forkserver = { workspace = true }
 libc = { workspace = true }
 mimalloc = { workspace = true }
 winapi = { workspace = true }
-windows = { workspace = true, features = ["Win32", "Win32_System", "Win32_System_Diagnostics", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Kernel", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 
 [[bin]]
 name = "buck2"

@@ -14,8 +14,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
-#[cfg(target_os = "windows")]
-use std::sync::Once;
 use std::time::SystemTime;
 
 use buck2::exec;
@@ -185,10 +183,6 @@ fn main() -> ! {
             args: std::env::args().collect::<Vec<String>>(),
             restarter: Restarter::new(),
             force_want_restart: buck2_env!("FORCE_WANT_RESTART", bool)?,
-            #[cfg(target_os = "windows")]
-            windows_cpu_group_workaround: Once::new(),
-            #[cfg(target_os = "windows")]
-            windows_cpu_group_workaround_result: Ok(()),
         })
     }
 
