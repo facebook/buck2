@@ -1201,10 +1201,8 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
                 .map(|(k, v)| {
                     (
                         k,
-                        v.fingerprint(&TaggedInputsDirectorySerializer {
-                            cas_digest_config: digest_config.cas_digest_config(),
-                        })
-                        .shared(&*INTERNER),
+                        v.fingerprint(digest_config.as_directory_serializer())
+                            .shared(&*INTERNER),
                     )
                 })
                 .collect(),
