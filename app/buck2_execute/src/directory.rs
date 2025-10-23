@@ -138,9 +138,21 @@ impl ReDirectorySerializer {
                     });
                 }
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
+                    let target = if let Some(renamer) = directory_renamer {
+                        let mut target = None;
+                        for segment in s.target().iter() {
+                            if let Some(renamed_segment) = renamer(segment) {
+                                let current = target.as_deref().unwrap_or(s.target().as_str());
+                                target = Some(current.replace(segment, &renamed_segment));
+                            }
+                        }
+                        target.unwrap_or(s.to_string())
+                    } else {
+                        s.to_string()
+                    };
                     symlinks.push(RE::SymlinkNode {
                         name: name.as_str().into(),
-                        target: s.to_string(),
+                        target,
                         ..Default::default()
                     });
                 }

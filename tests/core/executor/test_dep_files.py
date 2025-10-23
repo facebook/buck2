@@ -313,16 +313,13 @@ async def _test_dep_files_in_same_dir_impl(
             unused_input_contents,
         )
     )
-    if use_content_based_paths:
-        # TODO(ianc) Bug! This should be a dep file hit
-        await expect_exec_count(buck, 1)
-    else:
-        await expect_exec_count(buck, 0)
-        await check_execution_kind(
-            buck,
-            [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
-            ignored=[ACTION_EXECUTION_KIND_SIMPLE],
-        )
+
+    await expect_exec_count(buck, 0)
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
 
 
 # Flaky because of watchman on mac (and maybe windows)
