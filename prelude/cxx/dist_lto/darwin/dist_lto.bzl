@@ -653,15 +653,6 @@ def cxx_darwin_dist_link(
     common_opt_cmd = prepare_opt_flags(link_infos)
 
     external_debug_info_container_directory = ctx.actions.declare_output(output.basename + ".debug_info_dir", dir = True)
-    external_debug_info = make_artifact_tset(
-        actions = ctx.actions,
-        artifacts = [external_debug_info_container_directory],
-        label = ctx.label,
-        children = [
-            unpack_external_debug_info(ctx.actions, link_args)
-            for link_args in links
-        ],
-    )
 
     extra_linker_outputs_factory = opts.extra_linker_outputs_factory
     link_outputs = [output.as_output(), index_argsfile_out.as_output(), linker_argsfile_out.as_output(), external_debug_info_container_directory.as_output()]
@@ -710,6 +701,16 @@ def cxx_darwin_dist_link(
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, opts.category_suffix)
+
+    external_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        artifacts = [external_debug_info_container_directory],
+        label = ctx.label,
+        children = [
+            unpack_external_debug_info(ctx.actions, link_args)
+            for link_args in links
+        ],
+    )
 
     return LinkedObject(
         output = final_output,
