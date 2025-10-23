@@ -1176,9 +1176,9 @@ def _add_compiler_info_flags(compiler_info: typing.Any) -> list:
 
     return cmd
 
-def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxExtension) -> list:
+def _add_compiler_type_flags(target_label: Label, compiler_type: str, ext: CxxExtension) -> list:
     cmd = []
-    cmd.append(get_flags_for_reproducible_build(ctx, compiler_type))
+    cmd.append(get_flags_for_reproducible_build(target_label, compiler_type))
 
     if ext.value not in (".asm", ".asmpp"):
         # Clang's asm compiler doesn't support colorful output, so we skip this there.
@@ -1188,7 +1188,7 @@ def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxE
 
 def _compiler_type_flags_anon_impl(ctx: AnalysisContext):
     is_nasm = ctx.attrs.compiler_type == "nasm"
-    args = _add_compiler_type_flags(ctx, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension))
+    args = _add_compiler_type_flags(ctx.label, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension))
     content = create_cmd_args(is_nasm, ctx.attrs.is_xcode_argsfile, *args)
     argsfile_artifact, _ = ctx.actions.write("compiler_type_args", content, allow_args = True)
 
@@ -1300,8 +1300,9 @@ def _mk_argsfiles(
     argsfiles = []
     args_list = []
 
-    # TODO(michaelpo): Create local variable to simplify tracking of remaining ctx usages.
+    # TODO(michaelpo): Create local variables to keep refactoring within this function.
     actions = ctx.actions
+    target_label = ctx.label
 
     def mk_argsfile(filename: str, args, use_dep_files_placeholder_for_content_based_paths: bool = False) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
@@ -1353,7 +1354,7 @@ def _mk_argsfiles(
     make_toolchain_argsfile()
 
     def make_compiler_type_argsfile():
-        compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
+        compiler_type_flags = _add_compiler_type_flags(target_label, compiler_info.compiler_type, ext)
 
         if impl_params.anon_targets_allowed:
             compiler_type_flags_anon_target = actions.anon_target(_compiler_type_flags_anon_rule, {
