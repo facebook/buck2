@@ -218,15 +218,17 @@ fn spawn_via_forkserver(
 }
 
 async fn spawn_worker(
-    worker_spec: &WorkerSpec,
+    worker_id: WorkerId,
+    args: Vec<String>,
     env: impl IntoIterator<Item = (OsString, OsString)>,
+    streaming: bool,
     root: &AbsNormPathBuf,
     forkserver: ForkserverAccess,
     dispatcher: EventDispatcher,
     graceful_shutdown_timeout_s: Option<u32>,
 ) -> Result<WorkerHandle, WorkerInitError> {
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
-    let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
+    let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_id);
     let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())
         .map_err(|e| WorkerInitError::InternalError(e.into()))?
         .join(FileName::unchecked_new(&dir_name));
@@ -246,7 +248,6 @@ async fn spawn_worker(
     let stderr_path = worker_dir.join(FileName::unchecked_new("stderr"));
     fs_util::create_dir_all(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))?;
 
-    let args = worker_spec.exe.to_vec();
     tracing::info!(
         "Starting worker with logs at {}:\n$ {}\n",
         worker_dir,
@@ -341,7 +342,7 @@ async fn spawn_worker(
     });
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
-    let client = if worker_spec.streaming {
+    let client = if streaming {
         WorkerClient::stream(channel)
             .await
             .map_err(|e| WorkerInitError::SpawnFailed(e.to_string()))?
@@ -404,14 +405,17 @@ impl WorkerPool {
             (false, worker_fut.clone())
         } else {
             let worker_id = worker_spec.id;
-            let worker_spec = worker_spec.clone();
+            let args = worker_spec.exe.to_vec();
+            let streaming = worker_spec.streaming;
             let root = root.clone();
             let env: Vec<(OsString, OsString)> = env.into_iter().collect();
             let graceful_shutdown_timeout_s = self.graceful_shutdown_timeout_s;
             let fut = async move {
                 match spawn_worker(
-                    &worker_spec,
+                    worker_id,
+                    args,
                     env,
+                    streaming,
                     &root,
                     forkserver,
                     dispatcher,
