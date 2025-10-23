@@ -167,8 +167,9 @@ run_test(
     SuiteFolder = filename:dirname(filename:absname(SuitePath)),
     CodePath = [SuiteFolder | Dependencies],
     CommonAppEnv1 = CommonAppEnv0#{"raw_target" => lists:flatten(io_lib:format("~0p", [RawTarget]))},
+    {ok, ServerPort} = ct_executor_watchdog:start_server(),
 
-    Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv1),
+    Args = build_run_args(OutputDir, ServerPort, Providers, Suite, TestSpecFile, CommonAppEnv1),
 
     {ok, ProjectRoot} = file:get_cwd(),
 
@@ -203,16 +204,18 @@ build_common_args(CodePath, ConfigFiles) ->
 
 -spec build_run_args(
     OutputDir :: file:filename_all(),
+    ServerPort :: number(),
     Providers :: [{module(), [term()]}],
     Suite :: module(),
     TestSpecFile :: file:filename_all(),
     CommonAppEnv :: #{string() => string()}
 ) -> [string()].
-build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv) ->
+build_run_args(OutputDir, ServerPort, Providers, Suite, TestSpecFile, CommonAppEnv) ->
     lists:append(
         [
             ["-run", "ct_executor", "run"],
             generate_arg_tuple(output_dir, OutputDir),
+            generate_arg_tuple(server_port, ServerPort),
             generate_arg_tuple(providers, Providers),
             generate_arg_tuple(suite, Suite),
             ["ct_args"],

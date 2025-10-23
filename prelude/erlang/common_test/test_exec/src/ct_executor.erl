@@ -23,7 +23,7 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
 %% `multiply_timetraps` or `ct_hooks`.
 %% For all the options, see https://www.erlang.org/doc/man/ct#run_test-1
 -type ct_run_arg() :: {atom(), term()}.
--type ct_exec_arg() :: {output_dir | suite | providers, term()}.
+-type ct_exec_arg() :: {output_dir | server_port | suite | providers, term()}.
 
 % For testing
 -export([split_args/1]).
@@ -42,16 +42,20 @@ run(Args) when is_list(Args) ->
             debug_print("~tp", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
             {_, OutputDir} = lists:keyfind(output_dir, 1, CtExecutorArgs),
             ok = test_logger:set_up_logger(OutputDir, ?MODULE),
+            % Until this point the logger is not set up so we cannot log.
+            % Therefore we used io:format to forward information to the
+            % process calling it (ct_runner).
 
             %% log arguments into ct_executor.log
             ?LOG_INFO("raw args: ~tp", [Args]),
             ?LOG_INFO("executor args: ~tp", [CtExecutorArgs]),
             ?LOG_INFO("CtRunArgs: ~tp", [CtRunArgs]),
 
-            % Until this point the logger is not set up so we cannot log.
-            % Therefore we used io:format to forward information to the
-            % process calling it (ct_runner).
             try
+                %% setup watchdog
+                {_, ServerPort} = lists:keyfind(server_port, 1, CtExecutorArgs),
+                ct_executor_watchdog:start_link_client(ServerPort),
+
                 % We need to load the 'common' application to be able to configure
                 % it via the `common_app_env` arguments
                 application:load(common),
@@ -147,7 +151,9 @@ parse_ct_run_args([{Key, _Value} = Arg | Args]) when is_atom(Key) ->
 -spec parse_ct_exec_args([term()]) -> [ct_exec_arg()].
 parse_ct_exec_args([]) ->
     [];
-parse_ct_exec_args([{Key, _Value} = Arg | Args]) when Key =:= output_dir; Key =:= suite; Key =:= providers ->
+parse_ct_exec_args([{Key, _Value} = Arg | Args]) when
+    Key =:= output_dir; Key =:= server_port; Key =:= suite; Key =:= providers
+->
     [Arg | parse_ct_exec_args(Args)].
 
 -spec debug_print(string(), [term()]) -> ok.
