@@ -34,7 +34,6 @@ def erlang_tests_macro(
         suites: list[str],
         deps: list[str] = [],
         resources: list[str] = [],
-        property_tests: list[str] = [],
         srcs: list[str] = [],
         prefix: str | None = None,
         generated_app_labels: list[str] = [],
@@ -64,12 +63,6 @@ def erlang_tests_macro(
         )
         deps.append(":{}".format(srcs_app))
 
-    if not property_tests:
-        first_suite = suites[0]
-        prop_target = generate_file_map_target(first_suite, None, "property_test")
-        if prop_target:
-            property_tests = [prop_target]
-
     common_attributes["labels"] = common_attributes.get("labels", [])
 
     common_attributes["labels"] = dedupe_by_value(common_attributes["labels"])
@@ -97,7 +90,6 @@ def erlang_tests_macro(
             suite = suite,
             deps = deps,
             resources = suite_resource,
-            property_tests = property_tests,
             **common_attributes
         )
 
@@ -178,9 +170,8 @@ def _build_erlang_test(
 
     suite_data = paths.join(ebin_dir, suite_name + "_data")
     data_dir = _build_resource_dir(ctx, ctx.attrs.resources, suite_data)
-    property_dir = _build_resource_dir(ctx, ctx.attrs.property_tests, paths.join(ebin_dir, "property_test"))
 
-    output_dir = link_output(ctx, beam, data_dir, property_dir)
+    output_dir = link_output(ctx, beam, data_dir)
     test_info_file = _write_test_info_file(
         ctx = ctx,
         test_suite = suite_name,
@@ -303,8 +294,7 @@ def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) 
 def link_output(
         ctx: AnalysisContext,
         beam: Artifact,
-        data_dir: [Artifact, None],
-        property_dir: [Artifact, None]) -> Artifact:
+        data_dir: [Artifact, None]) -> Artifact:
     """Link the data_dirs and the test_suite beam in a single output folder."""
     link_spec = {
         beam.basename: beam,
@@ -312,8 +302,6 @@ def link_output(
     }
     if data_dir:
         link_spec[data_dir.basename] = data_dir
-    if property_dir:
-        link_spec[property_dir.basename] = property_dir
     return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
 
 def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str:

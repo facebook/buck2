@@ -264,8 +264,6 @@ rules_attributes = {
                 List of additional command line arguments given to the erl command invocation. These
                 arguments are added to the front of the argument list.
             """),
-        "property_tests": attrs.list(attrs.dep(), default = [], doc = """
-            """),
         "resources": attrs.list(attrs.dep(), default = [], doc = """
                 The `resources` field specifies targets whose default output are placed in the test `data_dir` directory for
                 all the suites present in the macro target. Additionally, if data directory are present in the directory along
