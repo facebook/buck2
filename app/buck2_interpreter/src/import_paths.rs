@@ -114,15 +114,15 @@ where
     T: LegacyBuckConfigView,
 {
     fn get_cell_segmentation(&mut self) -> buck2_error::Result<bool> {
-        Ok(self
+        let disable = self
             .parse(BuckconfigKeyRef {
-                section: "parser",
-                property: "cell_segmentation",
+                section: "buck2",
+                property: "disable_cell_segmentation",
             })?
-            // This means:
-            // - default for Meta is true, as it always has been
-            // - default for OSS is false
-            .unwrap_or(cfg!(fbcode_build)))
+            // Disable by default for OSS builds
+            // Leave enabled by default for Meta
+            .unwrap_or(cfg!(not(fbcode_build)));
+        Ok(!disable)
     }
 }
 

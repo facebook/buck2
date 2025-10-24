@@ -177,6 +177,7 @@ fn test_eval_build_file() {
 }
 
 fn cells(cell_segmentation: bool) -> CellsData {
+    let disable_cell_segmentation = !cell_segmentation;
     let BuckConfigBasedCells {
         cell_resolver,
         root_config,
@@ -191,8 +192,8 @@ fn cells(cell_segmentation: bool) -> CellsData {
                         cell1 = project/cell1
                         cell2 = project/cell2
                         xalias2 = project/cell2
-                    [parser]
-                        cell_segmentation = {cell_segmentation:?}
+                    [buck2]
+                        disable_cell_segmentation = {disable_cell_segmentation:?}
                     "#
             ),
         )])

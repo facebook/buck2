@@ -15,18 +15,18 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test()
 async def test_baseline_intra_cell(buck: Buck) -> None:
-    await buck.build("//:intra_cell", "-cparser.cell_segmentation=true")
-    await buck.build("//:intra_cell", "-cparser.cell_segmentation=false")
+    await buck.build("//:intra_cell", "-cbuck2.disable_cell_segmentation=false")
+    await buck.build("//:intra_cell", "-cbuck2.disable_cell_segmentation=true")
 
 
 @buck_test()
 async def test_fails_cross_cell_with_segmentation(buck: Buck) -> None:
     await expect_failure(
-        buck.build("//:cross_cell", "-cparser.cell_segmentation=true"),
+        buck.build("//:cross_cell", "-cbuck2.disable_cell_segmentation=false"),
         stderr_regex="Transitive set transitive values must be of the same transitive set type (expected: `TransitiveSetDefinition(InfoTSet declared in one//rules.bzl@root)`, got: `TransitiveSetDefinition(InfoTSet declared in one//rules.bzl)`)",
     )
 
 
 @buck_test()
 async def test_succeeds_cross_cell_without_segmentation(buck: Buck) -> None:
-    await buck.build("//:cross_cell", "-cparser.cell_segmentation=false")
+    await buck.build("//:cross_cell", "-cbuck2.disable_cell_segmentation=true")
