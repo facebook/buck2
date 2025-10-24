@@ -780,6 +780,9 @@ apple_metal_library = prelude_rule(
                 Flags to use when linking Metal `.air` files using `metallib`.
             """),
             "metal_version": attrs.option(attrs.string(), default = None),
+            "out": attrs.option(attrs.string(), default = None, doc = """
+                The name of the compiled library (must end in `.metallib`). Defaults to the target's name.
+            """),
             "srcs": attrs.list(attrs.source(), default = []),
             "_apple_toolchain": get_apple_resources_toolchain_attr(),
         }

@@ -159,7 +159,13 @@ def _compile_apple_metal_library(ctx: AnalysisContext) -> Artifact:
         ctx.actions.run(air_compile_cmd, category = "apple_metal_air_compile", identifier = "compile_" + ctx.attrs.name + "_" + metal_file.basename)
         air_files.append(air_output)
 
-    output = ctx.actions.declare_output(ctx.attrs.name + ".metallib")
+    if ctx.attrs.out != None:
+        if not ctx.attrs.out.endswith(".metallib"):
+            fail("Metal library output name must end in `.metallib`")
+        output_name = ctx.attrs.out
+    else:
+        output_name = ctx.attrs.name + ".metallib"
+    output = ctx.actions.declare_output(output_name)
     metallib_compile = cmd_args(toolchain.metallib)
     for air_file in air_files:
         metallib_compile.add(air_file)
