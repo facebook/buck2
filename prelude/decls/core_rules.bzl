@@ -486,6 +486,7 @@ filegroup = prelude_rule(
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "has_content_based_path": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "out": attrs.option(attrs.string(), default = None, doc = """
