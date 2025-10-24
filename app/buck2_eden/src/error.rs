@@ -180,8 +180,16 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
     }
 }
 
-fn eden_network_error_tag(_code: i32) -> ErrorTag {
-    ErrorTag::IoEdenNetworkUncategorized
+fn eden_network_error_tag(code: i32) -> ErrorTag {
+    const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+
+    match code {
+        CURLE_OPERATION_TIMEDOUT => ErrorTag::IoEdenNetworkCurlTimedout, // 28
+        401 => ErrorTag::HttpUnauthorized, // http::StatusCode::UNAUTHORIZED
+        403 => ErrorTag::HttpForbidden,    // http::StatusCode::FORBIDDEN
+        503 => ErrorTag::HttpServiceUnavailable, // http::StatusCode::SERVICE_UNAVAILABLE
+        _ => ErrorTag::IoEdenNetworkUncategorized,
+    }
 }
 
 fn eden_service_error_tag(error: &edenfs::EdenError) -> ErrorTag {
