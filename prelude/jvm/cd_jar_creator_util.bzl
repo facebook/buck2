@@ -424,11 +424,16 @@ def prepare_cd_exe(
     non_worker_args = cmd_args([java, jvm_args, "-cp", compiler, "-jar", class_loader_bootstrapper, main_class])
 
     if local_only or not worker:
+        # buck doesn't support the case where remote_worker is provided but worker is not.
+        if not worker:
+            expect(remote_worker == None, "When worker is not provided, remote_worker must be None.")
         return RunInfo(args = non_worker_args), local_only
     else:
         worker_run_info = WorkerRunInfo(
             # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
-            exe = non_worker_args,
+            # RE workers need exe to run the action, but RE persistent workers need it to be empty
+            # we should make this less confusing, but it is how things currently work.
+            exe = [] if remote_worker else non_worker_args,
             # Specifies the command to initialize a new worker process.
             # This is used for local execution if `build.use_persistent_workers=True`
             worker = worker,
