@@ -383,6 +383,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (12, 0, 0),
         "watchos": (8, 0, 0),
     },
+    "DeclaredAgeRange": {
+        "iphoneos": (26, 0, 0),
+        "maccatalyst": (26, 0, 0),
+        "macosx": (26, 0, 0),
+    },
     "DeveloperToolsSupport": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
