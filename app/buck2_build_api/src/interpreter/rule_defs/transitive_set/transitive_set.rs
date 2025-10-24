@@ -17,7 +17,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -531,34 +530,6 @@ impl<'v> TransitiveSet<'v> {
             }
 
             fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
-
-            fn visit_declared_artifact(
-                &mut self,
-                declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
-                _tags: Vec<&ArtifactTag>,
-            ) -> buck2_error::Result<()> {
-                if !declared_artifact.is_bound() {
-                    soft_error!(
-                        "transitive_set_declared_artifact_not_bound",
-                        buck2_error::buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "Declared artifact `{}` is not bound",
-                            declared_artifact.to_string()
-                        )
-                        .into()
-                    )?;
-                }
-
-                if declared_artifact.has_content_based_path() {
-                    self.has_content_based_input = true;
-                }
-
-                if declared_artifact.has_configuration_based_path() {
-                    self.is_eligible_for_dedupe = false;
-                }
-
-                Ok(())
-            }
         }
 
         let owner = key.holder_key().owner();
