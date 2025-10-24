@@ -431,6 +431,25 @@ def build_kotlin_library(
                 bootclasspath_for_kotlinc,
                 plugins = ctx.attrs.kotlin_compiler_plugins,
             )
+            semanticdb_res = _semanticdb_plugin(ctx, kotlin_toolchain)
+            if (
+                not ctx.attrs._is_building_android_binary and
+                semanticdb_res
+            ):
+                (semanticdb_plugin, semanticdb_output) = semanticdb_res
+                _create_kotlin_sources(
+                    ctx,
+                    ctx.attrs.srcs,
+                    (deps or []) + [kotlin_toolchain.kotlin_stdlib],
+                    annotation_processor_properties,
+                    ksp_annotation_processor_properties,
+                    additional_classpath_entries,
+                    bootclasspath_for_kotlinc,
+                    plugins = semanticdb_plugin,
+                    output_artifact_prefix = "semanticdb",
+                )
+                extra_sub_targets = extra_sub_targets | {"semanticdb": [DefaultInfo(default_output = semanticdb_output)]}
+
             srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
             if kapt_generated_sources:
                 srcs.append(kapt_generated_sources)
@@ -619,6 +638,24 @@ def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_ko
         ]}
     return extra_sub_targets
 
+def _semanticdb_plugin(
+        ctx: AnalysisContext,
+        kotlin_toolchain: KotlinToolchainInfo) -> tuple | None:
+    sourceroot = kotlin_toolchain.semanticdb_sourceroot
+    if not sourceroot:
+        return None
+    kotlin_version = get_language_version(ctx)
+    semanticdb_kotlinc_plugins = kotlin_toolchain.semanticdb_kotlinc
+    semanticdb_kotlinc = semanticdb_kotlinc_plugins.get(kotlin_version) if semanticdb_kotlinc_plugins else None
+    if not semanticdb_kotlinc:
+        return None
+    semanticdb_kotlinc_output = ctx.actions.declare_output("semanticdb", "out", dir = True)
+    semanticdb_plugin = [(semanticdb_kotlinc, {
+        "plugin:semanticdb-kotlinc:sourceroot": sourceroot,
+        "plugin:semanticdb-kotlinc:targetroot": cmd_args(semanticdb_kotlinc_output.as_output()),
+    })]
+    return (semanticdb_plugin, semanticdb_kotlinc_output)
+
 def _semanticdb_subtarget(
         ctx: AnalysisContext,
         extra_sub_targets: dict,
@@ -629,8 +666,9 @@ def _semanticdb_subtarget(
     if not sourceroot:
         return extra_sub_targets
     semanticdb_javac = java_toolchain.semanticdb_javac
+    semanticdb_kotlinc_plugins = kotlin_toolchain.semanticdb_kotlinc
     kotlin_version = get_language_version(ctx)
-    semanticdb_kotlinc = kotlin_toolchain.semanticdb_kotlinc.get(kotlin_version)
+    semanticdb_kotlinc = kotlin_toolchain.semanticdb_kotlinc.get(kotlin_version) if semanticdb_kotlinc_plugins else None
     if semanticdb_javac or semanticdb_kotlinc:
         semanticdb_output = ctx.actions.declare_output("semanticdb", dir = True)
         semanticdb_javac_plugin_params = None
