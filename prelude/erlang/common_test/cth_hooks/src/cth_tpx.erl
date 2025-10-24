@@ -436,11 +436,11 @@ post_end_per_group(
     Suite,
     _Group,
     _Config,
-    {error, _} = Error,
+    {error, Reason} = Error,
     HookState
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
-        Desc = fmt_init_or_end(Suite, end_per_group, Error, ~"FAILED"),
+        Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"FAILED"),
         State1 = add_result(?END_PER_GROUP, failed, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
@@ -493,6 +493,12 @@ post_init_per_testcase(
 ) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         %% fails are reported as errors
+        Desc = fmt_init_or_end(Suite, init_per_testcase, Reason, ~"FAILED"),
+        {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
+    end);
+post_init_per_testcase(Suite, TestCase, _Config, {error, Reason} = Error, HookState) ->
+    on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
+        %% terms are reported as errors except ok (missing in CT doc)
         Desc = fmt_init_or_end(Suite, init_per_testcase, Reason, ~"FAILED"),
         {Error, add_result({TestCase, ?INIT_PER_TESTCASE}, failed, Desc, State)}
     end);
