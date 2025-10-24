@@ -552,3 +552,33 @@ async def test_not_eligible_for_dedupe(buck: Buck) -> None:
     )
 
     assert events == [INELIGIBLE_OUTPUT, INELIGIBLE_INPUT]
+
+
+@buck_test()
+async def test_expect_eligible_for_dedupe_ineligible_input(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:not_eligible_for_dedupe",
+            "--target-platforms",
+            "root//:p_default",
+            "-c",
+            "test.expect_eligible_for_dedupe=true",
+        ),
+        stderr_regex="Action is marked with `expect_eligible_for_dedupe` but input.*script.py.*is not eligible for dedupe",
+    )
+
+
+@buck_test()
+async def test_expect_eligible_for_dedupe_ineligible_output(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:not_eligible_for_dedupe",
+            "--target-platforms",
+            "root//:p_default",
+            "-c",
+            "test.expect_eligible_for_dedupe=true",
+            "-c",
+            "test.run_action_output_has_content_based_path=false",
+        ),
+        stderr_regex="Action is marked with `expect_eligible_for_dedupe` but output `out` is not content-based",
+    )

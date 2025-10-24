@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_core::category::CategoryRef;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -104,6 +105,14 @@ pub(crate) enum RunActionError {
         "Action is marked with `incremental_remote_outputs` but not `no_outputs_cleanup`, which is not allowed."
     )]
     IncrementalRemoteOutputsWithoutNoOutputsCleanup,
+    #[error(
+        "Action is marked with `expect_eligible_for_dedupe` but output `{}` is not content-based", .path
+    )]
+    ExpectEligibleForDedupeWithNonContentBasedOutput { path: String },
+    #[error(
+        "Action is marked with `expect_eligible_for_dedupe` but input `{}` is not eligible for dedupe", .input
+    )]
+    ExpectEligibleForDedupeWithIneligibleInput { input: ArtifactGroup },
 }
 
 #[starlark_module]
@@ -239,6 +248,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         outputs_for_error_handler: UnpackListOrTuple<
             ValueTyped<'v, StarlarkOutputArtifact<'v>>,
         >,
+        #[starlark(require = named, default = false)] expect_eligible_for_dedupe: bool,
     ) -> starlark::Result<NoneType> {
         if incremental_remote_outputs && !no_outputs_cleanup {
             // Precaution to make sure content-based paths are not involved.
@@ -539,6 +549,39 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             remote_execution_custom_image: re_custom_image,
             meta_internal_extra_params: extra_params,
         };
+
+        if expect_eligible_for_dedupe {
+            for o in artifacts.declared_outputs.iter() {
+                if !o.has_content_based_path() {
+                    return Err(buck2_error::Error::from(
+                        RunActionError::ExpectEligibleForDedupeWithNonContentBasedOutput {
+                            path: o.get_path().to_string(),
+                        },
+                    )
+                    .into());
+                }
+            }
+            let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
+            let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
+                deferred_holder_key.owner()
+            {
+                Some(configured_label.cfg())
+            } else {
+                None
+            };
+
+            for i in artifacts.inputs.iter() {
+                if !i.is_eligible_for_dedupe(target_platform) {
+                    return Err(buck2_error::Error::from(
+                        RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
+                            input: i.dupe(),
+                        },
+                    )
+                    .into());
+                }
+            }
+        }
+
         this.state()?.register_action(
             artifacts.declared_outputs,
             action,

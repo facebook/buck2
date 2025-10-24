@@ -84,6 +84,7 @@ def _run_with_content_based_path_impl(ctx):
     args.add(cmd_args(hidden = ctx.attrs.depends_on))
     kwargs = {
         "category": "test_run",
+        "expect_eligible_for_dedupe": True,
         "outputs_for_error_handler": [out.as_output()],
     }
     if ctx.attrs.prefer_local:
@@ -554,14 +555,18 @@ def _not_eligible_for_dedupe_impl(ctx) -> list[Provider]:
         uses_experimental_content_based_path_hashing = False,
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = ctx.attrs.run_action_output_has_content_based_path)
     args = cmd_args(["fbpython", script, out.as_output()])
 
     ctx.actions.run(
         args,
         category = "test_run",
+        expect_eligible_for_dedupe = ctx.attrs.expect_eligible_for_dedupe,
     )
 
     return [DefaultInfo(out)]
 
-not_eligible_for_dedupe = rule(impl = _not_eligible_for_dedupe_impl, attrs = {})
+not_eligible_for_dedupe = rule(impl = _not_eligible_for_dedupe_impl, attrs = {
+    "expect_eligible_for_dedupe": attrs.bool(default = False),
+    "run_action_output_has_content_based_path": attrs.bool(default = True),
+})
