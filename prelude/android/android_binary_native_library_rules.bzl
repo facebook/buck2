@@ -475,6 +475,8 @@ def get_android_binary_native_library_info(
 _NativeLibSubtargetArtifacts = record(
     default = Artifact,
     unrelinked = Artifact | None,
+    linker_command = Artifact | None,
+    linker_argsfile = Artifact | None,
 )
 
 def _post_native_lib_graph_finalization_steps(
@@ -575,18 +577,28 @@ def _declare_library_subtargets(
             output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
             lib_output = ctx.actions.declare_output(output_path, dir = True)
             dynamic_outputs.append(lib_output)
+
             if enable_relinker:
+                linker_command_output = ctx.actions.declare_output(output_path + ".linker_command")
+                dynamic_outputs.append(linker_command_output)
+                linker_argsfile_output = ctx.actions.declare_output(output_path + ".linker_argsfile")
+                dynamic_outputs.append(linker_argsfile_output)
+
                 output_path = output_path + ".unrelinked"
                 unrelinked_lib_output = ctx.actions.declare_output(output_path, dir = True)
                 dynamic_outputs.append(unrelinked_lib_output)
                 lib_outputs[soname] = _NativeLibSubtargetArtifacts(
                     default = lib_output,
                     unrelinked = unrelinked_lib_output,
+                    linker_command = linker_command_output,
+                    linker_argsfile = linker_argsfile_output,
                 )
             else:
                 lib_outputs[soname] = _NativeLibSubtargetArtifacts(
                     default = lib_output,
                     unrelinked = None,
+                    linker_command = None,
+                    linker_argsfile = None,
                 )
 
         lib_outputs_by_platform[platform] = lib_outputs
@@ -607,6 +619,9 @@ def _link_library_subtargets(
         unrelinked: bool = False):
     for platform, final_shared_libs in final_shared_libs_by_platform.items():
         merged_lib_outputs = {}
+        linker_commands_by_soname = {}
+        linker_argsfiles_by_soname = {}
+
         for soname, lib in final_shared_libs.items():
             base_soname = soname
             if split_groups and soname in split_groups:
@@ -614,6 +629,16 @@ def _link_library_subtargets(
 
             group_outputs = merged_lib_outputs.setdefault(base_soname, {})
             group_outputs[soname] = lib.lib.output
+
+            if not unrelinked:
+                if lib.lib.linker_command:
+                    linker_commands_by_soname[soname] = {
+                        "argsfile": lib.lib.linker_argsfile,
+                        "command": lib.lib.linker_command,
+                        "filename": lib.lib.output.short_path,
+                    }
+                if lib.lib.linker_argsfile:
+                    linker_argsfiles_by_soname[soname] = lib.lib.linker_argsfile
 
         for soname, lib_outputs in lib_outputs_by_platform[platform].items():
             if soname in merged_lib_outputs:
@@ -634,6 +659,17 @@ def _link_library_subtargets(
                 output = lib_outputs.unrelinked
             ctx.actions.symlinked_dir(outputs[output], group_outputs)
 
+            if not unrelinked and lib_outputs.linker_command:
+                if soname in linker_commands_by_soname:
+                    ctx.actions.write_json(outputs[lib_outputs.linker_command], linker_commands_by_soname[soname])
+                else:
+                    ctx.actions.write_json(outputs[lib_outputs.linker_command], {})
+
+                if soname in linker_argsfiles_by_soname:
+                    ctx.actions.symlink_file(outputs[lib_outputs.linker_argsfile], linker_argsfiles_by_soname[soname])
+                else:
+                    ctx.actions.write_json(outputs[lib_outputs.linker_argsfile], {})
+
 def _create_library_subtargets(
         lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]],
         native_libs: Artifact,
@@ -641,15 +677,22 @@ def _create_library_subtargets(
     def create_library_subtarget(output: _NativeLibSubtargetArtifacts, create_default_outputs: bool):
         if not create_default_outputs and not output.unrelinked:
             fail("create_default_outputs can only be False when relinking")
+
+        sub_targets = {}
+        if output.linker_command:
+            sub_targets["linker_command"] = [DefaultInfo(default_outputs = [output.linker_command])]
+        if output.linker_argsfile:
+            sub_targets["linker_argsfile"] = [DefaultInfo(default_outputs = [output.linker_argsfile])]
+
         if output.unrelinked:
-            sub_targets = {"unrelinked": [DefaultInfo(default_outputs = [output.unrelinked])]}
+            sub_targets["unrelinked"] = [DefaultInfo(default_outputs = [output.unrelinked])]
             if create_default_outputs:
                 default_outputs = [output.default]
             else:
-                sub_targets |= {"relinked": [DefaultInfo(default_outputs = [output.default])]}
+                sub_targets["relinked"] = [DefaultInfo(default_outputs = [output.default])]
                 default_outputs = []
             return [DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets)]
-        return [DefaultInfo(default_outputs = [output.default])]
+        return [DefaultInfo(default_outputs = [output.default], sub_targets = sub_targets)]
 
     if len(lib_outputs_by_platform) > 1:
         return {
