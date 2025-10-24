@@ -212,7 +212,7 @@ def _create_kotlin_sources(
         ksp_cmd.extend(["--ksp_project_base_dir", ctx.label.path])
 
         ksp_kotlinc_cmd_args = cmd_args(kotlinc_cmd_args)
-        plugins_cmd_args = _add_plugins(ctx, is_ksp = True)
+        plugins_cmd_args = _add_plugins(ctx, ctx.attrs.kotlin_compiler_plugins, is_ksp = True)
         ksp_kotlinc_cmd_args.add(plugins_cmd_args.kotlinc_cmd_args)
         ksp_cmd.append(plugins_cmd_args.compile_kotlin_cmd)
 
@@ -234,7 +234,7 @@ def _create_kotlin_sources(
         zipped_sources = (zipped_sources or []) + [ksp_zipped_sources_output]
         compile_kotlin_cmd_args.extend(["--ksp_generated_classes_and_resources", ksp_classes_and_resources_output])
 
-    plugin_cmd_args = _add_plugins(ctx, is_ksp = False)
+    plugin_cmd_args = _add_plugins(ctx, ctx.attrs.kotlin_compiler_plugins, is_ksp = False)
     kotlinc_cmd_args.add(plugin_cmd_args.kotlinc_cmd_args)
     compile_kotlin_cmd_args.append(plugin_cmd_args.compile_kotlin_cmd)
 
@@ -274,10 +274,11 @@ _PluginCmdArgs = record(
 
 def _add_plugins(
         ctx: AnalysisContext,
+        plugins: list[tuple],
         is_ksp: bool) -> _PluginCmdArgs:
     kotlinc_cmd_args = cmd_args()
     compile_kotlin_cmd = cmd_args()
-    for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins:
+    for plugin, plugin_options in plugins:
         if _is_ksp_plugin(str(plugin)) != is_ksp:
             continue
 
