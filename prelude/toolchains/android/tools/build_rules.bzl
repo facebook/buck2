@@ -239,6 +239,7 @@ def buck_kotlin_test(**kwargs):
     kwargs["labels"] += extra_labels
 
     kwargs = _add_kotlin_deps(**kwargs)
+    kwargs = _maybe_add_java_version(**kwargs)
 
     fb_native.kotlin_test(**kwargs)
 
