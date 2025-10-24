@@ -10,8 +10,10 @@
 import argparse
 import json
 import os
+import pathlib
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 
@@ -91,8 +93,17 @@ def _make_path_user_writable(path: str) -> None:
     # Incremental Remote Actions, where this path may or may not be
     # pre-populated from a previous action. We need to check because we won't
     # know if we have these paths populated until runtime.
-    if os.path.exists(path):
-        make_path_user_writable(path)
+    if not os.path.exists(path):
+        return
+
+    backup_path = f"{path}.bak"
+    shutil.move(path, backup_path)
+    shutil.copy2(backup_path, path)
+
+    backup_file = pathlib.Path(backup_path)
+    backup_file.unlink()
+
+    make_path_user_writable(path)
 
 
 def _rewrite_dependency_file(command, out_path):
