@@ -438,6 +438,7 @@ python_binary = prelude_rule(
         python_common.deduplicate_merged_link_roots() |
         python_common.executable_deps_arg() |
         native_common.link_group_deps() |
+        native_common.transformation_spec_arg() |
         native_common.link_group_public_deps_label() |
         {
             "build_args": attrs.list(attrs.arg(), default = []),
@@ -615,6 +616,7 @@ python_test = prelude_rule(
         python_common.executable_deps_arg() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
+        native_common.transformation_spec_arg() |
         {
             "additional_coverage_targets": attrs.list(attrs.dep(), default = []),
             "build_args": attrs.list(attrs.arg(), default = []),
