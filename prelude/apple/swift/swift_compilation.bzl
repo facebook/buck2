@@ -894,6 +894,7 @@ def _compile_with_argsfile(
         objects = objects,
         incremental_artifacts = incremental_artifacts,
         artifact_tag = artifact_tag,
+        incremental_remote_outputs = get_incremental_remote_outputs_enabled(ctx) and build_swift_incrementally,
     )
 
     if extension:
