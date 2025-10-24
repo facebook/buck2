@@ -92,6 +92,7 @@ buck_java_library(
         "InstrumentationMain.java",
         "InstrumentationTestRunner.java",
         "InstrumentationTpxStandardOutputTestListener.java",
+        "RunShellCommand.java",
         "TpxStandardOutputTestListener.java",
         "reportlayer/LogExtractorReportLayer.java",
         "reportlayer/ReportLayer.java",
