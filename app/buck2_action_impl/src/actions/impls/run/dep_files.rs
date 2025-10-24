@@ -42,9 +42,12 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::DirectoryDigester;
+use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::directory_selector::DirectorySelector;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_directory::directory::find::find;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
@@ -1178,7 +1181,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
 
             for input in inputs {
                 let input = ctx.artifact_values(input);
-                input.add_to_directory_for_dep_files(&mut builder, ctx.fs())?;
+                input.add_to_directory(&mut builder, ctx.fs())?;
             }
 
             builder.finalize()
@@ -1257,7 +1260,7 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
             concrete_dep_files: &mut ConcreteDepFiles,
             fs: &ArtifactFs,
         ) -> buck2_error::Result<()> {
-            let mut matching_selector = match concrete_dep_files.get_selector(label, fs)? {
+            let mut matching_selector = match concrete_dep_files.get_selector(label, fs, builder)? {
                 Some(s) => s,
                 None => return Ok(()),
             };
@@ -1497,6 +1500,7 @@ impl ConcreteDepFiles {
         &self,
         label: &Arc<str>,
         fs: &ArtifactFs,
+        builder: &ActionDirectoryBuilder,
     ) -> buck2_error::Result<Option<DirectorySelector>> {
         let dep_file = match self.contents.get(label) {
             Some(dep_file) => dep_file,
@@ -1513,37 +1517,35 @@ impl ConcreteDepFiles {
             let path = ForwardRelativePathNormalizer::normalize_path(line)
                 .buck_error_context("Invalid line encountered in dep file")?;
 
-            let path = match Self::normalize_content_based_path(path, fs) {
-                Ok(path) => path,
-                Err(e) => {
-                    soft_error!("failed_to_normalize_dep_file_path", e)?;
-                    return Ok(None);
-                }
-            };
-
-            selector.select(path.as_ref());
+            if let Err(e) = Self::add_path_to_selector(path, &mut selector, fs, builder) {
+                soft_error!("failed_to_add_dep_file_path_to_selector", e)?;
+                return Ok(None);
+            }
         }
 
         Ok(Some(selector))
     }
 
-    /// If dep-files contain content-based paths, we "normalize" them by replacing the content-based
-    /// hash with a known placeholder. This is because the content-based path can affect the dep-file
-    /// such that we'll get a dep-file miss when we should get a hit (e.g. if a tagged input and an
-    /// untagged input are in the same dir, and the untagged input changes, then the tagged input's
-    /// content-based path will change).
+    /// If dep-files contain content-based paths, then the paths in our input directory might not
+    /// match the paths that were written to the dep-file in the previous invocation of the action.
+    ///
+    /// Therefore, if we have a path with a content hash, we look in the input directory for all
+    /// possible content hashes, and construct paths based on those hashes instead.
     ///
     /// This does mean that we might over-approximate on the tagged input files, since multiple paths
-    /// can end up with the same representation, but (1) it's unlikely to happen anyway and (2) the
-    /// multiple files with conflicting paths are likely to change together anyway, so this doesn't
-    /// seem like a big issue.
-    fn normalize_content_based_path<'a>(
-        path: Cow<'a, ForwardRelativePath>,
+    /// can be added in place of a single entry in the dep-file, but (1) it's unlikely to happen
+    /// anyway and (2) the multiple files with conflicting paths are likely to change together anyway,
+    /// so this doesn't seem like a big issue.
+    fn add_path_to_selector(
+        path: Cow<'_, ForwardRelativePath>,
+        selector: &mut DirectorySelector,
         fs: &ArtifactFs,
-    ) -> buck2_error::Result<Cow<'a, ForwardRelativePath>> {
+        builder: &ActionDirectoryBuilder,
+    ) -> buck2_error::Result<()> {
         if !path.starts_with(fs.buck_out_path_resolver().root()) {
             // This path isn't in buck-out, no content-based hash to replace.
-            return Ok(path);
+            selector.select(path.as_ref());
+            return Ok(());
         }
 
         let path_iter = path.as_ref().iter();
@@ -1558,7 +1560,8 @@ impl ConcreteDepFiles {
         };
 
         if !should_look_for_content_based_hash {
-            return Ok(path);
+            selector.select(path.as_ref());
+            return Ok(());
         }
 
         let mut content_based_hash: Option<&str> = None;
@@ -1577,16 +1580,55 @@ impl ConcreteDepFiles {
             }
         }
 
-        Ok(match content_based_hash {
+        match content_based_hash {
             Some(content_based_hash) => {
-                let path = path.as_str().replace(
-                    content_based_hash,
-                    ContentBasedPathHash::DepFilesPlaceholder.as_str(),
-                );
-                Cow::Owned(ForwardRelativePathBuf::try_from(path)?)
+                let mut split_path = path.as_str().split(content_based_hash).into_iter();
+                let (before, after) = match (
+                    split_path.next(),
+                    split_path.next(),
+                    split_path.next(),
+                ) {
+                    (Some(before), Some(after), None) => (before, after),
+                    _ => {
+                        return Err(buck2_error::internal_error!(
+                                "Found content-based hash {} in path {} that didn't split the path in two!",
+                                content_based_hash,
+                                path,
+                            )
+                            .into());
+                    }
+                };
+
+                let dir_in_builder =
+                    find(builder.as_ref(), ForwardRelativePath::unchecked_new(before))?;
+                if let Some(dir_in_builder) = dir_in_builder {
+                    match dir_in_builder {
+                        DirectoryEntry::Dir(d) => {
+                            for (name, _entry) in d.entries() {
+                                if is_hash(name.as_str()) {
+                                    let parts = [before, name.as_str(), after];
+                                    selector
+                                        .select(&ForwardRelativePathBuf::try_from(parts.concat())?);
+                                }
+                            }
+                        }
+                        DirectoryEntry::Leaf(..) => {
+                            return Err(buck2_error::internal_error!(
+                                "Found content-based hash {} in path {} that was a leaf in the input directory!",
+                                content_based_hash,
+                                path,
+                            )
+                            .into());
+                        }
+                    }
+                }
             }
-            None => path,
-        })
+            None => {
+                selector.select(path.as_ref());
+            }
+        }
+
+        Ok(())
     }
 }
 
