@@ -17,7 +17,7 @@ def inspect_java_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.Co
         ctx.output.ensure(debuginfo)
 
     program = None
-    if providers[ExternalRunnerTestInfo]:
+    if ExternalRunnerTestInfo in providers:
         cmd = cmd_args()
 
         for key, value in providers[ExternalRunnerTestInfo].env.items():
