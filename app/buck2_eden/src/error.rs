@@ -180,6 +180,10 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
     }
 }
 
+fn eden_network_error_tag(_code: i32) -> ErrorTag {
+    ErrorTag::IoEdenNetworkUncategorized
+}
+
 fn eden_service_error_tag(error: &edenfs::EdenError) -> ErrorTag {
     match error.errorType {
         EdenErrorType::WIN32_ERROR => ErrorTag::IoEdenWin32Error,
@@ -202,6 +206,10 @@ pub enum EdenError {
     #[buck2(tag = eden_posix_error_tag(code))]
     PosixError { error: edenfs::EdenError, code: i32 },
 
+    #[error("Eden network error (code = {code}): {0}", error.message)]
+    #[buck2(tag = eden_network_error_tag(code))]
+    NetworkError { error: edenfs::EdenError, code: i32 },
+
     #[error("Eden service error: {0}", error.message)]
     #[buck2(tag = eden_service_error_tag(&error))]
     ServiceError { error: edenfs::EdenError },
@@ -216,6 +224,13 @@ impl From<edenfs::EdenError> for EdenError {
         if error.errorType == EdenErrorType::POSIX_ERROR {
             if let Some(error_code) = error.errorCode {
                 return Self::PosixError {
+                    error,
+                    code: error_code,
+                };
+            }
+        } else if error.errorType == EdenErrorType::NETWORK_ERROR {
+            if let Some(error_code) = error.errorCode {
+                return Self::NetworkError {
                     error,
                     code: error_code,
                 };

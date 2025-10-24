@@ -328,6 +328,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoEdenRequestError => rank!(tier0),
         ErrorTag::IoEdenUnknownField => rank!(tier0),
         ErrorTag::IoEdenAttributeUnavailable => rank!(tier0),
+        ErrorTag::IoEdenNetworkCurlTimedout => rank!(tier0),
+        ErrorTag::IoEdenNetworkUncategorized => rank!(tier0),
         ErrorTag::IoEdenUncategorized => rank!(tier0),
         ErrorTag::IoBlockingExecutor => rank!(tier0),
         ErrorTag::WatchmanClient => rank!(tier0),
