@@ -686,6 +686,7 @@ genrule = prelude_rule(
                 Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
                 executable.
             """),
+            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
         genrule_common.env_arg() |
