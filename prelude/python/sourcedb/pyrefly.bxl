@@ -27,13 +27,23 @@ _MODULE_SUFFIXES = set([
     ".so",
 ])
 
-def _append_to_or_set_list(mapping: dict[str, list[typing.Any]], key: str, value: typing.Any) -> None:
+def _append_to_or_set_list(
+        mapping: dict[str, list[str | bxl.EnsuredArtifact]],
+        key: str,
+        value: str | bxl.EnsuredArtifact) -> None:
     if key in mapping:
         mapping[key].append(value)
     else:
         mapping[key] = [value]
 
-def _append_or_default_if_module(srcs: dict[str, list[typing.Any]], module: str, path: typing.Any) -> None:
+def _append_or_default_if_module(
+        srcs: dict[str, list[str | bxl.EnsuredArtifact]],
+        module: str,
+        path: str | bxl.EnsuredArtifact) -> None:
+    if isinstance(path, bxl.EnsuredArtifact):
+        # we can't filter ensured artifacts, since there's no way to inspect the path
+        _append_to_or_set_list(srcs, module, path)
+        return
     for suffix in _MODULE_SUFFIXES:
         if path.endswith(suffix):
             _append_to_or_set_list(srcs, module, path)
