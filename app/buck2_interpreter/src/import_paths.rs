@@ -119,10 +119,10 @@ where
                 section: "parser",
                 property: "cell_segmentation",
             })?
-            // Buck2 has always enabled cell segmentation until now.
-            // At some point we might change the default, but for now
-            // you have to deliberately turn it off.
-            .unwrap_or(true))
+            // This means:
+            // - default for Meta is true, as it always has been
+            // - default for OSS is false
+            .unwrap_or(cfg!(fbcode_build)))
     }
 }
 
