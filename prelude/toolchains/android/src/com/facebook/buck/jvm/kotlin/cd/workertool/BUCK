@@ -11,6 +11,9 @@ buck_java_library(
     srcs = [
         "KotlinCDCommand.java",
     ],
+    visibility = [
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/remote_worker/...",
+    ],
     runtime_deps = select({
         "DEFAULT": [
             "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",

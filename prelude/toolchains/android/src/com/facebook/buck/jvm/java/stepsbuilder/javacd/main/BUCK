@@ -12,6 +12,7 @@ buck_java_library(
         "JavaCDCommand.java",
     ],
     visibility = [
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/remote_worker/...",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/...",
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],
@@ -36,6 +37,7 @@ buck_java_library(
         "JavaCDMain.java",
     ],
     visibility = [
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/remote_worker/...",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/...",
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],

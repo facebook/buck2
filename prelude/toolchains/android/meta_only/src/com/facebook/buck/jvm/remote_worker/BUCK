@@ -1,0 +1,114 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "workertool_thrift",
+    srcs = [
+        "WorkerThriftServer.java",
+        "WorkerThriftService.java",
+    ],
+    source = "11",
+    target = "11",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "fbcode//remote_execution/lib/if/worker_tool:worker_tool_thrift-java-swift-java17",
+        "fbcode//third-party-java/io.airlift:units",
+        "fbcode//third-party-java/org/slf4j/slf4j-api:slf4j-api",
+        "fbcode//thrift/lib/java/facebook/service-framework:service-framework-java17",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:command_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/step:step",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/src/com/facebook/buck/util/perf:perf",
+        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
+        "prelude//toolchains/android/third-party:args4j",
+    ],
+)
+
+buck_java_library(
+    name = "javacd_thrift_worker_tool_lib",
+    srcs = [
+        "JavaCDThriftWorkerToolMain.java",
+    ],
+    source = "11",
+    target = "11",
+    deps = [
+        "fbcode//remote_execution/lib/if/worker_tool:worker_tool_thrift-java-swift-java17",
+        "fbcode//third-party-java/io.netty:netty-tcnative-boringssl-static",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool:workertool",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:command_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:main_lib",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":workertool_thrift",
+    ],
+)
+
+buck_java_library(
+    name = "kotlincd_thrift_worker_tool_lib",
+    srcs = [
+        "KotlinCDThriftWorkerToolMain.java",
+    ],
+    source = "11",
+    target = "11",
+    deps = [
+        "fbcode//remote_execution/lib/if/worker_tool:worker_tool_thrift-java-swift-java17",
+        "fbcode//third-party-java/io.netty:netty-tcnative-boringssl-static",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool:workertool",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:command_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:command_lib",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":workertool_thrift",
+    ],
+)
+
+buck_java_binary(
+    name = "javacd_thrift_worker_tool",
+    # _java_toolchain = "toolchains//:java_bootstrap",
+    blocklist = [
+        "^META-INF/.*\\.(SF|RSA|DSA|EC)$",
+    ],
+    main_class = "com.facebook.buck.jvm.remote_worker.JavaCDThriftWorkerToolMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:main_lib",
+        ":javacd_thrift_worker_tool_lib",
+    ],
+)
+
+buck_java_binary(
+    name = "kotlincd_thrift_worker_tool",
+    # _java_toolchain = "toolchains//:java_bootstrap",
+    blocklist = [
+        "^META-INF/.*\\.(SF|RSA|DSA|EC)$",
+    ],
+    main_class = "com.facebook.buck.jvm.remote_worker.KotlinCDThriftWorkerToolMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:main_lib",
+        ":kotlincd_thrift_worker_tool_lib",
+    ],
+)
