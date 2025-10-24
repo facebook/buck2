@@ -548,7 +548,6 @@ impl RunAction {
                 &mut cli_ctx,
                 &artifact_path_mapping_for_dep_files,
             )?;
-            worker.exe.visit_artifacts(artifact_visitor)?;
             worker.exe.visit_artifacts(&mut local_worker_visitor)?;
             let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
                 .env
@@ -561,7 +560,6 @@ impl RunAction {
                         &mut ctx,
                         &artifact_path_mapping,
                     )?;
-                    v.visit_artifacts(artifact_visitor)?;
                     v.visit_artifacts(&mut local_worker_visitor)?;
 
                     command_line_digest_for_dep_files.push_arg(k.to_owned());
