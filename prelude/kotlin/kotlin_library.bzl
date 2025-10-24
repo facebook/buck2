@@ -67,6 +67,7 @@ def _create_kotlin_sources(
         ksp_annotation_processor_properties: AnnotationProcessorProperties,
         additional_classpath_entries: JavaCompilingDepsTSet | None,
         bootclasspath_entries: list[Artifact],
+        plugins: list[tuple],
         output_artifact_prefix: str = "") -> (Artifact, Artifact | None, Artifact | None):
     """
     Runs kotlinc on the provided kotlin sources.
@@ -212,7 +213,7 @@ def _create_kotlin_sources(
         ksp_cmd.extend(["--ksp_project_base_dir", ctx.label.path])
 
         ksp_kotlinc_cmd_args = cmd_args(kotlinc_cmd_args)
-        plugins_cmd_args = _add_plugins(ctx, ctx.attrs.kotlin_compiler_plugins, is_ksp = True)
+        plugins_cmd_args = _add_plugins(ctx, plugins, is_ksp = True)
         ksp_kotlinc_cmd_args.add(plugins_cmd_args.kotlinc_cmd_args)
         ksp_cmd.append(plugins_cmd_args.compile_kotlin_cmd)
 
@@ -234,7 +235,7 @@ def _create_kotlin_sources(
         zipped_sources = (zipped_sources or []) + [ksp_zipped_sources_output]
         compile_kotlin_cmd_args.extend(["--ksp_generated_classes_and_resources", ksp_classes_and_resources_output])
 
-    plugin_cmd_args = _add_plugins(ctx, ctx.attrs.kotlin_compiler_plugins, is_ksp = False)
+    plugin_cmd_args = _add_plugins(ctx, plugins, is_ksp = False)
     kotlinc_cmd_args.add(plugin_cmd_args.kotlinc_cmd_args)
     compile_kotlin_cmd_args.append(plugin_cmd_args.compile_kotlin_cmd)
 
@@ -428,6 +429,7 @@ def build_kotlin_library(
                 ksp_annotation_processor_properties,
                 additional_classpath_entries,
                 bootclasspath_for_kotlinc,
+                plugins = ctx.attrs.kotlin_compiler_plugins,
             )
             srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
             if kapt_generated_sources:
