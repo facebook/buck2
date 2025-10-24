@@ -217,7 +217,8 @@ impl DepFileState {
         dep_files: Cow<'_, ConcreteDepFiles>,
         keep_directories: bool,
         digest_config: DigestConfig,
-    ) -> MappedMutexGuard<'a, StoredFingerprints> {
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<MappedMutexGuard<'a, StoredFingerprints>> {
         let input_signatures = &self
             .has_declared_dep_files
             .as_ref()
@@ -237,15 +238,16 @@ impl DepFileState {
                 dep_files.into_owned(),
                 digest_config,
                 keep_directories,
-            );
+                fs,
+            )?;
 
             *guard = DepFileStateInputSignatures::Computed(fingerprints);
         }
 
-        MutexGuard::map(guard, |v| match v {
+        Ok(MutexGuard::map(guard, |v| match v {
             DepFileStateInputSignatures::Computed(signatures) => signatures,
             DepFileStateInputSignatures::Deferred(..) => unreachable!(),
-        })
+        }))
     }
 }
 
@@ -622,7 +624,7 @@ impl DepFileBundle {
             .clone()
             .ok_or_else(|| buck2_error::internal_error!("Dep files should have been declared"))?
             .unshare()
-            .filter(dep_files)
+            .filter(dep_files, fs)?
             .fingerprint(digest_config);
 
         let different_digest_count = computed_filtered_fingerprints
@@ -937,7 +939,8 @@ async fn dep_files_match(
             Cow::Borrowed(&dep_files),
             keep_directories()?,
             digest_config,
-        );
+            ctx.fs(),
+        )?;
 
         // NOTE: We use the new directory to e.g. resolve symlinks referenced in the dep file. This
         // makes sense: if a path in the depfile is still a symlink, then we'll compare the new
@@ -947,7 +950,7 @@ async fn dep_files_match(
             .clone()
             .expect("Must have declared inputs when we have dep-files!")
             .unshare()
-            .filter(dep_files)
+            .filter(dep_files, ctx.fs())?
             .fingerprint(digest_config);
         *previous_fingerprints == new_fingerprints
     };
@@ -1003,12 +1006,17 @@ fn compute_fingerprints(
     dep_files: ConcreteDepFiles,
     digest_config: DigestConfig,
     keep_directories: bool,
-) -> StoredFingerprints {
-    let filtered_directories = directories.filter(dep_files).fingerprint(digest_config);
+    fs: &ArtifactFs,
+) -> buck2_error::Result<StoredFingerprints> {
+    let filtered_directories = directories
+        .filter(dep_files, fs)?
+        .fingerprint(digest_config);
     if keep_directories {
-        StoredFingerprints::Dirs(filtered_directories)
+        Ok(StoredFingerprints::Dirs(filtered_directories))
     } else {
-        StoredFingerprints::Digests(filtered_directories.as_fingerprints())
+        Ok(StoredFingerprints::Digests(
+            filtered_directories.as_fingerprints(),
+        ))
     }
 }
 
@@ -1029,7 +1037,8 @@ async fn eagerly_compute_fingerprints(
         dep_files,
         digest_config,
         keep_directories()?,
-    );
+        artifact_fs,
+    )?;
     Ok(fingerprints)
 }
 
@@ -1237,18 +1246,23 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
     /// Filter this set of PartitionedInputs using dep files that were produced by the command (or
     /// a previous invocation thereof). For each partition of inputs (i.e. untagged, or specific
     /// tags), only the inputs listed in the dep file will be retained.
-    fn filter(mut self, mut concrete_dep_files: ConcreteDepFiles) -> Self {
+    fn filter(
+        mut self,
+        mut concrete_dep_files: ConcreteDepFiles,
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<Self> {
         fn filter(
             label: &Arc<str>,
             builder: &mut ActionDirectoryBuilder,
             concrete_dep_files: &mut ConcreteDepFiles,
-        ) {
-            let matching_selector = match concrete_dep_files.contents.get_mut(label) {
+            fs: &ArtifactFs,
+        ) -> buck2_error::Result<()> {
+            let mut matching_selector = match concrete_dep_files.get_selector(label, fs)? {
                 Some(s) => s,
-                None => return,
+                None => return Ok(()),
             };
 
-            expand_selector_for_dependencies(builder, matching_selector);
+            expand_selector_for_dependencies(builder, &mut matching_selector);
 
             // NOTE: We ignore the filtering if it produces an invalid directory. If we can't
             // filter, that means we're selecting into a leaf, which means one of two things:
@@ -1257,13 +1271,15 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
             // - The directory structure changed and was a dir is now a leaf, in which case we'll
             // select the leaf but when comparing this to the dir it'll conflict.
             let _ignored = matching_selector.filter(builder);
+
+            Ok(())
         }
 
         for (label, dir) in self.tagged.iter_mut() {
-            filter(label, dir, &mut concrete_dep_files);
+            filter(label, dir, &mut concrete_dep_files, fs)?;
         }
 
-        self
+        Ok(self)
     }
 
     /// Compute fingerprints for all the PartitionedInputs in here. This lets us do comparisons.
@@ -1383,6 +1399,134 @@ impl DeclaredDepFiles {
         }
     }
 
+    /// Read this set of dep files, producing ConcreteDepFiles. This can then be used to compute
+    /// signatures for the input set that was used, and for future input sets.
+    fn read(
+        &self,
+        fs: &ArtifactFs,
+        result: &ActionOutputs,
+    ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
+        let mut contents = HashMap::with_capacity(self.tagged.len());
+
+        for declared_dep_file in self.tagged.values() {
+            let content_hash = if declared_dep_file.output.has_content_based_path() {
+                Some(
+                    result
+                        .get_from_artifact_path(&declared_dep_file.output.get_path())
+                        .expect("declared dep file must be one of the ActionOutputs!")
+                        .content_based_path_hash(),
+                )
+            } else {
+                None
+            };
+            let dep_file = declared_dep_file
+                .output
+                .resolve_path(fs, content_hash.as_ref())?;
+
+            let read_dep_file: buck2_error::Result<()> = try {
+                let dep_file_path = fs.fs().resolve(&dep_file);
+                let dep_file = fs_util::read_to_string_if_exists(&dep_file_path)?;
+
+                let dep_file = match dep_file {
+                    Some(dep_file) => dep_file,
+                    None => {
+                        soft_error!(
+                            "missing_dep_file",
+                            buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "Dep file is missing at {}",
+                                dep_file_path
+                            )
+                            .into()
+                        )?;
+                        return Ok(None);
+                    }
+                };
+
+                contents.insert(declared_dep_file.label.dupe(), dep_file);
+            };
+
+            read_dep_file.with_buck_error_context(|| {
+                format!(
+                    "Action execution produced an invalid `{}` dep file at `{}`",
+                    declared_dep_file.label, dep_file,
+                )
+            })?;
+        }
+
+        Ok(Some(ConcreteDepFiles { contents }))
+    }
+
+    /// Returns whether two DeclaredDepFile instances have the same dep files. This ignores the tag
+    /// identity, but it requires the same paths declared using the same name. This is a
+    /// pre-requisite for being able to reuse dep files from a previous invocation.
+    fn declares_same_dep_files(&self, other: Option<&Self>) -> bool {
+        match other {
+            None => self.tagged.is_empty(),
+            Some(other) => {
+                let this = self.tagged.values().collect::<HashSet<_>>();
+                let other = other.tagged.values().collect::<HashSet<_>>();
+                this == other
+            }
+        }
+    }
+}
+
+#[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
+enum MaterializeDepFilesError {
+    #[error("Error materializing dep file")]
+    MaterializationFailed {
+        #[source]
+        source: buck2_error::Error,
+    },
+
+    #[error("A dep file was not found")]
+    NotFound,
+}
+
+/// A set of concrete dep files. That is, given a label, a string that represents the
+/// content of the corresponding dep file.
+#[derive(Clone)]
+pub(crate) struct ConcreteDepFiles {
+    contents: HashMap<Arc<str>, String>,
+}
+
+impl ConcreteDepFiles {
+    fn get_selector(
+        &self,
+        label: &Arc<str>,
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<Option<DirectorySelector>> {
+        let dep_file = match self.contents.get(label) {
+            Some(dep_file) => dep_file,
+            None => return Ok(None),
+        };
+
+        let mut selector = DirectorySelector::empty();
+        for line in dep_file.split('\n') {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            let path = ForwardRelativePathNormalizer::normalize_path(line)
+                .buck_error_context("Invalid line encountered in dep file")?;
+
+            let path = match Self::normalize_content_based_path(path, fs) {
+                Ok(path) => path,
+                Err(e) => {
+                    soft_error!("failed_to_normalize_dep_file_path", e)?;
+                    return Ok(None);
+                }
+            };
+
+            selector.select(path.as_ref());
+        }
+
+        Ok(Some(selector))
+    }
+
     /// If dep-files contain content-based paths, we "normalize" them by replacing the content-based
     /// hash with a known placeholder. This is because the content-based path can affect the dep-file
     /// such that we'll get a dep-file miss when we should get a hit (e.g. if a tagged input and an
@@ -1444,122 +1588,6 @@ impl DeclaredDepFiles {
             None => path,
         })
     }
-
-    /// Read this set of dep files, producing ConcreteDepFiles. This can then be used to compute
-    /// signatures for the input set that was used, and for future input sets.
-    fn read(
-        &self,
-        fs: &ArtifactFs,
-        result: &ActionOutputs,
-    ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
-        let mut contents = HashMap::with_capacity(self.tagged.len());
-
-        for declared_dep_file in self.tagged.values() {
-            let mut selector = DirectorySelector::empty();
-
-            let content_hash = if declared_dep_file.output.has_content_based_path() {
-                Some(
-                    result
-                        .get_from_artifact_path(&declared_dep_file.output.get_path())
-                        .expect("declared dep file must be one of the ActionOutputs!")
-                        .content_based_path_hash(),
-                )
-            } else {
-                None
-            };
-            let dep_file = declared_dep_file
-                .output
-                .resolve_path(fs, content_hash.as_ref())?;
-
-            let read_dep_file: buck2_error::Result<()> = try {
-                let dep_file_path = fs.fs().resolve(&dep_file);
-                let dep_file = fs_util::read_to_string_if_exists(&dep_file_path)?;
-
-                let dep_file = match dep_file {
-                    Some(dep_file) => dep_file,
-                    None => {
-                        soft_error!(
-                            "missing_dep_file",
-                            buck2_error::buck2_error!(
-                                buck2_error::ErrorTag::Input,
-                                "Dep file is missing at {}",
-                                dep_file_path
-                            )
-                            .into()
-                        )?;
-                        return Ok(None);
-                    }
-                };
-
-                for line in dep_file.split('\n') {
-                    let line = line.trim();
-                    if line.is_empty() {
-                        continue;
-                    }
-
-                    let path = ForwardRelativePathNormalizer::normalize_path(line)
-                        .buck_error_context("Invalid line encountered in dep file")?;
-
-                    let path = match DeclaredDepFiles::normalize_content_based_path(path, fs) {
-                        Ok(path) => path,
-                        Err(e) => {
-                            soft_error!("failed_to_normalize_dep_file_path", e)?;
-                            return Ok(None);
-                        }
-                    };
-
-                    selector.select(path.as_ref());
-
-                    // For content-based paths only, we need to normalize the path
-                }
-            };
-
-            read_dep_file.with_buck_error_context(|| {
-                format!(
-                    "Action execution produced an invalid `{}` dep file at `{}`",
-                    declared_dep_file.label, dep_file,
-                )
-            })?;
-
-            contents.insert(declared_dep_file.label.dupe(), selector);
-        }
-
-        Ok(Some(ConcreteDepFiles { contents }))
-    }
-
-    /// Returns whether two DeclaredDepFile instances have the same dep files. This ignores the tag
-    /// identity, but it requires the same paths declared using the same name. This is a
-    /// pre-requisite for being able to reuse dep files from a previous invocation.
-    fn declares_same_dep_files(&self, other: Option<&Self>) -> bool {
-        match other {
-            None => self.tagged.is_empty(),
-            Some(other) => {
-                let this = self.tagged.values().collect::<HashSet<_>>();
-                let other = other.tagged.values().collect::<HashSet<_>>();
-                this == other
-            }
-        }
-    }
-}
-
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
-enum MaterializeDepFilesError {
-    #[error("Error materializing dep file")]
-    MaterializationFailed {
-        #[source]
-        source: buck2_error::Error,
-    },
-
-    #[error("A dep file was not found")]
-    NotFound,
-}
-
-/// A set of concrete dep files. That is, given a label, a selector that represents the subset of
-/// files whose tags matches this label that should be considered relevant.
-#[derive(Clone)]
-pub(crate) struct ConcreteDepFiles {
-    contents: HashMap<Arc<str>, DirectorySelector>,
 }
 
 /// A command line visitor to collect inputs and outputs in a form relevant for dep files
