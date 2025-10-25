@@ -415,9 +415,6 @@ impl<'a> BuckdLifecycle<'a> {
         let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
             has_cgroup = true;
             resource_control_runner
-                .ensure_scope_stopped(&format!("{}.scope", &slice_name))
-                .await?;
-            resource_control_runner
                 .cgroup_scoped_command(daemon_exe, &slice_name, &project_dir.root())
                 .into()
         } else {
