@@ -299,6 +299,135 @@ impl LocalExecutor {
         }
     }
 
+    async fn exec_once<'k, E>(
+        &self,
+        action_digest: &ActionDigest,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        cancellations: &CancellationContext,
+        liveliness_observer: impl LivelinessObserver + 'static,
+        scratch_path: &ScratchPath,
+        args: &[String],
+        worker: Option<&WorkerHandle>,
+        iter_env: impl Fn() -> E + Send,
+        dispatcher: EventDispatcher,
+    ) -> Result<
+        (
+            Duration,
+            SystemTime,
+            CommandResult,
+            CommandExecutionManagerWithClaim,
+        ),
+        CommandExecutionResult,
+    >
+    where
+        E: Iterator<Item = (&'k str, StrOrOsStr<'k>)> + Send + Sync,
+    {
+        if let Err(e) = executor_stage_async(
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
+            },
+            async {
+                tokio::try_join!(
+                    create_output_dirs(
+                        &self.artifact_fs,
+                        request,
+                        self.materializer.dupe(),
+                        self.blocking_executor.dupe(),
+                        cancellations,
+                    ),
+                    prep_scratch_path(&scratch_path, &self.artifact_fs),
+                )
+                .buck_error_context("Error creating output directories")?;
+
+                buck2_error::Ok(())
+            },
+        )
+        .boxed()
+        .await
+        {
+            return Err(manager.error("prepare_output_dirs_failed", e));
+        };
+
+        let (execution_time, start_time, res) = executor_stage_async(
+            {
+                let env = iter_env()
+                    .map(|(k, v)| buck2_data::EnvironmentEntry {
+                        key: k.to_owned(),
+                        value: v.into_string_lossy(),
+                    })
+                    .collect();
+
+                let stage = match worker {
+                    None => buck2_data::LocalExecute {
+                        command: Some(buck2_data::LocalCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: args.to_vec(),
+                            env,
+                        }),
+                    }
+                    .into(),
+                    Some(_) => buck2_data::WorkerExecute {
+                        command: Some(buck2_data::WorkerCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: request.args().to_vec(),
+                            env,
+                            fallback_exe: request.exe().to_vec(),
+                        }),
+                    }
+                    .into(),
+                };
+                buck2_data::LocalStage { stage: Some(stage) }
+            },
+            async move {
+                let execution_start = Instant::now();
+                let start_time = SystemTime::now();
+
+                let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
+                let r = if let Some(worker) = worker {
+                    let env: Vec<(OsString, OsString)> = env
+                        .into_iter()
+                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
+                        .collect();
+                    Ok(worker
+                        .exec_cmd(request.args(), env, request.timeout())
+                        .await)
+                } else {
+                    let command_type = if request.is_test() {
+                        CommandType::Test
+                    } else {
+                        CommandType::Build
+                    };
+                    self.exec(
+                        &args[0],
+                        &args[1..],
+                        env,
+                        request.working_directory(),
+                        request.timeout(),
+                        request.local_environment_inheritance(),
+                        liveliness_observer,
+                        request.disable_miniperf(),
+                        &action_digest.to_string(),
+                        command_type,
+                        dispatcher,
+                    )
+                    .await
+                };
+
+                let execution_time = execution_start.elapsed();
+
+                (execution_time, start_time, r)
+            },
+        )
+        .boxed()
+        .await;
+
+        match res {
+            Ok(res) => Ok((execution_time, start_time, res, manager)),
+            Err(e) => Err(manager.error("exec_failed", e)),
+        }
+    }
+
     async fn exec_request(
         &self,
         action_digest: &ActionDigest,
@@ -376,32 +505,6 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().boxed().await;
 
-        if let Err(e) = executor_stage_async(
-            buck2_data::LocalStage {
-                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
-            },
-            async {
-                tokio::try_join!(
-                    create_output_dirs(
-                        &self.artifact_fs,
-                        request,
-                        self.materializer.dupe(),
-                        self.blocking_executor.dupe(),
-                        cancellations,
-                    ),
-                    prep_scratch_path(&scratch_path, &self.artifact_fs),
-                )
-                .buck_error_context("Error creating output directories")?;
-
-                buck2_error::Ok(())
-            },
-        )
-        .boxed()
-        .await
-        {
-            return manager.error("prepare_output_dirs_failed", e);
-        };
-
         info!(
             "Local execution command line:\n```\n$ {}\n```",
             args.join(" "),
@@ -409,7 +512,7 @@ impl LocalExecutor {
 
         let scratch_path_abs;
 
-        let tmpdirs = if let Some(scratch_path) = scratch_path.0 {
+        let tmpdirs = if let Some(scratch_path) = &scratch_path.0 {
             // For the $TMPDIR - important it is absolute
             scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
 
@@ -504,103 +607,44 @@ impl LocalExecutor {
             },
         };
 
-        let (mut timing, res) = executor_stage_async(
-            {
-                let env = iter_env()
-                    .map(|(k, v)| buck2_data::EnvironmentEntry {
-                        key: k.to_owned(),
-                        value: v.into_string_lossy(),
-                    })
-                    .collect();
-
-                let stage = match worker {
-                    None => buck2_data::LocalExecute {
-                        command: Some(buck2_data::LocalCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: args.to_vec(),
-                            env,
-                        }),
-                    }
-                    .into(),
-                    Some(_) => buck2_data::WorkerExecute {
-                        command: Some(buck2_data::WorkerCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: request.args().to_vec(),
-                            env,
-                            fallback_exe: request.exe().to_vec(),
-                        }),
-                    }
-                    .into(),
-                };
-                buck2_data::LocalStage { stage: Some(stage) }
-            },
-            async move {
-                let execution_start = Instant::now();
-                let start_time = SystemTime::now();
-
-                let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
-                let r = if let Some(worker) = worker {
-                    let env: Vec<(OsString, OsString)> = env
-                        .into_iter()
-                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
-                        .collect();
-                    Ok(worker
-                        .exec_cmd(request.args(), env, request.timeout())
-                        .await)
-                } else {
-                    let command_type = if request.is_test() {
-                        CommandType::Test
-                    } else {
-                        CommandType::Build
-                    };
-                    self.exec(
-                        &args[0],
-                        &args[1..],
-                        env,
-                        request.working_directory(),
-                        request.timeout(),
-                        request.local_environment_inheritance(),
-                        liveliness_observer,
-                        request.disable_miniperf(),
-                        &action_digest.to_string(),
-                        command_type,
-                        dispatcher,
-                    )
-                    .await
-                };
-
-                let execution_time = execution_start.elapsed();
-
-                let timing = Box::new(CommandExecutionMetadata {
-                    wall_time: execution_time,
-                    execution_time,
-                    start_time,
-                    execution_stats: None, // We fill this in later if available.
-                    input_materialization_duration,
-                    hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
-                    hashed_artifacts_count: 0,
-                    queue_duration: None,
-                    was_frozen: false, // Will fill in later if avalable
-                    freeze_duration: None,
-                });
-
-                (timing, r)
-            },
-        )
-        .boxed()
-        .await;
+        let (execution_time, start_time, res, manager) = match self
+            .exec_once(
+                action_digest,
+                request,
+                manager,
+                cancellations,
+                liveliness_observer,
+                &scratch_path,
+                args,
+                worker.as_deref(),
+                iter_env,
+                dispatcher,
+            )
+            .await
+        {
+            Ok(x) => x,
+            Err(e) => return e,
+        };
 
         let CommandResult {
             status,
             stdout,
             stderr,
             cgroup_result,
-        } = match res {
-            Ok(res) => res,
-            Err(e) => {
-                return manager.error("exec_failed", e);
-            }
-        };
+        } = res;
+
+        let mut timing = Box::new(CommandExecutionMetadata {
+            wall_time: execution_time,
+            execution_time,
+            start_time,
+            execution_stats: None, // We fill this in later if available.
+            input_materialization_duration,
+            hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
+            hashed_artifacts_count: 0,
+            queue_duration: None,
+            was_frozen: false, // Will fill in later if avalable
+            freeze_duration: None,
+        });
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
 
