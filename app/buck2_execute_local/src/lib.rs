@@ -24,7 +24,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
-use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -94,7 +93,6 @@ pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
     Exit(GatherOutputStatus),
-    Cgroup(CgroupPathBuf),
 }
 
 enum StdioEvent {
@@ -126,8 +124,6 @@ struct CommandEventStream<Status, Stdio> {
 
     #[pin]
     stdio: futures::stream::Fuse<Stdio>,
-
-    cgroup: Option<CgroupPathBuf>,
 }
 
 impl<Status, Stdio> CommandEventStream<Status, Stdio>
@@ -135,13 +131,12 @@ where
     Status: Future,
     Stdio: Stream,
 {
-    fn new(status: Status, stdio: Stdio, cgroup: Option<CgroupPathBuf>) -> Self {
+    fn new(status: Status, stdio: Stdio) -> Self {
         Self {
             exit: None,
             done: false,
             status: status.fuse(),
             stdio: stdio.fuse(),
-            cgroup,
         }
     }
 }
@@ -158,12 +153,6 @@ where
 
         if *this.done {
             return Poll::Ready(None);
-        }
-
-        // Take and send cgroup path as soon as the stream is polled. At this point the process
-        // should have spawned and the path should exist.
-        if let Some(cgroup) = this.cgroup.take() {
-            return Poll::Ready(Some(Ok(CommandEvent::Cgroup(cgroup))));
         }
 
         // This future is fused so it's guaranteed to be ready once. If it does, capture the exit
@@ -221,7 +210,6 @@ where
             return Ok(futures::stream::once(futures::future::ready(event)).left_stream());
         }
     };
-    let cgroup = process_group.cgroup.take();
 
     let stdio = if stream_stdio {
         let stdout = process_group
@@ -295,7 +283,7 @@ where
         })
     };
 
-    Ok(CommandEventStream::new(status, stdio, cgroup).right_stream())
+    Ok(CommandEventStream::new(status, stdio).right_stream())
 }
 
 pub struct CommandResult {
@@ -327,7 +315,6 @@ where
                     cgroup_result: None,
                 });
             }
-            CommandEvent::Cgroup(_) => {}
         }
     }
 
@@ -341,7 +328,7 @@ pub async fn gather_output<T>(cmd: Command, cancellation: T) -> buck2_error::Res
 where
     T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
 {
-    let cmd = ProcessCommand::new(cmd, None);
+    let cmd = ProcessCommand::new(cmd);
 
     let process_details =
         spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
@@ -581,7 +568,7 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd, None);
+        let cmd = ProcessCommand::new(cmd);
         let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
@@ -603,7 +590,7 @@ mod tests {
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd, None);
+        let cmd = ProcessCommand::new(cmd);
         let res = spawn_retry_txt_busy(cmd, || async { panic!("Should not be called!") }).await;
         assert!(res.is_err());
 
@@ -668,7 +655,7 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let mut cmd = ProcessCommand::new(cmd, None);
+        let mut cmd = ProcessCommand::new(cmd);
         let process = cmd.spawn().map_err(buck2_error::Error::from);
         let mut events = stream_command_events(
             process,
@@ -748,7 +735,7 @@ mod tests {
         };
         cmd.args(["-c", "sleep 10000"]);
 
-        let mut cmd = ProcessCommand::new(cmd, None);
+        let mut cmd = ProcessCommand::new(cmd);
         let process = cmd.spawn().map_err(buck2_error::Error::from);
 
         let stream = stream_command_events(
@@ -781,7 +768,7 @@ mod tests {
 
         let tempdir = tempfile::tempdir()?;
         let stdout = tempdir.path().join("stdout");
-        let mut cmd = ProcessCommand::new(cmd, None);
+        let mut cmd = ProcessCommand::new(cmd);
         cmd.stdout(std::fs::File::create(stdout.clone())?);
 
         let process_group = cmd.spawn().map_err(buck2_error::Error::from);

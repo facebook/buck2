@@ -74,6 +74,7 @@ message EnvDirective {
 }
 
 message CommandEvent {
+  reserved 8;
   oneof data {
     ExitEvent exit = 1;
     TimeoutEvent timeout = 2;
@@ -81,7 +82,6 @@ message CommandEvent {
     StreamEvent stderr = 5;
     CancelEvent cancel = 6;
     SpawnFailedEvent spawn_failed = 7;
-    Cgroup cgroup = 8;
   }
 }
 

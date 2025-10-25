@@ -12,7 +12,6 @@ use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 use std::process::Stdio;
 
-use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
@@ -47,25 +46,22 @@ impl From<io::Error> for SpawnError {
 
 pub struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
-    cgroup: Option<CgroupPathBuf>,
 }
 
 impl ProcessCommand {
-    pub fn new(mut cmd: StdCommand, cgroup: Option<CgroupPathBuf>) -> Self {
+    pub fn new(mut cmd: StdCommand) -> Self {
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         Self {
             inner: imp::ProcessCommandImpl::new(cmd),
-            cgroup,
         }
     }
 
     pub fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
         let child = self.inner.spawn()?;
         let inner = imp::ProcessGroupImpl::new(child)?;
-        let cgroup = self.cgroup.take();
-        Ok(ProcessGroup { inner, cgroup })
+        Ok(ProcessGroup { inner })
     }
 
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
@@ -81,7 +77,6 @@ impl ProcessCommand {
 
 pub struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
-    pub(crate) cgroup: Option<CgroupPathBuf>,
 }
 
 impl ProcessGroup {
@@ -129,7 +124,7 @@ mod tests {
         }
         cmd.arg("exit 2");
 
-        let mut cmd = ProcessCommand::new(cmd, None);
+        let mut cmd = ProcessCommand::new(cmd);
         let mut child = cmd.spawn().unwrap();
 
         let id = child.id().expect("missing id");

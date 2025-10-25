@@ -196,13 +196,10 @@ impl UnixForkserverService {
             _ => (background_command(&validated_cmd.exe), None),
         };
 
-        let cgroup_path = if let Some(cgroup_path) = validated_cmd.command_cgroup.clone() {
+        if let Some(cgroup_path) = validated_cmd.command_cgroup.clone() {
             let cgroup = CgroupMinimal::try_from_path(cgroup_path.clone())?;
             cgroup.setup_command(&mut cmd)?;
-            Some(cgroup_path)
-        } else {
-            None
-        };
+        }
 
         cmd.current_dir(&validated_cmd.cwd);
         cmd.args(validated_cmd.argv.iter().map(|a| OsStr::from_bytes(a)));
@@ -217,7 +214,7 @@ impl UnixForkserverService {
             cmd.env("XDG_RUNTIME_DIR", value);
         }
 
-        let mut cmd = ProcessCommand::new(cmd, cgroup_path);
+        let mut cmd = ProcessCommand::new(cmd);
         if let Some(std_redirects) = &validated_cmd.std_redirects {
             cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
             cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
