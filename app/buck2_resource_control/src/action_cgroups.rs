@@ -41,7 +41,6 @@ use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupID;
-use crate::pool::CgroupPool;
 use crate::systemd::CgroupMemoryFile;
 
 /// Memory constraints inherited from ancestor cgroups in the hierarchy.
@@ -180,6 +179,7 @@ pub struct ActionCgroupSession {
     action_cgroups: Arc<Mutex<ActionCgroups>>,
     cgroup_id: CgroupID,
     pub path: CgroupPathBuf,
+    tracker: MemoryTrackerHandle,
 }
 
 impl ActionCgroupSession {
@@ -188,13 +188,12 @@ impl ActionCgroupSession {
         dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
-        pool: &CgroupPool,
     ) -> buck2_error::Result<Option<Self>> {
         let Some(tracker) = tracker else {
             return Ok(None);
         };
 
-        let (cgroup_id, path) = pool.acquire()?;
+        let (cgroup_id, path) = tracker.cgroup_pool.acquire()?;
 
         let mut action_cgroups = tracker.action_cgroups.lock().await;
 
@@ -208,7 +207,7 @@ impl ActionCgroupSession {
             .await
         {
             // FIXME(JakobDegen): A proper drop impl on the id would be better than this
-            pool.release(cgroup_id);
+            tracker.cgroup_pool.release(cgroup_id);
             return Err(e);
         }
 
@@ -216,17 +215,18 @@ impl ActionCgroupSession {
             action_cgroups: tracker.action_cgroups.dupe(),
             cgroup_id,
             path,
+            tracker: tracker.dupe(),
         }))
     }
 
-    pub async fn command_finished(&mut self, pool: &CgroupPool) -> ActionCgroupResult {
+    pub async fn command_finished(&mut self) -> ActionCgroupResult {
         let res = self
             .action_cgroups
             .lock()
             .await
             .command_finished(&self.path);
 
-        pool.release(self.cgroup_id);
+        self.tracker.cgroup_pool.release(self.cgroup_id);
 
         res
     }

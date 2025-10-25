@@ -43,12 +43,15 @@ pub mod memory_tracker {
     use allocative::Allocative;
     use buck2_common::init::ResourceControlConfig;
 
+    use crate::buck_cgroup_tree::BuckCgroupTree;
+
     #[derive(Allocative)]
     pub struct MemoryTracker {}
 
     pub type MemoryTrackerHandle = Arc<MemoryTracker>;
 
     pub async fn create_memory_tracker(
+        _cgroup_tree: Option<&BuckCgroupTree>,
         _resource_control_config: &ResourceControlConfig,
     ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
         Ok(None)

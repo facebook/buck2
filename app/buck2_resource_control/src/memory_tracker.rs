@@ -31,8 +31,10 @@ use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 
 use crate::action_cgroups::ActionCgroups;
+use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::cgroup_info::CGroupInfo;
 use crate::path::CgroupPathBuf;
+use crate::pool::CgroupPool;
 use crate::systemd::ResourceControlRunner;
 use crate::systemd::SystemdCreationDecision;
 
@@ -128,16 +130,19 @@ pub struct MemoryTrackerHandleInner {
     // Written to by executors and tracker, read by executors
     #[allocative(skip)]
     pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
+    #[allocative(skip)]
+    pub(crate) cgroup_pool: CgroupPool,
 }
 
 impl MemoryTrackerHandleInner {
-    fn new(action_cgroups: ActionCgroups) -> Self {
+    fn new(cgroup_pool: CgroupPool, action_cgroups: ActionCgroups) -> Self {
         let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         let (reading_sender, _rx) = watch::channel(None);
         Self {
             state_sender,
             reading_sender,
             action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
+            cgroup_pool,
         }
     }
 }
@@ -282,13 +287,22 @@ impl Drop for MemoryReporter {
 }
 
 pub async fn create_memory_tracker(
+    cgroup_tree: Option<&BuckCgroupTree>,
     resource_control_config: &ResourceControlConfig,
 ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
+    let Some(cgroup_tree) = cgroup_tree else {
+        return Ok(None);
+    };
+
     if let SystemdCreationDecision::Create =
         ResourceControlRunner::creation_decision(&resource_control_config.status)
     {
+        let cgroup_pool = CgroupPool::create_in_parent_cgroup(
+            cgroup_tree.forkserver_and_actions().path(),
+            &resource_control_config,
+        )?;
         let action_cgroups = ActionCgroups::init(resource_control_config).await?;
-        let handle = MemoryTrackerHandleInner::new(action_cgroups);
+        let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);
         const MAX_RETRIES: u32 = 5;
         let memory_limit_bytes = resource_control_config
             .hybrid_execution_memory_limit_gibibytes
@@ -568,7 +582,10 @@ mod tests {
         let daemon_memory_swap_current = dir.path().join("daemon.swap");
         fs::write(&daemon_memory_swap_current, "1").unwrap();
         let daemon_memory_swap = File::open(daemon_memory_swap_current.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(ActionCgroups::testing_new());
+        let Some(testing_pool) = CgroupPool::testing_new() else {
+            return Ok(());
+        };
+        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -673,7 +690,10 @@ mod tests {
         fs::write(&daemon_swap, "4").unwrap();
         let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
 
-        let handle = MemoryTrackerHandleInner::new(ActionCgroups::testing_new());
+        let Some(testing_pool) = CgroupPool::testing_new() else {
+            return Ok(());
+        };
+        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -766,7 +786,10 @@ mod tests {
         let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
         let daemon_memory_current = File::open(daemon_current.clone()).await?;
         let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(ActionCgroups::testing_new());
+        let Some(testing_pool) = CgroupPool::testing_new() else {
+            return Ok(());
+        };
+        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,

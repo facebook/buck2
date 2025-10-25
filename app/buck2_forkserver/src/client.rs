@@ -22,7 +22,6 @@ use buck2_execute_local::decode_command_event_stream;
 use buck2_resource_control::CommandType;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
-use buck2_resource_control::pool::CgroupPool;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -58,8 +57,6 @@ struct ForkserverClientInner {
     pid: u32,
     #[allocative(skip)]
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
-    #[allocative(skip)]
-    cgroup_pool: Option<CgroupPool>,
 }
 
 impl ForkserverClient {
@@ -67,7 +64,6 @@ impl ForkserverClient {
         mut child: Child,
         channel: Channel,
         memory_tracker: Option<MemoryTrackerHandle>,
-        cgroup_pool: Option<CgroupPool>,
     ) -> buck2_error::Result<Self> {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
@@ -92,12 +88,7 @@ impl ForkserverClient {
         });
 
         Ok(Self {
-            inner: Arc::new(ForkserverClientInner {
-                error,
-                pid,
-                rpc,
-                cgroup_pool,
-            }),
+            inner: Arc::new(ForkserverClientInner { error, pid, rpc }),
             memory_tracker,
         })
     }
@@ -127,31 +118,26 @@ impl ForkserverClient {
             .into());
         }
 
-        let cgroup_state = if matches!(command_type, CommandType::Worker) {
+        let cgroup_session = if matches!(command_type, CommandType::Worker) {
             None
-        } else if let Some(cgroup_pool) = &self.inner.cgroup_pool {
-            let cgroup_session = ActionCgroupSession::maybe_create(
+        } else {
+            ActionCgroupSession::maybe_create(
                 &self.memory_tracker,
                 dispatcher,
                 command_type,
                 req.action_digest.clone(),
-                cgroup_pool,
             )
-            .await?;
-
-            if let Some(cgroup_session) = &cgroup_session {
-                req.command_cgroup = Some(cgroup_session.path.to_str()?.to_owned());
-            }
-
-            Some((cgroup_pool, cgroup_session))
-        } else {
-            None
+            .await?
         };
+
+        if let Some(cgroup_session) = &cgroup_session {
+            req.command_cgroup = Some(cgroup_session.path.to_str()?.to_owned());
+        }
 
         let mut res = self.execute_with_cgroup(req, cancel).await;
 
-        if let Some((pool, Some(mut cgroup_session))) = cgroup_state {
-            let cgroup_res = cgroup_session.command_finished(pool).await;
+        if let Some(mut cgroup_session) = cgroup_session {
+            let cgroup_res = cgroup_session.command_finished().await;
             if let Ok(res) = &mut res {
                 res.cgroup_result = Some(cgroup_res);
             }

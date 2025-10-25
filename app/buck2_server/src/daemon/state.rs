@@ -561,6 +561,7 @@ impl DaemonState {
             )?;
 
             let memory_tracker = memory_tracker::create_memory_tracker(
+                cgroup_tree.as_ref(),
                 &init_ctx.daemon_startup_config.resource_control,
             )
             .await?;
@@ -570,7 +571,6 @@ impl DaemonState {
             let forkserver = maybe_launch_forkserver(
                 root_config,
                 &paths.forkserver_state_dir(),
-                &init_ctx.daemon_startup_config.resource_control,
                 cgroup_tree.as_ref(),
                 memory_tracker.dupe(),
             )

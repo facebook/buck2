@@ -144,6 +144,24 @@ impl CgroupPool {
         Ok(pool)
     }
 
+    #[cfg(test)]
+    pub(crate) fn testing_new() -> Option<Self> {
+        let pool_cgroup = Cgroup::create_for_test()?;
+
+        let state = PoolState {
+            cgroups: HashMap::new(),
+            available: VecDeque::new(),
+            in_use: HashSet::new(),
+            next_id: 0,
+            per_cgroup_memory_high: None,
+            pool_cgroup,
+        };
+
+        Some(Self {
+            state: Arc::new(Mutex::new(state)),
+        })
+    }
+
     pub fn setup_command(
         &self,
         cgroup_id: CgroupID,

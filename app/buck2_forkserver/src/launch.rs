@@ -14,13 +14,11 @@ use std::os::unix::io::AsRawFd;
 use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
-use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
-use buck2_resource_control::pool::CgroupPool;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
 use tokio::process::Command;
@@ -31,7 +29,6 @@ pub async fn launch_forkserver(
     exe: impl AsRef<OsStr>,
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
     state_dir: &AbsNormPath,
-    resource_control: &ResourceControlConfig,
     cgroup_tree: Option<&BuckCgroupTree>,
     memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<ForkserverClient> {
@@ -44,17 +41,10 @@ pub async fn launch_forkserver(
 
     let exe = exe.as_ref();
 
-    let (mut command, cgroup_pool) = if let Some(cgroup_tree) = cgroup_tree {
-        let mut command = background_command(exe);
+    let mut command = background_command(exe);
+    if let Some(cgroup_tree) = cgroup_tree {
         cgroup_tree.forkserver().setup_command(&mut command)?;
-        let cgroup_pool = CgroupPool::create_in_parent_cgroup(
-            cgroup_tree.forkserver_and_actions().path(),
-            &resource_control,
-        )?;
-        (command, Some(cgroup_pool))
-    } else {
-        (background_command(exe), None)
-    };
+    }
 
     command
         .stdin(Stdio::null())
@@ -99,7 +89,7 @@ pub async fn launch_forkserver(
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .buck_error_context("Error connecting to Forkserver")?;
 
-    ForkserverClient::new(child, channel, memory_tracker, cgroup_pool)
+    ForkserverClient::new(child, channel, memory_tracker)
         .await
         .buck_error_context("Error creating ForkserverClient")
 }
