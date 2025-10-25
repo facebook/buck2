@@ -9,16 +9,9 @@
  */
 
 use std::fs;
-use std::path::MAIN_SEPARATOR;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
-
-#[derive(Debug, Clone)]
-pub struct CgroupMemoryInfo {
-    pub memory_current: u64,
-    pub memory_cached: u64,
-}
 
 const SLICE_EXT: &str = ".slice";
 
@@ -60,40 +53,12 @@ impl CGroupInfo {
         })
     }
 
-    pub fn join_hierarchically(&self, parts: &[&str]) -> buck2_error::Result<String> {
-        let mut name = self
-            .get_slice_name()
-            .buck_error_context("Can't find slice in cgroup path")?
-            .to_owned();
-        let mut path = self
-            .get_slice()
-            .buck_error_context("Can't get slice name in cgroup path")?
-            .to_owned();
-        let name_separator = '-';
-        for part in parts {
-            name.push(name_separator);
-            name.push_str(part);
-            path.push(MAIN_SEPARATOR);
-            path.push_str(&name);
-            path.push_str(SLICE_EXT);
-        }
-        Ok(path)
-    }
-
     // Returns the path to the closest slice in a cgroup path,
     // or None if there is no slice in the path
     pub fn get_slice(&self) -> Option<&str> {
         self.path
             .rfind(SLICE_EXT)
             .map(|i| &self.path[..i + SLICE_EXT.len()])
-    }
-
-    // Returns the path to the closest slice in a cgroup path,
-    // or None if there is no slice in the path
-    pub fn get_slice_name(&self) -> Option<&str> {
-        let slice = self.get_slice()?;
-        let name_start = slice.rfind(MAIN_SEPARATOR)?;
-        Some(&slice[name_start + 1..slice.len() - SLICE_EXT.len()])
     }
 
     pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
@@ -186,23 +151,6 @@ mod tests {
                 "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice"
             ),
             info.get_slice()
-        );
-        assert_eq!(Some("buck2-daemon.fbsource.v2"), info.get_slice_name());
-    }
-
-    #[test]
-    fn test_cgroup_join() {
-        let cgroup = "0::/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice/buck2-daemon-fbsource-v2.scope";
-        let info = CGroupInfo::parse(cgroup).unwrap();
-        let path = info
-            .join_hierarchically(&[
-                "forkserver",
-                "c7f875d040777c7aa927e69c9ebbd4e14c6da4f553b56e9f81ef54467b9a6ca2:145",
-            ])
-            .unwrap();
-        assert_eq!(
-            "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice/buck2-daemon.fbsource.v2-forkserver.slice/buck2-daemon.fbsource.v2-forkserver-c7f875d040777c7aa927e69c9ebbd4e14c6da4f553b56e9f81ef54467b9a6ca2:145.slice",
-            path
         );
     }
 
