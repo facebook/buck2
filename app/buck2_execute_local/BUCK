@@ -34,8 +34,6 @@ rust_library(
         "fbsource//third-party/rust:sysinfo",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio-stream",
-        "//buck2/app/buck2_util:buck2_util",
-        "//buck2/gazebo/dupe:dupe",
     ],
     deps = [
         "fbsource//third-party/rust:async-trait",
@@ -54,5 +52,7 @@ rust_library(
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
         "//buck2/app/buck2_resource_control:buck2_resource_control",
+        "//buck2/app/buck2_util:buck2_util",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

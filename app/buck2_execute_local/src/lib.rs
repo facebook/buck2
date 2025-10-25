@@ -15,6 +15,7 @@ use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
+use std::sync::LazyLock;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
@@ -25,12 +26,14 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
 use bytes::Bytes;
+use dupe::Dupe;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use pin_project::pin_project;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
@@ -191,6 +194,73 @@ pub async fn timeout_into_cancellation(
     }
 }
 
+static SPAWN_THREAD: LazyLock<buck2_error::Result<UnboundedSender<Box<dyn FnOnce() + Send>>>> =
+    LazyLock::new(|| {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let tx: UnboundedSender<Box<dyn FnOnce() + Send>> = tx;
+        buck2_util::threads::thread_spawn("local-action-spawner", move || {
+            while let Some(func) = rx.blocking_recv() {
+                func();
+            }
+        })?;
+        Ok(tx)
+    });
+
+async fn run_in_spawn_thread<T: Send + 'static>(
+    f: impl FnOnce() -> T + Send + 'static,
+) -> buck2_error::Result<T> {
+    let rt = tokio::runtime::Handle::current();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    SPAWN_THREAD
+        .as_ref()
+        .map_err(|e| e.dupe())?
+        .send(Box::new(move || {
+            let _guard = rt.enter();
+            let res = f();
+            drop(tx.send(res));
+        }))
+        .expect("spawn thread to be alive");
+    Ok(rx.await.expect("spawn thread to not have panicked"))
+}
+
+pub async fn spawn_command_and_stream_events<T>(
+    mut cmd: ProcessCommand,
+    cancellation: T,
+    decoder: impl StatusDecoder,
+    kill_process: impl KillProcess,
+    stream_stdio: bool,
+    retry_on_txt_busy: bool,
+) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
+where
+    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
+{
+    let do_spawn = move || {
+        if retry_on_txt_busy {
+            spawn_retry_txt_busy(cmd, || std::thread::sleep(Duration::from_millis(50)))
+        } else {
+            cmd.spawn().map_err(buck2_error::Error::from)
+        }
+    };
+    // We could imagine any of a number of reasons that this `spawn` might block. A concrete
+    // one is that we might be spawning into a frozen cgroup, but even besides that, this
+    // obviously does a whole bunch of syscalls
+    //
+    // Since the forkserver runs in a single threaded runtime, if the spawn somehow blocks
+    // we will end up with the entire forkserver - and therefore all of buck - completely
+    // deadlocked. `spawn_blocking` this so there's no chance of that happening
+    let process_details = run_in_spawn_thread(do_spawn)
+        .await?
+        .map_err(buck2_error::Error::from);
+
+    stream_command_events(
+        process_details,
+        cancellation,
+        decoder,
+        kill_process,
+        stream_stdio,
+    )
+}
+
 pub fn stream_command_events<T>(
     process_group: buck2_error::Result<ProcessGroup>,
     cancellation: T,
@@ -330,16 +400,15 @@ where
 {
     let cmd = ProcessCommand::new(cmd);
 
-    let process_details =
-        spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
-
-    let stream = stream_command_events(
-        process_details,
+    let stream = spawn_command_and_stream_events(
+        cmd,
         cancellation,
         DefaultStatusDecoder,
         DefaultKillProcess::default(),
         true,
-    )?;
+        true,
+    )
+    .await?;
     decode_command_event_stream(stream).await
 }
 
@@ -407,13 +476,12 @@ pub fn maybe_absolutize_exe<'a>(
 ///
 /// The more correct solution for this here would be to start a fork server in a separate process
 /// when we start.  However, until we get there, this should do the trick.
-async fn spawn_retry_txt_busy<F, D>(
+fn spawn_retry_txt_busy<F>(
     mut cmd: ProcessCommand,
     mut delay: F,
 ) -> buck2_error::Result<ProcessGroup>
 where
-    F: FnMut() -> D,
-    D: Future<Output = ()>,
+    F: FnMut(),
 {
     let mut attempts = 10;
 
@@ -430,7 +498,7 @@ where
             return res.map_err(buck2_error::Error::from);
         }
 
-        delay().await;
+        delay();
 
         attempts -= 1;
     }
@@ -550,7 +618,6 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn test_spawn_retry_txt_busy() -> buck2_error::Result<()> {
-        use futures::future;
         use tokio::fs::OpenOptions;
         use tokio::io::AsyncWriteExt;
 
@@ -573,10 +640,8 @@ mod tests {
             let mut file = Some(file);
             move || {
                 file.take();
-                future::ready(())
             }
-        })
-        .await?;
+        })?;
 
         let status = process_group.wait().await?;
         assert_eq!(status.code(), Some(0));
@@ -591,7 +656,7 @@ mod tests {
 
         let cmd = background_command(&bin);
         let cmd = ProcessCommand::new(cmd);
-        let res = spawn_retry_txt_busy(cmd, || async { panic!("Should not be called!") }).await;
+        let res = spawn_retry_txt_busy(cmd, || panic!("Should not be called!"));
         assert!(res.is_err());
 
         Ok(())

@@ -18,7 +18,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::LazyLock;
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
@@ -32,9 +31,9 @@ use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_execute_local::maybe_absolutize_exe;
 use buck2_execute_local::process_group::ProcessCommand;
+use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_execute_local::status_decoder::MiniperfStatusDecoder;
-use buck2_execute_local::stream_command_events;
 use buck2_execute_local::timeout_into_cancellation;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
@@ -46,15 +45,12 @@ use buck2_grpc::to_tonic;
 use buck2_resource_control::cgroup::CgroupMinimal;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
-use buck2_util::threads::thread_spawn;
-use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::select;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use rand::distributions::Alphanumeric;
 use rand::distributions::DistString;
-use tokio::sync::mpsc::UnboundedSender;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
@@ -224,8 +220,8 @@ impl UnixForkserverService {
         Ok((cmd, miniperf_output))
     }
 
-    fn create_command_stream(
-        process_group: buck2_error::Result<buck2_execute_local::process_group::ProcessGroup>,
+    async fn create_command_stream(
+        cmd: ProcessCommand,
         cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
         + Send
         + 'static,
@@ -234,60 +230,35 @@ impl UnixForkserverService {
         stream_stdio: bool,
     ) -> buck2_error::Result<RunStream> {
         let stream = match miniperf_output {
-            Some(out) => stream_command_events(
-                process_group,
+            Some(out) => spawn_command_and_stream_events(
+                cmd,
                 cancellation,
                 MiniperfStatusDecoder::new(out),
                 DefaultKillProcess {
                     graceful_shutdown_timeout_s,
                 },
                 stream_stdio,
-            )?
+                false,
+            )
+            .await?
             .left_stream(),
-            None => stream_command_events(
-                process_group,
+            None => spawn_command_and_stream_events(
+                cmd,
                 cancellation,
                 DefaultStatusDecoder,
                 DefaultKillProcess {
                     graceful_shutdown_timeout_s,
                 },
                 stream_stdio,
-            )?
+                false,
+            )
+            .await?
             .right_stream(),
         };
 
         let stream = encode_event_stream(stream);
         Ok(Box::pin(stream) as _)
     }
-}
-
-static SPAWN_THREAD: LazyLock<buck2_error::Result<UnboundedSender<Box<dyn FnOnce() + Send>>>> =
-    LazyLock::new(|| {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let tx: UnboundedSender<Box<dyn FnOnce() + Send>> = tx;
-        thread_spawn("local-action-spawner", move || {
-            while let Some(func) = rx.blocking_recv() {
-                func();
-            }
-        })?;
-        Ok(tx)
-    });
-
-async fn run_in_spawn_thread<T: Send + 'static>(
-    f: impl FnOnce() -> T + Send + 'static,
-) -> buck2_error::Result<T> {
-    let rt = tokio::runtime::Handle::current();
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    SPAWN_THREAD
-        .as_ref()
-        .map_err(|e| e.dupe())?
-        .send(Box::new(move || {
-            let _guard = rt.enter();
-            let res = f();
-            drop(tx.send(res));
-        }))
-        .expect("spawn thread to be alive");
-    Ok(rx.await.expect("spawn thread to not have panicked"))
 }
 
 #[async_trait::async_trait]
@@ -315,17 +286,7 @@ impl Forkserver for UnixForkserverService {
                 Ok(GatherOutputStatus::Cancelled)
             };
 
-            let (mut cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
-            // We could imagine any of a number of reasons that this `spawn` might block. A concrete
-            // one is that we might be spawning into a frozen cgroup, but even besides that, this
-            // obviously does a whole bunch of syscalls
-            //
-            // Since the forkserver runs in a single threaded runtime, if the spawn somehow blocks
-            // we will end up with the entire forkserver - and therefore all of buck - completely
-            // deadlocked. `spawn_blocking` this so there's no chance of that happening
-            let process_group = run_in_spawn_thread(move || cmd.spawn())
-                .await?
-                .map_err(buck2_error::Error::from);
+            let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
 
             let timeout = timeout_into_cancellation(validated_cmd.timeout);
             let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
@@ -333,12 +294,13 @@ impl Forkserver for UnixForkserverService {
             let stream_stdio = validated_cmd.std_redirects.is_none();
 
             let stream = Self::create_command_stream(
-                process_group,
+                cmd,
                 cancellation,
                 miniperf_output,
                 validated_cmd.graceful_shutdown_timeout_s,
                 stream_stdio,
-            )?;
+            )
+            .await?;
 
             Ok(stream)
         })

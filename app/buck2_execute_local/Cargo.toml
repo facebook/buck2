@@ -9,6 +9,7 @@ version = "0.1.0"
 async-trait = { workspace = true }
 bincode = { workspace = true }
 bytes = { workspace = true }
+dupe = { workspace = true }
 futures = { workspace = true }
 libc = { workspace = true }
 pin-project = { workspace = true }
@@ -23,6 +24,7 @@ buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_miniperf_proto = { workspace = true }
 buck2_resource_control = { workspace = true }
+buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }
@@ -34,8 +36,6 @@ winapi = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-buck2_util = { workspace = true }
-dupe = { workspace = true }
 sysinfo = { workspace = true }
 tempfile = { workspace = true }
 tokio-stream = { workspace = true }
