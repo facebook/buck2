@@ -117,6 +117,7 @@ use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
 use buck2_execute_impl::executors::local::materialize_inputs;
+use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -908,13 +909,15 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.get_blocking_executor();
 
-        materialize_inputs(
+        let materialized_inputs = materialize_inputs(
             &fs,
             materializer.as_ref(),
             &execution_request,
             self.dice.global_data().get_digest_config(),
         )
         .await?;
+
+        prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 
         create_output_dirs(
             &fs,
@@ -926,7 +929,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         .await?;
 
         for local_resource_setup_command in setup_commands.iter() {
-            materialize_inputs(
+            let materialized_inputs = materialize_inputs(
                 &fs,
                 materializer.as_ref(),
                 &local_resource_setup_command.execution_request,
@@ -934,6 +937,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             )
             .await?;
             let blocking_executor = self.dice.get_blocking_executor();
+
+            prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 
             create_output_dirs(
                 &fs,

@@ -27,6 +27,7 @@ use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::async_fs_util;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -375,21 +376,21 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().boxed().await;
 
-        let scratch_path = &scratch_path.0;
-
         if let Err(e) = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
             },
-            async move {
-                create_output_dirs(
-                    &self.artifact_fs,
-                    request,
-                    self.materializer.dupe(),
-                    self.blocking_executor.dupe(),
-                    cancellations,
+            async {
+                tokio::try_join!(
+                    create_output_dirs(
+                        &self.artifact_fs,
+                        request,
+                        self.materializer.dupe(),
+                        self.blocking_executor.dupe(),
+                        cancellations,
+                    ),
+                    prep_scratch_path(&scratch_path, &self.artifact_fs),
                 )
-                .await
                 .buck_error_context("Error creating output directories")?;
 
                 buck2_error::Ok(())
@@ -408,7 +409,7 @@ impl LocalExecutor {
 
         let scratch_path_abs;
 
-        let tmpdirs = if let Some(scratch_path) = scratch_path {
+        let tmpdirs = if let Some(scratch_path) = scratch_path.0 {
             // For the $TMPDIR - important it is absolute
             scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
 
@@ -1185,10 +1186,11 @@ pub struct MaterializedInputPaths {
     pub paths: Vec<ProjectRelativePathBuf>,
 }
 
-/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed locally.
+/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed
+/// locally.
 ///
-/// This also discovers the scratch directory if any was passed (if multiple are passed, one of
-/// them is returned).
+/// This also discovers the scratch directory if any was passed, but does not yet do anything with
+/// it - call `prep_scratch_path`.
 pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
@@ -1250,10 +1252,11 @@ pub async fn materialize_inputs(
             CommandExecutionInput::ScratchPath(path) => {
                 let path = artifact_fs.buck_out_path_resolver().resolve_scratch(path)?;
 
-                // Clean and produce it.
-                CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
-                fs_util::create_dir_all(artifact_fs.fs().resolve(&path))?;
-
+                if scratch.0.is_some() {
+                    return Err(buck2_error::internal_error!(
+                        "Multiple scratch paths for one action"
+                    ));
+                }
                 scratch.0 = Some(path);
             }
             CommandExecutionInput::IncrementalRemoteOutput(..) => {
@@ -1297,6 +1300,17 @@ pub async fn materialize_inputs(
 
 /// A scratch path discovered during `materialize_inputs`.
 pub struct ScratchPath(Option<ProjectRelativePathBuf>);
+
+pub async fn prep_scratch_path(
+    scratch_path: &ScratchPath,
+    artifact_fs: &ArtifactFs,
+) -> buck2_error::Result<()> {
+    let Some(path) = scratch_path.0.as_ref() else {
+        return Ok(());
+    };
+    CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
+    async_fs_util::create_dir_all(artifact_fs.fs().resolve(path)).await
+}
 
 async fn check_inputs(
     manager: CommandExecutionManagerWithClaim,
