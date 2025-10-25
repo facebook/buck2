@@ -11,6 +11,7 @@
 use std::fs;
 use std::io::Write;
 use std::ops::Deref;
+use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -18,11 +19,11 @@ use std::sync::Arc;
 
 use buck2_core::fs::paths::file_name::FileName;
 use dupe::Dupe;
-use nix::dir::Dir;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 
 use crate::cgroup_files::CgroupFile;
+use crate::cgroup_files::MemoryStat;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
@@ -49,6 +50,8 @@ enum CgroupError {
 /// that means they're a little bit cheaper to open, and also they can be used in cases where the
 /// memory controller has not been enabled on the cgroup
 pub struct CgroupMinimal {
+    /// Store the dirfd, not the more standard `DIR*`, because this one is thread safe
+    dir: OwnedFd,
     /// `cgroup.procs`
     procs: Arc<CgroupFile>,
     path: CgroupPathBuf,
@@ -66,11 +69,15 @@ impl CgroupMinimal {
     }
 
     pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
-        let dir: Dir = nix::dir::Dir::open(path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
-            .map_err(|e| CgroupError::Io {
-                msg: format!("Failed to open cgroup directory: {path:?}"),
-                io_err: e.into(),
-            })?;
+        let dir = nix::fcntl::open(
+            path.as_path(),
+            OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
+            Mode::empty(),
+        )
+        .map_err(|e| CgroupError::Io {
+            msg: format!("Failed to open cgroup directory: {path:?}"),
+            io_err: e.into(),
+        })?;
 
         let cgroup = Self {
             procs: Arc::new(CgroupFile::open(
@@ -79,6 +86,7 @@ impl CgroupMinimal {
                 true,
             )?),
             path,
+            dir,
         };
 
         Ok(cgroup)
@@ -194,6 +202,7 @@ impl CgroupMinimal {
 
 pub struct Cgroup {
     inner: CgroupMinimal,
+    memory_stat: CgroupFile,
 }
 
 impl Cgroup {
@@ -206,7 +215,10 @@ impl Cgroup {
     }
 
     pub fn from_minimal(m: CgroupMinimal) -> buck2_error::Result<Self> {
-        Ok(Cgroup { inner: m })
+        Ok(Cgroup {
+            memory_stat: CgroupFile::open(&m.dir, FileName::unchecked_new("memory.stat"), false)?,
+            inner: m,
+        })
     }
 
     #[allow(dead_code)]
@@ -228,6 +240,10 @@ impl Cgroup {
             }
         })?;
         Ok(())
+    }
+
+    pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
+        self.memory_stat.read_memory_stat()
     }
 }
 

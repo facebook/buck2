@@ -11,10 +11,8 @@
 use std::fs;
 
 use allocative::Allocative;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_error::BuckErrorContext;
 
 use crate::path::CgroupPath;
@@ -72,70 +70,13 @@ impl CGroupInfo {
             .and_then(|p| AbsNormPath::new(p).ok())
             .map(CgroupPath::new)
     }
-
-    pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
-        let p = (**self.path).join(FileName::unchecked_new("memory.stat"));
-        let content = fs_util::read_to_string(&p)?;
-        MemoryStat::parse(&content).with_buck_error_context(|| format!("Failed to parse {}", p))
-    }
-}
-
-/// A few interesting values from memory.stat
-#[derive(Default)]
-pub struct MemoryStat {
-    /// Anonymous memory, inclusive of swap.
-    pub anon: u64,
-    pub inactive_anon: u64,
-    pub active_anon: u64,
-    /// File-backed memory.
-    pub file: u64,
-    pub active_file: u64,
-    pub inactive_file: u64,
-    /// Kernel memory.
-    pub kernel: u64,
-}
-
-impl MemoryStat {
-    fn parse(content: &str) -> buck2_error::Result<Self> {
-        let mut res = MemoryStat::default();
-
-        for line in content.lines() {
-            let mut parts = line.split_whitespace();
-            let key = parts
-                .next()
-                .with_buck_error_context(|| format!("Invalid line: '{}' (no key)", line))?;
-            let value = parts
-                .next()
-                .with_buck_error_context(|| format!("Invalid line: '{}' (no value)", line))?
-                .parse::<u64>()
-                .with_buck_error_context(|| format!("Invalid line: '{}' (invalid value)", line))?;
-            if parts.next().is_some() {
-                return Err(buck2_error::internal_error!(
-                    "Invalid line: '{}' (too many parts)",
-                    line
-                ));
-            }
-
-            match key {
-                "anon" => res.anon = value,
-                "inactive_anon" => res.inactive_anon = value,
-                "active_anon" => res.active_anon = value,
-                "file" => res.file = value,
-                "active_file" => res.active_file = value,
-                "inactive_file" => res.inactive_file = value,
-                "kernel" => res.kernel = value,
-                // Ignore other keys
-                _ => {}
-            }
-        }
-
-        Ok(res)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+
+    use buck2_core::fs::fs_util;
 
     use super::*;
 
@@ -180,58 +121,5 @@ mod tests {
             let info = CGroupInfo::read().unwrap();
             assert!(fs_util::try_exists(&**info.path).unwrap());
         }
-    }
-
-    #[test]
-    fn test_cgroup_memory_read() {
-        // check if cgroups are supported
-        if Path::new("/sys/fs/cgroup").exists() {
-            let info = CGroupInfo::read().unwrap();
-
-            // Check if memory files exist before trying to read them
-            let memory_current_path = format!("{}/memory.current", info.path);
-            let memory_stat_path = format!("{}/memory.stat", info.path);
-
-            if Path::new(&memory_current_path).exists() && Path::new(&memory_stat_path).exists() {
-                info.read_memory_stat().unwrap();
-            }
-        }
-    }
-
-    #[test]
-    fn test_parse_memory_stat() {
-        let sample_stat = r#"anon 1048576
-file 2097152
-kernel 524288
-kernel_stack 8192
-pagetables 16384
-percpu 32768
-sock 4096
-vmalloc 65536
-shmem 131072
-file_mapped 262144
-file_dirty 8192
-file_writeback 0
-swapcached 0
-anon_thp 0
-file_thp 0
-shmem_thp 0
-inactive_anon 524288
-active_anon 524288
-inactive_file 1048576
-active_file 1048576
-unevictable 0
-slab_reclaimable 196608
-slab_unreclaimable 65536
-slab 262144"#;
-
-        let stat = MemoryStat::parse(sample_stat).unwrap();
-        assert_eq!(stat.anon, 1048576);
-        assert_eq!(stat.file, 2097152);
-        assert_eq!(stat.kernel, 524288);
-        assert_eq!(stat.inactive_anon, 524288);
-        assert_eq!(stat.active_anon, 524288);
-        assert_eq!(stat.inactive_file, 1048576);
-        assert_eq!(stat.active_file, 1048576);
     }
 }

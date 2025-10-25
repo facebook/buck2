@@ -306,9 +306,7 @@ impl SnapshotCollector {
         }
         #[cfg(unix)]
         {
-            use buck2_execute_impl::executors::local::ForkserverAccess;
-            use buck2_resource_control::cgroup_info::CGroupInfo;
-            use buck2_resource_control::cgroup_info::MemoryStat;
+            use buck2_resource_control::cgroup_files::MemoryStat;
 
             fn convert_stats(stats: &MemoryStat) -> buck2_data::UnixCgroupMemoryStats {
                 buck2_data::UnixCgroupMemoryStats {
@@ -320,23 +318,13 @@ impl SnapshotCollector {
 
             // Try to read Buck2 daemon memory information from cgroup
 
-            if self.daemon.cgroup_tree.is_some() {
-                if let Some(stat) = CGroupInfo::read()
-                    .ok()
-                    .and_then(|cg| Some(cg.get_slice()?.to_buf()))
-                    .and_then(|path| CGroupInfo { path }.read_memory_stat().ok())
-                {
-                    snapshot.allprocs_cgroup = Some(convert_stats(&stat));
+            if let Some(cgroup_tree) = self.daemon.cgroup_tree.as_ref() {
+                if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat() {
+                    snapshot.allprocs_cgroup = Some(convert_stats(&stat))
                 }
-            }
 
-            // Try to read forkserver memory information if available
-            if let ForkserverAccess::Client(f) = &self.daemon.forkserver {
-                if let Some(stat) = f
-                    .cgroup_info()
-                    .and_then(|cgroup| cgroup.slice.read_memory_stat().ok())
-                {
-                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat));
+                if let Ok(stat) = cgroup_tree.forkserver_and_actions().read_memory_stat() {
+                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat))
                 }
             }
         }

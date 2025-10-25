@@ -15,7 +15,7 @@ pub mod buck_cgroup_tree;
 #[cfg(unix)]
 pub mod cgroup;
 #[cfg(unix)]
-pub(crate) mod cgroup_files;
+pub mod cgroup_files;
 #[cfg(unix)]
 pub mod cgroup_info;
 #[cfg(unix)]

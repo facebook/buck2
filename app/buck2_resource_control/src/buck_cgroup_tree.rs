@@ -18,6 +18,7 @@ use crate::cgroup_info::CGroupInfo;
 ///
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
+    allprocs: Cgroup,
     forkserver_and_actions: Cgroup,
     forkserver: Cgroup,
 }
@@ -39,6 +40,7 @@ impl BuckCgroupTree {
         // FIXME(JakobDegen): Eventually, use something less complicated than this
         root_cgroup.move_process_to(&daemon_cgroup)?;
         root_cgroup.config_subtree_control()?;
+        let root_cgroup = Cgroup::from_minimal(root_cgroup)?;
 
         let forkserver_and_actions = Cgroup::new(
             root_cgroup.path(),
@@ -52,6 +54,7 @@ impl BuckCgroupTree {
         )?;
 
         Ok(Self {
+            allprocs: root_cgroup,
             forkserver_and_actions,
             forkserver,
         })
@@ -63,5 +66,10 @@ impl BuckCgroupTree {
 
     pub fn forkserver(&self) -> &Cgroup {
         &self.forkserver
+    }
+
+    /// The parent cgroup that contains all other cgroups buck manages as descendants
+    pub fn allprocs(&self) -> &Cgroup {
+        &self.allprocs
     }
 }
