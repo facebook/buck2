@@ -1276,24 +1276,17 @@ def _explain(
     if emit == Emit("expand"):
         base = "expand"
 
-    if emit == Emit("llvm-ir"):
-        link_strategy_suffix = {
-            LinkStrategy("static"): " [static]",
-            LinkStrategy("static_pic"): " [pic]",
-            LinkStrategy("shared"): " [shared]",
-        }[link_strategy]
-        base = "llvm-ir" + link_strategy_suffix
+    for emit_type in ["asm", "llvm-ir", "mir"]:
+        if emit == Emit(emit_type):
+            link_strategy_suffix = {
+                LinkStrategy("static"): " [static]",
+                LinkStrategy("static_pic"): " [pic]",
+                LinkStrategy("shared"): " [shared]",
+            }[link_strategy]
+            base = emit_type + link_strategy_suffix
 
     if emit == Emit("llvm-ir-noopt"):
         base = "llvm-ir-noopt"
-
-    if emit == Emit("mir"):
-        link_strategy_suffix = {
-            LinkStrategy("static"): " [static]",
-            LinkStrategy("static_pic"): " [pic]",
-            LinkStrategy("shared"): " [shared]",
-        }[link_strategy]
-        base = "mir" + link_strategy_suffix
 
     if base == None:
         fail("unrecognized rustc action:", crate_type, link_strategy, emit)

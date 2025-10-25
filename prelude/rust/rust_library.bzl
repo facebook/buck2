@@ -196,24 +196,17 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 MetadataKind("fast"): meta_fast,
             }
 
-            param_subtargets[params].update({
-                "llvm-ir": rust_compile(
+            subtargets_to_add = {}
+            for emit_type in ["asm", "llvm-ir", "mir"]:
+                subtargets_to_add[emit_type] = rust_compile(
                     ctx = ctx,
                     compile_ctx = compile_ctx,
-                    emit = Emit("llvm-ir"),
+                    emit = Emit(emit_type),
                     params = params,
                     default_roots = _DEFAULT_ROOTS,
                     incremental_enabled = ctx.attrs.incremental_enabled,
-                ),
-                "mir": rust_compile(
-                    ctx = ctx,
-                    compile_ctx = compile_ctx,
-                    emit = Emit("mir"),
-                    params = params,
-                    default_roots = _DEFAULT_ROOTS,
-                    incremental_enabled = ctx.attrs.incremental_enabled,
-                ),
-            })
+                )
+            param_subtargets[params].update(subtargets_to_add)
 
         if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
             native_param_artifact[params] = link

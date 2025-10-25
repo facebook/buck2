@@ -409,24 +409,16 @@ def _rust_binary_common(
     )
     sub_targets["profile"] = profiles
 
-    extra_compiled_targets["llvm_ir"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("llvm-ir"),
-        params = params,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
-    extra_compiled_targets["mir"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("mir"),
-        params = params,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
+    for emit_type in ["asm", "llvm-ir", "mir"]:
+        extra_compiled_targets[emit_type] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit(emit_type),
+            params = params,
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        ).output
 
     doc_output = generate_rustdoc(
         ctx = ctx,
