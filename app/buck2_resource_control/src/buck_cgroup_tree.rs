@@ -37,8 +37,7 @@ impl BuckCgroupTree {
 
         let daemon_cgroup =
             CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
-        // FIXME(JakobDegen): Eventually, use something less complicated than this
-        root_cgroup.move_process_to(&daemon_cgroup)?;
+        daemon_cgroup.add_process(std::process::id())?;
         root_cgroup.config_subtree_control()?;
         let root_cgroup = Cgroup::from_minimal(root_cgroup)?;
 

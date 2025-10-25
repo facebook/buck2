@@ -177,26 +177,9 @@ impl CgroupMinimal {
         Ok(())
     }
 
-    pub fn move_process_to(&self, cgroup: &CgroupMinimal) -> buck2_error::Result<()> {
-        // Read process IDs from current cgroup's procs_fd
-        let content = self.procs.read_to_buf()?;
-        if content.is_empty() {
-            return Ok(()); // No processes need to be moved
-        }
-        let procs_content = std::str::from_utf8(&content).map_err(|e| CgroupError::Io {
-            msg: "Failed to parse cgroup.procs content as UTF-8".to_owned(),
-            io_err: std::io::Error::new(std::io::ErrorKind::InvalidData, e),
-        })?;
-
-        // Parse PIDs and move them to the target cgroup
-        for line in procs_content.lines() {
-            let pid = line.trim();
-            if !pid.is_empty() {
-                cgroup.procs.write(pid.as_bytes())?;
-            }
-        }
-
-        Ok(())
+    pub fn add_process(&self, pid: u32) -> buck2_error::Result<()> {
+        let pid = pid.to_string();
+        Ok(self.procs.write(pid.as_bytes())?)
     }
 }
 
