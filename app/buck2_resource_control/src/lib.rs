@@ -81,13 +81,15 @@ pub mod action_cgroups {
     use crate::memory_tracker::MemoryTrackerHandle;
     use crate::path::CgroupPathBuf;
 
-    pub struct ActionCgroupSession {}
+    pub struct ActionCgroupSession {
+        pub path: CgroupPathBuf,
+    }
     impl ActionCgroupSession {
-        pub fn maybe_create(
+        pub async fn maybe_create(
             _tracker: &Option<MemoryTrackerHandle>,
             _command_type: CommandType,
-        ) -> Option<Self> {
-            None
+        ) -> buck2_error::Result<Option<Self>> {
+            Ok(None)
         }
 
         pub async fn command_started(&mut self, _cgroup_path: CgroupPathBuf) {}

@@ -40,6 +40,8 @@ use crate::memory_tracker::read_memory_current;
 use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
+use crate::pool::CgroupID;
+use crate::pool::CgroupPool;
 use crate::systemd::CgroupMemoryFile;
 
 /// Memory constraints inherited from ancestor cgroups in the hierarchy.
@@ -175,64 +177,58 @@ pub(crate) struct ActionCgroups {
 pub struct ActionCgroupSession {
     // Pointer to the cgroup pool and not owned by the session. This is mainly used for the session to mark a cgroup as being used
     // when starting a command and then releasing it back to the pool when the command finishes.
-    cgroup_pool: Arc<Mutex<ActionCgroups>>,
-    dispatcher: EventDispatcher,
-    path: Option<CgroupPathBuf>,
-    start_error: Option<buck2_error::Error>,
-    command_type: CommandType,
-    action_digest: Option<String>,
+    action_cgroups: Arc<Mutex<ActionCgroups>>,
+    cgroup_id: CgroupID,
+    pub path: CgroupPathBuf,
 }
 
 impl ActionCgroupSession {
-    pub fn maybe_create(
+    pub async fn maybe_create(
         tracker: &Option<MemoryTrackerHandle>,
         dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
-    ) -> Option<Self> {
-        tracker.as_ref().map(|tracker| ActionCgroupSession {
-            cgroup_pool: tracker.action_cgroups.dupe(),
-            dispatcher,
-            path: None,
-            start_error: None,
-            command_type,
-            action_digest,
-        })
-    }
+        pool: &CgroupPool,
+    ) -> buck2_error::Result<Option<Self>> {
+        let Some(tracker) = tracker else {
+            return Ok(None);
+        };
 
-    pub async fn command_started(&mut self, cgroup_path: CgroupPathBuf) {
-        let mut cgroups = self.cgroup_pool.lock().await;
-        match cgroups
+        let (cgroup_id, path) = pool.acquire()?;
+
+        let mut action_cgroups = tracker.action_cgroups.lock().await;
+
+        if let Err(e) = action_cgroups
             .command_started(
-                cgroup_path.clone(),
-                self.dispatcher.dupe(),
-                self.command_type,
-                self.action_digest.clone(),
+                path.clone(),
+                dispatcher.dupe(),
+                command_type,
+                action_digest.clone(),
             )
             .await
         {
-            Ok(()) => self.path = Some(cgroup_path),
-            Err(e) => self.start_error = Some(e),
+            // FIXME(JakobDegen): A proper drop impl on the id would be better than this
+            pool.release(cgroup_id);
+            return Err(e);
         }
+
+        Ok(Some(ActionCgroupSession {
+            action_cgroups: tracker.action_cgroups.dupe(),
+            cgroup_id,
+            path,
+        }))
     }
 
-    pub async fn command_finished(&mut self) -> ActionCgroupResult {
-        if let Some(error) = self.start_error.take() {
-            return ActionCgroupResult::from_error(error);
-        }
+    pub async fn command_finished(&mut self, pool: &CgroupPool) -> ActionCgroupResult {
+        let res = self
+            .action_cgroups
+            .lock()
+            .await
+            .command_finished(&self.path);
 
-        // In case spawn fails, we expect to not know a cgroup path
-        let Some(path) = self.path.take() else {
-            return ActionCgroupResult {
-                memory_peak: None,
-                swap_peak: None,
-                error: None,
-                was_frozen: false,
-                freeze_duration: None,
-            };
-        };
+        pool.release(self.cgroup_id);
 
-        self.cgroup_pool.lock().await.command_finished(&path)
+        res
     }
 }
 

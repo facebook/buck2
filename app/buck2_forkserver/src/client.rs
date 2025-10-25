@@ -130,35 +130,31 @@ impl ForkserverClient {
         let cgroup_state = if matches!(command_type, CommandType::Worker) {
             None
         } else if let Some(cgroup_pool) = &self.inner.cgroup_pool {
-            let (cgroup_id, cgroup_path) = cgroup_pool.acquire()?;
-
-            let mut cgroup_session = ActionCgroupSession::maybe_create(
+            let cgroup_session = ActionCgroupSession::maybe_create(
                 &self.memory_tracker,
                 dispatcher,
                 command_type,
                 req.action_digest.clone(),
-            );
-            if let Some(cgroup_session) = &mut cgroup_session {
-                cgroup_session.command_started(cgroup_path.clone()).await;
+                cgroup_pool,
+            )
+            .await?;
+
+            if let Some(cgroup_session) = &cgroup_session {
+                req.command_cgroup = Some(cgroup_session.path.to_str()?.to_owned());
             }
 
-            req.command_cgroup = Some(cgroup_path.to_str()?.to_owned());
-            Some((cgroup_id, cgroup_pool, cgroup_session))
+            Some((cgroup_pool, cgroup_session))
         } else {
             None
         };
 
         let mut res = self.execute_with_cgroup(req, cancel).await;
 
-        if let Some((id, pool, cgroup_session)) = cgroup_state {
-            if let Some(mut cgroup_session) = cgroup_session {
-                let cgroup_res = cgroup_session.command_finished().await;
-                if let Ok(res) = &mut res {
-                    res.cgroup_result = Some(cgroup_res);
-                }
+        if let Some((pool, Some(mut cgroup_session))) = cgroup_state {
+            let cgroup_res = cgroup_session.command_finished(pool).await;
+            if let Ok(res) = &mut res {
+                res.cgroup_result = Some(cgroup_res);
             }
-
-            pool.release(id);
         }
 
         res
