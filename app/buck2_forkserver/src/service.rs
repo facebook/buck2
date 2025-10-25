@@ -36,8 +36,6 @@ use buck2_execute_local::status_decoder::MiniperfStatusDecoder;
 use buck2_execute_local::stream_command_events;
 use buck2_execute_local::timeout_into_cancellation;
 use buck2_forkserver_proto::CommandRequest;
-use buck2_forkserver_proto::GetCgroupRequest;
-use buck2_forkserver_proto::GetCgroupResponse;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
@@ -45,7 +43,6 @@ use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
 use buck2_resource_control::cgroup::CgroupMinimal;
-use buck2_resource_control::cgroup_info::CGroupInfo;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
 use futures::future::FutureExt;
@@ -137,9 +134,6 @@ pub(crate) struct UnixForkserverService {
 
     /// Systemd runner for resource control
     resource_control_runner: ForkserverResourceControlRunner,
-
-    /// Whether this forkserver is running in a cgroup
-    has_cgroup: bool,
 }
 
 impl UnixForkserverService {
@@ -158,7 +152,6 @@ impl UnixForkserverService {
             log_reload_handle,
             miniperf,
             resource_control_runner,
-            has_cgroup,
         })
     }
 
@@ -350,23 +343,6 @@ impl Forkserver for UnixForkserverService {
             .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
-    }
-
-    async fn get_cgroup(
-        &self,
-        _req: Request<GetCgroupRequest>,
-    ) -> Result<Response<GetCgroupResponse>, Status> {
-        if !self.has_cgroup {
-            return Ok(Response::new(GetCgroupResponse { cgroup_path: None }));
-        }
-
-        let cgroup_info = CGroupInfo::read()
-            .buck_error_context("Failed to read cgroup info")
-            .map_err(|e| Status::internal(format!("{e:#}")))?;
-
-        Ok(Response::new(GetCgroupResponse {
-            cgroup_path: Some(cgroup_info.path.to_string()),
-        }))
     }
 }
 
