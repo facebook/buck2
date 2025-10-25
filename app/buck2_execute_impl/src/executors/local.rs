@@ -299,7 +299,7 @@ impl LocalExecutor {
         }
     }
 
-    async fn exec_once<'k, E>(
+    async fn exec_once(
         &self,
         action_digest: &ActionDigest,
         request: &CommandExecutionRequest,
@@ -309,7 +309,7 @@ impl LocalExecutor {
         scratch_path: &ScratchPath,
         args: &[String],
         worker: Option<&WorkerHandle>,
-        iter_env: impl Fn() -> E + Send,
+        env: &[(&str, StrOrOsStr<'_>)],
         dispatcher: EventDispatcher,
     ) -> Result<
         (
@@ -319,10 +319,7 @@ impl LocalExecutor {
             CommandExecutionManagerWithClaim,
         ),
         CommandExecutionResult,
-    >
-    where
-        E: Iterator<Item = (&'k str, StrOrOsStr<'k>)> + Send + Sync,
-    {
+    > {
         if let Err(e) = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
@@ -351,7 +348,9 @@ impl LocalExecutor {
 
         let (execution_time, start_time, res) = executor_stage_async(
             {
-                let env = iter_env()
+                let env = env
+                    .iter()
+                    .copied()
                     .map(|(k, v)| buck2_data::EnvironmentEntry {
                         key: k.to_owned(),
                         value: v.into_string_lossy(),
@@ -383,7 +382,7 @@ impl LocalExecutor {
                 let execution_start = Instant::now();
                 let start_time = SystemTime::now();
 
-                let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
+                let env = env.iter().map(|(k, v)| (k, v.into_os_str()));
                 let r = if let Some(worker) = worker {
                     let env: Vec<(OsString, OsString)> = env
                         .into_iter()
@@ -510,47 +509,6 @@ impl LocalExecutor {
             args.join(" "),
         );
 
-        let scratch_path_abs;
-
-        let tmpdirs = if let Some(scratch_path) = &scratch_path.0 {
-            // For the $TMPDIR - important it is absolute
-            scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
-
-            if cfg!(windows) {
-                const MAX_PATH: usize = 260;
-                if scratch_path_abs.as_os_str().len() > MAX_PATH {
-                    return manager.error(
-                        "scratch_dir_too_long",
-                        buck2_error!(
-                            buck2_error::ErrorTag::Environment,
-                            "Scratch directory path is longer than MAX_PATH: {}",
-                            scratch_path_abs
-                        ),
-                    );
-                }
-                vec![
-                    ("TEMP", scratch_path_abs.as_os_str()),
-                    ("TMP", scratch_path_abs.as_os_str()),
-                ]
-            } else {
-                vec![("TMPDIR", scratch_path_abs.as_os_str())]
-            }
-        } else {
-            vec![]
-        };
-
-        let local_resource_env_vars: Vec<(&str, StrOrOsStr)> = local_resource_holders
-            .iter()
-            .flat_map(|h| {
-                h.as_ref().0.iter().map(|env_var| {
-                    (
-                        env_var.key.as_str(),
-                        StrOrOsStr::from(env_var.value.as_str()),
-                    )
-                })
-            })
-            .collect();
-
         let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
         let dispatcher = match get_dispatcher_opt() {
             Some(dispatcher) => dispatcher,
@@ -566,26 +524,50 @@ impl LocalExecutor {
         };
         let build_id: &str = &dispatcher.trace_id().to_string();
 
-        let iter_env = || {
-            tmpdirs
+        let mut env = vec![];
+
+        let scratch_path_abs;
+
+        if let Some(scratch_path) = &scratch_path.0 {
+            // For the $TMPDIR - important it is absolute
+            scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
+
+            if cfg!(windows) {
+                const MAX_PATH: usize = 260;
+                if scratch_path_abs.as_os_str().len() > MAX_PATH {
+                    return manager.error(
+                        "scratch_dir_too_long",
+                        buck2_error!(
+                            buck2_error::ErrorTag::Environment,
+                            "Scratch directory path is longer than MAX_PATH: {}",
+                            scratch_path_abs
+                        ),
+                    );
+                }
+                env.push(("TEMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+                env.push(("TMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+            } else {
+                env.push(("TMPDIR", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+            }
+        }
+        env.extend(
+            request
+                .env()
                 .iter()
-                .map(|(k, v)| (*k, StrOrOsStr::from(*v)))
-                .chain(
-                    request
-                        .env()
-                        .iter()
-                        .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+                .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+        );
+
+        env.extend(local_resource_holders.iter().flat_map(|h| {
+            h.as_ref().0.iter().map(|env_var| {
+                (
+                    env_var.key.as_str(),
+                    StrOrOsStr::from(env_var.value.as_str()),
                 )
-                .chain(local_resource_env_vars.iter().copied())
-                .chain(std::iter::once((
-                    "BUCK2_DAEMON_UUID",
-                    StrOrOsStr::from(daemon_uuid),
-                )))
-                .chain(std::iter::once((
-                    "BUCK_BUILD_ID",
-                    StrOrOsStr::from(build_id),
-                )))
-        };
+            })
+        }));
+        env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(daemon_uuid)));
+        env.push(("BUCK_BUILD_ID", StrOrOsStr::from(build_id)));
+
         let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
 
         let (worker, manager) = self
@@ -617,7 +599,7 @@ impl LocalExecutor {
                 &scratch_path,
                 args,
                 worker.as_deref(),
-                iter_env,
+                &env,
                 dispatcher,
             )
             .await
