@@ -1531,7 +1531,6 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            action_digest: Some(action_digest.to_owned()),
             command_cgroup: None,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
@@ -1541,6 +1540,7 @@ mod unix {
                 async move { liveliness_observer.while_alive().await },
                 command_type,
                 dispatcher,
+                Some(action_digest.to_owned()),
             )
             .await
     }

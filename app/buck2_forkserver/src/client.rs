@@ -103,6 +103,7 @@ impl ForkserverClient {
         cancel: C,
         command_type: CommandType,
         dispatcher: EventDispatcher,
+        action_digest: Option<String>,
     ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
@@ -125,7 +126,7 @@ impl ForkserverClient {
                 &self.memory_tracker,
                 dispatcher,
                 command_type,
-                req.action_digest.clone(),
+                action_digest,
             )
             .await?
         };

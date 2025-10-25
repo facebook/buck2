@@ -176,7 +176,6 @@ fn spawn_via_forkserver(
                 stderr: stderr_path.as_os_str().as_bytes().into(),
             }),
             graceful_shutdown_timeout_s,
-            action_digest: None,
             command_cgroup: None,
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
@@ -186,6 +185,7 @@ fn spawn_via_forkserver(
                 async move { liveliness_observer.while_alive().await },
                 CommandType::Worker,
                 dispatcher,
+                None,
             )
             .await
             .map(|CommandResult { status, .. }| status);

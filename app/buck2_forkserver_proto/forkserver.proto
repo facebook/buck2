@@ -16,7 +16,7 @@ import "data.proto";
 package buck.forkserver;
 
 message CommandRequest {
-  reserved 3, 4, 7, 13, 16;
+  reserved 3, 4, 7, 13, 15, 16;
   // The executable that should be run.
   bytes exe = 1;
   // The arguments to give the executable.
@@ -41,8 +41,6 @@ message CommandRequest {
   // before sending SIGKILL.
   // Should only be needed for daemonized processes (workers).
   optional uint32 graceful_shutdown_timeout_s = 14;
-  // Action digest of the actions we run through systemd,
-  optional string action_digest = 15;
   // The cgroup that the command should be spawned into. Must already exist.
   optional string command_cgroup = 17;
 }

@@ -89,7 +89,6 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            action_digest: _,
             command_cgroup,
         } = cmd_request;
 
