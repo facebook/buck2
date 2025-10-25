@@ -10,6 +10,7 @@
 
 use std::fs;
 use std::io::Write;
+use std::ops::Deref;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -42,13 +43,18 @@ enum CgroupError {
     },
 }
 
-pub struct Cgroup {
+/// Like `Cgroup`, but more bare-bones.
+///
+/// Specifically, these kinds of cgroups do not have access to any of the memory files; however,
+/// that means they're a little bit cheaper to open, and also they can be used in cases where the
+/// memory controller has not been enabled on the cgroup
+pub struct CgroupMinimal {
     /// `cgroup.procs`
     procs: Arc<CgroupFile>,
     path: CgroupPathBuf,
 }
 
-impl Cgroup {
+impl CgroupMinimal {
     pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
         let path = root_path.join(name.into());
         fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
@@ -84,15 +90,6 @@ impl Cgroup {
 
     fn subtree_control_path(&self) -> PathBuf {
         self.path().as_path().join("cgroup.subtree_control")
-    }
-
-    #[allow(dead_code)]
-    fn memory_peak_path(&self) -> PathBuf {
-        self.path().as_path().join("memory.peak")
-    }
-
-    fn memory_high_path(&self) -> PathBuf {
-        self.path().as_path().join("memory.high")
     }
 
     /// confgure cgroup.subtree_control to enable controllers for sub cgroups
@@ -172,7 +169,7 @@ impl Cgroup {
         Ok(())
     }
 
-    pub fn move_process_to(&self, cgroup: &Cgroup) -> buck2_error::Result<()> {
+    pub fn move_process_to(&self, cgroup: &CgroupMinimal) -> buck2_error::Result<()> {
         // Read process IDs from current cgroup's procs_fd
         let content = self.procs.read_to_buf()?;
         if content.is_empty() {
@@ -193,6 +190,33 @@ impl Cgroup {
 
         Ok(())
     }
+}
+
+pub struct Cgroup {
+    inner: CgroupMinimal,
+}
+
+impl Cgroup {
+    pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
+        Self::from_minimal(CgroupMinimal::new(root_path, name)?)
+    }
+
+    pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
+        Self::from_minimal(CgroupMinimal::try_from_path(path)?)
+    }
+
+    pub fn from_minimal(m: CgroupMinimal) -> buck2_error::Result<Self> {
+        Ok(Cgroup { inner: m })
+    }
+
+    #[allow(dead_code)]
+    fn memory_peak_path(&self) -> PathBuf {
+        self.path().as_path().join("memory.peak")
+    }
+
+    fn memory_high_path(&self) -> PathBuf {
+        self.path().as_path().join("memory.high")
+    }
 
     /// Set the memory.high limit for this cgroup
     pub fn set_memory_high(&self, memory_high: &str) -> buck2_error::Result<()> {
@@ -204,6 +228,14 @@ impl Cgroup {
             }
         })?;
         Ok(())
+    }
+}
+
+impl Deref for Cgroup {
+    type Target = CgroupMinimal;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 

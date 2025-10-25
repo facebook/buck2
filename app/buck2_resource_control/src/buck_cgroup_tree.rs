@@ -11,14 +11,13 @@
 use buck2_core::fs::paths::file_name::FileName;
 
 use crate::cgroup::Cgroup;
+use crate::cgroup::CgroupMinimal;
 use crate::cgroup_info::CGroupInfo;
 
 /// Type that represents the daemon's view of the cgroups it manages
 ///
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
-    #[allow(unused)]
-    daemon: Cgroup,
     forkserver_and_actions: Cgroup,
     forkserver: Cgroup,
 }
@@ -33,10 +32,10 @@ impl BuckCgroupTree {
     ///     in systemd this is the `Delegate=yes` property.
     pub fn set_up_for_process() -> buck2_error::Result<Self> {
         let root_cgroup_path = CGroupInfo::read()?.path;
-        let root_cgroup = Cgroup::try_from_path(root_cgroup_path)?;
+        let root_cgroup = CgroupMinimal::try_from_path(root_cgroup_path)?;
 
         let daemon_cgroup =
-            Cgroup::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
+            CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
         // FIXME(JakobDegen): Eventually, use something less complicated than this
         root_cgroup.move_process_to(&daemon_cgroup)?;
         root_cgroup.config_subtree_control()?;
@@ -53,7 +52,6 @@ impl BuckCgroupTree {
         )?;
 
         Ok(Self {
-            daemon: daemon_cgroup,
             forkserver_and_actions,
             forkserver,
         })

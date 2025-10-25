@@ -44,7 +44,7 @@ use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
-use buck2_resource_control::cgroup::Cgroup;
+use buck2_resource_control::cgroup::CgroupMinimal;
 use buck2_resource_control::cgroup_info::CGroupInfo;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
@@ -224,7 +224,7 @@ impl UnixForkserverService {
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
                 if let Some(cgroup_path) = validated_cmd.command_cgroup.clone() {
-                    let cgroup = Cgroup::try_from_path(cgroup_path)?;
+                    let cgroup = CgroupMinimal::try_from_path(cgroup_path)?;
                     cgroup.setup_command(&mut cmd)?;
                 }
                 (cmd, Some(output_path), validated_cmd.command_cgroup.clone())
