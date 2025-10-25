@@ -13,8 +13,6 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::SystemdCreationDecision;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
@@ -35,6 +33,8 @@ use tokio::sync::watch::Sender;
 use crate::action_cgroups::ActionCgroups;
 use crate::cgroup_info::CGroupInfo;
 use crate::path::CgroupPathBuf;
+use crate::systemd::ResourceControlRunner;
+use crate::systemd::SystemdCreationDecision;
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {

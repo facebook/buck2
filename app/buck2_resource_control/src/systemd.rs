@@ -15,11 +15,10 @@ use std::num::ParseIntError;
 use std::path::Path;
 use std::sync::OnceLock;
 
+use buck2_common::init::ResourceControlConfig;
+use buck2_common::init::ResourceControlStatus;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
-
-use crate::init::ResourceControlConfig;
-use crate::init::ResourceControlStatus;
 
 const SYSTEMD_MIN_VERSION: u32 = 253;
 static AVAILABILITY: OnceLock<Option<buck2_error::Error>> = OnceLock::new();

@@ -52,7 +52,6 @@ pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
-pub mod resource_control;
 pub mod rlimits;
 pub mod scope;
 pub mod self_test_timeout;

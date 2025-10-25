@@ -21,6 +21,7 @@ pub mod memory_tracker;
 pub mod path;
 #[cfg(unix)]
 pub mod pool;
+pub mod systemd;
 
 #[cfg(not(unix))]
 pub mod buck_cgroup_tree {
