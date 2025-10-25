@@ -10,9 +10,9 @@
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_util::cgroup_info::CGroupInfo;
 
 use crate::cgroup::Cgroup;
+use crate::cgroup_info::CGroupInfo;
 use crate::path::CgroupPath;
 
 #[derive(Debug, buck2_error::Error)]

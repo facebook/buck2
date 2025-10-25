@@ -23,7 +23,6 @@ use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_util::cgroup_info::CGroupInfo;
 use dupe::Dupe;
 use nix::dir::Dir;
 use nix::fcntl::OFlag;
@@ -34,6 +33,7 @@ use tokio::fs::File;
 use tokio::sync::Mutex;
 
 use crate::CommandType;
+use crate::cgroup_info::CGroupInfo;
 use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;

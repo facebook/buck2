@@ -307,8 +307,8 @@ impl SnapshotCollector {
         #[cfg(unix)]
         {
             use buck2_execute_impl::executors::local::ForkserverAccess;
-            use buck2_util::cgroup_info::CGroupInfo;
-            use buck2_util::cgroup_info::MemoryStat;
+            use buck2_resource_control::cgroup_info::CGroupInfo;
+            use buck2_resource_control::cgroup_info::MemoryStat;
 
             fn convert_stats(stats: &MemoryStat) -> buck2_data::UnixCgroupMemoryStats {
                 buck2_data::UnixCgroupMemoryStats {

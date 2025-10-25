@@ -20,7 +20,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::Span;
-use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 use parking_lot::Mutex;
@@ -33,6 +32,7 @@ use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 
 use crate::action_cgroups::ActionCgroups;
+use crate::cgroup_info::CGroupInfo;
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
