@@ -204,7 +204,7 @@ impl UnixForkserverService {
         &self,
         validated_cmd: &ValidatedCommand,
     ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
-        let (mut cmd, miniperf_output, cgroup_path, has_resource_control) = match (
+        let (mut cmd, miniperf_output, cgroup_path) = match (
             validated_cmd.enable_miniperf,
             &self.miniperf,
             &self.resource_control_runner,
@@ -216,7 +216,7 @@ impl UnixForkserverService {
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path), None, false)
+                (cmd, Some(output_path), None)
             }
             (_, Some(miniperf), ForkserverResourceControlRunner::CgroupPool, _) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
@@ -227,15 +227,10 @@ impl UnixForkserverService {
                     let cgroup = Cgroup::try_from_path(cgroup_path)?;
                     cgroup.setup_command(&mut cmd)?;
                 }
-                (
-                    cmd,
-                    Some(output_path),
-                    validated_cmd.command_cgroup.clone(),
-                    true,
-                )
+                (cmd, Some(output_path), validated_cmd.command_cgroup.clone())
             }
             // Direct execution of the command
-            _ => (background_command(&validated_cmd.exe), None, None, false),
+            _ => (background_command(&validated_cmd.exe), None, None),
         };
 
         cmd.current_dir(&validated_cmd.cwd);
@@ -249,11 +244,6 @@ impl UnixForkserverService {
         #[cfg(fbcode_build)]
         if let Ok(value) = std::env::var("XDG_RUNTIME_DIR") {
             cmd.env("XDG_RUNTIME_DIR", value);
-        }
-
-        if has_resource_control {
-            // we set env var to enable reading peak memory from cgroup in miniperf
-            cmd.env("MINIPERF_READ_CGROUP", "1");
         }
 
         let mut cmd = ProcessCommand::new(cmd, cgroup_path);
