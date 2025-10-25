@@ -73,9 +73,13 @@ use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute_local::CommandResult;
+use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
-use buck2_execute_local::gather_output;
+use buck2_execute_local::decode_command_event_stream;
 use buck2_execute_local::maybe_absolutize_exe;
+use buck2_execute_local::process_group::ProcessCommand;
+use buck2_execute_local::spawn_command_and_stream_events;
+use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_resource_control::CommandType;
@@ -271,7 +275,17 @@ impl LocalExecutor {
                         .while_alive()
                         .map(|()| Ok(GatherOutputStatus::Cancelled));
 
-                    gather_output(cmd, timeout, alive).await
+                    let stream = spawn_command_and_stream_events(
+                        ProcessCommand::new(cmd),
+                        timeout,
+                        alive,
+                        DefaultStatusDecoder,
+                        DefaultKillProcess::default(),
+                        true,
+                        true,
+                    )
+                    .await?;
+                    decode_command_event_stream(stream).await
                 }
                 .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
             };

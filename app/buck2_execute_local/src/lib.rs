@@ -13,7 +13,6 @@
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
-use std::process::Command;
 use std::process::ExitStatus;
 use std::sync::LazyLock;
 use std::task::Context;
@@ -44,7 +43,6 @@ use crate::process_group::ProcessCommand;
 use crate::process_group::ProcessGroup;
 use crate::process_group::SpawnError;
 use crate::status_decoder::DecodedStatus;
-use crate::status_decoder::DefaultStatusDecoder;
 use crate::status_decoder::StatusDecoder;
 
 mod interruptible_async_read;
@@ -400,29 +398,6 @@ where
     ))
 }
 
-pub async fn gather_output<T>(
-    cmd: Command,
-    timeout: Option<Duration>,
-    cancellation: T,
-) -> buck2_error::Result<CommandResult>
-where
-    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
-{
-    let cmd = ProcessCommand::new(cmd);
-
-    let stream = spawn_command_and_stream_events(
-        cmd,
-        timeout,
-        cancellation,
-        DefaultStatusDecoder,
-        DefaultKillProcess::default(),
-        true,
-        true,
-    )
-    .await?;
-    decode_command_event_stream(stream).await
-}
-
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
 pub trait KillProcess {
@@ -517,6 +492,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::process::Command;
     use std::str;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -529,6 +505,26 @@ mod tests {
     use dupe::Dupe;
 
     use super::*;
+    use crate::status_decoder::DefaultStatusDecoder;
+
+    async fn gather_output(
+        cmd: Command,
+        timeout: Option<Duration>,
+    ) -> buck2_error::Result<CommandResult> {
+        let cmd = ProcessCommand::new(cmd);
+
+        let stream = spawn_command_and_stream_events(
+            cmd,
+            timeout,
+            futures::future::pending(),
+            DefaultStatusDecoder,
+            DefaultKillProcess::default(),
+            true,
+            true,
+        )
+        .await?;
+        decode_command_event_stream(stream).await
+    }
 
     #[tokio::test]
     async fn test_gather_output() -> buck2_error::Result<()> {
@@ -544,7 +540,7 @@ mod tests {
             stdout,
             stderr,
             ..
-        } = gather_output(cmd, None, futures::future::pending()).await?;
+        } = gather_output(cmd, None).await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -575,12 +571,7 @@ mod tests {
             stdout,
             stderr,
             ..
-        } = gather_output(
-            cmd,
-            Some(Duration::from_secs(timeout)),
-            futures::future::pending(),
-        )
-        .await?;
+        } = gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         assert!(
             matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0),
             "status: {status:?}"
@@ -606,12 +597,8 @@ mod tests {
         };
 
         let timeout = if cfg!(windows) { 5 } else { 3 };
-        let CommandResult { status, stdout, .. } = gather_output(
-            cmd,
-            Some(Duration::from_secs(timeout)),
-            futures::future::pending(),
-        )
-        .await?;
+        let CommandResult { status, stdout, .. } =
+            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         assert!(
             matches!(status, GatherOutputStatus::TimedOut(..)),
             "status: {status:?}"
@@ -697,12 +684,8 @@ mod tests {
 
         // On windows we need more time to run powershell
         let timeout = if cfg!(windows) { 7 } else { 1 };
-        let CommandResult { stdout, .. } = gather_output(
-            cmd,
-            Some(Duration::from_secs(timeout)),
-            futures::future::pending(),
-        )
-        .await?;
+        let CommandResult { stdout, .. } =
+            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         let out = str::from_utf8(&stdout)?;
         let pids: Vec<&str> = out.split('\n').collect();
         let ppid = Pid::from_str(pids.first().buck_error_context("no ppid")?.trim())?;
@@ -756,8 +739,7 @@ mod tests {
 
         let mut cmd = background_command("sh");
         cmd.arg("-c").arg("kill -KILL \"$$\"");
-        let CommandResult { status, .. } =
-            gather_output(cmd, None, futures::future::pending()).await?;
+        let CommandResult { status, .. } = gather_output(cmd, None).await?;
 
         assert_matches!(
             status,
