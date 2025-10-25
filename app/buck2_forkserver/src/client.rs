@@ -131,17 +131,33 @@ impl ForkserverClient {
             None
         } else if let Some(cgroup_pool) = &self.inner.cgroup_pool {
             let (cgroup_id, cgroup_path) = cgroup_pool.acquire()?;
+
+            let mut cgroup_session = ActionCgroupSession::maybe_create(
+                &self.memory_tracker,
+                dispatcher,
+                command_type,
+                req.action_digest.clone(),
+            );
+            if let Some(cgroup_session) = &mut cgroup_session {
+                cgroup_session.command_started(cgroup_path.clone()).await;
+            }
+
             req.command_cgroup = Some(cgroup_path.to_str()?.to_owned());
-            Some((cgroup_id, cgroup_pool))
+            Some((cgroup_id, cgroup_pool, cgroup_session))
         } else {
             None
         };
 
-        let res = self
-            .execute_with_cgroup(req, cancel, command_type, dispatcher)
-            .await;
+        let mut res = self.execute_with_cgroup(req, cancel).await;
 
-        if let Some((id, pool)) = cgroup_state {
+        if let Some((id, pool, cgroup_session)) = cgroup_state {
+            if let Some(mut cgroup_session) = cgroup_session {
+                let cgroup_res = cgroup_session.command_finished().await;
+                if let Ok(res) = &mut res {
+                    res.cgroup_result = Some(cgroup_res);
+                }
+            }
+
             pool.release(id);
         }
 
@@ -152,13 +168,10 @@ impl ForkserverClient {
         &self,
         req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
     ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
     {
-        let action_digest = req.action_digest.clone();
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
             data: Some(req.into()),
         }))
@@ -178,13 +191,7 @@ impl ForkserverClient {
             .into_inner();
         let stream = decode_event_stream(stream);
 
-        let cgroup_session = ActionCgroupSession::maybe_create(
-            &self.memory_tracker,
-            dispatcher,
-            command_type,
-            action_digest,
-        );
-        decode_command_event_stream(stream, cgroup_session).await
+        decode_command_event_stream(stream).await
     }
 
     pub async fn set_log_filter(&self, log_filter: String) -> buck2_error::Result<()> {

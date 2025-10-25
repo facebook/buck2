@@ -24,7 +24,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
-use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
 use futures::future::Future;
@@ -306,10 +305,7 @@ pub struct CommandResult {
     pub cgroup_result: Option<ActionCgroupResult>,
 }
 
-pub async fn decode_command_event_stream<S>(
-    stream: S,
-    mut cgroup_session: Option<ActionCgroupSession>,
-) -> buck2_error::Result<CommandResult>
+pub async fn decode_command_event_stream<S>(stream: S) -> buck2_error::Result<CommandResult>
 where
     S: Stream<Item = buck2_error::Result<CommandEvent>>,
 {
@@ -323,23 +319,15 @@ where
             CommandEvent::Stdout(bytes) => stdout.extend(&bytes),
             CommandEvent::Stderr(bytes) => stderr.extend(&bytes),
             CommandEvent::Exit(exit) => {
-                let cgroup_result = if let Some(session) = cgroup_session.as_mut() {
-                    Some(session.command_finished().await)
-                } else {
-                    None
-                };
                 return Ok(CommandResult {
                     status: exit,
                     stdout,
                     stderr,
-                    cgroup_result,
+                    // Filled in later
+                    cgroup_result: None,
                 });
             }
-            CommandEvent::Cgroup(path) => {
-                if let Some(session) = cgroup_session.as_mut() {
-                    session.command_started(path).await;
-                }
-            }
+            CommandEvent::Cgroup(_) => {}
         }
     }
 
@@ -365,7 +353,7 @@ where
         DefaultKillProcess::default(),
         true,
     )?;
-    decode_command_event_stream(stream, None).await
+    decode_command_event_stream(stream).await
 }
 
 /// Dependency injection for kill. We use this in testing.
@@ -776,7 +764,7 @@ mod tests {
             true,
         )?;
 
-        let CommandResult { status, .. } = decode_command_event_stream(stream, None).await?;
+        let CommandResult { status, .. } = decode_command_event_stream(stream).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
 
         assert!(*killed.lock().unwrap());
