@@ -39,7 +39,14 @@ where
                 execution_stats,
             }) => Data::Exit(buck2_forkserver_proto::ExitEvent {
                 exit_code,
-                execution_stats,
+                execution_stats: execution_stats.map(|s| {
+                    buck2_forkserver_proto::CollectedExecutionStats {
+                        cpu_instructions_user: s.cpu_instructions_user,
+                        cpu_instructions_kernel: s.cpu_instructions_kernel,
+                        userspace_events: s.userspace_events,
+                        kernel_events: s.kernel_events,
+                    }
+                }),
             }),
             CommandEvent::Exit(GatherOutputStatus::TimedOut(duration)) => {
                 Data::Timeout(buck2_forkserver_proto::TimeoutEvent {
@@ -86,7 +93,14 @@ where
                 execution_stats,
             }) => CommandEvent::Exit(GatherOutputStatus::Finished {
                 exit_code,
-                execution_stats,
+                execution_stats: execution_stats.map(|s| {
+                    buck2_execute_local::CollectedExecutionStats {
+                        cpu_instructions_user: s.cpu_instructions_user,
+                        cpu_instructions_kernel: s.cpu_instructions_kernel,
+                        userspace_events: s.userspace_events,
+                        kernel_events: s.kernel_events,
+                    }
+                }),
             }),
             Data::Timeout(buck2_forkserver_proto::TimeoutEvent { duration }) => {
                 CommandEvent::Exit(GatherOutputStatus::TimedOut(

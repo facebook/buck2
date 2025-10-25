@@ -56,11 +56,19 @@ mod unix;
 mod win;
 
 #[derive(Debug)]
+pub struct CollectedExecutionStats {
+    pub cpu_instructions_user: Option<u64>,
+    pub cpu_instructions_kernel: Option<u64>,
+    pub userspace_events: Option<buck2_data::CpuCounter>,
+    pub kernel_events: Option<buck2_data::CpuCounter>,
+}
+
+#[derive(Debug)]
 pub enum GatherOutputStatus {
     /// Contains the exit code.
     Finished {
         exit_code: i32,
-        execution_stats: Option<buck2_data::CommandExecutionStats>,
+        execution_stats: Option<CollectedExecutionStats>,
     },
     TimedOut(Duration),
     Cancelled,

@@ -87,9 +87,18 @@ message CommandEvent {
   }
 }
 
+// Like `buck.data.CommandExecutionStats`, but without memory information
+message CollectedExecutionStats {
+  optional uint64 cpu_instructions_user = 1;
+  optional uint64 cpu_instructions_kernel = 2;
+  optional buck.data.CpuCounter userspace_events = 3;
+  optional buck.data.CpuCounter kernel_events = 4;
+}
+
 message ExitEvent {
+  reserved 2;
   int32 exit_code = 1;
-  optional buck.data.CommandExecutionStats execution_stats = 2;
+  optional CollectedExecutionStats execution_stats = 3;
 }
 
 message TimeoutEvent {
