@@ -35,8 +35,6 @@ use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::cgroup_info::CGroupInfo;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupPool;
-use crate::systemd::ResourceControlRunner;
-use crate::systemd::SystemdCreationDecision;
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
@@ -294,39 +292,33 @@ pub async fn create_memory_tracker(
         return Ok(None);
     };
 
-    if let SystemdCreationDecision::Create =
-        ResourceControlRunner::creation_decision(&resource_control_config.status)
-    {
-        let cgroup_pool = CgroupPool::create_in_parent_cgroup(
-            cgroup_tree.forkserver_and_actions().path(),
-            &resource_control_config,
-        )?;
-        let action_cgroups = ActionCgroups::init(resource_control_config).await?;
-        let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);
-        const MAX_RETRIES: u32 = 5;
-        let memory_limit_bytes = resource_control_config
-            .hybrid_execution_memory_limit_gibibytes
-            .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
-        let memory_tracker = MemoryTracker::new(
-            handle,
-            open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
-            open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
-            open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.pressure")).await?,
-            open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
-            open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
-            MAX_RETRIES,
-            memory_limit_bytes,
-            resource_control_config
-                .memory_pressure_threshold_percent
-                .unwrap_or(10),
-        );
-        let tracker_handle = memory_tracker.handle.dupe();
-        const TICK_DURATION: Duration = Duration::from_millis(300);
-        memory_tracker.spawn(TICK_DURATION).await?;
-        Ok(Some(tracker_handle))
-    } else {
-        Ok(None)
-    }
+    let cgroup_pool = CgroupPool::create_in_parent_cgroup(
+        cgroup_tree.forkserver_and_actions().path(),
+        &resource_control_config,
+    )?;
+    let action_cgroups = ActionCgroups::init(resource_control_config).await?;
+    let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);
+    const MAX_RETRIES: u32 = 5;
+    let memory_limit_bytes = resource_control_config
+        .hybrid_execution_memory_limit_gibibytes
+        .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
+    let memory_tracker = MemoryTracker::new(
+        handle,
+        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
+        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
+        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.pressure")).await?,
+        open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
+        open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
+        MAX_RETRIES,
+        memory_limit_bytes,
+        resource_control_config
+            .memory_pressure_threshold_percent
+            .unwrap_or(10),
+    );
+    let tracker_handle = memory_tracker.handle.dupe();
+    const TICK_DURATION: Duration = Duration::from_millis(300);
+    memory_tracker.spawn(TICK_DURATION).await?;
+    Ok(Some(tracker_handle))
 }
 impl MemoryTracker {
     fn new(

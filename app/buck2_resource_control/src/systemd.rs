@@ -194,7 +194,7 @@ impl ResourceControlRunner {
         })
     }
 
-    pub fn creation_decision(status: &ResourceControlStatus) -> SystemdCreationDecision {
+    fn creation_decision(status: &ResourceControlStatus) -> SystemdCreationDecision {
         if status == &ResourceControlStatus::Off {
             return SystemdCreationDecision::SkipNotNeeded;
         }
