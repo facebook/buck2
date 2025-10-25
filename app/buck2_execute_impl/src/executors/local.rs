@@ -77,7 +77,6 @@ use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_execute_local::decode_command_event_stream;
 use buck2_execute_local::maybe_absolutize_exe;
-use buck2_execute_local::process_group::ProcessCommand;
 use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_futures::cancellation::CancellationContext;
@@ -276,11 +275,12 @@ impl LocalExecutor {
                         .map(|()| Ok(GatherOutputStatus::Cancelled));
 
                     let stream = spawn_command_and_stream_events(
-                        ProcessCommand::new(cmd),
+                        cmd,
                         timeout,
                         alive,
                         DefaultStatusDecoder,
                         DefaultKillProcess::default(),
+                        None,
                         true,
                         true,
                     )

@@ -16,7 +16,7 @@ import "data.proto";
 package buck.forkserver;
 
 message CommandRequest {
-  reserved 3, 4, 7, 13, 15, 16;
+  reserved 3, 4, 7, 10, 11, 13, 15, 16;
   // The executable that should be run.
   bytes exe = 1;
   // The arguments to give the executable.
@@ -31,8 +31,9 @@ message CommandRequest {
   bool enable_miniperf = 9;
 
   message StdRedirectPaths {
-    bytes stdout = 10;
-    bytes stderr = 11;
+    // reserved 10, 11
+    string stdout = 1;
+    string stderr = 2;
   }
   // Used to optionally redirect stdout and stderr to files.
   // If set, stdout and stderr events will not be streamed.

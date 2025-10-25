@@ -49,10 +49,7 @@ pub struct ProcessCommand {
 }
 
 impl ProcessCommand {
-    pub fn new(mut cmd: StdCommand) -> Self {
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+    pub fn new(cmd: StdCommand) -> Self {
         Self {
             inner: imp::ProcessCommandImpl::new(cmd),
         }

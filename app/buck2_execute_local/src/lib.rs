@@ -11,9 +11,12 @@
 #![cfg_attr(windows, feature(windows_process_extensions_main_thread_handle))]
 
 use std::borrow::Cow;
+use std::fs::File;
 use std::path::Path;
 use std::pin::Pin;
+use std::process::Command;
 use std::process::ExitStatus;
+use std::process::Stdio;
 use std::sync::LazyLock;
 use std::task::Context;
 use std::task::Poll;
@@ -21,6 +24,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
@@ -109,6 +113,12 @@ impl From<StdioEvent> for CommandEvent {
             StdioEvent::Stderr(bytes) => CommandEvent::Stderr(bytes),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct StdRedirectPaths {
+    pub stdout: AbsNormPathBuf,
+    pub stderr: AbsNormPathBuf,
 }
 
 /// This stream will yield [CommandEvent] whenever we have something on stdout or stderr (this is
@@ -223,17 +233,28 @@ async fn run_in_spawn_thread<T: Send + 'static>(
 }
 
 pub async fn spawn_command_and_stream_events<T>(
-    mut cmd: ProcessCommand,
+    mut cmd: Command,
     timeout: Option<Duration>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
+    std_redirects: Option<StdRedirectPaths>,
     stream_stdio: bool,
     retry_on_txt_busy: bool,
 ) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
     T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
 {
+    cmd.stdin(Stdio::null());
+    if let Some(std_redirects) = &std_redirects {
+        cmd.stdout(File::create(std_redirects.stdout.as_path())?);
+        cmd.stderr(File::create(std_redirects.stderr.as_path())?);
+    } else {
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+    }
+    let mut cmd = ProcessCommand::new(cmd);
+
     let do_spawn = move || {
         if retry_on_txt_busy {
             spawn_retry_txt_busy(cmd, || std::thread::sleep(Duration::from_millis(50)))
@@ -511,14 +532,13 @@ mod tests {
         cmd: Command,
         timeout: Option<Duration>,
     ) -> buck2_error::Result<CommandResult> {
-        let cmd = ProcessCommand::new(cmd);
-
         let stream = spawn_command_and_stream_events(
             cmd,
             timeout,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
+            None,
             true,
             true,
         )
@@ -717,6 +737,8 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
         let mut cmd = ProcessCommand::new(cmd);
         let process = cmd.spawn().map_err(buck2_error::Error::from);
         let mut events = stream_command_events(
@@ -797,6 +819,8 @@ mod tests {
         };
         cmd.args(["-c", "sleep 10000"]);
 
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
         let mut cmd = ProcessCommand::new(cmd);
         let process = cmd.spawn().map_err(buck2_error::Error::from);
 
@@ -832,6 +856,7 @@ mod tests {
         let stdout = tempdir.path().join("stdout");
         let mut cmd = ProcessCommand::new(cmd);
         cmd.stdout(std::fs::File::create(stdout.clone())?);
+        cmd.stderr(std::process::Stdio::piped());
 
         let process_group = cmd.spawn().map_err(buck2_error::Error::from);
         let mut events = stream_command_events(

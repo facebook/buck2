@@ -35,6 +35,7 @@ use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::GatherOutputStatus;
+use buck2_execute_local::StdRedirectPaths;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
 use buck2_worker_proto::ExecuteResponse;
@@ -141,8 +142,7 @@ fn spawn_via_forkserver(
     env: Vec<(OsString, OsString)>,
     working_directory: AbsNormPathBuf,
     liveliness_observer: impl LivelinessObserver + 'static,
-    stdout_path: &AbsNormPathBuf,
-    stderr_path: &AbsNormPathBuf,
+    std_redirects: &StdRedirectPaths,
     socket_path: &AbsNormPathBuf,
     graceful_shutdown_timeout_s: Option<u32>,
     dispatcher: EventDispatcher,
@@ -155,8 +155,7 @@ fn spawn_via_forkserver(
         unreachable!("Worker should not be spawned without a forkserver")
     };
 
-    let stdout_path = stdout_path.clone();
-    let stderr_path = stderr_path.clone();
+    let std_redirects = std_redirects.clone();
 
     let socket_path = socket_path.clone();
     tokio::spawn(async move {
@@ -172,8 +171,8 @@ fn spawn_via_forkserver(
             timeout: None,
             enable_miniperf: false,
             std_redirects: Some(buck2_forkserver_proto::command_request::StdRedirectPaths {
-                stdout: stdout_path.as_os_str().as_bytes().into(),
-                stderr: stderr_path.as_os_str().as_bytes().into(),
+                stdout: std_redirects.stdout.to_string(),
+                stderr: std_redirects.stderr.to_string(),
             }),
             graceful_shutdown_timeout_s,
             command_cgroup: None,
@@ -207,8 +206,7 @@ fn spawn_via_forkserver(
     _env: Vec<(OsString, OsString)>,
     _working_directory: AbsNormPathBuf,
     _liveliness_observer: impl LivelinessObserver + 'static,
-    _stdout_path: &AbsNormPathBuf,
-    _stderr_path: &AbsNormPathBuf,
+    _std_redirects: &StdRedirectPaths,
     _socket_path: &AbsNormPathBuf,
     _graceful_shutdown_timeout_s: Option<u32>,
     _dispatcher: EventDispatcher,
@@ -243,8 +241,10 @@ async fn spawn_worker(
         ));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
-    let stdout_path = worker_dir.join(FileName::unchecked_new("stdout"));
-    let stderr_path = worker_dir.join(FileName::unchecked_new("stderr"));
+    let std_redirects = StdRedirectPaths {
+        stdout: worker_dir.join(FileName::unchecked_new("stdout")),
+        stderr: worker_dir.join(FileName::unchecked_new("stderr")),
+    };
     fs_util::create_dir_all(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))?;
 
     tracing::info!(
@@ -267,8 +267,7 @@ async fn spawn_worker(
         env.clone(),
         root.clone(),
         liveliness_observer,
-        &stdout_path,
-        &stderr_path,
+        &std_redirects,
         &socket_path,
         graceful_shutdown_timeout_s,
         dispatcher,
@@ -279,8 +278,6 @@ async fn spawn_worker(
     // Might want to make this configurable, and/or measure impact of worker initialization on critical path
     let timeout = Duration::from_secs(60);
     let (channel, check_exit) = {
-        let stdout_path = &stdout_path;
-        let stderr_path = &stderr_path;
         let socket_path = &socket_path;
 
         let connect = retrying(initial_delay, max_delay, timeout, move || {
@@ -310,9 +307,9 @@ async fn spawn_worker(
             futures::future::Either::Right((command_result, _)) => Err(match command_result {
                 Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
                 Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
-                    let stdout = fs_util::read_to_string(stdout_path)
+                    let stdout = fs_util::read_to_string(&std_redirects.stdout)
                         .map_err(|e| WorkerInitError::InternalError(e.into()))?;
-                    let stderr = fs_util::read_to_string(stderr_path)
+                    let stderr = fs_util::read_to_string(&std_redirects.stderr)
                         .map_err(|e| WorkerInitError::InternalError(e.into()))?;
                     WorkerInitError::EarlyExit {
                         exit_code: Some(exit_code),
@@ -352,8 +349,7 @@ async fn spawn_worker(
     Ok(WorkerHandle::new(
         client,
         child_exited_observer,
-        stdout_path,
-        stderr_path,
+        std_redirects,
         liveliness_guard,
     ))
 }
@@ -546,8 +542,7 @@ impl WorkerClient {
 pub struct WorkerHandle {
     client: WorkerClient,
     child_exited_observer: Arc<dyn LivelinessObserver>,
-    stdout_path: AbsNormPathBuf,
-    stderr_path: AbsNormPathBuf,
+    std_redirects: StdRedirectPaths,
     _liveliness_guard: LivelinessGuard,
 }
 
@@ -555,15 +550,13 @@ impl WorkerHandle {
     fn new(
         client: WorkerClient,
         child_exited_observer: Arc<dyn LivelinessObserver>,
-        stdout_path: AbsNormPathBuf,
-        stderr_path: AbsNormPathBuf,
+        std_redirects: StdRedirectPaths,
         liveliness_guard: LivelinessGuard,
     ) -> Self {
         Self {
             client,
             child_exited_observer,
-            stdout_path,
-            stderr_path,
+            std_redirects,
             _liveliness_guard: liveliness_guard,
         }
     }
@@ -633,7 +626,7 @@ impl WorkerHandle {
                         (
                             GatherOutputStatus::SpawnFailed(format!(
                                 "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
-                                err, self.stdout_path, self.stderr_path,
+                                err, self.std_redirects.stdout, self.std_redirects.stderr,
                             )),
                             // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
                             vec![],
@@ -646,7 +639,7 @@ impl WorkerHandle {
                 (
                     GatherOutputStatus::SpawnFailed(format!(
                         "Worker exited while running command, see worker logs:\n{}\n{}",
-                        self.stdout_path, self.stderr_path,
+                        self.std_redirects.stdout, self.std_redirects.stderr,
                     )),
                     vec![],
                     vec![],

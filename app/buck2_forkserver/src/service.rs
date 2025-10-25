@@ -9,7 +9,6 @@
  */
 
 use std::ffi::OsStr;
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
@@ -17,6 +16,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -30,8 +30,8 @@ use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
 use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
+use buck2_execute_local::StdRedirectPaths;
 use buck2_execute_local::maybe_absolutize_exe;
-use buck2_execute_local::process_group::ProcessCommand;
 use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_execute_local::status_decoder::MiniperfStatusDecoder;
@@ -39,7 +39,6 @@ use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
-use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
 use buck2_resource_control::cgroup::CgroupMinimal;
@@ -99,6 +98,13 @@ impl ValidatedCommand {
 
         let command_cgroup = command_cgroup.map(|cg| {
             CgroupPathBuf::new(AbsNormPathBuf::new(cg.into()).expect("Set correctly by caller"))
+        });
+
+        let std_redirects = std_redirects.map(|std_redirects| StdRedirectPaths {
+            stdout: AbsNormPathBuf::new(std_redirects.stdout.into())
+                .expect("Set correctly by caller"),
+            stderr: AbsNormPathBuf::new(std_redirects.stderr.into())
+                .expect("Set correctly by caller"),
         });
 
         Ok(ValidatedCommand {
@@ -175,7 +181,7 @@ impl UnixForkserverService {
     fn setup_process_command(
         &self,
         validated_cmd: &ValidatedCommand,
-    ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
+    ) -> buck2_error::Result<(Command, Option<AbsNormPathBuf>)> {
         let (mut cmd, miniperf_output) = match (validated_cmd.enable_miniperf, &self.miniperf) {
             // Wraps the user command with miniperf for performance monitoring
             (true, Some(miniperf)) => {
@@ -207,19 +213,13 @@ impl UnixForkserverService {
             cmd.env("XDG_RUNTIME_DIR", value);
         }
 
-        let mut cmd = ProcessCommand::new(cmd);
-        if let Some(std_redirects) = &validated_cmd.std_redirects {
-            cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
-            cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
-        }
-
         // cmd: ready-to-spawn process command
         // miniperf_output: path to miniperf output file (if monitoring)
         Ok((cmd, miniperf_output))
     }
 
     async fn create_command_stream(
-        cmd: ProcessCommand,
+        cmd: Command,
         timeout: Option<Duration>,
         cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
         + Send
@@ -227,6 +227,7 @@ impl UnixForkserverService {
         + 'static,
         miniperf_output: Option<AbsNormPathBuf>,
         graceful_shutdown_timeout_s: Option<u32>,
+        std_redirects: Option<StdRedirectPaths>,
         stream_stdio: bool,
     ) -> buck2_error::Result<RunStream> {
         let stream = match miniperf_output {
@@ -238,6 +239,7 @@ impl UnixForkserverService {
                 DefaultKillProcess {
                     graceful_shutdown_timeout_s,
                 },
+                std_redirects,
                 stream_stdio,
                 false,
             )
@@ -251,6 +253,7 @@ impl UnixForkserverService {
                 DefaultKillProcess {
                     graceful_shutdown_timeout_s,
                 },
+                std_redirects,
                 stream_stdio,
                 false,
             )
@@ -300,6 +303,7 @@ impl Forkserver for UnixForkserverService {
                 cancel,
                 miniperf_output,
                 validated_cmd.graceful_shutdown_timeout_s,
+                validated_cmd.std_redirects,
                 stream_stdio,
             )
             .await?;
