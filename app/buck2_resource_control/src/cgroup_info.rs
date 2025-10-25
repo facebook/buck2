@@ -11,13 +11,20 @@
 use std::fs;
 
 use allocative::Allocative;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_error::BuckErrorContext;
+
+use crate::path::CgroupPath;
+use crate::path::CgroupPathBuf;
 
 const SLICE_EXT: &str = ".slice";
 
 #[derive(Debug, Allocative)]
 pub struct CGroupInfo {
-    pub path: String,
+    pub path: CgroupPathBuf,
 }
 
 impl CGroupInfo {
@@ -48,25 +55,28 @@ impl CGroupInfo {
             .splitn(3, ':')
             .nth(2)
             .buck_error_context("Failed to parse cgroup path")?;
+        // Can't use .join() since the second part is absolute too
+        let path = AbsNormPathBuf::new(format!("/sys/fs/cgroup{cgroup}").into())?;
         Ok(CGroupInfo {
-            path: format!("/sys/fs/cgroup{cgroup}"),
+            path: CgroupPathBuf::new(path),
         })
     }
 
     // Returns the path to the closest slice in a cgroup path,
     // or None if there is no slice in the path
-    pub fn get_slice(&self) -> Option<&str> {
+    pub fn get_slice(&self) -> Option<&CgroupPath> {
         self.path
-            .rfind(SLICE_EXT)
-            .map(|i| &self.path[..i + SLICE_EXT.len()])
+            .as_path()
+            .to_str()
+            .and_then(|s| s.rfind(SLICE_EXT).map(|i| &s[..i + SLICE_EXT.len()]))
+            .and_then(|p| AbsNormPath::new(p).ok())
+            .map(CgroupPath::new)
     }
 
     pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
-        let memory_stat_path = format!("{}/memory.stat", self.path);
-        let content = fs::read_to_string(&memory_stat_path)
-            .with_buck_error_context(|| format!("Failed to read {}", memory_stat_path))?;
-        MemoryStat::parse(&content)
-            .with_buck_error_context(|| format!("Failed to parse {}", memory_stat_path))
+        let p = (**self.path).join(FileName::unchecked_new("memory.stat"));
+        let content = fs_util::read_to_string(&p)?;
+        MemoryStat::parse(&content).with_buck_error_context(|| format!("Failed to parse {}", p))
     }
 }
 
@@ -134,7 +144,7 @@ mod tests {
         let cgroup = "0::/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice/buck2-daemon.fbsource.v2-forkserver.slice/buck2-daemon.fbsource.v2-forkserver-f80cd8522e809ed63d6bffd0ff21637a81c760928a3ecf01cc3ef5d9046dd6d5:145.slice";
         assert_eq!(
             "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice/buck2-daemon.fbsource.v2-forkserver.slice/buck2-daemon.fbsource.v2-forkserver-f80cd8522e809ed63d6bffd0ff21637a81c760928a3ecf01cc3ef5d9046dd6d5:145.slice",
-            CGroupInfo::parse(cgroup).unwrap().path
+            CGroupInfo::parse(cgroup).unwrap().path.to_string()
         );
     }
 
@@ -144,13 +154,13 @@ mod tests {
         let info = CGroupInfo::parse(cgroup).unwrap();
         assert_eq!(
             "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice/buck2-daemon-fbsource-v2.scope",
-            info.path
+            info.path.to_string()
         );
         assert_eq!(
             Some(
-                "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice"
+                "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.slice/buck2-daemon.fbsource.v2.slice".to_owned()
             ),
-            info.get_slice()
+            info.get_slice().map(ToString::to_string)
         );
     }
 
@@ -159,7 +169,7 @@ mod tests {
         // check if cgroups are supported
         if Path::new("/sys/fs/cgroup").exists() {
             let info = CGroupInfo::read_async().await.unwrap();
-            assert!(Path::new(&info.path).exists());
+            assert!(fs_util::try_exists(&**info.path).unwrap());
         }
     }
 
@@ -168,7 +178,7 @@ mod tests {
         // check if cgroups are supported
         if Path::new("/sys/fs/cgroup").exists() {
             let info = CGroupInfo::read().unwrap();
-            assert!(Path::new(&info.path).exists());
+            assert!(fs_util::try_exists(&**info.path).unwrap());
         }
     }
 

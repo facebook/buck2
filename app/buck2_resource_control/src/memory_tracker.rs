@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::resource_control::ResourceControlRunner;
 use buck2_common::resource_control::SystemdCreationDecision;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
@@ -33,6 +34,7 @@ use tokio::sync::watch::Sender;
 
 use crate::action_cgroups::ActionCgroups;
 use crate::cgroup_info::CGroupInfo;
+use crate::path::CgroupPathBuf;
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
@@ -170,24 +172,28 @@ pub struct MemoryTracker {
 #[buck2(tag = Tier0)]
 enum MemoryTrackerError {
     #[error("Expected cgroup scope `{0}` to be placed inside a parent slice.")]
-    ParentSliceExpected(String),
+    ParentSliceExpected(CgroupPathBuf),
 }
 
-async fn open_daemon_memory_file(file_name: &str) -> buck2_error::Result<File> {
-    let path = CGroupInfo::read_async().await?.path + "/" + file_name;
+async fn open_daemon_memory_file(file_name: &FileName) -> buck2_error::Result<File> {
+    let path = CGroupInfo::read_async()
+        .await?
+        .path
+        .as_abs_path()
+        .join(file_name);
     File::open(&path)
         .await
         .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
 }
 
-async fn open_buck2_cgroup_memory_file(file_name: &str) -> buck2_error::Result<File> {
+async fn open_buck2_cgroup_memory_file(file_name: &FileName) -> buck2_error::Result<File> {
     let info = CGroupInfo::read_async().await?;
     // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
     // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
     let Some(daemon_and_forkserver_slice) = info.get_slice() else {
         return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
     };
-    let path = daemon_and_forkserver_slice.to_owned() + "/" + file_name;
+    let path = daemon_and_forkserver_slice.as_abs_path().join(file_name);
     File::open(&path)
         .await
         .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
@@ -289,11 +295,11 @@ pub async fn create_memory_tracker(
             .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
         let memory_tracker = MemoryTracker::new(
             handle,
-            open_buck2_cgroup_memory_file("memory.current").await?,
-            open_buck2_cgroup_memory_file("memory.swap.current").await?,
-            open_buck2_cgroup_memory_file("memory.pressure").await?,
-            open_daemon_memory_file("memory.current").await?,
-            open_daemon_memory_file("memory.swap.current").await?,
+            open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
+            open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
+            open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.pressure")).await?,
+            open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
+            open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
             MAX_RETRIES,
             memory_limit_bytes,
             resource_control_config

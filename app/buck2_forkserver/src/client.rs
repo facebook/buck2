@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use arc_swap::ArcSwapOption;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::tag_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
@@ -23,6 +24,7 @@ use buck2_resource_control::CommandType;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::cgroup_info::CGroupInfo;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+use buck2_resource_control::path::CgroupPathBuf;
 use buck2_resource_control::pool::CgroupPool;
 use dupe::Dupe;
 use futures::future;
@@ -114,9 +116,12 @@ impl ForkserverClient {
             .buck_error_context("Failed to query forkserver cgroup")?;
 
         let cgroup_info = response.into_inner().cgroup_path.and_then(|path| {
-            let scope = CGroupInfo { path };
+            let path = AbsNormPathBuf::new(path.into()).ok()?;
+            let scope = CGroupInfo {
+                path: CgroupPathBuf::new(path),
+            };
             let slice = CGroupInfo {
-                path: scope.get_slice()?.to_owned(),
+                path: scope.get_slice()?.to_buf(),
             };
             Some(CGroupInfoWrapper { scope, slice })
         });

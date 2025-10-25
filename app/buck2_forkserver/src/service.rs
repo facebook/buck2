@@ -365,7 +365,7 @@ impl Forkserver for UnixForkserverService {
             .map_err(|e| Status::internal(format!("{e:#}")))?;
 
         Ok(Response::new(GetCgroupResponse {
-            cgroup_path: Some(cgroup_info.path),
+            cgroup_path: Some(cgroup_info.path.to_string()),
         }))
     }
 }

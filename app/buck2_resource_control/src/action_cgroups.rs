@@ -81,7 +81,7 @@ impl AncestorCgroupConstraints {
 
             for (memory_file, constraint_field) in memory_fields {
                 if let Some(memory_limit) = memory_file
-                    .find_ancestor_memory_limit_async(slice_path)
+                    .find_ancestor_memory_limit_async(slice_path.as_path())
                     .await?
                 {
                     *constraint_field = Some(memory_limit.parse::<u64>()?);
@@ -557,9 +557,9 @@ impl ActionCgroups {
             buck2_error::ErrorTag::Environment,
             "The closest slice of the daemon cgroup does not exist"
         ))?;
-        let memory_high = CgroupMemoryFile::MemoryHigh.read(slice_path)?;
+        let memory_high = CgroupMemoryFile::MemoryHigh.read(slice_path.as_path())?;
         self.original_memory_high = Some(memory_high);
-        CgroupMemoryFile::MemoryHigh.set(slice_path, "max")?;
+        CgroupMemoryFile::MemoryHigh.set(slice_path.as_path(), "max")?;
 
         Ok(())
     }
@@ -572,7 +572,7 @@ impl ActionCgroups {
                 buck2_error::ErrorTag::Environment,
                 "The closest slice of the daemon cgroup does not exist"
             ))?;
-            CgroupMemoryFile::MemoryHigh.set(slice_path, &original_memory_high)?;
+            CgroupMemoryFile::MemoryHigh.set(slice_path.as_path(), &original_memory_high)?;
         }
         Ok(())
     }

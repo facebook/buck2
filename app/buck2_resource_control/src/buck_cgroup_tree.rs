@@ -8,19 +8,10 @@
  * above-listed licenses.
  */
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 
 use crate::cgroup::Cgroup;
 use crate::cgroup_info::CGroupInfo;
-use crate::path::CgroupPath;
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Environment)]
-enum BuckCgroupTreeError {
-    #[error("Process cgroup is not an absolute path: {path}")]
-    ProcessCgroupNotAbsolutePath { path: String },
-}
 
 /// Type that represents the daemon's view of the cgroups it manages
 ///
@@ -41,13 +32,8 @@ impl BuckCgroupTree {
     ///  2. Buck2 may manage the child cgroups by itself without interference from outside things;
     ///     in systemd this is the `Delegate=yes` property.
     pub fn set_up_for_process() -> buck2_error::Result<Self> {
-        let root_cgroup = CGroupInfo::read()?;
-        let root_cgroup_path = AbsNormPath::new(&root_cgroup.path).map_err(|_| {
-            BuckCgroupTreeError::ProcessCgroupNotAbsolutePath {
-                path: root_cgroup.path.clone(),
-            }
-        })?;
-        let root_cgroup = Cgroup::try_from_path(CgroupPath::new(root_cgroup_path).to_buf())?;
+        let root_cgroup_path = CGroupInfo::read()?.path;
+        let root_cgroup = Cgroup::try_from_path(root_cgroup_path)?;
 
         let daemon_cgroup =
             Cgroup::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;

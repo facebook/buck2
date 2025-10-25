@@ -323,7 +323,7 @@ impl SnapshotCollector {
             if self.daemon.cgroup_tree.is_some() {
                 if let Some(stat) = CGroupInfo::read()
                     .ok()
-                    .and_then(|cg| Some(cg.get_slice()?.to_owned()))
+                    .and_then(|cg| Some(cg.get_slice()?.to_buf()))
                     .and_then(|path| CGroupInfo { path }.read_memory_stat().ok())
                 {
                     snapshot.allprocs_cgroup = Some(convert_stats(&stat));
