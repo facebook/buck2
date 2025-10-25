@@ -170,7 +170,6 @@ pub struct BuckdServerInitPreferences {
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
-    pub has_cgroup: bool,
 }
 
 impl BuckdServerInitPreferences {

@@ -190,17 +190,14 @@ impl ActionCgroupSession {
         command_type: CommandType,
         action_digest: Option<String>,
     ) -> Option<Self> {
-        tracker
-            .as_ref()
-            .and_then(|tracker| tracker.action_cgroups.as_ref())
-            .map(|cgroup_pool| ActionCgroupSession {
-                cgroup_pool: cgroup_pool.dupe(),
-                dispatcher,
-                path: None,
-                start_error: None,
-                command_type,
-                action_digest,
-            })
+        tracker.as_ref().map(|tracker| ActionCgroupSession {
+            cgroup_pool: tracker.action_cgroups.dupe(),
+            dispatcher,
+            path: None,
+            start_error: None,
+            command_type,
+            action_digest,
+        })
     }
 
     pub async fn command_started(&mut self, cgroup_path: CgroupPathBuf) {
@@ -242,24 +239,14 @@ impl ActionCgroupSession {
 impl ActionCgroups {
     pub async fn init(
         resource_control_config: &ResourceControlConfig,
-    ) -> buck2_error::Result<Option<Self>> {
-        let enable_action_cgroup_pool = resource_control_config
-            .enable_action_cgroup_pool
-            .unwrap_or(false);
+    ) -> buck2_error::Result<Self> {
         let enable_freezing = resource_control_config
             .enable_action_freezing
             .unwrap_or(false);
 
-        if !enable_action_cgroup_pool {
-            return Ok(None);
-        }
-
         let ancestor_cgroup_constraints = AncestorCgroupConstraints::new().await?;
 
-        Ok(Some(Self::new(
-            enable_freezing,
-            ancestor_cgroup_constraints,
-        )))
+        Ok(Self::new(enable_freezing, ancestor_cgroup_constraints))
     }
 
     pub fn new(
@@ -277,6 +264,11 @@ impl ActionCgroups {
             metadata: buck2_events::metadata::collect(),
             ancestor_cgroup_constraints,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new() -> Self {
+        Self::new(false, None)
     }
 
     pub async fn command_started(

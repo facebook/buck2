@@ -125,17 +125,17 @@ pub struct MemoryTrackerHandleInner {
     pub reading_sender: Sender<Option<MemoryReading>>,
     // Written to by executors and tracker, read by executors
     #[allocative(skip)]
-    pub(crate) action_cgroups: Option<Arc<tokio::sync::Mutex<ActionCgroups>>>,
+    pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
 }
 
 impl MemoryTrackerHandleInner {
-    fn new(action_cgroups: Option<ActionCgroups>) -> Self {
+    fn new(action_cgroups: ActionCgroups) -> Self {
         let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         let (reading_sender, _rx) = watch::channel(None);
         Self {
             state_sender,
             reading_sender,
-            action_cgroups: action_cgroups.map(|c| Arc::new(tokio::sync::Mutex::new(c))),
+            action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
         }
     }
 }
@@ -413,12 +413,10 @@ impl MemoryTracker {
                         daemon_memory_swap_current,
                     };
 
-                    if let Some(action_cgroups) = handle.action_cgroups.as_ref() {
-                        let mut action_cgroups = action_cgroups.lock().await;
-                        action_cgroups
-                            .update(memory_pressure_state, &memory_reading)
-                            .await;
-                    }
+                    let mut action_cgroups = handle.action_cgroups.as_ref().lock().await;
+                    action_cgroups
+                        .update(memory_pressure_state, &memory_reading)
+                        .await;
 
                     (
                         TrackedMemoryState::Reading(MemoryStates {
@@ -564,7 +562,7 @@ mod tests {
         let daemon_memory_swap_current = dir.path().join("daemon.swap");
         fs::write(&daemon_memory_swap_current, "1").unwrap();
         let daemon_memory_swap = File::open(daemon_memory_swap_current.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(None);
+        let handle = MemoryTrackerHandleInner::new(ActionCgroups::testing_new());
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -669,7 +667,7 @@ mod tests {
         fs::write(&daemon_swap, "4").unwrap();
         let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
 
-        let handle = MemoryTrackerHandleInner::new(None);
+        let handle = MemoryTrackerHandleInner::new(ActionCgroups::testing_new());
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -762,7 +760,7 @@ mod tests {
         let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
         let daemon_memory_current = File::open(daemon_current.clone()).await?;
         let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(None);
+        let handle = MemoryTrackerHandleInner::new(ActionCgroups::testing_new());
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,

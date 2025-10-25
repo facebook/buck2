@@ -183,13 +183,7 @@ impl DaemonCommand {
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> buck2_error::Result<()> {
-        let cgroup_tree = if self.has_cgroup
-            && self
-                .daemon_startup_config
-                .resource_control
-                .enable_action_cgroup_pool
-                == Some(true)
-        {
+        let cgroup_tree = if self.has_cgroup {
             // Note: It's important that we do this before daemonizing, as otherwise there may be
             // stray processes laying around in this cgroup
             //
@@ -216,7 +210,6 @@ impl DaemonCommand {
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
-            has_cgroup: self.has_cgroup,
         };
 
         let span = tracing::info_span!("daemon_listener");
@@ -649,7 +642,6 @@ mod tests {
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),
-                has_cgroup: false,
             },
             process_info.clone(),
             None,

@@ -247,10 +247,6 @@ pub struct ResourceControlConfig {
     /// If provided and above the threshold, hybrid executor will stop scheduling local actions.
     /// The corresponding buckconfig is `buck2_resource_control.hybrid_execution_memory_limit_gibibytes`.
     pub hybrid_execution_memory_limit_gibibytes: Option<u64>,
-    /// Enable cgroup pool for action processes instead of using systemd scopes.
-    /// The corresponding buckconfig is `buck2_resource_control.enable_action_cgroup_pool`.
-    /// By default, it is false.
-    pub enable_action_cgroup_pool: Option<bool>,
     /// Memory high limit for action cgroup pool. Used when enable_action_cgroup_pool is true.
     /// The corresponding buckconfig is `buck2_resource_control.memory_high_action_cgroup_pool`.
     /// Mainly for testing purpose.
@@ -338,10 +334,6 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "hybrid_execution_memory_limit_gibibytes",
             })?;
-            let enable_action_cgroup_pool = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "enable_action_cgroup_pool_v2",
-            })?;
             let memory_high_action_cgroup_pool = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "memory_high_action_cgroup_pool",
@@ -365,7 +357,6 @@ impl ResourceControlConfig {
                 memory_max_per_action,
                 memory_high_per_action,
                 hybrid_execution_memory_limit_gibibytes,
-                enable_action_cgroup_pool,
                 memory_high_action_cgroup_pool,
                 cgroup_pool_size,
                 memory_pressure_threshold_percent,
