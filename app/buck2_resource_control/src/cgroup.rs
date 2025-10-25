@@ -10,8 +10,6 @@
 
 use std::fs;
 use std::io::Write;
-use std::os::fd::AsFd;
-use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -21,10 +19,9 @@ use buck2_core::fs::paths::file_name::FileName;
 use dupe::Dupe;
 use nix::dir::Dir;
 use nix::fcntl::OFlag;
-use nix::fcntl::openat;
 use nix::sys::stat::Mode;
-use nix::unistd;
 
+use crate::cgroup_files::CgroupFile;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
@@ -43,20 +40,11 @@ enum CgroupError {
         path: String,
         io_err: std::io::Error,
     },
-    #[error(
-        "Incomplete write to cgroup.procs: wrote {bytes_written} bytes, expected {expected_bytes}"
-    )]
-    IncompleteProcsWrite {
-        bytes_written: usize,
-        expected_bytes: usize,
-    },
-    #[error("Integer conversion failed: {err}")]
-    IntegerConversion { err: std::num::TryFromIntError },
 }
 
 pub struct Cgroup {
-    /// FD for cgroup.procs
-    procs_fd: Arc<OwnedFd>,
+    /// `cgroup.procs`
+    procs: Arc<CgroupFile>,
     path: CgroupPathBuf,
 }
 
@@ -78,19 +66,12 @@ impl Cgroup {
                 io_err: e.into(),
             })?;
 
-        let procs_fd = openat(
-            &dir,
-            "cgroup.procs",
-            OFlag::O_CLOEXEC | OFlag::O_RDWR,
-            Mode::empty(),
-        )
-        .map_err(|e| CgroupError::Io {
-            msg: format!("Failed to open cgroup.procs file: {path:?}"),
-            io_err: e.into(),
-        })?;
-
         let cgroup = Self {
-            procs_fd: Arc::new(procs_fd),
+            procs: Arc::new(CgroupFile::open(
+                &dir,
+                FileName::unchecked_new("cgroup.procs"),
+                true,
+            )?),
             path,
         };
 
@@ -160,14 +141,14 @@ impl Cgroup {
         // is spawned/forked. The lifetimes on this type don't prevent the user from dropping the
         // `Cgroup` before that happens.
         //
-        // This is accomplished by capturing the `Arc<OwnedFd>` into the `pre_exec` closure. The
+        // This is accomplished by capturing the `Arc<CgroupFile>` into the `pre_exec` closure. The
         // closure is not dropped until the surrounding command is dropped, at which point the spawn
         // must have happened.
         //
         // Some testing shows that the closure is not dropped in the child process at all; that's
         // good, as we don't actually want to do the `free` that may be implicated by dropping the
         // `Arc`
-        let procs_fd = self.procs_fd.dupe();
+        let procs = self.procs.dupe();
 
         let pre_exec = move || {
             let pid = std::process::id();
@@ -179,21 +160,7 @@ impl Cgroup {
             let pos = cursor.position() as usize;
             let pid_bytes = &buf[..pos];
 
-            // Append the process pid to cgroup.procs
-            // Note: Unlike regular files, cgroup.procs writes are atomic for single PID entries.
-            // So we don't need to worry too much about partial writes.
-            let bytes_written =
-                unistd::write(&procs_fd, pid_bytes).map_err(std::io::Error::from)?;
-
-            if bytes_written != pid_bytes.len() {
-                return Err(std::io::Error::other(format!(
-                    "cgroup.procs write was incomplete: wrote {} bytes, expected {}",
-                    bytes_written,
-                    pid_bytes.len()
-                )));
-            }
-
-            Ok(())
+            procs.write(&pid_bytes)
         };
         // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
         // However, it's safe here because:
@@ -207,7 +174,7 @@ impl Cgroup {
 
     pub fn move_process_to(&self, cgroup: &Cgroup) -> buck2_error::Result<()> {
         // Read process IDs from current cgroup's procs_fd
-        let content = read_file(&self.procs_fd)?;
+        let content = self.procs.read_to_buf()?;
         if content.is_empty() {
             return Ok(()); // No processes need to be moved
         }
@@ -220,20 +187,7 @@ impl Cgroup {
         for line in procs_content.lines() {
             let pid = line.trim();
             if !pid.is_empty() {
-                // Note: Unlike regular files, cgroup.procs writes are atomic for single PID entries.
-                // So we don't need to worry too much about partial writes.
-                let bytes_written = unistd::write(cgroup.procs_fd.as_fd(), pid.as_bytes())
-                    .map_err(|e| CgroupError::Io {
-                        msg: format!("Failed to write PID {pid} to target cgroup"),
-                        io_err: e.into(),
-                    })?;
-                if bytes_written != pid.len() {
-                    return Err(CgroupError::IncompleteProcsWrite {
-                        bytes_written,
-                        expected_bytes: pid.len(),
-                    }
-                    .into());
-                }
+                cgroup.procs.write(pid.as_bytes())?;
             }
         }
 
@@ -251,32 +205,6 @@ impl Cgroup {
         })?;
         Ok(())
     }
-}
-
-fn read_file(fd: &OwnedFd) -> Result<Vec<u8>, CgroupError> {
-    let mut data = vec![0u8; 1000]; // Enough in practice
-    let mut filled = 0;
-    loop {
-        if filled == data.len() {
-            data.resize(data.len() * 2, 0);
-        }
-
-        let buf = &mut data[filled..];
-        let filled_converted = filled
-            .try_into()
-            .map_err(|err| CgroupError::IntegerConversion { err })?;
-        let read =
-            nix::sys::uio::pread(fd, buf, filled_converted).map_err(|e| CgroupError::Io {
-                msg: "Failed to read from target cgroup.procs file descriptor".to_owned(),
-                io_err: e.into(),
-            })?;
-        if read == 0 {
-            break;
-        }
-        filled += read;
-    }
-    data.truncate(filled);
-    Ok(data)
 }
 
 #[cfg(test)]
@@ -307,7 +235,6 @@ mod tests {
     use buck2_util::process::background_command;
 
     use crate::cgroup::Cgroup;
-    use crate::cgroup::read_file;
 
     #[test]
     fn self_test_harness() {
@@ -319,7 +246,7 @@ mod tests {
             fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
             true
         );
-        assert_eq!(read_file(&cgroup.procs_fd).unwrap().len(), 0);
+        assert_eq!(cgroup.procs.read_to_buf().unwrap().len(), 0);
     }
 
     #[test]
