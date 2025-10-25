@@ -40,6 +40,7 @@ use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
+use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
@@ -356,26 +357,28 @@ impl<'a> BuckLspContext<'a> {
     async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkModulePath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
-        let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
-            .await?;
-        let cell_path = cell_resolver.get_cell_path(&relative_path);
+        self.with_dice_ctx(|mut dice_ctx| async move {
+            let cell_resolver = dice_ctx.get_cell_resolver().await?;
+            let cell_path = cell_resolver.get_cell_path(&relative_path);
+            let cell_segmentation = dice_ctx.get_cell_segmentation().await?;
 
-        match path.extension() {
-            Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
-                cell_path,
-            )?)),
-            _ => {
-                // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
-                // Unlike the build commands and such, there is no meaningful "build file cell" versus
-                // the cell of the file being currently evaluated.
-                let bfc = BuildFileCell::new(cell_path.cell());
+            match path.extension() {
+                Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
+                    cell_path,
+                )?)),
+                _ => {
+                    // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
+                    // Unlike the build commands and such, there is no meaningful "build file cell" versus
+                    // the cell of the file being currently evaluated.
+                    let bfc = BuildFileCell::new(cell_path.cell());
 
-                Ok(OwnedStarlarkModulePath::LoadFile(
-                    ImportPath::new_hack_for_lsp(cell_path, bfc)?,
-                ))
+                    Ok(OwnedStarlarkModulePath::LoadFile(
+                        ImportPath::new_hack_for_lsp(cell_path, bfc, cell_segmentation)?,
+                    ))
+                }
             }
-        }
+        })
+        .await
     }
 
     async fn starlark_import_path(
