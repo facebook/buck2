@@ -94,7 +94,6 @@ use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
 use indexmap::IndexMap;
 use tracing::info;
-use uuid::Uuid;
 
 use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
@@ -226,7 +225,6 @@ impl LocalExecutor {
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
         action_digest: &'a str,
-        cgroup_command_id: &'a str,
         command_type: CommandType,
         dispatcher: EventDispatcher,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
@@ -251,7 +249,6 @@ impl LocalExecutor {
                         liveliness_observer,
                         self.knobs.enable_miniperf && !disable_miniperf,
                         action_digest,
-                        cgroup_command_id,
                         command_type,
                         dispatcher,
                     )
@@ -259,7 +256,6 @@ impl LocalExecutor {
                 }
                 ForkserverAccess::None => {
                     let _disable_miniperf = disable_miniperf;
-                    let _cgroup_command_id = cgroup_command_id;
                     let _command_type = command_type;
                     let _action_digest = action_digest;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
@@ -543,7 +539,6 @@ impl LocalExecutor {
                         .exec_cmd(request.args(), env, request.timeout())
                         .await)
                 } else {
-                    let cgroup_command_id = Uuid::new_v4().to_string();
                     let command_type = if request.is_test() {
                         CommandType::Test
                     } else {
@@ -559,7 +554,6 @@ impl LocalExecutor {
                         liveliness_observer,
                         request.disable_miniperf(),
                         &action_digest.to_string(),
-                        &cgroup_command_id,
                         command_type,
                         dispatcher,
                     )
@@ -1518,7 +1512,6 @@ mod unix {
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
         action_digest: &str,
-        cgroup_command_id: &str,
         command_type: CommandType,
         dispatcher: EventDispatcher,
     ) -> buck2_error::Result<CommandResult> {
@@ -1539,7 +1532,6 @@ mod unix {
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
             action_digest: Some(action_digest.to_owned()),
-            cgroup_command_id: Some(cgroup_command_id.to_owned()),
             command_cgroup: None,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
@@ -1669,7 +1661,6 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
-                "",
                 CommandType::Build,
                 EventDispatcher::null(),
             )
@@ -1708,7 +1699,6 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 "",
-                "",
                 CommandType::Build,
                 EventDispatcher::null(),
             )
@@ -1735,7 +1725,6 @@ mod tests {
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
                 false,
-                "",
                 "",
                 CommandType::Build,
                 EventDispatcher::null(),

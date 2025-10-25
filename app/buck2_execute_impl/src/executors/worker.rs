@@ -177,7 +177,6 @@ fn spawn_via_forkserver(
             }),
             graceful_shutdown_timeout_s,
             action_digest: None,
-            cgroup_command_id: None,
             command_cgroup: None,
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);

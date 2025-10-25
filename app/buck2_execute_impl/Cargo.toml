@@ -32,7 +32,6 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true }
 zstd = { workspace = true }
 
 allocative = { workspace = true }

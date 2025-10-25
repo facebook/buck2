@@ -71,7 +71,6 @@ struct ValidatedCommand {
     enable_miniperf: bool,
     std_redirects: Option<StdRedirectPaths>,
     graceful_shutdown_timeout_s: Option<u32>,
-    cgroup_command_id: Option<String>,
     command_cgroup: Option<CgroupPathBuf>,
 }
 
@@ -86,7 +85,6 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            cgroup_command_id,
             action_digest: _,
             command_cgroup,
         } = cmd_request;
@@ -115,15 +113,9 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            cgroup_command_id,
             command_cgroup,
         })
     }
-}
-
-pub(crate) enum ForkserverResourceControlRunner {
-    CgroupPool,
-    None,
 }
 
 pub(crate) struct UnixForkserverService {
@@ -131,27 +123,17 @@ pub(crate) struct UnixForkserverService {
 
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
-
-    /// Systemd runner for resource control
-    resource_control_runner: ForkserverResourceControlRunner,
 }
 
 impl UnixForkserverService {
     pub(crate) fn new(
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
-        has_cgroup: bool,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let resource_control_runner = if has_cgroup {
-            ForkserverResourceControlRunner::CgroupPool
-        } else {
-            ForkserverResourceControlRunner::None
-        };
         Ok(Self {
             log_reload_handle,
             miniperf,
-            resource_control_runner,
         })
     }
 
@@ -197,33 +179,25 @@ impl UnixForkserverService {
         &self,
         validated_cmd: &ValidatedCommand,
     ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
-        let (mut cmd, miniperf_output, cgroup_path) = match (
-            validated_cmd.enable_miniperf,
-            &self.miniperf,
-            &self.resource_control_runner,
-            validated_cmd.cgroup_command_id.as_ref(),
-        ) {
+        let (mut cmd, miniperf_output) = match (validated_cmd.enable_miniperf, &self.miniperf) {
             // Wraps the user command with miniperf for performance monitoring
-            (true, Some(miniperf), ForkserverResourceControlRunner::None, _) => {
+            (true, Some(miniperf)) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path), None)
-            }
-            (_, Some(miniperf), ForkserverResourceControlRunner::CgroupPool, _) => {
-                let mut cmd = background_command(miniperf.miniperf.as_path());
-                let output_path = miniperf.allocate_output_path();
-                cmd.arg(output_path.as_path());
-                cmd.arg(&validated_cmd.exe);
-                if let Some(cgroup_path) = validated_cmd.command_cgroup.clone() {
-                    let cgroup = CgroupMinimal::try_from_path(cgroup_path)?;
-                    cgroup.setup_command(&mut cmd)?;
-                }
-                (cmd, Some(output_path), validated_cmd.command_cgroup.clone())
+                (cmd, Some(output_path))
             }
             // Direct execution of the command
-            _ => (background_command(&validated_cmd.exe), None, None),
+            _ => (background_command(&validated_cmd.exe), None),
+        };
+
+        let cgroup_path = if let Some(cgroup_path) = validated_cmd.command_cgroup.clone() {
+            let cgroup = CgroupMinimal::try_from_path(cgroup_path.clone())?;
+            cgroup.setup_command(&mut cmd)?;
+            Some(cgroup_path)
+        } else {
+            None
         };
 
         cmd.current_dir(&validated_cmd.cwd);

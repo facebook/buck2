@@ -67,10 +67,6 @@ pub async fn launch_forkserver(
         .arg("--state-dir")
         .arg(state_dir.as_path());
 
-    if cgroup_pool.is_some() {
-        command.arg("--has-cgroup");
-    }
-
     let fds = [server_io.as_raw_fd()];
 
     unsafe {

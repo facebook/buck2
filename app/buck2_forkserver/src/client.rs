@@ -127,7 +127,9 @@ impl ForkserverClient {
             .into());
         }
 
-        let cgroup_state = if let Some(cgroup_pool) = &self.inner.cgroup_pool {
+        let cgroup_state = if matches!(command_type, CommandType::Worker) {
+            None
+        } else if let Some(cgroup_pool) = &self.inner.cgroup_pool {
             let (cgroup_id, cgroup_path) = cgroup_pool.acquire()?;
             req.command_cgroup = Some(cgroup_path.to_str()?.to_owned());
             Some((cgroup_id, cgroup_pool))

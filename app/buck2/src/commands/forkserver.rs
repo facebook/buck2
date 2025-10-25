@@ -40,10 +40,6 @@ pub(crate) struct ForkserverCommand {
 
     #[clap(long)]
     state_dir: String,
-
-    /// If set, indicates this forkserver is running in a dedicated cgroup.
-    #[clap(long)]
-    has_cgroup: bool,
 }
 
 impl ForkserverCommand {
@@ -75,7 +71,6 @@ impl ForkserverCommand {
                 self.socket_path,
                 log_reload_handle,
                 state_dir,
-                self.has_cgroup,
             ))?)
         }
 
