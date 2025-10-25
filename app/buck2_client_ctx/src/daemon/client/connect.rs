@@ -29,7 +29,6 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::resource_control::ParentSlice;
 use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::ResourceControlRunnerConfig;
 use buck2_common::resource_control::replace_unit_delimiter;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
@@ -410,10 +409,8 @@ impl<'a> BuckdLifecycle<'a> {
             replace_unit_delimiter(self.paths.isolation.as_str())
         );
         let resource_control_runner = ResourceControlRunner::create_if_enabled(
-            &ResourceControlRunnerConfig::daemon_runner_config(
-                &daemon_startup_config.resource_control,
-                ParentSlice::Root(slice_name.clone()),
-            ),
+            &daemon_startup_config.resource_control,
+            ParentSlice::Root(slice_name.clone()),
         )?;
         let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
             has_cgroup = true;

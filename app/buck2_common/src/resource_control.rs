@@ -52,8 +52,6 @@ pub enum SystemdCreationDecision {
 }
 
 pub enum ParentSlice {
-    /// Makes a new unit part of the specified slice inherited from current process slice
-    Inherit(String),
     /// Makes a new unit part of the specified slice inherited from root slice
     Root(String),
 }
@@ -163,59 +161,6 @@ impl CgroupMemoryFile {
     }
 }
 
-pub struct ResourceControlRunnerConfig {
-    /// A config to determine if systemd is available.
-    pub status: ResourceControlStatus,
-    /// Parent slice behaviour
-    pub parent_slice: ParentSlice,
-    /// Delegation of further resource control partitioning of cgroup unit
-    pub delegation: CgroupDelegation,
-    /// Configuration variant
-    pub config: ResourceControlRunnerConfigVariant,
-}
-
-pub enum ResourceControlRunnerConfigVariant {
-    /// Configuration for buck daemon
-    BuckDaemon {
-        /// A memory threshold for daemon, forkserver and worker processes
-        memory_max: Option<String>,
-        /// The memory limit before tasks start to be throttled for daemon, forkserver and worker processes
-        memory_high: Option<String>,
-    },
-}
-
-impl ResourceControlRunnerConfigVariant {
-    pub fn memory_max(&self) -> Option<&str> {
-        match self {
-            ResourceControlRunnerConfigVariant::BuckDaemon { memory_max, .. } => {
-                memory_max.as_deref()
-            }
-        }
-    }
-
-    pub fn memory_high(&self) -> Option<&str> {
-        match self {
-            ResourceControlRunnerConfigVariant::BuckDaemon { memory_high, .. } => {
-                memory_high.as_deref()
-            }
-        }
-    }
-}
-
-impl ResourceControlRunnerConfig {
-    pub fn daemon_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
-        Self {
-            status: config.status.clone(),
-            parent_slice,
-            delegation: CgroupDelegation::Enabled,
-            config: ResourceControlRunnerConfigVariant::BuckDaemon {
-                memory_max: config.memory_max.clone(),
-                memory_high: config.memory_high.clone(),
-            },
-        }
-    }
-}
-
 pub struct ResourceControlRunner {
     fixed_systemd_args: Vec<String>,
     memory_limit: Option<String>,
@@ -223,10 +168,10 @@ pub struct ResourceControlRunner {
 }
 
 impl ResourceControlRunner {
-    pub fn create(config: &ResourceControlRunnerConfig) -> buck2_error::Result<Self> {
-        let config_variant = &config.config;
-        let parent_slice = &config.parent_slice;
-        let delegation = config.delegation;
+    fn create(
+        config: &ResourceControlConfig,
+        parent_slice: ParentSlice,
+    ) -> buck2_error::Result<Self> {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -235,17 +180,10 @@ impl ResourceControlRunner {
             "--collect".to_owned(),
             #[cfg(fbcode_build)]
             "--setenv=CHGDISABLE=1".to_owned(),
+            "--property=Delegate=yes".to_owned(),
         ];
 
-        if delegation == CgroupDelegation::Enabled {
-            args.push("--property=Delegate=yes".to_owned());
-        }
-
         match &parent_slice {
-            ParentSlice::Inherit(slice) => {
-                args.push(format!("--slice={slice}"));
-                args.push("--slice-inherit".to_owned());
-            }
             ParentSlice::Root(slice) => {
                 args.push(format!("--slice={slice}"));
             }
@@ -253,8 +191,8 @@ impl ResourceControlRunner {
 
         Ok(Self {
             fixed_systemd_args: args,
-            memory_limit: config_variant.memory_max().map(|x| x.to_owned()),
-            memory_high: config_variant.memory_high().map(|x| x.to_owned()),
+            memory_limit: config.memory_max.clone(),
+            memory_high: config.memory_high.clone(),
         })
     }
 
@@ -276,7 +214,7 @@ impl ResourceControlRunner {
         }
     }
 
-    pub fn is_enabled(config: &ResourceControlStatus) -> buck2_error::Result<bool> {
+    fn is_enabled(config: &ResourceControlStatus) -> buck2_error::Result<bool> {
         let decision = Self::creation_decision(config);
         match decision {
             SystemdCreationDecision::SkipNotNeeded => Ok(false),
@@ -295,10 +233,11 @@ impl ResourceControlRunner {
     }
 
     pub fn create_if_enabled(
-        config: &ResourceControlRunnerConfig,
+        config: &ResourceControlConfig,
+        parent_slice: ParentSlice,
     ) -> buck2_error::Result<Option<Self>> {
         if Self::is_enabled(&config.status)? {
-            Ok(Some(Self::create(&config)?))
+            Ok(Some(Self::create(config, parent_slice)?))
         } else {
             Ok(None)
         }
