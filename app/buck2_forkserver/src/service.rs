@@ -18,6 +18,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
@@ -34,7 +35,6 @@ use buck2_execute_local::process_group::ProcessCommand;
 use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_execute_local::status_decoder::MiniperfStatusDecoder;
-use buck2_execute_local::timeout_into_cancellation;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
@@ -45,8 +45,6 @@ use buck2_grpc::to_tonic;
 use buck2_resource_control::cgroup::CgroupMinimal;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
-use futures::future::FutureExt;
-use futures::future::select;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use rand::distributions::Alphanumeric;
@@ -222,8 +220,10 @@ impl UnixForkserverService {
 
     async fn create_command_stream(
         cmd: ProcessCommand,
+        timeout: Option<Duration>,
         cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
         + Send
+        + Unpin
         + 'static,
         miniperf_output: Option<AbsNormPathBuf>,
         graceful_shutdown_timeout_s: Option<u32>,
@@ -232,6 +232,7 @@ impl UnixForkserverService {
         let stream = match miniperf_output {
             Some(out) => spawn_command_and_stream_events(
                 cmd,
+                timeout,
                 cancellation,
                 MiniperfStatusDecoder::new(out),
                 DefaultKillProcess {
@@ -244,6 +245,7 @@ impl UnixForkserverService {
             .left_stream(),
             None => spawn_command_and_stream_events(
                 cmd,
+                timeout,
                 cancellation,
                 DefaultStatusDecoder,
                 DefaultKillProcess {
@@ -286,16 +288,16 @@ impl Forkserver for UnixForkserverService {
                 Ok(GatherOutputStatus::Cancelled)
             };
 
-            let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
+            let cancel = Box::pin(cancel);
 
-            let timeout = timeout_into_cancellation(validated_cmd.timeout);
-            let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
+            let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
 
             let stream_stdio = validated_cmd.std_redirects.is_none();
 
             let stream = Self::create_command_stream(
                 cmd,
-                cancellation,
+                validated_cmd.timeout,
+                cancel,
                 miniperf_output,
                 validated_cmd.graceful_shutdown_timeout_s,
                 stream_stdio,

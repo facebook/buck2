@@ -76,7 +76,6 @@ use buck2_execute_local::CommandResult;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_execute_local::gather_output;
 use buck2_execute_local::maybe_absolutize_exe;
-use buck2_execute_local::timeout_into_cancellation;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_resource_control::CommandType;
@@ -86,7 +85,6 @@ use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
 use futures::future::join_all;
-use futures::future::select;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
@@ -268,16 +266,12 @@ impl LocalExecutor {
                         env,
                         env_inheritance,
                     );
-                    let timeout = timeout_into_cancellation(timeout);
 
                     let alive = liveliness_observer
                         .while_alive()
                         .map(|()| Ok(GatherOutputStatus::Cancelled));
 
-                    let cancellation =
-                        select(timeout.boxed(), alive.boxed()).map(|r| r.factor_first().0);
-
-                    gather_output(cmd, cancellation).await
+                    gather_output(cmd, timeout, alive).await
                 }
                 .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
             };

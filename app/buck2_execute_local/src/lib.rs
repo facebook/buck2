@@ -29,6 +29,7 @@ use bytes::Bytes;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::future::FutureExt;
+use futures::future::select;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -182,7 +183,7 @@ where
     }
 }
 
-pub async fn timeout_into_cancellation(
+async fn timeout_into_cancellation(
     timeout: Option<Duration>,
 ) -> buck2_error::Result<GatherOutputStatus> {
     match timeout {
@@ -225,6 +226,7 @@ async fn run_in_spawn_thread<T: Send + 'static>(
 
 pub async fn spawn_command_and_stream_events<T>(
     mut cmd: ProcessCommand,
+    timeout: Option<Duration>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
@@ -232,7 +234,7 @@ pub async fn spawn_command_and_stream_events<T>(
     retry_on_txt_busy: bool,
 ) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
-    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
+    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
 {
     let do_spawn = move || {
         if retry_on_txt_busy {
@@ -251,6 +253,10 @@ where
     let process_details = run_in_spawn_thread(do_spawn)
         .await?
         .map_err(buck2_error::Error::from);
+
+    let timeout = timeout_into_cancellation(timeout);
+
+    let cancellation = select(timeout.boxed(), cancellation).map(|r| r.factor_first().0);
 
     stream_command_events(
         process_details,
@@ -394,14 +400,19 @@ where
     ))
 }
 
-pub async fn gather_output<T>(cmd: Command, cancellation: T) -> buck2_error::Result<CommandResult>
+pub async fn gather_output<T>(
+    cmd: Command,
+    timeout: Option<Duration>,
+    cancellation: T,
+) -> buck2_error::Result<CommandResult>
 where
-    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
+    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
 {
     let cmd = ProcessCommand::new(cmd);
 
     let stream = spawn_command_and_stream_events(
         cmd,
+        timeout,
         cancellation,
         DefaultStatusDecoder,
         DefaultKillProcess::default(),
@@ -533,7 +544,7 @@ mod tests {
             stdout,
             stderr,
             ..
-        } = gather_output(cmd, futures::future::pending()).await?;
+        } = gather_output(cmd, None, futures::future::pending()).await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -566,7 +577,8 @@ mod tests {
             ..
         } = gather_output(
             cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+            Some(Duration::from_secs(timeout)),
+            futures::future::pending(),
         )
         .await?;
         assert!(
@@ -596,7 +608,8 @@ mod tests {
         let timeout = if cfg!(windows) { 5 } else { 3 };
         let CommandResult { status, stdout, .. } = gather_output(
             cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+            Some(Duration::from_secs(timeout)),
+            futures::future::pending(),
         )
         .await?;
         assert!(
@@ -686,7 +699,8 @@ mod tests {
         let timeout = if cfg!(windows) { 7 } else { 1 };
         let CommandResult { stdout, .. } = gather_output(
             cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+            Some(Duration::from_secs(timeout)),
+            futures::future::pending(),
         )
         .await?;
         let out = str::from_utf8(&stdout)?;
@@ -742,7 +756,8 @@ mod tests {
 
         let mut cmd = background_command("sh");
         cmd.arg("-c").arg("kill -KILL \"$$\"");
-        let CommandResult { status, .. } = gather_output(cmd, futures::future::pending()).await?;
+        let CommandResult { status, .. } =
+            gather_output(cmd, None, futures::future::pending()).await?;
 
         assert_matches!(
             status,
