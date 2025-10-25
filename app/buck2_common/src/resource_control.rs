@@ -182,15 +182,6 @@ pub enum ResourceControlRunnerConfigVariant {
         /// The memory limit before tasks start to be throttled for daemon, forkserver and worker processes
         memory_high: Option<String>,
     },
-    /// Configuration for action runner
-    ActionRunner {
-        /// A memory threshold for each action processes
-        memory_max_per_action: Option<String>,
-        /// The memory limit before tasks start to be throttled for each action processes
-        memory_high_per_action: Option<String>,
-    },
-    /// Configuration for forkserver
-    Forkserver,
 }
 
 impl ResourceControlRunnerConfigVariant {
@@ -199,11 +190,6 @@ impl ResourceControlRunnerConfigVariant {
             ResourceControlRunnerConfigVariant::BuckDaemon { memory_max, .. } => {
                 memory_max.as_deref()
             }
-            ResourceControlRunnerConfigVariant::ActionRunner {
-                memory_max_per_action,
-                ..
-            } => memory_max_per_action.as_deref(),
-            ResourceControlRunnerConfigVariant::Forkserver => None,
         }
     }
 
@@ -212,11 +198,6 @@ impl ResourceControlRunnerConfigVariant {
             ResourceControlRunnerConfigVariant::BuckDaemon { memory_high, .. } => {
                 memory_high.as_deref()
             }
-            ResourceControlRunnerConfigVariant::ActionRunner {
-                memory_high_per_action,
-                ..
-            } => memory_high_per_action.as_deref(),
-            ResourceControlRunnerConfigVariant::Forkserver => None,
         }
     }
 }
@@ -231,27 +212,6 @@ impl ResourceControlRunnerConfig {
                 memory_max: config.memory_max.clone(),
                 memory_high: config.memory_high.clone(),
             },
-        }
-    }
-
-    pub fn action_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
-        Self {
-            status: config.status.clone(),
-            parent_slice,
-            delegation: CgroupDelegation::Enabled,
-            config: ResourceControlRunnerConfigVariant::ActionRunner {
-                memory_max_per_action: config.memory_max_per_action.clone(),
-                memory_high_per_action: config.memory_high_per_action.clone(),
-            },
-        }
-    }
-
-    pub fn forkserver_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
-        Self {
-            status: config.status.clone(),
-            parent_slice,
-            delegation: CgroupDelegation::Enabled,
-            config: ResourceControlRunnerConfigVariant::Forkserver,
         }
     }
 }
@@ -276,32 +236,6 @@ impl ResourceControlRunner {
             #[cfg(fbcode_build)]
             "--setenv=CHGDISABLE=1".to_owned(),
         ];
-
-        // Only action runner needs to set MemorySwapMax and MemoryHigh
-        match config_variant {
-            ResourceControlRunnerConfigVariant::ActionRunner {
-                memory_max_per_action,
-                memory_high_per_action,
-            } => {
-                if let Some(memory_max) = &memory_max_per_action {
-                    args.push(format!("--property=MemoryMax={memory_max}"));
-                    // Without setting `MemorySwapMax`, the process starts using swap until it's
-                    // filled when the total memory usage reaches to `MemoryMax`. This may seem
-                    // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
-                    // to zero makes `MemoryMax` to be a 'hard limit' at which the process is
-                    // stopped by OOM killer
-                    args.push("--property=MemorySwapMax=0".to_owned());
-                    // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
-                    // some workers can keep alive even after buck2 daemon has gone due to OOM.
-                    args.push("--property=OOMPolicy=kill".to_owned());
-                }
-
-                if let Some(memory_high) = &memory_high_per_action {
-                    args.push(format!("--property=MemoryHigh={memory_high}"));
-                }
-            }
-            _ => {}
-        }
 
         if delegation == CgroupDelegation::Enabled {
             args.push("--property=Delegate=yes".to_owned());

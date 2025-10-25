@@ -13,7 +13,6 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::sync::Arc;
 
-use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
@@ -30,9 +29,7 @@ pub async fn run_forkserver(
     socket_path: Option<String>,
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     state_dir: AbsNormPathBuf,
-    resource_control: ResourceControlConfig,
     has_cgroup: bool,
-    using_cgroup_pool: bool,
 ) -> buck2_error::Result<()> {
     let io = match (fd, socket_path) {
         (Some(fd), None) => {
@@ -59,14 +56,8 @@ pub async fn run_forkserver(
         DuplexChannel::new(read, write)
     };
 
-    let service = UnixForkserverService::new(
-        log_reload_handle,
-        &state_dir,
-        resource_control,
-        has_cgroup,
-        using_cgroup_pool,
-    )
-    .buck_error_context("Failed to create UnixForkserverService")?;
+    let service = UnixForkserverService::new(log_reload_handle, &state_dir, has_cgroup)
+        .buck_error_context("Failed to create UnixForkserverService")?;
 
     let router = tonic::transport::Server::builder().add_service(
         forkserver_server::ForkserverServer::new(service)

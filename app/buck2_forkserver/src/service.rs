@@ -20,11 +20,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_common::convert::ProstDurationExt;
-use buck2_common::init::ResourceControlConfig;
-use buck2_common::resource_control::ParentSlice;
-use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::ResourceControlRunnerConfig;
-use buck2_common::resource_control::replace_unit_delimiter;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -130,7 +125,6 @@ impl ValidatedCommand {
 }
 
 pub(crate) enum ForkserverResourceControlRunner {
-    Systemd(ResourceControlRunner),
     CgroupPool,
     None,
 }
@@ -152,22 +146,11 @@ impl UnixForkserverService {
     pub(crate) fn new(
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
-        resource_control: ResourceControlConfig,
         has_cgroup: bool,
-        using_cgroup_pool: bool,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let resource_control_runner = if using_cgroup_pool {
+        let resource_control_runner = if has_cgroup {
             ForkserverResourceControlRunner::CgroupPool
-        } else if ResourceControlRunner::is_enabled(&resource_control.status)? {
-            ForkserverResourceControlRunner::Systemd(ResourceControlRunner::create(
-                &ResourceControlRunnerConfig::action_runner_config(
-                    &resource_control,
-                    // we want to create forkserver in the same hierarchy where buck-daemon scope
-                    // for this we inherit slice
-                    ParentSlice::Inherit("forkserver".to_owned()),
-                ),
-            )?)
         } else {
             ForkserverResourceControlRunner::None
         };
@@ -250,25 +233,6 @@ impl UnixForkserverService {
                     validated_cmd.command_cgroup.clone(),
                     true,
                 )
-            }
-            // Uses systemd-run + miniperf for resource control + monitoring
-            // systemd-run --scope --unit=<cgroup_command_id> miniperf <output_path> <user_executable>
-            (
-                _,
-                Some(miniperf),
-                ForkserverResourceControlRunner::Systemd(resource_control_runner),
-                Some(cgroup_command_id),
-            ) => {
-                let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
-                let mut cmd = resource_control_runner.cgroup_scoped_command(
-                    miniperf.miniperf.as_path(),
-                    &replace_unit_delimiter(cgroup_command_id),
-                    workding_dir,
-                );
-                let output_path = miniperf.allocate_output_path();
-                cmd.arg(output_path.as_path());
-                cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path), None, true)
             }
             // Direct execution of the command
             _ => (background_command(&validated_cmd.exe), None, None, false),

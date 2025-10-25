@@ -15,17 +15,12 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::resource_control::ParentSlice;
-use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::ResourceControlRunnerConfig;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_resource_control::pool::CgroupPool;
-use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
 use tokio::process::Command;
@@ -49,42 +44,16 @@ pub async fn launch_forkserver(
 
     let exe = exe.as_ref();
 
-    let (mut command, has_cgroup, cgroup_pool) = if let Some(cgroup_tree) = cgroup_tree {
+    let (mut command, cgroup_pool) = if let Some(cgroup_tree) = cgroup_tree {
         let mut command = background_command(exe);
         cgroup_tree.forkserver().setup_command(&mut command)?;
         let cgroup_pool = CgroupPool::create_in_parent_cgroup(
             cgroup_tree.forkserver_and_actions().path(),
             &resource_control,
         )?;
-        (command, true, Some(cgroup_pool))
+        (command, Some(cgroup_pool))
     } else {
-        let forkserver_process_resource_control_runner = ResourceControlRunner::create_if_enabled(
-            &ResourceControlRunnerConfig::forkserver_config(
-                &resource_control,
-                ParentSlice::Inherit("forkserver_daemon".to_owned()),
-            ),
-        )?;
-
-        if let Some(forkserver_process_resource_control_runner) =
-            forkserver_process_resource_control_runner
-        {
-            let info = CGroupInfo::read_async().await?;
-            let unit_name = format!(
-                "{}.forkserver",
-                info.get_slice_name()
-                    .buck_error_context("Can't find slice in cgroup path")?
-            );
-
-            fs_util::create_dir_all(state_dir).map_err(buck2_error::Error::from)?;
-            (
-                forkserver_process_resource_control_runner
-                    .cgroup_scoped_command(exe, &unit_name, state_dir),
-                true,
-                None,
-            )
-        } else {
-            (background_command(exe), false, None)
-        }
+        (background_command(exe), None)
     };
 
     command
@@ -96,16 +65,10 @@ pub async fn launch_forkserver(
         .arg("--fd")
         .arg(server_io.as_raw_fd().to_string())
         .arg("--state-dir")
-        .arg(state_dir.as_path())
-        .arg("--resource-control")
-        .arg(resource_control.serialize()?);
-
-    if has_cgroup {
-        command.arg("--has-cgroup");
-    }
+        .arg(state_dir.as_path());
 
     if cgroup_pool.is_some() {
-        command.arg("--using-cgroup-pool");
+        command.arg("--has-cgroup");
     }
 
     let fds = [server_io.as_raw_fd()];
