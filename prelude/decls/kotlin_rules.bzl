@@ -35,7 +35,6 @@ kotlin_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that compiles a single .kt file.
         kotlin_library(
           name = 'JsonUtil',
@@ -80,7 +79,6 @@ kotlin_library = prelude_rule(
             '//java/com/facebook/base:base',
           ],
         )
-
         ```
     """,
     further = None,

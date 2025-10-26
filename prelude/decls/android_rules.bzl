@@ -53,7 +53,6 @@ android_aar = prelude_rule(
     """,
     examples = """
         ```
-
         android_resource(
           name = 'res',
           res = 'res',
@@ -74,7 +73,6 @@ android_aar = prelude_rule(
             ':lib',
           ],
         )
-
         ```
     """,
     further = None,
@@ -324,7 +322,6 @@ android_build_config = prelude_rule(
 
 
         ```
-
         android_build_config(
           name = 'build_config',
           package = 'com.example.pkg',
@@ -391,7 +388,6 @@ android_build_config = prelude_rule(
             ':mylib',
           ],
         )
-
         ```
     """,
     further = None,
@@ -557,7 +553,6 @@ android_instrumentation_apk = prelude_rule(
 
 
         ```
-
         android_library(
           name = 'test',
           srcs = glob(['test/**/*.java']),
@@ -583,7 +578,6 @@ android_instrumentation_apk = prelude_rule(
             ':test',
           ],
         )
-
         ```
     """,
     further = None,
@@ -626,7 +620,6 @@ android_instrumentation_test = prelude_rule(
 
 
         ```
-
         android_binary(
           name = 'messenger',
           manifest = 'AndroidManifest.xml',
@@ -651,7 +644,6 @@ android_instrumentation_test = prelude_rule(
           name = 'messenger_instrumentation_test',
           apk = ':messenger_test',
         )
-
         ```
     """,
     further = None,
@@ -706,7 +698,6 @@ android_library = prelude_rule(
          [http://developer.android.com/tools/projects/index.html](http://developer.android.com/tools/projects/index.html)
 
         ```
-
         android_resource(
           name = 'res',
           res = 'res',
@@ -720,7 +711,6 @@ android_library = prelude_rule(
             ':res',
           ],
         )
-
         ```
     """,
     further = None,
@@ -829,19 +819,16 @@ android_manifest = prelude_rule(
 
 
         ```
-
         android_manifest(
           name = 'my-manifest',
           skeleton = 'AndroidManifestSkeleton.xml',
         )
-
         ```
 
          This is what `AndroidManifestSkeleton.xml` looks like.
 
 
         ```
-
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android"
                   package="com.example"
@@ -862,7 +849,6 @@ android_manifest = prelude_rule(
                 </activity>
             </application>
         </manifest>
-
         ```
 
          You could also use a `genrule()` to generate the manifest file and reference the
@@ -916,7 +902,6 @@ android_prebuilt_aar = prelude_rule(
     """,
     examples = """
         ```
-
         android_prebuilt_aar(
           name = 'play-services',
           aar = 'play-services-4.0.30.aar',
@@ -987,13 +972,11 @@ android_resource = prelude_rule(
 
 
         ```
-
         android_resource(
           name = 'res',
           res = subdir_glob([('res', '**')]),
           package = 'com.example',
         )
-
         ```
     """,
     further = None,
@@ -1062,8 +1045,6 @@ apk_genrule = prelude_rule(
 
 
         ```
-
-
         # Building this rule will produce a file named messenger.apk.
         android_binary(
           name = 'messenger',
@@ -1093,8 +1074,6 @@ apk_genrule = prelude_rule(
           cmd_exe = '%ANDROID_HOME%\\tools\\zipalign -f 4 %APK% %OUT%',
           out = 'messenger_super_sign.apk',
         )
-
-
         ```
     """,
     further = None,
@@ -1152,7 +1131,6 @@ gen_aidl = prelude_rule(
     """,
     examples = """
         ```
-
         android_library(
           name = 'lib',
           srcs = glob(['**/*.java']) + [':aidl'],
@@ -1168,7 +1146,6 @@ gen_aidl = prelude_rule(
             aidl = 'engine/OpenCVEngineInterface.aidl',
             import_path = 'java/',
         )
-
         ```
     """,
     further = None,
@@ -1227,7 +1204,6 @@ keystore = prelude_rule(
                 The path to the `.properties` file that contains the following values:
 
                 ```
-
                 # The value that you passed as the argument to -alias
                 # when you ran keytool.
                 key.alias=my_alias
@@ -1314,7 +1290,6 @@ prebuilt_native_library = prelude_rule(
 
 
         ```
-
         prebuilt_native_library(
           name = 'native_libs',
           native_libs = 'libs',
@@ -1327,7 +1302,6 @@ prebuilt_native_library = prelude_rule(
             ':native_libs',
           ],
         )
-
         ```
     """,
     further = None,

@@ -28,7 +28,6 @@ ocaml_binary = prelude_rule(
 
 
         ```
-
         ocaml_binary(
           name='greet',
           srcs=[
@@ -66,7 +65,6 @@ ocaml_binary = prelude_rule(
             'bridge.c',
           ],
         )
-
         ```
     """,
     further = None,
@@ -106,7 +104,6 @@ ocaml_library = prelude_rule(
 
 
         ```
-
         ocaml_library(
           name='greeting',
           srcs=[
@@ -116,7 +113,6 @@ ocaml_library = prelude_rule(
             ':join',
           ],
         )
-
         ```
     """,
     further = None,

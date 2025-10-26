@@ -24,7 +24,6 @@ halide_library = prelude_rule(
     """,
     examples = """
         ```
-
         halide_library(
           # Your library name.
           name = 'brighter',
@@ -46,7 +45,6 @@ halide_library = prelude_rule(
             # ...
           ],
         )
-
         ```
     """,
     further = None,

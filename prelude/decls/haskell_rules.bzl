@@ -24,14 +24,12 @@ haskell_binary = prelude_rule(
     """,
     examples = """
         ```
-
         haskell_binary(
           name = 'foo',
           srcs = [
             'Foo.hs',
           ],
         )
-
         ```
     """,
     further = None,
@@ -150,14 +148,12 @@ haskell_library = prelude_rule(
     """,
     examples = """
         ```
-
         haskell_library(
           name = 'fileutil',
           srcs = [
             'FileUtil.hs',
           ],
         )
-
         ```
     """,
     further = None,
@@ -193,7 +189,6 @@ haskell_prebuilt_library = prelude_rule(
     """,
     examples = """
         ```
-
         prebuilt_haskell_library(
           name = 'file',
           static_interfaces = [
@@ -209,7 +204,6 @@ haskell_prebuilt_library = prelude_rule(
             'libFileUtil.so': 'libFileUtil.so',
           },
         )
-
         ```
     """,
     further = None,

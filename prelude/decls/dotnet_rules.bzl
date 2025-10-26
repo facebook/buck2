@@ -26,7 +26,6 @@ csharp_library = prelude_rule(
 
 
         ```
-
         csharp_library(
           name = 'simple',
           dll_name = 'Cake.dll',
@@ -47,7 +46,6 @@ csharp_library = prelude_rule(
           name = 'other',
           assembly = 'other-1.0.dll',
         )
-
         ```
     """,
     further = None,
@@ -96,7 +94,6 @@ prebuilt_dotnet_library = prelude_rule(
     """,
     examples = """
         ```
-
         prebuilt_dotnet_library(
           name = 'log4net',
           assembly = 'log4net.dll',
@@ -113,7 +110,6 @@ prebuilt_dotnet_library = prelude_rule(
             'System.dll',
           ],
         )
-
         ```
     """,
     further = None,

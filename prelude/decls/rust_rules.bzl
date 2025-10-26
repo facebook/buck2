@@ -84,7 +84,6 @@ rust_binary = prelude_rule(
 
 
         ```
-
         rust_binary(
           name='greet',
           srcs=[
@@ -111,7 +110,6 @@ rust_binary = prelude_rule(
             'join.rs',
           ],
         )
-
         ```
     """,
     further = None,
@@ -159,7 +157,6 @@ rust_library = prelude_rule(
 
 
         ```
-
         rust_library(
           name='greeting',
           srcs=[
@@ -169,7 +166,6 @@ rust_library = prelude_rule(
             ':join',
           ],
         )
-
         ```
     """,
     further = None,
@@ -229,7 +225,6 @@ rust_test = prelude_rule(
 
 
         ```
-
         rust_test(
           name='greet',
           srcs=[
@@ -256,7 +251,6 @@ rust_test = prelude_rule(
             'join.rs',
           ],
         )
-
         ```
     """,
     further = None,

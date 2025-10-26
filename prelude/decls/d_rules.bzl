@@ -22,7 +22,6 @@ d_binary = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a D native executable from a single .d file
         # and a library dependency.
         d_binary(
@@ -51,7 +50,6 @@ d_binary = prelude_rule(
             'join.d',
           ],
         )
-
         ```
     """,
     further = None,
@@ -76,7 +74,6 @@ d_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A simple library with a single source file and a single dependency.
         d_library(
           name='greeting',
@@ -94,7 +91,6 @@ d_library = prelude_rule(
             'join.d',
           ],
         )
-
         ```
     """,
     further = None,
@@ -121,7 +117,6 @@ d_test = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds and runs D test with a single source file.
         d_test(
           name = 'test',
@@ -129,7 +124,6 @@ d_test = prelude_rule(
             'test.d',
           ],
         )
-
         ```
     """,
     further = None,

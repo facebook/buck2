@@ -231,7 +231,6 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                         "plugin:somePluginId:someDirectoryRelatedOptionKey": "__codegen_dir__",
                     },
                 },
-
                 ```
                 Each plugin source path will be prefixed with `-Xplugin=` and passed as extra
                  arguments to the compiler. Plugin options will be appended after its plugin with `-P`.
@@ -240,7 +239,6 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                  with `kotlin_library()`, you need to specify `kotlinx-serialization-compiler-plugin.jar` under `kotlin_compiler_plugins` and `kotlinx-serialization-runtime.jar` (which you may have to fetch from Maven) in your `deps`:
 
                 ```
-
                 kotlin_library(
                     name = "example",
                     srcs = glob(["*.kt"]),
@@ -268,7 +266,6 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                     url = "mvn:org.jetbrains.kotlinx:kotlinx-serialization-runtime:jar:0.10.0",
                     sha1 = "23d777a5282c1957c7ce35946374fff0adab114c"
                 )
-
                 ```
             """),
     }

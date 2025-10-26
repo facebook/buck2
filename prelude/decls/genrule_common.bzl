@@ -141,15 +141,12 @@ def _type_arg():
 
 
     ```
-
-
     cxx_genrule(
       name = 'cxx_gen',
       type = 'epilog',
       cmd  = 'touch finish.txt; cp finish.txt $OUT',
       out  = 'finish.txt'
     )
-
     ```
 
 
@@ -159,10 +156,7 @@ def _type_arg():
 
 
     ```
-
-
     buck query "attrfilter( type, 'epilog', '//...' )"
-
     ```
 
 
@@ -172,10 +166,7 @@ def _type_arg():
 
 
     ```
-
-
     //:cxx_gen
-
     ```
 """),
     }

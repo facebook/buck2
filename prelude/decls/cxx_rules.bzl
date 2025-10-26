@@ -90,7 +90,6 @@ cxx_binary = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a C/C++ native executable from a single .cpp file
         # its corresponding header, and a C/C++ library dependency.
         cxx_binary(
@@ -121,7 +120,6 @@ cxx_binary = prelude_rule(
 
         # To build with stripping debug symbols only:
         buck build :echo#strip-debug
-
         ```
     """,
     further = None,
@@ -225,10 +223,7 @@ cxx_genrule = prelude_rule(
 
 
         ```
-
-
         buck build :cxx_gr_name#iphonesimulator-x86_64
-
         ```
 
 
@@ -238,10 +233,7 @@ cxx_genrule = prelude_rule(
 
 
         ```
-
-
         buck build :cxx_gr_name#default
-
         ```
     """,
     examples = None,
@@ -622,7 +614,6 @@ cxx_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .cpp file and its corresponding header and
         # also supplies an additional flag for compilation.
         cxx_library(
@@ -684,8 +675,6 @@ cxx_library = prelude_rule(
             ),
           ],
         )
-
-
         ```
     """,
     further = None,
@@ -722,7 +711,6 @@ cxx_precompiled_header = prelude_rule(
 
 
         ```
-
         #pragma once
 
         /* Include common C++ files. */
@@ -736,12 +724,10 @@ cxx_precompiled_header = prelude_rule(
         #include <folly/Conv.h>
         #include <folly/Executor.h>
         #include <folly/io/async/EventBase.h>
-
         ```
 
 
         ```
-
         cxx_precompiled_header(
           name = 'common_pch',
           src = 'common.h',
@@ -761,7 +747,6 @@ cxx_precompiled_header = prelude_rule(
           deps = [ ... ],
           compiler_flags = ['-g', '-O2', '-fPIC'],
         )
-
         ```
 
 
@@ -851,7 +836,6 @@ windows_resource = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .rc file and compiles it into an object file.
         windows_resource(
           name = "resources",
@@ -870,7 +854,6 @@ windows_resource = prelude_rule(
             ":resources"
           ],
         )
-
         ```
     """,
     further = None,
@@ -896,7 +879,6 @@ cxx_test = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds and runs C/C++ test using gtest.
         cxx_test(
           name = 'echo_test',
@@ -904,7 +886,6 @@ cxx_test = prelude_rule(
             'echo_test.cpp',
           ],
         )
-
         ```
     """,
     further = None,
@@ -1157,7 +1138,6 @@ prebuilt_cxx_library = prelude_rule(
 
 
         ```
-
         prebuilt_cxx_library(
           name = 'stdutil',
           header_only = True,
@@ -1165,14 +1145,12 @@ prebuilt_cxx_library = prelude_rule(
             'include',
           ],
         )
-
         ```
 
          A prebuilt library with static and shared libs.
 
 
         ```
-
         prebuilt_cxx_library(
           name = 'mylib',
           soname = 'libmylib.so',
@@ -1183,14 +1161,12 @@ prebuilt_cxx_library = prelude_rule(
             'mylib.h',
           ],
         )
-
         ```
 
          A prebuilt library with multiple builds for multiple platforms.
 
 
         ```
-
         prebuilt_cxx_library(
           name = 'mylib',
           soname = 'libmylib.so',
@@ -1208,7 +1184,6 @@ prebuilt_cxx_library = prelude_rule(
             'mylib.h',
           ],
         )
-
         ```
     """,
     further = None,
@@ -1325,7 +1300,6 @@ prebuilt_cxx_library_group = prelude_rule(
 
 
         ```
-
         prebuilt_cxx_library_group(
           name = 'util',
           static_link = [
@@ -1359,7 +1333,6 @@ prebuilt_cxx_library_group = prelude_rule(
             'libb.so': 'lib/libb.so',
           },
         )
-
         ```
     """,
     further = None,
@@ -1430,7 +1403,6 @@ llvm_link_bitcode = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds and runs C/C++ test using gtest.
         llvm_link_bitcode(
           name = 'echo_test',
@@ -1439,7 +1411,6 @@ llvm_link_bitcode = prelude_rule(
             'echo_other.o', // And this is another LLVM bitcode object.
           ],
         )
-
         ```
     """,
     further = None,

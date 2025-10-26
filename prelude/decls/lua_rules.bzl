@@ -27,7 +27,6 @@ cxx_lua_extension = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a Lua extension from a single .cpp file.
         cxx_lua_extension(
           name = 'mymodule',
@@ -50,18 +49,15 @@ cxx_lua_extension = prelude_rule(
             ':mymodule',
           ],
         )
-
         ```
 
         ```
-
         -- The `utils.lua` source, wrapped by the `utils` rule above.
 
         -- Import the C/C++ extension build above.
         require "foo.bar.mymodule"
 
         ...
-
         ```
     """,
     further = None,
@@ -117,7 +113,6 @@ lua_binary = prelude_rule(
     """,
     examples = """
         ```
-
         lua_binary(
           name = 'tailer',
           main_module = 'tailer',
@@ -130,7 +125,6 @@ lua_binary = prelude_rule(
           name = 'tailerutils',
           srcs = glob(['*.lua']),
         )
-
         ```
     """,
     further = None,
@@ -163,7 +157,6 @@ lua_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .py file.
         lua_library(
           name = 'fileutil',
@@ -177,7 +170,6 @@ lua_library = prelude_rule(
           name = 'testutil',
           srcs = glob(['testutil/**/*.lua'],
         )
-
         ```
     """,
     further = None,

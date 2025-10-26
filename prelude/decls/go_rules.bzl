@@ -33,7 +33,6 @@ go_binary = prelude_rule(
 
 
         ```
-
         go_binary(
           name='greet',
           srcs=[
@@ -60,7 +59,6 @@ go_binary = prelude_rule(
             'join.go',
           ],
         )
-
         ```
     """,
     further = None,
@@ -115,7 +113,6 @@ go_exported_library = prelude_rule(
 
 
         ```
-
         go_exported_library(
             name = "shared",
             srcs = ["main.go"],
@@ -148,7 +145,6 @@ go_exported_library = prelude_rule(
             header_dirs = [":cgo_exported_headers"],
             shared_lib = ":shared",
         )
-
         ```
     """,
     further = None,
@@ -204,7 +200,6 @@ go_library = prelude_rule(
 
 
         ```
-
         go_library(
           name='greeting',
           srcs=[
@@ -214,7 +209,6 @@ go_library = prelude_rule(
             ':join',
           ],
         )
-
         ```
     """,
     further = None,
@@ -262,7 +256,6 @@ go_test = prelude_rule(
 
 
         ```
-
         go_library(
           name='greeting',
           srcs=[
@@ -302,8 +295,6 @@ go_test = prelude_rule(
           srcs=['greeting_test.go'],
           target_under_test=':greeting',
         )
-
-
         ```
     """,
     further = None,

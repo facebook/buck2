@@ -165,7 +165,6 @@ cxx_python_extension = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a Python extension from a single .cpp file.
         cxx_python_extension(
           name = 'mymodule',
@@ -185,18 +184,15 @@ cxx_python_extension = prelude_rule(
             ':mymodule',
           ],
         )
-
         ```
 
         ```
-
         ## The `utils.py` source, wrapped by the `utils` rule above.
 
         ## Import the C/C++ extension build above.
         from foo.bar import mymodule
 
         ...
-
         ```
     """,
     further = None,
@@ -307,7 +303,6 @@ prebuilt_python_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A simple prebuilt_python_library with no external dependencies.
         remote_file(
           name = "requests-download",
@@ -334,7 +329,6 @@ prebuilt_python_library = prelude_rule(
             ":greenlet",
           ],
         )
-
         ```
     """,
     further = None,
@@ -388,7 +382,6 @@ python_binary = prelude_rule(
 
 
         ```
-
         # BUCK
 
         python_binary(
@@ -405,7 +398,6 @@ python_binary = prelude_rule(
           # (Separated out from the glob pattern for clarity.)
           srcs = glob(['tailer.py', '*.py']),
         )
-
         ```
     """,
     further = None,
@@ -474,7 +466,6 @@ python_library = prelude_rule(
 
 
         ```
-
         # BUCK
 
         # A rule that includes a single Python file.
@@ -496,7 +487,6 @@ python_library = prelude_rule(
             'testdata.dat',
           ],
         )
-
         ```
     """,
     further = None,
@@ -544,7 +534,6 @@ python_test = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .py file containing tests.
         python_test(
           name = 'fileutil_test',
@@ -564,7 +553,6 @@ python_test = prelude_rule(
             'testdata.dat',
           ],
         )
-
         ```
     """,
     further = None,

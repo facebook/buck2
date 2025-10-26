@@ -20,7 +20,6 @@ sh_binary = prelude_rule(
         This sh\\_binary() just cats a sample data file back at the user.
 
         ```
-
         # $REPO/BUCK
         sh_binary(
             name = "script",
@@ -29,12 +28,10 @@ sh_binary = prelude_rule(
                 "data.dat",
             ],
         )
-
         ```
 
 
         ```
-
         # Sample data file with data we need at runtime
         $ echo "I'm a datafile" > data.dat
 
@@ -51,7 +48,6 @@ sh_binary = prelude_rule(
         Jobs completed: 4. Time elapsed: 0.2s.
         BUILD SUCCEEDED
         I'm a datafile
-
         ```
     """,
     further = None,
@@ -110,7 +106,6 @@ sh_test = prelude_rule(
         This sh\\_test() fails if a string does not match a value.
 
         ```
-
         # $REPO/BUCK
         sh_test(
             name = "script_pass",
@@ -123,13 +118,10 @@ sh_test = prelude_rule(
             test = "script.sh",
             args = ["--fail"],
         )
-
-
         ```
 
 
         ```
-
         # Create a simple script that prints out the resource
         $ cat > script.sh
         #!/bin/sh
@@ -161,7 +153,6 @@ sh_test = prelude_rule(
         TESTS FAILED: 1 FAILURE
         Failed target: //:script_fail
         FAIL //:script_fail
-
         ```
     """,
     further = None,

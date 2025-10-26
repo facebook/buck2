@@ -61,15 +61,11 @@ command_alias = prelude_rule(
 
 
         ```
-
-
         $(exe //path/to:target)
-
         ```
     """,
     examples = """
         ```
-
         # Combining an interpreter and a script
 
         cxx_binary(
@@ -93,11 +89,9 @@ command_alias = prelude_rule(
                 "$(location :scripts)/start-server.js",
             ],
         )
-
         ```
 
         ```
-
         # Exposing sub commands
 
         export_file(
@@ -122,11 +116,9 @@ command_alias = prelude_rule(
             exe = ":yarn",
             args = ["run"],
         )
-
         ```
 
         ```
-
         # Platform specific commands
 
         export_file(
@@ -152,7 +144,6 @@ command_alias = prelude_rule(
                 "macos": ":node-macos",
             },
         )
-
         ```
     """,
     further = None,
@@ -317,7 +308,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'example.html',
         )
@@ -329,7 +319,6 @@ export_file = prelude_rule(
           src = 'example.html',
           out = 'example.html',
         )
-
         ```
 
 
@@ -337,7 +326,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'example',
           src = 'example.html',
@@ -350,7 +338,6 @@ export_file = prelude_rule(
           src = 'example.html',
           out = 'example.html',
         )
-
         ```
 
 
@@ -359,7 +346,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'runner',
           src = 'RemoteRunner.html',
@@ -370,7 +356,6 @@ export_file = prelude_rule(
           src = 'RemoteRunner.html',
           out = 'RemoteRunner.hta',
         )
-
         ```
 
 
@@ -378,7 +363,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'example',
           src = 'example.html',
@@ -389,7 +373,6 @@ export_file = prelude_rule(
           out = 'result.html',
           cmd = 'cp $(location :example) $OUT',
         )
-
         ```
     """,
     further = None,
@@ -459,7 +442,6 @@ filegroup = prelude_rule(
 
 
         ```
-
         filegroup(
           name = 'example',
           srcs = glob(['resources/**/*.xml']),
@@ -470,7 +452,6 @@ filegroup = prelude_rule(
           out = 'processed.xml',
           cmd = '$(exe //example:tool) -in $(location :example)/resources/file.xml > $OUT',
         )
-
         ```
     """,
     further = None,
@@ -515,7 +496,6 @@ genrule = prelude_rule(
 
 
         ```
-
         genrule(
           name = 'generate_manifest',
           srcs = [
@@ -527,11 +507,9 @@ genrule = prelude_rule(
               '%SRCDIR%\\AndroidManifest.xml > %OUT%',
           out = 'AndroidManifest.xml',
         )
-
         ```
 
         ```
-
         genrule(
           name = 'generate_manifest_with_named_outputs',
           srcs = [
@@ -546,45 +524,36 @@ genrule = prelude_rule(
           },
           default_outs = [ "AndroidManifest.xml" ],
         )
-
         ```
 
         For named outputs, build with any of the following:
 
 
         ```
-
           buck build //:generate_manifest_with_named_outputs
-
         ```
 
         ```
-
           buck build //:generate_manifest_with_named_outputs[manifest]
-
         ```
 
         Consume in `srcs` with:
 
 
         ```
-
         export_file(
             name = "magic1",
             src = ":generate_manifest_with_named_outputs",
             out = "some_dir_to_copy_to/AndroidManifest.xml",
         )
-
         ```
 
         ```
-
         export_file(
             name = "magic2",
             src = ":generate_manifest_with_named_outputs[manifest]",
             out = "some_dir_to_copy_to/AndroidManifest.xml",
         )
-
         ```
 
         Note that `magic1` consumes `generate_manifest_with_named_outputs`'s default
@@ -618,7 +587,6 @@ genrule = prelude_rule(
 
 
                 ```
-
                 genrule(
                   name = "named_outputs",
                   outs = {
@@ -632,33 +600,28 @@ genrule = prelude_rule(
                   default_outs = [ "out1.txt" ],
                   cmd = "echo something> $OUT/out1.txt && echo another> $OUT/out2.txt",
                 )
-
                 ```
 
                  Note that a maximum of one value may be present in the list in this map. For example:
 
 
                 ```
-
                 outs = {
                   "output1": [
                     "out1.txt",
                   ],
                 },
-
                 ```
                 is valid, whereas
 
 
                 ```
-
                 outs = {
                   "output1": [
                     "out1.txt",
                     "out2.txt",
                   ],
                 },
-
                 ```
                 is not.
             """),
@@ -736,7 +699,6 @@ http_archive = prelude_rule(
 
 
         ```
-
         http_archive(
           name = 'thrift-archive',
           urls = [
@@ -759,7 +721,6 @@ http_archive = prelude_rule(
           cmd="$(exe :thrift-compiler-bin) --gen cpp2 -o $OUT $(location //:thrift-file)",
           out="gen-cpp2",
         )
-
         ```
     """,
     further = None,
@@ -794,7 +755,6 @@ http_file = prelude_rule(
 
 
         ```
-
         http_file(
           name = 'guava-23-bin',
           urls = [
@@ -815,14 +775,12 @@ http_file = prelude_rule(
           binary_jar = ':guava-23-bin',
           source_jar = ':guava-23-source',
         )
-
         ```
 
          Tooling can also be fetched with `http_file()` and used by a `genrule()`.
 
 
         ```
-
         genrule(
           name="my-thrift-lib-cpp2",
           cmd="$(exe :thrift-compiler-bin) --gen cpp2 -o $OUT $(location //:thrift-file)",
@@ -835,14 +793,12 @@ http_file = prelude_rule(
           sha256 = 'c24932ccabb66fffb2d7122298f7f1f91e0b1f14e05168e3036333f84bdf58dc',
           executable = True,
         )
-
         ```
 
          Here's an example of a `http_file()` using a mvn URI which uses a Maven classifier.
 
 
         ```
-
         http_file(
           name = 'guava-23-bin',
           urls = [
@@ -850,7 +806,6 @@ http_file = prelude_rule(
           ],
           sha256 = '7baa80df284117e5b945b19b98d367a85ea7b7801bd358ff657946c3bd1b6596',
         )
-
         ```
     """,
     further = None,
@@ -905,13 +860,11 @@ remote_file = prelude_rule(
 
 
         ```
-
         remote_file(
           name = 'android-ndk-r10e-darwin-x86_64',
           url = 'https://dl.google.com/android/ndk/android-ndk-r10e-darwin-x86_64.bin',
           sha1 = 'b57c2b9213251180dcab794352bfc9a241bf2557',
         )
-
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URL being referenced
@@ -919,7 +872,6 @@ remote_file = prelude_rule(
 
 
         ```
-
         prebuilt_jar(
           name = 'jetty-all',
           binary_jar = 'jetty-all-9.2.10.v20150310.jar',
@@ -932,7 +884,6 @@ remote_file = prelude_rule(
           url = 'mvn:org.eclipse.jetty.aggregate:jetty-all:src:9.2.10.v20150310',
           sha1 = '311da310416d2feb3de227081d7c3f48742d7075',
         )
-
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URI which uses a
@@ -940,14 +891,12 @@ remote_file = prelude_rule(
 
 
         ```
-
         remote_file(
           name = 'jetty-source',
           out = 'jetty-all-9.2.10.v20150310-sources.jar',
           url = 'mvn:https://maven-repo.com:org.eclipse.jetty.aggregate:jetty-all:src:9.2.10.v20150310',
           sha1 = '311da310416d2feb3de227081d7c3f48742d7075',
         )
-
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URI which uses a
@@ -955,14 +904,12 @@ remote_file = prelude_rule(
 
 
         ```
-
         remote_file(
           name = 'groovy-groovysh-indy',
           out = 'jetty-all-9.2.10.v20150310-sources.jar',
           url = 'mvn:org.codehaus.groovy:groovy-groovysh:jar:indy:2.4.1',
           sha1 = '1600fde728c885cc9506cb102deb1b494bd7c130',
         )
-
         ```
     """,
     further = None,
@@ -1028,7 +975,6 @@ test_suite = prelude_rule(
 
 
         ```
-
         # instrumentation_tests/BUCK:
         sh_test(
             name = "instrumentation_tests",
@@ -1066,14 +1012,12 @@ test_suite = prelude_rule(
                 "//unit_tests:unit_tests",
             ],
         )
-
         ```
 
 
         Yields output like this when run:
 
         ```
-
         $ buck test //:slow_tests
         ...
         RESULTS FOR //instrumentation_tests:instrumentation_tests //integration_tests:integration_tests
@@ -1088,7 +1032,6 @@ test_suite = prelude_rule(
         PASS    <100ms  1 Passed   0 Skipped   0 Failed   //integration_tests:integration_tests
         PASS    <100ms  1 Passed   0 Skipped   0 Failed   //unit_tests:unit_tests
         TESTS PASSED
-
         ```
     """,
     further = None,
@@ -1156,10 +1099,7 @@ worker_tool = prelude_rule(
 
 
         ```
-
-
         $(exe //path/to:target)
-
         ```
     """,
     examples = """
@@ -1167,7 +1107,6 @@ worker_tool = prelude_rule(
 
 
         ```
-
         #
         # Buck
         #
@@ -1207,10 +1146,7 @@ worker_tool = prelude_rule(
 
 
         ```
-
-
         ./external_tool.sh --arg1 --arg2
-
         ```
 
 
@@ -1220,7 +1156,6 @@ worker_tool = prelude_rule(
 
 
         ```
-
         [
           {
             "id": 0,
@@ -1228,14 +1163,12 @@ worker_tool = prelude_rule(
             "protocol_version": "0",
             "capabilities": []
           }
-
         ```
 
          Buck then waits for the tool to reply on `stdout`:
 
 
         ```
-
         [
           {
             "id": 0,
@@ -1243,14 +1176,12 @@ worker_tool = prelude_rule(
             "protocol_version": "0",
             "capabilities": []
           }
-
         ```
 
          Then, when building the first `genrule`, Buck writes to `stdin`:
 
 
         ```
-
           ,{
             "id": 1,
             "type": "command",
@@ -1258,7 +1189,6 @@ worker_tool = prelude_rule(
             "stdout_path": "/tmp/1.out",
             "stderr_path": "/tmp/1.err"
           }
-
         ```
 
          The file `/tmp/1.args` contains `argA`. The tool should
@@ -1268,13 +1198,11 @@ worker_tool = prelude_rule(
 
 
         ```
-
           ,{
             "id": 1,
             "type": "result",
             "exit_code": 0
           }
-
         ```
 
          Once Buck hears back from the first genrule's job, it submits the second genrule's job in the
@@ -1283,18 +1211,14 @@ worker_tool = prelude_rule(
 
 
         ```
-
         ]
-
         ```
 
          which signals the tool that it should exit after replying on `stdout` with:
 
 
         ```
-
         ]
-
         ```
 
          In this example, Buck is guaranteed to invoke
@@ -1302,10 +1226,7 @@ worker_tool = prelude_rule(
 
 
         ```
-
-
         ./external_tool.sh --arg1 --arg2
-
         ```
 
 
@@ -1323,13 +1244,11 @@ worker_tool = prelude_rule(
 
 
         ```
-
         {
           "id": &ltn>,
           "type": "error",
           "exit_code": 1
         }
-
         ```
 
          If the tool receives a message type it can interpret, but the other attributes of the
@@ -1337,13 +1256,11 @@ worker_tool = prelude_rule(
 
 
         ```
-
         {
           "id": &ltn>,
           "type": "error",
           "exit_code": 2
         }
-
         ```
     """,
     further = None,
@@ -1400,7 +1317,6 @@ zip_file = prelude_rule(
 
 
         ```
-
         zip_file(
           # The output will be "example.zip"
           name = 'example',
@@ -1422,7 +1338,6 @@ zip_file = prelude_rule(
             "com/example/amazinglibrary/Source1.java",
           ],
         )
-
         ```
         If you were to examine the generated zip, the contents would look
         something like (assuming the output of
@@ -1433,12 +1348,10 @@ zip_file = prelude_rule(
 
 
         ```
-
         dir/file1.txt
         dir/subdir/file2.txt
         hello.txt
         com/example/amazinglibrary/Source2.java
-
         ```
     """,
     further = None,

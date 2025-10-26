@@ -24,30 +24,25 @@ groovy_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that compiles a single .groovy file.
         groovy_library(
           name = 'example',
           srcs = ['MySourceFile.groovy'],
         )
-
         ```
 
 
         ```
-
         # A rule that compiles all of the .groovy files under the directory in
         # which the rule is defined using glob()
         groovy_library(
           name = 'groovy-only',
           srcs = glob(['**/*.groovy']),
         )
-
         ```
 
 
         ```
-
         # A rule that cross compiles all of the .groovy and .java files under
         # the directory in which the rule is defined, failing if compiling the
         # java files generates any compiler warnings
@@ -59,7 +54,6 @@ groovy_library = prelude_rule(
             '-Werror',
           ],
         )
-
         ```
     """,
     further = None,

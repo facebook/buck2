@@ -145,7 +145,6 @@ java_binary = prelude_rule(
 
 
                 ```
-
                 java_binary(
                   name = 'example',
                   blocklist = [
@@ -162,7 +161,6 @@ java_binary = prelude_rule(
                     ':third-party-stuff',
                   ],
                 )
-
                 ```
             """),
             "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
@@ -195,7 +193,6 @@ java_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that compiles a single .java file.
         java_library(
           name = 'JsonUtil',
@@ -240,7 +237,6 @@ java_library = prelude_rule(
             '//java/com/facebook/base:base',
           ],
         )
-
         ```
     """,
     further = None,
@@ -494,7 +490,6 @@ prebuilt_jar = prelude_rule(
     """,
     examples = """
         ```
-
         prebuilt_jar(
           name = 'junit',
           binary_jar = 'junit-4.8.2.jar',
@@ -509,7 +504,6 @@ prebuilt_jar = prelude_rule(
             ':junit',
           ],
         )
-
         ```
     """,
     further = None,
