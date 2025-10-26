@@ -88,9 +88,9 @@ sh_binary = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "_target_os_type": buck.target_os_type_arg(),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -183,7 +183,6 @@ sh_test = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "list_args": attrs.option(attrs.list(attrs.string()), default = None),
             "list_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
             "resources": attrs.list(attrs.source(), default = []),
@@ -191,7 +190,9 @@ sh_test = prelude_rule(
             "run_env": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "run_test_separately": attrs.bool(default = False),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-        } | test_common.attributes() |
+        } |
+        buck.licenses_arg() |
+        test_common.attributes() |
         re_test_common.test_args() |
         test_common.attributes()
     ),

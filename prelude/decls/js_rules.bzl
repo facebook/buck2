@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 
 js_bundle = prelude_rule(
     name = "js_bundle",
@@ -31,9 +31,9 @@ js_bundle = prelude_rule(
             "extra_json": attrs.option(attrs.arg(), default = None),
             "fallback_transform_profile": attrs.option(attrs.string(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "worker": attrs.dep(),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -57,7 +57,6 @@ js_bundle_genrule = prelude_rule(
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
             "js_bundle": attrs.dep(),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
             "rewrite_deps_file": attrs.bool(default = False),
@@ -66,7 +65,8 @@ js_bundle_genrule = prelude_rule(
             "skip_resources": attrs.bool(default = False),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "weight": attrs.option(attrs.int(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -87,10 +87,10 @@ js_library = prelude_rule(
             "deps_query": attrs.option(attrs.query(), default = None),
             "extra_json": attrs.option(attrs.arg(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.string())), default = []),
             "worker": attrs.dep(),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 

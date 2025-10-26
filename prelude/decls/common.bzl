@@ -211,6 +211,14 @@ def _inject_test_env_arg():
         "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
     }
 
+def _licenses_arg():
+    return {
+        "licenses": attrs.list(attrs.source(), default = [], doc = """
+            Set of license files for this library. To get the list of license files for a given build rule and 
+            all of its dependencies, you can use [buck query](https://buck2.build/docs/users/commands/query/)
+        """),
+    }
+
 buck = struct(
     name_arg = _name_arg,
     deps_query_arg = _deps_query_arg,
@@ -228,4 +236,5 @@ buck = struct(
     target_os_type_arg = _target_os_type_arg,
     allow_cache_upload_arg = _allow_cache_upload_arg,
     inject_test_env_arg = _inject_test_env_arg,
+    licenses_arg = _licenses_arg,
 )

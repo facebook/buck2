@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 
 NdkCxxRuntime = ["system", "gabixx", "stlport", "gnustl", "libcxx"]
 
@@ -26,9 +26,9 @@ legacy_toolchain = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "toolchain_name": attrs.string(default = ""),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -45,11 +45,11 @@ ndk_toolchain = prelude_rule(
             "cxx_toolchain": attrs.dep(),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "objdump": attrs.source(),
             "shared_runtime_path": attrs.option(attrs.source(), default = None),
             "strip_apk_libs_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 

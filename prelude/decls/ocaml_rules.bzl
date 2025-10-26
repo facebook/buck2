@@ -79,14 +79,14 @@ ocaml_binary = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.string(), default = []),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -127,13 +127,13 @@ ocaml_library = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "native_plugin": attrs.bool(default = False),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -156,11 +156,11 @@ prebuilt_ocaml_library = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "lib_dir": attrs.string(default = ""),
             "lib_name": attrs.string(default = ""),
-            "licenses": attrs.list(attrs.source(), default = []),
             "native_c_libs": attrs.list(attrs.string(), default = []),
             "native_lib": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 

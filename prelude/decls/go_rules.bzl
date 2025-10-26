@@ -95,9 +95,9 @@ go_binary = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
     cfg = go_binary_transition,
 )
@@ -182,9 +182,9 @@ go_exported_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "embedcfg": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
     cfg = go_exported_library_transition,
 )
@@ -233,8 +233,8 @@ go_library = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
     cfg = go_library_transition,
 )
@@ -358,11 +358,11 @@ go_test = prelude_rule(
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
         } |
+        buck.licenses_arg() |
         re_test_common.test_args() |
         test_common.attributes()
     ),

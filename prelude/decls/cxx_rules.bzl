@@ -168,7 +168,6 @@ cxx_binary = prelude_rule(
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -184,6 +183,7 @@ cxx_binary = prelude_rule(
             "use_header_units": attrs.bool(default = False),
         } |
         buck.allow_cache_upload_arg() |
+        buck.licenses_arg() |
         _cxx_binary_and_test_attrs()
     ),
     cfg = constraint_overrides.transition,
@@ -427,11 +427,11 @@ cxx_genrule = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None),
             "remote": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -524,7 +524,6 @@ library_attrs = (
         "include_in_android_merge_map_output": attrs.bool(default = True),
         "labels": attrs.list(attrs.string(), default = []),
         "libraries": attrs.list(attrs.string(), default = []),
-        "licenses": attrs.list(attrs.source(), default = []),
         "link_group": attrs.option(attrs.string(), default = None),
         "link_group_map": LINK_GROUP_MAP_ATTR,
         "module_name": attrs.option(attrs.string(), default = None),
@@ -574,7 +573,8 @@ library_attrs = (
         """),
         "extra_dwp_flags": attrs.list(attrs.string(), default = []),
     } |
-    buck.allow_cache_upload_arg()
+    buck.allow_cache_upload_arg() |
+    buck.licenses_arg()
 )
 
 cxx_library = prelude_rule(
@@ -805,7 +805,6 @@ cxx_precompiled_header = prelude_rule(
                 Dependency rules which export headers used by the header specified in `src`.
             """),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "pch_clanguage": attrs.option(attrs.string(), default = None, doc = """
                 The c-language extension to use for the precompiled header. Eg. .c, .cpp, .m, .mm, etc.
             """),
@@ -818,7 +817,8 @@ cxx_precompiled_header = prelude_rule(
             """),
             "version_universe": attrs.option(attrs.string(), default = None),
         } |
-        library_attrs
+        library_attrs |
+        buck.licenses_arg()
     ),
 )
 
@@ -976,7 +976,6 @@ cxx_test = prelude_rule(
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -1003,6 +1002,7 @@ cxx_test = prelude_rule(
             """),
         } |
         buck.allow_cache_upload_arg() |
+        buck.licenses_arg() |
         test_common.attributes() |
         _cxx_binary_and_test_attrs()
     ),
@@ -1082,7 +1082,6 @@ cxx_toolchain = prelude_rule(
             "hip_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "hip_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_metadata_flag": attrs.option(attrs.string(), default = None),
             "link_style": attrs.enum(
                 LinkStyle.values(),
@@ -1123,7 +1122,8 @@ cxx_toolchain = prelude_rule(
             "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "use_header_map": attrs.bool(default = False),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -1266,7 +1266,6 @@ prebuilt_cxx_library = prelude_rule(
             "include_in_android_merge_map_output": attrs.bool(default = True),
             "labels": attrs.list(attrs.string(), default = []),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_whole": attrs.bool(default = False),
             "link_without_soname": attrs.bool(default = False),
             "platform_import_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None),
@@ -1285,7 +1284,8 @@ prebuilt_cxx_library = prelude_rule(
             "versioned_static_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
             "versioned_static_pic_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        buck.licenses_arg()
     ),
 )
 
@@ -1390,9 +1390,9 @@ prebuilt_cxx_library_group = prelude_rule(
             "include_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
             "include_in_android_merge_map_output": attrs.bool(default = True),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "supports_shared_library_interface": attrs.bool(default = True),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 

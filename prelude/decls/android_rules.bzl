@@ -126,7 +126,6 @@ android_aar = prelude_rule(
             "java_version": attrs.option(attrs.string(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest": attrs.option(attrs.source(), default = None),
             "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "manifest_file": attrs.option(attrs.source(), default = None),
@@ -156,7 +155,8 @@ android_aar = prelude_rule(
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac(),
 )
 
@@ -175,11 +175,10 @@ android_app_modularity = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "no_dx": attrs.list(attrs.dep(), default = []),
             "should_include_classes": attrs.bool(default = True),
             "should_include_libraries": attrs.bool(default = False),
-        }
+        } | buck.licenses_arg()
     ),
 )
 
@@ -234,7 +233,6 @@ android_binary = prelude_rule(
             "is_voltron_language_pack_enabled": attrs.bool(default = False),
             "keystore": attrs.dep(),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "locales": attrs.list(attrs.string(), default = []),
             "manifest": attrs.option(attrs.source(), default = None),
             "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
@@ -282,7 +280,7 @@ android_binary = prelude_rule(
             "trim_resource_ids": attrs.bool(default = False),
             "use_split_dex": attrs.bool(default = False),
             "xz_compression_level": attrs.int(default = 4),
-        }
+        } | buck.licenses_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -420,8 +418,9 @@ android_build_config = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        } | jvm_common.content_based_path_for_jar_snapshot()
+        } |
+        buck.licenses_arg() |
+        jvm_common.content_based_path_for_jar_snapshot()
     ),
 )
 
@@ -477,7 +476,6 @@ android_bundle = prelude_rule(
             "is_voltron_language_pack_enabled": attrs.bool(default = False),
             "keystore": attrs.dep(),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "locales": attrs.list(attrs.string(), default = []),
             "manifest": attrs.option(attrs.source(), default = None),
             "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
@@ -526,7 +524,8 @@ android_bundle = prelude_rule(
             "trim_resource_ids": attrs.bool(default = False),
             "use_split_dex": attrs.bool(default = False),
             "xz_compression_level": attrs.int(default = 4),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -598,13 +597,13 @@ android_instrumentation_apk = prelude_rule(
             "enable_bootstrap_dexes": attrs.bool(default = False),
             "includes_vector_drawables": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "use_split_dex": attrs.option(attrs.bool(), default = None),
             "primary_dex_patterns": attrs.list(attrs.string(), default = []),
             "preprocess_java_classes_bash": attrs.option(attrs.arg(), default = None),
             "preprocess_java_classes_cmd": attrs.option(attrs.arg(), default = None),
             "preprocess_java_classes_deps": attrs.list(attrs.dep(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -658,6 +657,7 @@ android_instrumentation_test = prelude_rule(
         } |
         buck.test_label_arg() |
         buck.test_rule_timeout_ms() |
+        buck.licenses_arg() |
         {
             "clear_package_data": attrs.bool(default = False, doc = """
                 Runs `pm clear` on the app and test packages before the test run if set to True.
@@ -673,7 +673,6 @@ android_instrumentation_test = prelude_rule(
             "record_video": attrs.bool(default = False, doc = "Record video of test run and collect it as TRA"),
             "log_extractors": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
-            "licenses": attrs.list(attrs.source(), default = []),
             "_android_emulators": attrs.option(attrs.transition_dep(cfg = clear_platform_transition, providers = [LocalResourceInfo]), default = None, doc = """
                 If provided, local resource of "android_emulators" type will be required to run this test locally and this target will be used to manage it. If omitted, local resource of "android_emulators" type will be ignored even if requested by the test runner.
             """),
@@ -715,12 +714,12 @@ android_library = prelude_rule(
     """,
     further = None,
     attrs = (
-        # @unsorted-dict-items
-        {
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+                # @unsorted-dict-items
+                {
+                    "srcs": attrs.list(attrs.source(), default = [], doc = """
                 The set of `.java` files to compile for this rule.
             """),
-            "resources": attrs.list(attrs.source(), default = [], doc = """
+                    "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to include among the compiled `.class`
                  files. These files can be loaded via [Class.getResource()](http://docs.oracle.com/javase/7/docs/api/java/lang/Class.html#getResource(java.lang.String)).
 
@@ -728,82 +727,86 @@ android_library = prelude_rule(
                  `.buckconfig`
                  to help determine where resources should be placed within the generated JAR file.
             """),
-        } |
-        android_common.manifest_arg() |
-        {
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+                } |
+                android_common.manifest_arg() |
+                {
+                    "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Rules (usually other `android_library` rules)
                  that are used to generate the classpath required to compile this
                  `android_library`.
             """),
-            "source": attrs.option(attrs.string(), default = None, doc = """
+                    "source": attrs.option(attrs.string(), default = None, doc = """
                 Specifies the version of Java (as a string) to interpret source
                  files as.
                  Overrides the value in "source\\_level" in the "java" section
                  of `.buckconfig`.
             """),
-            "target": attrs.option(attrs.string(), default = None, doc = """
+                    "target": attrs.option(attrs.string(), default = None, doc = """
                 Specifies the version of Java (as a string) for which to
                  generate code.
                  Overrides the value in "target\\_level" in the "java" section
                  of `.buckconfig`.
             """),
-            "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
+                    "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Java compiler. These
                  arguments follow the ones specified in `.buckconfig`.
             """),
-            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+                    "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
-            "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None, doc = """
+                    "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None, doc = """
                 Specifies the tool to use for annotation processing. Possible values: "kapt" or "javac".
                  "kapt" allows running Java annotation processors against Kotlin sources while backporting
                  it for Java sources too.
                  "javac" works only against Java sources, Kotlin sources won't have access to generated
                  classes at compile time.
             """),
-        } |
-        jvm_common.annotation_processors() |
-        jvm_common.exported_deps() |
-        jvm_common.provided_deps() |
-        jvm_common.exported_provided_deps() |
-        buck.provided_deps_query_arg() |
-        jvm_common.abi_generation_mode() |
-        jvm_common.source_only_abi_deps() |
-        jvm_common.required_for_source_only_abi() |
-        jvm_common.k2() |
-        jvm_common.kotlin_compiler_plugins() |
-        jvm_common.incremental() |
-        jvm_common.kotlincd_content_based_paths() |
-        jvm_common.javac() |
-        jvm_common.enable_used_classes() |
-        jvm_common.content_based_path_for_jar_snapshot() |
-        jvm_common.classic_java_content_based_paths() |
-        {
-            "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
+                } |
+                jvm_common.annotation_processors() |
+                jvm_common.exported_deps() |
+                jvm_common.provided_deps() |
+                jvm_common.exported_provided_deps() |
+                buck.provided_deps_query_arg() |
+                jvm_common.abi_generation_mode() |
+                jvm_common.source_only_abi_deps() |
+                jvm_common.required_for_source_only_abi() |
+                jvm_common.k2() |
+                jvm_common.kotlin_compiler_plugins() |
+                jvm_common.incremental() |
+                jvm_common.kotlincd_content_based_paths() |
+                jvm_common.javac() |
+                jvm_common.enable_used_classes() |
+                jvm_common.content_based_path_for_jar_snapshot() |
+                jvm_common.classic_java_content_based_paths() |
+                {
+                    "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
                 List of classes to remove from the output jar. It only removes classes from the target's own
                  sources, not from any of its dependencies.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "friend_paths": attrs.list(attrs.dep(), default = []),
-            "java_version": attrs.option(attrs.string(), default = None),
-            "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "language": attrs.option(attrs.enum(JvmLanguage), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "manifest_file": attrs.option(attrs.source(), default = None),
-            "maven_coords": attrs.option(attrs.string(), default = None),
-            "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
-            "proguard_config": attrs.option(attrs.source(), default = None),
-            "resource_union_package": attrs.option(attrs.string(), default = None),
-            "resources_root": attrs.option(attrs.source(), default = None),
-            "runtime_deps": attrs.list(attrs.dep(), default = []),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
-            "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        }
-    ) | jvm_common.plugins() | validation_common.attrs_validators_arg() | jvm_common.should_kosabi_jvm_abi_gen_use_k2() | validation_common.validation_specs_arg(),
+                    "contacts": attrs.list(attrs.string(), default = []),
+                    "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+                    "friend_paths": attrs.list(attrs.dep(), default = []),
+                    "java_version": attrs.option(attrs.string(), default = None),
+                    "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
+                    "labels": attrs.list(attrs.string(), default = []),
+                    "language": attrs.option(attrs.enum(JvmLanguage), default = None),
+                    "manifest_file": attrs.option(attrs.source(), default = None),
+                    "maven_coords": attrs.option(attrs.string(), default = None),
+                    "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
+                    "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
+                    "proguard_config": attrs.option(attrs.source(), default = None),
+                    "resource_union_package": attrs.option(attrs.string(), default = None),
+                    "resources_root": attrs.option(attrs.source(), default = None),
+                    "runtime_deps": attrs.list(attrs.dep(), default = []),
+                    "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
+                    "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
+                }
+            ) |
+            jvm_common.plugins() |
+            validation_common.attrs_validators_arg() |
+            jvm_common.should_kosabi_jvm_abi_gen_use_k2() |
+            validation_common.validation_specs_arg() |
+            buck.licenses_arg(),
 )
 
 android_manifest = prelude_rule(
@@ -870,8 +873,8 @@ android_manifest = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -950,10 +953,11 @@ android_prebuilt_aar = prelude_rule(
             "dex_weight_factor": attrs.int(default = 1),
             "for_primary_apk": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
-        } | jvm_common.content_based_path_for_jar_snapshot()
+        } |
+        jvm_common.content_based_path_for_jar_snapshot() |
+        buck.licenses_arg()
     ),
 )
 
@@ -1013,6 +1017,7 @@ android_resource = prelude_rule(
             """),
         } |
         android_common.manifest_arg() |
+        buck.licenses_arg() |
         {
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Other `android_resource` rules to include via `-S` when
@@ -1023,7 +1028,6 @@ android_resource = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "has_whitelisted_strings": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "resource_union": attrs.bool(default = False),
         }
     ),
@@ -1116,10 +1120,10 @@ apk_genrule = prelude_rule(
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "is_cacheable": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -1178,8 +1182,8 @@ gen_aidl = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -1221,8 +1225,8 @@ keystore = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -1274,8 +1278,8 @@ ndk_library = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -1333,8 +1337,8 @@ prebuilt_native_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
@@ -1380,7 +1384,6 @@ robolectric_test = prelude_rule(
             "java": attrs.option(attrs.dep(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "locales_for_binary_resources": attrs.list(attrs.string(), default = []),
             "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "manifest_file": attrs.option(attrs.source(), default = None),
@@ -1429,7 +1432,8 @@ robolectric_test = prelude_rule(
         jvm_common.enable_used_classes() |
         jvm_common.classic_java_content_based_paths() |
         re_test_common.test_args() |
-        test_common.attributes()
+        test_common.attributes() |
+        buck.licenses_arg()
     ),
 )
 
@@ -1446,10 +1450,10 @@ supermodule_target_graph = prelude_rule(
             "deps": attrs.set(attrs.dep(), sorted = True, default = []),
             "label_pattern": attrs.option(attrs.regex(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite"),
             "out": attrs.string(default = ""),
-        }
+        } |
+        buck.licenses_arg()
     ),
 )
 
