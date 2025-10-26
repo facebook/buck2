@@ -30,10 +30,10 @@ js_bundle = prelude_rule(
             "entry": attrs.one_of(attrs.set(attrs.string(), sorted = False), attrs.string()),
             "extra_json": attrs.option(attrs.arg(), default = None),
             "fallback_transform_profile": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "worker": attrs.dep(),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -56,7 +56,6 @@ js_bundle_genrule = prelude_rule(
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
             "js_bundle": attrs.dep(),
-            "labels": attrs.list(attrs.string(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
             "rewrite_deps_file": attrs.bool(default = False),
@@ -66,7 +65,8 @@ js_bundle_genrule = prelude_rule(
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "weight": attrs.option(attrs.int(), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -86,11 +86,11 @@ js_library = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
             "extra_json": attrs.option(attrs.arg(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.string())), default = []),
             "worker": attrs.dep(),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 

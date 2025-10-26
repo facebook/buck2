@@ -25,10 +25,10 @@ legacy_toolchain = prelude_rule(
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "toolchain_name": attrs.string(default = ""),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -44,12 +44,12 @@ ndk_toolchain = prelude_rule(
             "cxx_runtime": attrs.option(attrs.enum(NdkCxxRuntime), default = None),
             "cxx_toolchain": attrs.dep(),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "objdump": attrs.source(),
             "shared_runtime_path": attrs.option(attrs.source(), default = None),
             "strip_apk_libs_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 

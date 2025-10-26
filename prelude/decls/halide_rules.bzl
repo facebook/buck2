@@ -89,7 +89,6 @@ halide_library = prelude_rule(
             "headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
@@ -115,7 +114,8 @@ halide_library = prelude_rule(
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 

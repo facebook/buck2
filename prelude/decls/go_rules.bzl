@@ -94,10 +94,10 @@ go_binary = prelude_rule(
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
     cfg = go_binary_transition,
 )
@@ -181,10 +181,10 @@ go_exported_library = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "embedcfg": attrs.option(attrs.source(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
     cfg = go_exported_library_transition,
 )
@@ -232,9 +232,9 @@ go_library = prelude_rule(
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
     cfg = go_library_transition,
 )

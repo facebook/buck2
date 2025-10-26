@@ -112,7 +112,6 @@ groovy_library = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -125,7 +124,8 @@ groovy_library = prelude_rule(
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ) | jvm_common.plugins() | jvm_common.javac(),
 )
 
@@ -156,7 +156,6 @@ groovy_test = prelude_rule(
             "extra_groovyc_arguments": attrs.list(attrs.string(), default = []),
             "fork_mode": attrs.enum(ForkMode, default = "none"),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -183,7 +182,8 @@ groovy_test = prelude_rule(
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ) | jvm_common.plugins() | jvm_common.javac(),
 )
 

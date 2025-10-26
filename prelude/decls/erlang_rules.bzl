@@ -8,7 +8,7 @@
 
 load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
 load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo", "ErlangAppOrTestInfo")
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
 def re_test_args():
@@ -16,9 +16,8 @@ def re_test_args():
     args = re_test_common.test_args()
     return {"remote_execution": args["remote_execution"]}
 
-common_attributes = {
+common_attributes = buck.labels_arg() | {
     "contacts": attrs.list(attrs.string(), default = []),
-    "labels": attrs.list(attrs.string(), default = []),
     "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
                 This attribute allows to set additional values for the operating system environment for invocations to the
                 Erlang toolchain.

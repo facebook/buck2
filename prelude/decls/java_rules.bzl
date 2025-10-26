@@ -33,7 +33,6 @@ gwt_binary = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "draft_compile": attrs.bool(default = False),
             "experimental_args": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "local_workers": attrs.int(default = 2),
             "module_deps": attrs.list(attrs.dep(), default = []),
             "modules": attrs.list(attrs.string(), default = []),
@@ -42,7 +41,8 @@ gwt_binary = prelude_rule(
             "style": attrs.enum(Style, default = "obf"),
             "vm_args": attrs.list(attrs.string(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -62,14 +62,14 @@ jar_genrule = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "weight": attrs.option(attrs.int(), default = None),
             "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "type": attrs.option(attrs.string(), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -86,12 +86,12 @@ java_annotation_processor = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
             "isolate_class_loader": attrs.bool(default = False),
-            "labels": attrs.list(attrs.string(), default = []),
             "processor_class": attrs.string(default = ""),
             "supports_abi_generation_from_source": attrs.bool(default = False),
             "runs_on_java_only": attrs.bool(default = False),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -172,12 +172,12 @@ java_binary = prelude_rule(
             "incremental_target_prefix": attrs.option(attrs.string(), default = None),
             "java_version": attrs.option(attrs.string(), default = None, doc = "Expected java version used at compile time"),
             "java_runtime": attrs.option(attrs.string(), default = None, doc = "Expected java version used at runtime"),
-            "labels": attrs.list(attrs.string(), default = []),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "proguard_jvm_args": attrs.list(attrs.string(), default = []),
             "proguard_library_jars": attrs.list(attrs.source(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -299,7 +299,6 @@ java_library = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -308,6 +307,7 @@ java_library = prelude_rule(
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
         } |
         buck.licenses_arg() |
+        buck.labels_arg() |
         validation_common.attrs_validators_arg()
     ),
 )
@@ -325,11 +325,11 @@ java_plugin = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
             "isolate_class_loader": attrs.bool(default = False),
-            "labels": attrs.list(attrs.string(), default = []),
             "plugin_name": attrs.string(default = ""),
             "supports_abi_generation_from_source": attrs.bool(default = False),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -457,7 +457,6 @@ java_test_runner = prelude_rule(
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "main_class": attrs.string(default = ""),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -477,6 +476,7 @@ java_test_runner = prelude_rule(
             "target": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
+        buck.labels_arg() |
         jvm_common.annotation_processors() |
         jvm_common.plugins() |
         jvm_common.javac()
@@ -535,7 +535,6 @@ prebuilt_jar = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_abi": attrs.bool(default = False),
-            "labels": attrs.list(attrs.string(), default = []),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.bool(default = False),
             "required_for_source_only_abi": attrs.bool(default = False),
@@ -545,6 +544,7 @@ prebuilt_jar = prelude_rule(
             })),
         } |
         buck.licenses_arg() |
+        buck.labels_arg() |
         jvm_common.content_based_path_for_jar_snapshot()
     ),
 )

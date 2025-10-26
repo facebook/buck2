@@ -86,7 +86,6 @@ cxx_lua_extension = prelude_rule(
             "frameworks": attrs.list(attrs.string(), default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
@@ -101,7 +100,8 @@ cxx_lua_extension = prelude_rule(
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -139,13 +139,13 @@ lua_binary = prelude_rule(
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "native_starter_library": attrs.option(attrs.dep(), default = None),
             "package_style": attrs.option(attrs.enum(LuaPlatformPackageStyle), default = None),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 
@@ -184,10 +184,10 @@ lua_library = prelude_rule(
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.labels_arg()
     ),
 )
 

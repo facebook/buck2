@@ -28,7 +28,6 @@ scala_library = prelude_rule(
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -47,6 +46,7 @@ scala_library = prelude_rule(
             "target": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
+        buck.labels_arg() |
         jvm_common.plugins() |
         jvm_common.javac()
     ),
@@ -79,7 +79,6 @@ scala_test = prelude_rule(
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "fork_mode": attrs.enum(ForkMode, default = "none"),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -107,6 +106,7 @@ scala_test = prelude_rule(
             "vm_args": attrs.list(attrs.arg(), default = []),
         } |
         buck.licenses_arg() |
+        buck.labels_arg() |
         jvm_common.plugins() |
         jvm_common.javac()
     ),
