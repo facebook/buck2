@@ -150,7 +150,6 @@ cxx_binary = prelude_rule(
         cxx_common.use_fbcc_rust_wrapper_arg() |
         cxx_common.use_content_based_paths_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -184,6 +183,7 @@ cxx_binary = prelude_rule(
         buck.allow_cache_upload_arg() |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         _cxx_binary_and_test_attrs()
     ),
     cfg = constraint_overrides.transition,
@@ -423,7 +423,6 @@ cxx_genrule = prelude_rule(
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
             "need_android_tools": attrs.bool(default = False),
@@ -431,7 +430,8 @@ cxx_genrule = prelude_rule(
             "remote": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -508,7 +508,6 @@ library_attrs = (
         "archive_allow_cache_upload": attrs.bool(default = False),
         "bridging_header": attrs.option(attrs.source(), default = None),
         "can_be_asset": attrs.option(attrs.bool(), default = None),
-        "contacts": attrs.list(attrs.string(), default = []),
         "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "default_platform": attrs.option(attrs.string(), default = None),
@@ -574,7 +573,8 @@ library_attrs = (
     } |
     buck.allow_cache_upload_arg() |
     buck.licenses_arg() |
-    buck.labels_arg()
+    buck.labels_arg() |
+    buck.contacts_arg()
 )
 
 cxx_library = prelude_rule(
@@ -799,7 +799,6 @@ cxx_precompiled_header = prelude_rule(
             "compile_pch_file": attrs.bool(default = False, doc = """
                 Whether to compile the precompiled header file or use legacy mode.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Dependency rules which export headers used by the header specified in `src`.
@@ -818,7 +817,8 @@ cxx_precompiled_header = prelude_rule(
         } |
         library_attrs |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -957,7 +957,6 @@ cxx_test = prelude_rule(
         native_common.link_style() |
         {
             "additional_coverage_targets": attrs.list(attrs.source(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -1003,6 +1002,7 @@ cxx_test = prelude_rule(
         buck.allow_cache_upload_arg() |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         test_common.attributes() |
         _cxx_binary_and_test_attrs()
     ),
@@ -1052,7 +1052,6 @@ cxx_toolchain = prelude_rule(
             "c_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "cache_links": attrs.bool(default = False),
             "compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cuda_compiler": attrs.option(attrs.source(), default = None),
             "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cuda_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
@@ -1123,7 +1122,8 @@ cxx_toolchain = prelude_rule(
             "use_header_map": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1248,7 +1248,6 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deffile": attrs.option(attrs.source(), default = None, doc = """
                 Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
@@ -1285,7 +1284,8 @@ prebuilt_cxx_library = prelude_rule(
         } |
         buck.allow_cache_upload_arg() |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1383,7 +1383,6 @@ prebuilt_cxx_library_group = prelude_rule(
         cxx_common.version_arg() |
         cxx_common.supported_platforms_regex_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
@@ -1392,7 +1391,8 @@ prebuilt_cxx_library_group = prelude_rule(
             "supports_shared_library_interface": attrs.bool(default = True),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

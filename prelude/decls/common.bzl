@@ -114,7 +114,7 @@ def _platform_deps_arg():
 def _labels_arg():
     return {
         "labels": attrs.list(attrs.string(), default = [], doc = """
-    Set of arbitrary strings which allow you to annotate a [build rule](https://buck2.build/docs/concepts/build_rule/) with tags 
+    Set of arbitrary strings which allow you to annotate a [build rule](https://buck2.build/docs/concepts/build_rule/) with tags
     that can be searched for over an entire dependency tree using `buck query()`.
 """),
     }
@@ -213,8 +213,20 @@ def _inject_test_env_arg():
 def _licenses_arg():
     return {
         "licenses": attrs.list(attrs.source(), default = [], doc = """
-            Set of license files for this library. To get the list of license files for a given build rule and 
+            Set of license files for this library. To get the list of license files for a given build rule and
             all of its dependencies, you can use [buck query](https://buck2.build/docs/users/commands/query/)
+        """),
+    }
+
+def _contacts_arg():
+    return {
+        "contacts": attrs.list(attrs.string(), default = [], doc = """
+            A list of organizational contacts for this rule. These could be individuals who you would contact
+            in the event of a failure or other issue with the rule.
+
+            ```
+            contacts = [ 'Joe Sixpack', 'Erika Mustermann' ]
+            ```
         """),
     }
 
@@ -236,4 +248,5 @@ buck = struct(
     allow_cache_upload_arg = _allow_cache_upload_arg,
     inject_test_env_arg = _inject_test_env_arg,
     licenses_arg = _licenses_arg,
+    contacts_arg = _contacts_arg,
 )

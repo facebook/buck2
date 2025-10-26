@@ -59,11 +59,11 @@ d_binary = prelude_rule(
         d_common.deps_arg() |
         d_common.linker_flags_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -99,12 +99,12 @@ d_library = prelude_rule(
         d_common.srcs_arg() |
         d_common.deps_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "linker_flags": attrs.list(attrs.string(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -143,11 +143,11 @@ d_test = prelude_rule(
         buck.test_rule_timeout_ms() |
         d_common.deps_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "linker_flags": attrs.list(attrs.string(), default = []),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 

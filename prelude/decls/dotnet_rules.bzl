@@ -78,11 +78,11 @@ csharp_library = prelude_rule(
             "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
                 The set of additional compiler flags to pass to the compiler.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -119,11 +119,11 @@ prebuilt_dotnet_library = prelude_rule(
             "assembly": attrs.source(doc = """
                 The path to the DLL that this rule provides.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

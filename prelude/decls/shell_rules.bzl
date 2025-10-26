@@ -84,13 +84,13 @@ sh_binary = prelude_rule(
                 By default, sh_binary attempts to use symbolic links for the resources. This can be changed so,
                 that copies are made instead.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "_target_os_type": buck.target_os_type_arg(),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -179,7 +179,6 @@ sh_test = prelude_rule(
             "type": attrs.option(attrs.string(), default = None, doc = """
                 If provided, this will be sent to any configured `.buckconfig`
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "list_args": attrs.option(attrs.list(attrs.string()), default = None),
@@ -192,6 +191,7 @@ sh_test = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         test_common.attributes() |
         re_test_common.test_args() |
         test_common.attributes()

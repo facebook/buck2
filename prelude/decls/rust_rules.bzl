@@ -21,9 +21,8 @@ load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")
 
 def _rust_common_attributes(is_binary: bool):
-    return buck.licenses_arg() | buck.labels_arg() | {
+    return buck.licenses_arg() | buck.labels_arg() | buck.contacts_arg() | {
         "clippy_configuration": attrs.option(attrs.dep(providers = [ClippyConfiguration]), default = None),
-        "contacts": attrs.list(attrs.string(), default = []),
         "coverage": attrs.bool(default = False),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "default_platform": attrs.option(attrs.string(), default = None),

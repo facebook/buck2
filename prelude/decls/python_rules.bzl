@@ -230,7 +230,6 @@ cxx_python_extension = prelude_rule(
         cxx_common.supports_stripping() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -280,7 +279,8 @@ cxx_python_extension = prelude_rule(
             "_python_toolchain": toolchains_common.python(),
             "_target_os_type": buck.target_os_type_arg(),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -347,7 +347,6 @@ prebuilt_python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
             "infer_cxx_header_dirs": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -366,7 +365,8 @@ prebuilt_python_library = prelude_rule(
             "_python_toolchain": toolchains_common.python(),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -435,7 +435,6 @@ python_binary = prelude_rule(
         {
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
@@ -448,6 +447,7 @@ python_binary = prelude_rule(
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
+        buck.contacts_arg() |
         buck.allow_cache_upload_arg() |
         _typing_arg() |
         _python_binary_attrs()
@@ -502,7 +502,6 @@ python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
@@ -517,6 +516,7 @@ python_library = prelude_rule(
             "_python_toolchain": toolchains_common.python(),
         } |
         buck.licenses_arg() |
+        buck.contacts_arg() |
         _typing_arg()
     ),
 )
@@ -560,7 +560,6 @@ python_test = prelude_rule(
         # @unsorted-dict-items
         {k: attrs.default_only(v) for k, v in cxx_rules.cxx_binary.attrs.items()} |
         buck.inject_test_env_arg() |
-        buck.labels_arg() |
         python_common.srcs_arg() |
         python_common.platform_srcs_arg() |
         python_common.resources_arg() |
@@ -609,7 +608,6 @@ python_test = prelude_rule(
             "additional_coverage_targets": attrs.list(attrs.dep(), default = []),
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
@@ -627,6 +625,8 @@ python_test = prelude_rule(
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
         _typing_arg() |
         test_common.attributes() |
         _python_test_attrs()
@@ -643,12 +643,12 @@ python_test_runner = prelude_rule(
         # @unsorted-dict-items
         buck.labels_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "main_module": attrs.string(default = ""),
             "src": attrs.source(),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 

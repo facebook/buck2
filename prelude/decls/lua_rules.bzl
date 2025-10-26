@@ -76,7 +76,6 @@ cxx_lua_extension = prelude_rule(
         cxx_common.linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -101,7 +100,8 @@ cxx_lua_extension = prelude_rule(
             "version_universe": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -137,7 +137,6 @@ lua_binary = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 `lua_library()` rules to this binary will access.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "native_starter_library": attrs.option(attrs.dep(), default = None),
             "package_style": attrs.option(attrs.enum(LuaPlatformPackageStyle), default = None),
@@ -145,7 +144,8 @@ lua_binary = prelude_rule(
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -182,12 +182,12 @@ lua_library = prelude_rule(
                 Other `lua_library()` rules which list `srcs` from
                  which this rule imports modules.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

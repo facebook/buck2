@@ -28,7 +28,6 @@ gwt_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "draft_compile": attrs.bool(default = False),
@@ -42,7 +41,8 @@ gwt_binary = prelude_rule(
             "vm_args": attrs.list(attrs.string(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -58,7 +58,6 @@ jar_genrule = prelude_rule(
             "cacheable": attrs.option(attrs.bool(), default = None),
             "cmd": attrs.option(attrs.arg(), default = None),
             "cmd_exe": attrs.option(attrs.arg(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
@@ -69,7 +68,8 @@ jar_genrule = prelude_rule(
             "type": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -81,7 +81,6 @@ java_annotation_processor = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
@@ -91,7 +90,8 @@ java_annotation_processor = prelude_rule(
             "runs_on_java_only": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -164,7 +164,6 @@ java_binary = prelude_rule(
                 ```
             """),
             "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_wrapper": attrs.bool(default = False),
@@ -177,7 +176,8 @@ java_binary = prelude_rule(
             "proguard_library_jars": attrs.list(attrs.source(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -296,7 +296,6 @@ java_library = prelude_rule(
         jvm_common.content_based_path_for_jar_snapshot() |
         jvm_common.classic_java_content_based_paths() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
@@ -308,6 +307,7 @@ java_library = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         validation_common.attrs_validators_arg()
     ),
 )
@@ -320,7 +320,6 @@ java_plugin = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
@@ -329,7 +328,8 @@ java_plugin = prelude_rule(
             "supports_abi_generation_from_source": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -409,7 +409,6 @@ java_test = prelude_rule(
         jvm_common.test_env() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
@@ -437,7 +436,8 @@ java_test = prelude_rule(
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         } |
-        buck.licenses_arg()
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.content_based_path_for_jar_snapshot() | jvm_common.classic_java_content_based_paths(),
 )
 
@@ -450,7 +450,6 @@ java_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
@@ -477,6 +476,7 @@ java_test_runner = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         jvm_common.annotation_processors() |
         jvm_common.plugins() |
         jvm_common.javac()
@@ -527,12 +527,11 @@ prebuilt_jar = prelude_rule(
                  `binary_jar`.
             """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Rules that must be built before this rule. Because the
+                 Rules that must be built before this rule. Because the
                  `binary_jar` is already built, there should be nothing to
                  build, so this should be empty.
             """),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_abi": attrs.bool(default = False),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -545,6 +544,7 @@ prebuilt_jar = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         jvm_common.content_based_path_for_jar_snapshot()
     ),
 )

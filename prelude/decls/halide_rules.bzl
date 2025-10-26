@@ -73,7 +73,6 @@ halide_library = prelude_rule(
         {
             "compiler_invocation_flags": attrs.list(attrs.string(), default = []),
             "configs": attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -115,7 +114,8 @@ halide_library = prelude_rule(
             "weak_framework_names": attrs.list(attrs.string(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

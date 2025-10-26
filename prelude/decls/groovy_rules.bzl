@@ -109,7 +109,6 @@ groovy_library = prelude_rule(
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
@@ -125,7 +124,8 @@ groovy_library = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ) | jvm_common.plugins() | jvm_common.javac(),
 )
 
@@ -140,7 +140,6 @@ groovy_test = prelude_rule(
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
@@ -183,7 +182,8 @@ groovy_test = prelude_rule(
             "vm_args": attrs.list(attrs.arg(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ) | jvm_common.plugins() | jvm_common.javac(),
 )
 

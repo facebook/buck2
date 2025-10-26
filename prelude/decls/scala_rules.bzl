@@ -21,7 +21,6 @@ scala_library = prelude_rule(
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
@@ -47,6 +46,7 @@ scala_library = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         jvm_common.plugins() |
         jvm_common.javac()
     ),
@@ -64,7 +64,6 @@ scala_test = prelude_rule(
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
@@ -107,6 +106,7 @@ scala_test = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         jvm_common.plugins() |
         jvm_common.javac()
     ),

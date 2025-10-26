@@ -16,8 +16,7 @@ def re_test_args():
     args = re_test_common.test_args()
     return {"remote_execution": args["remote_execution"]}
 
-common_attributes = buck.labels_arg() | {
-    "contacts": attrs.list(attrs.string(), default = []),
+common_attributes = buck.labels_arg() | buck.contacts_arg() | {
     "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
                 This attribute allows to set additional values for the operating system environment for invocations to the
                 Erlang toolchain.

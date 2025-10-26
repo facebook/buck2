@@ -130,7 +130,6 @@ kotlin_library = prelude_rule(
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
@@ -150,6 +149,7 @@ kotlin_library = prelude_rule(
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
+        buck.contacts_arg() |
         jvm_common.plugins() |
         jvm_common.should_kosabi_jvm_abi_gen_use_k2() |
         validation_common.attrs_validators_arg()
@@ -227,7 +227,6 @@ kotlin_test = prelude_rule(
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
@@ -264,6 +263,7 @@ kotlin_test = prelude_rule(
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
+        buck.contacts_arg() |
         test_common.attributes()
     ),
 )

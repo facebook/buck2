@@ -76,7 +76,6 @@ ocaml_binary = prelude_rule(
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "linker_flags": attrs.list(attrs.string(), default = []),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
@@ -86,7 +85,8 @@ ocaml_binary = prelude_rule(
             "warnings_flags": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -124,7 +124,6 @@ ocaml_library = prelude_rule(
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "native_plugin": attrs.bool(default = False),
@@ -133,7 +132,8 @@ ocaml_library = prelude_rule(
             "warnings_flags": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -149,7 +149,6 @@ prebuilt_ocaml_library = prelude_rule(
             "bytecode_lib": attrs.option(attrs.string(), default = None),
             "bytecode_only": attrs.bool(default = False),
             "c_libs": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "include_dir": attrs.string(default = ""),
@@ -160,7 +159,8 @@ prebuilt_ocaml_library = prelude_rule(
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

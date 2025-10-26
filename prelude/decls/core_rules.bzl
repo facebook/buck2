@@ -33,11 +33,11 @@ alias = prelude_rule(
         # @unsorted-dict-items
         {
             "actual": attrs.option(attrs.dep(pulls_and_pushes_plugins = plugins.All)),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -195,7 +195,6 @@ command_alias = prelude_rule(
                 If provided, use this name for the trampoline script (with an extension added if
                  required by the platform).
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "resources": attrs.list(attrs.source(), default = []),
             "run_using_single_arg": attrs.bool(default = False, doc = """
@@ -206,7 +205,8 @@ command_alias = prelude_rule(
             "_target_os_type": buck.target_os_type_arg(),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -260,7 +260,6 @@ configured_alias = prelude_rule(
             "actual": attrs.label(),
             "configured_actual": attrs.option(attrs.configured_dep(), default = None),
             "fallback_actual": attrs.option(attrs.dep(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             # We use a separate field instead of re-purposing `actual`, as we want
             # to keep output format compatibility with v1.
@@ -268,7 +267,8 @@ configured_alias = prelude_rule(
             "platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -398,11 +398,11 @@ export_file = prelude_rule(
             """),
             "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -416,11 +416,11 @@ external_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "binary": attrs.dep(),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -466,7 +466,6 @@ filegroup = prelude_rule(
                 Override the executable bit for every file in the filegroup. If not set, the executable bits are preserved.
                 Cannot be used if `copy` is set to false.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "has_content_based_path": attrs.bool(default = False),
             "out": attrs.option(attrs.string(), default = None, doc = """
@@ -475,7 +474,8 @@ filegroup = prelude_rule(
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -673,14 +673,14 @@ genrule = prelude_rule(
                  changes in the future.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "need_android_tools": attrs.bool(default = False),
             "_exec_os_type": buck.exec_os_type_arg(),
         } |
         genrule_common.error_handler_arg() |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -730,13 +730,13 @@ http_archive = prelude_rule(
         remote_common.sha256_arg() |
         remote_common.unarchive_args() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -823,13 +823,13 @@ http_file = prelude_rule(
                  this can also be used via `run` and the
                  `$(exe )` `string parameter macros`
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -951,12 +951,12 @@ remote_file = prelude_rule(
 
                  Zip archive which will be automatically unzipped into an output directory.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha256": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1043,11 +1043,11 @@ test_suite = prelude_rule(
             # This diff makes the behaviors match by adding a test_deps attribute to test_suite on buck2 that is used as a deps attribute. In the macro layer, we set test_deps = tests if we are using buck2.
             # For more context: https://fb.prod.workplace.com/groups/603286664133355/posts/682567096205311/?comment_id=682623719532982&reply_comment_id=682650609530293
             "test_deps": attrs.list(attrs.dep(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1074,12 +1074,12 @@ versioned_alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "versions": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1296,13 +1296,13 @@ worker_tool = prelude_rule(
                  rule being built more than once. Be careful not to use this setting with tools that don't expect
                  to process the same input—with different contents—twice!
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             # FIXME: prelude// should be standalone (not refer to fbsource//)
             "_worker_tool_runner": attrs.default_only(attrs.dep(default = "prelude//js/worker_runner:worker_tool_runner")),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1403,11 +1403,11 @@ zip_file = prelude_rule(
                 * `append`: all entries are added to the output file.
                 * `fail`: fail the build when duplicate entries are present.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

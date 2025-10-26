@@ -114,7 +114,6 @@ android_aar = prelude_rule(
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
@@ -156,7 +155,8 @@ android_aar = prelude_rule(
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac(),
 )
 
@@ -171,7 +171,6 @@ android_app_modularity = prelude_rule(
             "application_module_blocklist": attrs.option(attrs.list(attrs.dep()), default = None),
             "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), sorted = False, default = {}),
             "application_module_dependencies": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "no_dx": attrs.list(attrs.dep(), default = []),
@@ -179,7 +178,8 @@ android_app_modularity = prelude_rule(
             "should_include_libraries": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -207,7 +207,6 @@ android_binary = prelude_rule(
             "build_string_source_map": attrs.bool(default = False),
             "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "compress_asset_libraries": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_module_manifest_skeleton": attrs.option(attrs.source(), default = None),
@@ -282,7 +281,8 @@ android_binary = prelude_rule(
             "xz_compression_level": attrs.int(default = 4),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -417,11 +417,11 @@ android_build_config = prelude_rule(
                  Note that values\\_file can be a generated file, as can build\\_config\\_values\\_file as
                  demonstrated in the example below.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         jvm_common.content_based_path_for_jar_snapshot()
     ),
 )
@@ -451,7 +451,6 @@ android_bundle = prelude_rule(
             "bundle_config_file": attrs.option(attrs.source(), default = None),
             "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "compress_asset_libraries": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_module_manifest_skeleton": attrs.option(attrs.source(), default = None),
@@ -527,7 +526,8 @@ android_bundle = prelude_rule(
             "xz_compression_level": attrs.int(default = 4),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -593,7 +593,6 @@ android_instrumentation_apk = prelude_rule(
         } |
         android_common.deps_apk_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "disable_pre_dex": attrs.bool(default = False),
             "enable_bootstrap_dexes": attrs.bool(default = False),
@@ -605,7 +604,8 @@ android_instrumentation_apk = prelude_rule(
             "preprocess_java_classes_deps": attrs.list(attrs.dep(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -660,11 +660,11 @@ android_instrumentation_test = prelude_rule(
         buck.test_label_arg() |
         buck.test_rule_timeout_ms() |
         buck.licenses_arg() |
+        buck.contacts_arg() |
         {
             "clear_package_data": attrs.bool(default = False, doc = """
                 Runs `pm clear` on the app and test packages before the test run if set to True.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "disable_animations": attrs.bool(default = False, doc = """
                 Disables animations on the emulator if set to True.
@@ -785,7 +785,6 @@ android_library = prelude_rule(
                 List of classes to remove from the output jar. It only removes classes from the target's own
                  sources, not from any of its dependencies.
             """),
-                    "contacts": attrs.list(attrs.string(), default = []),
                     "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
                     "friend_paths": attrs.list(attrs.dep(), default = []),
                     "java_version": attrs.option(attrs.string(), default = None),
@@ -808,7 +807,8 @@ android_library = prelude_rule(
             jvm_common.should_kosabi_jvm_abi_gen_use_k2() |
             validation_common.validation_specs_arg() |
             buck.licenses_arg() |
-            buck.labels_arg(),
+            buck.labels_arg() |
+            buck.contacts_arg(),
 )
 
 android_manifest = prelude_rule(
@@ -872,11 +872,11 @@ android_manifest = prelude_rule(
                  `android_library()` rules will be filtered out to become dependent source files for
                  the manifest.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -948,7 +948,6 @@ android_prebuilt_aar = prelude_rule(
                  files originating from this `.aar` file. The `.so` files will always be packaged directly into
                  the main `.apk`.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
@@ -959,7 +958,8 @@ android_prebuilt_aar = prelude_rule(
         } |
         jvm_common.content_based_path_for_jar_snapshot() |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1021,13 +1021,13 @@ android_resource = prelude_rule(
         android_common.manifest_arg() |
         buck.licenses_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         {
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Other `android_resource` rules to include via `-S` when
                  running `aapt`.
             """),
             "allowlisted_locales": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "has_whitelisted_strings": attrs.bool(default = False),
             "resource_union": attrs.bool(default = False),
@@ -1117,7 +1117,6 @@ apk_genrule = prelude_rule(
                  `aab` can be provided.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "is_cacheable": attrs.bool(default = False),
@@ -1125,7 +1124,8 @@ apk_genrule = prelude_rule(
             "remote": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1181,11 +1181,11 @@ gen_aidl = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 A list of rules that must be built before this rule.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1223,12 +1223,12 @@ keystore = prelude_rule(
                 key.alias.password=alias_password
                 ```
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1277,11 +1277,11 @@ ndk_library = prelude_rule(
                  a non-standard location prevents Android from extracting them to the device's
                  internal storage.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1335,12 +1335,12 @@ prebuilt_native_library = prelude_rule(
                  script, which must be included in the primary APK to take effect. Only one
                  of `is_asset` and `has_wrap_script` can be set for a rule.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1366,7 +1366,6 @@ robolectric_test = prelude_rule(
             """),
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
@@ -1435,7 +1434,8 @@ robolectric_test = prelude_rule(
         re_test_common.test_args() |
         test_common.attributes() |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1447,7 +1447,6 @@ supermodule_target_graph = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.set(attrs.dep(), sorted = True, default = []),
             "label_pattern": attrs.option(attrs.regex(), default = None),
@@ -1455,7 +1454,8 @@ supermodule_target_graph = prelude_rule(
             "out": attrs.string(default = ""),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

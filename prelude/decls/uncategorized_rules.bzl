@@ -23,12 +23,12 @@ legacy_toolchain = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "toolchain_name": attrs.string(default = ""),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -40,7 +40,6 @@ ndk_toolchain = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime": attrs.option(attrs.enum(NdkCxxRuntime), default = None),
             "cxx_toolchain": attrs.dep(),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -49,7 +48,8 @@ ndk_toolchain = prelude_rule(
             "strip_apk_libs_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         } |
         buck.licenses_arg() |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
