@@ -26,6 +26,8 @@ common test hooks so that they can run in test shell
     get_hooks/0
 ]).
 
+-export_type([part/0]).
+
 %% gen_server callbacks
 -export([
     init/1,
@@ -45,7 +47,7 @@ common test hooks so that they can run in test shell
     | {end_per_group, group_name()}
     | {func_name(), group_name()}
     | func_name().
--type config() :: [{atom(), term()}].
+-type config() :: ct_suite:ct_config().
 
 -type hook() :: {atom(), id()}.
 -type state() :: #{
@@ -108,7 +110,9 @@ get_state(Id) ->
         Error = {error, {not_found, Details}} when is_list(Details) -> Error
     end.
 
--spec wrap(part(), [atom()], fun()) -> fun().
+-spec wrap(part(), [atom()], Fun) -> fun((Config) -> Res) when
+    Fun :: fun((Config) -> Res) | fun((GroupOrTest :: atom(), Config) -> Res),
+    Config :: config().
 wrap(Part, Path, Fun) ->
     WrappedFun = gen_server:call(?MODULE, {wrap, Part, Fun}),
     %% apply path as closure

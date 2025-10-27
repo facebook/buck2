@@ -10,6 +10,7 @@
 -moduledoc """
 Daemon for running Common Test in an iterative way from an Erlang Shell
 """.
+-compile(warn_missing_spec_all).
 
 -export([
     start/1, start/2,
