@@ -277,4 +277,6 @@ CxxRuleConstructorParams = record(
     use_fbcc_rust_wrapper = field(bool, False),
     # Precompiled header
     precompiled_header = field(Dependency | None, None),
+    # Prefix header
+    prefix_header = field(Artifact | None, None),
 )

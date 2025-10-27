@@ -196,6 +196,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
             allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
             precompiled_header = ctx.attrs.precompiled_header,
+            prefix_header = ctx.attrs.prefix_header,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 

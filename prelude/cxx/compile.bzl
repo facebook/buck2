@@ -1440,8 +1440,8 @@ def _mk_argsfiles(
         # Another thing is that it's clang specific, should be generalized.
         if impl_params.precompiled_header != None and not impl_params.precompiled_header[CPrecompiledHeaderInfo].compiled:
             target_args.add(["-include", headers_tag.tag_artifacts(impl_params.precompiled_header[CPrecompiledHeaderInfo].header)])
-        if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
-            target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+        if impl_params.prefix_header != None:
+            target_args.add(["-include", headers_tag.tag_artifacts(impl_params.prefix_header)])
 
         # filename example: .cpp.target_cxx_args
         target_argsfile_filename = filename_prefix + "target_cxx_args"
