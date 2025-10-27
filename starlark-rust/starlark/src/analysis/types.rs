@@ -155,7 +155,8 @@ impl EvalMessage {
 
     /// Create an `EvalMessage` from any kind of error
     ///
-    /// Prefer to use `from_error` if at all possible.
+    /// Prefer to use `from_error` if at all possible. This method will return an `EvalMessage`
+    /// without a span.
     pub fn from_any_error(file: &Path, x: &impl std::fmt::Display) -> Self {
         Self {
             path: file.display().to_string(),
