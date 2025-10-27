@@ -1154,9 +1154,10 @@ def _get_library_compile_output(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
         outs: list[CxxCompileOutput],
-        extra_link_input: list[Artifact]) -> _CxxLibraryCompileOutput:
+        extra_link_input: list[Artifact],
+        has_content_based_path: bool) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
-    stripped_objects = _strip_objects(ctx, objects)
+    stripped_objects = _strip_objects(ctx, objects, has_content_based_path)
 
     pch_object_output = [out.pch_object_output for out in outs if out.pch_object_output]
 
@@ -1279,6 +1280,7 @@ def cxx_compile_srcs(
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         outs = pic_cxx_outs,
         extra_link_input = impl_params.extra_link_input,
+        has_content_based_path = impl_params.use_content_based_paths,
     )
 
     non_pic = None
@@ -1304,6 +1306,7 @@ def cxx_compile_srcs(
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = non_pic_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
+            has_content_based_path = impl_params.use_content_based_paths,
         )
 
         if toolchain_supports_flavor(toolchain, CxxCompileFlavor("optimized")):
@@ -1325,6 +1328,7 @@ def cxx_compile_srcs(
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
                 outs = optimized_cxx_outs,
                 extra_link_input = impl_params.extra_link_input,
+                has_content_based_path = impl_params.use_content_based_paths,
             )
 
     pic_debuggable = None
@@ -1347,6 +1351,7 @@ def cxx_compile_srcs(
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = debuggable_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
+            has_content_based_path = impl_params.use_content_based_paths,
         )
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
@@ -1646,7 +1651,7 @@ def _form_library_outputs(
         sanitizer_runtime_files = sanitizer_runtime_files,
     )
 
-def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifact]:
+def _strip_objects(ctx: AnalysisContext, objects: list[Artifact], has_content_based_path: bool) -> list[Artifact]:
     """
     Return new objects with debug info stripped.
     """
@@ -1672,7 +1677,7 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
     for obj in objects:
         base, ext = paths.split_extension(obj.short_path)
         expect(ext == ".o")
-        outs.append(strip_debug_info(ctx, base + ".stripped.o", obj))
+        outs.append(strip_debug_info(ctx.actions, base + ".stripped.o", obj, cxx_toolchain_info, has_content_based_path = has_content_based_path))
 
     return outs
 

@@ -55,18 +55,18 @@ _anon_strip_debug_info = anon_rule(
 )
 
 def strip_debug_info(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         out: str,
         obj: Artifact,
-        anonymous: bool = False) -> Artifact:
-    actions = ctx.actions
-    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
-    has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False)
+        cxx_toolchain_info: CxxToolchainInfo | None = None,
+        cxx_toolchain: Dependency | None = None,
+        anonymous: bool = False,
+        has_content_based_path: bool = False) -> Artifact:
     if anonymous:
         strip_debug_info = actions.anon_target(
             _anon_strip_debug_info,
             dict(
-                _cxx_toolchain = ctx.attrs._cxx_toolchain,
+                _cxx_toolchain = cxx_toolchain,
                 out = out,
                 obj = obj,
                 has_content_based_path = has_content_based_path,

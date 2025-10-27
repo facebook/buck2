@@ -162,7 +162,7 @@ def _get_static_link_infos(
             expect(macro == "lib")
             lib = libs[int(param)]
             linkables.append(archive_linkable(lib))
-            linkables_stripped.append(archive_linkable(strip_debug_info(ctx, lib.short_path, lib, anonymous = True)))
+            linkables_stripped.append(archive_linkable(strip_debug_info(ctx.actions, lib.short_path, lib, anonymous = True, cxx_toolchain = ctx.attrs._cxx_toolchain)))
         elif linkables:
             # If we've already seen linkables, put remaining flags/args into
             # post-linker flags.

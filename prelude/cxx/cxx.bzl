@@ -437,7 +437,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     providers = []
 
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
     linker_type = linker_info.type
 
     # Parse library parameters.
@@ -466,7 +467,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Prepare the stripped static lib.
     static_lib_stripped = None
     if not ctx.attrs.prestripped and static_lib != None:
-        static_lib_stripped = strip_debug_info(ctx, static_lib.short_path, static_lib)
+        static_lib_stripped = strip_debug_info(ctx.actions, static_lib.short_path, static_lib, toolchain_info)
 
     # Prepare the stripped static PIC lib.  If the static PIC lib is the same
     # artifact as the static lib, then just re-use the stripped static lib.
@@ -475,7 +476,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         if static_lib == static_pic_lib:
             static_pic_lib_stripped = static_lib_stripped
         elif static_pic_lib != None:
-            static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
+            static_pic_lib_stripped = strip_debug_info(ctx.actions, static_pic_lib.short_path, static_pic_lib, toolchain_info)
 
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)

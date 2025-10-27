@@ -727,7 +727,7 @@ def rust_compile(
         dwp_output = None
 
     stripped_output = strip_debug_info(
-        ctx,
+        ctx.actions,
         paths.join(common_args.subdir, "stripped", output_filename(
             compile_ctx,
             attr_simple_crate_for_filenames(ctx),
@@ -735,6 +735,7 @@ def rust_compile(
             params,
         )),
         filtered_output,
+        compile_ctx.cxx_toolchain_info,
     )
 
     return RustcOutput(
