@@ -207,7 +207,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         providers = _create_apple_library_for_distribution_providers(ctx, providers)
     return providers
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
+def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     identifier = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -226,14 +226,14 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     # We use `-fsyntax-only` flag, so output will be not generated.
     # The output here is used for the identifier of the index unit file
     output_name = paths.join(
-        ctx.label.cell,
-        ctx.label.package,
-        ctx.label.name,
+        target_label.cell,
+        target_label.package,
+        target_label.name,
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
     )
     cmd.add(["-o", output_name])
 
-    index_store = ctx.actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
+    index_store = actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
 
     # Haven't use `-fdebug-prefix-map` for now, will use index-import to remap the path. But it's not ideal.
     cmd.add([
@@ -244,7 +244,7 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     ])
 
     category = "apple_cxx_index_store"
-    ctx.actions.run(
+    actions.run(
         cmd,
         category = category,
         identifier = identifier,
