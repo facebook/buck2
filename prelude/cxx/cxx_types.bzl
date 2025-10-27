@@ -281,4 +281,6 @@ CxxRuleConstructorParams = record(
     prefix_header = field(Artifact | None, None),
     # Store "_cxx_toolchain" as "Dependency" for use in "anon_target"
     _cxx_toolchain = field(Dependency | None, None),
+    # Use content-based filepaths for artifacts
+    use_content_based_paths = field(bool, False),
 )

@@ -1636,7 +1636,7 @@ def _generate_base_compile_command(
         uses_experimental_content_based_path_hashing = True,
     )
 
-    allow_content_based_paths = bool(compiler_info.supports_content_based_paths and getattr(ctx.attrs, "use_content_based_paths", False))
+    allow_content_based_paths = bool(compiler_info.supports_content_based_paths and impl_params.use_content_based_paths)
     return CxxCompileCommand(
         base_compile_cmd = base_compile_cmd,
         argsfile = argsfile,

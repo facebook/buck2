@@ -237,6 +237,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        use_content_based_paths = ctx.attrs.use_content_based_paths,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -310,6 +311,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        use_content_based_paths = ctx.attrs.use_content_based_paths,
     )
     output = cxx_executable(ctx, params)
 
@@ -849,6 +851,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        use_content_based_paths = ctx.attrs.use_content_based_paths,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 
