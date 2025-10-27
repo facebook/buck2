@@ -1228,6 +1228,8 @@ mod state_machine {
                 clean_period: std::time::Duration::from_secs(1),
                 artifact_ttl: std::time::Duration::from_secs(0),
                 start_offset: std::time::Duration::from_secs(0),
+                decreased_ttl_hours_disk_threshold: None,
+                decreased_ttl_hours: None,
                 dry_run: true,
             };
             let io = Arc::new(StubIoHandler::new(project_root.dupe()));

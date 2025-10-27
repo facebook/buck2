@@ -282,3 +282,36 @@ clean_stale_period_hours = 0.0001
     time.sleep(3)
     # Original output should be cleaned.
     assert not output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_scheduled_high_disk_usage(buck: Buck) -> None:
+    # Need to write to .buckconfig instead of passing cmd line args because
+    # the config used when creating daemon state does not include cmd line args (but maybe it should).
+    config_file = buck.cwd / ".buckconfig.local"
+    with open(config_file, "w") as f:
+        f.write(
+            """
+[buck2]
+clean_stale_enabled = true
+clean_stale_artifact_ttl_hours = 8
+clean_stale_start_offset_hours = 0
+# 0.0001h = 360ms
+clean_stale_period_hours = 0.0001
+clean_stale_low_disk_threshold = 100.0
+clean_stale_low_disk_artifact_ttl_hours = 0.0
+        """
+        )
+
+    # Just test that a clean runs if enabled via config.
+    # Build a target, output is stale immediately but won't be cleaned until restart.
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+    await buck.kill()
+    # Create a new daemon and build something else (could be any command that starts a daemon).
+    await buck.build("//declared:declared")
+    # Wait for at least one clean to run (but should have finished multiple cleans).
+    time.sleep(3)
+    # Original output should be cleaned.
+    assert not output.exists()

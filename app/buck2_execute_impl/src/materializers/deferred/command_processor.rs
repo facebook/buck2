@@ -16,6 +16,8 @@ use std::task::Context;
 use std::task::Poll;
 
 use buck2_core::buck2_env;
+use buck2_core::fs::fs_util::disk_space_stats;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -391,6 +393,41 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
+    fn get_artifact_ttl(
+        decreased_ttl_hours_disk_threshold: Option<f64>,
+        decreased_ttl_hours: Option<std::time::Duration>,
+        default_ttl: std::time::Duration,
+    ) -> std::time::Duration {
+        #[cfg(target_os = "windows")]
+        {
+            return default_ttl;
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let (threshold, lower_ttl) =
+                match (decreased_ttl_hours_disk_threshold, decreased_ttl_hours) {
+                    (Some(t), Some(l)) => (t, l),
+                    _ => return default_ttl,
+                };
+
+            let root_path_str = "/";
+
+            let disk_stats = match AbsPath::new(root_path_str).and_then(disk_space_stats) {
+                Ok(stats) => stats,
+                Err(e) => {
+                    let _unused = soft_error!("disk_space_stats", e);
+                    return default_ttl;
+                }
+            };
+            if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
+                lower_ttl
+            } else {
+                default_ttl
+            }
+        }
+    }
+
     pub(super) fn spawn<F>(&self, f: F) -> JoinHandle<F::Output>
     where
         F: std::future::Future + Send + 'static,
@@ -500,8 +537,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Op::CleanStaleRequest => {
                     if let Some(config) = clean_stale_config.as_ref() {
                         let dispatcher = self.daemon_dispatcher.dupe();
+
+                        let artifact_ttl = Self::get_artifact_ttl(
+                            config.decreased_ttl_hours_disk_threshold,
+                            config.decreased_ttl_hours,
+                            config.artifact_ttl,
+                        );
+
                         let cmd = CleanStaleArtifactsCommand {
-                            keep_since_time: chrono::Utc::now() - config.artifact_ttl,
+                            keep_since_time: chrono::Utc::now() - artifact_ttl,
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
