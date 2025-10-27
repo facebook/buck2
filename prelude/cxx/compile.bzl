@@ -1330,12 +1330,15 @@ def _mk_argsfiles(
             compiler_info_argsfile = mk_argsfile(compiler_info_filename, compiler_info_flags)
 
         if is_precompile:
+            if impl_params._cxx_toolchain == None:
+                # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
+                # AppleToolchain for C++20 modules. Update this if that changes.
+                fail("C++20 modules are not supported for AppleToolchain")
+
             filtered_info_argsfile = actions.anon_target(_filter_precompile_argsfile_anon_rule, {
                 "allow_cache_upload": impl_params.allow_cache_upload,
                 "src": compiler_info_argsfile,
-                # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
-                # AppleToolchain for C++20 modules. Update this if that changes.
-                "_cxx_toolchain": ctx.attrs._cxx_toolchain,
+                "_cxx_toolchain": impl_params._cxx_toolchain,
             }).artifact("argsfile")
 
             # TODO(nml): Currently we need to copy the output file so its content-based

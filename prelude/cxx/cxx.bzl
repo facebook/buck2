@@ -236,6 +236,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -308,6 +309,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
     output = cxx_executable(ctx, params)
 
@@ -846,6 +848,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

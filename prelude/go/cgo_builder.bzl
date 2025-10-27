@@ -194,6 +194,7 @@ def build_cgo(
             compiler_flags = go_toolchain.cxx_compiler_flags + c_flags + ctx.attrs.cxx_compiler_flags + get_target_sdk_version_flags(ctx),
             preprocessor_flags = cpp_flags + ctx.attrs.cxx_preprocessor_flags,
             anon_targets_allowed = anon_targets_allowed,
+            _cxx_toolchain = ctx.attrs._cxx_toolchain,
         ),
         # Create private header tree and propagate via args.
         [own_pre, cgo_headers_pre],

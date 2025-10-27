@@ -147,6 +147,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
