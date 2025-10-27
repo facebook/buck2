@@ -888,7 +888,7 @@ module "{}" {{
     extra_argsfile = None
     if extra_preprocessors:
         extra_argsfile = _mk_header_units_argsfile(
-            ctx = ctx,
+            actions = ctx.actions,
             compiler_info = compiler_info,
             preprocessor = cxx_merge_cpreprocessors(ctx.actions, extra_preprocessors, []),
             ext = CxxExtension(".cpp"),
@@ -995,7 +995,7 @@ def precompile_cxx(
             filename_prefix = "pre_",
         )
         header_units_argsfile = _mk_header_units_argsfile(
-            ctx,
+            ctx.actions,
             compiler_info,
             header_preprocessor_info,
             ext,
@@ -1510,7 +1510,7 @@ def _mk_argsfiles(
     )
 
 def _mk_header_units_argsfile(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
@@ -1547,7 +1547,7 @@ def _mk_header_units_argsfile(
     # usage of PCMs. See T225373444 and _mk_header_units_argsfile() below.
     args.add(preprocessor.set.project_as_args("header_units_args"))
     file_args = cmd_args(args, quote = "shell")
-    argsfile, _ = ctx.actions.write(
+    argsfile, _ = actions.write(
         file_name,
         file_args,
         allow_args = True,
@@ -1628,7 +1628,7 @@ def _generate_base_compile_command(
     xcode_argsfile = gen_argsfiles(is_xcode_argsfile = True)
 
     header_units_argsfile = _mk_header_units_argsfile(
-        ctx,
+        ctx.actions,
         compiler_info,
         pre,
         ext,
