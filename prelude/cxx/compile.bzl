@@ -299,15 +299,16 @@ def create_compile_cmds(
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
 
-def _compile_index_store(actions: AnalysisActions, latget_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
+def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     if src_compile_cmd.index_store_factory:
-        return src_compile_cmd.index_store_factory(actions, latget_label, src_compile_cmd, toolchain, compile_cmd)
+        return src_compile_cmd.index_store_factory(actions, target_label, src_compile_cmd, toolchain, compile_cmd)
     return None
 
 COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
 
 def _compile_single_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         toolchain: CxxToolchainInfo,
         default_object_format: CxxObjectFormat,
         bitcode_args: list,
@@ -325,7 +326,6 @@ def _compile_single_cxx(
     `src_compile_command` and other compilation options.
     """
 
-    actions = ctx.actions
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -359,7 +359,7 @@ def _compile_single_cxx(
         output_args = None
     elif compile_pch:
         if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
-            pch_object_output = ctx.actions.declare_output(
+            pch_object_output = actions.declare_output(
                 folder_name,
                 "{}.pch.o".format(filename_base),
             )
@@ -553,7 +553,7 @@ def _compile_single_cxx(
     index_store = None
 
     if CxxCompileFlavor("pic") in flavors:
-        index_store = _compile_index_store(ctx.actions, ctx.label, src_compile_cmd, toolchain, compile_index_store_cmd)
+        index_store = _compile_index_store(actions, target_label, src_compile_cmd, toolchain, compile_index_store_cmd)
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
     if compiler_type in ["clang", "gcc"]:
@@ -740,7 +740,8 @@ def compile_cxx(
 
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
-            ctx = ctx,
+            actions = ctx.actions,
+            target_label = ctx.label,
             toolchain = toolchain,
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
