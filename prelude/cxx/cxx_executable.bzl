@@ -268,7 +268,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             compile_flavors.add(CxxCompileFlavor("optimized"))
 
     cxx_outs = compile_cxx(
-        ctx = ctx,
+        actions = ctx.actions,
+        target_label = ctx.label,
+        toolchain = get_cxx_toolchain_info(ctx),
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = compile_flavors,
         provide_syntax_only = True,

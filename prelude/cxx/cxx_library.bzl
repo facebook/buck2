@@ -1262,7 +1262,9 @@ def cxx_compile_srcs(
 
     # Define object files.
     pic_cxx_outs = compile_cxx(
-        ctx = ctx,
+        actions = ctx.actions,
+        target_label = ctx.label,
+        toolchain = toolchain,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = set([CxxCompileFlavor("pic")]),
         provide_syntax_only = True,
@@ -1279,13 +1281,13 @@ def cxx_compile_srcs(
         extra_link_input = impl_params.extra_link_input,
     )
 
-    toolchain = get_cxx_toolchain_info(ctx)
-
     non_pic = None
     pic_optimized = None
     if preferred_linkage != Linkage("shared"):
         non_pic_cxx_outs = compile_cxx(
-            ctx = ctx,
+            actions = ctx.actions,
+            target_label = ctx.label,
+            toolchain = toolchain,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             flavors = set(),
             # Diagnostics from the pic and non-pic compilation would be
@@ -1306,7 +1308,9 @@ def cxx_compile_srcs(
 
         if toolchain_supports_flavor(toolchain, CxxCompileFlavor("optimized")):
             optimized_cxx_outs = compile_cxx(
-                ctx = ctx,
+                actions = ctx.actions,
+                target_label = ctx.label,
+                toolchain = toolchain,
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
                 flavors = set([CxxCompileFlavor("pic"), CxxCompileFlavor("optimized")]),
                 # Diagnostics from the pic and non-pic compilation would be
@@ -1326,7 +1330,9 @@ def cxx_compile_srcs(
     pic_debuggable = None
     if toolchain_supports_flavor(toolchain, CxxCompileFlavor("debug")):
         debuggable_cxx_outs = compile_cxx(
-            ctx = ctx,
+            actions = ctx.actions,
+            target_label = ctx.label,
+            toolchain = toolchain,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             flavors = set([CxxCompileFlavor("pic"), CxxCompileFlavor("debug")]),
             # Diagnostics from the pic and non-pic compilation would be

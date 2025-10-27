@@ -703,7 +703,9 @@ def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -
     return flavor_flags
 
 def compile_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        toolchain: CxxToolchainInfo,
         src_compile_cmds: list[CxxSrcCompileCommand],
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
@@ -715,7 +717,6 @@ def compile_cxx(
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
-    toolchain = get_cxx_toolchain_info(ctx)
     linker_info = toolchain.linker_info
 
     # Resolve the output format, which is a tristate of native (default being mach-o/elf/pe)
@@ -739,8 +740,8 @@ def compile_cxx(
 
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
-            actions = ctx.actions,
-            target_label = ctx.label,
+            actions = actions,
+            target_label = target_label,
             toolchain = toolchain,
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
