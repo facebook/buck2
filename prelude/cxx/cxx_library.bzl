@@ -580,7 +580,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # Link Groups
     link_group = get_link_group(ctx)
-    link_group_info = get_link_group_info(ctx)
+    link_group_info = impl_params.link_group_info or get_link_group_info(ctx)
 
     if link_group_info:
         link_groups = link_group_info.groups

@@ -72,6 +72,10 @@ load(
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
+load(
+    "@prelude//cxx:link_groups.bzl",
+    "get_link_group_info",
+)
 load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
     "@prelude//cxx:linker.bzl",
@@ -496,6 +500,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # Always provide the subtarget, so that clients don't need to handle conditional existence
     subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]
 
+    link_group_info = get_link_group_info(ctx)
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
@@ -532,6 +538,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
+        link_group_info = link_group_info,
         extra_linker_outputs_factory = _get_extra_linker_outputs,
         extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
         extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
