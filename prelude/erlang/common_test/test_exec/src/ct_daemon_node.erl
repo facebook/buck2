@@ -7,8 +7,6 @@
 
 %% @format
 -module(ct_daemon_node).
--eqwalizer(ignore).
-
 -compile(warn_missing_spec_all).
 
 -include_lib("kernel/include/logger.hrl").
@@ -30,14 +28,14 @@
 -type opt() ::
     {multiply_timetraps, number() | infinity}
     | {ct_hooks, [atom() | {atom(), [term()]}]}
-    | {output_dir, file:filename()}.
+    | {output_dir, file:filename_all()}.
 
 -export_type([config/0]).
 
 -doc """
 start node for running tests in isolated way and keep state
 """.
--spec start(ErlCommand) -> ok when
+-spec start(ErlCommand) -> ok | {error, {crash_on_startup, integer()}} when
     ErlCommand :: nonempty_list(binary()).
 start(ErlCommand) ->
     NodeName = list_to_atom(
@@ -125,8 +123,13 @@ stop() ->
 -spec get_node() -> node().
 get_node() ->
     case alive() of
-        true -> erlang:node(get_runner_pid());
-        false -> error(not_running)
+        true ->
+            case get_runner_pid() of
+                undefined -> error(not_running);
+                Pid -> erlang:node(Pid)
+            end;
+        false ->
+            error(not_running)
     end.
 
 -spec alive() -> boolean().
@@ -171,7 +174,10 @@ node_main([Parent, OutputDirAtom]) ->
     erlang:halt(0).
 
 %% internal
--spec ensure_distribution(longnames | shortnames, RandomName :: string(), Cookie :: atom()) -> ok.
+-spec ensure_distribution(Type, RandomName, Cookie) -> ok when
+    Type :: shortnames | longnames,
+    RandomName :: binary(),
+    Cookie :: atom().
 ensure_distribution(Type, RandomName, Cookie) ->
     case erlang:node() of
         'nonode@nohost' ->
@@ -193,8 +199,14 @@ ensure_distribution(Type, RandomName, Cookie) ->
     true = erlang:set_cookie(Cookie),
     ok.
 
--spec build_daemon_args(shortnames | longnames, node(), atom(), [opt()], file:filename_all()) ->
-    [string()].
+-spec build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
+    [string()]
+when
+    Type :: shortnames | longnames,
+    Node :: node(),
+    Cookie :: atom(),
+    Options :: [opt()],
+    OutputDir :: file:filename_all().
 build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
     DistArg =
         case Type of
@@ -213,7 +225,7 @@ build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
         convert_atom_arg(?MODULE),
         "node_main",
         convert_atom_arg(erlang:node()),
-        OutputDir
+        filename_all_to_string(OutputDir)
     ].
 
 -spec convert_atom_arg(atom()) -> string().
@@ -223,9 +235,12 @@ convert_atom_arg(Arg) ->
 -spec get_config_files() -> [file:filename_all()].
 get_config_files() ->
     %% get config files from command line
-    [F || {config, F} <- init:get_arguments()].
+    case init:get_argument(config) of
+        error -> [];
+        {ok, Configs} -> [F || ConfigFiles <- Configs, F <- ConfigFiles]
+    end.
 
--spec gen_output_dir(RandomName :: string()) -> file:filename().
+-spec gen_output_dir(RandomName :: file:filename_all()) -> file:filename_all().
 gen_output_dir(RandomName) ->
     BaseDir =
         case application:get_env(test_exec, ct_daemon_log_dir, undefined) of
@@ -240,9 +255,18 @@ gen_output_dir(RandomName) ->
         RandomName
     ]).
 
--spec random_name() -> io_lib:chars().
+-spec filename_all_to_string(file:filename_all()) -> string().
+filename_all_to_string(Bin) when is_binary(Bin) ->
+    binary_to_list(Bin);
+filename_all_to_string(String) when is_list(String) ->
+    String.
+
+-spec random_name() -> binary().
 random_name() ->
-    io_lib:format("~b-~b~ts", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]).
+    N = io_lib:format("~b-~b~ts", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]),
+    case unicode:characters_to_binary(N) of
+        Bin when is_binary(Bin) -> Bin
+    end.
 
 -spec get_domain_type() -> longnames | shortnames.
 get_domain_type() ->

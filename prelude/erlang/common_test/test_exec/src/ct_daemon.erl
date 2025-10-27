@@ -33,7 +33,7 @@ Daemon for running Common Test in an iterative way from an Erlang Shell
 -doc """
 start a test-node with random name and shortname
 """.
--spec start(ErlCommand) -> ok when
+-spec start(ErlCommand) -> ok | {error, {crash_on_startup, integer()}} when
     ErlCommand :: [binary()].
 start(ErlCommand) ->
     ct_daemon_node:start(ErlCommand).

@@ -289,7 +289,7 @@ start_test_node(
             proplists:get_value(args, PortSettings0, []),
 
     Env = proplists:get_value(env, PortSettings0, []),
-    LaunchEnv = [{"HOME", HomeDir} | Env],
+    LaunchEnv = [{"HOME", filename_all_to_string(HomeDir)} | Env],
 
     LaunchCD = proplists:get_value(cd, PortSettings0, HomeDir),
 
@@ -400,3 +400,9 @@ project_root() ->
             ?LOG_ERROR(#{directory => Dir, stat => FileInfo}),
             error({project_root_not_found, Dir})
     end.
+
+-spec filename_all_to_string(file:filename_all()) -> string().
+filename_all_to_string(Bin) when is_binary(Bin) ->
+    binary_to_list(Bin);
+filename_all_to_string(String) when is_list(String) ->
+    String.
