@@ -178,8 +178,9 @@ provide_output_file(
     #test_env{
         output_dir = OutputDir,
         tests = Tests,
-        suite = Suite
-    } = TestEnv,
+        suite = Suite,
+        artifact_annotation_mfa = ArtifactAnnotationFunction
+    },
     ResultExec,
     Status
 ) ->
@@ -224,9 +225,13 @@ provide_output_file(
                 end
         end,
     {ok, _ResultOuptuFile} = json_interfacer:write_json_output(OutputDir, Results),
-    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, ct_executor), OutputDir, TestEnv),
-    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, test_runner), OutputDir, TestEnv),
-    test_artifact_directory:prepare(OutputDir, TestEnv).
+    test_artifact_directory:link_to_artifact_dir(
+        test_logger:get_std_out(OutputDir, ct_executor), OutputDir, ArtifactAnnotationFunction
+    ),
+    test_artifact_directory:link_to_artifact_dir(
+        test_logger:get_std_out(OutputDir, test_runner), OutputDir, ArtifactAnnotationFunction
+    ),
+    test_artifact_directory:prepare(OutputDir, ArtifactAnnotationFunction).
 
 -spec decode_erlang_term(Bin :: binary()) -> dynamic().
 decode_erlang_term(Bin) ->

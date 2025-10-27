@@ -8,28 +8,7 @@
 -module(test_logger).
 -compile(warn_missing_spec_all).
 
--include_lib("common/include/buck_ct_records.hrl").
-
 -export([set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
-
--define(STUB_TEST_ENV, #test_env{
-    suite = ?MODULE,
-    tests = [],
-    suite_path = [],
-    output_dir = [],
-    dependencies = [],
-    test_spec_file = [],
-    output_format = json,
-    config_files = [],
-    providers = [],
-    ct_opts = [],
-    extra_flags = [],
-    common_app_env = #{},
-    erl_cmd = [],
-    artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
-    trampolines = [],
-    timeout = infinity
-}).
 
 -spec set_up_logger(LogDir, AppName, Type) -> ok when
     LogDir :: file:filename(),
@@ -51,7 +30,7 @@ set_up_logger(LogDir, AppName, Type) ->
             )
     end,
     configure_logger(Log),
-    test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, ?STUB_TEST_ENV).
+    test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, fun artifact_annotations:default_annotation/1).
 
 -spec configure_logger(file:filename_all()) -> ok.
 configure_logger(LogFile) ->

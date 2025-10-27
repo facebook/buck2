@@ -18,8 +18,6 @@ more testArtifactTypes. Those should be manually added to the
 test_artifact_type() here.
 """.
 
--include_lib("common/include/buck_ct_records.hrl").
-
 -type generic_blob() :: #{generic_blob := #{}}.
 -type generic_text_log() :: #{generic_text_log := #{}}.
 -type test_artifact_type() :: generic_blob() | generic_text_log().
@@ -40,9 +38,11 @@ test_artifact_type() here.
 -spec serialize(test_result_artifact_annotations()) -> iodata().
 serialize(ArtifactAnnotation) -> json:encode(ArtifactAnnotation).
 
--spec create_artifact_annotation(file:filename(), #test_env{}) -> test_result_artifact_annotations().
-create_artifact_annotation(FileName, TestEnv) ->
-    (TestEnv#test_env.artifact_annotation_mfa)(FileName).
+-spec create_artifact_annotation(FileName, AnnotationFunction) -> test_result_artifact_annotations() when
+    FileName :: file:filename(),
+    AnnotationFunction :: annotation_function().
+create_artifact_annotation(FileName, AnnotationFunction) ->
+    AnnotationFunction(FileName).
 
 -spec default_annotation(FileName :: file:filename()) -> test_result_artifact_annotations().
 default_annotation(FileName) ->
