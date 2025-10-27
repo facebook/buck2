@@ -287,4 +287,6 @@ CxxRuleConstructorParams = record(
     use_content_based_paths = field(bool, False),
     # Coverage instrumentation compiler flags
     coverage_instrumentation_compiler_flags = field(list[str], []),
+    # Separate debug info
+    separate_debug_info = field(bool, False),
 )

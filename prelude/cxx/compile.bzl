@@ -708,6 +708,7 @@ def compile_cxx(
         src_compile_cmds: list[CxxSrcCompileCommand],
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
+        separate_debug_info: bool,
         use_header_units: bool = False,
         precompiled_header: Dependency | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
@@ -735,7 +736,6 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
-    separate_debug_info = getattr(ctx.attrs, "separate_debug_info", False)
     cuda_compile_style = map_val(CudaCompileStyle, getattr(ctx.attrs, "cuda_compile_style", None))
 
     for src_compile_cmd in src_compile_cmds:

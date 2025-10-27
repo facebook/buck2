@@ -149,6 +149,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         prefix_header = ctx.attrs.prefix_header,
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
+        separate_debug_info = ctx.attrs.separate_debug_info,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)

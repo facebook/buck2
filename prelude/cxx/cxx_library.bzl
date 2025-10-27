@@ -1266,6 +1266,7 @@ def cxx_compile_srcs(
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = set([CxxCompileFlavor("pic")]),
         provide_syntax_only = True,
+        separate_debug_info = impl_params.separate_debug_info,
         use_header_units = impl_params.use_header_units,
         precompiled_header = impl_params.precompiled_header,
         compile_pch = compile_pch,
@@ -1289,6 +1290,7 @@ def cxx_compile_srcs(
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
+            separate_debug_info = impl_params.separate_debug_info,
             compile_pch = compile_pch,
             precompiled_header = impl_params.precompiled_header,
             use_header_units = impl_params.use_header_units,
@@ -1308,6 +1310,7 @@ def cxx_compile_srcs(
                 # Diagnostics from the pic and non-pic compilation would be
                 # identical. We can avoid instantiating a second set of actions.
                 provide_syntax_only = False,
+                separate_debug_info = impl_params.separate_debug_info,
                 use_header_units = impl_params.use_header_units,
             )
             pic_optimized = _get_library_compile_output(
@@ -1326,6 +1329,7 @@ def cxx_compile_srcs(
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
+            separate_debug_info = impl_params.separate_debug_info,
             use_header_units = impl_params.use_header_units,
         )
         pic_debuggable = _get_library_compile_output(

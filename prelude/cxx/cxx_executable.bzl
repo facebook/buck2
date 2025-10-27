@@ -272,6 +272,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = compile_flavors,
         provide_syntax_only = True,
+        separate_debug_info = impl_params.separate_debug_info,
         use_header_units = impl_params.use_header_units,
     )
 
