@@ -236,8 +236,9 @@ def create_compile_cmds(
     # Deduplicate shared arguments to save memory. If we compile multiple files
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
+    cxx_platform_info = get_cxx_platform_info(ctx)
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx, toolchain, impl_params, pre, headers_tag, ext)
+        cmd = _generate_base_compile_command(ctx.actions, ctx.label, toolchain, cxx_platform_info, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
@@ -1576,8 +1577,10 @@ def get_compiler_type(ctx: AnalysisContext, ext: CxxExtension) -> typing.Any:
     return compiler_info.compiler_type
 
 def _generate_base_compile_command(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         toolchain: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
@@ -1606,9 +1609,6 @@ def _generate_base_compile_command(
             )
 
     def gen_argsfiles(is_xcode_argsfile):
-        actions = ctx.actions
-        target_label = ctx.label
-        cxx_platform_info = get_cxx_platform_info(ctx)
         return _mk_argsfiles(
             actions,
             target_label,
@@ -1628,7 +1628,7 @@ def _generate_base_compile_command(
     xcode_argsfile = gen_argsfiles(is_xcode_argsfile = True)
 
     header_units_argsfile = _mk_header_units_argsfile(
-        ctx.actions,
+        actions,
         compiler_info,
         pre,
         ext,
