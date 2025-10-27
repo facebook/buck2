@@ -27,7 +27,7 @@ load(
     "CudaCompileStyle",  # @unused Used as a type
     "cuda_compile",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARG_SUBSTITUTIONS",
@@ -977,8 +977,13 @@ def precompile_cxx(
         base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper = True)
         ext = CxxExtension(".cpp")
         headers_tag = ctx.actions.artifact_tag()  # Currently ignored
+        actions = ctx.actions
+        target_label = ctx.label
+        cxx_platform_info = get_cxx_platform_info(ctx)
         argsfile = _mk_argsfiles(
-            ctx,
+            actions,
+            target_label,
+            cxx_platform_info,
             impl_params,
             compiler_info,
             header_preprocessor_info,
@@ -1275,7 +1280,9 @@ _filter_precompile_argsfile_anon_rule = anon_rule(
 )
 
 def _mk_argsfiles(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
@@ -1299,11 +1306,6 @@ def _mk_argsfiles(
 
     argsfiles = []
     args_list = []
-
-    # TODO(michaelpo): Create local variables to keep refactoring within this function.
-    actions = ctx.actions
-    target_label = ctx.label
-    cxx_platform_info = get_cxx_platform_info(ctx)
 
     def mk_argsfile(filename: str, args, use_dep_files_placeholder_for_content_based_paths: bool = False) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
@@ -1604,8 +1606,13 @@ def _generate_base_compile_command(
             )
 
     def gen_argsfiles(is_xcode_argsfile):
+        actions = ctx.actions
+        target_label = ctx.label
+        cxx_platform_info = get_cxx_platform_info(ctx)
         return _mk_argsfiles(
-            ctx,
+            actions,
+            target_label,
+            cxx_platform_info,
             impl_params,
             compiler_info,
             pre,
