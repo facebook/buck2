@@ -47,7 +47,7 @@ load(
     "get_headers_dep_files_flags_factory",
     "get_output_flags",
 )
-load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
 load(":cxx_types.bzl", "CxxRuleConstructorParams")
@@ -762,17 +762,17 @@ def _compiler_supports_header_units(compiler_info: typing.Any):
     return ("clang" in compiler_info.compiler_type and
             compiler_info.supports_two_phase_compilation)
 
-def _get_module_name(ctx: AnalysisContext, group_name: str) -> str:
+def _get_module_name(target_label: Label, group_name: str) -> str:
     return paths.normalize(paths.join(
         "__header_units__",
-        ctx.label.package,
-        "{}{}.h".format(ctx.label.name, group_name),
+        target_label.package,
+        "{}{}.h".format(target_label.name, group_name),
     ))
 
-def _get_import_filename(ctx: AnalysisContext, group_name: str) -> str:
+def _get_import_filename(target_label: Label, group_name: str) -> str:
     return paths.normalize(paths.join(
-        ctx.label.package,
-        "__import__{}{}.h".format(ctx.label.name, group_name),
+        target_label.package,
+        "__import__{}{}.h".format(target_label.name, group_name),
     ))
 
 def _is_standalone_header(header: CHeader) -> bool:
@@ -789,10 +789,10 @@ def _is_standalone_header(header: CHeader) -> bool:
     return True
 
 def _convert_raw_header(
-        ctx: AnalysisContext,
+        target_label: Label,
         raw_header: Artifact,
         include_dirs: list[CellPath]) -> CHeader:
-    package_prefix = str(ctx.label.path)
+    package_prefix = str(target_label.path)
     ns = paths.dirname(raw_header.short_path)
     for d in include_dirs:
         abs_dir = str(d)
@@ -809,7 +809,8 @@ def _convert_raw_header(
     )
 
 def _create_precompile_cmd(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         compiler_info: typing.Any,
         preprocessors: list[CPreprocessor],
         header_group: str | None,
@@ -818,7 +819,7 @@ def _create_precompile_cmd(
         cmd: CxxCompileCommand) -> CxxSrcPrecompileCommand:
     include_dirs = flatten([x.include_dirs for x in preprocessors])
     converted_headers = [
-        _convert_raw_header(ctx, raw_header, include_dirs)
+        _convert_raw_header(target_label, raw_header, include_dirs)
         for raw_header in flatten([x.raw_headers for x in preprocessors])
     ]
     header_group_regex = regex(header_group, fancy = False) if header_group else None
@@ -831,16 +832,16 @@ def _create_precompile_cmd(
 
     input_header_contents = cmd_args(header_paths, format = "#include \"{}\"")
 
-    module_name = _get_module_name(ctx, group_name)
-    import_name = _get_import_filename(ctx, group_name)
+    module_name = _get_module_name(target_label, group_name)
+    import_name = _get_import_filename(target_label, group_name)
 
-    input_header = ctx.actions.write(
+    input_header = actions.write(
         module_name,
         cmd_args(input_header_contents, cmd_args(["\n"])),
         uses_experimental_content_based_path_hashing = True,
     )
 
-    import_stub = ctx.actions.write(
+    import_stub = actions.write(
         import_name,
         """
 #ifdef FACEBOOK_CPP_HEADER_UNIT
@@ -861,13 +862,13 @@ module "{}" {{
   export *
 }}
 """.format(module_name, module_name)
-    modulemap_file = ctx.actions.write(
+    modulemap_file = actions.write(
         "module.modulemap" + group_name,
         modulemap_content,
         uses_experimental_content_based_path_hashing = True,
     )
 
-    src_dir = ctx.actions.symlinked_dir(
+    src_dir = actions.symlinked_dir(
         "header-unit" + group_name,
         symlinked_files | {
             module_name: input_header,
@@ -890,9 +891,9 @@ module "{}" {{
     extra_argsfile = None
     if extra_preprocessors:
         extra_argsfile = _mk_header_units_argsfile(
-            actions = ctx.actions,
+            actions = actions,
             compiler_info = compiler_info,
-            preprocessor = cxx_merge_cpreprocessors(ctx.actions, extra_preprocessors, []),
+            preprocessor = cxx_merge_cpreprocessors(actions, extra_preprocessors, []),
             ext = CxxExtension(".cpp"),
             uses_experimental_content_based_path_hashing = True,
             filename_prefix = "export{}_".format(group_name),
@@ -912,7 +913,8 @@ module "{}" {{
     )
 
 def _precompile_single_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         toolchain: CxxToolchainInfo,
         impl_params: CxxRuleConstructorParams,
         group_name: str,
@@ -920,7 +922,7 @@ def _precompile_single_cxx(
     identifier = src_compile_cmd.src.short_path
 
     filename = "{}.pcm".format(identifier)
-    module = ctx.actions.declare_output(
+    module = actions.declare_output(
         "__pcm_files__",
         filename,
         uses_experimental_content_based_path_hashing = True,
@@ -938,14 +940,14 @@ def _precompile_single_cxx(
     clang_trace = None
     if toolchain.clang_trace and toolchain.cxx_compiler_info.compiler_type == "clang":
         cmd.add(["-ftime-trace"])
-        clang_trace = ctx.actions.declare_output(
+        clang_trace = actions.declare_output(
             paths.join("__pcm_files__", "{}.json".format(identifier)),
             uses_experimental_content_based_path_hashing = True,
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
     # TODO(nml): We don't meaningfully support dep files. See T225373444.
-    ctx.actions.run(
+    actions.run(
         cmd,
         category = "cxx_modules_precompile",
         identifier = identifier,
@@ -954,15 +956,18 @@ def _precompile_single_cxx(
     )
 
     return HeaderUnit(
-        name = _get_module_name(ctx, group_name),
+        name = _get_module_name(target_label, group_name),
         module = module,
         include_dir = src_compile_cmd.src,
-        import_include = _get_import_filename(ctx, group_name) if impl_params.export_header_unit == "preload" else None,
+        import_include = _get_import_filename(target_label, group_name) if impl_params.export_header_unit == "preload" else None,
         clang_trace = clang_trace,
     )
 
 def precompile_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        toolchain: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         preprocessors: list[CPreprocessor],
         header_preprocessor_info: CPreprocessorInfo) -> list[CPreprocessor]:
@@ -970,7 +975,6 @@ def precompile_cxx(
     Produces header units for the target and returns a list of preprocessors enabling
     them; depending on those preprocessors will allow the corresponding module to load.
     """
-    toolchain = get_cxx_toolchain_info(ctx)
     compiler_info = toolchain.cxx_compiler_info
     if not _compiler_supports_header_units(compiler_info):
         return []
@@ -978,10 +982,7 @@ def precompile_cxx(
     def mk_base_cmd():
         base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper = True)
         ext = CxxExtension(".cpp")
-        headers_tag = ctx.actions.artifact_tag()  # Currently ignored
-        actions = ctx.actions
-        target_label = ctx.label
-        cxx_platform_info = get_cxx_platform_info(ctx)
+        headers_tag = actions.artifact_tag()  # Currently ignored
         argsfile = _mk_argsfiles(
             actions,
             target_label,
@@ -997,7 +998,7 @@ def precompile_cxx(
             filename_prefix = "pre_",
         )
         header_units_argsfile = _mk_header_units_argsfile(
-            ctx.actions,
+            actions,
             compiler_info,
             header_preprocessor_info,
             ext,
@@ -1024,7 +1025,8 @@ def precompile_cxx(
         if impl_params.export_header_unit_filter:
             group = impl_params.export_header_unit_filter[0]
         precompile_cmd = _create_precompile_cmd(
-            ctx = ctx,
+            actions = actions,
+            target_label = target_label,
             compiler_info = toolchain.cxx_compiler_info,
             preprocessors = preprocessors,
             header_group = group,
@@ -1032,7 +1034,7 @@ def precompile_cxx(
             extra_preprocessors = [],
             cmd = cmd,
         )
-        header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, "", precompile_cmd)
+        header_unit = _precompile_single_cxx(actions, target_label, toolchain, impl_params, "", precompile_cmd)
         header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
     else:
         # Chain preprocessors in order.
@@ -1040,7 +1042,8 @@ def precompile_cxx(
         for header_group in impl_params.export_header_unit_filter:
             name = ".{}".format(i)
             precompile_cmd = _create_precompile_cmd(
-                ctx = ctx,
+                actions = actions,
+                target_label = target_label,
                 compiler_info = toolchain.cxx_compiler_info,
                 preprocessors = preprocessors,
                 header_group = header_group,
@@ -1048,7 +1051,7 @@ def precompile_cxx(
                 extra_preprocessors = header_unit_preprocessors,
                 cmd = cmd,
             )
-            header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, name, precompile_cmd)
+            header_unit = _precompile_single_cxx(actions, target_label, toolchain, impl_params, name, precompile_cmd)
             header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
             i += 1
 

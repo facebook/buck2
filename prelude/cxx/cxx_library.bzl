@@ -1226,12 +1226,15 @@ def cxx_compile_srcs(
     Compile objects we'll need for archives and shared libraries.
     """
 
+    toolchain = get_cxx_toolchain_info(ctx)
+    cxx_platform_info = get_cxx_platform_info(ctx)
+
     # Create the commands and argsfiles to use for compiling each source file
     compile_cmd_output = create_compile_cmds(
         actions = ctx.actions,
         target_label = ctx.label,
-        toolchain = get_cxx_toolchain_info(ctx),
-        cxx_platform_info = get_cxx_platform_info(ctx),
+        toolchain = toolchain,
+        cxx_platform_info = cxx_platform_info,
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
@@ -1248,7 +1251,10 @@ def cxx_compile_srcs(
             inherited_exported_preprocessor_infos,
         )
         header_unit_preprocessors.extend(precompile_cxx(
-            ctx = ctx,
+            actions = ctx.actions,
+            target_label = ctx.label,
+            toolchain = toolchain,
+            cxx_platform_info = cxx_platform_info,
             impl_params = impl_params,
             preprocessors = own_exported_preprocessors,
             header_preprocessor_info = header_preprocessor_info,
