@@ -182,9 +182,12 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
 
 fn eden_network_error_tag(code: i32) -> ErrorTag {
     const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+    const CURLE_RECV_ERROR: i32 = curl_sys::CURLE_RECV_ERROR as i32;
+    const CURLE_SSL_CERTPROBLEM: i32 = curl_sys::CURLE_SSL_CERTPROBLEM as i32;
 
     match code {
         CURLE_OPERATION_TIMEDOUT => ErrorTag::IoEdenNetworkCurlTimedout, // 28
+        CURLE_RECV_ERROR | CURLE_SSL_CERTPROBLEM => ErrorTag::IoEdenNetworkTls, // 56 and 58
         401 => ErrorTag::HttpUnauthorized, // http::StatusCode::UNAUTHORIZED
         403 => ErrorTag::HttpForbidden,    // http::StatusCode::FORBIDDEN
         503 => ErrorTag::HttpServiceUnavailable, // http::StatusCode::SERVICE_UNAVAILABLE
