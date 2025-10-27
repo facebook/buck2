@@ -72,6 +72,7 @@ load(
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_val")
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -135,6 +136,20 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             swift_compile,
         )
 
+        link_group_info = get_link_group_info(ctx)
+        binary_subtargets = {
+            "swift-compilation-database": [
+                DefaultInfo(
+                    default_output = swift_compile.compilation_database.db if swift_compile else None,
+                    other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
+                ),
+            ],
+        } | get_xplugins_usage_subtargets(
+            ctx,
+            usage_info = get_xplugins_usage_info(ctx),
+            link_group_info = link_group_info,
+        )
+
         validation_deps_outputs = get_validation_deps_outputs(ctx)
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
@@ -151,14 +166,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 # follow.
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
-                subtargets = {
-                    "swift-compilation-database": [
-                        DefaultInfo(
-                            default_output = swift_compile.compilation_database.db if swift_compile else None,
-                            other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
-                        ),
-                    ],
-                },
+                subtargets = binary_subtargets,
                 external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
             ),
             extra_link_input = swift_object_files,
@@ -167,7 +175,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             strip_executable = stripped,
             strip_args_factory = apple_strip_args,
             cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: apple_populate_xcode_attributes(local_ctx, contains_swift_sources = contains_swift_sources, **kwargs),
-            link_group_info = get_link_group_info(ctx),
+            link_group_info = link_group_info,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
             # Some apple rules rely on `static` libs *not* following dependents.
             link_groups_force_static_follows_dependents = False,

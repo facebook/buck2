@@ -6,8 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:artifact_tset.bzl", "ArtifactTSet")
-
 XPluginsPluginUsageInfo = provider(fields = {
     "target": provider_field(Label),
     "usage_info": provider_field(Artifact),
@@ -18,7 +16,16 @@ XPluginsSocketUsageInfo = provider(fields = {
     "usage_info": provider_field(Artifact),
 })
 
+def _get_artifacts(values: list[XPluginsPluginUsageInfo | XPluginsSocketUsageInfo]) -> list[Artifact]:
+    return [v.usage_info for v in values]
+
+XPluginsUsageInfoSet = transitive_set(
+    args_projections = {
+        "artifacts": _get_artifacts,
+    },
+)
+
 XPluginsUsageInfo = provider(fields = {
-    "plugin_info_tset": provider_field(ArtifactTSet),
-    "socket_info_tset": provider_field(ArtifactTSet),
+    "plugin_info_tset": provider_field(XPluginsUsageInfoSet),
+    "socket_info_tset": provider_field(XPluginsUsageInfoSet),
 })
