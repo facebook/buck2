@@ -227,7 +227,7 @@ CxxExecutableOutput = record(
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
     # Gather preprocessor inputs.
-    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
+    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [impl_params.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,

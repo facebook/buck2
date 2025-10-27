@@ -316,7 +316,7 @@ def _compile_single_cxx(
         use_header_units: bool,
         separate_debug_info: bool,
         cuda_compile_style: CudaCompileStyle | None,
-        precompiled_header: CPrecompiledHeaderInfo | None = None,
+        precompiled_header: Dependency | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
@@ -387,8 +387,8 @@ def _compile_single_cxx(
         output_args = output_args,
     )
 
-    if precompiled_header and precompiled_header.compiled:
-        pch_info = ctx.attrs.precompiled_header[DefaultInfo].sub_targets["pch"]
+    if precompiled_header and precompiled_header[CPrecompiledHeaderInfo] and precompiled_header[CPrecompiledHeaderInfo].compiled:
+        pch_info = precompiled_header[DefaultInfo].sub_targets["pch"]
         pch_subtargets = pch_info.get(DefaultInfo).sub_targets
 
         pch_flavor = "default"
@@ -396,7 +396,7 @@ def _compile_single_cxx(
             pch_flavor = flavor.value if flavor.value else pch_flavor
 
         target = pch_subtargets[pch_flavor].get(CPrecompiledHeaderInfo)
-        cmd.add(_get_use_pch_args(src_compile_cmd, target, precompiled_header))
+        cmd.add(_get_use_pch_args(src_compile_cmd, target, precompiled_header[CPrecompiledHeaderInfo]))
 
     action_dep_files = {}
 
@@ -509,7 +509,7 @@ def _compile_single_cxx(
             dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
         is_producing_compiled_pch = bool(compile_pch)
-        is_consuming_compiled_pch = bool(precompiled_header and precompiled_header.compiled)
+        is_consuming_compiled_pch = bool(precompiled_header and precompiled_header[CPrecompiledHeaderInfo].compiled)
         actions.run(
             cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
@@ -707,7 +707,7 @@ def compile_cxx(
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
         use_header_units: bool = False,
-        precompiled_header: CPrecompiledHeaderInfo | None = None,
+        precompiled_header: Dependency | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
@@ -1438,8 +1438,8 @@ def _mk_argsfiles(
 
         # Workaround as that's not precompiled, but working just as prefix header.
         # Another thing is that it's clang specific, should be generalized.
-        if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None and not ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].compiled:
-            target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
+        if impl_params.precompiled_header != None and not impl_params.precompiled_header[CPrecompiledHeaderInfo].compiled:
+            target_args.add(["-include", headers_tag.tag_artifacts(impl_params.precompiled_header[CPrecompiledHeaderInfo].header)])
         if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
             target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 

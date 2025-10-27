@@ -275,4 +275,6 @@ CxxRuleConstructorParams = record(
     extra_diagnostics = field(dict[str, Artifact] | None, None),
     # Whether to use fbcc Rust wrapper
     use_fbcc_rust_wrapper = field(bool, False),
+    # Precompiled header
+    precompiled_header = field(Dependency | None, None),
 )

@@ -410,8 +410,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     non_exported_deps = cxx_attr_deps(ctx)
     exported_deps = cxx_attr_exported_deps(ctx)
 
-    precompiled_header = ctx.attrs.precompiled_header[CPrecompiledHeaderInfo] if ctx.attrs.precompiled_header else None
-
     compile_pch = None
     pch_clanguage = None
     if impl_params.rule_type == "cxx_precompiled_header":
@@ -459,7 +457,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
         # Legacy precompiled_header implementation is not exported. Proper precompiled headers can have exported linkables.
-        non_exported_deps + filter(None, [ctx.attrs.precompiled_header if precompiled_header and not precompiled_header.compiled else None]),
+        non_exported_deps + filter(None, [impl_params.precompiled_header if impl_params.precompiled_header and not impl_params.precompiled_header[CPrecompiledHeaderInfo].compiled else None]),
     )
     inherited_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(exported_deps)
 
@@ -474,7 +472,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
         preferred_linkage = preferred_linkage,
-        precompiled_header = precompiled_header,
         compile_pch = compile_pch,
         add_coverage_instrumentation_compiler_flags = needs_coverage(exported_needs_coverage),
     )
@@ -724,7 +721,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_providers.merged_native_link_info or impl_params.generate_providers.template_placeholders:
         # Gather link inputs.
         # Windows needs to include a linkable PCH object, this is not required for other platforms
-        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [ctx.attrs.precompiled_header]))
+        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps + filter(None, [impl_params.precompiled_header]))
         inherited_exported_link = cxx_inherited_link_info(exported_deps)
 
         merged_native_link_info = create_merged_link_info(
@@ -1223,7 +1220,6 @@ def cxx_compile_srcs(
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo],
         preferred_linkage: Linkage,
         add_coverage_instrumentation_compiler_flags: bool,
-        precompiled_header: CPrecompiledHeaderInfo | None = None,
         compile_pch: CxxPrecompiledHeader | None = None,
         own_exported_preprocessors: list[CPreprocessor] = []) -> _CxxCompiledSourcesOutput:
     """
@@ -1263,7 +1259,7 @@ def cxx_compile_srcs(
         flavors = set([CxxCompileFlavor("pic")]),
         provide_syntax_only = True,
         use_header_units = impl_params.use_header_units,
-        precompiled_header = precompiled_header,
+        precompiled_header = impl_params.precompiled_header,
         compile_pch = compile_pch,
     )
     pic = _get_library_compile_output(
@@ -1286,7 +1282,7 @@ def cxx_compile_srcs(
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
             compile_pch = compile_pch,
-            precompiled_header = precompiled_header,
+            precompiled_header = impl_params.precompiled_header,
             use_header_units = impl_params.use_header_units,
         )
         non_pic = _get_library_compile_output(
