@@ -681,10 +681,14 @@ def _semanticdb_subtarget(
             )
         kwargs = common_kotlincd_kwargs
         if semanticdb_kotlinc:
-            kotlin_compiler_plugins = [(semanticdb_kotlinc, {
+            # IMPORTANT: Append semanticdb to existing plugins, don't replace them
+            # This ensures other plugins (like Ultralight DI) continue to work
+            existing_plugins = common_kotlincd_kwargs.get("kotlin_compiler_plugins", [])
+            semanticdb_plugin = (semanticdb_kotlinc, {
                 "plugin:semanticdb-kotlinc:sourceroot": sourceroot,
                 "plugin:semanticdb-kotlinc:targetroot": cmd_args(semanticdb_output.as_output()),
-            })]
+            })
+            kotlin_compiler_plugins = existing_plugins + [semanticdb_plugin]
             kwargs = common_kotlincd_kwargs | {"kotlin_compiler_plugins": kotlin_compiler_plugins}
         create_jar_artifact_kotlincd(
             actions_identifier = "semanticdb",
