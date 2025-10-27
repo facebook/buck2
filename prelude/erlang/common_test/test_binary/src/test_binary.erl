@@ -173,7 +173,8 @@ running(Args) ->
     TestInfo0 = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo0, AbsOutputDir),
     ExtraEmuFlags = edb_extra_emu_flags(EdbCode),
-    Timeout = max_timeout(TestInfo0),
+    Timeout = max_timeout(TestInfo0, EdbCode),
+
     TestInfo1 = TestInfo0#test_info{extra_flags = ExtraEmuFlags ++ TestInfo0#test_info.extra_flags},
     case StartEpmd of
         false -> application:set_env(test_exec, global_epmd_port, global_epmd_port());
@@ -250,9 +251,13 @@ edb_extra_emu_flags(EdbCode) ->
         end,
     [~"-eval", CodeToInject].
 
--spec max_timeout(TestInfo) -> timeout() when
-    TestInfo :: #test_info{}.
-max_timeout(TestInfo) ->
+-spec max_timeout(TestInfo, EdbCode) -> timeout() when
+    TestInfo :: #test_info{},
+    EdbCode :: string() | none.
+max_timeout(_TestInfo, EdbCode) when EdbCode /= none ->
+    % We are in a debugging session, so we don't want to ever timeout the suite
+    infinity;
+max_timeout(TestInfo, _EdbCode = none) ->
     case os:getenv("TPX_TIMEOUT_SEC") of
         false ->
             CtOpts = TestInfo#test_info.ct_opts,
