@@ -38,6 +38,8 @@
 %% please dialyzer
 -export([ok_group/1, fail_group/1]).
 
+-import(common_util, [unicode_characters_to_list/1]).
+
 %% For tests purposes
 
 -include("method_ids.hrl").
@@ -548,7 +550,7 @@ add_result(
                                         filename:dirname(OutputFile), "ct_executor.stdout.txt"
                                     )
                             end,
-                        unicode_characters_to_string(
+                        unicode_characters_to_list(
                             io_lib:format(
                                 "The stdout logs have been truncated, see ~ts for the full suite stdout. Showing tail below\n~s",
                                 [StdOutLocation, Io]
@@ -564,7 +566,7 @@ add_result(
     Result0 = #{
         name => QualifiedName,
         outcome => Outcome,
-        details => unicode_characters_to_string(Desc),
+        details => unicode_characters_to_list(Desc),
         std_out => StdOut
     },
     Result =
@@ -764,10 +766,4 @@ is_running_in_sandcastle() ->
                 false -> false;
                 _ -> true
             end
-    end.
-
--spec unicode_characters_to_string(unicode:chardata()) -> string().
-unicode_characters_to_string(Chars) ->
-    case unicode:characters_to_list(Chars) of
-        String when is_list(String) -> String
     end.

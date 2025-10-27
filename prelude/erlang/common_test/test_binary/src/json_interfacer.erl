@@ -13,6 +13,8 @@
 
 -export([write_json_output/2, format_json/1, status_name/1]).
 
+-import(common_util, [unicode_characters_to_binary/1]).
+
 -define(PASSED, <<"PASSED">>).
 -define(FAILED, <<"FAILED">>).
 -define(SKIPPED, <<"SKIPPED">>).
@@ -129,9 +131,3 @@ name_to_binary(Name) when is_atom(Name) ->
     atom_to_binary(Name);
 name_to_binary(Name) when is_list(Name) ->
     unicode_characters_to_binary(Name).
-
--spec unicode_characters_to_binary(io_lib:chars()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    case unicode:characters_to_binary(Chars) of
-        Binary when is_binary(Binary) -> Binary
-    end.

@@ -16,6 +16,8 @@
     list_test_spec/1, list_test_spec/2
 ]).
 
+-import(common_util, [unicode_characters_to_binary/1]).
+
 %% Fallback oncall
 -define(FALLBACK_ONCALL, <<"fallback_oncall">>).
 
@@ -236,11 +238,7 @@ test_format(Suite, Groups, Test) ->
         "",
         ListPeriodGroups
     ),
-    case unicode:characters_to_binary(io_lib:format("~ts.~ts", [GroupString, Test]), unicode) of
-        Error = {'incomplete', _List, _Rest} -> error(Error);
-        Error = {'error', _List, _Binary} -> error(Error);
-        Binary -> Binary
-    end.
+    unicode_characters_to_binary(io_lib:format("~ts.~ts", [GroupString, Test])).
 
 -spec list_test_spec(suite()) -> [binary()].
 list_test_spec(Suite) ->
@@ -290,10 +288,10 @@ extract_attribute(Attribute, [Form | Forms]) ->
                             [AttrArg] ->
                                 case erl_syntax:type(AttrArg) of
                                     string ->
-                                        [list_string_to_binary(erl_syntax:string_value(AttrArg))];
+                                        [unicode_characters_to_binary(erl_syntax:string_value(AttrArg))];
                                     list ->
                                         [
-                                            list_string_to_binary(erl_syntax:string_value(S))
+                                            unicode_characters_to_binary(erl_syntax:string_value(S))
                                          || S <- erl_syntax:list_elements(AttrArg), erl_syntax:type(S) =:= string
                                         ];
                                     _ ->
@@ -306,11 +304,4 @@ extract_attribute(Attribute, [Form | Forms]) ->
             FoundHere ++ extract_attribute(Attribute, Forms);
         _ ->
             extract_attribute(Attribute, Forms)
-    end.
-
--spec list_string_to_binary(string()) -> binary().
-list_string_to_binary(Str) when is_list(Str) ->
-    Bin = unicode:characters_to_binary(Str),
-    if
-        is_binary(Bin) -> Bin
     end.

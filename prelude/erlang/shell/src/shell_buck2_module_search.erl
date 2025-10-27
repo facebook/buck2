@@ -15,6 +15,8 @@
 Configurable hook for module discovery
 """.
 
+-import(common_util, [unicode_characters_to_list/1]).
+
 -eqwalizer(ignore).
 
 -callback find_module_source(module()) ->
@@ -74,9 +76,7 @@ find_module_source(Module) ->
     ]),
     case
         [
-            case unicode:characters_to_list(RelPath) of
-                Value when not is_tuple(Value) -> Value
-            end
+            unicode_characters_to_list(RelPath)
          || RelPath <- [
                 string:prefix(Path, [Root, "/"])
              || Path <- string:split(Output, "\n", all)

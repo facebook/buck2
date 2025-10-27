@@ -17,6 +17,8 @@
 
 -export([parse_test_name/2]).
 
+-import(common_util, [unicode_characters_to_list/1, unicode_characters_to_binary/1]).
+
 -define(DEFAULT_OUTPUT_FORMAT, json).
 
 -spec run_tests(Tests, TestInfo, OutputDir, Listing, Timeout) -> ok when
@@ -354,7 +356,7 @@ specifying the result output.
     OutputDir :: file:filename_all(),
     CtOpts :: [term()].
 build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
-    TestDir = unicode:characters_to_list(TestDir0),
+    TestDir = unicode_characters_to_list(TestDir0),
     ListGroupTest = get_requested_tests(Tests),
     SpecTests = lists:map(
         fun
@@ -493,17 +495,3 @@ check_ct_opts(CtOpts) ->
         end,
         ProblematicsOpts
     ).
-
--spec unicode_characters_to_binary(unicode:chardata()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    Bin = unicode:characters_to_binary(Chars),
-    if
-        is_binary(Bin) -> Bin
-    end.
-
--spec unicode_characters_to_list(unicode:chardata()) -> string().
-unicode_characters_to_list(Chars) ->
-    Str = unicode:characters_to_list(Chars),
-    if
-        is_list(Str) -> Str
-    end.

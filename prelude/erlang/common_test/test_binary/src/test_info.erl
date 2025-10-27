@@ -8,6 +8,8 @@
 -type test_info() :: #test_info{}.
 -export_type([test_info/0]).
 
+-import(common_util, [unicode_characters_to_list/1, unicode_characters_to_binary/1]).
+
 -spec load_from_file(file:filename_all()) -> test_info().
 load_from_file(TestInfoFile) ->
     {ok, Content} = file:read_file(TestInfoFile, [raw]),
@@ -142,17 +144,3 @@ parse_mfa(MFA) ->
 -spec make_ct_opts([ctopt()], [cth()]) -> [ctopt()].
 make_ct_opts(CtOpts, []) -> CtOpts;
 make_ct_opts(CtOpts, ExtraCtHooks) -> [{ct_hooks, ExtraCtHooks} | CtOpts].
-
--spec unicode_characters_to_binary(unicode:chardata()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    Bin = unicode:characters_to_binary(Chars),
-    if
-        is_binary(Bin) -> Bin
-    end.
-
--spec unicode_characters_to_list(unicode:chardata()) -> string().
-unicode_characters_to_list(Chars) ->
-    Str = unicode:characters_to_list(Chars),
-    if
-        is_list(Str) -> Str
-    end.

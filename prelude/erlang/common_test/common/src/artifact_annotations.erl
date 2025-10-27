@@ -18,6 +18,8 @@ more testArtifactTypes. Those should be manually added to the
 test_artifact_type() here.
 """.
 
+-import(common_util, [unicode_characters_to_binary/1]).
+
 -type generic_blob() :: #{generic_blob := #{}}.
 -type generic_text_log() :: #{generic_text_log := #{}}.
 -type test_artifact_type() :: generic_blob() | generic_text_log().
@@ -55,9 +57,3 @@ default_annotation(FileName) ->
         type => Type,
         description => unicode_characters_to_binary(FileName)
     }.
-
--spec unicode_characters_to_binary(io_lib:chars()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    case unicode:characters_to_binary(Chars) of
-        Binary when is_binary(Binary) -> Binary
-    end.

@@ -29,6 +29,8 @@ Documentation for shell_buck2_utils, ways to use
     get_app_env/1
 ]).
 
+-import(common_util, [unicode_characters_to_binary/1]).
+
 -type opt() :: {at_root, boolean()}.
 
 -spec project_root() -> file:filename().
@@ -159,7 +161,7 @@ flatten_command_args([], Acc) ->
 flatten_command_args([H | T], Acc) when is_binary(H) ->
     flatten_command_args(T, [H | Acc]);
 flatten_command_args([H = [I | _] | T], Acc) when is_integer(I) ->
-    flatten_command_args(T, [unicode:characters_to_binary(H) | Acc]);
+    flatten_command_args(T, [unicode_characters_to_binary(H) | Acc]);
 flatten_command_args([[] | T], Acc) ->
     flatten_command_args(T, Acc);
 flatten_command_args([[H | T1] | T2], Acc) ->
@@ -169,7 +171,7 @@ flatten_command_args([[H | T1] | T2], Acc) ->
 port_loop(Port, StdOut) ->
     receive
         {Port, {exit_status, 0}} ->
-            {ok, unicode:characters_to_binary(lists:reverse(StdOut))};
+            {ok, unicode_characters_to_binary(lists:reverse(StdOut))};
         {Port, {exit_status, _}} ->
             error;
         {Port, {data, Data}} ->

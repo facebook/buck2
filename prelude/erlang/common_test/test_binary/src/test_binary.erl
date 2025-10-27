@@ -11,6 +11,8 @@
 
 -export([main/0]).
 
+-import(common_util, [unicode_characters_to_binary/1, unicode_characters_to_list/1, filename_all_to_filename/1]).
+
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -234,9 +236,7 @@ list_and_run(Args, OutputDir) ->
 -spec listing_to_testnames(#test_spec_test_case{}) -> [string()].
 listing_to_testnames(Listing) ->
     [
-        case unicode:characters_to_list(TestCase#test_spec_test_info.name) of
-            Name when is_list(Name) -> Name
-        end
+        unicode_characters_to_list(TestCase#test_spec_test_info.name)
      || TestCase <- Listing#test_spec_test_case.testcases
     ].
 
@@ -318,17 +318,3 @@ print_details(StdOut, Details) ->
     io:format("~ts~n", [Details]),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n"),
     io:format("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -~n").
-
--spec filename_all_to_filename(file:filename_all()) -> file:filename().
-filename_all_to_filename(Filename) when is_binary(Filename) ->
-    case unicode:characters_to_list(Filename) of
-        FilenameStr when is_list(FilenameStr) -> FilenameStr
-    end;
-filename_all_to_filename(Filename) ->
-    Filename.
-
--spec unicode_characters_to_binary(unicode:chardata()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    case unicode:characters_to_binary(Chars) of
-        Bin when is_binary(Bin) -> Bin
-    end.

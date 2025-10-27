@@ -16,6 +16,8 @@
 
 -export([node_main/1, get_domain_type/0]).
 
+-import(common_util, [unicode_characters_to_binary/1, filename_all_to_filename/1]).
+
 -define(LOG_BASE, "/tmp/ct_daemon").
 
 -type config() :: #{
@@ -225,7 +227,7 @@ build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
         convert_atom_arg(?MODULE),
         "node_main",
         convert_atom_arg(erlang:node()),
-        filename_all_to_string(OutputDir)
+        filename_all_to_filename(OutputDir)
     ].
 
 -spec convert_atom_arg(atom()) -> string().
@@ -255,18 +257,10 @@ gen_output_dir(RandomName) ->
         RandomName
     ]).
 
--spec filename_all_to_string(file:filename_all()) -> string().
-filename_all_to_string(Bin) when is_binary(Bin) ->
-    binary_to_list(Bin);
-filename_all_to_string(String) when is_list(String) ->
-    String.
-
 -spec random_name() -> binary().
 random_name() ->
     N = io_lib:format("~b-~b~ts", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]),
-    case unicode:characters_to_binary(N) of
-        Bin when is_binary(Bin) -> Bin
-    end.
+    unicode_characters_to_binary(N).
 
 -spec get_domain_type() -> longnames | shortnames.
 get_domain_type() ->

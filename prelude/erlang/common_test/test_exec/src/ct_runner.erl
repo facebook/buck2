@@ -37,6 +37,8 @@ communicates the result to the test runner.
     project_root/0
 ]).
 
+-import(common_util, [unicode_characters_to_binary/1, filename_all_to_filename/1]).
+
 -type opt() ::
     {packet, N :: 1 | 2 | 4}
     | stream
@@ -322,7 +324,7 @@ start_test_node(
             proplists:get_value(args, PortSettings0, []),
 
     Env = proplists:get_value(env, PortSettings0, []),
-    LaunchEnv = [{"HOME", filename_all_to_string(HomeDir)} | Env],
+    LaunchEnv = [{"HOME", filename_all_to_filename(HomeDir)} | Env],
 
     LaunchCD = proplists:get_value(cd, PortSettings0, HomeDir),
 
@@ -434,17 +436,4 @@ project_root() ->
             {ok, FileInfo} = file:read_file_info(Dir),
             ?LOG_ERROR(#{directory => Dir, stat => FileInfo}),
             error({project_root_not_found, Dir})
-    end.
-
--spec filename_all_to_string(file:filename_all()) -> string().
-filename_all_to_string(Bin) when is_binary(Bin) ->
-    binary_to_list(Bin);
-filename_all_to_string(String) when is_list(String) ->
-    String.
-
--spec unicode_characters_to_binary(Chars) -> binary() when
-    Chars :: unicode:chardata().
-unicode_characters_to_binary(Chars) ->
-    case unicode:characters_to_binary(Chars) of
-        Bin when is_binary(Bin) -> Bin
     end.
