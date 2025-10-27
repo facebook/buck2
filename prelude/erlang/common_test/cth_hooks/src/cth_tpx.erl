@@ -589,8 +589,10 @@ add_result(
 method_name(Method, Groups) ->
     MethodName =
         case Method of
-            {TestCase, Phase} -> io_lib:format("~ts.~ts", [atom_to_list(TestCase), atom_to_list(Phase)]);
-            MethodName0 -> atom_to_list(MethodName0)
+            {TestCase, Phase} ->
+                unicode_characters_to_list(io_lib:format("~ts.~ts", [atom_to_list(TestCase), atom_to_list(Phase)]));
+            MethodName0 ->
+                atom_to_list(MethodName0)
         end,
     cth_tpx_test_tree:qualified_name(Groups, MethodName).
 

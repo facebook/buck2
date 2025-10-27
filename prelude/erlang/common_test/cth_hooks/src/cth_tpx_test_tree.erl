@@ -86,14 +86,14 @@
 Gets the name for a testcase in a given group-path
 The groups order expected here is [leaf_group, ...., root_group]
 """.
--spec qualified_name(group_path(), TC :: unicode:chardata()) -> string().
+-spec qualified_name(Groups, TestCase) -> string() when
+    Groups :: group_path(),
+    TestCase :: name().
 qualified_name(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
     Raw = io_lib:format("~ts.~ts", [JoinedGroups, TestCase]),
-    case unicode:characters_to_list(Raw, unicode) of
-        Res when not is_tuple(Res) -> Res
-    end.
+    unicode_characters_to_list(Raw).
 
 %% Tree creation and update
 
@@ -171,7 +171,9 @@ insert_result(TreeNode, ResultTest, [], MethodId) ->
 Provides a result for the RequestedResults based on the collected results.
 The format of the requested_results is a map from a list of groups to the list of test_cases that are sub-cases from the last group from the list.
 """.
--spec get_result(tree(), #{group_path() => [atom()]}) -> [case_result()].
+-spec get_result(TreeResult, RequestedResults) -> [case_result()] when
+    TreeResult :: tree(),
+    RequestedResults :: #{group_path() => [atom()]}.
 get_result(TreeResult, RequestedResults) ->
     [
         collect_result(TreeResult, Groups, CaseRequest)
@@ -182,7 +184,10 @@ get_result(TreeResult, RequestedResults) ->
 -doc """
 Provides a result for a given specific requested_result.
 """.
--spec collect_result(tree(), group_path(), string()) -> case_result().
+-spec collect_result(TreeResult, Groups, TestCase) -> case_result() when
+    TreeResult :: tree(),
+    Groups :: group_path(),
+    TestCase :: atom().
 collect_result(TreeResult, Groups, TestCase) ->
     QualifiedName = qualified_name(lists:reverse(Groups), TestCase),
     LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName),
@@ -239,7 +244,7 @@ Collects all the inits / ends methods results linked to a requested_result.
     Inits :: [method_result()],
     Ends :: [method_result()],
     Groups :: group_path(),
-    TestCase :: string(),
+    TestCase :: atom(),
     QualifiedName :: string()
 ) -> case_result().
 collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
@@ -252,7 +257,10 @@ collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
             #{inits => lists:reverse(NewInits), main => MainResult, ends => NewEnds}
     end.
 
--spec get_child(tree(), group_path(), TC :: string()) -> {tree(), group_path()}.
+-spec get_child(Node, Groups, TestCase) -> {tree(), group_path()} when
+    Node :: tree(),
+    Groups :: group_path(),
+    TestCase :: atom().
 get_child(#{sub_groups := SubGroups}, [Group | Groups], _TestCase) ->
     {maps:get(Group, SubGroups, new_node(Group)), Groups};
 get_child(#{test_cases := TestCases}, [], TestCase) ->

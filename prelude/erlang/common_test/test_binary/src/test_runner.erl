@@ -285,7 +285,7 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
                         % where we push at each time the group we are in, leading to them being in reverse order).
                         cth_tpx_test_tree:qualified_name(
                             lists:reverse(Test#ct_test.groups),
-                            atom_to_binary(Test#ct_test.test_name)
+                            Test#ct_test.test_name
                         )
                     ])
                 ),

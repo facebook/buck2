@@ -100,7 +100,6 @@ handle_call(start_capture, _From, State = #state{}) ->
     {reply, ok, State#state{capture = true}};
 handle_call(stop_capture, _From, #state{group_leader = GroupLeader, buffer = Buffer} = State) ->
     {Elements, _Truncated} = bounded_buffer:get_elements(Buffer),
-    %% eqwalizer:fixme: remove the fixme once eqwalizer_specs is shipped with elp
     lists:foreach(fun(Chars) -> io:put_chars(GroupLeader, Chars) end, Elements),
     {reply, ok, State#state{capture = false}};
 handle_call(_Request, _From, State) ->
@@ -161,7 +160,6 @@ request({put_chars, Encoding, Chars}, #state{buffer = Buffer, max_length = MaxLe
     {ok, State#state{buffer = NewBuffer}};
 request({put_chars, Encoding, Module, Function, Args}, State) ->
     try
-        %% eqwalizer:fixme: remove the fixme once eqwalizer_specs is shipped with elp
         request({put_chars, Encoding, erlang:apply(Module, Function, Args)}, State)
     catch
         _:_ ->
