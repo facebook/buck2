@@ -840,6 +840,9 @@ def _compile_index_store(
         additional_flags = additional_flags,
         toolchain = toolchain,
         cacheable = True,
+        # Incremental builds are never cached, but caching the index store build is very useful
+        # when building all the transitive index stores (e.g. during the Glean indexer).
+        incremental_build_allowed = False,
         output_file_map = output_file_map,
     )
 
@@ -858,10 +861,12 @@ def _compile_with_argsfile(
         output_file_map: dict = {},
         cacheable = True,
         skip_incremental_outputs = False,
+        incremental_build_allowed = True,
         objects = [],
         incremental_artifacts: IncrementalCompilationInput | None = None,
         artifact_tag: ArtifactTag | None = None) -> (CompileArgsfiles | None, Artifact | None):
-    build_swift_incrementally = should_build_swift_incrementally(ctx)
+    build_swift_incrementally = incremental_build_allowed and should_build_swift_incrementally(ctx)
+
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
     # The main compilation actions add a category suffix when explicit modules
