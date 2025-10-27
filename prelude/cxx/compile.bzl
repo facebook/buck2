@@ -255,7 +255,7 @@ def create_compile_cmds(
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
 
         if add_coverage_instrumentation_compiler_flags and cxx_compile_cmd.compiler_type != "gcc":
-            src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
+            src_args.extend(impl_params.coverage_instrumentation_compiler_flags)
 
         if src.is_header or compile_pch:
             if cxx_compile_cmd.compiler_type in ["clang", "clang_windows", "gcc"]:

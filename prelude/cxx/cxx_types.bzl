@@ -283,4 +283,6 @@ CxxRuleConstructorParams = record(
     _cxx_toolchain = field(Dependency | None, None),
     # Use content-based filepaths for artifacts
     use_content_based_paths = field(bool, False),
+    # Coverage instrumentation compiler flags
+    coverage_instrumentation_compiler_flags = field(list[str], []),
 )
