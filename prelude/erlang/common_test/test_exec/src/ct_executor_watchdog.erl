@@ -1,8 +1,5 @@
 % @format
 -module(ct_executor_watchdog).
-
--include_lib("kernel/include/logger.hrl").
-
 -moduledoc """
 This module is responsible for watching the test binary and killing the beam
 if the test binary goes down. This is needed because the test binary can be
@@ -12,6 +9,9 @@ we want to ensure we don't leave lingering beam instances behind.
 NOTE: Ideally, we would use the peer module to start the test node and have
 this shutdown handled by it.
 """.
+-compile(warn_missing_spec_all).
+
+-include_lib("kernel/include/logger.hrl").
 
 -export([start_link_client/1, start_server/0]).
 

@@ -7,9 +7,11 @@
 %% of this source tree.
 
 -module(json_interfacer).
-% Methods used for serialization to the type
-% defined in tpx in
-% https://www.internalfb.com/code/fbsource/[bb9e81daacad]/fbcode/testinfra/tpx/tpx-output/src/erl_parser.rs
+-moduledoc """
+Methods used for serialization to the type
+defined in tpx [here](https://www.internalfb.com/code/fbsource/[bb9e81daacad]/fbcode/testinfra/tpx/tpx-output/src/erl_parser.rs).
+""".
+-compile(warn_missing_spec_all).
 
 -export([write_json_output/2, format_json/1, status_name/1]).
 

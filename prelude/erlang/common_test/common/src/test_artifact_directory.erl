@@ -7,11 +7,11 @@
 
 %% @format
 -module(test_artifact_directory).
--compile(warn_missing_spec).
 -moduledoc """
 Artefact directory file management.
 Used by TPX to upload diagnostic reports.
 """.
+-compile(warn_missing_spec_all).
 
 -include_lib("kernel/include/logger.hrl").
 
