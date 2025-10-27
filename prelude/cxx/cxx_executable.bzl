@@ -246,8 +246,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # Compile objects.
     compile_cmd_output = create_compile_cmds(
-        ctx,
+        ctx.actions,
+        ctx.label,
         get_cxx_toolchain_info(ctx),
+        get_cxx_platform_info(ctx),
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,

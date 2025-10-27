@@ -169,8 +169,10 @@ def get_header_language_mode(source_extension: CxxExtension) -> str | None:
     return modes.get(source_extension)
 
 def create_compile_cmds(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         toolchain: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo],
@@ -212,16 +214,16 @@ def create_compile_cmds(
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
     # at compile time, but that doing that here/eagerly might be expensive (but
     # we should figure out something).
-    _validate_target_headers(ctx.label, own_preprocessors)
+    _validate_target_headers(target_label, own_preprocessors)
 
     # Combine all preprocessor info and prepare it for compilations.
     pre = cxx_merge_cpreprocessors(
-        ctx.actions,
+        actions,
         filter(None, own_preprocessors + impl_params.extra_preprocessors),
         inherited_preprocessor_infos,
     )
 
-    headers_tag = ctx.actions.artifact_tag()
+    headers_tag = actions.artifact_tag()
 
     src_compile_cmds = []
     hdr_compile_cmds = []
@@ -236,9 +238,8 @@ def create_compile_cmds(
     # Deduplicate shared arguments to save memory. If we compile multiple files
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
-    cxx_platform_info = get_cxx_platform_info(ctx)
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx.actions, ctx.label, toolchain, cxx_platform_info, impl_params, pre, headers_tag, ext)
+        cmd = _generate_base_compile_command(actions, target_label, toolchain, cxx_platform_info, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile

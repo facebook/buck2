@@ -1228,8 +1228,10 @@ def cxx_compile_srcs(
 
     # Create the commands and argsfiles to use for compiling each source file
     compile_cmd_output = create_compile_cmds(
-        ctx = ctx,
+        actions = ctx.actions,
+        target_label = ctx.label,
         toolchain = get_cxx_toolchain_info(ctx),
+        cxx_platform_info = get_cxx_platform_info(ctx),
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
