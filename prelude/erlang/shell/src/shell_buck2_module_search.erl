@@ -7,17 +7,14 @@
 
 %% @format
 -module(shell_buck2_module_search).
-
--export([find_module/1, find_module_source/1]).
-
--compile(warn_missing_spec_all).
 -moduledoc """
 Configurable hook for module discovery
 """.
+-compile(warn_missing_spec_all).
 
--import(common_util, [unicode_characters_to_list/1]).
+-export([find_module/1, find_module_source/1]).
 
--eqwalizer(ignore).
+-import(common_util, [unicode_characters_to_binary/1]).
 
 -callback find_module_source(module()) ->
     {source, file:filename_all()}
@@ -76,14 +73,11 @@ find_module_source(Module) ->
     ]),
     case
         [
-            unicode_characters_to_list(RelPath)
-         || RelPath <- [
-                string:prefix(Path, [Root, "/"])
-             || Path <- string:split(Output, "\n", all)
-            ],
-            RelPath =/= nomatch,
-            string:prefix(RelPath, "buck-out") == nomatch,
-            string:str(binary_to_list(RelPath), "_build") == 0
+            RelPath
+         || Path <- string:split(Output, ~"\n", all),
+            RelPath <- [unicode_characters_to_binary(P) || P <- [string:prefix(Path, [Root, ~"/"])], P =/= nomatch],
+            string:prefix(RelPath, ~"buck-out") == nomatch,
+            binary:match(RelPath, ~"_build") == nomatch
         ]
     of
         [ModulePath] ->
@@ -93,7 +87,9 @@ find_module_source(Module) ->
         Candidates ->
             %% check if there are actually targets associated
             {ok, RawOutput} = shell_buck2_utils:buck2_query(
-                <<"owner(\\\"\%s\\\")">>, [<<"--json">>], Candidates
+                ~|owner(\\"%s\\")|,
+                [~"--json"],
+                Candidates
             ),
             SourceTargetMapping = json:decode(RawOutput),
             case

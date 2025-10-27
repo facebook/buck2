@@ -7,14 +7,12 @@
 
 %% @format
 -module(shell_buck2_utils).
-
--compile(warn_missing_spec_all).
 -moduledoc """
 Documentation for shell_buck2_utils, ways to use
   it, ways to break it, etc. etc
 """.
 
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 %% Public API
 -export([
@@ -33,19 +31,19 @@ Documentation for shell_buck2_utils, ways to use
 
 -type opt() :: {at_root, boolean()}.
 
--spec project_root() -> file:filename().
+-spec project_root() -> file:filename_all().
 project_root() ->
     root(project).
 
--spec cell_root() -> file:filename().
+-spec cell_root() -> file:filename_all().
 cell_root() ->
     root(cell).
 
--spec root(Type :: cell | project) -> file:filename().
+-spec root(Type :: cell | project) -> file:filename_all().
 root(Type) ->
     case run_command(no_stderr([~"buck2", ~"root", ~"--kind", atom_to_binary(Type)]), [{at_root, false}]) of
         {ok, Output} ->
-            Dir = string:trim(Output),
+            Dir = unicode_characters_to_binary(string:trim(Output)),
             case filelib:is_dir(Dir, prim_file) of
                 true -> Dir;
                 false -> error({project_root_not_found, Dir})
@@ -119,17 +117,17 @@ buck2_query(Query, BuckArgs, Args) ->
     ).
 
 -spec no_stderr(CommandArgs) -> CommandArgs when
-    CommandArgs :: iodata().
+    CommandArgs :: [unicode:chardata()].
 no_stderr(CommandArgs) ->
     [~"sh", ~"-c", ~"exec 2>/dev/null $0 \"$@\"" | CommandArgs].
 
 -spec run_command(CommandArgs) -> {ok, binary()} | error when
-    CommandArgs :: iodata().
+    CommandArgs :: [unicode:chardata()].
 run_command(Command) ->
     run_command(Command, []).
 
 -spec run_command(CommandArgs, Options) -> {ok, binary()} | error when
-    CommandArgs :: iodata(),
+    CommandArgs :: unicode:chardata(),
     Options :: [opt()].
 run_command(Command, Options) when is_binary(Command) ->
     run_command([Command], Options);
@@ -198,23 +196,29 @@ get_additional_paths(Path) ->
                 filter_escape_chars(OutputPath)
              || OutputPath <- string:split(Output, "\n", all)
             ],
-            MaybeAllPaths = lists:concat([
-                [OutputPath, filename:join(OutputPath, "ebin")]
-             || OutputPath <- MaybeOutputPaths, filelib:is_dir(OutputPath, prim_file)
-            ]),
-            [MaybePath || MaybePath <- MaybeAllPaths, filelib:is_dir(MaybePath, prim_file)];
+            MaybeAllPaths = [
+                RelevantPath
+             || OutputPath <- MaybeOutputPaths,
+                filelib:is_dir(OutputPath, prim_file),
+                RelevantPath <- [OutputPath, filename:join(OutputPath, "ebin")]
+            ],
+            Result =
+                [MaybePath || MaybePath <- MaybeAllPaths, filelib:is_dir(MaybePath, prim_file)],
+            waaat:log("Result ~p", [Result]),
+            Result;
         error ->
             []
     end.
 
 %% copied from stackoverflow: https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python
 -define(ANSI_ESCAPE_REGEX,
-    "(\x9B|\x1B\\[)[0-?]*[ -/]*[@-~]"
+    ~"(\x9B|\x1B\\[)[0-?]*[ -/]*[@-~]"
 ).
 
--spec filter_escape_chars(String :: string()) -> string().
+-spec filter_escape_chars(String) -> binary() when
+    String :: binary().
 filter_escape_chars(String) ->
-    lists:flatten(io_lib:format("~ts", [re:replace(String, ?ANSI_ESCAPE_REGEX, "", [global])])).
+    unicode_characters_to_binary(re:replace(String, ?ANSI_ESCAPE_REGEX, "", [global])).
 
 -spec get_buck2_args_from_env() -> [binary()].
 get_buck2_args_from_env() ->
