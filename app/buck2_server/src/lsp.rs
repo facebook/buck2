@@ -412,7 +412,7 @@ impl<'a> BuckLspContext<'a> {
         {
             Ok(res) => res,
             Err(e) => {
-                let message = EvalMessage::from_any_error(uri.path(), &e);
+                let message = EvalMessage::from_error(uri.path(), &e.into());
                 LspEvalResult {
                     diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
                     ast: None,
