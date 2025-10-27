@@ -12,7 +12,6 @@
 Simple trampoline for ct_run.
 Notably allows us to call post/pre method on the node if needed, e.g for coverage.
 """.
--eqwalizer(ignore).
 
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -22,8 +21,51 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
 %% `ct_run_arg()` represents an option accepted by ct:run_test/1, such as
 %% `multiply_timetraps` or `ct_hooks`.
 %% For all the options, see https://www.erlang.org/doc/man/ct#run_test-1
--type ct_run_arg() :: {atom(), term()}.
--type ct_exec_arg() :: {output_dir | server_port | suite | providers, term()}.
+-type ct_run_arg() ::
+    {dir, dynamic()}
+    | {suite, dynamic()}
+    | {group, dynamic()}
+    | {testcase, dynamic()}
+    | {spec, dynamic()}
+    | {join_specs, dynamic()}
+    | {label, dynamic()}
+    | {config, dynamic()}
+    | {userconfig, dynamic()}
+    | {allow_user_terms, dynamic()}
+    | {logdir, dynamic()}
+    | {silent_connections, dynamic()}
+    | {stylesheet, dynamic()}
+    | {cover, dynamic()}
+    | {cover_stop, dynamic()}
+    | {step, dynamic()}
+    | {event_handler, dynamic()}
+    | {include, dynamic()}
+    | {auto_compile, dynamic()}
+    | {abort_if_missing_suites, dynamic()}
+    | {create_priv_dir, dynamic()}
+    | {multiply_timetraps, dynamic()}
+    | {scale_timetraps, dynamic()}
+    | {repeat, dynamic()}
+    | {duration, dynamic()}
+    | {until, dynamic()}
+    | {force_stop, dynamic()}
+    | {decrypt, dynamic()}
+    | {refresh_logs, dynamic()}
+    | {logopts, dynamic()}
+    | {verbosity, dynamic()}
+    | {basic_html, dynamic()}
+    | {esc_chars, dynamic()}
+    | {keep_logs, dynamic()}
+    | {ct_hooks, dynamic()}
+    | {ct_hooks_order, dynamic()}
+    | {enable_builtin_hooks, dynamic()}
+    | {release_shell, dynamic()}.
+
+-type ct_exec_arg() ::
+    {output_dir, file:filename()}
+    | {server_port, inet:port_number()}
+    | {suite, module()}
+    | {providers, [{Name :: atom(), Args :: term()}]}.
 
 % For testing
 -export([split_args/1]).
@@ -40,7 +82,7 @@ run(Args) when is_list(Args) ->
         try
             {CtExecutorArgs, CtRunArgs} = parse_arguments(Args),
             debug_print("~tp", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
-            {_, OutputDir} = lists:keyfind(output_dir, 1, CtExecutorArgs),
+            [OutputDir | _] = [OutputDir || {output_dir, OutputDir} <- CtExecutorArgs],
             ok = test_logger:set_up_logger(OutputDir, ?MODULE, capture_stdout),
             % Until this point the logger is not set up so we cannot log.
             % Therefore we used io:format to forward information to the
@@ -53,7 +95,7 @@ run(Args) when is_list(Args) ->
 
             try
                 %% setup watchdog
-                {_, ServerPort} = lists:keyfind(server_port, 1, CtExecutorArgs),
+                [ServerPort | _] = [ServerPort || {server_port, ServerPort} <- CtExecutorArgs],
                 ct_executor_watchdog:start_link_client(ServerPort),
 
                 % We need to load the 'common' application to be able to configure
@@ -67,20 +109,17 @@ run(Args) when is_list(Args) ->
                  || Dep <- code:get_path()
                 ],
                 [file:consult(DotApp) || DotApp <- PotentialDotApp, filelib:is_regular(DotApp, ?raw_file_access)],
-                {_, Suite} = lists:keyfind(suite, 1, CtExecutorArgs),
+                [Suite | _] = [Suite || {suite, Suite} <- CtExecutorArgs],
+
                 {ok, RawTarget} = application:get_env(common, raw_target),
 
                 ProviderInitState = #init_provider_state{output_dir = OutputDir, suite = Suite, raw_target = RawTarget},
-                Providers0 =
-                    case lists:keyfind(providers, 1, CtExecutorArgs) of
-                        false ->
-                            [];
-                        {_, Providers} ->
-                            [
-                                buck_ct_provider:do_init(Provider, ProviderInitState)
-                             || Provider <- Providers
-                            ]
-                    end,
+                Providers0 = [
+                    buck_ct_provider:do_init(Provider, ProviderInitState)
+                 || {providers, Providers} <- CtExecutorArgs,
+                    Provider <- Providers
+                ],
+
                 %% get longer stack traces
                 erlang:system_flag(backtrace_depth, 20),
                 ?LOG_DEBUG("ct_run called with arguments ~tp ~n", [CtRunArgs]),
@@ -142,13 +181,13 @@ split_args(Args) ->
     {CtExecutorArgs, [ct_args | CtRunArgs]} = lists:splitwith(fun(Arg) -> Arg =/= ct_args end, Args),
     {parse_ct_exec_args(CtExecutorArgs), parse_ct_run_args(CtRunArgs)}.
 
--spec parse_ct_run_args([term()]) -> [ct_run_arg()].
+-spec parse_ct_run_args([dynamic()]) -> [ct_run_arg()].
 parse_ct_run_args([]) ->
     [];
 parse_ct_run_args([{Key, _Value} = Arg | Args]) when is_atom(Key) ->
     [Arg | parse_ct_run_args(Args)].
 
--spec parse_ct_exec_args([term()]) -> [ct_exec_arg()].
+-spec parse_ct_exec_args([dynamic()]) -> [ct_exec_arg()].
 parse_ct_exec_args([]) ->
     [];
 parse_ct_exec_args([{Key, _Value} = Arg | Args]) when
