@@ -13,18 +13,17 @@ load(
     "LinkerType",
 )
 
-def _strip_debug_info(ctx: AnalysisContext, out: str, obj: Artifact, has_content_based_path: bool) -> Artifact:
+def _strip_debug_info(actions: AnalysisActions, cxx_toolchain: CxxToolchainInfo, out: str, obj: Artifact, has_content_based_path: bool) -> Artifact:
     """
     Strip debug information from an object.
     """
-    cxx_toolchain = get_cxx_toolchain_info(ctx)
     strip = cxx_toolchain.binary_utilities_info.strip
-    output = ctx.actions.declare_output("__stripped__", out, has_content_based_path = has_content_based_path)
+    output = actions.declare_output("__stripped__", out, has_content_based_path = has_content_based_path)
     if cxx_toolchain.linker_info.type == LinkerType("gnu"):
         cmd = cmd_args([strip, "--strip-debug", "--strip-unneeded", "-o", output.as_output(), obj])
     else:
         cmd = cmd_args([strip, "-S", "-o", output.as_output(), obj])
-    ctx.actions.run(cmd, category = "strip_debug", identifier = out)
+    actions.run(cmd, category = "strip_debug", identifier = out)
     return output
 
 _InterfaceInfo = provider(fields = {
@@ -33,7 +32,8 @@ _InterfaceInfo = provider(fields = {
 
 def _anon_strip_debug_info_impl(ctx):
     output = _strip_debug_info(
-        ctx = ctx,
+        actions = ctx.actions,
+        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo],
         out = ctx.attrs.out,
         obj = ctx.attrs.obj,
         has_content_based_path = ctx.attrs.has_content_based_path,
@@ -59,9 +59,11 @@ def strip_debug_info(
         out: str,
         obj: Artifact,
         anonymous: bool = False) -> Artifact:
+    actions = ctx.actions
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False)
     if anonymous:
-        strip_debug_info = ctx.actions.anon_target(
+        strip_debug_info = actions.anon_target(
             _anon_strip_debug_info,
             dict(
                 _cxx_toolchain = ctx.attrs._cxx_toolchain,
@@ -72,12 +74,13 @@ def strip_debug_info(
         ).artifact("strip_debug_info")
 
         if has_content_based_path:
-            return ctx.actions.assert_has_content_based_path(strip_debug_info)
+            return actions.assert_has_content_based_path(strip_debug_info)
 
-        return ctx.actions.assert_short_path(strip_debug_info, short_path = out)
+        return actions.assert_short_path(strip_debug_info, short_path = out)
     else:
         return _strip_debug_info(
-            ctx = ctx,
+            actions = actions,
+            cxx_toolchain = cxx_toolchain_info,
             out = out,
             obj = obj,
             has_content_based_path = has_content_based_path,
