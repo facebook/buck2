@@ -195,6 +195,7 @@ def build_cgo(
             preprocessor_flags = cpp_flags + ctx.attrs.cxx_preprocessor_flags,
             anon_targets_allowed = anon_targets_allowed,
             _cxx_toolchain = ctx.attrs._cxx_toolchain,
+            use_content_based_paths = True,
         ),
         # Create private header tree and propagate via args.
         [own_pre, cgo_headers_pre],
