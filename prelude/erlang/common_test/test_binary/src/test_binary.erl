@@ -98,8 +98,11 @@ handle_run(Args) ->
     #{output_dir := OutputDir, edb_code := EdbCode} = Args,
     LoggingType =
         case EdbCode of
-            none -> capture_stdout;
-            _ -> no_capture_stdout
+            none ->
+                capture_stdout;
+            _ ->
+                os:putenv("ERLANG_BUCK_DEBUG_PRINT", "disabled"),
+                no_capture_stdout
         end,
     test_logger:set_up_logger(OutputDir, test_runner, LoggingType),
     ok = running(Args),
@@ -112,6 +115,7 @@ handle_list_and_run(Args) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
     test_logger:set_up_logger(OutputDir, test_runner, no_capture_stdout),
+    os:putenv("ERLANG_BUCK_DEBUG_PRINT", "disabled"),
     case list_and_run(Args, OutputDir) of
         true ->
             io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
@@ -219,7 +223,6 @@ get_listing(TestInfo, OutputDir) ->
     Args :: list_and_run_args(),
     OutputDir :: file:filename().
 list_and_run(Args, OutputDir) ->
-    os:putenv("ERLANG_BUCK_DEBUG_PRINT", "disabled"),
     #{test_info_file := TestInfoFile} = Args,
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
