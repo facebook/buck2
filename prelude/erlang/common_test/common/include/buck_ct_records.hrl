@@ -44,7 +44,8 @@
     extra_flags :: [binary()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary() | undefined,
-    trampolines :: [binary()]
+    trampolines :: [binary()],
+    timeout :: timeout()
 }).
 
 -record(run_specs, {

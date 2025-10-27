@@ -173,12 +173,13 @@ running(Args) ->
     TestInfo0 = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo0, AbsOutputDir),
     ExtraEmuFlags = edb_extra_emu_flags(EdbCode),
+    Timeout = max_timeout(TestInfo0),
     TestInfo1 = TestInfo0#test_info{extra_flags = ExtraEmuFlags ++ TestInfo0#test_info.extra_flags},
     case StartEpmd of
         false -> application:set_env(test_exec, global_epmd_port, global_epmd_port());
         true -> ok
     end,
-    test_runner:run_tests(Tests, TestInfo1, AbsOutputDir, Listing).
+    test_runner:run_tests(Tests, TestInfo1, AbsOutputDir, Listing, Timeout).
 
 -spec get_listing(TestInfo, OutputDir) -> #test_spec_test_case{} when
     TestInfo :: #test_info{},
@@ -248,6 +249,23 @@ edb_extra_emu_flags(EdbCode) ->
             Value -> unicode_characters_to_binary(Value)
         end,
     [~"-eval", CodeToInject].
+
+-spec max_timeout(TestInfo) -> timeout() when
+    TestInfo :: #test_info{}.
+max_timeout(TestInfo) ->
+    case os:getenv("TPX_TIMEOUT_SEC") of
+        false ->
+            CtOpts = TestInfo#test_info.ct_opts,
+            Multiplier = proplists:get_value(multiply_timetraps, CtOpts, 1),
+            %% 9 minutes 30 seconds, giving us 30 seconds to crash multiplied by multiply_timetraps
+            round(Multiplier * (9 * 60 + 30) * 1000);
+        StrTimeout ->
+            InputTimeout = list_to_integer(StrTimeout),
+            case InputTimeout of
+                _ when InputTimeout > 30 -> (InputTimeout - 30) * 1000;
+                _ -> error("Please allow at least 30s for the binary to execute")
+            end
+    end.
 
 -spec print_results(file:filename()) -> boolean().
 print_results(ResultsFile) ->

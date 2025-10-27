@@ -27,7 +27,8 @@
     common_app_env = #{},
     erl_cmd = [],
     artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
-    trampolines = []
+    trampolines = [],
+    timeout = infinity
 }).
 
 -spec set_up_logger(file:filename(), atom()) -> ok.

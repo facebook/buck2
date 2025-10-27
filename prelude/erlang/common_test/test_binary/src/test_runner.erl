@@ -13,18 +13,19 @@
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
--export([run_tests/4, mark_success/1, mark_failure/1]).
+-export([run_tests/5, mark_success/1, mark_failure/1]).
 
 -export([parse_test_name/2]).
 
 -define(DEFAULT_OUTPUT_FORMAT, json).
 
--spec run_tests(Tests, TestInfo, OutputDir, Listing) -> ok when
+-spec run_tests(Tests, TestInfo, OutputDir, Listing, Timeout) -> ok when
     Tests :: [string()],
     TestInfo :: #test_info{},
     OutputDir :: file:filename_all(),
-    Listing :: #test_spec_test_case{}.
-run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
+    Listing :: #test_spec_test_case{},
+    Timeout :: timeout().
+run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
     Suite =
         case filename:basename(TestInfo#test_info.test_suite, ".beam") of
@@ -37,39 +38,42 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
             throw(no_tests_to_run);
         [_ | _] ->
             OrderedTests = reorder_tests(StructuredTests, Listing),
-            execute_test_suite(#test_env{
-                output_format = ?DEFAULT_OUTPUT_FORMAT,
-                suite = Suite,
-                tests = OrderedTests,
-                suite_path = TestInfo#test_info.test_suite,
-                output_dir = OutputDir,
-                dependencies = TestInfo#test_info.dependencies,
-                config_files = TestInfo#test_info.config_files,
-                providers = TestInfo#test_info.providers,
-                ct_opts = TestInfo#test_info.ct_opts,
-                common_app_env = TestInfo#test_info.common_app_env,
-                erl_cmd = TestInfo#test_info.erl_cmd,
-                extra_flags = TestInfo#test_info.extra_flags,
-                artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa,
-                raw_target = TestInfo#test_info.raw_target,
-                trampolines = TestInfo#test_info.trampolines
-            })
+            execute_test_suite(
+                #test_env{
+                    output_format = ?DEFAULT_OUTPUT_FORMAT,
+                    suite = Suite,
+                    tests = OrderedTests,
+                    suite_path = TestInfo#test_info.test_suite,
+                    output_dir = OutputDir,
+                    dependencies = TestInfo#test_info.dependencies,
+                    config_files = TestInfo#test_info.config_files,
+                    providers = TestInfo#test_info.providers,
+                    ct_opts = TestInfo#test_info.ct_opts,
+                    common_app_env = TestInfo#test_info.common_app_env,
+                    erl_cmd = TestInfo#test_info.erl_cmd,
+                    extra_flags = TestInfo#test_info.extra_flags,
+                    artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa,
+                    raw_target = TestInfo#test_info.raw_target,
+                    trampolines = TestInfo#test_info.trampolines,
+                    timeout = Timeout
+                }
+            )
     end.
 
 -doc """
 Prepare the test spec and run the test.
 """.
--spec execute_test_suite(#test_env{}) -> ok.
-execute_test_suite(
+-spec execute_test_suite(TestEnv) -> ok when
+    TestEnv :: #test_env{}.
+execute_test_suite(TestEnv) ->
     #test_env{
         suite = Suite,
         tests = Tests,
         suite_path = SuitePath,
         output_dir = OutputDir,
-        ct_opts = CtOpts
-    } =
-        TestEnv
-) ->
+        ct_opts = CtOpts,
+        timeout = Timeout
+    } = TestEnv,
     TestSpec = build_test_spec(
         Suite, Tests, filename:absname(filename:dirname(SuitePath)), OutputDir, CtOpts
     ),
@@ -77,7 +81,7 @@ execute_test_suite(
     FormattedSpec = [io_lib:format("~tp.~n", [Entry]) || Entry <- TestSpec],
     file:write_file(TestSpecFile, FormattedSpec, [raw, binary]),
     NewTestEnv = TestEnv#test_env{test_spec_file = TestSpecFile, ct_opts = CtOpts},
-    try run_test(NewTestEnv) of
+    try run_test(NewTestEnv, Timeout) of
         ok -> ok
     catch
         Class:Reason:StackTrace ->
@@ -90,10 +94,10 @@ execute_test_suite(
             )
     end.
 
--spec run_test(#test_env{}) -> ok.
-run_test(
-    #test_env{} = TestEnv
-) ->
+-spec run_test(TestEnv, Timeout) -> ok when
+    TestEnv :: #test_env{},
+    Timeout :: timeout().
+run_test(TestEnv, Timeout) ->
     register(?MODULE, self()),
     application:set_env(test_exec, test_env, TestEnv, [{persistent, true}]),
     case application:ensure_all_started(test_exec, temporary) of
@@ -115,7 +119,7 @@ run_test(
                 {run_failed, Result} ->
                     ensure_test_exec_stopped(),
                     test_run_fail(TestEnv, Result)
-            after max_timeout(TestEnv) ->
+            after Timeout ->
                 ensure_test_exec_stopped(),
                 ErrorMsg =
                     "\n***************************************************************\n"
@@ -482,21 +486,6 @@ check_ct_opts(CtOpts) ->
         end,
         ProblematicsOpts
     ).
-
--spec max_timeout(#test_env{}) -> integer().
-max_timeout(#test_env{ct_opts = CtOpts}) ->
-    case os:getenv("TPX_TIMEOUT_SEC") of
-        false ->
-            Multiplier = proplists:get_value(multiply_timetraps, CtOpts, 1),
-            %% 9 minutes 30 seconds, giving us 30 seconds to crash multiplied by multiply_timetraps
-            round(Multiplier * (9 * 60 + 30) * 1000);
-        StrTimeout ->
-            InputTimeout = list_to_integer(StrTimeout),
-            case InputTimeout of
-                _ when InputTimeout > 30 -> (InputTimeout - 30) * 1000;
-                _ -> error("Please allow at least 30s for the binary to execute")
-            end
-    end.
 
 -spec unicode_characters_to_binary(unicode:chardata()) -> binary().
 unicode_characters_to_binary(Chars) ->
