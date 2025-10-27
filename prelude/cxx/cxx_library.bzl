@@ -1270,6 +1270,7 @@ def cxx_compile_srcs(
         use_header_units = impl_params.use_header_units,
         precompiled_header = impl_params.precompiled_header,
         compile_pch = compile_pch,
+        cuda_compile_style = impl_params.cuda_compile_style,
     )
     pic = _get_library_compile_output(
         ctx = ctx,
@@ -1294,6 +1295,7 @@ def cxx_compile_srcs(
             compile_pch = compile_pch,
             precompiled_header = impl_params.precompiled_header,
             use_header_units = impl_params.use_header_units,
+            cuda_compile_style = impl_params.cuda_compile_style,
         )
         non_pic = _get_library_compile_output(
             ctx = ctx,
@@ -1312,6 +1314,7 @@ def cxx_compile_srcs(
                 provide_syntax_only = False,
                 separate_debug_info = impl_params.separate_debug_info,
                 use_header_units = impl_params.use_header_units,
+                cuda_compile_style = impl_params.cuda_compile_style,
             )
             pic_optimized = _get_library_compile_output(
                 ctx = ctx,
@@ -1331,6 +1334,7 @@ def cxx_compile_srcs(
             provide_syntax_only = False,
             separate_debug_info = impl_params.separate_debug_info,
             use_header_units = impl_params.use_header_units,
+            cuda_compile_style = impl_params.cuda_compile_style,
         )
         pic_debuggable = _get_library_compile_output(
             ctx = ctx,

@@ -36,7 +36,6 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
-    "map_val",
 )
 load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":attr_selection.bzl", "cxx_by_language_ext")
@@ -711,6 +710,7 @@ def compile_cxx(
         separate_debug_info: bool,
         use_header_units: bool = False,
         precompiled_header: Dependency | None = None,
+        cuda_compile_style: CudaCompileStyle | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
@@ -736,7 +736,6 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
-    cuda_compile_style = map_val(CudaCompileStyle, getattr(ctx.attrs, "cuda_compile_style", None))
 
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(

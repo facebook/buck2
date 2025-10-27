@@ -12,6 +12,10 @@ load(
     "merge_android_packageable_info",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
+load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileStyle",
+)
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload", "cxx_attrs_use_fbcc_rust_wrapper")
 load(
@@ -240,6 +244,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         use_content_based_paths = ctx.attrs.use_content_based_paths,
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -316,6 +321,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         use_content_based_paths = ctx.attrs.use_content_based_paths,
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
     output = cxx_executable(ctx, params)
 
@@ -858,6 +864,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         use_content_based_paths = ctx.attrs.use_content_based_paths,
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

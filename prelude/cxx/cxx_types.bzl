@@ -8,6 +8,10 @@
 
 load("@prelude//:artifact_tset.bzl", "ArtifactInfoTag", "ArtifactTSet")
 load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileStyle",
+)
+load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
 )
@@ -289,4 +293,6 @@ CxxRuleConstructorParams = record(
     coverage_instrumentation_compiler_flags = field(list[str], []),
     # Separate debug info
     separate_debug_info = field(bool, False),
+    # Cuda compile stype
+    cuda_compile_style = field(CudaCompileStyle | None, None),
 )

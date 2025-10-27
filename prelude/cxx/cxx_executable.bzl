@@ -274,6 +274,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         provide_syntax_only = True,
         separate_debug_info = impl_params.separate_debug_info,
         use_header_units = impl_params.use_header_units,
+        cuda_compile_style = impl_params.cuda_compile_style,
     )
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
