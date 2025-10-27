@@ -132,7 +132,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Create a new sub error, specifying an error category name, optional message, and
-    /// an optional list of error locations.
+    /// optional location information.
     ///
     /// The category should be finer grain error categorizations provided by the rule authors,
     /// and tend to be language specific. These should not be any kind of shared concepts
@@ -142,7 +142,13 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// 'category': Required, useful for providing a more granular error category for action errors.
     /// 'message': Optional, provide users with additional context about the error to help with debugging/understandability/resolution, etc.
-    /// 'locations': Optional, file path and line number of the error location, useful for external integration to highlight where the error is.
+    /// 'file': Optional, file path where the error occurred.
+    /// 'lnum': Optional, line number where the error occurred.
+    /// 'end_lnum': Optional, end line number for multi-line error spans.
+    /// 'col': Optional, column number where the error occurred.
+    /// 'end_col': Optional, end column number for error ranges.
+    /// 'error_type': Optional, type of error (e.g., error, warning, info).
+    /// 'error_number': Optional, numeric error code.
     ///
     /// The message will be emitted to the build report, and to the stderr in the error diagnostics
     /// section.
@@ -150,10 +156,6 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] category: String,
         #[starlark(require = named, default = NoneOr::None)] message: NoneOr<String>,
-        #[starlark(require = named, default = NoneOr::None)] locations: NoneOr<
-            UnpackListOrTuple<&'v StarlarkActionErrorLocation>,
-        >,
-
         #[starlark(require = named, default = NoneOr::None)] file: NoneOr<String>,
         #[starlark(require = named, default = NoneOr::None)] lnum: NoneOr<u64>,
         #[starlark(require = named, default = NoneOr::None)] end_lnum: NoneOr<u64>,
@@ -162,29 +164,11 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] error_type: NoneOr<String>,
         #[starlark(require = named, default = NoneOr::None)] error_number: NoneOr<u64>,
     ) -> starlark::Result<StarlarkActionSubError> {
-        // For backwards compatibility, we use the first location in the list if it exists for file and line number.
-        let first_loc = locations
-            .clone()
-            .into_option()
-            .map(|locations| {
-                locations
-                    .items
-                    .first()
-                    .map(|item| (item.file.clone(), item.line))
-            })
-            .flatten();
-        let (file_from_first_loc, line_from_first_loc) =
-            first_loc.map_or((None, None), |(u, v)| (Some(u), Some(v)));
-        let line_from_first_loc = line_from_first_loc.flatten();
-
-        let file = file.into_option().or(file_from_first_loc);
-        let lnum = lnum.into_option().or(line_from_first_loc);
-
         Ok(StarlarkActionSubError {
             category: RefCell::new(category),
             message: message.into_option(),
-            file,
-            lnum,
+            file: file.into_option(),
+            lnum: lnum.into_option(),
             end_lnum: end_lnum.into_option(),
             col: col.into_option(),
             end_col: end_col.into_option(),
@@ -224,79 +208,6 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
             .map(|e| StarlarkActionSubError::from_errorformat_entry(e, category.clone()))
             .collect();
         Ok(res)
-    }
-}
-
-#[derive(
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    Debug,
-    Display,
-    NoSerialize,
-    Clone,
-    Default,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq
-)]
-#[display(
-     "ActionErrorLocation(file={}, line={})",
-     self.file,
-     self.line.map_or("None".to_owned(), |l| l.to_string())
- )]
-pub struct StarlarkActionErrorLocation {
-    file: String,
-    line: Option<u64>,
-}
-
-#[starlark_value(type = "ActionErrorLocation", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkActionErrorLocation {
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(action_error_location_methods)
-    }
-
-    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        if let Some(other) = other.downcast_ref::<Self>() {
-            Ok(self.eq(other))
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn compare(&self, other: Value<'v>) -> starlark::Result<std::cmp::Ordering> {
-        if let Some(other) = other.downcast_ref::<Self>() {
-            Ok(self.cmp(other))
-        } else {
-            ValueError::unsupported_with(self, "compare", other)
-        }
-    }
-}
-
-impl<'v> AllocValue<'v> for StarlarkActionErrorLocation {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex_no_freeze(self)
-    }
-}
-
-/// Methods available on `StarlarkActionErrorLocation` to help with testing the error
-/// handler implementation
-#[starlark_module]
-fn action_error_location_methods(builder: &mut MethodsBuilder) {
-    /// Useful for external integration to highlight which file the error resides in.
-    /// Currently only used for action error handler unit testing.
-    #[starlark(attribute)]
-    fn file<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<&'v str> {
-        Ok(&this.file)
-    }
-
-    /// Useful for external integration to highlight which line the error resides in.
-    /// Currently only used for action error handler unit testing.
-    #[starlark(attribute)]
-    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<NoneOr<u64>> {
-        Ok(NoneOr::from_option(this.line))
     }
 }
 
@@ -517,8 +428,6 @@ impl StarlarkActionSubError {
 pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {
     const ActionSubError: StarlarkValueAsType<StarlarkActionSubError> = StarlarkValueAsType::new();
     const ActionErrorCtx: StarlarkValueAsType<StarlarkActionErrorContext> =
-        StarlarkValueAsType::new();
-    const ActionErrorLocation: StarlarkValueAsType<StarlarkActionErrorLocation> =
         StarlarkValueAsType::new();
 }
 
