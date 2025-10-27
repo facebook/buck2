@@ -1218,22 +1218,9 @@ third_party_jar(
 
 third_party_jar(
     name = "mockito",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito:mockito-robolectric",
-    sha1 = "3d1dffee9a8a1998ec782383ca2f818848f2d5f1",
-    url = "mvn:org.mockito:mockito-inline:jar:4.11.0",
-    visibility = [
-        "prelude//toolchains/android/test/...",
-    ],
-    deps = [
-        ":mockito-core",
-    ],
-)
-
-third_party_jar(
-    name = "mockito-core",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito:mockito-library",
-    sha1 = "ce5226440c2ee78915716d4ce3d10aed2dbf26fb",
-    url = "mvn:org.mockito:mockito-core:jar:4.11.0",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/mockito-core:mockito-core",
+    sha1 = "a32f446f38acf636363c5693db6498047731b9e0",
+    url = "mvn:org.mockito:mockito-core:jar:5.20.0",
     visibility = [
         "PUBLIC",
     ],
@@ -1245,24 +1232,14 @@ third_party_jar(
 )
 
 third_party_jar(
-    name = "mockito-inline",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/mockito-inline:mockito-inline",
-    sha1 = "3d1dffee9a8a1998ec782383ca2f818848f2d5f1",
-    url = "mvn:org.mockito:mockito-inline:jar:4.11.0",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":mockito-core",
-    ],
-)
-
-third_party_jar(
     name = "mockito-kotlin",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/kotlin/mockito-kotlin:mockito-kotlin",
-    sha1 = "a89352b80ae4a2e3ce15a8046a09c85645fabf89",
-    url = "mvn:org.mockito.kotlin:mockito-kotlin:jar:4.1.0",
+    sha1 = "6c89533c7c38b1600ceea37b806cba3d9619c1ac",
+    url = "mvn:org.mockito.kotlin:mockito-kotlin:jar:6.1.0",
     visibility = ["PUBLIC"],
     deps = [
-        ":mockito-inline",
+        ":kotlin-reflect",
+        ":mockito",
     ],
 )
 # ===   End: mockito
