@@ -38,6 +38,13 @@ cli() ->
                 default => none,
                 help =>
                     "EDB code to inject for debugging. Can be actual code or the environment variable that contains the code."
+            },
+            #{
+                name => start_epmd,
+                long => "-no-epmd",
+                action => {store, false},
+                default => true,
+                help => "Don't start epmd on a random port."
             }
         ],
         commands => #{
@@ -66,11 +73,13 @@ cli() ->
     test_info_file := file:filename(),
     output_dir := file:filename(),
     tests := [string()],
+    start_epmd := boolean(),
     edb_code := string() | none
 }.
 
 -type list_and_run_args() :: #{
     test_info_file := file:filename(),
+    start_epmd := boolean(),
     edb_code := string() | none
 }.
 
@@ -157,6 +166,7 @@ running(Args) ->
         test_info_file := TestInfoFile,
         output_dir := OutputDir,
         tests := Tests,
+        start_epmd := StartEpmd,
         edb_code := EdbCode
     } = Args,
     AbsOutputDir = filename:absname(OutputDir),
@@ -164,6 +174,10 @@ running(Args) ->
     Listing = get_listing(TestInfo0, AbsOutputDir),
     ExtraEmuFlags = edb_extra_emu_flags(EdbCode),
     TestInfo1 = TestInfo0#test_info{extra_flags = ExtraEmuFlags ++ TestInfo0#test_info.extra_flags},
+    case StartEpmd of
+        false -> application:set_env(test_exec, global_epmd_port, global_epmd_port());
+        true -> ok
+    end,
     test_runner:run_tests(Tests, TestInfo1, AbsOutputDir, Listing).
 
 -spec get_listing(TestInfo, OutputDir) -> #test_spec_test_case{} when
@@ -215,6 +229,13 @@ listing_to_testnames(Listing) ->
         end
      || TestCase <- Listing#test_spec_test_case.testcases
     ].
+
+-spec global_epmd_port() -> inet:port_number().
+global_epmd_port() ->
+    case os:getenv("ERL_EPMD_PORT") of
+        false -> 4369;
+        Port -> list_to_integer(Port)
+    end.
 
 -spec edb_extra_emu_flags(EdbCode) -> [binary()] when
     EdbCode :: string() | none.
