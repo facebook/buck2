@@ -14,6 +14,7 @@ each suite execution.
 -compile(warn_missing_spec_all).
 
 -include_lib("common/include/buck_ct_records.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% UI methods
 -export([start_link/1, get_epmd_out_path/1, get_port/0]).
@@ -31,12 +32,7 @@ and set up the env variable ERL_EPMD_PORT to the port this daemon is working.
 """.
 -spec start_link(#test_env{}) -> gen_server:start_ret().
 start_link(#test_env{} = TestEnv) ->
-    gen_server:start_link(
-        {local, ?MODULE},
-        ?MODULE,
-        TestEnv,
-        [{debug, [trace, log]}]
-    ).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, TestEnv, []).
 
 -spec get_port() -> inet:port_number().
 get_port() ->
