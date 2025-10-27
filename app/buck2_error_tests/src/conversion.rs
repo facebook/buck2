@@ -143,3 +143,16 @@ outer_fail()"#,
         trim_rust_backtrace(&format!("{:?}", buck2_error::Error::from(e))),
     );
 }
+
+#[test]
+fn test_from_starlark_source_location_is_caller() {
+    let e =
+        starlark_syntax::Error::new_kind(starlark_syntax::ErrorKind::Fail(anyhow::anyhow!("fail")));
+    let e: buck2_error::Error = e.into();
+    let loc = e.source_location().to_string();
+    assert!(
+        loc.contains("buck2_error_tests/"),
+        "expected source location to point to the caller's file, got: {}",
+        loc,
+    );
+}
