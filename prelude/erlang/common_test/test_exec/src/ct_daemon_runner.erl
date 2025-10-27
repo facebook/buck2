@@ -10,7 +10,7 @@
 -moduledoc """
 gen_server holding state between test runs
 """.
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -23,21 +23,27 @@ gen_server holding state between test runs
 -export([start_monitor/2, name/1]).
 
 -type state() :: #{
-    enumerated_tests => #{non_neg_integer() => string()},
+    enumerated_tests => #{test_id() => string()},
     output_dir => file:filename_all(),
     setup => ct_daemon_core:setup()
 }.
 
+-type regex() :: string().
+-type test_id() :: non_neg_integer().
+-type discovered() :: {discovered, [#{suite := module(), name := string()}]}.
+
 -type discover_error() ::
-    {error,
-        {ambiguous_test_regex, [{module(), [{non_neg_integer(), string()}]}]}
-        | {id_not_found, non_neg_integer()}
-        | not_listed_yet
-        | invalid_regex
-        | {invalid_regex, {string(), non_neg_integer()}}}.
+    {ambiguous_test_regex, [{module(), [{non_neg_integer(), string()}]}]}
+    | {id_not_found, non_neg_integer()}
+    | not_listed_yet
+    | invalid_regex
+    | {invalid_regex, {string(), non_neg_integer()}}.
 
 -export_type([discover_error/0]).
 
+-spec start_monitor(Node, OutputDir) -> gen_server:start_mon_ret() when
+    Node :: node(),
+    OutputDir :: file:filename_all().
 start_monitor(Node, OutputDir) ->
     gen_server:start_monitor(
         {global, name(Node)},
@@ -58,11 +64,32 @@ name(Node) ->
 init([InitState]) ->
     {ok, InitState}.
 
+-spec handle_call
+    (ping, gen_server:from(), state()) -> {reply, {pong, state()}, state()};
+    (list, gen_server:from(), state()) -> {reply, [{module(), [{non_neg_integer(), string()}]}], state()};
+    ({run, RegExOrTestIdOrDiscovered}, gen_server:from(), state()) ->
+        {reply, CollectedResults | {error, Reason}, state()}
+    when
+        RegExOrTestIdOrDiscovered :: regex() | test_id() | discovered(),
+        CollectedResults :: ct_daemon_core:run_result(),
+        Reason :: discover_error();
+    ({discover, RegExOrTestId}, gen_server:from(), state()) -> {reply, Tests | {error, Reason}, state()} when
+        RegExOrTestId :: regex() | test_id(),
+        Tests :: [#{suite := module(), name := string()}],
+        Reason :: discover_error();
+    ({gl, GL}, gen_server:from(), state()) -> {reply, true, state()} when
+        GL :: pid();
+    (load_changed, gen_server:from(), state()) -> {reply, [module()], state()};
+    (setup, gen_server:from(), state()) -> {reply, undefined | [atom()], state()};
+    (output_dir, gen_server:from(), state()) -> {reply, file:filename_all(), state()};
+    (priv_dir, gen_server:from(), state()) -> {reply, undefined | file:filename_all(), state()}.
+
 handle_call(ping, _From, State) ->
     {reply, {pong, State}, State};
 handle_call(list, _From, State) ->
-    Tests = ct_daemon_core:list(),
-    list_result(Tests, State);
+    case ct_daemon_core:list() of
+        Tests when is_map(Tests) -> list_result(Tests, State)
+    end;
 handle_call({run, RegExOrTestIdOrDiscovered}, _From, State) ->
     try
         case get_tests(RegExOrTestIdOrDiscovered, State) of
@@ -123,11 +150,16 @@ handle_call(priv_dir, _From, State) ->
                 undefined
         end,
     {reply, Response, State};
-handle_call(Request, _From, State) ->
-    {reply, Request, State}.
+handle_call(Request, _From, _State) ->
+    error({unexpected_request, Request}).
 
+-spec handle_cast
+    ({code_paths, Paths}, state()) -> {noreply, state()} when
+        Paths :: [file:filename()];
+    ({load_module, Module}, state()) -> {noreply, state()} when
+        Module :: module().
 handle_cast({code_paths, Paths}, State) ->
-    ?LOG_DEBUG("addign code paths ~tp", [Paths]),
+    ?LOG_DEBUG("adding code paths ~tp", [Paths]),
     ok = code:add_paths(Paths),
     {noreply, State};
 handle_cast({load_module, Module}, State) ->
@@ -137,23 +169,19 @@ handle_cast(Request, State) ->
     ?LOG_INFO("unrecognized cast: ~tp state: ~tp", [Request, State]),
     erlang:error(not_implemented).
 
+-spec handle_info(term(), state()) -> {noreply, state()}.
 handle_info(_Info, State) ->
     {noreply, State}.
 
 %% internal
--spec get_tests(
-    non_neg_integer()
-    | string()
-    | {discovered, [#{suite => module(), name => string()}]},
-    state()
-) ->
-    discover_error() | [string()].
+-spec get_tests(RegexOrTestIdOrDiscovered, state()) -> {error, discover_error()} | [string()] when
+    RegexOrTestIdOrDiscovered :: regex() | test_id() | discovered().
 get_tests({discovered, Discovered}, _State) ->
     [ct_daemon_core:to_qualified(Test) || Test <- Discovered];
 get_tests(RegExOrTestId, State) ->
     discover_test(RegExOrTestId, State).
 
--spec discover_test(non_neg_integer() | string(), state()) -> discover_error() | [string()].
+-spec discover_test(regex() | test_id(), state()) -> {error, discover_error()} | [string()].
 discover_test(TestId, State) when erlang:is_integer(TestId) ->
     case State of
         #{enumerated_tests := #{TestId := Test}} ->
@@ -164,12 +192,14 @@ discover_test(TestId, State) when erlang:is_integer(TestId) ->
             {error, not_listed_yet}
     end;
 discover_test(RegEx, _State) when erlang:is_list(RegEx) ->
-    Listing = maps:values(ct_daemon_core:list()),
-    case re:compile(RegEx, [unicode]) of
-        {ok, Pattern} ->
-            [Test || Test <- lists:concat(Listing), re:run(Test, Pattern) =/= nomatch];
-        {error, ErrSpec} ->
-            {error, {invalid_regex, ErrSpec}}
+    case ct_daemon_core:list() of
+        Listing when is_map(Listing) ->
+            case re:compile(RegEx, [unicode]) of
+                {ok, Pattern} ->
+                    [Test || _Suite := Tests <- Listing, Test <- Tests, re:run(Test, Pattern) =/= nomatch];
+                {error, ErrSpec} ->
+                    {error, {invalid_regex, ErrSpec}}
+            end
     end;
 discover_test(_, _) ->
     {error, invalid_regex}.
@@ -218,6 +248,8 @@ load_changed_modules() ->
     [reload_module(Module) || Module <- ChangedModules],
     ChangedModules.
 
+-spec module_modified(Mod) -> boolean() when
+    Mod :: module().
 module_modified(Mod) ->
     case code:is_loaded(Mod) of
         {file, preloaded} ->
@@ -231,6 +263,9 @@ module_modified(Mod) ->
             false
     end.
 
+-spec module_modified(Module, BeamPath) -> boolean() when
+    Module :: module(),
+    BeamPath :: file:filename().
 module_modified(Mod, BeamPath) ->
     LoadedMD5 = Mod:module_info(md5),
     case beam_lib:md5(BeamPath) of
@@ -240,6 +275,9 @@ module_modified(Mod, BeamPath) ->
             false
     end.
 
+-spec reload_module(Module) -> ok when
+    Module :: module().
 reload_module(Module) ->
     code:purge(Module),
-    {module, Module} = code:load_file(Module).
+    {module, Module} = code:load_file(Module),
+    ok.

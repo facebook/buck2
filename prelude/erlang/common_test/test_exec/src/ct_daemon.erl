@@ -70,7 +70,7 @@ run test from scratch
         | non_neg_integer()
         | {discovered, [#{suite => module(), name => string()}]}
 ) ->
-    #{string() => ct_daemon_core:run_result()} | ct_daemon_runner:discover_error() | node_down.
+    #{string() => ct_daemon_core:run_result()} | {error, ct_daemon_runner:discover_error()} | node_down.
 run(Test) ->
     do_call({run, Test}).
 
@@ -110,7 +110,7 @@ list(RegEx) ->
 
 -spec discover(pos_integer() | string()) ->
     [#{suite := module(), name := string()}]
-    | ct_daemon_runner:discover_error()
+    | {error, ct_daemon_runner:discover_error()}
     | node_down.
 discover(RegExOrId) ->
     do_call({discover, RegExOrId}).
