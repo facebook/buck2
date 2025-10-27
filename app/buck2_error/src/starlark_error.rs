@@ -110,6 +110,7 @@ fn error_with_starlark_context(
     }
 }
 
+#[track_caller]
 fn from_starlark_impl(
     e: starlark_syntax::Error,
     error_handling: NativeErrorHandling,
@@ -158,7 +159,10 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
         _ => "StarlarkError",
     };
-    let source_location = SourceLocation::new(std::file!()).with_type_name(variant_name);
+    let caller_location = std::panic::Location::caller();
+    let source_location = SourceLocation::new(caller_location.file())
+        .with_source_line(caller_location.line())
+        .with_type_name(variant_name);
     let description = if skip_stacktrace {
         format!("{}", e.without_diagnostic())
     } else {
