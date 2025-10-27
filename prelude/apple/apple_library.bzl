@@ -76,6 +76,7 @@ load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
 )
+load("@prelude//cxx:link_groups_types.bzl", "LinkGroupInfo")  # @unused Used as a type
 load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
     "@prelude//cxx:linker.bzl",
@@ -96,7 +97,8 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info")
+load("@prelude//xplugins:types.bzl", "XPluginsUsageInfo")  # @unused Used as a type
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -448,11 +450,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     if not is_test_target:
         extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution_output)
 
-    # Propagate xplugins socket usage info
-    xplugins_usage_info = get_xplugins_usage_info(ctx)
-    if xplugins_usage_info:
-        extra_apple_providers.append(xplugins_usage_info)
-
     # Always provide a valid JSON object, so that tooling can depend on its existance
     modulemap_info_json = {"modulemap": exported_pre.modulemap_path} if (exported_pre and exported_pre.modulemap_path) else {}
     modulemap_info_json_file = ctx.actions.declare_output("modulemap-info.json")
@@ -526,7 +523,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
         ),
         build_empty_so = hasattr(ctx.attrs, "distribution_dep"),
-        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(extra_apple_providers),
+        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(
+            extra_providers = extra_apple_providers,
+            link_group_info = link_group_info,
+            xplugins_usage_info = get_xplugins_usage_info(ctx),
+        ),
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -586,7 +587,9 @@ def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (lis
     return cxx_srcs, swift_srcs
 
 def _get_link_style_sub_targets_and_providers(
-        extra_providers: list[Provider]) -> typing.Callable:
+        extra_providers: list[Provider],
+        link_group_info: [LinkGroupInfo, None],
+        xplugins_usage_info: [XPluginsUsageInfo, None]) -> typing.Callable:
     def get_link_style_sub_targets_impl(
             output_style: LibOutputStyle,
             ctx: AnalysisContext,
@@ -603,7 +606,11 @@ def _get_link_style_sub_targets_and_providers(
         )
 
         if output_style != LibOutputStyle("shared_lib") or output == None:
-            return ({}, [resource_graph] + extra_providers)
+            static_providers = [resource_graph] + extra_providers
+            if xplugins_usage_info:
+                static_providers.append(xplugins_usage_info)
+
+            return ({}, static_providers)
 
         min_version = get_min_deployment_version_for_node(ctx)
         min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
@@ -638,7 +645,12 @@ def _get_link_style_sub_targets_and_providers(
         subtargets = {
             DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
             DEBUGINFO_SUBTARGET: [DefaultInfo(default_output = debug_info_artifacts_manifest)],
-        }
+        } | get_xplugins_usage_subtargets(
+            ctx,
+            usage_info = xplugins_usage_info,
+            link_group_info = link_group_info,
+        )
+
         providers = [
             AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
             resource_graph,
