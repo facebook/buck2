@@ -34,7 +34,7 @@
     suite_path :: file:filename_all(),
     output_dir :: file:filename_all(),
     dependencies :: [file:filename_all()],
-    test_spec_file :: file:filename_all() | undefined,
+    test_spec_file :: file:filename_all(),
     output_format :: xml | json,
     config_files :: [file:filename_all()],
     providers :: [{module(), [term()]}],

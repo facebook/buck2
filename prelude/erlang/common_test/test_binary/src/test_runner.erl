@@ -37,6 +37,7 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
         [] ->
             throw(no_tests_to_run);
         [_ | _] ->
+            TestSpecFile = filename:join(OutputDir, "test_spec.spec"),
             OrderedTests = reorder_tests(StructuredTests, Listing),
             execute_test_suite(
                 #test_env{
@@ -46,6 +47,7 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
                     suite_path = TestInfo#test_info.test_suite,
                     output_dir = OutputDir,
                     dependencies = TestInfo#test_info.dependencies,
+                    test_spec_file = TestSpecFile,
                     config_files = TestInfo#test_info.config_files,
                     providers = TestInfo#test_info.providers,
                     ct_opts = TestInfo#test_info.ct_opts,
@@ -71,13 +73,13 @@ execute_test_suite(TestEnv) ->
         tests = Tests,
         suite_path = SuitePath,
         output_dir = OutputDir,
+        test_spec_file = TestSpecFile,
         ct_opts = CtOpts,
         timeout = Timeout
     } = TestEnv,
     TestSpec = build_test_spec(
         Suite, Tests, filename:absname(filename:dirname(SuitePath)), OutputDir, CtOpts
     ),
-    TestSpecFile = filename:join(OutputDir, "test_spec.spec"),
     FormattedSpec = [io_lib:format("~tp.~n", [Entry]) || Entry <- TestSpec],
     file:write_file(TestSpecFile, FormattedSpec, [raw, binary]),
     NewTestEnv = TestEnv#test_env{test_spec_file = TestSpecFile, ct_opts = CtOpts},
@@ -147,7 +149,7 @@ ensure_test_exec_stopped() ->
 -doc """
 Provides result as specified by the tpx protocol when test failed to ran.
 """.
--spec test_run_fail(#test_env{}, io_lib:chars()) -> ok.
+-spec test_run_fail(#test_env{}, unicode:chardata()) -> ok.
 test_run_fail(#test_env{} = TestEnv, Reason) ->
     provide_output_file(
         TestEnv,
