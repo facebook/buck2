@@ -41,7 +41,7 @@ run(Args) when is_list(Args) ->
             {CtExecutorArgs, CtRunArgs} = parse_arguments(Args),
             debug_print("~tp", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
             {_, OutputDir} = lists:keyfind(output_dir, 1, CtExecutorArgs),
-            ok = test_logger:set_up_logger(OutputDir, ?MODULE),
+            ok = test_logger:set_up_logger(OutputDir, ?MODULE, capture_stdout),
             % Until this point the logger is not set up so we cannot log.
             % Therefore we used io:format to forward information to the
             % process calling it (ct_runner).

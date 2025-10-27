@@ -10,7 +10,7 @@
 
 -include_lib("common/include/buck_ct_records.hrl").
 
--export([set_up_logger/2, set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
+-export([set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
 
 -define(STUB_TEST_ENV, #test_env{
     suite = ?MODULE,
@@ -31,21 +31,20 @@
     timeout = infinity
 }).
 
--spec set_up_logger(file:filename(), atom()) -> ok.
-set_up_logger(LogDir, AppName) ->
-    set_up_logger(LogDir, AppName, false).
-
--spec set_up_logger(file:filename(), atom(), boolean()) -> ok.
-set_up_logger(LogDir, AppName, StandaloneConfig) ->
+-spec set_up_logger(LogDir, AppName, Type) -> ok when
+    LogDir :: file:filename(),
+    AppName :: atom(),
+    Type :: capture_stdout | no_capture_stdout.
+set_up_logger(LogDir, AppName, Type) ->
     Log = get_log_file(LogDir, AppName),
     filelib:ensure_dir(Log),
     StdOut = get_std_out(LogDir, AppName),
     filelib:ensure_dir(StdOut),
-    {ok, LogFileOpened} = file:open(StdOut, [write]),
-    case StandaloneConfig of
-        true ->
+    case Type of
+        no_capture_stdout ->
             [logger:remove_handler(Id) || Id <- logger:get_handler_ids()];
-        false ->
+        capture_stdout ->
+            {ok, LogFileOpened} = file:open(StdOut, [write]),
             group_leader(
                 LogFileOpened, self()
             )

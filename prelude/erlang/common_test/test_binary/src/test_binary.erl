@@ -87,7 +87,7 @@ cli() ->
     Args :: list_args().
 handle_list(Args) ->
     #{output_dir := OutputDir} = Args,
-    test_logger:set_up_logger(OutputDir, test_listing),
+    test_logger:set_up_logger(OutputDir, test_listing, capture_stdout),
     ok = listing(Args),
     ?LOG_DEBUG("Listing done"),
     ok.
@@ -95,8 +95,13 @@ handle_list(Args) ->
 -spec handle_run(Args) -> ok when
     Args :: run_args().
 handle_run(Args) ->
-    #{output_dir := OutputDir} = Args,
-    test_logger:set_up_logger(OutputDir, test_runner),
+    #{output_dir := OutputDir, edb_code := EdbCode} = Args,
+    LoggingType =
+        case EdbCode of
+            none -> capture_stdout;
+            _ -> no_capture_stdout
+        end,
+    test_logger:set_up_logger(OutputDir, test_runner, LoggingType),
     ok = running(Args),
     ?LOG_DEBUG("Running done"),
     ok.
@@ -106,7 +111,7 @@ handle_run(Args) ->
 handle_list_and_run(Args) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
-    test_logger:set_up_logger(OutputDir, test_runner, true),
+    test_logger:set_up_logger(OutputDir, test_runner, no_capture_stdout),
     case list_and_run(Args, OutputDir) of
         true ->
             io:format("~nAt least one test didn't pass!~nYou can find the test output directory here: ~ts~n", [
