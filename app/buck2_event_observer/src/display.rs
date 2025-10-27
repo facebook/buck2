@@ -41,6 +41,7 @@ use superconsole::style::Stylize;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
+use crate::action_sub_error_display::ActionSubErrorDisplay;
 use crate::fmt_duration;
 use crate::verbosity::Verbosity;
 use crate::what_ran::command_to_string;
@@ -743,20 +744,22 @@ impl ActionErrorDisplay<'_> {
                     if !sub_errors.is_empty() {
                         let mut all_sub_errors = String::new();
                         for sub_error in sub_errors {
-                            let mut sub_error_line = String::new();
-
-                            write!(sub_error_line, "[{}]", sub_error.category).unwrap();
-                            if let Some(message) = &sub_error.message {
-                                write!(sub_error_line, " {message}").unwrap();
+                            // Display only sub-errors with messages but no location information.
+                            // Errors with location info are filtered out due to user feedback about console noise.
+                            if let Some(msg) = &sub_error.message
+                                && !msg.is_empty()
+                                && !sub_error.has_location_info()
+                            {
+                                writeln!(all_sub_errors, "- [{}] {}", sub_error.category, msg)
+                                    .unwrap();
                             }
-
-                            // TODO(@wendyy) - handle locations later
-                            writeln!(all_sub_errors, "- {sub_error_line}").unwrap();
                         }
-                        append_stream(
-                            "\nAction sub-errors produced by error handlers",
-                            &all_sub_errors,
-                        );
+                        if !all_sub_errors.is_empty() {
+                            append_stream(
+                                "\nAction sub-errors produced by error handlers",
+                                &all_sub_errors,
+                            );
+                        }
                     }
                 }
                 buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {

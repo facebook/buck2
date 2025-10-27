@@ -3,7 +3,7 @@
 {
   "error_category": "USER",
   "failures": {
-    "root//fail_action:fail_error_handler_with_output": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr: <empty>\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n"
+    "root//fail_action:fail_error_handler_with_output": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr: <empty>\nAction sub-errors produced by error handlers:\n- [ErrorCode123] Try doing xyz\n"
   },
   "results": {
     "root//fail_action:fail_error_handler_with_output": {
@@ -73,7 +73,7 @@
   },
   "strings": {
     "<STRING_HASH>": "",
-    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr: <empty>\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n",
+    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr: <empty>\nAction sub-errors produced by error handlers:\n- [ErrorCode123] Try doing xyz\n",
     "<STRING_HASH>": "Remote command returned non-zero exit code 1",
     "<STRING_HASH>": "Try doing xyz"
   },
