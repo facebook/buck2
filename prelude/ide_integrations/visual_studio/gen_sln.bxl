@@ -191,7 +191,7 @@ EndGlobal""".format(
 
 def _main(bxl_ctx):
     target_label = bxl_ctx.cli_args.target
-    target_node = bxl_ctx.configured_targets(target_label)
+    target_node = bxl_ctx.configured_targets(target_label, modifiers = bxl_ctx.modifiers)
 
     basic_vs_settings = get_basic_vs_settings(target_node, bxl_ctx.cli_args)
     sln_content = gen_sln([target_node], [basic_vs_settings], [target_label], target_node.label, bxl_ctx)

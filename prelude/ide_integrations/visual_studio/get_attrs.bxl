@@ -231,7 +231,7 @@ def _get_header_namespace(attrs):
 
 def _main(bxl_ctx):
     target_label = bxl_ctx.cli_args.target
-    target_node = bxl_ctx.configured_targets(target_label)
+    target_node = bxl_ctx.configured_targets(target_label, modifiers = bxl_ctx.modifiers)
     output = get_attrs(target_node, bxl_ctx)
     action_factory = bxl_ctx.bxl_actions().actions
     outfile = action_factory.declare_output("attrs.json")
