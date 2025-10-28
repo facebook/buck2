@@ -58,7 +58,7 @@ DEFAULT_SUPPORTED_CXX_PLATFORMS = _SUPPORTED_IOS_PLATFORMS
 INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
 
 def apple_target_platforms(
-        base_name,
+        base_name: str,
         platform_rule,
         constraint_values = None,  # Constraint values added to all generated platforms
         visibility = None,
@@ -68,8 +68,8 @@ def apple_target_platforms(
         generate_base_platform = True,  # Whether to generate a base platform
         use_whatsapp_build_modes = False,
         supported_cxx_platforms = DEFAULT_SUPPORTED_CXX_PLATFORMS,  # Cxx platforms to generate platforms for
-        supported_build_modes = APPLE_BUILD_MODES):  # Build modes to generate platforms for
-    """ Define architecture and sdk specific platforms alongside the base platform. """
+        supported_build_modes = APPLE_BUILD_MODES) -> None:  # Build modes to generate platforms for
+    """Define architecture and sdk specific platforms alongside the base platform."""
 
     # HACK: Apps shouldn't be generating platforms for cxx_platforms they don't support. However, to support cases where other apps
     # depend on shared libraries that don't generate particular platforms, and set a cxx.default_platform on the command line, we need
@@ -146,7 +146,11 @@ def apple_target_platforms(
             deps = deps + [analysis_platform_dep],
         )
 
-def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None, supported_build_modes = None):
+def config_backed_apple_target_platform(
+        target_platform = None,
+        platform = None,
+        build_mode = None,
+        supported_build_modes = None) -> str | None:
     platform = _get_default_platform() if platform == None else platform
 
     build_mode = get_build_mode() if build_mode == None else build_mode
@@ -160,15 +164,19 @@ def config_backed_apple_target_platform(target_platform = None, platform = None,
 
     return _get_generated_name(target_platform, platform, build_mode)
 
-def get_default_target_platform_for_platform(sdk_arch) -> [str, None]:
+def get_default_target_platform_for_platform(sdk_arch) -> str | None:
     data = APPLE_PLATFORMS_MAP.get(sdk_arch)
     if data != None:
         return data.target_platform
 
     return None
 
-def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, supported_build_modes = None):
-    def get_supported_platforms():
+def set_apple_platforms(
+        platform: str,
+        base_config_backed_target_platform: str | None,
+        kwargs: dict[str, typing.Any],
+        supported_build_modes = None) -> dict[str, typing.Any]:
+    def get_supported_platforms() -> list[str] | None:
         if platform in _SUPPORTED_IOS_PLATFORMS:
             return _SUPPORTED_IOS_PLATFORMS
         elif platform in _SUPPORTED_MACOS_PLATFORMS:
@@ -206,15 +214,22 @@ def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, su
 
     return kwargs
 
-def _get_generated_name(base_name, platform, build_mode):
+def _get_generated_name(base_name, platform, build_mode) -> str:
     platform_and_build_mode_name = apple_build_mode_backed_platform(platform, platform, build_mode)
     return "{}-{}".format(base_name, platform_and_build_mode_name)
 
-def _get_default_platform():
+def _get_default_platform() -> str:
     platform = read("cxx", "default_platform")
     return platform if platform != None else ios_platforms.IPHONESIMULATOR_X86_64
 
-def _define_platform(base_name, platform, build_mode, constraint_values, visibility, deps, platform_rule):
+def _define_platform(
+        base_name,
+        platform,
+        build_mode,
+        constraint_values,
+        visibility,
+        deps,
+        platform_rule) -> None:
     # @lint-ignore BUCKLINT - We set the visibility to PUBLIC directly and can bypass fb_native
     platform_rule(
         name = _get_generated_name(base_name, platform, build_mode),
@@ -223,14 +238,14 @@ def _define_platform(base_name, platform, build_mode, constraint_values, visibil
         deps = deps,
     )
 
-def _get_base_target_platform_for_platform(sdk_arch) -> [str, None]:
+def _get_base_target_platform_for_platform(sdk_arch) -> str | None:
     data = APPLE_PLATFORMS_MAP.get(sdk_arch)
     if data != None:
         return data.base_target_platform
 
     return None
 
-def _get_analysis_platform_for_supported_platforms(supported_cxx_platforms):
+def _get_analysis_platform_for_supported_platforms(supported_cxx_platforms) -> str:
     # For determining the platform deps to use for the base platform, we inspect the supported
     # cxx platforms, giving precedence to iOS platforms.
     for platform in _SUPPORTED_IOS_PLATFORMS:
@@ -247,7 +262,10 @@ def _get_analysis_platform_for_supported_platforms(supported_cxx_platforms):
 
     return _DEFAULT_ANALYSIS_IOS_PLATFORM
 
-def _validate_cxx_platforms_constraint_values(base_name, cxx_platforms_constraint_values, supported_cxx_platforms):
+def _validate_cxx_platforms_constraint_values(
+        base_name,
+        cxx_platforms_constraint_values,
+        supported_cxx_platforms) -> None:
     if type(cxx_platforms_constraint_values) != type({}):
         fail("cxx_platforms_constraint_values must be a map of platform to constraint values!")
     for platform, platform_values in cxx_platforms_constraint_values.items():
@@ -259,7 +277,10 @@ def _validate_cxx_platforms_constraint_values(base_name, cxx_platforms_constrain
                 ", ".join(supported_cxx_platforms),
             ))
 
-def _validate_build_mode_constraint_values(base_name, build_mode_constraint_values, supported_build_modes):
+def _validate_build_mode_constraint_values(
+        base_name,
+        build_mode_constraint_values,
+        supported_build_modes) -> None:
     if type(build_mode_constraint_values) != type({}):
         fail("build_mode_constraint_values must be a map of build mode to constraint values!")
     for build_mode, build_mode_values in build_mode_constraint_values.items():
