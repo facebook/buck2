@@ -24,23 +24,14 @@ sealed interface PreviousStateWriter {
 internal class IncrementalPreviousStateWriter(
     val incrementalStateDir: Path,
     val actionMetadataPath: Path,
-    vararg val paths: Path,
 ) : PreviousStateWriter {
 
   override fun execute() {
-    val state = buildList {
-      add(actionMetadataPath)
-
-      addAll(paths)
-    }
-
-    state.forEach { path ->
-      Files.copy(
-          path,
-          incrementalStateDir.resolve(path.fileName),
-          StandardCopyOption.REPLACE_EXISTING,
-      )
-    }
+    Files.copy(
+        actionMetadataPath,
+        incrementalStateDir.resolve(actionMetadataPath.fileName),
+        StandardCopyOption.REPLACE_EXISTING,
+    )
   }
 }
 
@@ -54,33 +45,15 @@ internal data object DoNothingPreviousStateWriter : PreviousStateWriter {
 @JvmName("create")
 fun PreviousStateWriter(
     shouldActionRunIncrementally: Boolean,
-    shouldKotlincRunIncrementally: Boolean,
     incrementalStateDir: Path?,
     actionMetadataPath: Path?,
-    depFilePath: Path?,
-    usedJarsPath: Path?,
 ): PreviousStateWriter {
   if (!shouldActionRunIncrementally) {
     return DoNothingPreviousStateWriter
   }
 
-  val incrementalStateDir = requireNotNull(incrementalStateDir)
-
-  return when {
-    !shouldKotlincRunIncrementally -> {
-      IncrementalPreviousStateWriter(incrementalStateDir, requireNotNull(actionMetadataPath))
-    }
-
-    depFilePath == null && usedJarsPath == null -> {
-      IncrementalPreviousStateWriter(incrementalStateDir, requireNotNull(actionMetadataPath))
-    }
-
-    else ->
-        IncrementalPreviousStateWriter(
-            incrementalStateDir,
-            requireNotNull(actionMetadataPath),
-            requireNotNull(depFilePath),
-            requireNotNull(usedJarsPath),
-        )
-  }
+  return IncrementalPreviousStateWriter(
+      requireNotNull(incrementalStateDir),
+      requireNotNull(actionMetadataPath),
+  )
 }

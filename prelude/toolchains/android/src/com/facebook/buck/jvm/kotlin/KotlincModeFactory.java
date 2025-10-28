@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 public class KotlincModeFactory {
   private static final Logger LOG = Logger.get(KotlincModeFactory.class);
 
-  private IncrementalCompilationValidator incrementalCompilationValidator;
+  private final IncrementalCompilationValidator incrementalCompilationValidator;
 
   public KotlincModeFactory() {
     this(new IncrementalCompilationValidator());
@@ -51,17 +51,10 @@ public class KotlincModeFactory {
       LOG.info("Non-incremental mode applied: source-only build requested");
       return KotlincMode.NonIncremental.INSTANCE;
     } else {
-      AbsPath incrementalStateDir =
-          extraParams
-              .getIncrementalStateDir()
-              .orElseThrow(() -> new IllegalStateException("incremental_state_dir is not created"));
-
       @Nullable
-      AbsPath depFile =
-          isTrackClassUsageEnabled ? incrementalStateDir.resolve(depFilePath.getFileName()) : null;
+      AbsPath depFile = isTrackClassUsageEnabled ? rootProjectDir.resolve(depFilePath) : null;
       @Nullable
-      AbsPath usedJars =
-          isTrackClassUsageEnabled ? incrementalStateDir.resolve(usedJarsPath.getFileName()) : null;
+      AbsPath usedJars = isTrackClassUsageEnabled ? rootProjectDir.resolve(usedJarsPath) : null;
 
       AbsPath kotlicWorkingDir =
           extraParams

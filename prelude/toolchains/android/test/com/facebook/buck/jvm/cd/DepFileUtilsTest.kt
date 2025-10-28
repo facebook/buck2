@@ -41,7 +41,7 @@ class DepFileUtilsTest {
         listOf(usedClassesMapPath),
         depFileOutput,
         Optional.empty(),
-        Optional.empty(),
+        false,
     )
 
     val outputLines = Files.readAllLines(depFileOutput)
@@ -60,12 +60,12 @@ class DepFileUtilsTest {
             ),
             "prev-used-classes.json",
         )
-    val prevDepFileOutput = tempFolder.newFile("prev-dep-file.txt").toPath()
+    val depFileOutput = tempFolder.newFile("dep-file.txt").toPath()
     DepFileUtils.usedClassesToDepFile(
         listOf(prevUsedClassesMapPath),
-        prevDepFileOutput,
+        depFileOutput,
         Optional.empty(),
-        Optional.empty(),
+        false,
     )
 
     val usedClassesMapPath =
@@ -76,13 +76,12 @@ class DepFileUtilsTest {
                 "/path/to/D.jar" to setOf("ClassD.class"),
             )
         )
-    val depFileOutput = tempFolder.newFile("dep-file.txt").toPath()
 
     DepFileUtils.usedClassesToDepFile(
         listOf(usedClassesMapPath),
         depFileOutput,
         Optional.empty(),
-        Optional.of(prevDepFileOutput),
+        true,
     )
 
     val outputLines = Files.readAllLines(depFileOutput)
@@ -112,7 +111,7 @@ class DepFileUtilsTest {
         listOf(usedClassesMapPath),
         depFileOutput,
         Optional.of(jarToJarDirMapPath),
-        Optional.empty(),
+        false,
     )
 
     val outputLines = Files.readAllLines(depFileOutput)
@@ -138,7 +137,7 @@ class DepFileUtilsTest {
         )
     val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
 
-    DepFileUtils.usedClassesToUsedJars(listOf(usedClassesMapPath), usedJarsOutput, Optional.empty())
+    DepFileUtils.usedClassesToUsedJars(listOf(usedClassesMapPath), usedJarsOutput, false)
 
     val outputLines = Files.readAllLines(usedJarsOutput).joinToString("\n")
     val actual =
@@ -165,12 +164,12 @@ class DepFileUtilsTest {
                 "/path/to/B.jar" to setOf("ClassB.class"),
             )
         )
-    val prevUsedJarsOutput = tempFolder.newFile("prev-used-jars.txt").toPath()
+    val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
 
     DepFileUtils.usedClassesToUsedJars(
         listOf(prevUsedClassesMapPath),
-        prevUsedJarsOutput,
-        Optional.empty(),
+        usedJarsOutput,
+        false,
     )
 
     val usedClassesMapPath =
@@ -182,12 +181,11 @@ class DepFileUtilsTest {
             ),
             "prev-used-classes.json",
         )
-    val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
 
     DepFileUtils.usedClassesToUsedJars(
         listOf(usedClassesMapPath),
         usedJarsOutput,
-        Optional.of(prevUsedJarsOutput),
+        true,
     )
 
     val outputLines = Files.readAllLines(usedJarsOutput).joinToString("\n")

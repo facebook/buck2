@@ -96,7 +96,6 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
 
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(outputPaths.getClassesDir()));
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(outputPaths.getAnnotationPath()));
-    steps.addAll(MakeCleanDirectoryIsolatedStep.of(outputPaths.getOutputJarDirPath()));
 
     // If there are resources, then link them to the appropriate place in the classes directory.
     steps.addAll(CopyResourcesStep.of(resourcesMap));
