@@ -64,6 +64,15 @@ with_artifact_annotation_dir(Func) ->
         Dir -> Func(Dir)
     end.
 
+-spec coverage_tmp_dir() -> file:filename_all() | undefined.
+coverage_tmp_dir() ->
+    case os:getenv("COVERAGE_COLLECTION_TMPDIR") of
+        false ->
+            undefined;
+        Dir ->
+            filename:absname(Dir)
+    end.
+
 % Collect, create and link the logs and other relevant files in
 % the artefacts directory.
 -spec prepare(ExecutionDir, ArtifactAnnotationFunction) -> ok when
@@ -76,6 +85,16 @@ prepare(ExecutionDir, ArtifactAnnotationFunction) ->
             link_to_artifact_dir(
                 join_paths(ExecutionDir, "erlang.perfetto-trace"), ExecutionDir, ArtifactAnnotationFunction
             ),
+            case coverage_tmp_dir() of
+                undefined ->
+                    ok;
+                CoverageTmpDir ->
+                    link_to_artifact_dir(
+                        join_paths(CoverageTmpDir, "feature_coverage.json"),
+                        CoverageTmpDir,
+                        ArtifactAnnotationFunction
+                    )
+            end,
             case find_log_private(ExecutionDir) of
                 {error, log_private_not_found} ->
                     ok;
