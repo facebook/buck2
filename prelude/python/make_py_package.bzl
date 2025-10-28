@@ -768,7 +768,6 @@ def _make_py_package_live(
             metadata_path = "action_metadata-{}.json".format(name),
             category = "par",
             identifier = "make_live_par_incremental{}".format(output_suffix),
-            prefer_local = True,
             no_outputs_cleanup = True,
         )
     else:
