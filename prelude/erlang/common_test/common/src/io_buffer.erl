@@ -16,6 +16,7 @@ It is designed to work alongside a "group leader", capturing
 IOEvents directed at it. This capture can be started/stopped
 using appropriate methods.
 """.
+-compile(warn_missing_spec_all).
 
 -record(state, {buffer, process, group_leader, capture, pass_through, max_elements, max_length}).
 
@@ -25,7 +26,12 @@ using appropriate methods.
 
 -behaviour(gen_server).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/1, trim_line/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+
+% For testing
+-export([trim_line/2]).
+
+-import(common_util, [unicode_characters_to_list/1]).
 
 % Max number of entries kept in the buffer.
 % After that, the buffer will be truncated in the middle, see
@@ -37,36 +43,46 @@ using appropriate methods.
 
 %% Public API
 
+-type start_args() :: #{
+    passthrough => boolean(),
+    max_elements => pos_integer(),
+    max_length => pos_integer()
+}.
+-export_type([start_args/0]).
+
 -doc """
 Starts an linked IO server.
 """.
--spec start_link() -> {ok, pid()}.
+-spec start_link() -> gen_server:start_ret().
 start_link() ->
     start_link(#{passthrough => true, max_elements => ?MAX_LINES, max_length => ?MAX_LENGTH}).
 
-start_link(#{passthrough := PassThrough, max_elements := MaxElements, max_length := MaxLength}) ->
-    gen_server:start_link(
-        ?MODULE, [self(), group_leader(), PassThrough, MaxElements, MaxLength], []
-    ).
+-spec start_link(Args) -> gen_server:start_ret() when
+    Args :: start_args().
+start_link(Args) ->
+    gen_server:start_link(?MODULE, {self(), group_leader(), Args}, []).
 
 -doc """
 Empties the buffer and retrieves its content.
 """.
--spec flush(pid()) -> {string(), boolean()}.
+-spec flush(IoBuffer) -> {string(), boolean()} when
+    IoBuffer :: gen_server:server_ref().
 flush(IoBuffer) ->
     do_call(IoBuffer, flush).
 
 -doc """
 Starts caturing IOEvents and redirecting them to its queue.
 """.
--spec start_capture(pid()) -> ok.
+-spec start_capture(IoBuffer) -> ok when
+    IoBuffer :: gen_server:server_ref().
 start_capture(IoBuffer) ->
     do_call(IoBuffer, start_capture).
 
 -doc """
 Stops capturing IOEvents, letting them flow to their initial group leader.
 """.
--spec stop_capture(pid()) -> ok.
+-spec stop_capture(IoBuffer) -> ok when
+    IoBuffer :: gen_server:server_ref().
 stop_capture(IoBuffer) ->
     do_call(IoBuffer, stop_capture).
 
@@ -77,10 +93,17 @@ do_call(IoBuffer, Request) ->
 -doc """
 Stop the IoBuffer
 """.
+-spec stop(IoBuffer) -> ok when
+    IoBuffer :: gen_server:server_ref().
 stop(IoBuffer) ->
     gen_server:stop(IoBuffer).
 
-init([Process, GroupLeader, PassThrough, MaxElements, MaxLength]) ->
+-spec init({Process, GroupLeader, Args}) -> {ok, #state{}} when
+    Process :: pid(),
+    GroupLeader :: pid(),
+    Args :: start_args().
+init({Process, GroupLeader, Args}) ->
+    #{passthrough := PassThrough, max_elements := MaxElements, max_length := MaxLength} = Args,
     group_leader(self(), Process),
     {ok, #state{
         process = Process,
@@ -92,10 +115,14 @@ init([Process, GroupLeader, PassThrough, MaxElements, MaxLength]) ->
         max_length = MaxLength
     }}.
 
+-spec handle_call
+    (flush, gen_server:from(), #state{}) -> {reply, {list(), boolean()}, #state{}};
+    (start_capture, gen_server:from(), #state{}) -> {reply, ok, #state{}};
+    (stop_capture, gen_server:from(), #state{}) -> {reply, ok, #state{}}.
 handle_call(flush, _From, State = #state{buffer = Buffer, max_elements = MaxElements}) ->
     NewState = State#state{buffer = bounded_buffer:new(MaxElements)},
     {Elements, Truncated} = bounded_buffer:get_elements(Buffer),
-    {reply, {unicode:characters_to_list(Elements), Truncated}, NewState};
+    {reply, {unicode_characters_to_list(Elements), Truncated}, NewState};
 handle_call(start_capture, _From, State = #state{}) ->
     {reply, ok, State#state{capture = true}};
 handle_call(stop_capture, _From, #state{group_leader = GroupLeader, buffer = Buffer} = State) ->
@@ -105,9 +132,14 @@ handle_call(stop_capture, _From, #state{group_leader = GroupLeader, buffer = Buf
 handle_call(_Request, _From, State) ->
     {noreply, State}.
 
+-spec handle_cast(term(), #state{}) -> {noreply, #state{}}.
 handle_cast(_Request, State) ->
     {noreply, State}.
 
+-spec handle_info({io_request, From, ReplyAs, Request}, #state{}) -> {noreply, #state{}} when
+    From :: erlang:send_destination(),
+    ReplyAs :: term(),
+    Request :: request().
 handle_info(
     {io_request, From, ReplyAs, Request},
     #state{capture = Capture, pass_through = PassThrough, group_leader = GroupLeader} = State
@@ -147,7 +179,10 @@ handle_info(_Info, State) ->
     | {get_geometry, Geometry :: term()}
     | {requests, [request()]}.
 
--spec request(request(), #state{}) -> {{error, term()} | term(), #state{}}.
+-type 'io:getopt'() :: {'terminal' | 'stdin' | 'stdout' | 'stderr', boolean()} | 'io:option'().
+-type 'io:option'() :: {atom(), term()}.
+
+-spec request(request(), #state{}) -> {ok | ['io:getopt'()] | {error, term()}, #state{}}.
 request({put_chars, Encoding, Chars}, #state{buffer = Buffer, max_length = MaxLength} = State) ->
     Line =
         case unicode:characters_to_binary(Chars, Encoding) of
@@ -182,6 +217,10 @@ request({get_geometry, _Geometry}, State) ->
 request(Other, State) ->
     {{error, {wrong_request, Other}}, State}.
 
+-spec multi_request(Requests, {LatestReply, State}) -> {LatestReply, State} when
+    Requests :: [request()],
+    LatestReply :: ok | ['io:getopt'()] | {error, term()},
+    State :: #state{}.
 multi_request([], {LatestReply, State}) ->
     {LatestReply, State};
 multi_request([_ | _], {{error, Error}, State}) ->
@@ -189,8 +228,12 @@ multi_request([_ | _], {{error, Error}, State}) ->
 multi_request([R | Rs], {_Reply, State}) ->
     multi_request(Rs, request(R, State)).
 
-terminate(#state{process = Process, group_leader = GroupLeader} = _State) ->
-    group_leader(GroupLeader, Process).
+-spec terminate(Reason, State) -> ok when
+    Reason :: (normal | shutdown | {shutdown, term()} | term()),
+    State :: #state{}.
+terminate(_Reason, #state{process = Process, group_leader = GroupLeader} = _State) ->
+    group_leader(GroupLeader, Process),
+    ok.
 
 -spec trim_line(binary(), integer()) -> binary().
 trim_line(Line, Length) when byte_size(Line) > Length ->
