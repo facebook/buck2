@@ -6,10 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# Provide information so that ELP is able to load a BUCK project
-
-load("@prelude//:paths.bzl", "paths")
-
 BuildResults = record(
     result = field(dict[Label, bxl.BuildResult]),
     artifacts = field(dict[Label, list[bxl.EnsuredArtifact]]),
@@ -23,14 +19,9 @@ def _add_includes_to_map(includes_map, includes):
     return includes_map
 
 def _clean_up_includes(includes):
-    # - Strip to just dir, not file name
     # - Remove duplicates
-    # Note: Sometimes the buck rule generating the includes has an excludes glob for a directory.
-    #       This flattening will potentially expose excluded files in the directory.
-    #       But we do it, because otherwise the performance in erlang_service parsing is too poor.
-    #       For generated include files we cannot perform this optimisation, instead we list them
-    #       individually.
-    include_paths = [paths.dirname(p["value"]) for p in includes if p["type"] == "path"]
+    # - extract paths and build results
+    include_paths = [p["value"] for p in includes if p["type"] == "path"]
     include_paths = [_as_path(p) for p in _uniq(include_paths)]
     builds = [b for b in includes if b["type"] == "build"]
 
