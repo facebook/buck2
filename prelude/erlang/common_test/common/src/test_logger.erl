@@ -19,7 +19,7 @@ set_up_logger(LogDir, AppName, Type) ->
     filelib:ensure_dir(Log),
     StdOut = get_std_out(LogDir, AppName),
     filelib:ensure_dir(StdOut),
-    [logger:remove_handler(Id) || Id <- logger:get_handler_ids()],
+    [logger:update_handler_config(Id, level, none) || Id <- logger:get_handler_ids()],
     case Type of
         no_capture_stdout ->
             ok;
