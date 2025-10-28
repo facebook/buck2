@@ -648,6 +648,7 @@ message TestResponse {
     CounterWithExamples listing_success = 14;
     CounterWithExamples listing_failed = 15;
     uint64 build_errors = 16;
+    CounterWithExamples infra_failure = 17;
   }
   TestStatuses test_statuses = 3;
   string executor_stdout = 4;

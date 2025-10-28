@@ -160,6 +160,7 @@ pub struct InvocationRecorder {
     time_to_first_timeout_test_result: Option<Duration>,
     time_to_first_fatal_test_result: Option<Duration>,
     time_to_first_unknown_test_result: Option<Duration>,
+    time_to_first_infra_failure_test_result: Option<Duration>,
 
     system_info: SystemInfo,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
@@ -364,6 +365,7 @@ impl InvocationRecorder {
             time_to_first_fatal_test_result: None,
             time_to_first_timeout_test_result: None,
             time_to_first_skip_test_result: None,
+            time_to_first_infra_failure_test_result: None,
             time_to_first_unknown_test_result: None,
             system_info: SystemInfo::default(),
             file_watcher_stats: None,
@@ -974,6 +976,9 @@ impl InvocationRecorder {
             time_to_first_timeout_test_result_ms: self
                 .time_to_first_timeout_test_result
                 .and_then(duration_as_millis),
+            time_to_first_infra_failure_test_result_ms: self
+                .time_to_first_infra_failure_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
             time_to_first_unknown_test_result_ms: self
                 .time_to_first_unknown_test_result
                 .and_then(duration_as_millis),
@@ -1674,6 +1679,10 @@ impl InvocationRecorder {
             }
             buck2_data::TestStatus::Skip => {
                 self.time_to_first_skip_test_result.get_or_insert(duration);
+            }
+            buck2_data::TestStatus::InfraFailure => {
+                self.time_to_first_infra_failure_test_result
+                    .get_or_insert(duration);
             }
             buck2_data::TestStatus::Timeout => {
                 self.time_to_first_timeout_test_result

@@ -1011,6 +1011,7 @@ enum TestStatus {
   RERUN = 8;
   LISTING_SUCCESS = 9;
   LISTING_FAILED = 10;
+  INFRA_FAILURE = 11;
 }
 
 message TestResult {
@@ -2587,6 +2588,8 @@ message InvocationRecord {
   optional uint64 time_to_first_skip_test_result_ms = 301;
   // Time elapsed from a build's start until first unknown test result.
   optional uint64 time_to_first_unknown_test_result_ms = 302;
+  // Time elapsed from a build's start until first infra failure test result.
+  optional uint64 time_to_first_infra_failure_test_result_ms = 305;
 
   // Number of memory pressure events fired by the memory tracker.
   optional uint64 memory_tracker_pressure_events = 400;
