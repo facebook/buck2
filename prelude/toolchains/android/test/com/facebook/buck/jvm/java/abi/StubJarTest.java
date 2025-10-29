@@ -8032,7 +8032,8 @@ public class StubJarTest {
                   jarBuilder,
                   AbiGenerationMode.CLASS,
                   additionalOptions.contains("-parameters"),
-                  false);
+                  false,
+                  null);
 
           testCompiler.addPostEnterCallback(generator::generate);
           testCompiler.setAllowCompilationErrors(!expectedCompileErrors.isEmpty());

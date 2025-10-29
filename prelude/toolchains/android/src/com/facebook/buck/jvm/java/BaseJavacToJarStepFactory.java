@@ -41,7 +41,9 @@ public class BaseJavacToJarStepFactory extends BaseCompileToJarStepFactory<JavaE
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       JavaExtraParams extraParams,
-      RelPath kotlinClassesDir) {
+      RelPath kotlinClassesDir,
+      JarParameters abiJarParameters,
+      boolean mixedCompilation) {
 
     CompilerOutputPaths outputPath = compilerOutputPathsValue.getByType(invokingRule.getType());
     if (extraParams.getAddAnnotationPath()) {
@@ -57,8 +59,9 @@ public class BaseJavacToJarStepFactory extends BaseCompileToJarStepFactory<JavaE
             buckOut,
             compilerOutputPathsValue,
             parameters,
+            abiJarParameters,
             null,
-            null));
+            mixedCompilation));
   }
 
   protected void addAnnotationGenFolderStep(

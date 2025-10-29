@@ -83,7 +83,8 @@ public class JavacStepTest {
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
+            null,
+            false);
 
     FakeProcess fakeJavacProcess = new FakeProcess(0, "javac stdout\n", "javac stderr\n");
 
@@ -110,7 +111,8 @@ public class JavacStepTest {
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
+            null,
+            false);
 
     FakeProcess fakeJavacProcess = new FakeProcess(3, "javac stdout\n", "javac stderr\n");
 
@@ -143,7 +145,8 @@ public class JavacStepTest {
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
+            null,
+            false);
 
     FakeProcess fakeJavacProcess = new FakeProcess(0, "javac stdout\n", "javac stderr\n");
 
@@ -170,7 +173,8 @@ public class JavacStepTest {
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
+            null,
+            false);
 
     FakeProcess fakeJavacProcess = new FakeProcess(0, "javac stdout\n", "javac stderr\n");
 

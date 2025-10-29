@@ -80,7 +80,9 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       KotlinExtraParams extraParams,
-      @Nullable RelPath kotlinClassesDir) {
+      @Nullable RelPath kotlinClassesDir,
+      @Nullable JarParameters abiJarParameters,
+      boolean mixedCompilation) {
 
     Kotlinc kotlinc = KotlincFactory.create();
 
@@ -316,7 +318,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         parameters.getClasspathEntries(),
         extraParams.getExtraClassPaths(),
         outputDirectory,
-        javacSourceBuilder);
+        javacSourceBuilder,
+        abiJarParameters);
   }
 
   @Override
@@ -333,6 +336,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       @Nullable ActionMetadata actionMetadata,
       KotlinExtraParams extraParams,
       RelPath kotlinClassesDir) {
+
     createCompileStep(
         buckOut,
         buildCellRootPath,
@@ -343,7 +347,9 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         resolvedJavac,
         actionMetadata,
         extraParams,
-        kotlinClassesDir);
+        kotlinClassesDir,
+        abiJarParameters,
+        true);
     steps.add(
         new JarDirectoryStep(abiJarParameters == null ? libraryJarParameters : abiJarParameters));
   }

@@ -34,6 +34,8 @@ public class JavacStep implements IsolatedStep {
   private final boolean ownsPipelineObject;
   private final CompilerOutputPathsValue compilerOutputPathsValue;
 
+  private final boolean mixedModule;
+
   public JavacStep(
       ResolvedJavac resolvedJavac,
       ResolvedJavacOptions javacOptions,
@@ -42,7 +44,8 @@ public class JavacStep implements IsolatedStep {
       CompilerOutputPathsValue compilerOutputPathsValue,
       CompilerParameters compilerParameters,
       @Nullable JarParameters abiJarParameters,
-      @Nullable JarParameters libraryJarParameters) {
+      @Nullable JarParameters libraryJarParameters,
+      boolean mixedCompilation) {
     this(
         new JavacPipelineState(
             resolvedJavac,
@@ -54,7 +57,8 @@ public class JavacStep implements IsolatedStep {
         invokingRule,
         configuredBuckOut,
         true,
-        compilerOutputPathsValue);
+        compilerOutputPathsValue,
+        mixedCompilation);
   }
 
   public JavacStep(
@@ -62,7 +66,7 @@ public class JavacStep implements IsolatedStep {
       BuildTargetValue invokingRule,
       RelPath configuredBuckOut,
       CompilerOutputPathsValue compilerOutputPathsValue) {
-    this(state, invokingRule, configuredBuckOut, false, compilerOutputPathsValue);
+    this(state, invokingRule, configuredBuckOut, false, compilerOutputPathsValue, false);
   }
 
   private JavacStep(
@@ -70,12 +74,14 @@ public class JavacStep implements IsolatedStep {
       BuildTargetValue invokingRule,
       RelPath configuredBuckOut,
       boolean ownsPipelineObject,
-      CompilerOutputPathsValue compilerOutputPathsValue) {
+      CompilerOutputPathsValue compilerOutputPathsValue,
+      boolean mixedModule) {
     this.state = state;
     this.invokingRule = invokingRule;
     this.configuredBuckOut = configuredBuckOut;
     this.ownsPipelineObject = ownsPipelineObject;
     this.compilerOutputPathsValue = compilerOutputPathsValue;
+    this.mixedModule = mixedModule;
   }
 
   @Override
@@ -91,7 +97,7 @@ public class JavacStep implements IsolatedStep {
       if (invokingRule.isSourceAbi()) {
         exitCode = invocation.buildSourceAbiJar();
       } else if (invokingRule.isSourceOnlyAbi()) {
-        exitCode = invocation.buildSourceOnlyAbiJar();
+        exitCode = invocation.buildSourceOnlyAbiJar(mixedModule);
       } else {
         exitCode = invocation.buildClasses();
       }

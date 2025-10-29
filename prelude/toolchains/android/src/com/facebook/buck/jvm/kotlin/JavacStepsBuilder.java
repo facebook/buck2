@@ -18,6 +18,7 @@ import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.BaseJavacToJarStepFactory;
 import com.facebook.buck.jvm.java.CompilerOutputPathsValue;
 import com.facebook.buck.jvm.java.CompilerParameters;
+import com.facebook.buck.jvm.java.JarParameters;
 import com.facebook.buck.jvm.java.JavaExtraParams;
 import com.facebook.buck.jvm.java.ResolvedJavac;
 import com.facebook.buck.jvm.java.ResolvedJavacOptions;
@@ -44,7 +45,8 @@ public class JavacStepsBuilder {
       ImmutableList<RelPath> declaredClasspathEntries,
       ImmutableList<AbsPath> extraClassPaths,
       RelPath outputDirectory,
-      ImmutableSortedSet.Builder<RelPath> sourceBuilder) {
+      ImmutableSortedSet.Builder<RelPath> sourceBuilder,
+      JarParameters abiJarParameter) {
 
     // Kotlin source-only-abi is only available for pure-kotlin targets
     // It's not applicable for:
@@ -100,6 +102,8 @@ public class JavacStepsBuilder {
         resolvedJavac,
         null,
         JavaExtraParams.of(resolvedJavacOptions, /* addAnnotationPath */ false),
-        null);
+        null,
+        abiJarParameter,
+        true);
   }
 }

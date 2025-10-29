@@ -152,7 +152,9 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
         resolvedJavac,
         actionMetadata,
         extraParams,
-        kotlinClassesDir);
+        kotlinClassesDir,
+        null,
+        false);
 
     steps.add(new JarDirectoryStep(libraryJarParameters));
   }
@@ -176,7 +178,9 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       T extraParams,
-      @Nullable RelPath kotlinClassesDir);
+      @Nullable RelPath kotlinClassesDir,
+      JarParameters abiJarParameters,
+      boolean mixedCompilationMode);
 
   public boolean supportsCompilationDaemon() {
     return false;

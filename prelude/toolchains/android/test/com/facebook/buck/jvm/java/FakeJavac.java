@@ -42,7 +42,7 @@ public class FakeJavac implements ResolvedJavac {
       @Nullable SourceOnlyAbiRuleInfoFactory ruleInfoFactory) {
     return new ResolvedJavac.Invocation() {
       @Override
-      public int buildSourceOnlyAbiJar() {
+      public int buildSourceOnlyAbiJar(boolean isMixedModule) {
         throw new UnsupportedOperationException();
       }
 

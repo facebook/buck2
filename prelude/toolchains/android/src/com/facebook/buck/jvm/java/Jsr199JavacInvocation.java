@@ -135,10 +135,11 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
   }
 
   @Override
-  public int buildSourceOnlyAbiJar() throws InterruptedException {
+  public int buildSourceOnlyAbiJar(boolean isMixedModule) throws InterruptedException {
     return getWorker()
         .buildSourceOnlyAbiJar(
-            compilerOutputPathsValue.getSourceOnlyAbiCompilerOutputPath().getOutputJarDirPath());
+            compilerOutputPathsValue.getSourceOnlyAbiCompilerOutputPath().getOutputJarDirPath(),
+            isMixedModule);
   }
 
   @Override
@@ -208,15 +209,17 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
       this.classUsageTracker = trackClassUsage ? new ClassUsageTracker() : null;
     }
 
-    public int buildSourceOnlyAbiJar(RelPath outputJarDirPath) throws InterruptedException {
-      return buildAbiJar(true, outputJarDirPath);
+    public int buildSourceOnlyAbiJar(RelPath outputJarDirPath, boolean isMixedModule)
+        throws InterruptedException {
+      return buildAbiJar(true, outputJarDirPath, isMixedModule);
     }
 
     public int buildSourceAbiJar(RelPath outputJarDirPath) throws InterruptedException {
-      return buildAbiJar(false, outputJarDirPath);
+      return buildAbiJar(false, outputJarDirPath, false);
     }
 
-    private int buildAbiJar(boolean buildSourceOnlyAbi, RelPath outputJarDirPath)
+    private int buildAbiJar(
+        boolean buildSourceOnlyAbi, RelPath outputJarDirPath, boolean isMixedModule)
         throws InterruptedException {
       SettableFuture<Integer> abiResult = SettableFuture.create();
       // abi is ready when compiler task finished
@@ -246,21 +249,32 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
               if (buildSuccessful()) {
                 // Only attempt to build stubs if the build is successful so far; errors can
                 // put javac into an unknown state.
-                JarBuilder jarBuilder = newJarBuilder(jarParameters).setShouldHashEntries(true);
+                JarBuilder jarBuilder = null;
+                if (!isMixedModule) {
+                  jarBuilder = newJarBuilder(jarParameters).setShouldHashEntries(true);
+                }
                 StubGenerator stubGenerator =
                     new StubGenerator(
                         getTargetVersion(options),
                         javacTask.getElements(),
                         javacTask.getTypes(),
-                        javacTask.getMessager(),
+                        isMixedModule
+                            ? new DowngradeMissingAnnotationErrorMessager(javacTask.getMessager())
+                            : javacTask.getMessager(),
                         jarBuilder,
                         abiCompatibilityMode,
                         options.contains("-parameters"),
-                        false);
+                        false,
+                        isMixedModule
+                            ? abiJarParameters.getEntriesToJar().first().toAbsolutePath()
+                            : null);
                 stubGenerator.generate(topLevelTypes);
-                jarBuilder.createJarFile(
-                    ProjectFilesystemUtils.getPathForRelativePath(
-                        ruleCellRoot, jarParameters.getJarPath()));
+
+                if (!isMixedModule) {
+                  jarBuilder.createJarFile(
+                      ProjectFilesystemUtils.getPathForRelativePath(
+                          ruleCellRoot, jarParameters.getJarPath()));
+                }
               }
 
               debugLogDiagnostics();

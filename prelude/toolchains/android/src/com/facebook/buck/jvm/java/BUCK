@@ -48,6 +48,7 @@ buck_kotlin_library(
         "DefaultSourceOnlyAbiRuleInfoFactory.kt",
         "DiagnosticCleaner.java",
         "DiagnosticPrettyPrinter.java",
+        "DowngradeMissingAnnotationErrorMessager.java",
         "ExternalJavac.java",
         "FileManagerListener.java",
         "ForwardingStandardJavaFileManager.java",

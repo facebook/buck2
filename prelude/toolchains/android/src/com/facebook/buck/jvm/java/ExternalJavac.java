@@ -104,7 +104,7 @@ public class ExternalJavac {
 
       return new Invocation() {
         @Override
-        public int buildSourceOnlyAbiJar() {
+        public int buildSourceOnlyAbiJar(boolean isMixedModule) {
           throw new UnsupportedOperationException(
               "Cannot build source-only ABI jar with external javac.");
         }
