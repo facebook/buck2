@@ -5,7 +5,5 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-buildscript.run = true
-
 # reindeer cannot see through `cfg_proto!` macros and the like
 extra_srcs = ["src/**/*.rs"]
