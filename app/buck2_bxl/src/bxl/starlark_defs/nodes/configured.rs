@@ -743,10 +743,8 @@ pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
     bxl_context: &'v BxlContext<'v>,
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    resolution_ctx_data: RefCell<LazyAttrResolutionCache<'v>>,
+    resolution_ctx_data: RefCell<LazyAttrResolutionCache>,
 }
 
 #[starlark_value(type = "bxl.LazyResolvedAttrs", StarlarkTypeRepr, UnpackValue)]

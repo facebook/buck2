@@ -76,7 +76,7 @@ enum AnalysisError {
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
 pub struct RuleAnalysisAttrResolutionContext<'v> {
     pub module: &'v Module,
-    pub dep_analysis_results: HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    pub dep_analysis_results: HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     pub query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     pub execution_platform_resolution: ExecutionPlatformResolution,
 }
@@ -114,7 +114,7 @@ impl<'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext<'v>
 }
 
 pub fn get_dep<'v>(
-    dep_analysis_results: &HashMap<&'_ ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     target: &ConfiguredProvidersLabel,
     module: &'v Module,
 ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
@@ -129,7 +129,7 @@ pub fn get_dep<'v>(
 }
 
 pub fn resolve_unkeyed_placeholder<'v>(
-    dep_analysis_results: &HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
     module: &'v Module,
 ) -> Option<FrozenCommandLineArg> {
@@ -214,11 +214,11 @@ pub(crate) async fn run_analysis<'a>(
 
 pub fn get_deps_from_analysis_results(
     results: Vec<(&ConfiguredTargetLabel, AnalysisResult)>,
-) -> buck2_error::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
     results
         .into_iter()
-        .map(|(label, result)| Ok((label, result.providers()?.to_owned())))
-        .collect::<buck2_error::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
+        .map(|(label, result)| Ok((label.dupe(), result.providers()?.to_owned())))
+        .collect::<buck2_error::Result<HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
 // Used to express that the impl Future below captures multiple named lifetimes.

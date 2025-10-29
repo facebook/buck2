@@ -12,6 +12,7 @@ use std::cell::RefMut;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use buck2_analysis::analysis::calculation::get_dep_analysis;
 use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_analysis::analysis::env::get_dep;
@@ -33,9 +34,10 @@ use starlark::values::FrozenValueTyped;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 
-pub(crate) struct LazyAttrResolutionCache<'v> {
+#[derive(Allocative)]
+pub(crate) struct LazyAttrResolutionCache {
     pub(super) dep_analysis_results:
-        Option<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
+        Option<HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
     pub(super) query_results: Option<HashMap<String, Arc<AnalysisQueryResult>>>,
 }
 
@@ -45,7 +47,7 @@ pub(crate) struct LazyAttrResolutionContext<'a, 'v> {
     pub(crate) module: &'v Module,
     pub(super) configured_node: &'v ConfiguredTargetNode,
     pub(super) ctx: &'v BxlContext<'v>,
-    pub(crate) cache: RefMut<'a, LazyAttrResolutionCache<'v>>,
+    pub(crate) cache: RefMut<'a, LazyAttrResolutionCache>,
 }
 
 fn get_or_try_init<T>(
@@ -59,13 +61,12 @@ fn get_or_try_init<T>(
     Ok(o.as_ref().unwrap())
 }
 
-impl<'v> LazyAttrResolutionCache<'v> {
-    fn dep_analysis_results(
+impl LazyAttrResolutionCache {
+    fn dep_analysis_results<'v>(
         &mut self,
         ctx: &'v BxlContext<'v>,
         configured_node: &'v ConfiguredTargetNode,
-    ) -> buck2_error::Result<&HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>
-    {
+    ) -> buck2_error::Result<&HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
         get_or_try_init(&mut self.dep_analysis_results, || {
             get_deps_from_analysis_results(ctx.via_dice(|ctx, _| {
                 ctx.via(|dice_ctx| {
@@ -75,7 +76,7 @@ impl<'v> LazyAttrResolutionCache<'v> {
         })
     }
 
-    fn query_results(
+    fn query_results<'v>(
         &mut self,
         ctx: &'v BxlContext<'v>,
         configured_node: &'v ConfiguredTargetNode,

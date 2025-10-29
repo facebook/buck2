@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -25,6 +26,7 @@ use starlark::values::Heap;
 /// Queries are:
 /// * `attrs.query()` queries
 /// * macro queries like `$(query_outputs ...)`
+#[derive(Allocative)]
 pub struct AnalysisQueryResult {
     // TODO(nga): we perform analysis even when providers are not needed,
     //   for example, `$(query_targets ...)` only needs target labels.
