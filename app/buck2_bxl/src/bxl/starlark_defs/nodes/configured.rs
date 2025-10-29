@@ -9,11 +9,11 @@
  */
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
 use std::path::Path;
-use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_analysis::analysis::calculation::get_dep_analysis;
@@ -746,7 +746,7 @@ pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    resolution_ctx_data: LazyAttrResolutionCache<'v>,
+    resolution_ctx_data: RefCell<LazyAttrResolutionCache<'v>>,
 }
 
 #[starlark_value(type = "bxl.LazyResolvedAttrs", StarlarkTypeRepr, UnpackValue)]
@@ -770,14 +770,14 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
     ) -> StarlarkLazyResolvedAttrs<'v> {
         let configured_node = &configured_node.0;
         let resolution_ctx = LazyAttrResolutionCache {
-            dep_analysis_results: OnceLock::new(),
-            query_results: OnceLock::new(),
+            dep_analysis_results: None,
+            query_results: None,
         };
 
         Self {
             configured_node,
             bxl_context: ctx,
-            resolution_ctx_data: resolution_ctx,
+            resolution_ctx_data: RefCell::new(resolution_ctx),
         }
     }
 
@@ -786,7 +786,7 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
             module,
             configured_node: self.configured_node,
             ctx: self.bxl_context,
-            cache: &self.resolution_ctx_data,
+            cache: self.resolution_ctx_data.borrow_mut(),
         }
     }
 }
@@ -814,7 +814,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
             match this.configured_node.get(attr, AttrInspectOptions::All) {
                 Some(attr) => NoneOr::Other(attr.value.resolve_single(
                     this.configured_node.label().pkg(),
-                    &mut &this.resolution_ctx(eval.module()),
+                    &mut this.resolution_ctx(eval.module()),
                 )?),
                 None => {
                     // Check special attrs
@@ -827,7 +827,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                         None => NoneOr::None,
                         Some(attr) => NoneOr::Other(attr.resolve_single(
                             this.configured_node.label().pkg(),
-                            &mut &this.resolution_ctx(eval.module()),
+                            &mut this.resolution_ctx(eval.module()),
                         )?),
                     }
                 }

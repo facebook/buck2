@@ -8,9 +8,9 @@
  * above-listed licenses.
  */
 
+use std::cell::RefMut;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use buck2_analysis::analysis::calculation::get_dep_analysis;
 use buck2_analysis::analysis::calculation::resolve_queries;
@@ -34,11 +34,9 @@ use starlark::values::FrozenValueTyped;
 use crate::bxl::starlark_defs::context::BxlContext;
 
 pub(crate) struct LazyAttrResolutionCache<'v> {
-    pub(super) dep_analysis_results: OnceLock<
-        buck2_error::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
-    >,
-    pub(super) query_results:
-        OnceLock<buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
+    pub(super) dep_analysis_results:
+        Option<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
+    pub(super) query_results: Option<HashMap<String, Arc<AnalysisQueryResult>>>,
 }
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
@@ -47,35 +45,52 @@ pub(crate) struct LazyAttrResolutionContext<'a, 'v> {
     pub(crate) module: &'v Module,
     pub(super) configured_node: &'v ConfiguredTargetNode,
     pub(super) ctx: &'v BxlContext<'v>,
-    pub(crate) cache: &'a LazyAttrResolutionCache<'v>,
+    pub(crate) cache: RefMut<'a, LazyAttrResolutionCache<'v>>,
 }
 
-impl<'a, 'v> LazyAttrResolutionContext<'a, 'v> {
+fn get_or_try_init<T>(
+    o: &mut Option<T>,
+    f: impl FnOnce() -> buck2_error::Result<T>,
+) -> buck2_error::Result<&T> {
+    if o.is_none() {
+        *o = Some(f()?);
+    }
+
+    Ok(o.as_ref().unwrap())
+}
+
+impl<'v> LazyAttrResolutionCache<'v> {
     fn dep_analysis_results(
-        &self,
-    ) -> &buck2_error::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>
+        &mut self,
+        ctx: &'v BxlContext<'v>,
+        configured_node: &'v ConfiguredTargetNode,
+    ) -> buck2_error::Result<&HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>
     {
-        self.cache.dep_analysis_results.get_or_init(|| {
-            get_deps_from_analysis_results(self.ctx.via_dice(|ctx, _| {
+        get_or_try_init(&mut self.dep_analysis_results, || {
+            get_deps_from_analysis_results(ctx.via_dice(|ctx, _| {
                 ctx.via(|dice_ctx| {
-                    get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
+                    get_dep_analysis(configured_node.as_ref(), dice_ctx).boxed_local()
                 })
             })?)
         })
     }
 
-    fn query_results(&self) -> &buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
-        self.cache.query_results.get_or_init(|| {
-            self.ctx.via_dice(|ctx, _| {
+    fn query_results(
+        &mut self,
+        ctx: &'v BxlContext<'v>,
+        configured_node: &'v ConfiguredTargetNode,
+    ) -> buck2_error::Result<&HashMap<String, Arc<AnalysisQueryResult>>> {
+        get_or_try_init(&mut self.query_results, || {
+            ctx.via_dice(|ctx, _| {
                 ctx.via(|dice_ctx| {
-                    resolve_queries(dice_ctx, self.configured_node.as_ref()).boxed_local()
+                    resolve_queries(dice_ctx, configured_node.as_ref()).boxed_local()
                 })
             })
         })
     }
 }
 
-impl<'a, 'v> AttrResolutionContext<'v> for &'_ LazyAttrResolutionContext<'a, 'v> {
+impl<'a, 'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'a, 'v> {
     fn starlark_module(&self) -> &'v Module {
         self.module
     }
@@ -85,7 +100,10 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ LazyAttrResolutionContext<'a, 'v>
         target: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         let module = self.module;
-        match self.dep_analysis_results() {
+        match self
+            .cache
+            .dep_analysis_results(self.ctx, self.configured_node)
+        {
             Ok(deps) => Ok(get_dep(deps, target, module)?),
             Err(e) => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Bxl,
@@ -99,9 +117,11 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ LazyAttrResolutionContext<'a, 'v>
         &mut self,
         name: &str,
     ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
-        let module = self.module;
-        match self.dep_analysis_results() {
-            Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, module)),
+        match self
+            .cache
+            .dep_analysis_results(self.ctx, self.configured_node)
+        {
+            Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, self.module)),
             Err(e) => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Bxl,
                 "Error resolving unkeyed placeholder: `{}`",
@@ -111,7 +131,7 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ LazyAttrResolutionContext<'a, 'v>
     }
 
     fn resolve_query(&mut self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
-        match self.query_results() {
+        match self.cache.query_results(self.ctx, self.configured_node) {
             Ok(res) => resolve_query(res, query, self.module),
             Err(e) => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Bxl,
