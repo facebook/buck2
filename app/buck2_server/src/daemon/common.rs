@@ -94,6 +94,7 @@ pub struct CommandExecutorFactory {
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
+    memory_tracker: Option<MemoryTrackerHandle>,
     local_action_counter: Option<Arc<LocalActionCounter>>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
@@ -125,7 +126,7 @@ impl CommandExecutorFactory {
         output_trees_download_config: OutputTreesDownloadConfig,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
-        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
+        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker.dupe());
         let local_action_counter = local_actions_throttle
             .as_ref()
             .map(|_| LocalActionCounter::new());
@@ -151,6 +152,7 @@ impl CommandExecutorFactory {
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             local_actions_throttle,
+            memory_tracker,
             local_action_counter,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
@@ -192,6 +194,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.forkserver.dupe(),
                 self.executor_global_knobs.dupe(),
                 worker_pool,
+                self.memory_tracker.dupe(),
                 self.local_action_counter.dupe(),
             )
         };

@@ -21,7 +21,6 @@ dupe = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
-buck2_events = { workspace = true }
 buck2_execute_local = { workspace = true }
 buck2_forkserver_proto = { workspace = true }
 buck2_grpc = { workspace = true }

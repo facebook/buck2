@@ -16,12 +16,8 @@ use allocative::Allocative;
 use arc_swap::ArcSwapOption;
 use buck2_core::tag_error;
 use buck2_error::BuckErrorContext;
-use buck2_events::dispatch::EventDispatcher;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::decode_command_event_stream;
-use buck2_resource_control::CommandType;
-use buck2_resource_control::action_cgroups::ActionCgroupSession;
-use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -37,7 +33,6 @@ use crate::convert::decode_event_stream;
 #[derive(Clone, Dupe, Allocative)]
 pub struct ForkserverClient {
     inner: Arc<ForkserverClientInner>,
-    memory_tracker: Option<MemoryTrackerHandle>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -60,11 +55,7 @@ struct ForkserverClientInner {
 }
 
 impl ForkserverClient {
-    pub(crate) async fn new(
-        mut child: Child,
-        channel: Channel,
-        memory_tracker: Option<MemoryTrackerHandle>,
-    ) -> buck2_error::Result<Self> {
+    pub(crate) async fn new(mut child: Child, channel: Channel) -> buck2_error::Result<Self> {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX);
@@ -89,7 +80,6 @@ impl ForkserverClient {
 
         Ok(Self {
             inner: Arc::new(ForkserverClientInner { error, pid, rpc }),
-            memory_tracker,
         })
     }
 
@@ -99,11 +89,8 @@ impl ForkserverClient {
 
     pub async fn execute<C>(
         &self,
-        mut req: buck2_forkserver_proto::CommandRequest,
+        req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
-        action_digest: Option<String>,
     ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
@@ -119,42 +106,6 @@ impl ForkserverClient {
             .into());
         }
 
-        let cgroup_session = if matches!(command_type, CommandType::Worker) {
-            None
-        } else {
-            ActionCgroupSession::maybe_create(
-                &self.memory_tracker,
-                dispatcher,
-                command_type,
-                action_digest,
-            )
-            .await?
-        };
-
-        if let Some(cgroup_session) = &cgroup_session {
-            req.command_cgroup = Some(cgroup_session.path.to_str()?.to_owned());
-        }
-
-        let mut res = self.execute_with_cgroup(req, cancel).await;
-
-        if let Some(mut cgroup_session) = cgroup_session {
-            let cgroup_res = cgroup_session.command_finished().await;
-            if let Ok(res) = &mut res {
-                res.cgroup_result = Some(cgroup_res);
-            }
-        }
-
-        res
-    }
-
-    async fn execute_with_cgroup<C>(
-        &self,
-        req: buck2_forkserver_proto::CommandRequest,
-        cancel: C,
-    ) -> buck2_error::Result<CommandResult>
-    where
-        C: Future<Output = ()> + Send + 'static,
-    {
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
             data: Some(req.into()),
         }))

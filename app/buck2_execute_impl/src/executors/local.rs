@@ -83,6 +83,9 @@ use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_resource_control::CommandType;
+use buck2_resource_control::action_cgroups::ActionCgroupSession;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
 use derive_more::From;
 use dupe::Dupe;
@@ -184,6 +187,7 @@ pub struct LocalExecutor {
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
     worker_pool: Option<Arc<WorkerPool>>,
+    memory_tracker: Option<MemoryTrackerHandle>,
     local_action_counter: Option<Arc<LocalActionCounter>>,
 }
 
@@ -198,6 +202,7 @@ impl LocalExecutor {
         forkserver: ForkserverAccess,
         knobs: ExecutorGlobalKnobs,
         worker_pool: Option<Arc<WorkerPool>>,
+        memory_tracker: Option<MemoryTrackerHandle>,
         local_action_counter: Option<Arc<LocalActionCounter>>,
     ) -> Self {
         Self {
@@ -210,6 +215,7 @@ impl LocalExecutor {
             forkserver,
             knobs,
             worker_pool,
+            memory_tracker,
             local_action_counter,
         }
     }
@@ -226,9 +232,7 @@ impl LocalExecutor {
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
-        action_digest: &'a str,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
+        cgroup: Option<CgroupPathBuf>,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             if let Some(counter) = self.local_action_counter.as_ref() {
@@ -250,16 +254,13 @@ impl LocalExecutor {
                         env_inheritance,
                         liveliness_observer,
                         self.knobs.enable_miniperf && !disable_miniperf,
-                        action_digest,
-                        command_type,
-                        dispatcher,
+                        cgroup,
                     )
                     .await
                 }
                 ForkserverAccess::None => {
                     let _disable_miniperf = disable_miniperf;
-                    let _command_type = command_type;
-                    let _action_digest = action_digest;
+                    let _cgroup = cgroup;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
@@ -310,7 +311,7 @@ impl LocalExecutor {
         args: &[String],
         worker: Option<&WorkerHandle>,
         env: &[(&str, StrOrOsStr<'_>)],
-        dispatcher: EventDispatcher,
+        cgroup: Option<CgroupPathBuf>,
     ) -> Result<
         (
             Duration,
@@ -392,11 +393,6 @@ impl LocalExecutor {
                         .exec_cmd(request.args(), env, request.timeout())
                         .await)
                 } else {
-                    let command_type = if request.is_test() {
-                        CommandType::Test
-                    } else {
-                        CommandType::Build
-                    };
                     self.exec(
                         &args[0],
                         &args[1..],
@@ -406,9 +402,7 @@ impl LocalExecutor {
                         request.local_environment_inheritance(),
                         liveliness_observer,
                         request.disable_miniperf(),
-                        &action_digest.to_string(),
-                        command_type,
-                        dispatcher,
+                        cgroup,
                     )
                     .await
                 };
@@ -425,6 +419,73 @@ impl LocalExecutor {
             Ok(res) => Ok((execution_time, start_time, res, manager)),
             Err(e) => Err(manager.error("exec_failed", e)),
         }
+    }
+
+    async fn exec_with_resource_control(
+        &self,
+        action_digest: &ActionDigest,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        cancellations: &CancellationContext,
+        liveliness_observer: impl LivelinessObserver + 'static,
+        scratch_path: &ScratchPath,
+        args: &[String],
+        worker: Option<&WorkerHandle>,
+        env: &[(&str, StrOrOsStr<'_>)],
+        dispatcher: EventDispatcher,
+    ) -> Result<
+        (
+            Duration,
+            SystemTime,
+            CommandResult,
+            CommandExecutionManagerWithClaim,
+        ),
+        CommandExecutionResult,
+    > {
+        let cgroup_session = if worker.is_some() {
+            None
+        } else {
+            let command_type = if request.is_test() {
+                CommandType::Test
+            } else {
+                CommandType::Build
+            };
+            match ActionCgroupSession::maybe_create(
+                &self.memory_tracker,
+                dispatcher,
+                command_type,
+                Some(action_digest.to_string()),
+            )
+            .await
+            {
+                Ok(x) => x,
+                Err(e) => return Err(manager.error("initializing_resource_control", e)),
+            }
+        };
+
+        let mut res = self
+            .exec_once(
+                action_digest,
+                request,
+                manager,
+                cancellations,
+                liveliness_observer,
+                scratch_path,
+                args,
+                worker,
+                env,
+                cgroup_session.as_ref().map(|s| s.path.clone()),
+            )
+            .await;
+
+        if let Some(mut cgroup_session) = cgroup_session {
+            let cgroup_res = cgroup_session.command_finished().await;
+            if let Ok(res) = &mut res {
+                res.2.cgroup_result = Some(cgroup_res);
+            }
+        }
+
+        res
     }
 
     async fn exec_request(
@@ -590,7 +651,7 @@ impl LocalExecutor {
         };
 
         let (execution_time, start_time, res, manager) = match self
-            .exec_once(
+            .exec_with_resource_control(
                 action_digest,
                 request,
                 manager,
@@ -1545,8 +1606,6 @@ impl EnvironmentBuilder for Command {
 mod unix {
     use std::os::unix::ffi::OsStrExt;
 
-    use buck2_resource_control::CommandType;
-
     use super::*;
 
     pub async fn exec_via_forkserver(
@@ -1559,9 +1618,7 @@ mod unix {
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
-        action_digest: &str,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
+        cgroup_path: Option<CgroupPathBuf>,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1579,17 +1636,11 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            command_cgroup: None,
+            command_cgroup: cgroup_path.map(|p| p.to_string()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
-            .execute(
-                req,
-                async move { liveliness_observer.while_alive().await },
-                command_type,
-                dispatcher,
-                Some(action_digest.to_owned()),
-            )
+            .execute(req, async move { liveliness_observer.while_alive().await })
             .await
     }
 
@@ -1688,6 +1739,7 @@ mod tests {
             ExecutorGlobalKnobs::default(),
             None,
             None,
+            None,
         );
 
         Ok((executor, temp.path().root().to_buf(), temp))
@@ -1708,9 +1760,7 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                CommandType::Build,
-                EventDispatcher::null(),
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1746,9 +1796,7 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                CommandType::Build,
-                EventDispatcher::null(),
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1773,9 +1821,7 @@ mod tests {
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                CommandType::Build,
-                EventDispatcher::null(),
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);

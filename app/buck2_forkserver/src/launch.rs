@@ -18,7 +18,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
-use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
 use tokio::process::Command;
@@ -30,7 +29,6 @@ pub async fn launch_forkserver(
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
     state_dir: &AbsNormPath,
     cgroup_tree: Option<&BuckCgroupTree>,
-    memory_tracker: Option<MemoryTrackerHandle>,
 ) -> buck2_error::Result<ForkserverClient> {
     let (client_io, server_io) =
         UnixStream::pair().buck_error_context("Failed to create fork server channel")?;
@@ -89,7 +87,7 @@ pub async fn launch_forkserver(
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .buck_error_context("Error connecting to Forkserver")?;
 
-    ForkserverClient::new(child, channel, memory_tracker)
+    ForkserverClient::new(child, channel)
         .await
         .buck_error_context("Error creating ForkserverClient")
 }

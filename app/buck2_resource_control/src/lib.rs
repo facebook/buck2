@@ -80,6 +80,8 @@ impl std::fmt::Display for CommandType {
 pub mod action_cgroups {
     use std::time::Duration;
 
+    use buck2_events::dispatch::EventDispatcher;
+
     use crate::CommandType;
     use crate::memory_tracker::MemoryTrackerHandle;
     use crate::path::CgroupPathBuf;
@@ -90,7 +92,9 @@ pub mod action_cgroups {
     impl ActionCgroupSession {
         pub async fn maybe_create(
             _tracker: &Option<MemoryTrackerHandle>,
+            _dispatcher: EventDispatcher,
             _command_type: CommandType,
+            _action_digest: Option<String>,
         ) -> buck2_error::Result<Option<Self>> {
             Ok(None)
         }

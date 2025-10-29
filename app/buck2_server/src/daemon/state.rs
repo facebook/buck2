@@ -572,7 +572,6 @@ impl DaemonState {
                 root_config,
                 &paths.forkserver_state_dir(),
                 cgroup_tree.as_ref(),
-                memory_tracker.dupe(),
             )
             .await?;
 

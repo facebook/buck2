@@ -145,7 +145,6 @@ fn spawn_via_forkserver(
     std_redirects: &StdRedirectPaths,
     socket_path: &AbsNormPathBuf,
     graceful_shutdown_timeout_s: Option<u32>,
-    dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -159,8 +158,6 @@ fn spawn_via_forkserver(
 
     let socket_path = socket_path.clone();
     tokio::spawn(async move {
-        use buck2_resource_control::CommandType;
-
         let mut req = buck2_forkserver_proto::CommandRequest {
             exe: exe.as_bytes().into(),
             argv: args.into_iter().map(|s| s.as_bytes().into()).collect(),
@@ -179,13 +176,7 @@ fn spawn_via_forkserver(
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver
-            .execute(
-                req,
-                async move { liveliness_observer.while_alive().await },
-                CommandType::Worker,
-                dispatcher,
-                None,
-            )
+            .execute(req, async move { liveliness_observer.while_alive().await })
             .await
             .map(|CommandResult { status, .. }| status);
 
@@ -209,7 +200,6 @@ fn spawn_via_forkserver(
     _std_redirects: &StdRedirectPaths,
     _socket_path: &AbsNormPathBuf,
     _graceful_shutdown_timeout_s: Option<u32>,
-    _dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     unreachable!("workers should not be initialized off unix")
 }
@@ -270,7 +260,6 @@ async fn spawn_worker(
         &std_redirects,
         &socket_path,
         graceful_shutdown_timeout_s,
-        dispatcher,
     );
 
     let initial_delay = Duration::from_millis(50);
