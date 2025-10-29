@@ -483,7 +483,7 @@ impl AnonTargetKey {
             analysis_registry
                 .analysis_value_storage
                 .set_result_value(res)?;
-            let finished_eval = reentrant_eval.finish_evaluation()?;
+            let finished_eval = reentrant_eval.finish_evaluation();
             let num_declared_actions = analysis_registry.num_declared_actions();
             let num_declared_artifacts = analysis_registry.num_declared_artifacts();
             let registry_finalizer = analysis_registry.finalize(&env)?;

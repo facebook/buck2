@@ -30,13 +30,13 @@ pub trait RunAnonPromisesAccessor<'v, 'a, 'e, 'd> {
     fn dice(&mut self) -> &mut DiceComputations<'d>;
 }
 
-pub struct RunAnonPromisesAccessorPair<'me, 'x, 'v, 'a, 'e, 'd>(
-    pub &'me mut ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e>,
+pub struct RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>(
+    pub &'me mut ReentrantStarlarkEvaluator<'v, 'a, 'e>,
     pub &'me mut DiceComputations<'d>,
 );
 
-impl<'me, 'x, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
-    for RunAnonPromisesAccessorPair<'me, 'x, 'v, 'a, 'e, 'd>
+impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
+    for RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>
 {
     fn with_evaluator(
         &mut self,

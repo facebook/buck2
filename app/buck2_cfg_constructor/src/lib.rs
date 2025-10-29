@@ -74,7 +74,7 @@ pub(crate) struct CfgConstructor {
 
 async fn eval_pre_constraint_analysis<'v, 'a>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
-    reentrant_eval: &mut ReentrantStarlarkEvaluator<'_, 'v, 'a, '_>,
+    reentrant_eval: &mut ReentrantStarlarkEvaluator<'v, 'a, '_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
@@ -181,7 +181,7 @@ async fn analyze_constraints(
 fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
     params: Value<'v>,
-    eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
+    eval: &mut ReentrantStarlarkEvaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
 ) -> buck2_error::Result<ConfigurationData> {
     eval.with_evaluator(|eval| -> buck2_error::Result<ConfigurationData> {
@@ -260,7 +260,7 @@ async fn eval_underlying(
             refs_providers_map,
         )?;
 
-        let finished_eval = reentrant_eval.finish_evaluation()?;
+        let finished_eval = reentrant_eval.finish_evaluation();
         let (token, _) = finished_eval.finish(None)?;
 
         Ok((token, res))

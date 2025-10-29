@@ -328,7 +328,7 @@ async fn eval_bxl_for_anon_target_inner(
             .analysis_value_storage
             .set_result_value(res)?;
 
-        let finished_eval = reentrant_eval.finish_evaluation()?;
+        let finished_eval = reentrant_eval.finish_evaluation();
         std::mem::drop(extra);
 
         let num_declared_actions = analysis_registry.num_declared_actions();

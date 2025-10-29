@@ -315,7 +315,7 @@ async fn run_analysis_with_env_underlying(
                 .set_result_value(provider_collection)?;
         }
 
-        let finished_eval = reentrant_eval.finish_evaluation()?;
+        let finished_eval = reentrant_eval.finish_evaluation();
 
         let declared_actions = analysis_registry.num_declared_actions();
         let declared_artifacts = analysis_registry.num_declared_artifacts();

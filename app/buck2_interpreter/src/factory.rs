@@ -13,7 +13,6 @@ use std::sync::Arc;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -133,11 +132,11 @@ impl StarlarkEvaluatorProvider {
     ///  (1) evaluate main analysis phase
     ///  (2) async wait for anon targets
     ///  (3) re-enter evaluation to resolve promises.
-    pub fn make_reentrant_evaluator<'x, 'v, 'a, 'e>(
+    pub fn make_reentrant_evaluator<'v, 'a, 'e>(
         mut self,
         module: &'v BuckStarlarkModule,
         cancellation: CancellationPoller<'a>,
-    ) -> buck2_error::Result<ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e>> {
+    ) -> buck2_error::Result<ReentrantStarlarkEvaluator<'v, 'a, 'e>> {
         let (_, _v) = (buck2_error::Ok(()), 1);
         let mut eval = Evaluator::new(&module.0);
         if let Some(stack_size) = self.starlark_max_callstack_size {
@@ -161,7 +160,7 @@ impl StarlarkEvaluatorProvider {
             v.initialize(&mut eval)?;
         }
 
-        Ok(ReentrantStarlarkEvaluator::Normal {
+        Ok(ReentrantStarlarkEvaluator {
             eval,
             provider: self,
             is_profiling_enabled,
@@ -177,40 +176,21 @@ impl StarlarkEvaluatorProvider {
         cancellation: CancellationPoller<'a>,
         closure: impl FnOnce(&mut Evaluator<'v, 'a, 'e>, bool) -> buck2_error::Result<R>,
     ) -> buck2_error::Result<(FinishedStarlarkEvaluation, R)> {
-        let mut reentrant_eval: ReentrantStarlarkEvaluator<'_, 'v, '_, '_> =
+        let mut reentrant_eval: ReentrantStarlarkEvaluator<'v, '_, '_> =
             self.make_reentrant_evaluator(module, cancellation)?;
-        let is_profiling_enabled = reentrant_eval.is_profiling_enabled();
+        let is_profiling_enabled = reentrant_eval.is_profiling_enabled;
         let res = reentrant_eval.with_evaluator(|eval| closure(eval, is_profiling_enabled))?;
-        Ok((reentrant_eval.finish_evaluation()?, res))
+        Ok((reentrant_eval.finish_evaluation(), res))
     }
 }
 
-#[allow(clippy::large_enum_variant)]
-pub enum ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e: 'a> {
-    Normal {
-        eval: Evaluator<'v, 'a, 'e>,
-        provider: StarlarkEvaluatorProvider,
-        is_profiling_enabled: bool,
-    },
-    // This is awkward. It's used by bxl when doing a blocking resolve of anon target promises.
-    Wrapped {
-        eval: &'x mut Evaluator<'v, 'a, 'e>,
-        is_debugging_enabled: bool,
-    },
+pub struct ReentrantStarlarkEvaluator<'v, 'a, 'e: 'a> {
+    eval: Evaluator<'v, 'a, 'e>,
+    provider: StarlarkEvaluatorProvider,
+    is_profiling_enabled: bool,
 }
 
-impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
-    pub fn wrap_evaluator_without_profiling(
-        ctx: &mut DiceComputations<'_>,
-        eval: &'x mut Evaluator<'v, 'a, 'e>,
-    ) -> Self {
-        let is_debugging_enabled = ctx.get_starlark_debugger_handle().is_some();
-        Self::Wrapped {
-            eval,
-            is_debugging_enabled,
-        }
-    }
-
+impl<'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'v, 'a, 'e> {
     pub fn with_evaluator<R>(
         &mut self,
         closure: impl FnOnce(&mut Evaluator<'v, 'a, 'e>) -> buck2_error::Result<R>,
@@ -234,7 +214,7 @@ impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
         // so we could operate against a concrete type rather than injecting a trait
         // implementation.
 
-        if self.is_debugging_enabled() {
+        if self.provider.debugger.is_some() {
             tokio::task::block_in_place(|| closure(self.eval()))
         } else {
             closure(self.eval())
@@ -242,49 +222,20 @@ impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
     }
 
     fn eval(&mut self) -> &mut Evaluator<'v, 'a, 'e> {
-        match self {
-            ReentrantStarlarkEvaluator::Normal { eval, .. } => eval,
-            ReentrantStarlarkEvaluator::Wrapped { eval, .. } => eval,
-        }
+        &mut self.eval
     }
 
-    fn is_debugging_enabled(&self) -> bool {
-        match self {
-            ReentrantStarlarkEvaluator::Normal { provider, .. } => provider.debugger.is_some(),
-            ReentrantStarlarkEvaluator::Wrapped {
-                is_debugging_enabled,
-                ..
-            } => *is_debugging_enabled,
-        }
-    }
-
-    fn is_profiling_enabled(&self) -> bool {
-        match self {
-            ReentrantStarlarkEvaluator::Normal {
-                is_profiling_enabled,
-                ..
-            } => *is_profiling_enabled,
-            ReentrantStarlarkEvaluator::Wrapped { .. } => false,
-        }
-    }
-
-    pub fn finish_evaluation(self) -> buck2_error::Result<FinishedStarlarkEvaluation> {
-        match self {
-            ReentrantStarlarkEvaluator::Normal {
-                mut eval,
-                mut provider,
-                ..
-            } => {
-                provider.profiler_data.evaluation_complete(&mut eval);
-                Ok(FinishedStarlarkEvaluation {
-                    profiler_data: provider.profiler_data,
-                    eval_kind: provider.eval_kind,
-                    listener: provider.profile_listener,
-                })
-            }
-            ReentrantStarlarkEvaluator::Wrapped { .. } => {
-                Err(internal_error!("Wrapped evaluator cannot be finished"))
-            }
+    pub fn finish_evaluation(self) -> FinishedStarlarkEvaluation {
+        let ReentrantStarlarkEvaluator {
+            mut eval,
+            mut provider,
+            ..
+        } = self;
+        provider.profiler_data.evaluation_complete(&mut eval);
+        FinishedStarlarkEvaluation {
+            profiler_data: provider.profiler_data,
+            eval_kind: provider.eval_kind,
+            listener: provider.profile_listener,
         }
     }
 }
