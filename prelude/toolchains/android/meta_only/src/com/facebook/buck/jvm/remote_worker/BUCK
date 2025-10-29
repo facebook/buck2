@@ -36,6 +36,9 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
         "prelude//toolchains/android/third-party:args4j",
     ],
+    exported_deps = [
+        "fbsource//third-party/java/org/slf4j:slf4j-simple-1.7.36",
+    ],
 )
 
 buck_java_library(
