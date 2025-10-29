@@ -172,7 +172,7 @@ def get_default_target_platform_for_platform(sdk_arch) -> str | None:
     return None
 
 def set_apple_platforms(
-        platform: str,
+        platform: str | Select,
         base_config_backed_target_platform: str | None,
         kwargs: dict[str, typing.Any],
         supported_build_modes = None) -> dict[str, typing.Any]:
