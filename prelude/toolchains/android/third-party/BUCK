@@ -329,6 +329,7 @@ third_party_jar(
     # Plus consistency across the codebase is nice.
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/android/bundle:bundle",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:main_lib",
         "prelude//toolchains/android/third-party/aosp:aosp",  # Sad transitive deps are sad
         ":remote-apis",  # Legacy caller which should probably use Jackson
     ],
