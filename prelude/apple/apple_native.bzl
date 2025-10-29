@@ -9,7 +9,7 @@
 load("@prelude//:prelude.bzl", "native")
 load(
     "@prelude//platforms/apple:constants.bzl",
-    "APPLE",
+    "apple_sdks",
 )
 load("@prelude//platforms/apple:platforms.bzl", "config_backed_apple_target_platform", "get_default_target_platform_for_platform", "set_apple_platforms")
 load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_SDK_DEFAULT_PLATFORM_MAP")
@@ -56,7 +56,8 @@ def _apple_xcframework(**kwargs):
     native.apple_xcframework(**kwargs)
 
 def _update_platforms(**kwargs):
-    platform = _get_default_platform()
+    sdk = kwargs.pop("sdk", apple_sdks.IOS)
+    platform = _get_default_platform(sdk)
 
     default_target_platform = kwargs.pop("default_target_platform", None)
     base_config_backed_target_platform = kwargs.pop("config_backed_target_platform", None)
@@ -79,11 +80,11 @@ def _update_platforms(**kwargs):
 
     return kwargs
 
-def _get_default_platform():
+def _get_default_platform(sdk: str) -> str:
     config_platform = read("cxx", "default_platform")
     if config_platform != None:
         return config_platform
-    return APPLE_SDK_DEFAULT_PLATFORM_MAP.get(APPLE)
+    return APPLE_SDK_DEFAULT_PLATFORM_MAP.get(sdk)
 
 apple_native = struct(
     apple_asset_catalog = _apple_asset_catalog,
