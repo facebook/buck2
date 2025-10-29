@@ -11,6 +11,7 @@
 #![feature(error_generic_member_access)]
 #![feature(trait_alias)]
 #![feature(try_blocks)]
+#![feature(never_type)]
 
 use std::sync::Once;
 

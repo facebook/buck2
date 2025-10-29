@@ -124,11 +124,9 @@ impl<'v> BxlFilesystem<'v> {
         &'v self,
         expr: FileExpr<'v>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        let cell_path = self
-            .ctx
-            .async_ctx
-            .borrow_mut()
-            .via(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())?;
+        let cell_path = self.ctx.via_dice(|ctx, _| {
+            ctx.via(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())
+        })?;
         self.artifact_fs().resolve_cell_path(cell_path.as_ref())
     }
 }
@@ -162,16 +160,18 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ctx.fs.exists("bin"))
     /// ```
     fn exists<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> starlark::Result<bool> {
-        Ok(this.ctx.async_ctx.borrow_mut().via(|dice| {
-            async {
-                let path = expr.get(dice, this.cell()?).await;
+        Ok(this.ctx.via_dice(|ctx, _| {
+            ctx.via(|dice| {
+                async {
+                    let path = expr.get(dice, this.cell()?).await;
 
-                match path {
-                    Ok(p) => try_exists(dice, p.as_ref()).await,
-                    Err(e) => Err(e),
+                    match path {
+                        Ok(p) => try_exists(dice, p.as_ref()).await,
+                        Err(e) => Err(e),
+                    }
                 }
-            }
-            .boxed_local()
+                .boxed_local()
+            })
         })?)
     }
 
@@ -192,24 +192,26 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         expr: FileExpr<'v>,
         #[starlark(require = named, default = false)] dirs_only: bool,
     ) -> starlark::Result<StarlarkReadDirSet> {
-        Ok(this.ctx.async_ctx.borrow_mut().via(|dice| {
-            async {
-                let path = expr.get(dice, this.cell()?).await;
+        Ok(this.ctx.via_dice(|ctx, _| {
+            ctx.via(|dice| {
+                async {
+                    let path = expr.get(dice, this.cell()?).await;
 
-                match path {
-                    Ok(path) => {
-                        let read_dir_output =
-                            DiceFileComputations::read_dir(dice, path.as_ref()).await?;
-                        Ok(StarlarkReadDirSet {
-                            cell_path: path,
-                            included: read_dir_output.included,
-                            dirs_only,
-                        })
+                    match path {
+                        Ok(path) => {
+                            let read_dir_output =
+                                DiceFileComputations::read_dir(dice, path.as_ref()).await?;
+                            Ok(StarlarkReadDirSet {
+                                cell_path: path,
+                                included: read_dir_output.included,
+                                dirs_only,
+                            })
+                        }
+                        Err(e) => Err(e),
                     }
-                    Err(e) => Err(e),
                 }
-            }
-            .boxed_local()
+                .boxed_local()
+            })
         })?)
     }
 

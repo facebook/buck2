@@ -327,14 +327,13 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let configured_node = this.0.as_ref();
 
         let dep_analysis: buck2_error::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>> = ctx
-            .async_ctx
-            .borrow_mut()
-            .via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local());
+            .via_dice(|ctx, _| {
+                ctx.via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local())
+            });
 
-        let query_results = ctx
-            .async_ctx
-            .borrow_mut()
-            .via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())?;
+        let query_results = ctx.via_dice(|ctx, _| {
+            ctx.via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())
+        })?;
 
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: eval.module(),
@@ -463,13 +462,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         ctx: &BxlContext,
     ) -> starlark::Result<NoneOr<StarlarkArtifact>> {
         let path = Path::new(path);
-        let fs = ctx
-            .async_ctx
-            .borrow()
-            .global_data()
-            .get_io_provider()
-            .project_root()
-            .dupe();
+        let Ok(fs) = ctx.via_dice::<_, !>(|ctx, _| {
+            Ok(ctx.global_data().get_io_provider().project_root().dupe())
+        });
         let path = if path.is_absolute() {
             Cow::Owned(
                 fs.relativize_any(AbsPath::new(path)?)
@@ -481,8 +476,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             )?)
         };
 
-        let cell_path = ctx.async_ctx.borrow_mut().via(|ctx| {
-            async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
+        let cell_path = ctx.via_dice(|ctx, _| {
+            ctx.via(|ctx| {
+                async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
+            })
         })?;
 
         struct SourceFinder {

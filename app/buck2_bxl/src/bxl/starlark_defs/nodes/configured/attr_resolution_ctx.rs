@@ -52,8 +52,10 @@ impl<'v> LazyAttrResolutionContext<'v> {
     ) -> &buck2_error::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>
     {
         self.dep_analysis_results.get_or_init(|| {
-            get_deps_from_analysis_results(self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
-                get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
+            get_deps_from_analysis_results(self.ctx.via_dice(|ctx, _| {
+                ctx.via(|dice_ctx| {
+                    get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
+                })
             })?)
         })
     }
@@ -62,8 +64,10 @@ impl<'v> LazyAttrResolutionContext<'v> {
         &self,
     ) -> &buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
         self.query_results.get_or_init(|| {
-            self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
-                resolve_queries(dice_ctx, self.configured_node.as_ref()).boxed_local()
+            self.ctx.via_dice(|ctx, _| {
+                ctx.via(|dice_ctx| {
+                    resolve_queries(dice_ctx, self.configured_node.as_ref()).boxed_local()
+                })
             })
         })
     }

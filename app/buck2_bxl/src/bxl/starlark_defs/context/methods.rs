@@ -118,15 +118,16 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .context_type
             .unpack_root()
             .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
-        Ok(this
-            .async_ctx
-            .borrow()
-            .global_data()
-            .get_io_provider()
-            .project_root()
-            .root()
-            .to_str()?
-            .to_owned())
+        Ok(this.via_dice(|ctx, _| {
+            buck2_error::Ok(
+                ctx.global_data()
+                    .get_io_provider()
+                    .project_root()
+                    .root()
+                    .to_str()?
+                    .to_owned(),
+            )
+        })?)
     }
 
     /// Returns the absolute path to the cell of the repository
@@ -806,11 +807,12 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         };
         let event = parser.parse(id, metadata)?;
 
-        this.async_ctx
-            .borrow()
-            .per_transaction_data()
-            .get_dispatcher()
-            .instant_event(event);
+        let Ok(()) = this.via_dice(|ctx, _| {
+            ctx.per_transaction_data()
+                .get_dispatcher()
+                .instant_event(event);
+            Ok::<_, !>(())
+        });
 
         Ok(NoneType)
     }

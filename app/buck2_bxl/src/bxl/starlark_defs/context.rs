@@ -170,7 +170,7 @@ pub(crate) struct BxlContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
+    async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     pub(crate) data: BxlContextNoDice<'v>,
 }
 
@@ -431,13 +431,13 @@ impl<'v> BxlContext<'v> {
     /// This should generally only be called at the top level functions in bxl.
     /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
     /// via_dice, as that breaks borrow invariants of the dice computations.
-    pub(crate) fn via_dice<'a, 's, T>(
+    pub(crate) fn via_dice<'a, 's, T, E>(
         &'a self,
         f: impl for<'x> FnOnce(
             &'x mut dyn BxlDiceComputations,
             &'a BxlContextNoDice<'v>,
-        ) -> buck2_error::Result<T>,
-    ) -> buck2_error::Result<T>
+        ) -> Result<T, E>,
+    ) -> Result<T, E>
     where
         'v: 'a,
     {
