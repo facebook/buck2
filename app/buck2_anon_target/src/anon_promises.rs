@@ -15,6 +15,7 @@ use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use either::Either;
 use futures::FutureExt;
+use starlark::eval::Evaluator;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
 use starlark::values::list::AllocList;
@@ -47,13 +48,10 @@ impl<'v> AnonPromises<'v> {
 
 #[async_trait(?Send)]
 impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
-    async fn run_promises<'x, 'a: 'x, 'e: 'a, 'd>(
+    async fn run_promises<'a, 'e: 'a, 'd>(
         self: Box<Self>,
-        accessor: &mut dyn RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd>,
-    ) -> buck2_error::Result<()>
-    where
-        'v: 'x,
-    {
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e, 'd>,
+    ) -> buck2_error::Result<()> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
         let mut shape = Vec::new();
@@ -78,16 +76,17 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             })
             .await?;
 
-        accessor.eval().with_evaluator(|eval| {
+        accessor.with_evaluator(&mut |eval: &mut Evaluator| {
             // But must bind the promises sequentially
-            for (promise, xs) in shape {
+            for (promise, xs) in shape.iter() {
                 match xs {
                     Either::Left(i) => {
-                        let val = values[i].providers()?.add_heap_ref(eval.frozen_heap());
+                        let val = values[*i].providers()?.add_heap_ref(eval.frozen_heap());
                         promise.resolve(val.to_value(), eval)?
                     }
                     Either::Right(is) => {
                         let xs: Vec<_> = is
+                            .clone()
                             .map(|i| Ok(values[i].providers()?.add_heap_ref(eval.frozen_heap())))
                             .collect::<buck2_error::Result<_>>()?;
                         let list = eval.heap().alloc(AllocList(xs));

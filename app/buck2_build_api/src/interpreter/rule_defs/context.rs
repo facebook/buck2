@@ -82,13 +82,10 @@ impl<'v> AnalysisActions<'v> {
             .internal_error("state to be present during execution")
     }
 
-    pub async fn run_promises<'x, 'a: 'x, 'e: 'a, 'd>(
+    pub async fn run_promises<'a, 'e: 'a, 'd>(
         &self,
-        accessor: &mut dyn RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd>,
-    ) -> buck2_error::Result<()>
-    where
-        'v: 'x,
-    {
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e, 'd>,
+    ) -> buck2_error::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
