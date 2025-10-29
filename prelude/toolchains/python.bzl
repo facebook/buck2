@@ -104,6 +104,7 @@ def python_toolchain_impl(ctx) -> list[Provider]:
             linker_flags = [],
             binary_linker_flags = [],
             extension_linker_flags = ctx.attrs.extension_linker_flags,
+            extension_preprocessor_flags = ctx.attrs.extension_preprocessor_flags,
         ),
         PythonPlatformInfo(name = "x86_64"),
     ]
@@ -113,6 +114,7 @@ python_toolchain = rule(
     attrs = {
         "compile": attrs.default_only(attrs.dep(default = "prelude//python/tools:compile.py")),
         "extension_linker_flags": attrs.list(attrs.arg()),
+        "extension_preprocessor_flags": attrs.list(attrs.arg()),
         "interpreter": attrs.dep(providers = [RunInfo]),
     },
     is_toolchain_rule = True,
@@ -203,6 +205,10 @@ def remote_python_toolchain(
         extension_linker_flags = select({
             "DEFAULT": ["-L$(location :cpython_archive[lib])", "@$(location :libpython_symbols)"],
             "prelude//os:windows": ["/LIBPATH:$(location :cpython_archive[lib])"],
+        }),
+        extension_preprocessor_flags = select({
+            "DEFAULT": ["-I$(location :cpython_archive[include])"],
+            "prelude//os:windows": ["/I$(location :cpython_archive[include])"],
         }),
         **kwargs
     )
