@@ -108,7 +108,8 @@ pub struct ActionCgroupResult {
 }
 
 impl ActionCgroupResult {
-    fn from_info(cgroup_info: ActionCgroup) -> Self {
+    fn from_info(cgroup_info: UnfrozenActionCgroup) -> Self {
+        let cgroup_info = cgroup_info.cgroup;
         Self {
             memory_peak: Some(cgroup_info.memory_peak),
             swap_peak: Some(cgroup_info.swap_peak),
@@ -142,9 +143,7 @@ struct ActionCgroup {
     swap_peak: u64,
     error: Option<buck2_error::Error>,
     was_frozen: bool,
-    freeze_start: Option<Instant>,
     freeze_duration: Option<Duration>,
-    freeze_file: Option<OwnedFd>,
     command_type: CommandType,
     // memory.current value when this cgroup was frozen. Used to calculate whether we can unfreeze early
     memory_current_when_frozen: Option<u64>,
@@ -152,10 +151,23 @@ struct ActionCgroup {
     dispatcher: EventDispatcher,
 }
 
+#[derive(Debug)]
+struct UnfrozenActionCgroup {
+    cgroup: ActionCgroup,
+}
+
+#[derive(Debug)]
+struct FrozenActionCgroup {
+    cgroup: ActionCgroup,
+    freeze_start: Instant,
+    freeze_file: OwnedFd,
+}
+
 pub(crate) struct ActionCgroups {
     enable_freezing: bool,
-    active_cgroups: HashMap<CgroupPathBuf, ActionCgroup>,
-    frozen_cgroups: VecDeque<CgroupPathBuf>,
+    unfrozen_cgroups: HashMap<CgroupPathBuf, UnfrozenActionCgroup>,
+    frozen_cgroups: HashMap<CgroupPathBuf, FrozenActionCgroup>,
+    unfreeze_order: VecDeque<CgroupPathBuf>,
     /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
     /// memory pressure. Used to restore the limit when all cgroups are unfrozen.
     original_memory_high: Option<String>,
@@ -251,8 +263,9 @@ impl ActionCgroups {
     ) -> Self {
         Self {
             enable_freezing,
-            active_cgroups: HashMap::new(),
-            frozen_cgroups: VecDeque::new(),
+            unfrozen_cgroups: HashMap::new(),
+            frozen_cgroups: HashMap::new(),
+            unfreeze_order: VecDeque::new(),
             original_memory_high: None,
             last_freeze_time: None,
             last_unfreeze_time: None,
@@ -285,33 +298,33 @@ impl ActionCgroups {
         let memory_initial = read_memory_current(&mut memory_current_file).await?;
         let swap_initial = read_memory_swap_current(&mut memory_swap_current_file).await?;
 
-        let existing = self.active_cgroups.insert(
+        let existing = self.unfrozen_cgroups.insert(
             cgroup_path.clone(),
-            ActionCgroup {
-                path: cgroup_path,
-                memory_current_file,
-                memory_swap_current_file,
-                memory_initial,
-                memory_current: memory_initial,
-                memory_peak: 0,
-                swap_initial,
-                swap_current: swap_initial,
-                swap_peak: 0,
-                error: None,
-                was_frozen: false,
-                freeze_start: None,
-                freeze_duration: None,
-                freeze_file: None,
-                command_type,
-                memory_current_when_frozen: None,
-                action_digest,
-                dispatcher,
+            UnfrozenActionCgroup {
+                cgroup: ActionCgroup {
+                    path: cgroup_path,
+                    memory_current_file,
+                    memory_swap_current_file,
+                    memory_initial,
+                    memory_current: memory_initial,
+                    memory_peak: 0,
+                    swap_initial,
+                    swap_current: swap_initial,
+                    swap_peak: 0,
+                    error: None,
+                    was_frozen: false,
+                    freeze_duration: None,
+                    command_type,
+                    memory_current_when_frozen: None,
+                    action_digest,
+                    dispatcher,
+                },
             },
         );
         if let Some(existing) = existing {
             return Err(internal_error!(
                 "cgroup already exists, reused cgroup pool worker? {:?}",
-                existing.path,
+                existing.cgroup.path,
             ));
         }
 
@@ -319,16 +332,16 @@ impl ActionCgroups {
     }
 
     pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
-        if let Some(mut cgroup) = self.active_cgroups.remove(cgroup_path) {
+        if let Some(cgroup) = self.unfrozen_cgroups.remove(cgroup_path) {
+            ActionCgroupResult::from_info(cgroup)
+        } else if let Some(cgroup) = self.frozen_cgroups.remove(cgroup_path) {
+            self.unfreeze_order
+                .retain(|frozen_cgroup_path| *cgroup_path != **frozen_cgroup_path);
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
             // In this case we need to unfreeze the cgroup for the next command.
-            if let Some(freeze_file) = cgroup.freeze_file.take() {
-                unfreeze_cgroup(freeze_file);
-                self.frozen_cgroups
-                    .retain(|frozen_cgroup_path| *cgroup_path != **frozen_cgroup_path);
-            }
-            ActionCgroupResult::from_info(cgroup)
+            let unfrozen = unfreeze_cgroup(cgroup);
+            ActionCgroupResult::from_info(unfrozen)
         } else {
             ActionCgroupResult::from_error(internal_error!(
                 "cgroup not found for {:?}",
@@ -342,7 +355,12 @@ impl ActionCgroups {
         pressure_state: MemoryPressureState,
         memory_reading: &MemoryReading,
     ) {
-        for cgroup in self.active_cgroups.values_mut() {
+        for cgroup in self
+            .unfrozen_cgroups
+            .values_mut()
+            .map(|c| &mut c.cgroup)
+            .chain(self.frozen_cgroups.values_mut().map(|c| &mut c.cgroup))
+        {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
             // in kernels older than 6.12.
             match tokio::try_join!(
@@ -396,6 +414,10 @@ impl ActionCgroups {
     // What we really want is to freeze the cgroup that will have the least impact on the critical path,
     // may be better to freeze at random, or freeze the cgroup with the most pressure stalls.
     fn maybe_freeze(&mut self, memory_reading: &MemoryReading) {
+        if !self.enable_freezing {
+            return;
+        }
+
         // We freeze at most 1 action every second since memory changes of previous freezes will take a few seconds to take effect
         // This maybe not be enough, but we don't want to wait too long that we encounter OOMs
         if self
@@ -405,52 +427,56 @@ impl ActionCgroups {
             return;
         }
 
-        let active_cgroups_count = self.active_cgroups.len();
-        let running_actions = active_cgroups_count - self.frozen_cgroups.len();
         // Don't freeze if there's only one action
-        if running_actions <= 1 {
+        if self.unfrozen_cgroups.len() <= 1 {
             return;
         }
 
         let largest_cgroup = self
-            .active_cgroups
-            .values_mut()
-            .filter(|cgroup| cgroup.freeze_file.is_none())
-            .max_by_key(|cgroup| cgroup.memory_current);
+            .unfrozen_cgroups
+            .iter_mut()
+            .max_by_key(|x| x.1.cgroup.memory_current)
+            // Length checked above
+            .unwrap()
+            .0
+            .to_owned();
 
-        if let Some(cgroup) = largest_cgroup {
-            if self.enable_freezing {
-                match freeze_cgroup(&cgroup.path) {
-                    Ok(freeze_file) => {
-                        tracing::debug!(
-                            "Froze action: {:?} (type: {:?})",
-                            cgroup.path,
-                            cgroup.command_type
-                        );
+        let cgroup = self.unfrozen_cgroups.remove(&largest_cgroup).unwrap();
 
-                        cgroup.freeze_start = Some(Instant::now());
-                        cgroup.freeze_file = Some(freeze_file);
-                        cgroup.memory_current_when_frozen = Some(cgroup.memory_current);
-                        self.total_memory_during_last_freeze =
-                            Some(memory_reading.buck2_slice_memory_current);
-                        self.last_freeze_time = Some(Instant::now());
-                        self.frozen_cgroups.push_back(cgroup.path.clone());
+        match freeze_cgroup(cgroup) {
+            Ok(mut frozen_cgroup) => {
+                tracing::debug!(
+                    "Froze action: {:?} (type: {:?})",
+                    frozen_cgroup.cgroup.path,
+                    frozen_cgroup.cgroup.command_type
+                );
 
-                        emit_resource_control_event(
-                            &cgroup.dispatcher,
-                            memory_reading,
-                            buck2_data::ResourceControlKind::Freeze,
-                            cgroup,
-                            self.frozen_cgroups.len() as u64,
-                            active_cgroups_count as u64,
-                            &self.metadata,
-                            &self.ancestor_cgroup_constraints,
-                        );
-                    }
-                    Err(e) => {
-                        cgroup.error = Some(e);
-                    }
-                }
+                frozen_cgroup.cgroup.memory_current_when_frozen =
+                    Some(frozen_cgroup.cgroup.memory_current);
+                self.total_memory_during_last_freeze =
+                    Some(memory_reading.buck2_slice_memory_current);
+                self.last_freeze_time = Some(frozen_cgroup.freeze_start);
+
+                emit_resource_control_event(
+                    &frozen_cgroup.cgroup.dispatcher,
+                    memory_reading,
+                    buck2_data::ResourceControlKind::Freeze,
+                    &frozen_cgroup.cgroup,
+                    self.frozen_cgroups.len() as u64 + 1,
+                    self.unfrozen_cgroups.len() as u64,
+                    &self.metadata,
+                    &self.ancestor_cgroup_constraints,
+                );
+
+                self.unfreeze_order
+                    .push_back(frozen_cgroup.cgroup.path.clone());
+                self.frozen_cgroups
+                    .insert(frozen_cgroup.cgroup.path.clone(), frozen_cgroup);
+            }
+            Err((mut unfrozen_cgroup, e)) => {
+                unfrozen_cgroup.cgroup.error = Some(e);
+                self.unfrozen_cgroups
+                    .insert(unfrozen_cgroup.cgroup.path.clone(), unfrozen_cgroup);
             }
         }
     }
@@ -469,81 +495,72 @@ impl ActionCgroups {
             return;
         }
 
-        let active_cgroups_count = self.active_cgroups.len();
-        let running_actions = active_cgroups_count - self.frozen_cgroups.len();
-        let should_unfreeze = self.frozen_cgroups.front().is_some_and(|cgroup_path| {
-            let frozen_cgroup = self
-                .active_cgroups
-                .get(cgroup_path)
-                .expect("frozen cgroups must be in active cgroups");
-
-            let memory_when_frozen = frozen_cgroup
-                .memory_current_when_frozen
-                .expect("frozen cgroups should have memory current set");
-            let total_memory_during_last_freeze = self
-                .total_memory_during_last_freeze
-                .expect("total memory during last freeze should be set");
-
-            // If the current memory use is less than the sum of memory of cgroup at the time it was frozen +
-            // total memory when we last froze an action, we can start unfreezing earlier
-            let can_unfreeze_early = memory_reading.buck2_slice_memory_current + memory_when_frozen
-                < total_memory_during_last_freeze;
-
-            // If we can unfreeze early or if there are no actions running, start unfreezing.
-            // We unfreeze even if there are no actions running to prevent the build from getting stuck
-            (pressure_state == MemoryPressureState::BelowPressureLimit && can_unfreeze_early)
-                || running_actions == 0
-        });
-
-        // TODO: Should explore unfreezing what's on the critical path or what's using the least memory
-        let cgroup_to_unfreeze = if should_unfreeze {
-            self.frozen_cgroups.pop_front()
-        } else {
-            None
+        let Some(cgroup_path) = self.unfreeze_order.front() else {
+            return;
+        };
+        let std::collections::hash_map::Entry::Occupied(frozen_cgroup_entry) =
+            self.frozen_cgroups.entry(cgroup_path.to_buf())
+        else {
+            unreachable!("Frozen cgroup should be present in dict")
         };
 
-        if let Some(frozen_cgroup_path) = cgroup_to_unfreeze {
-            let frozen_cgroup = self
-                .active_cgroups
-                .get_mut(&frozen_cgroup_path)
-                .expect("frozen cgroups must be in active cgroups");
+        let memory_when_frozen = frozen_cgroup_entry
+            .get()
+            .cgroup
+            .memory_current_when_frozen
+            .expect("frozen cgroups should have memory current set");
+        let total_memory_during_last_freeze = self
+            .total_memory_during_last_freeze
+            .expect("total memory during last freeze should be set");
 
-            tracing::debug!(
-                "Unfreezing action: {:?} (type: {:?})",
-                frozen_cgroup_path,
-                frozen_cgroup.command_type
-            );
+        // If the current memory use is less than the sum of memory of cgroup at the time it was frozen +
+        // total memory when we last froze an action, we can start unfreezing earlier
+        let can_unfreeze_early = memory_reading.buck2_slice_memory_current + memory_when_frozen
+            < total_memory_during_last_freeze;
 
-            frozen_cgroup.was_frozen = true;
+        // If we can unfreeze early or if there are no actions running, start unfreezing.
+        // We unfreeze even if there are no actions running to prevent the build from getting stuck
+        let should_unfreeze = (pressure_state == MemoryPressureState::BelowPressureLimit
+            && can_unfreeze_early)
+            || self.unfrozen_cgroups.is_empty();
 
-            let freeze_elapsed = frozen_cgroup
-                .freeze_start
-                .expect("freeze start must exist if we are unfreezing")
-                .elapsed();
-
-            frozen_cgroup.freeze_duration = Some(match frozen_cgroup.freeze_duration {
-                Some(duration) => duration + freeze_elapsed,
-                None => freeze_elapsed,
-            });
-
-            let freeze_file = frozen_cgroup
-                .freeze_file
-                .take()
-                .expect("frozen cgroups must have a freeze file");
-            unfreeze_cgroup(freeze_file);
-            self.last_unfreeze_time = Some(Instant::now());
-
-            emit_resource_control_event(
-                &frozen_cgroup.dispatcher,
-                memory_reading,
-                buck2_data::ResourceControlKind::Unfreeze,
-                frozen_cgroup,
-                self.frozen_cgroups.len() as u64,
-                active_cgroups_count as u64,
-                &self.metadata,
-                &self.ancestor_cgroup_constraints,
-            );
+        if !should_unfreeze {
+            return;
         }
+
+        self.unfreeze_order.pop_front();
+        let (cgroup_path, mut frozen_cgroup) = frozen_cgroup_entry.remove_entry();
+
+        tracing::debug!(
+            "Unfreezing action: {:?} (type: {:?})",
+            frozen_cgroup.cgroup.path,
+            frozen_cgroup.cgroup.command_type
+        );
+
+        frozen_cgroup.cgroup.was_frozen = true;
+
+        let freeze_elapsed = frozen_cgroup.freeze_start.elapsed();
+
+        frozen_cgroup.cgroup.freeze_duration = Some(match frozen_cgroup.cgroup.freeze_duration {
+            Some(duration) => duration + freeze_elapsed,
+            None => freeze_elapsed,
+        });
+
+        let unfrozen_cgroup = unfreeze_cgroup(frozen_cgroup);
+        self.last_unfreeze_time = Some(Instant::now());
+
+        emit_resource_control_event(
+            &unfrozen_cgroup.cgroup.dispatcher,
+            memory_reading,
+            buck2_data::ResourceControlKind::Unfreeze,
+            &unfrozen_cgroup.cgroup,
+            self.frozen_cgroups.len() as u64,
+            self.unfrozen_cgroups.len() as u64 + 1,
+            &self.metadata,
+            &self.ancestor_cgroup_constraints,
+        );
+
+        self.unfrozen_cgroups.insert(cgroup_path, unfrozen_cgroup);
     }
 
     /// Removes the memory.high limit from the cgroup slice
@@ -625,27 +642,39 @@ fn emit_resource_control_event(
 // From https://docs.kernel.org/admin-guide/cgroup-v2.html
 // Writing “1” to 'cgroup.freeze' causes freezing of the cgroup and all descendant cgroups. This means
 // that all belonging processes will be stopped and will not run until the cgroup will be explicitly unfrozen.
-fn freeze_cgroup(cgroup_path: &CgroupPath) -> buck2_error::Result<OwnedFd> {
+#[allow(clippy::result_large_err)]
+fn freeze_cgroup(
+    cgroup: UnfrozenActionCgroup,
+) -> Result<FrozenActionCgroup, (UnfrozenActionCgroup, buck2_error::Error)> {
     // Using nix APIs in case more precise control is needed for control file IO.
-    let dir: Dir = Dir::open(cgroup_path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
-        .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup directory"))?;
-    let freeze_file: OwnedFd = openat(
-        &dir,
-        "cgroup.freeze",
-        OFlag::O_CLOEXEC | OFlag::O_RDWR,
-        Mode::empty(),
-    )
-    .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup.freeze file"))?;
-
-    static ONE: [u8; 1] = ["1".as_bytes()[0]];
-    let bytes_written = unistd::write(freeze_file.as_fd(), &ONE)?;
-    if bytes_written != 1 {
-        return Err(internal_error!("Failed to write to cgroup.freeze file"));
+    fn freeze_impl(cgroup: &ActionCgroup) -> buck2_error::Result<OwnedFd> {
+        let dir: Dir = Dir::open(cgroup.path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
+            .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup directory"))?;
+        let freeze_file = openat(
+            &dir,
+            "cgroup.freeze",
+            OFlag::O_CLOEXEC | OFlag::O_RDWR,
+            Mode::empty(),
+        )
+        .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup.freeze file"))?;
+        let bytes_written = unistd::write(freeze_file.as_fd(), "1".as_bytes())?;
+        if bytes_written != 1 {
+            return Err(internal_error!("Failed to write to cgroup.freeze file"));
+        }
+        Ok(freeze_file)
     }
-    Ok(freeze_file)
+
+    match freeze_impl(&cgroup.cgroup) {
+        Ok(freeze_file) => Ok(FrozenActionCgroup {
+            cgroup: cgroup.cgroup,
+            freeze_file,
+            freeze_start: Instant::now(),
+        }),
+        Err(e) => Err((cgroup, e)),
+    }
 }
 
-fn unfreeze_cgroup(freeze_file: OwnedFd) {
+fn unfreeze_cgroup(cgroup: FrozenActionCgroup) -> UnfrozenActionCgroup {
     fn unfreeze(freeze_file: OwnedFd) -> buck2_error::Result<()> {
         static ZERO: [u8; 1] = ["0".as_bytes()[0]];
         let bytes_written = unistd::write(freeze_file.as_fd(), &ZERO)?;
@@ -655,8 +684,13 @@ fn unfreeze_cgroup(freeze_file: OwnedFd) {
         Ok(())
     }
 
-    if let Err(e) = unfreeze(freeze_file) {
-        let _unused = soft_error!("cgroup_unfreeze_failed", e);
+    if let Err(e) = unfreeze(cgroup.freeze_file) {
+        let _unused: Result<buck2_error::Error, buck2_error::Error> =
+            soft_error!("cgroup_unfreeze_failed", e);
+    }
+
+    UnfrozenActionCgroup {
+        cgroup: cgroup.cgroup,
     }
 }
 
