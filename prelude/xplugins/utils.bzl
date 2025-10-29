@@ -114,7 +114,20 @@ def get_xplugins_usage_subtargets(
                 usage_info_tset = usage_info.socket_info_tset,
             ),
         )
+
+        unfiltered_socket_usage_argsfile = ctx.actions.write(
+            "unfiltered_socket_usage_info.argsfile",
+            socket_usage_manifests,
+        )
+        unfiltered_plugin_usage_argsfile = ctx.actions.write(
+            "unfiltered_plugin_usage_info.argsfile",
+            plugin_usage_manifests,
+        )
+
     else:
+        unfiltered_socket_usage_argsfile = socket_usage_argsfile
+        unfiltered_plugin_usage_argsfile = plugin_usage_argsfile
+
         # Without link groups we can just project the artifacts to a file
         ctx.actions.write(
             plugin_usage_argsfile.as_output(),
@@ -127,9 +140,23 @@ def get_xplugins_usage_subtargets(
 
     return {
         "xplugins-plugin-manifests": [
-            DefaultInfo(default_output = plugin_usage_argsfile, other_outputs = [plugin_usage_manifests]),
+            DefaultInfo(default_output = plugin_usage_argsfile, other_outputs = [plugin_usage_manifests], sub_targets = {
+                "unfiltered": [DefaultInfo(
+                    default_output = unfiltered_plugin_usage_argsfile,
+                    other_outputs = [plugin_usage_manifests],
+                )],
+            }),
         ],
         "xplugins-socket-manifests": [
-            DefaultInfo(default_output = socket_usage_argsfile, other_outputs = [socket_usage_manifests]),
+            DefaultInfo(
+                default_output = socket_usage_argsfile,
+                other_outputs = [socket_usage_manifests],
+                sub_targets = {
+                    "unfiltered": [DefaultInfo(
+                        default_output = unfiltered_socket_usage_argsfile,
+                        other_outputs = [socket_usage_manifests],
+                    )],
+                },
+            ),
         ],
     }
