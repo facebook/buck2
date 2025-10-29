@@ -77,6 +77,7 @@ use starlark::values::structs::AllocStruct;
 use super::node_attrs::NodeAttributeGetter;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
+use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrResolutionCache;
 use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrResolutionContext;
 
 mod attr_resolution_ctx;
@@ -292,9 +293,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn resolved_attrs_lazy<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkLazyResolvedAttrs<'v>> {
-        Ok(StarlarkLazyResolvedAttrs::new(this, ctx, eval.module()))
+        Ok(StarlarkLazyResolvedAttrs::new(this, ctx))
     }
 
     /// Returns a struct of all the resolved attributes of this target node. The structs fields are the
@@ -742,7 +742,11 @@ pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    resolution_ctx: LazyAttrResolutionContext<'v>,
+    bxl_context: &'v BxlContext<'v>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    resolution_ctx_data: LazyAttrResolutionCache<'v>,
 }
 
 #[starlark_value(type = "bxl.LazyResolvedAttrs", StarlarkTypeRepr, UnpackValue)]
@@ -763,20 +767,26 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
     pub(crate) fn new(
         configured_node: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
-        module: &'v Module,
     ) -> StarlarkLazyResolvedAttrs<'v> {
         let configured_node = &configured_node.0;
-        let resolution_ctx = LazyAttrResolutionContext {
-            module,
-            configured_node,
-            ctx,
+        let resolution_ctx = LazyAttrResolutionCache {
             dep_analysis_results: OnceLock::new(),
             query_results: OnceLock::new(),
         };
 
         Self {
             configured_node,
-            resolution_ctx,
+            bxl_context: ctx,
+            resolution_ctx_data: resolution_ctx,
+        }
+    }
+
+    fn resolution_ctx<'a>(&'a self, module: &'v Module) -> LazyAttrResolutionContext<'a, 'v> {
+        LazyAttrResolutionContext {
+            module,
+            configured_node: self.configured_node,
+            ctx: self.bxl_context,
+            cache: &self.resolution_ctx_data,
         }
     }
 }
@@ -798,12 +808,13 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &StarlarkLazyResolvedAttrs<'v>,
         attr: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(
             match this.configured_node.get(attr, AttrInspectOptions::All) {
                 Some(attr) => NoneOr::Other(attr.value.resolve_single(
                     this.configured_node.label().pkg(),
-                    &mut &this.resolution_ctx,
+                    &mut &this.resolution_ctx(eval.module()),
                 )?),
                 None => {
                     // Check special attrs
@@ -816,7 +827,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                         None => NoneOr::None,
                         Some(attr) => NoneOr::Other(attr.resolve_single(
                             this.configured_node.label().pkg(),
-                            &mut &this.resolution_ctx,
+                            &mut &this.resolution_ctx(eval.module()),
                         )?),
                     }
                 }
