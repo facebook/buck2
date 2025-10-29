@@ -17,11 +17,13 @@ use buck2_analysis::analysis::env::get_rule_impl;
 use buck2_analysis::analysis::env::promise_artifact_mappings;
 use buck2_analysis::analysis::env::transitive_validations;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::anon_target::AnonTargetDependentAnalysisResults;
 use buck2_build_api::anon_target::AnonTargetDyn;
 use buck2_build_api::bxl::anon_target::EVAL_BXL_FOR_ANON_TARGET;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_common::events::HasEvents;
@@ -33,6 +35,7 @@ use buck2_error::buck2_error;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::factory::BuckStarlarkModule;
+use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
@@ -72,6 +75,7 @@ use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 struct BxlAnonCallbackParamSpec;
@@ -302,11 +306,7 @@ async fn eval_bxl_for_anon_target_inner(
 
         tokio::task::block_in_place(|| -> buck2_error::Result<()> {
             bxl_ctx.via_dice(|dice, _| {
-                dice.via(|dice| {
-                    action_factory
-                        .run_promises(dice, &mut reentrant_eval)
-                        .boxed_local()
-                })
+                run_anon_target_promises(action_factory, dice, &mut reentrant_eval)
             })
         })?;
 
@@ -354,6 +354,20 @@ async fn eval_bxl_for_anon_target_inner(
                 validations,
             ),
         ))
+    })
+}
+
+pub(crate) fn run_anon_target_promises<'x, 'v, 'a, 'e>(
+    actions: ValueTyped<'v, AnalysisActions<'v>>,
+    dice: &mut dyn BxlDiceComputations,
+    eval: &mut ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e>,
+) -> buck2_error::Result<()> {
+    dice.via(|dice| {
+        async move {
+            let mut accessor = RunAnonPromisesAccessorPair(eval, dice);
+            actions.run_promises(&mut accessor).await
+        }
+        .boxed_local()
     })
 }
 

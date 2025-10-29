@@ -11,9 +11,8 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
-use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
+use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use dice::DiceComputations;
 use either::Either;
 use futures::FutureExt;
 use starlark::values::Trace;
@@ -48,11 +47,13 @@ impl<'v> AnonPromises<'v> {
 
 #[async_trait(?Send)]
 impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
-    async fn run_promises(
+    async fn run_promises<'x, 'a: 'x, 'e: 'a, 'd>(
         self: Box<Self>,
-        dice: &mut DiceComputations,
-        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
-    ) -> buck2_error::Result<()> {
+        accessor: &mut dyn RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd>,
+    ) -> buck2_error::Result<()>
+    where
+        'v: 'x,
+    {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
         let mut shape = Vec::new();
@@ -70,13 +71,14 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             }
         }
 
-        let values = dice
+        let values = accessor
+            .dice()
             .try_compute_join(anon_target_keys.iter(), |dice, anon_target_key| {
                 async move { anon_target_key.resolve(dice).await }.boxed()
             })
             .await?;
 
-        eval.with_evaluator(|eval| {
+        accessor.eval().with_evaluator(|eval| {
             // But must bind the promises sequentially
             for (promise, xs) in shape {
                 match xs {

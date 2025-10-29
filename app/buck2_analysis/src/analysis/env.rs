@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -297,7 +298,9 @@ async fn run_analysis_with_env_underlying(
             Ok((ctx, list_res))
         })?;
 
-        ctx.actions.run_promises(dice, &mut reentrant_eval).await?;
+        ctx.actions
+            .run_promises(&mut RunAnonPromisesAccessorPair(&mut reentrant_eval, dice))
+            .await?;
 
         // Pull the ctx object back out, and steal ctx.action's state back
         let analysis_registry = ctx.take_state();

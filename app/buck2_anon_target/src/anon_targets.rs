@@ -20,6 +20,7 @@ use buck2_analysis::analysis::env::transitive_validations;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
+use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -460,7 +461,9 @@ impl AnonTargetKey {
                 Ok((ctx, list_res))
             })?;
 
-            ctx.actions.run_promises(dice, &mut reentrant_eval).await?;
+            ctx.actions
+                .run_promises(&mut RunAnonPromisesAccessorPair(&mut reentrant_eval, dice))
+                .await?;
             let res_typed = ProviderCollection::try_from_value(list_res)?;
             let res = env.heap().alloc(res_typed);
 

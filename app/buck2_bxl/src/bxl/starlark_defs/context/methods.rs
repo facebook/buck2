@@ -66,6 +66,7 @@ use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::analysis;
+use crate::bxl::starlark_defs::context::anon_target::run_anon_target_promises;
 use crate::bxl::starlark_defs::context::build;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -778,11 +779,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 ))
                 .boxed_local()
             })?;
-            dice.via(|dice| {
-                action_factory
-                    .run_promises(dice, &mut reentrant_eval)
-                    .boxed_local()
-            })
+            run_anon_target_promises(action_factory, dice, &mut reentrant_eval)
         })?;
         Ok(match promise.get() {
             Some(v) => NoneOr::Other(v),

@@ -14,9 +14,32 @@ use dice::DiceComputations;
 
 #[async_trait(?Send)]
 pub trait AnonPromisesDyn<'v>: 'v {
-    async fn run_promises(
+    async fn run_promises<'x, 'a: 'x, 'e: 'a, 'd>(
         self: Box<Self>,
-        dice: &mut DiceComputations,
-        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
-    ) -> buck2_error::Result<()>;
+        accessor: &mut dyn RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd>,
+    ) -> buck2_error::Result<()>
+    where
+        'v: 'x;
+}
+
+pub trait RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd> {
+    fn eval(&mut self) -> &mut ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e>;
+    fn dice(&mut self) -> &mut DiceComputations<'d>;
+}
+
+pub struct RunAnonPromisesAccessorPair<'me, 'x, 'v, 'a, 'e, 'd>(
+    pub &'me mut ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e>,
+    pub &'me mut DiceComputations<'d>,
+);
+
+impl<'me, 'x, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd>
+    for RunAnonPromisesAccessorPair<'me, 'x, 'v, 'a, 'e, 'd>
+{
+    fn eval(&mut self) -> &mut ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
+        self.0
+    }
+
+    fn dice(&mut self) -> &mut DiceComputations<'d> {
+        self.1
+    }
 }

@@ -21,7 +21,6 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
@@ -50,6 +49,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
@@ -82,23 +82,25 @@ impl<'v> AnalysisActions<'v> {
             .internal_error("state to be present during execution")
     }
 
-    pub async fn run_promises(
+    pub async fn run_promises<'x, 'a: 'x, 'e: 'a, 'd>(
         &self,
-        dice: &mut DiceComputations<'_>,
-        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
-    ) -> buck2_error::Result<()> {
+        accessor: &mut dyn RunAnonPromisesAccessor<'x, 'v, 'a, 'e, 'd>,
+    ) -> buck2_error::Result<()>
+    where
+        'v: 'x,
+    {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
             let promises = self.state()?.take_promises();
             if let Some(promises) = promises {
-                promises.run_promises(dice, eval).await?;
+                promises.run_promises(accessor).await?;
             } else {
                 break;
             }
         }
 
-        self.assert_short_paths_and_resolve(dice).await?;
+        self.assert_short_paths_and_resolve(accessor.dice()).await?;
 
         Ok(())
     }
