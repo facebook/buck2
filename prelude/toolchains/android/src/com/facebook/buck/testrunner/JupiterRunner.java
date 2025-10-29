@@ -460,9 +460,12 @@ public final class JupiterRunner extends BaseRunner {
       if (status == TestExecutionResult.Status.SUCCESSFUL) {
         return ResultType.SUCCESS;
       }
-      return junit4Api().isAssumption(failure.orElse(null))
-          ? ResultType.ASSUMPTION_VIOLATION
-          : ResultType.FAILURE;
+      return isAssumption(failure) ? ResultType.ASSUMPTION_VIOLATION : ResultType.FAILURE;
+    }
+
+    private boolean isAssumption(final Optional<Throwable> failure) {
+      return jupiterApi().isAssumption(failure.orElse(null))
+          || junit4Api().isAssumption(failure.orElse(null));
     }
   }
 
