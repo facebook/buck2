@@ -264,6 +264,32 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       if (invokingRule.isSourceOnlyAbi()
           && kspInvocationStatus == KspStepsBuilder.KSPInvocationStatus.KSP1_INVOKED) {
         steps.addAll(postKotlinCompilationSteps.build());
+
+        ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
+        if (isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getLanguageVersion())
+            && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
+          // Most of the time, KotlinC have ran annotation processing,
+          // so only run "java on mix" processors (very uncommon) on Javac
+          resolvedJavacOptions =
+              resolvedJavacOptions.withJavaAnnotationProcessorParams(
+                  getRunsOnJavaOnlyProcessors(resolvedJavacOptions));
+        }
+
+        JavacStepsBuilder.prepareJavaCompilationIfNeeded(
+            invokingRule,
+            buildCellRootPath,
+            steps,
+            buckOut,
+            compilerOutputPathsValue,
+            parameters,
+            resolvedJavac,
+            resolvedJavacOptions,
+            parameters.getClasspathEntries(),
+            extraParams.getExtraClassPaths(),
+            outputDirectory,
+            javacSourceBuilder,
+            abiJarParameters);
+
         return;
       }
 
