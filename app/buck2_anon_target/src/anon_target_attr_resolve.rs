@@ -88,7 +88,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
         pkg: PackageLabel,
         anon_resolution_ctx: &AnonTargetAttrResolutionContext<'v>,
     ) -> buck2_error::Result<Value<'v>> {
-        let ctx = &anon_resolution_ctx.rule_analysis_attr_resolution_ctx;
+        let mut ctx = &anon_resolution_ctx.rule_analysis_attr_resolution_ctx;
         match self {
             AnonTargetAttr::Bool(v) => Ok(Value::new_bool(v.0)),
             AnonTargetAttr::Int(v) => Ok(ctx.heap().alloc(*v)),
@@ -121,9 +121,9 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             }
             AnonTargetAttr::None => Ok(Value::new_none()),
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),
-            AnonTargetAttr::Dep(d) => Ok(DepAttrType::resolve_single(ctx, d)?),
+            AnonTargetAttr::Dep(d) => Ok(DepAttrType::resolve_single(&mut ctx, d)?),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.dupe()))),
-            AnonTargetAttr::Arg(a) => Ok(a.resolve(ctx, pkg)?),
+            AnonTargetAttr::Arg(a) => Ok(a.resolve(&mut ctx, pkg)?),
             AnonTargetAttr::PromiseArtifact(promise_artifact_attr) => {
                 let promise_id = promise_artifact_attr.id.dupe();
                 // We validated that the analysis contains the promise artifact id earlier

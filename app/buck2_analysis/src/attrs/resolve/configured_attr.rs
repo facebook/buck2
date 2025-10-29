@@ -60,13 +60,13 @@ pub trait ConfiguredAttrExt {
     fn resolve<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
     ) -> buck2_error::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
     ) -> buck2_error::Result<Value<'v>>;
 
     fn to_value<'v>(
@@ -86,7 +86,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     fn resolve<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
     ) -> buck2_error::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
@@ -102,7 +102,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     fn resolve_single<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
     ) -> buck2_error::Result<Value<'v>> {
         match self {
             ConfiguredAttr::Bool(v) => Ok(Value::new_bool(v.0)),

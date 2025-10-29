@@ -73,13 +73,13 @@ impl<'v> LazyAttrResolutionContext<'v> {
     }
 }
 
-impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
+impl<'v> AttrResolutionContext<'v> for &'_ LazyAttrResolutionContext<'v> {
     fn starlark_module(&self) -> &'v Module {
         self.module
     }
 
     fn get_dep(
-        &self,
+        &mut self,
         target: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         match self.dep_analysis_results() {
@@ -93,7 +93,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
     }
 
     fn resolve_unkeyed_placeholder(
-        &self,
+        &mut self,
         name: &str,
     ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
         match self.dep_analysis_results() {
@@ -106,7 +106,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
         }
     }
 
-    fn resolve_query(&self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
+    fn resolve_query(&mut self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
         match self.query_results() {
             Ok(res) => resolve_query(res, query, self.module),
             Err(e) => Err(buck2_error::buck2_error!(

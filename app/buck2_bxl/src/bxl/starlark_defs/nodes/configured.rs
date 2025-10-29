@@ -349,7 +349,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             resolved_attrs.push((
                 a.name,
                 a.value
-                    .resolve_single(this.0.label().pkg(), &resolution_ctx)?,
+                    .resolve_single(this.0.label().pkg(), &mut &resolution_ctx)?,
             ));
         }
 
@@ -801,10 +801,10 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(
             match this.configured_node.get(attr, AttrInspectOptions::All) {
-                Some(attr) => NoneOr::Other(
-                    attr.value
-                        .resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
-                ),
+                Some(attr) => NoneOr::Other(attr.value.resolve_single(
+                    this.configured_node.label().pkg(),
+                    &mut &this.resolution_ctx,
+                )?),
                 None => {
                     // Check special attrs
                     let special_attrs = this
@@ -816,7 +816,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                         None => NoneOr::None,
                         Some(attr) => NoneOr::Other(attr.resolve_single(
                             this.configured_node.label().pkg(),
-                            &this.resolution_ctx,
+                            &mut &this.resolution_ctx,
                         )?),
                     }
                 }

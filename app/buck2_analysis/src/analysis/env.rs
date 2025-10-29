@@ -81,20 +81,20 @@ pub struct RuleAnalysisAttrResolutionContext<'v> {
     pub execution_platform_resolution: ExecutionPlatformResolution,
 }
 
-impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
+impl<'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext<'v> {
     fn starlark_module(&self) -> &'v Module {
         self.module
     }
 
     fn get_dep(
-        &self,
+        &mut self,
         target: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         get_dep(&self.dep_analysis_results, target, self.module)
     }
 
     fn resolve_unkeyed_placeholder(
-        &self,
+        &mut self,
         name: &str,
     ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
         Ok(resolve_unkeyed_placeholder(
@@ -104,7 +104,7 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
         ))
     }
 
-    fn resolve_query(&self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
+    fn resolve_query(&mut self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
         resolve_query(&self.query_results, query, self.module)
     }
 
@@ -265,8 +265,8 @@ async fn run_analysis_with_env_underlying(
             };
 
             (
-                node_to_attrs_struct(node, &resolution_ctx)?,
-                plugins_to_starlark_value(node, &resolution_ctx)?,
+                node_to_attrs_struct(node, &mut &resolution_ctx)?,
+                plugins_to_starlark_value(node, &mut &resolution_ctx)?,
             )
         };
 
