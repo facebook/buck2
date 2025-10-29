@@ -21,7 +21,6 @@ buck_java_library(
     deps = [
         "fbcode//remote_execution/lib/if/worker_tool:worker_tool_thrift-java-swift-java17",
         "fbcode//third-party-java/io.airlift:units",
-        "fbcode//third-party-java/org/slf4j/slf4j-api:slf4j-api",
         "fbcode//thrift/lib/java/facebook/service-framework:service-framework-java17",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
