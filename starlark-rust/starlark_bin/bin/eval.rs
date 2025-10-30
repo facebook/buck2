@@ -264,6 +264,7 @@ impl Context {
         };
         let mut eval = Evaluator::new(module);
         eval.set_loader(self);
+        eval.enable_static_typechecking(true);
         eval.enable_terminal_breakpoint_console();
         struct Noop;
         impl PrintHandler for Noop {
