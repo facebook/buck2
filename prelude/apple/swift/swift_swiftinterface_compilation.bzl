@@ -15,6 +15,10 @@ load(
     "extract_and_merge_clang_debug_infos",
     "extract_and_merge_swift_debug_infos",
 )
+load(
+    ":swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
@@ -48,6 +52,7 @@ def compile_swiftinterface_common(
         category,
         additional_compiled_pcm,
         additional_compiled_swiftmodules = None):
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
     swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)
@@ -82,7 +87,7 @@ def compile_swiftinterface_common(
         swift_module_map_artifact,
     ])
 
-    swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION)
+    swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     cmd.add([
         "-o",
         swiftmodule_output.as_output(),

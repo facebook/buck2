@@ -10,11 +10,16 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load(
+    ":swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 
 def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str, inputs_tag: ArtifactTag) -> None:
     # Add a Makefile style dependency file output. This output is not tracked,
     # we need to process it first.
-    buck_dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d".format(ctx.attrs.name, category)).as_output()
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    buck_dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d".format(ctx.attrs.name, category), uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing).as_output()
     map = output_file_map.setdefault("", {})
     map["dependencies"] = cmd_args(buck_dep_file, delimiter = "", format = "{}.raw")
     map["emit-module-dependencies"] = cmd_args(buck_dep_file, delimiter = "", format = "{}.raw")
@@ -40,10 +45,12 @@ def add_serialized_diagnostics_output(output_file_map: dict | None, cmd: cmd_arg
         cmd.add(cmd_args("-serialize-diagnostics", hidden = [diagnostics_output]))
 
 def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str) -> Artifact:
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
     output_file_map_json = ctx.actions.write_json(
         "{}_output_file_map.json".format(category),
         output_file_map,
         pretty = True,
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
     )
     cmd.add("-output-file-map", output_file_map_json)
     return output_file_map_json
