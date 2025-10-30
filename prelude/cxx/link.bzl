@@ -59,6 +59,7 @@ load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
+    "LinkArgsOutput",
     "cxx_link_cmd_parts",
     "cxx_sanitizer_runtime_arguments",
     "generates_split_debug",
@@ -189,51 +190,74 @@ def cxx_link_into(
             extra_outputs = extra_outputs,
         )
 
-    if linker_info.generate_linker_maps:
-        links_with_linker_map = opts.links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
-    else:
-        links_with_linker_map = opts.links
-
     link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
-    all_link_args = cmd_args(link_cmd_parts.linker_flags)
-    all_link_args.add(get_output_flags(linker_info.type, output))
-
-    # Add the linker args required for any extra linker outputs requested
     extra_linker_outputs = opts.extra_linker_outputs_factory(ctx) if opts.extra_linker_outputs_factory != None else ExtraLinkerOutputs()
-    if len(extra_linker_outputs.artifacts) > 0:
-        if opts.extra_linker_outputs_flags_factory == None:
-            fail("Extra outputs requested but missing flag factory")
-
-        all_link_args.add(opts.extra_linker_outputs_flags_factory(ctx, extra_linker_outputs.artifacts))
-
-    # Darwin LTO requires extra link outputs to preserve debug info
     split_debug_output = None
     split_debug_lto_info = get_split_debug_lto_info(ctx.actions, cxx_toolchain_info, output.short_path)
     if split_debug_lto_info != None:
-        all_link_args.add(split_debug_lto_info.linker_flags)
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(cxx_toolchain_info) or split_debug_output != None)
-
-    link_args_output = make_link_args(
-        ctx,
-        ctx.actions,
-        cxx_toolchain_info,
-        links_with_linker_map,
-        output_short_path = output.short_path,
-        link_ordering = opts.link_ordering,
-    )
-    all_link_args.add(link_args_output.link_args)
-
-    # Sanitizer runtime args must appear at the end because it can affect
-    # behavior of Swift runtime loading when the app also has an embedded
-    # Swift runtime.
     sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
-    all_link_args.add(sanitizer_runtime_args.extra_link_args)
 
-    if linker_info.thin_lto_double_codegen_enabled:
-        # This flag should only be passed to the toolchain when using local thin-lto,
-        # for distributed thin-lto the double codegen is handled differently.
-        all_link_args.add("-Wl,-mllvm,-codegen-data-thinlto-two-rounds")
+    def create_local_linker_invocation(add_linker_outputs: bool) -> LinkArgsOutput:
+        if linker_info.generate_linker_maps and add_linker_outputs:
+            links_with_linker_map = opts.links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
+        else:
+            links_with_linker_map = opts.links
+
+        all_link_args = cmd_args(link_cmd_parts.linker_flags)
+        if add_linker_outputs:
+            all_link_args.add(get_output_flags(linker_info.type, output))
+
+        if add_linker_outputs:
+            # Add the linker args required for any extra linker outputs requested
+            if len(extra_linker_outputs.artifacts) > 0:
+                if opts.extra_linker_outputs_flags_factory == None:
+                    fail("Extra outputs requested but missing flag factory")
+
+                all_link_args.add(opts.extra_linker_outputs_flags_factory(ctx, extra_linker_outputs.artifacts))
+
+            # Darwin LTO requires extra link outputs to preserve debug info
+            if split_debug_lto_info != None:
+                all_link_args.add(split_debug_lto_info.linker_flags)
+
+        link_args_output = make_link_args(
+            ctx,
+            ctx.actions,
+            cxx_toolchain_info,
+            links_with_linker_map,
+            output_short_path = output.short_path,
+            link_ordering = opts.link_ordering,
+        )
+        all_link_args.add(link_args_output.link_args)
+
+        # Sanitizer runtime args must appear at the end because it can affect
+        # behavior of Swift runtime loading when the app also has an embedded
+        # Swift runtime.
+        all_link_args.add(sanitizer_runtime_args.extra_link_args)
+
+        if linker_info.thin_lto_double_codegen_enabled:
+            # This flag should only be passed to the toolchain when using local thin-lto,
+            # for distributed thin-lto the double codegen is handled differently.
+            all_link_args.add("-Wl,-mllvm,-codegen-data-thinlto-two-rounds")
+
+        all_link_args.add(link_cmd_parts.post_linker_flags)
+
+        if linker_info.type == LinkerType("windows"):
+            shell_quoted_args = cmd_args(all_link_args)
+        else:
+            shell_quoted_args = cmd_args(all_link_args, quote = "shell")
+
+        return LinkArgsOutput(link_args = shell_quoted_args, hidden = link_args_output.hidden, pdb_artifact = link_args_output.pdb_artifact)
+
+    link_unit_generation_link_args = create_local_linker_invocation(add_linker_outputs = True)
+    argfile, _ = ctx.actions.write(
+        output.short_path + ".cxx_link_argsfile",
+        link_unit_generation_link_args.link_args,
+        allow_args = True,
+        with_inputs = True,
+        uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
+    )
 
     bitcode_linkables = []
     for link_item in opts.links:
@@ -249,20 +273,6 @@ def cxx_link_into(
         bitcode_artifact = make_bitcode_bundle(ctx, output.short_path + ".bc", bitcode_linkables)
     else:
         bitcode_artifact = None
-
-    all_link_args.add(link_cmd_parts.post_linker_flags)
-
-    if linker_info.type == LinkerType("windows"):
-        shell_quoted_args = cmd_args(all_link_args)
-    else:
-        shell_quoted_args = cmd_args(all_link_args, quote = "shell")
-
-    argfile, _ = ctx.actions.write(
-        output.short_path + ".cxx_link_argsfile",
-        shell_quoted_args,
-        allow_args = True,
-        uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
-    )
 
     # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
     # using split debug with content-based paths.
@@ -294,10 +304,11 @@ def cxx_link_into(
         separate_debug_info_args,
         cmd_args(argfile, format = "@{}"),
         hidden = [
-            link_args_output.hidden,
-            shell_quoted_args,
+            link_unit_generation_link_args.link_args,
+            link_unit_generation_link_args.hidden,
         ],
     )
+
     category = "cxx_link"
     if opts.category_suffix != None:
         category += "_" + opts.category_suffix
@@ -340,7 +351,7 @@ def cxx_link_into(
         ctx = ctx,
         links = opts.links,
         split_debug_output = split_debug_output,
-        pdb = link_args_output.pdb_artifact,
+        pdb = link_unit_generation_link_args.pdb_artifact,
     )
 
     unstripped_output = output
@@ -391,7 +402,7 @@ def cxx_link_into(
         linker_argsfile = argfile,
         linker_command = command,
         import_library = opts.import_library,
-        pdb = link_args_output.pdb_artifact,
+        pdb = link_unit_generation_link_args.pdb_artifact,
         split_debug_output = split_debug_output,
     )
 
