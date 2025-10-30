@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import time
@@ -157,6 +158,13 @@ def _get(data: Dict[str, Any], *key: str) -> Any:
     return data
 
 
+def _use_some_memory_args(buck: Buck) -> list[str]:
+    return [
+        "-c",
+        f"use_some_memory.path={os.environ["USE_SOME_MEMORY_BIN"]}",
+    ]
+
+
 @buck_test(skip_for_os=["darwin", "windows"])
 @env("BUCK2_HARD_ERROR", "panic")
 async def test_action_freezing(
@@ -277,13 +285,18 @@ async def test_action_freezing_unfreezing(
         f.write("memory_pressure_threshold_percent = 1\n")
 
     await buck.build(
-        "prelude//:freeze_unfreeze_target",
-        "--no-remote-cache",
-        "-c",
-        "build.use_limited_hybrid=False",
-        "-c",
-        "build.execution_platforms=//:platforms",
-        "--local-only",
+        *(
+            [
+                "prelude//:freeze_unfreeze_target",
+                "--no-remote-cache",
+                "-c",
+                "build.use_limited_hybrid=False",
+                "-c",
+                "build.execution_platforms=//:platforms",
+                "--local-only",
+            ]
+            + _use_some_memory_args(buck)
+        ),
     )
 
     commands = await filter_events(
@@ -325,6 +338,7 @@ async def test_resource_control_events_created(
         "-c",
         "build.execution_platforms=//:platforms",
         "--local-only",
+        *_use_some_memory_args(buck),
     )
 
     event = await filter_events(
@@ -440,6 +454,7 @@ async def test_parent_slice_memory_high_unset_and_restore(
         "-c",
         "build.execution_platforms=//:platforms",
         "--local-only",
+        *_use_some_memory_args(buck),
     )
 
     commands = await filter_events(
