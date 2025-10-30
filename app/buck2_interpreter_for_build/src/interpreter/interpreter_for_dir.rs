@@ -100,7 +100,7 @@ pub struct ParseData(
     pub Arc<Vec<(Option<FileSpan>, OwnedStarlarkModulePath)>>,
 );
 
-pub type ParseResult = Result<ParseData, buck2_error::Error>;
+pub type ParseResult = Result<ParseData, starlark_syntax::Error>;
 
 impl ParseData {
     fn new(
