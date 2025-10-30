@@ -46,17 +46,14 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
       }
 
-      val sdkVersion =
-          try {
-            getProperty("ro.build.version.sdk").toInt()
-          } catch (e: Exception) {
-            LOG.warn("Unable to determine SDK version, defaulting to legacy install: ${e.message}")
-            -1
-          }
-
       val installArgs = buildString {
         append("-r -d")
-        if (sdkVersion >= MIN_SDK_VERSION_FOR_FASTDEPLOY) append(" --fastdeploy")
+        // --fastdeploy has a bug, it hides INSTALL_FAILED_UPDATE_INCOMPATIBLE error when there is a
+        // mismatch between the apk on the device and the one being installed. The operation will
+        // appear as successful without the apk being updated.
+        // https://issuetracker.google.com/231040652
+        // if (shouldUseFastDeploy()) append(" --fastdeploy")
+
         if (stagedInstallMode) append(" --staged")
       }
 
@@ -68,6 +65,18 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info("Installed ${apk.name} (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
     return true
+  }
+
+  private fun shouldUseFastDeploy(): Boolean {
+    val sdkVersion =
+        try {
+          getProperty("ro.build.version.sdk").toInt()
+        } catch (e: Exception) {
+          LOG.warn("Unable to determine SDK version, defaulting to legacy install: ${e.message}")
+          -1
+        }
+
+    return sdkVersion >= MIN_SDK_VERSION_FOR_FASTDEPLOY
   }
 
   override fun installApexOnDevice(apex: File, quiet: Boolean): Boolean {

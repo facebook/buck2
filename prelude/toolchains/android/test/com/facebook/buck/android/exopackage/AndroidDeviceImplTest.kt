@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -51,6 +52,7 @@ class AndroidDeviceImplTest {
     assertTrue(result)
   }
 
+  @Ignore
   @Test
   fun testInstallApkOnDeviceWithFastdeploy() {
     val apkFile = mock<File>()
@@ -68,6 +70,7 @@ class AndroidDeviceImplTest {
     assertTrue(result)
   }
 
+  @Ignore
   @Test
   fun testInstallApkOnDeviceWithFastdeployAndStaged() {
     val apkFile = mock<File>()
