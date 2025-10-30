@@ -31,7 +31,7 @@ enum BxlEvalExtraType {
 #[derive(ProvidesStaticType)]
 pub(crate) struct BxlEvalExtra<'d> {
     pub(crate) dice: Box<dyn BxlDiceComputations<'d> + 'd>,
-    core: Rc<BxlContextCoreData>,
+    pub(crate) core: Rc<BxlContextCoreData>,
     eval_extra_type: BxlEvalExtraType,
 }
 
@@ -85,14 +85,6 @@ impl<'d> BxlEvalExtra<'d> {
             None => None,
         }
         .ok_or_else(|| BxlScopeError::UnavailableOutsideBxl.into())
-    }
-
-    pub(crate) fn via_dice<'a, T, E>(
-        &'a mut self,
-        f: impl FnOnce(&'a mut dyn BxlDiceComputations<'d>, &'a BxlContextCoreData) -> Result<T, E>,
-    ) -> Result<T, E> {
-        let core = &self.core;
-        f(&mut *self.dice, core)
     }
 }
 

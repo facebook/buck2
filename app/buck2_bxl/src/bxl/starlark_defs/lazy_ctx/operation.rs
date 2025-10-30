@@ -378,9 +378,9 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
         let heap = eval.heap();
         let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
         let lazy = this.lazy.clone();
-        let res = bxl_eval_extra.via_dice(|dice, core_data| {
-            dice.via(|dice| async { lazy.resolve(dice, core_data).await }.boxed_local())
-        });
+        let res = bxl_eval_extra
+            .dice
+            .via(|dice| async { lazy.resolve(dice, &bxl_eval_extra.core).await }.boxed_local());
 
         Ok(res.and_then(|v| v.into_value(heap, bxl_eval_extra))?)
     }

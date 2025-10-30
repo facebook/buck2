@@ -434,11 +434,14 @@ impl<'v> BxlContext<'v> {
     where
         'v: 'a,
     {
-        BxlEvalExtra::from_context(eval)
-            // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
-            // good evidence that this is indeed a bxl evaluation
-            .unwrap()
-            .via_dice(|dice, _| f(dice, &self.data))
+        f(
+            &mut *BxlEvalExtra::from_context(eval)
+                // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
+                // good evidence that this is indeed a bxl evaluation
+                .unwrap()
+                .dice,
+            &self.data,
+        )
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.

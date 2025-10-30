@@ -308,6 +308,7 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
     ///
     ///     pkg_value2 = bxl.read_package_value("root//path/to/pkg", "aaa.ccc")
     /// ```
+    // FIXME(JakobDegen): This ought to require a `BxlContext`
     fn read_package_value<'v>(
         #[starlark(require = pos)] package_path: PackagePathArg<'v>,
         #[starlark(require = pos)] key: &str,
@@ -316,11 +317,11 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
         let metadata_key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
         let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
+        let package = package_path.pkg(bxl_eval_extra.core.cell_alias_resolver())?;
 
-        let super_package = bxl_eval_extra.via_dice(|dice, core_data| {
-            let package = package_path.pkg(core_data.cell_alias_resolver())?;
-            dice.via(|dice| async { dice.eval_package_file(package).await }.boxed_local())
-        })?;
+        let super_package = bxl_eval_extra
+            .dice
+            .via(|dice| async { dice.eval_package_file(package).await }.boxed_local())?;
 
         // Use this instead of `get_package_value_json()`` to get the native Starlark value directly,
         // rather than converting the Starlark value to JSON first
