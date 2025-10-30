@@ -375,13 +375,13 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkLazy,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
+        let heap = eval.heap();
         let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
         let lazy = this.lazy.clone();
         let res = bxl_eval_extra.via_dice(|dice, core_data| {
             dice.via(|dice| async { lazy.resolve(dice, core_data).await }.boxed_local())
         });
 
-        let heap = eval.heap();
         Ok(res.and_then(|v| v.into_value(heap, bxl_eval_extra))?)
     }
 

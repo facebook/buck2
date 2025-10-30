@@ -26,6 +26,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
+use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -82,9 +83,9 @@ impl<'v> AnalysisActions<'v> {
             .internal_error("state to be present during execution")
     }
 
-    pub async fn run_promises<'a, 'e: 'a, 'd>(
+    pub async fn run_promises<'a, 'e: 'a>(
         &self,
-        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e, 'd>,
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
     ) -> buck2_error::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
@@ -97,7 +98,9 @@ impl<'v> AnalysisActions<'v> {
             }
         }
 
-        self.assert_short_paths_and_resolve(accessor.dice()).await?;
+        accessor
+            .with_dice(|dice| self.assert_short_paths_and_resolve(dice).boxed_local())
+            .await?;
 
         Ok(())
     }

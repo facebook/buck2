@@ -48,9 +48,9 @@ impl<'v> AnonPromises<'v> {
 
 #[async_trait(?Send)]
 impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
-    async fn run_promises<'a, 'e: 'a, 'd>(
+    async fn run_promises<'a, 'e: 'a>(
         self: Box<Self>,
-        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e, 'd>,
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
     ) -> buck2_error::Result<()> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
@@ -70,9 +70,11 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         }
 
         let values = accessor
-            .dice()
-            .try_compute_join(anon_target_keys.iter(), |dice, anon_target_key| {
-                async move { anon_target_key.resolve(dice).await }.boxed()
+            .with_dice(|dice| {
+                dice.try_compute_join(anon_target_keys.iter(), |dice, anon_target_key| {
+                    async move { anon_target_key.resolve(dice).await }.boxed()
+                })
+                .boxed_local()
             })
             .await?;
 

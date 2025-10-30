@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -171,18 +170,15 @@ impl BxlDynamicOutputEvaluator<'_> {
         BuckStarlarkModule::with_profiling(|env_provider| {
             let env = env_provider.make();
 
-            let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
-                dice,
-                self.liveness.dupe(),
-            )));
+            let bxl_dice = BxlSafeDiceComputations::new(dice, self.liveness.dupe());
 
             let (finished_eval, analysis_registry) = {
                 let data = Rc::new(self.data);
-                let extra = BxlEvalExtra::new_dynamic(bxl_dice.dupe(), data.dupe());
+                let mut extra = BxlEvalExtra::new_dynamic(Box::new(bxl_dice), data.dupe());
                 provider.with_evaluator(&env, self.liveness.into(), |eval, _| {
                     eval.set_print_handler(&self.print);
                     eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                    eval.extra = Some(&extra);
+                    eval.extra_mut = Some(&mut extra);
 
                     let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                         self.dynamic_lambda,
@@ -198,7 +194,6 @@ impl BxlDynamicOutputEvaluator<'_> {
                     let bxl_dynamic_ctx = BxlContext::new_dynamic(
                         env.heap(),
                         data,
-                        bxl_dice,
                         self.digest_config,
                         dynamic_lambda_ctx_data.registry,
                         self.dynamic_data,

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::cell::RefCell;
 use std::future::Future;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -196,7 +195,6 @@ impl BxlInnerEvaluator {
             let key = data.key().dupe();
 
             let bxl_dice = BxlSafeDiceComputations::new(dice, liveness.dupe());
-            let bxl_dice = Rc::new(RefCell::new(bxl_dice));
             let data = Rc::new(data);
 
             let (finished_eval, (actions, output_stream_outcome)) = {
@@ -211,7 +209,8 @@ impl BxlInnerEvaluator {
                 )?;
 
                 let print = EventDispatcherPrintHandler(dispatcher.clone());
-                let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), stream_state.dupe());
+                let mut extra =
+                    BxlEvalExtra::new(Box::new(bxl_dice), data.dupe(), stream_state.dupe());
 
                 provider
                     .with_evaluator(&env, liveness.into(), |eval, _| {
@@ -220,7 +219,7 @@ impl BxlInnerEvaluator {
                         eval.set_print_handler(&print);
                         eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-                        eval.extra = Some(&extra);
+                        eval.extra_mut = Some(&mut extra);
 
                         let force_print_stacktrace = key.force_print_stacktrace();
                         let bxl_ctx = BxlContext::new(
@@ -228,7 +227,6 @@ impl BxlInnerEvaluator {
                             data,
                             stream_state.dupe(),
                             resolved_args,
-                            bxl_dice,
                             digest_config,
                         )?;
 

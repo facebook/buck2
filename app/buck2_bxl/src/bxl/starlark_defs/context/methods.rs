@@ -790,12 +790,12 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
+        let _this = this;
         // TODO(cjhopman): The approach here is pretty against the general model that we want. We should remove this function or we should split this into two steps:
         // (1) get values needed for running promises from dice
         // (2) run promise mappings on this evaluator (not via_dice or with the ReentrantStarlarkEvaluator)
-        this.async_ctx
-            .borrow_mut()
-            .via(|dice| run_anon_target_promises(action_factory, dice, eval).boxed_local())?;
+        tokio::runtime::Handle::current()
+            .block_on(run_anon_target_promises(action_factory, eval))?;
         Ok(match promise.get() {
             Some(v) => NoneOr::Other(v),
             None => NoneOr::None,

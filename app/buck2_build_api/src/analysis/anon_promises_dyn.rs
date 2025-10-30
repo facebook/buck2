@@ -8,26 +8,39 @@
  * above-listed licenses.
  */
 
+use std::cell::OnceCell;
+use std::rc::Rc;
+
 use async_trait::async_trait;
 use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use dice::DiceComputations;
+use futures::FutureExt;
+use futures::future::LocalBoxFuture;
 use starlark::eval::Evaluator;
 
 #[async_trait(?Send)]
 pub trait AnonPromisesDyn<'v>: 'v {
-    async fn run_promises<'a, 'e: 'a, 'd>(
+    async fn run_promises<'a, 'e: 'a>(
         self: Box<Self>,
-        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e, 'd>,
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
     ) -> buck2_error::Result<()>;
 }
 
-pub trait RunAnonPromisesAccessor<'v, 'a, 'e, 'd> {
+pub trait RunAnonPromisesAccessor<'v, 'a, 'e> {
     fn with_evaluator(
         &mut self,
         closure: &mut dyn FnMut(&mut Evaluator<'v, 'a, 'e>) -> buck2_error::Result<()>,
     ) -> buck2_error::Result<()>;
 
-    fn dice(&mut self) -> &mut DiceComputations<'d>;
+    fn via_dice_impl<'s: 'b, 'b>(
+        &'s mut self,
+        f: Box<
+            dyn for<'d> FnOnce(
+                    &'s mut DiceComputations<'d>,
+                ) -> LocalBoxFuture<'s, buck2_error::Result<()>>
+                + 'b,
+        >,
+    ) -> LocalBoxFuture<'s, buck2_error::Result<()>>;
 }
 
 pub struct RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>(
@@ -35,7 +48,7 @@ pub struct RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>(
     pub &'me mut DiceComputations<'d>,
 );
 
-impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
+impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e>
     for RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>
 {
     fn with_evaluator(
@@ -45,7 +58,38 @@ impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
         self.0.with_evaluator(closure)
     }
 
-    fn dice(&mut self) -> &mut DiceComputations<'d> {
-        self.1
+    fn via_dice_impl<'s: 'b, 'b>(
+        &'s mut self,
+        f: Box<
+            dyn for<'d2> FnOnce(
+                    &'s mut DiceComputations<'d2>,
+                ) -> LocalBoxFuture<'s, buck2_error::Result<()>>
+                + 'b,
+        >,
+    ) -> LocalBoxFuture<'s, buck2_error::Result<()>> {
+        f(self.1)
+    }
+}
+
+impl<'v, 'a, 'e> dyn RunAnonPromisesAccessor<'v, 'a, 'e> + '_ {
+    pub fn with_dice<'s, T: 's>(
+        &'s mut self,
+        f: impl for<'d> FnOnce(&'s mut DiceComputations<'d>) -> LocalBoxFuture<'s, T> + 's,
+    ) -> LocalBoxFuture<'s, T> {
+        // We can't capture a &mut res here in the closure unfortunately, so we need to do this little dance to get values out.
+        let res: Rc<OnceCell<T>> = Rc::new(OnceCell::new());
+        let res2 = res.clone();
+        let f = self.via_dice_impl(Box::new(move |dice| {
+            async move {
+                res2.set(f(dice).await).ok().unwrap();
+                Ok(())
+            }
+            .boxed_local()
+        }));
+        async move {
+            f.await.unwrap();
+            Rc::try_unwrap(res).ok().unwrap().take().unwrap()
+        }
+        .boxed_local()
     }
 }

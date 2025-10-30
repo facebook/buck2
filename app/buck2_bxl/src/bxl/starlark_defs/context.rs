@@ -169,10 +169,6 @@ impl<'v> Display for BxlContextType<'v> {
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlContext<'v> {
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     pub(crate) data: BxlContextNoDice<'v>,
 }
 
@@ -355,7 +351,6 @@ impl<'v> BxlContext<'v> {
         core: Rc<BxlContextCoreData>,
         stream_state: OutputStreamState,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
         let root_data = RootBxlContextData {
@@ -369,7 +364,6 @@ impl<'v> BxlContext<'v> {
         let context_type = BxlContextType::Root(root_data);
 
         Ok(Self {
-            async_ctx: async_ctx.clone(),
             data: BxlContextNoDice {
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(None),
@@ -386,13 +380,11 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn new_dynamic(
         heap: &'v Heap,
         core: Rc<BxlContextCoreData>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            async_ctx,
             data: BxlContextNoDice {
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(Some(analysis_registry)),
@@ -409,13 +401,11 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn new_anon(
         heap: &'v Heap,
         core: Rc<BxlContextCoreData>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         attributes: ValueOfUnchecked<'v, StructRef<'static>>,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            async_ctx,
             data: BxlContextNoDice {
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(Some(analysis_registry)),

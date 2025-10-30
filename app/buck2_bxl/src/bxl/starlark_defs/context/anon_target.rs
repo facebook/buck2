@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -43,7 +42,7 @@ use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::FutureExt;
+use futures::future::LocalBoxFuture;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
@@ -262,18 +261,15 @@ async fn eval_bxl_for_anon_target_inner(
 
     BuckStarlarkModule::with_profiling(|env_provider| {
         let env = env_provider.make();
-        let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
-            dice,
-            liveness.dupe(),
-        )));
+        let bxl_dice = BxlSafeDiceComputations::new(dice, liveness.dupe());
         let bxl_ctx_core_data = Rc::new(bxl_ctx_core_data);
-        let extra = BxlEvalExtra::new_anon(bxl_dice.dupe(), bxl_ctx_core_data.dupe());
+        let mut extra = BxlEvalExtra::new_anon(Box::new(bxl_dice), bxl_ctx_core_data.dupe());
 
         let mut reentrant_eval = provider.make_reentrant_evaluator(&env, liveness.into())?;
         let (bxl_ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-            eval.extra = Some(&extra);
+            eval.extra_mut = Some(&mut extra);
 
             let analysis_registry = AnalysisRegistry::new_from_owner(
                 anon_target.dupe().base_deferred_key(),
@@ -286,7 +282,6 @@ async fn eval_bxl_for_anon_target_inner(
             let bxl_anon_ctx = BxlContext::new_anon(
                 env.heap(),
                 bxl_ctx_core_data,
-                bxl_dice,
                 digest_config,
                 analysis_registry,
                 attributes,
@@ -302,12 +297,10 @@ async fn eval_bxl_for_anon_target_inner(
 
         let action_factory = bxl_ctx.state;
 
-        reentrant_eval.with_evaluator(|eval| {
-            tokio::task::block_in_place(|| -> buck2_error::Result<()> {
-                bxl_ctx
-                    .async_ctx
-                    .borrow_mut()
-                    .via(|dice| run_anon_target_promises(action_factory, dice, eval).boxed_local())
+        tokio::task::block_in_place(|| {
+            reentrant_eval.with_evaluator(|eval| {
+                tokio::runtime::Handle::current()
+                    .block_on(run_anon_target_promises(action_factory, eval))
             })
         })?;
 
@@ -358,13 +351,10 @@ async fn eval_bxl_for_anon_target_inner(
     })
 }
 
-struct BxlAnonPromisesAccessor<'me, 'v, 'a, 'e, 'd>(
-    &'me mut Evaluator<'v, 'a, 'e>,
-    &'me mut DiceComputations<'d>,
-);
+struct BxlAnonPromisesAccessor<'me, 'v, 'a, 'e>(&'me mut Evaluator<'v, 'a, 'e>);
 
-impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
-    for BxlAnonPromisesAccessor<'me, 'v, 'a, 'e, 'd>
+impl<'me, 'v, 'a, 'e> RunAnonPromisesAccessor<'v, 'a, 'e>
+    for BxlAnonPromisesAccessor<'me, 'v, 'a, 'e>
 {
     fn with_evaluator(
         &mut self,
@@ -373,17 +363,27 @@ impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
         closure(self.0)
     }
 
-    fn dice(&mut self) -> &mut DiceComputations<'d> {
-        self.1
+    fn via_dice_impl<'s: 'b, 'b>(
+        &'s mut self,
+        f: Box<
+            dyn for<'d> FnOnce(
+                    &'s mut DiceComputations<'d>,
+                ) -> LocalBoxFuture<'s, buck2_error::Result<()>>
+                + 'b,
+        >,
+    ) -> LocalBoxFuture<'s, buck2_error::Result<()>> {
+        let Ok(f) = BxlEvalExtra::from_context(self.0)
+            .unwrap()
+            .via_dice(|ctx, _| Ok::<_, !>(ctx.with_inner(f)));
+        f
     }
 }
 
 pub(crate) async fn run_anon_target_promises<'v, 'a, 'e>(
     actions: ValueTyped<'v, AnalysisActions<'v>>,
-    dice: &mut DiceComputations<'_>,
     eval: &mut Evaluator<'v, 'a, 'e>,
 ) -> buck2_error::Result<()> {
-    let mut accessor = BxlAnonPromisesAccessor(eval, dice);
+    let mut accessor = BxlAnonPromisesAccessor(eval);
     actions.run_promises(&mut accessor).await
 }
 

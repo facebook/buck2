@@ -411,25 +411,22 @@ impl OutputStream {
                 )?;
                 write_item(&mut output, sep, &mut first, &path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg)? {
-                BxlEvalExtra::from_context(eval)?
-                    .dice
-                    .borrow_mut()
-                    .via(|dice| {
-                        ensured
-                            .visit_artifact_path_without_associated_deduped(
-                                |artifact_path, abs| {
-                                    let path = get_artifact_path_display(
-                                        artifact_path,
-                                        abs,
-                                        &self.project_fs,
-                                        &self.artifact_fs,
-                                    )?;
-                                    write_item(&mut output, sep, &mut first, &path)
-                                },
-                                dice,
-                            )
-                            .boxed_local()
-                    })?;
+                BxlEvalExtra::from_context(eval)?.dice.via(|dice| {
+                    ensured
+                        .visit_artifact_path_without_associated_deduped(
+                            |artifact_path, abs| {
+                                let path = get_artifact_path_display(
+                                    artifact_path,
+                                    abs,
+                                    &self.project_fs,
+                                    &self.artifact_fs,
+                                )?;
+                                write_item(&mut output, sep, &mut first, &path)
+                            },
+                            dice,
+                        )
+                        .boxed_local()
+                })?;
             } else {
                 write_item(&mut output, sep, &mut first, &arg.to_str())?;
             }
@@ -450,14 +447,14 @@ impl OutputStream {
         mut output: impl Write,
     ) -> buck2_error::Result<()> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
-        struct SerializeValue<'a, 'v, 'd> {
+        struct SerializeValue<'a, 'v, 'd, 's> {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
-            async_ctx: &'a Rc<RefCell<dyn BxlDiceComputations + 'd>>,
+            async_ctx: &'a RefCell<&'s mut dyn BxlDiceComputations<'d>>,
         }
 
-        impl<'v> SerializeValue<'_, 'v, '_> {
+        impl<'v> SerializeValue<'_, 'v, '_, '_> {
             fn with_value(&self, x: Value<'v>) -> Self {
                 Self {
                     value: x,
@@ -468,7 +465,7 @@ impl OutputStream {
             }
         }
 
-        impl Serialize for SerializeValue<'_, '_, '_> {
+        impl Serialize for SerializeValue<'_, '_, '_, '_> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: Serializer,
@@ -547,7 +544,7 @@ impl OutputStream {
                 value,
                 artifact_fs: &self.artifact_fs,
                 project_fs: &self.project_fs,
-                async_ctx: &BxlEvalExtra::from_context(eval)?.dice,
+                async_ctx: &RefCell::new(&mut *BxlEvalExtra::from_context(eval)?.dice),
             },
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
@@ -688,7 +685,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
-        let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
+        let streaming_writer = BxlStreamingWriter::new(&*extra.dice);
 
         let wait_on = wait_on
             .into_iter()
@@ -746,7 +743,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
-        let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
+        let streaming_writer = BxlStreamingWriter::new(&*extra.dice);
         let wait_on = wait_on
             .into_iter()
             .map(|wait_on| match wait_on {
