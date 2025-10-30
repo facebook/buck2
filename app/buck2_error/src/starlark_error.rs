@@ -22,9 +22,14 @@ use crate::source_location::SourceLocation;
 
 impl From<crate::Error> for starlark_syntax::Error {
     fn from(e: crate::Error) -> starlark_syntax::Error {
+        let span = e.find_starlark_context().and_then(|c| c.span.clone());
         let error = Into::into(StarlarkErrorWrapper(e));
         let error_kind = starlark_syntax::ErrorKind::Native(error);
-        starlark_syntax::Error::new_kind(error_kind)
+        let mut error = starlark_syntax::Error::new_kind(error_kind);
+        if let Some(span) = span {
+            error.set_file_span(span);
+        }
+        error
     }
 }
 

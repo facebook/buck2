@@ -128,6 +128,11 @@ impl Error {
         self.0.set_span(span, codemap);
     }
 
+    /// Set the full FileSpan, unless it's already been set.
+    pub fn set_file_span(&mut self, span: FileSpan) {
+        self.0.set_file_span(span);
+    }
+
     /// Set the `call_stack` field, unless it's already been set.
     pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
         self.0.set_call_stack(call_stack);

@@ -88,8 +88,13 @@ impl<T> WithDiagnostic<T> {
 
     /// Set the span, unless it's already been set.
     pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
+        self.set_file_span(codemap.file_span(span));
+    }
+
+    /// Set a full FileSpan, unless it's already been set
+    pub fn set_file_span(&mut self, file_span: FileSpan) {
         if self.0.diagnostic.span.is_none() {
-            self.0.diagnostic.span = Some(codemap.file_span(span));
+            self.0.diagnostic.span = Some(file_span);
         }
     }
 
