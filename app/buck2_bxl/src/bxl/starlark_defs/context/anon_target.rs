@@ -42,7 +42,6 @@ use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future::LocalBoxFuture;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
@@ -365,17 +364,14 @@ impl<'me, 'v, 'a, 'e> RunAnonPromisesAccessor<'v, 'a, 'e>
 
     fn via_dice_impl<'s: 'b, 'b>(
         &'s mut self,
-        f: Box<
-            dyn for<'d> FnOnce(
-                    &'s mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'s, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> LocalBoxFuture<'s, buck2_error::Result<()>> {
-        let Ok(f) = BxlEvalExtra::from_context(self.0)
+        f: Box<dyn for<'d> FnOnce(&'s mut DiceComputations<'d>) + 'b>,
+    ) {
+        let Ok(()) = BxlEvalExtra::from_context(self.0)
             .unwrap()
-            .via_dice(|ctx, _| Ok::<_, !>(ctx.with_inner(f)));
-        f
+            .via_dice(|ctx, _| {
+                ctx.with_inner(f);
+                Ok::<(), !>(())
+            });
     }
 }
 

@@ -14,8 +14,6 @@ use std::rc::Rc;
 use async_trait::async_trait;
 use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use dice::DiceComputations;
-use futures::FutureExt;
-use futures::future::LocalBoxFuture;
 use starlark::eval::Evaluator;
 
 #[async_trait(?Send)]
@@ -34,13 +32,8 @@ pub trait RunAnonPromisesAccessor<'v, 'a, 'e> {
 
     fn via_dice_impl<'s: 'b, 'b>(
         &'s mut self,
-        f: Box<
-            dyn for<'d> FnOnce(
-                    &'s mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'s, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> LocalBoxFuture<'s, buck2_error::Result<()>>;
+        f: Box<dyn for<'d> FnOnce(&'s mut DiceComputations<'d>) + 'b>,
+    );
 }
 
 pub struct RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>(
@@ -60,13 +53,8 @@ impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e>
 
     fn via_dice_impl<'s: 'b, 'b>(
         &'s mut self,
-        f: Box<
-            dyn for<'d2> FnOnce(
-                    &'s mut DiceComputations<'d2>,
-                ) -> LocalBoxFuture<'s, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> LocalBoxFuture<'s, buck2_error::Result<()>> {
+        f: Box<dyn for<'d2> FnOnce(&'s mut DiceComputations<'d2>) + 'b>,
+    ) {
         f(self.1)
     }
 }
@@ -74,22 +62,14 @@ impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e>
 impl<'v, 'a, 'e> dyn RunAnonPromisesAccessor<'v, 'a, 'e> + '_ {
     pub fn with_dice<'s, T: 's>(
         &'s mut self,
-        f: impl for<'d> FnOnce(&'s mut DiceComputations<'d>) -> LocalBoxFuture<'s, T> + 's,
-    ) -> LocalBoxFuture<'s, T> {
+        f: impl for<'d> FnOnce(&'s mut DiceComputations<'d>) -> T,
+    ) -> T {
         // We can't capture a &mut res here in the closure unfortunately, so we need to do this little dance to get values out.
         let res: Rc<OnceCell<T>> = Rc::new(OnceCell::new());
         let res2 = res.clone();
-        let f = self.via_dice_impl(Box::new(move |dice| {
-            async move {
-                res2.set(f(dice).await).ok().unwrap();
-                Ok(())
-            }
-            .boxed_local()
+        self.via_dice_impl(Box::new(move |dice| {
+            res2.set(f(dice)).ok().unwrap();
         }));
-        async move {
-            f.await.unwrap();
-            Rc::try_unwrap(res).ok().unwrap().take().unwrap()
-        }
-        .boxed_local()
+        Rc::try_unwrap(res).ok().unwrap().take().unwrap()
     }
 }

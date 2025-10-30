@@ -56,13 +56,8 @@ pub(crate) trait BxlDiceComputations<'s> {
 
     fn with_inner<'a: 'b, 'b>(
         &'a mut self,
-        f: Box<
-            dyn for<'d> FnOnce(
-                    &'a mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'a, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> LocalBoxFuture<'a, buck2_error::Result<()>>;
+        f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
+    );
 }
 
 impl<'s> dyn BxlDiceComputations<'s> + '_ {
@@ -131,13 +126,8 @@ impl<'s, 'x: 's> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s, 'x> {
 
     fn with_inner<'a: 'b, 'b>(
         &'a mut self,
-        f: Box<
-            dyn for<'d> FnOnce(
-                    &'a mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'a, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> LocalBoxFuture<'a, buck2_error::Result<()>> {
+        f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
+    ) {
         f(self.0)
     }
 }
