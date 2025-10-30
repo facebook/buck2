@@ -263,6 +263,7 @@ impl Cgroup {
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::fs_util;
+    use buck2_core::fs::paths::file_name::FileName;
     use buck2_util::process::background_command;
 
     use crate::cgroup::Cgroup;
@@ -292,5 +293,22 @@ mod tests {
         drop(cgroup);
 
         assert!(cmd.status().unwrap().success());
+    }
+
+    #[test]
+    fn test_cpu_controller_enabled() {
+        // FIXME(JakobDegen): This isn't really a good test, we should do it at a higher level and
+        // actually run a command. But setting up tests inside cgroups is a bit hard right now, so
+        // just do this
+        let Some(cgroup) = Cgroup::create_for_test() else {
+            return;
+        };
+        cgroup.config_subtree_control().unwrap();
+        let leaf = Cgroup::new(cgroup.path(), FileName::unchecked_new("leaf")).unwrap();
+
+        let enabled =
+            fs_util::read_to_string(leaf.path().as_abs_path().join("cgroup.controllers")).unwrap();
+        assert!(enabled.contains("memory"));
+        assert!(!enabled.contains("cpu"));
     }
 }
