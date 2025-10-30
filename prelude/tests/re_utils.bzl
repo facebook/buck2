@@ -16,9 +16,11 @@ ReArg = record(
     default_run_as_bundle = field(bool | None, default = None),
 )
 
+_FORCE_LOCAL = read_config("fbcode", "disable_re_tests", default = False)
+_FORCE_RUN_AS_BUNDLE = read_config("tpx", "force_run_as_bundle", "False")
+
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
-    force_local = read_config("fbcode", "disable_re_tests", default = False)
-    if force_local or not hasattr(ctx.attrs, "remote_execution"):
+    if _FORCE_LOCAL or not hasattr(ctx.attrs, "remote_execution"):
         # NOTE: this is kinda weird, we take this path if the attr is missing completely
         # Even if the value is None we still follow. Adding force.local to give users
         # some means of bypassing.
@@ -55,7 +57,7 @@ def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> No
     if "re_ignore_force_run_as_bundle" in labels:
         return
     re_arg = _get_re_arg(ctx)
-    if re_arg.default_run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
+    if re_arg.default_run_as_bundle or _FORCE_RUN_AS_BUNDLE == "True":
         labels.extend(["run_as_bundle"])
 
 def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):

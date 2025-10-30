@@ -1,0 +1,11 @@
+# A list of available rules and their signatures can be found here: https://buck2.build/docs/api/rules/
+
+load("@one//:rules.bzl", "binary", "library")
+
+library(name = "a")
+library(name = "b", deps = [":a"])
+binary(name = "intra_cell", deps = [":a", ":b"])
+
+# these fail though
+binary(name = "cross_cell", deps = ["one//:lib"])
+binary(name = "cross_cell_2", deps = ["two//:lib"])

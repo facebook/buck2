@@ -6,10 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@shim//build_defs/lib:oss.bzl", "translate_target")
+load("@shim//build_defs/lib:oss.bzl", "translate_target", "RewriteCells", "RewriteContext")
 
-TEST_CTX = struct(
-    cells = struct(
+TEST_CTX = RewriteContext(
+    cells = RewriteCells(
         active = "root",
         root = "root",
         shim = "shim",

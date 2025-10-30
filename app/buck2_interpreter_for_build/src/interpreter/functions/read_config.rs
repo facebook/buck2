@@ -40,7 +40,24 @@ pub(crate) fn register_read_config(globals: &mut GlobalsBuilder) {
     ///
     /// In general the use of `.buckconfig` is discouraged in favour of `select`,
     /// but it can still be useful.
-    #[starlark(speculative_exec_safe)]
+    ///
+    /// Unlike read_root_config, this is NOT speculative_exec_safe.
+    /// Its return value depends on the current `BuildFileCell`, which
+    /// means if you evaluate
+    ///
+    /// ```python
+    /// # one//:defs.bzl
+    /// STATIC = read_config("a", "b") # reads one/.buckconfig
+    ///
+    /// def dynamic():
+    ///     return read_config("a", "b")
+    /// ```
+    ///
+    /// Then these will resolve to different values. `dynamic()` will
+    /// return potentially a different value for every cell.
+    /// This is governed by `buck2.disable_cell_segmentation`.
+    /// Previously each .bzl file was evaluated once per cell and hence
+    /// it was safe to inline an execution in the body of `dynamic()`.
     fn read_config<'v>(
         section: StringValue,
         key: StringValue,
