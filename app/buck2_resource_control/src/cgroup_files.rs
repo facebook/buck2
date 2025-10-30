@@ -68,7 +68,7 @@ impl CgroupFile {
         Ok(())
     }
 
-    pub(crate) fn read_to_buf(&self) -> buck2_error::Result<Vec<u8>> {
+    fn read_to_buf(&self) -> buck2_error::Result<Vec<u8>> {
         let mut data = vec![0u8; 2048]; // Enough in practice
         let mut filled = 0;
         loop {
@@ -89,11 +89,14 @@ impl CgroupFile {
         Ok(data)
     }
 
+    pub(crate) fn read_to_string(&self) -> buck2_error::Result<String> {
+        let buf = self.read_to_buf()?;
+        Ok(String::from_utf8(buf)?)
+    }
+
     // FIXME(JakobDegen): Ought probably to have some types to represent the files
     pub(crate) fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
-        let buf = self.read_to_buf()?;
-        let s = str::from_utf8(&buf)?;
-        MemoryStat::parse(s).buck_error_context("Failed to parse memory.stat")
+        MemoryStat::parse(&self.read_to_string()?).buck_error_context("Failed to parse memory.stat")
     }
 }
 

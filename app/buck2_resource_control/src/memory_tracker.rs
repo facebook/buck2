@@ -295,6 +295,7 @@ pub async fn create_memory_tracker(
     let cgroup_pool = CgroupPool::create_in_parent_cgroup(
         cgroup_tree.forkserver_and_actions().path(),
         &resource_control_config,
+        &cgroup_tree.enabled_controllers,
     )?;
     let action_cgroups = ActionCgroups::init(resource_control_config).await?;
     let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);

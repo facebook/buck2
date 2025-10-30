@@ -115,16 +115,22 @@ impl CgroupMinimal {
     /// <https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#no-internal-processes>
     ///
     /// Maybe need two types of cgroup to distinguish.
-    pub fn config_subtree_control(&self) -> buck2_error::Result<()> {
+    pub fn config_subtree_control(
+        &self,
+        enabled_controllers: &[String],
+    ) -> buck2_error::Result<()> {
         // We only need to configure this once, so no need to hold the fd.
         let sub_tree_control_file_path = self.subtree_control_path();
 
-        fs::write(&sub_tree_control_file_path, "+memory").map_err(|e| {
-            CgroupError::ConfigurationFailed {
-                path: sub_tree_control_file_path.to_string_lossy().to_string(),
-                io_err: e,
-            }
-        })?;
+        for controller in enabled_controllers {
+            let enable = format!("+{}", controller);
+            fs::write(&sub_tree_control_file_path, &enable).map_err(|e| {
+                CgroupError::ConfigurationFailed {
+                    path: sub_tree_control_file_path.to_string_lossy().to_string(),
+                    io_err: e,
+                }
+            })?;
+        }
 
         Ok(())
     }
@@ -180,6 +186,19 @@ impl CgroupMinimal {
     pub fn add_process(&self, pid: u32) -> buck2_error::Result<()> {
         let pid = pid.to_string();
         Ok(self.procs.write(pid.as_bytes())?)
+    }
+
+    pub fn read_enabled_controllers(&self) -> buck2_error::Result<Vec<String>> {
+        let controllers_file = CgroupFile::open(
+            &self.dir,
+            FileName::unchecked_new("cgroup.controllers"),
+            false,
+        )?;
+        let controllers = controllers_file.read_to_string()?;
+        Ok(controllers
+            .split_whitespace()
+            .map(|s| s.to_owned())
+            .collect())
     }
 }
 
@@ -278,7 +297,7 @@ mod tests {
             fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
             true
         );
-        assert_eq!(cgroup.procs.read_to_buf().unwrap().len(), 0);
+        assert_eq!(cgroup.procs.read_to_string().unwrap().len(), 0);
     }
 
     #[test]
@@ -303,12 +322,14 @@ mod tests {
         let Some(cgroup) = Cgroup::create_for_test() else {
             return;
         };
-        cgroup.config_subtree_control().unwrap();
+        cgroup
+            .config_subtree_control(&cgroup.read_enabled_controllers().unwrap())
+            .unwrap();
         let leaf = Cgroup::new(cgroup.path(), FileName::unchecked_new("leaf")).unwrap();
 
         let enabled =
             fs_util::read_to_string(leaf.path().as_abs_path().join("cgroup.controllers")).unwrap();
         assert!(enabled.contains("memory"));
-        assert!(!enabled.contains("cpu"));
+        assert!(enabled.contains("cpu"));
     }
 }

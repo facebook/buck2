@@ -18,6 +18,7 @@ use crate::cgroup_info::CGroupInfo;
 ///
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
+    pub(crate) enabled_controllers: Vec<String>,
     allprocs: Cgroup,
     forkserver_and_actions: Cgroup,
     forkserver: Cgroup,
@@ -35,17 +36,19 @@ impl BuckCgroupTree {
         let root_cgroup_path = CGroupInfo::read()?.path;
         let root_cgroup = CgroupMinimal::try_from_path(root_cgroup_path)?;
 
+        let enabled_controllers = root_cgroup.read_enabled_controllers()?;
+
         let daemon_cgroup =
             CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
         daemon_cgroup.add_process(std::process::id())?;
-        root_cgroup.config_subtree_control()?;
+        root_cgroup.config_subtree_control(&enabled_controllers)?;
         let root_cgroup = Cgroup::from_minimal(root_cgroup)?;
 
         let forkserver_and_actions = Cgroup::new(
             root_cgroup.path(),
             FileName::unchecked_new("forkserver_and_actions").into(),
         )?;
-        forkserver_and_actions.config_subtree_control()?;
+        forkserver_and_actions.config_subtree_control(&enabled_controllers)?;
 
         let forkserver = Cgroup::new(
             forkserver_and_actions.path(),
@@ -53,6 +56,7 @@ impl BuckCgroupTree {
         )?;
 
         Ok(Self {
+            enabled_controllers,
             allprocs: root_cgroup,
             forkserver_and_actions,
             forkserver,

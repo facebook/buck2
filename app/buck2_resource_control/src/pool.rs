@@ -111,9 +111,10 @@ impl CgroupPool {
     pub fn create_in_parent_cgroup(
         parent: &CgroupPath,
         config: &ResourceControlConfig,
+        enabled_controllers: &[String],
     ) -> buck2_error::Result<Self> {
         let pool_cgroup = Cgroup::new(parent, CgroupPool::POOL_NAME)?;
-        pool_cgroup.config_subtree_control()?;
+        pool_cgroup.config_subtree_control(enabled_controllers)?;
 
         if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
             pool_cgroup.set_memory_high(pool_memory_high)?;
