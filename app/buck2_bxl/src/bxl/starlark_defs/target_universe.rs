@@ -120,13 +120,14 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
         let heap = eval.heap();
-        Ok(this.ctx.via_dice(eval, |dice, ctx| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async move {
-                    let inputs = &*TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
-                        .await?
-                        .get(dice)
-                        .await?;
+                    let inputs =
+                        &*TargetListExpr::<'v, TargetNode>::unpack(targets, &this.ctx, dice)
+                            .await?
+                            .get(dice)
+                            .await?;
 
                     let result = this
                         .target_universe

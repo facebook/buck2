@@ -129,7 +129,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             .ctx
             .resolve_global_cfg_options(target_platform, vec![].into())?;
 
-        Ok(this.ctx.via_dice(eval, |ctx, _| {
+        Ok(this.ctx.via_dice(eval, |ctx| {
             ctx.via(|ctx| {
                 async move {
                     let output = audit_output(
@@ -186,7 +186,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] aliases: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<AllocDict<impl Iterator<Item = (String, String)> + use<>>> {
-        Ok(this.ctx.via_dice(eval, |ctx, _| {
+        Ok(this.ctx.via_dice(eval, |ctx| {
             ctx.via(|ctx| {
                 async {
                     let result = audit_cell(

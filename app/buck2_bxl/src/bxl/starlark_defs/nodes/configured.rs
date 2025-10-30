@@ -326,11 +326,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let configured_node = this.0.as_ref();
 
         let dep_analysis: buck2_error::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>> = ctx
-            .via_dice(eval, |ctx, _| {
+            .via_dice(eval, |ctx| {
                 ctx.via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local())
             });
 
-        let query_results = ctx.via_dice(eval, |ctx, _| {
+        let query_results = ctx.via_dice(eval, |ctx| {
             ctx.via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())
         })?;
 
@@ -462,7 +462,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<StarlarkArtifact>> {
         let path = Path::new(path);
-        let fs = ctx.via_dice(eval, |ctx, _| {
+        let fs = ctx.via_dice(eval, |ctx| {
             ctx.global_data().get_io_provider().project_root().dupe()
         });
         let path = if path.is_absolute() {
@@ -476,7 +476,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             )?)
         };
 
-        let cell_path = ctx.via_dice(eval, |ctx, _| {
+        let cell_path = ctx.via_dice(eval, |ctx| {
             ctx.via(|ctx| {
                 async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
             })

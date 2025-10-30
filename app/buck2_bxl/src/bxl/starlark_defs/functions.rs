@@ -189,7 +189,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
 
         let heap = eval.heap();
 
-        ctx.via_dice(eval, |dice_ctx, bxl_ctx| {
+        ctx.via_dice(eval, |dice_ctx| {
             dice_ctx.via(|dice_ctx| {
                 visit_artifact_path_without_associated_deduped(
                     &result,
@@ -198,8 +198,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                         let path = get_artifact_path_display(
                             artifact_path,
                             abs,
-                            bxl_ctx.project_fs(),
-                            bxl_ctx.artifact_fs(),
+                            ctx.project_fs(),
+                            ctx.artifact_fs(),
                         )?;
 
                         paths.push(path);

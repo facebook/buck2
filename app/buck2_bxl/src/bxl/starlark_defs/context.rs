@@ -423,19 +423,16 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
         eval: &'a mut Evaluator<'v, '_, '_>,
-        f: impl FnOnce(&'a mut dyn BxlDiceComputations, &'a BxlContextNoDice<'v>) -> T,
+        f: impl FnOnce(&'a mut dyn BxlDiceComputations) -> T,
     ) -> T
     where
         'v: 'a,
     {
-        f(
-            &mut *BxlEvalExtra::from_context(eval)
-                // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
-                // good evidence that this is indeed a bxl evaluation
-                .unwrap()
-                .dice,
-            &self.data,
-        )
+        f(&mut *BxlEvalExtra::from_context(eval)
+            // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
+            // good evidence that this is indeed a bxl evaluation
+            .unwrap()
+            .dice)
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.

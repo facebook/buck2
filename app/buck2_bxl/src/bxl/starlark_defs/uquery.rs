@@ -123,7 +123,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
-        Ok(this.ctx.via_dice(eval, |dice, ctx| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let filter = filter
@@ -131,7 +131,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                         .try_map(buck2_query_parser::parse_expr)?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
-                    get_uquery_env(ctx)
+                    get_uquery_env(&this.ctx)
                         .await?
                         .allpaths(
                             dice,
@@ -155,7 +155,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
-        Ok(this.ctx.via_dice(eval, |dice, ctx| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let filter = filter
@@ -164,7 +164,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
 
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
-                    get_uquery_env(ctx)
+                    get_uquery_env(&this.ctx)
                         .await?
                         .somepath(
                             dice,
@@ -188,7 +188,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
-        Ok(this.ctx.via_dice(eval, |dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
@@ -216,7 +216,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, _| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
@@ -243,7 +243,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
-        Ok(this.ctx.via_dice(eval, |dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
@@ -271,7 +271,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -280,7 +280,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
 
                         let targets = unpack_targets(this, dice, universe).await?;
 
-                        get_uquery_env(ctx)
+                        get_uquery_env(&this.ctx)
                             .await?
                             .deps(
                                 dice,
@@ -314,7 +314,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -324,7 +324,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
 
-                        get_uquery_env(ctx)
+                        get_uquery_env(&this.ctx)
                             .await?
                             .rdeps(
                                 dice,
@@ -357,7 +357,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, _| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
@@ -384,11 +384,14 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
-                        get_uquery_env(ctx).await?.testsof(dice, &targets).await
+                        get_uquery_env(&this.ctx)
+                            .await?
+                            .testsof(dice, &targets)
+                            .await
                     }
                     .boxed_local()
                 })
@@ -412,7 +415,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, _| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
@@ -442,10 +445,10 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
-                        get_uquery_env(ctx)
+                        get_uquery_env(&this.ctx)
                             .await?
                             .owner(dice, (files.get(&this.ctx.data).await?).as_ref())
                             .await
@@ -473,10 +476,10 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
-                        get_uquery_env(ctx)
+                        get_uquery_env(&this.ctx)
                             .await?
                             .targets_in_buildfile(dice, (files.get(&this.ctx.data).await?).as_ref())
                             .await
@@ -502,7 +505,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
-        Ok(this.ctx.via_dice(eval, |dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
@@ -541,7 +544,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
 
         let heap = eval.heap();
 
-        Ok(this.ctx.via_dice(eval, |dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(

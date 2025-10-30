@@ -129,7 +129,7 @@ impl<'v> BxlFilesystem<'v> {
         expr: FileExpr<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        let cell_path = self.ctx.via_dice(eval, |ctx, _| {
+        let cell_path = self.ctx.via_dice(eval, |ctx| {
             ctx.via(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())
         })?;
         self.artifact_fs().resolve_cell_path(cell_path.as_ref())
@@ -169,7 +169,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         expr: FileExpr<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<bool> {
-        Ok(this.ctx.via_dice(eval, |ctx, _| {
+        Ok(this.ctx.via_dice(eval, |ctx| {
             ctx.via(|dice| {
                 async {
                     let path = expr.get(dice, this.cell()?).await;
@@ -202,7 +202,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] dirs_only: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkReadDirSet> {
-        Ok(this.ctx.via_dice(eval, |ctx, _| {
+        Ok(this.ctx.via_dice(eval, |ctx| {
             ctx.via(|dice| {
                 async {
                     let path = expr.get(dice, this.cell()?).await;
@@ -301,7 +301,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] target_hint: NoneOr<ValueOf<'v, TargetListExprArg<'v>>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkArtifact>> {
-        let buck_path = this.ctx.via_dice(eval, |dice, ctx| {
+        let buck_path = this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let file_path_as_cell_path = expr.get(dice, this.cell()?).await?;
@@ -318,7 +318,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                         NoneOr::Other(target_hint) => {
                             let target_expr = TargetListExpr::<'v, TargetNode>::unpack(
                                 target_hint.typed,
-                                ctx,
+                                &this.ctx,
                                 dice,
                             )
                             .await?;

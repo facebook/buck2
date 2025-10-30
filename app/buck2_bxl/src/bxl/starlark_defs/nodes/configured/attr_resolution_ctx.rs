@@ -70,7 +70,7 @@ impl LazyAttrResolutionCache {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<&HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
         get_or_try_init(&mut self.dep_analysis_results, || {
-            get_deps_from_analysis_results(ctx.via_dice(eval, |ctx, _| {
+            get_deps_from_analysis_results(ctx.via_dice(eval, |ctx| {
                 ctx.via(|dice_ctx| {
                     get_dep_analysis(configured_node.as_ref(), dice_ctx).boxed_local()
                 })
@@ -85,7 +85,7 @@ impl LazyAttrResolutionCache {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<&HashMap<String, Arc<AnalysisQueryResult>>> {
         get_or_try_init(&mut self.query_results, || {
-            ctx.via_dice(eval, |ctx, _| {
+            ctx.via_dice(eval, |ctx| {
                 ctx.via(|dice_ctx| {
                     resolve_queries(dice_ctx, configured_node.as_ref()).boxed_local()
                 })

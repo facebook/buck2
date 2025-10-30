@@ -197,7 +197,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -207,7 +207,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                         let universe = unpack_action_nodes(this, dice, universe).await?;
 
                         let aquery_env =
-                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
+                            get_aquery_env(&this.ctx, &this.global_cfg_options_override).await?;
                         aquery_env
                             .deps(
                                 dice,
@@ -238,11 +238,11 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
-                        get_aquery_env(ctx, &this.global_cfg_options_override)
+                        get_aquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .all_actions(dice, &targets)
                             .await
@@ -266,12 +266,12 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(eval, |dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
 
-                        get_aquery_env(ctx, &this.global_cfg_options_override)
+                        get_aquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .all_outputs(dice, &targets)
                             .await
@@ -291,7 +291,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         targets: UnpackActionNodes<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
-        Ok(this.ctx.via_dice(eval, |dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -328,7 +328,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
 
         let heap = eval.heap();
 
-        Ok(this.ctx.via_dice(eval, |dice, ctx| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -336,7 +336,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                             .get()?
                             .eval_aquery(
                                 dice,
-                                &ctx.working_dir()?,
+                                &this.ctx.working_dir()?,
                                 query,
                                 &query_args,
                                 this.global_cfg_options_override.clone(),

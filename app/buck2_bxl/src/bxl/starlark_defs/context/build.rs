@@ -186,13 +186,13 @@ pub(crate) fn build<'v>(
 > {
     let global_cfg_options = ctx.resolve_global_cfg_options(target_platform, vec![].into())?;
 
-    let build_result = ctx.via_dice(eval, |dice, ctx| {
+    let build_result = ctx.via_dice(eval, |dice| {
         dice.via(|dice| {
             async {
                 let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                     spec,
                     &global_cfg_options,
-                    ctx,
+                    &ctx,
                     dice,
                 )
                 .await?;
