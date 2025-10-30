@@ -367,7 +367,7 @@ impl<'me, 'v, 'a, 'e> RunAnonPromisesAccessor<'v, 'a, 'e>
         &'s mut self,
         f: Box<dyn for<'d> FnOnce(&'s mut DiceComputations<'d>) + 'b>,
     ) {
-        self.1.via_dice(self.0, |dice| dice.with_inner(f))
+        self.1.via_dice(self.0, |dice| dice.with_inner_less_safe(f))
     }
 }
 
@@ -377,11 +377,17 @@ pub(crate) fn run_anon_target_promises<'v, 'a, 'e>(
     eval: &mut Evaluator<'v, 'a, 'e>,
 ) -> buck2_error::Result<()> {
     let mut accessor = BxlAnonPromisesAccessor(eval, ctx);
-    // TODO(cjhopman): The approach here is pretty against the general model that we want. We should
-    // remove this function or we should split this into two steps:
-    //  1. get values needed for running promises from dice
-    //  2. run promise mappings on this evaluator (not via_dice or with the
-    // ReentrantStarlarkEvaluator)
+    // TODO(cjhopman): The approach here is pretty against the general model that we want. Ideally
+    // we'd like to split this into two steps:
+    //  1. Get values needed for running promises from dice
+    //  2. Run promise mappings here
+    //
+    // But the weirdness of the promise mappings means we can't really do that.
+    //
+    // Doing this and using `with_inner_less_safe` above is a practical workaround, but it comes
+    // with disadvantages, basically that it does not respect the "safety" of the standard
+    // `via_dice` thing. Concretely, that means it doesn't respect cancellations and fails to report
+    // a proper span for dice access.
     tokio::runtime::Handle::current().block_on(actions.run_promises(&mut accessor))
 }
 

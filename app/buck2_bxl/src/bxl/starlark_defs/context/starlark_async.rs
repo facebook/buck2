@@ -54,7 +54,8 @@ pub(crate) trait BxlDiceComputations<'s> {
 
     fn per_transaction_data(&self) -> &UserComputationData;
 
-    fn with_inner<'a: 'b, 'b>(
+    /// Avoid using if at all possible; use `via_impl` instead
+    fn with_inner_less_safe<'a: 'b, 'b>(
         &'a mut self,
         f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
     );
@@ -124,7 +125,7 @@ impl<'s, 'x: 's> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s, 'x> {
         self.0.per_transaction_data()
     }
 
-    fn with_inner<'a: 'b, 'b>(
+    fn with_inner_less_safe<'a: 'b, 'b>(
         &'a mut self,
         f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
     ) {
