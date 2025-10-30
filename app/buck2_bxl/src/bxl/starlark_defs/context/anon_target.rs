@@ -74,7 +74,6 @@ use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::BxlSafeDiceComputations;
-use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 struct BxlAnonCallbackParamSpec;
@@ -305,7 +304,10 @@ async fn eval_bxl_for_anon_target_inner(
 
         reentrant_eval.with_evaluator(|eval| {
             tokio::task::block_in_place(|| -> buck2_error::Result<()> {
-                bxl_ctx.via_dice(|dice, _| run_anon_target_promises(action_factory, dice, eval))
+                bxl_ctx
+                    .async_ctx
+                    .borrow_mut()
+                    .via(|dice| run_anon_target_promises(action_factory, dice, eval).boxed_local())
             })
         })?;
 
@@ -376,18 +378,13 @@ impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e, 'd>
     }
 }
 
-pub(crate) fn run_anon_target_promises<'v, 'a, 'e>(
+pub(crate) async fn run_anon_target_promises<'v, 'a, 'e>(
     actions: ValueTyped<'v, AnalysisActions<'v>>,
-    dice: &mut dyn BxlDiceComputations,
+    dice: &mut DiceComputations<'_>,
     eval: &mut Evaluator<'v, 'a, 'e>,
 ) -> buck2_error::Result<()> {
-    dice.via(|dice| {
-        async move {
-            let mut accessor = BxlAnonPromisesAccessor(eval, dice);
-            actions.run_promises(&mut accessor).await
-        }
-        .boxed_local()
-    })
+    let mut accessor = BxlAnonPromisesAccessor(eval, dice);
+    actions.run_promises(&mut accessor).await
 }
 
 pub(crate) fn init_eval_bxl_for_anon_target() {

@@ -48,6 +48,7 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -170,7 +171,7 @@ pub(crate) struct BxlContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
+    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     pub(crate) data: BxlContextNoDice<'v>,
 }
 
@@ -433,6 +434,7 @@ impl<'v> BxlContext<'v> {
     /// via_dice, as that breaks borrow invariants of the dice computations.
     pub(crate) fn via_dice<'a, 's, T, E>(
         &'a self,
+        _eval: &mut Evaluator<'v, '_, '_>,
         f: impl for<'x> FnOnce(
             &'x mut dyn BxlDiceComputations,
             &'a BxlContextNoDice<'v>,

@@ -177,7 +177,7 @@ pub(crate) fn build<'v>(
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,
     uploads: Uploads,
-    eval: &Evaluator<'v, '_, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<
     SmallMap<
         ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
@@ -186,7 +186,7 @@ pub(crate) fn build<'v>(
 > {
     let global_cfg_options = ctx.resolve_global_cfg_options(target_platform, vec![].into())?;
 
-    let build_result = ctx.via_dice(|dice, ctx| {
+    let build_result = ctx.via_dice(eval, |dice, ctx| {
         dice.via(|dice| {
             async {
                 let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(

@@ -30,6 +30,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use futures::FutureExt;
 use starlark::environment::Module;
+use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -43,11 +44,11 @@ pub(crate) struct LazyAttrResolutionCache {
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
-pub(crate) struct LazyAttrResolutionContext<'a, 'v> {
-    pub(crate) module: &'v Module,
+pub(crate) struct LazyAttrResolutionContext<'v, 'a, 'e, 'c> {
+    pub(crate) eval: &'c mut Evaluator<'v, 'a, 'e>,
     pub(super) configured_node: &'v ConfiguredTargetNode,
     pub(super) ctx: &'v BxlContext<'v>,
-    pub(crate) cache: RefMut<'a, LazyAttrResolutionCache>,
+    pub(crate) cache: RefMut<'c, LazyAttrResolutionCache>,
 }
 
 fn get_or_try_init<T>(
@@ -66,9 +67,10 @@ impl LazyAttrResolutionCache {
         &mut self,
         ctx: &'v BxlContext<'v>,
         configured_node: &'v ConfiguredTargetNode,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<&HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
         get_or_try_init(&mut self.dep_analysis_results, || {
-            get_deps_from_analysis_results(ctx.via_dice(|ctx, _| {
+            get_deps_from_analysis_results(ctx.via_dice(eval, |ctx, _| {
                 ctx.via(|dice_ctx| {
                     get_dep_analysis(configured_node.as_ref(), dice_ctx).boxed_local()
                 })
@@ -80,9 +82,10 @@ impl LazyAttrResolutionCache {
         &mut self,
         ctx: &'v BxlContext<'v>,
         configured_node: &'v ConfiguredTargetNode,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<&HashMap<String, Arc<AnalysisQueryResult>>> {
         get_or_try_init(&mut self.query_results, || {
-            ctx.via_dice(|ctx, _| {
+            ctx.via_dice(eval, |ctx, _| {
                 ctx.via(|dice_ctx| {
                     resolve_queries(dice_ctx, configured_node.as_ref()).boxed_local()
                 })
@@ -91,19 +94,19 @@ impl LazyAttrResolutionCache {
     }
 }
 
-impl<'a, 'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'a, 'v> {
+impl<'v, 'a, 'e, 'c> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v, 'a, 'e, 'c> {
     fn starlark_module(&self) -> &'v Module {
-        self.module
+        self.eval.module()
     }
 
     fn get_dep(
         &mut self,
         target: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
-        let module = self.module;
+        let module = self.eval.module();
         match self
             .cache
-            .dep_analysis_results(self.ctx, self.configured_node)
+            .dep_analysis_results(self.ctx, self.configured_node, self.eval)
         {
             Ok(deps) => Ok(get_dep(deps, target, module)?),
             Err(e) => Err(buck2_error::buck2_error!(
@@ -118,11 +121,12 @@ impl<'a, 'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'a, 'v> {
         &mut self,
         name: &str,
     ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
+        let module = self.eval.module();
         match self
             .cache
-            .dep_analysis_results(self.ctx, self.configured_node)
+            .dep_analysis_results(self.ctx, self.configured_node, self.eval)
         {
-            Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, self.module)),
+            Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, module)),
             Err(e) => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Bxl,
                 "Error resolving unkeyed placeholder: `{}`",
@@ -132,8 +136,12 @@ impl<'a, 'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'a, 'v> {
     }
 
     fn resolve_query(&mut self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
-        match self.cache.query_results(self.ctx, self.configured_node) {
-            Ok(res) => resolve_query(res, query, self.module),
+        let module = self.eval.module();
+        match self
+            .cache
+            .query_results(self.ctx, self.configured_node, self.eval)
+        {
+            Ok(res) => resolve_query(res, query, module),
             Err(e) => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Bxl,
                 "Error resolving query: `{}`",

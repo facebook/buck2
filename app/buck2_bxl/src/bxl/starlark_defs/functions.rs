@@ -176,7 +176,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] cmd_line: ValueAsCommandLineLike<'v>,
         #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         let inputs = get_cmd_line_inputs(cmd_line.0)?;
         let mut result = Vec::new();
@@ -187,7 +187,9 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
 
         let mut paths = Vec::new();
 
-        ctx.via_dice(|dice_ctx, bxl_ctx| {
+        let heap = eval.heap();
+
+        ctx.via_dice(eval, |dice_ctx, bxl_ctx| {
             dice_ctx.via(|dice_ctx| {
                 visit_artifact_path_without_associated_deduped(
                     &result,

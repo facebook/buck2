@@ -55,7 +55,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -327,11 +326,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let configured_node = this.0.as_ref();
 
         let dep_analysis: buck2_error::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>> = ctx
-            .via_dice(|ctx, _| {
+            .via_dice(eval, |ctx, _| {
                 ctx.via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local())
             });
 
-        let query_results = ctx.via_dice(|ctx, _| {
+        let query_results = ctx.via_dice(eval, |ctx, _| {
             ctx.via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())
         })?;
 
@@ -456,13 +455,14 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     artifact = owner.sources()[0]
     ///     ctx.output.print(artifact)
     /// ```
-    fn get_source(
+    fn get_source<'v>(
         this: &StarlarkConfiguredTargetNode,
         path: &str,
-        ctx: &BxlContext,
+        ctx: &BxlContext<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<StarlarkArtifact>> {
         let path = Path::new(path);
-        let Ok(fs) = ctx.via_dice::<_, !>(|ctx, _| {
+        let Ok(fs) = ctx.via_dice::<_, !>(eval, |ctx, _| {
             Ok(ctx.global_data().get_io_provider().project_root().dupe())
         });
         let path = if path.is_absolute() {
@@ -476,7 +476,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             )?)
         };
 
-        let cell_path = ctx.via_dice(|ctx, _| {
+        let cell_path = ctx.via_dice(eval, |ctx, _| {
             ctx.via(|ctx| {
                 async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
             })
@@ -774,9 +774,12 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
         }
     }
 
-    fn resolution_ctx<'a>(&'a self, module: &'v Module) -> LazyAttrResolutionContext<'a, 'v> {
+    fn resolution_ctx<'a, 'e, 'c>(
+        &'c self,
+        eval: &'c mut Evaluator<'v, 'a, 'e>,
+    ) -> LazyAttrResolutionContext<'v, 'a, 'e, 'c> {
         LazyAttrResolutionContext {
-            module,
+            eval,
             configured_node: &self.configured_node.as_ref().0,
             ctx: self.bxl_context.as_ref(),
             cache: self.resolution_ctx_data.borrow_mut(),
@@ -807,7 +810,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
             match this.configured_node.0.get(attr, AttrInspectOptions::All) {
                 Some(attr) => NoneOr::Other(attr.value.resolve_single(
                     this.configured_node.0.label().pkg(),
-                    &mut this.resolution_ctx(eval.module()),
+                    &mut this.resolution_ctx(eval),
                 )?),
                 None => {
                     // Check special attrs
@@ -821,7 +824,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                         None => NoneOr::None,
                         Some(attr) => NoneOr::Other(attr.resolve_single(
                             this.configured_node.0.label().pkg(),
-                            &mut this.resolution_ctx(eval.module()),
+                            &mut this.resolution_ctx(eval),
                         )?),
                     }
                 }

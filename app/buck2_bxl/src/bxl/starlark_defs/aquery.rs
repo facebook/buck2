@@ -193,10 +193,11 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         universe: UnpackActionNodes<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -233,10 +234,11 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAQueryCtx<'v>,
         // TODO(nga): parameters should be either positional or named, not both.
         targets: UnpackActionNodes<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -260,10 +262,11 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAQueryCtx<'v>,
         // TODO(nga): parameters should be either positional or named, not both.
         targets: UnpackActionNodes<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -286,8 +289,9 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: UnpackActionNodes<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice, _| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -322,7 +326,9 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        let heap = eval.heap();
+
+        Ok(this.ctx.via_dice(eval, |dice, ctx| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -336,7 +342,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                                 this.global_cfg_options_override.clone(),
                             )
                             .await?,
-                        eval.heap(),
+                        heap,
                     )
                 }
                 .boxed_local()

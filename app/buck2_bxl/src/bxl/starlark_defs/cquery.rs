@@ -142,8 +142,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         from: ConfiguredTargetListExprArg<'v>,
         to: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(move |dice, ctx| {
+        Ok(this.ctx.via_dice(eval, move |dice, ctx| {
             dice.via(|dice| {
                 async move {
                     let filter = filter
@@ -173,8 +174,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         from: ConfiguredTargetListExprArg<'v>,
         to: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        Ok(this.ctx.via_dice(eval, |dice, ctx| {
             dice.via(|dice| {
                 async {
                     let filter = filter
@@ -205,8 +207,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice, _| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -226,8 +229,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice, _| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -253,8 +257,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice, _| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -280,8 +285,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attribute: &str,
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice, _| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -309,10 +315,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         files: FileSetExpr,
         #[starlark(default = NoneOr::None)] universe: NoneOr<ConfiguredTargetListExprArg<'v>>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let universe = match universe.into_option() {
@@ -344,10 +351,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         universe: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -384,10 +392,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, _| {
+            .via_dice(eval, |dice, _| {
                 dice.via(|dice| {
                     async {
                         unpack_targets(this, dice, targets)
@@ -411,10 +420,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
-            .via_dice(|dice, _| {
+            .via_dice(eval, |dice, _| {
                 dice.via(|dice| {
                     async { unpack_targets(this, dice, targets).await?.inputs() }.boxed_local()
                 })
@@ -426,10 +436,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
@@ -449,10 +460,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn testsof_with_default_target_platform<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
@@ -484,10 +496,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         from: ConfiguredTargetListExprArg<'v>,
         depth: Option<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -537,7 +550,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        let heap = eval.heap();
+
+        Ok(this.ctx.via_dice(eval, |dice, ctx| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -554,7 +569,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             )
                             .await?
                             .0,
-                        eval.heap(),
+                        heap,
                     )
                 }
                 .boxed_local()
@@ -574,10 +589,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn buildfile<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
-            .via_dice(|dice, _| {
+            .via_dice(eval, |dice, _| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;

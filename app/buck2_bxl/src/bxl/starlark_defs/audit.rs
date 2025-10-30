@@ -24,6 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -118,16 +119,17 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         output_path: &'v str,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<
         // TODO(nga): used precise type.
         NoneOr<Value<'v>>,
     > {
+        let heap = eval.heap();
         let global_cfg_options = this
             .ctx
             .resolve_global_cfg_options(target_platform, vec![].into())?;
 
-        Ok(this.ctx.via_dice(|ctx, _| {
+        Ok(this.ctx.via_dice(eval, |ctx, _| {
             ctx.via(|ctx| {
                 async move {
                     let output = audit_output(
@@ -182,8 +184,9 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             String,
         >,
         #[starlark(require = named, default = false)] aliases: bool,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<AllocDict<impl Iterator<Item = (String, String)> + use<>>> {
-        Ok(this.ctx.via_dice(|ctx, _| {
+        Ok(this.ctx.via_dice(eval, |ctx, _| {
             ctx.via(|ctx| {
                 async {
                     let result = audit_cell(
