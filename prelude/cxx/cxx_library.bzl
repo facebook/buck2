@@ -2004,6 +2004,16 @@ def _shared_library(
             LinkArgs(flags = cmd_args(hidden = impl_params.extra_hidden)),
         )
 
+    # shared library interface generation can be disabled at the target level
+    effective_shlib_interfaces_mode = ShlibInterfacesMode("disabled")
+    if cxx_use_shlib_intfs(ctx):
+        effective_shlib_interfaces_mode = get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces
+        if effective_shlib_interfaces_mode == ShlibInterfacesMode("defined_only") and gnu_use_link_groups:
+            # TODO(agallagher): There's a bug in shlib intfs interacting with link
+            # groups, where we don't include the symbols we're meant to export from
+            # deps that get statically linked in.
+            effective_shlib_interfaces_mode = ShlibInterfacesMode("disabled")
+
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = flavored_output(soname),
@@ -2025,70 +2035,63 @@ def _shared_library(
     )
     exported_shlib = link_result.linked_object.output
 
-    # If shared library interfaces are enabled, link that and use it as
-    # the shared lib that dependents will link against.
-    if cxx_use_shlib_intfs(ctx):
-        mode = get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces
-        if mode == ShlibInterfacesMode("stub_from_library"):
-            # Generate a library interface from the linked library output.
-            # This will prevent relinking rdeps when changes do not affect
-            # the library symbols.
-            exported_shlib = shared_library_interface(
+    if effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_library"):
+        # Generate a library interface from the linked library output.
+        # This will prevent relinking rdeps when changes do not affect
+        # the library symbols.
+        exported_shlib = shared_library_interface(
+            ctx = ctx,
+            shared_lib = exported_shlib,
+        )
+    elif effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_object_files"):
+        if cxx_can_generate_shlib_interface_from_linkables(ctx):
+            is_extension_safe = False
+            for flag in ctx.attrs.linker_flags:
+                flag = str(flag)
+                if "-fapplication-extension" in flag:
+                    is_extension_safe = True
+                    break
+            exported_shlib = shared_library_interface_from_linkables(
                 ctx = ctx,
+                link_args = links,
                 shared_lib = exported_shlib,
+                install_name = get_shared_library_install_name(linker_type = linker_info.type, soname = soname),
+                extension_safe = is_extension_safe,
             )
-        elif mode == ShlibInterfacesMode("stub_from_object_files"):
-            if cxx_can_generate_shlib_interface_from_linkables(ctx):
-                is_extension_safe = False
-                for flag in ctx.attrs.linker_flags:
-                    flag = str(flag)
-                    if "-fapplication-extension" in flag:
-                        is_extension_safe = True
-                        break
-                exported_shlib = shared_library_interface_from_linkables(
-                    ctx = ctx,
-                    link_args = links,
-                    shared_lib = exported_shlib,
-                    install_name = get_shared_library_install_name(linker_type = linker_info.type, soname = soname),
-                    extension_safe = is_extension_safe,
-                )
-        elif not gnu_use_link_groups:
-            # TODO(agallagher): There's a bug in shlib intfs interacting with link
-            # groups, where we don't include the symbols we're meant to export from
-            # deps that get statically linked in.
-            link_info = LinkInfo(
-                pre_flags = link_info.pre_flags,
-                linkables = link_info.linkables,
-                post_flags = (
-                    (link_info.post_flags or []) +
-                    get_ignore_undefined_symbols_flags(linker_info.type) +
-                    (linker_info.independent_shlib_interface_linker_flags or [])
-                ),
-                external_debug_info = link_info.external_debug_info,
-                metadata = cxx_attr_dep_metadata(ctx),
-            )
-            intf_link_result = cxx_link_shared_library(
-                ctx = ctx,
-                output = flavored_output(get_shared_library_name(
-                    linker_info,
-                    ctx.label.name + "-for-interface",
-                    apply_default_prefix = True,
-                )),
-                opts = link_options(
-                    category_suffix = "interface",
-                    link_ordering = link_ordering,
-                    links = [LinkArgs(infos = [link_info])],
-                    identifier = flavored_output(soname + "-interface", separator = "_"),
-                    link_execution_preference = link_execution_preference,
-                    strip = impl_params.strip_executable,
-                    error_handler = impl_params.error_handler,
-                ),
-                name = soname,
-            )
-            exported_shlib = shared_library_interface(
-                ctx = ctx,
-                shared_lib = intf_link_result.linked_object.output,
-            )
+    elif effective_shlib_interfaces_mode == ShlibInterfacesMode("defined_only"):
+        link_info = LinkInfo(
+            pre_flags = link_info.pre_flags,
+            linkables = link_info.linkables,
+            post_flags = (
+                (link_info.post_flags or []) +
+                get_ignore_undefined_symbols_flags(linker_info.type) +
+                (linker_info.independent_shlib_interface_linker_flags or [])
+            ),
+            external_debug_info = link_info.external_debug_info,
+            metadata = cxx_attr_dep_metadata(ctx),
+        )
+        intf_link_result = cxx_link_shared_library(
+            ctx = ctx,
+            output = flavored_output(get_shared_library_name(
+                linker_info,
+                ctx.label.name + "-for-interface",
+                apply_default_prefix = True,
+            )),
+            opts = link_options(
+                category_suffix = "interface",
+                link_ordering = link_ordering,
+                links = [LinkArgs(infos = [link_info])],
+                identifier = flavored_output(soname + "-interface", separator = "_"),
+                link_execution_preference = link_execution_preference,
+                strip = impl_params.strip_executable,
+                error_handler = impl_params.error_handler,
+            ),
+            name = soname,
+        )
+        exported_shlib = shared_library_interface(
+            ctx = ctx,
+            shared_lib = intf_link_result.linked_object.output,
+        )
 
     # Link against import library on Windows.
     if link_result.linked_object.import_library:
