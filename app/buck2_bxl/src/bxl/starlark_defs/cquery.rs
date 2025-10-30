@@ -40,7 +40,6 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
@@ -84,7 +83,7 @@ impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
 }
 
 pub(crate) async fn get_cquery_env(
-    ctx: &BxlContextNoDice<'_>,
+    ctx: &BxlContext<'_>,
     global_cfg_options_override: &GlobalCfgOptions,
 ) -> buck2_error::Result<Box<dyn BxlCqueryFunctions>> {
     (NEW_BXL_CQUERY_FUNCTIONS.get()?)(
@@ -105,13 +104,13 @@ async fn unpack_targets<'v>(
         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
             targets,
             &this.global_cfg_options_override,
-            &this.ctx.data,
+            &this.ctx,
             dice,
         )
         .await?
         .get(dice)
         .await?,
-        &this.ctx.data,
+        &*this.ctx,
     )
 }
 
@@ -478,7 +477,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 .testsof_with_default_target_platform(dice, &targets)
                                 .await?;
 
-                        filter_incompatible(maybe_compatibles, &**this.ctx)
+                        filter_incompatible(maybe_compatibles, &*this.ctx)
                     }
                     .boxed_local()
                 })

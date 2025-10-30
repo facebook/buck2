@@ -45,7 +45,6 @@ use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
 use crate::bxl::starlark_defs::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
@@ -106,7 +105,7 @@ impl<'v> StarlarkAQueryCtx<'v> {
 }
 
 pub(crate) async fn get_aquery_env(
-    ctx: &BxlContextNoDice<'_>,
+    ctx: &BxlContext<'_>,
     global_cfg_options_override: &GlobalCfgOptions,
 ) -> buck2_error::Result<Box<dyn BxlAqueryFunctions>> {
     (NEW_BXL_AQUERY_FUNCTIONS.get()?)(
@@ -136,7 +135,7 @@ async fn unpack_action_nodes<'v>(
     dice: &mut DiceComputations<'_>,
     expr: UnpackActionNodes<'v>,
 ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
-    let aquery_env = get_aquery_env(&this.ctx.data, &this.global_cfg_options_override).await?;
+    let aquery_env = get_aquery_env(&this.ctx, &this.global_cfg_options_override).await?;
     let providers = match expr {
         UnpackActionNodes::ActionQueryNodes(action_nodes) => {
             return Ok(action_nodes.into_iter().map(|v| v.0).collect());
@@ -146,7 +145,7 @@ async fn unpack_action_nodes<'v>(
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 arg,
                 &this.global_cfg_options_override,
-                &this.ctx.data,
+                &this.ctx,
                 dice,
             )
             .await?
@@ -158,7 +157,7 @@ async fn unpack_action_nodes<'v>(
             TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
                 arg,
                 &this.global_cfg_options_override,
-                &this.ctx.data,
+                &this.ctx,
                 dice,
                 true,
             )
@@ -170,7 +169,7 @@ async fn unpack_action_nodes<'v>(
     let (incompatible_targets, result) = aquery_env.get_target_set(dice, providers).await?;
 
     if !incompatible_targets.is_empty() {
-        this.ctx.data.print_to_error_stream(
+        this.ctx.print_to_error_stream(
             IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter()),
         )?;
     }

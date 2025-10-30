@@ -100,7 +100,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn output<'v>(this: &'v BxlContext<'v>) -> starlark::Result<ValueTyped<'v, OutputStream>> {
         let output_stream = this
-            .data
             .context_type
             .unpack_root()
             .buck_error_context(BxlContextError::Unsupported("output".to_owned()))?
@@ -116,7 +115,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<String> {
         let _root_type = this
-            .data
             .context_type
             .unpack_root()
             .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
@@ -137,7 +135,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     fn cell_root<'v>(this: &'v BxlContext<'v>) -> starlark::Result<String> {
         let _root_type = this
-            .data
             .context_type
             .unpack_root()
             .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
@@ -191,7 +188,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     if let Some(one) = target_expr.get_one(ctx).await? {
-                        let result = filter_incompatible(iter::once(one), &**this)?;
+                        let result = filter_incompatible(iter::once(one), this)?;
                         if let Some(node) = result.iter().next() {
                             Ok(Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(
                                 node.dupe(),
@@ -202,7 +199,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                     } else {
                         Ok(Either::Right(StarlarkTargetSet(filter_incompatible(
                             target_expr.get(ctx).await?,
-                            &**this,
+                            this,
                         )?)))
                     }
                 }
@@ -326,7 +323,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
                     let maybe_compatible_set = target_expr.get(ctx).await?;
 
-                    let target_set = filter_incompatible(maybe_compatible_set, &**this)?;
+                    let target_set = filter_incompatible(maybe_compatible_set, &*this)?;
 
                     StarlarkTargetUniverse::new(this, target_set).await
                 }
@@ -689,7 +686,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
         let cli_args = this
-            .data
             .context_type
             .unpack_root()
             .buck_error_context(BxlContextError::Unsupported("cli_args".to_owned()))?

@@ -57,7 +57,7 @@ use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
 use strong_hash::StrongHash;
 
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::BxlContext;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -155,7 +155,7 @@ impl BxlExecutionResolution {
 }
 
 pub(crate) fn validate_action_instantiation(
-    this: &BxlContextNoDice<'_>,
+    this: &BxlContext<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,
 ) -> buck2_error::Result<()> {
     let mut registry = this.state.state.borrow_mut();

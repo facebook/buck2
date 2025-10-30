@@ -169,27 +169,12 @@ impl<'v> Display for BxlContextType<'v> {
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlContext<'v> {
-    pub(crate) data: BxlContextNoDice<'v>,
-}
-
-impl<'v> Deref for BxlContext<'v> {
-    type Target = BxlContextNoDice<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-#[derive(Derivative, Display, Trace, NoSerialize, Allocative)]
-#[derivative(Debug)]
-#[display("{:?}", self)]
-pub(crate) struct BxlContextNoDice<'v> {
     state: ValueTyped<'v, AnalysisActions<'v>>,
     context_type: BxlContextType<'v>,
     core: Rc<BxlContextCoreData>,
 }
 
-impl Deref for BxlContextNoDice<'_> {
+impl<'v> Deref for BxlContext<'v> {
     type Target = BxlContextCoreData;
 
     fn deref(&self) -> &Self::Target {
@@ -364,16 +349,14 @@ impl<'v> BxlContext<'v> {
         let context_type = BxlContextType::Root(root_data);
 
         Ok(Self {
-            data: BxlContextNoDice {
-                state: heap.alloc_typed(AnalysisActions {
-                    state: RefCell::new(None),
-                    attributes: None,
-                    plugins: None,
-                    digest_config,
-                }),
-                context_type,
-                core,
-            },
+            state: heap.alloc_typed(AnalysisActions {
+                state: RefCell::new(None),
+                attributes: None,
+                plugins: None,
+                digest_config,
+            }),
+            context_type,
+            core,
         })
     }
 
@@ -385,16 +368,14 @@ impl<'v> BxlContext<'v> {
         dynamic_data: DynamicBxlContextData,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            data: BxlContextNoDice {
-                state: heap.alloc_typed(AnalysisActions {
-                    state: RefCell::new(Some(analysis_registry)),
-                    attributes: None,
-                    plugins: None,
-                    digest_config,
-                }),
-                context_type: BxlContextType::Dynamic(dynamic_data),
-                core,
-            },
+            state: heap.alloc_typed(AnalysisActions {
+                state: RefCell::new(Some(analysis_registry)),
+                attributes: None,
+                plugins: None,
+                digest_config,
+            }),
+            context_type: BxlContextType::Dynamic(dynamic_data),
+            core,
         })
     }
 
@@ -406,16 +387,14 @@ impl<'v> BxlContext<'v> {
         attributes: ValueOfUnchecked<'v, StructRef<'static>>,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            data: BxlContextNoDice {
-                state: heap.alloc_typed(AnalysisActions {
-                    state: RefCell::new(Some(analysis_registry)),
-                    attributes: Some(attributes),
-                    plugins: None,
-                    digest_config,
-                }),
-                context_type: BxlContextType::AnonTarget,
-                core,
-            },
+            state: heap.alloc_typed(AnalysisActions {
+                state: RefCell::new(Some(analysis_registry)),
+                attributes: Some(attributes),
+                plugins: None,
+                digest_config,
+            }),
+            context_type: BxlContextType::AnonTarget,
+            core,
         })
     }
 
@@ -440,11 +419,10 @@ impl<'v> BxlContext<'v> {
         value: ValueTyped<'v, BxlContext<'v>>,
     ) -> buck2_error::Result<(AnalysisRegistry<'v>, OutputStreamOutcome)> {
         let this = value.as_ref();
-        let root_data = this.data.context_type.unpack_root()?;
+        let root_data = this.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
 
         let analysis_registry = this
-            .data
             .state
             .as_ref()
             .state
@@ -474,7 +452,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn take_state_dynamic_or_anon_impl(
         &self,
     ) -> buck2_error::Result<AnalysisRegistry<'v>> {
-        let state = self.data.state.as_ref();
+        let state = self.state.as_ref();
         state.state()?.assert_no_promises()?;
 
         Ok(state
@@ -499,7 +477,7 @@ pub(crate) trait ErrorPrinter {
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()>;
 }
 
-impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
+impl<'v> ErrorPrinter for BxlContext<'v> {
     // Used for caching error logs emitted from within the BXL core.
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {

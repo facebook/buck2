@@ -103,7 +103,7 @@ async fn unpack_targets<'c, 'v>(
     dice: &'c mut DiceComputations<'_>,
     targets: TargetListExprArg<'v>,
 ) -> buck2_error::Result<Cow<'v, TargetSet<TargetNode>>> {
-    TargetListExpr::<'v, TargetNode>::unpack(targets, &this.ctx.data, dice)
+    TargetListExpr::<'v, TargetNode>::unpack(targets, &this.ctx, dice)
         .await?
         .get(dice)
         .await
@@ -450,7 +450,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         get_uquery_env(&this.ctx)
                             .await?
-                            .owner(dice, (files.get(&this.ctx.data).await?).as_ref())
+                            .owner(dice, (files.get(&this.ctx).await?).as_ref())
                             .await
                     }
                     .boxed_local()
@@ -481,7 +481,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         get_uquery_env(&this.ctx)
                             .await?
-                            .targets_in_buildfile(dice, (files.get(&this.ctx.data).await?).as_ref())
+                            .targets_in_buildfile(dice, (files.get(&this.ctx).await?).as_ref())
                             .await
                     }
                     .boxed_local()

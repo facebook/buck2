@@ -32,7 +32,7 @@ use starlark::values::UnpackValue;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
@@ -144,7 +144,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
         arg: AnyProvidersExprArg<'v>,
         global_cfg_options_override: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<Self> {
         match arg {
@@ -160,7 +160,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     async fn unpack_literal<'v, 'c>(
         arg: AnyProvidersLabelArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<ConfiguredProvidersLabel> {
         match arg {
@@ -177,7 +177,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     async fn unpack_iterable<'c, 'v: 'c>(
         arg: AnyProvidersLabelListArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
-        ctx: &'c BxlContextNoDice<'_>,
+        ctx: &'c BxlContext<'_>,
         dice: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
@@ -219,7 +219,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 impl ProvidersExpr<ProvidersLabel> {
     pub(crate) fn unpack<'v>(
         arg: ProvidersExprArg<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
     ) -> buck2_error::Result<Self> {
         match arg {
             ProvidersExprArg::One(arg) => Self::unpack_literal(arg, ctx),
@@ -229,14 +229,14 @@ impl ProvidersExpr<ProvidersLabel> {
 
     fn unpack_literal<'v>(
         value: ProvidersLabelArg<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
     ) -> buck2_error::Result<Self> {
         Ok(Self::Literal(Self::unpack_providers_label(value, ctx)?))
     }
 
     fn unpack_iterable<'c, 'v: 'c>(
         arg: ProvidersLabelListArg<'v>,
-        ctx: &'c BxlContextNoDice<'_>,
+        ctx: &'c BxlContext<'_>,
     ) -> buck2_error::Result<ProvidersExpr<ProvidersLabel>> {
         match arg {
             ProvidersLabelListArg::TargetSet(s) => Ok(ProvidersExpr::Iterable(
@@ -265,7 +265,7 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
 
     fn unpack_providers_label<'v>(
         arg: ProvidersLabelArg<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
     ) -> buck2_error::Result<ProvidersLabel> {
         match arg {
             ProvidersLabelArg::Str(s) => {
