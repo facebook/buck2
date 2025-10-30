@@ -156,7 +156,7 @@ def _get_incremental_compilation_flags_and_objects(
 def _get_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
-    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
     if _get_skip_swift_incremental_outputs(ctx):
         all_outputs = []
         swiftdeps = []

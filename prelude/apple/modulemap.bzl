@@ -8,6 +8,10 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
+load(
     "@prelude//cxx:headers.bzl",
     "CHeader",  # @unused Used as a type
 )
@@ -39,7 +43,7 @@ def create_modulemap(
     if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
-    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
     # Create a map of header import path to artifact location
     header_map = {}
