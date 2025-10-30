@@ -26,7 +26,13 @@ pub(crate) fn is_buck2_exe(path: &Path, who_is_asking: WhoIsAsking) -> bool {
     let Some(file_stem) = path.file_stem() else {
         return false;
     };
-    if file_stem == OsStr::new("buck2") || file_stem == OsStr::new("buck2-daemon") {
+    // On linux when the running executable is deleted or unlinked the string ' (deleted)' is appended to symlinked file in /proc/<pid>/exe
+    if [
+        OsStr::new("buck2"),
+        OsStr::new("buck2 (deleted)"),
+        OsStr::new("buck2-daemon"),
+        OsStr::new("buck2-daemon (deleted)"),
+    ].contains(&file_stem) {
         true
     } else {
         match who_is_asking {
