@@ -67,6 +67,7 @@ use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
 use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 pub(crate) mod actions;
@@ -434,7 +435,7 @@ impl<'v> BxlContext<'v> {
     /// via_dice, as that breaks borrow invariants of the dice computations.
     pub(crate) fn via_dice<'a, 's, T, E>(
         &'a self,
-        _eval: &mut Evaluator<'v, '_, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         f: impl for<'x> FnOnce(
             &'x mut dyn BxlDiceComputations,
             &'a BxlContextNoDice<'v>,
@@ -443,8 +444,11 @@ impl<'v> BxlContext<'v> {
     where
         'v: 'a,
     {
-        let data = &self.data;
-        f(&mut *self.async_ctx.borrow_mut(), data)
+        BxlEvalExtra::from_context(eval)
+            // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
+            // good evidence that this is indeed a bxl evaluation
+            .unwrap()
+            .via_dice(|dice, _| f(dice, &self.data))
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.

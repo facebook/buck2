@@ -85,13 +85,10 @@ impl<'e> BxlEvalExtra<'e> {
         f().ok_or_else(|| BxlScopeError::UnavailableOutsideBxl.into())
     }
 
-    pub(crate) fn via_dice<'a, T>(
+    pub(crate) fn via_dice<'a, T, E>(
         &'a self,
-        f: impl for<'x> FnOnce(
-            &'x mut dyn BxlDiceComputations,
-            &'a BxlContextCoreData,
-        ) -> buck2_error::Result<T>,
-    ) -> buck2_error::Result<T> {
+        f: impl for<'x> FnOnce(&'x mut dyn BxlDiceComputations, &'a BxlContextCoreData) -> Result<T, E>,
+    ) -> Result<T, E> {
         let core = &self.core;
         f(&mut *self.dice.borrow_mut(), core)
     }
