@@ -297,10 +297,8 @@ async fn eval_bxl_for_anon_target_inner(
         let action_factory = bxl_ctx.state;
 
         tokio::task::block_in_place(|| {
-            reentrant_eval.with_evaluator(|eval| {
-                tokio::runtime::Handle::current()
-                    .block_on(run_anon_target_promises(action_factory, eval))
-            })
+            reentrant_eval
+                .with_evaluator(|eval| run_anon_target_promises(action_factory, &bxl_ctx, eval))
         })?;
 
         let res_typed = ProviderCollection::try_from_value(list_res)?;
@@ -350,7 +348,10 @@ async fn eval_bxl_for_anon_target_inner(
     })
 }
 
-struct BxlAnonPromisesAccessor<'me, 'v, 'a, 'e>(&'me mut Evaluator<'v, 'a, 'e>);
+struct BxlAnonPromisesAccessor<'me, 'v, 'a, 'e>(
+    &'me mut Evaluator<'v, 'a, 'e>,
+    &'me BxlContext<'v>,
+);
 
 impl<'me, 'v, 'a, 'e> RunAnonPromisesAccessor<'v, 'a, 'e>
     for BxlAnonPromisesAccessor<'me, 'v, 'a, 'e>
@@ -366,19 +367,22 @@ impl<'me, 'v, 'a, 'e> RunAnonPromisesAccessor<'v, 'a, 'e>
         &'s mut self,
         f: Box<dyn for<'d> FnOnce(&'s mut DiceComputations<'d>) + 'b>,
     ) {
-        BxlEvalExtra::from_context(self.0)
-            .unwrap()
-            .dice
-            .with_inner(f);
+        self.1.via_dice(self.0, |dice| dice.with_inner(f))
     }
 }
 
-pub(crate) async fn run_anon_target_promises<'v, 'a, 'e>(
+pub(crate) fn run_anon_target_promises<'v, 'a, 'e>(
     actions: ValueTyped<'v, AnalysisActions<'v>>,
+    ctx: &BxlContext<'v>,
     eval: &mut Evaluator<'v, 'a, 'e>,
 ) -> buck2_error::Result<()> {
-    let mut accessor = BxlAnonPromisesAccessor(eval);
-    actions.run_promises(&mut accessor).await
+    let mut accessor = BxlAnonPromisesAccessor(eval, ctx);
+    // TODO(cjhopman): The approach here is pretty against the general model that we want. We should
+    // remove this function or we should split this into two steps:
+    //  1. get values needed for running promises from dice
+    //  2. run promise mappings on this evaluator (not via_dice or with the
+    // ReentrantStarlarkEvaluator)
+    tokio::runtime::Handle::current().block_on(actions.run_promises(&mut accessor))
 }
 
 pub(crate) fn init_eval_bxl_for_anon_target() {
