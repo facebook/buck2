@@ -462,8 +462,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<StarlarkArtifact>> {
         let path = Path::new(path);
-        let Ok(fs) = ctx.via_dice::<_, !>(eval, |ctx, _| {
-            Ok(ctx.global_data().get_io_provider().project_root().dupe())
+        let fs = ctx.via_dice(eval, |ctx, _| {
+            ctx.global_data().get_io_provider().project_root().dupe()
         });
         let path = if path.is_absolute() {
             Cow::Owned(

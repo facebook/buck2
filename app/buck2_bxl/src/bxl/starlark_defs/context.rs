@@ -419,18 +419,12 @@ impl<'v> BxlContext<'v> {
         })
     }
 
-    /// runs the async computation over dice as sync,
-    /// This should generally only be called at the top level functions in bxl.
-    /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
-    /// via_dice, as that breaks borrow invariants of the dice computations.
-    pub(crate) fn via_dice<'a, 's, T, E>(
+    /// Provides access to dice
+    pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
-        eval: &mut Evaluator<'v, '_, '_>,
-        f: impl for<'x> FnOnce(
-            &'x mut dyn BxlDiceComputations,
-            &'a BxlContextNoDice<'v>,
-        ) -> Result<T, E>,
-    ) -> Result<T, E>
+        eval: &'a mut Evaluator<'v, '_, '_>,
+        f: impl FnOnce(&'a mut dyn BxlDiceComputations, &'a BxlContextNoDice<'v>) -> T,
+    ) -> T
     where
         'v: 'a,
     {
