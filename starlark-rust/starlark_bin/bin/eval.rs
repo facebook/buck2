@@ -24,7 +24,9 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use itertools::Either;
+use lsp_types::Diagnostic;
 use lsp_types::Url;
+use starlark::PrintHandler;
 use starlark::StarlarkResultExt;
 use starlark::analysis::AstModuleLint;
 use starlark::docs::DocModule;
@@ -44,7 +46,7 @@ use starlark_lsp::server::StringLiteralResult;
 
 use crate::suppression::GlobLintSuppression;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum ContextMode {
     Check,
     Run,
@@ -168,16 +170,18 @@ impl Context {
         &self,
         file: &str,
         ast: AstModule,
+        force_mode_for_lsp: Option<ContextMode>,
     ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let mut warnings = Either::Left(iter::empty());
         let mut errors = Either::Left(iter::empty());
-        let final_ast = match self.mode {
+        let final_ast = match force_mode_for_lsp.unwrap_or(self.mode) {
             ContextMode::Check => {
                 warnings = Either::Right(self.check(file, &ast));
                 Some(ast)
             }
             ContextMode::Run => {
-                errors = Either::Right(self.run(file, ast).messages);
+                let enable_print = force_mode_for_lsp.is_none();
+                errors = Either::Right(self.run(file, ast, enable_print).messages);
                 None
             }
         };
@@ -212,7 +216,7 @@ impl Context {
         Self::err(
             file,
             AstModule::parse(file, content, &self.dialect)
-                .map(|module| self.go(file, module))
+                .map(|module| self.go(file, module, None))
                 .map_err(Into::into),
         )
     }
@@ -225,7 +229,7 @@ impl Context {
         Self::err(
             filename,
             fs::read_to_string(file)
-                .map(|content| self.file_with_contents(filename, content))
+                .map(|content| self.file_with_contents(filename, content, None))
                 .map_err(|e| anyhow::Error::from(e).into()),
         )
     }
@@ -234,11 +238,12 @@ impl Context {
         &self,
         filename: &str,
         content: String,
+        force_mode_for_lsp: Option<ContextMode>,
     ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         Self::err(
             filename,
             AstModule::parse(filename, content, &self.dialect)
-                .map(|module| self.go(filename, module))
+                .map(|module| self.go(filename, module, force_mode_for_lsp))
                 .map_err(Into::into),
         )
     }
@@ -247,6 +252,7 @@ impl Context {
         &self,
         file: &str,
         ast: AstModule,
+        enable_print: bool,
     ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let new_module;
         let module = match self.module.as_ref() {
@@ -259,11 +265,20 @@ impl Context {
         let mut eval = Evaluator::new(module);
         eval.set_loader(self);
         eval.enable_terminal_breakpoint_console();
+        struct Noop;
+        impl PrintHandler for Noop {
+            fn println(&self, _text: &str) -> starlark::Result<()> {
+                Ok(())
+            }
+        }
+        if !enable_print {
+            eval.set_print_handler(&Noop);
+        }
         Self::err(
             file,
             eval.eval_module(ast, &self.globals)
                 .map(|v| {
-                    if self.print_non_none && !v.is_none() {
+                    if self.print_non_none && !v.is_none() && enable_print {
                         println!("{v}");
                     }
                     EvalResult {
@@ -310,13 +325,27 @@ impl LspContext for Context {
         match uri {
             LspUrl::File(uri) => {
                 let EvalResult { messages, ast } =
-                    self.file_with_contents(&uri.to_string_lossy(), content);
+                    self.file_with_contents(&uri.to_string_lossy(), content, None);
                 LspEvalResult {
                     diagnostics: messages.map(eval_message_to_lsp_diagnostic).collect(),
                     ast,
                 }
             }
             _ => LspEvalResult::default(),
+        }
+    }
+
+    fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+        match uri {
+            LspUrl::File(uri) => {
+                let EvalResult { messages, .. } = self.file_with_contents(
+                    &uri.to_string_lossy(),
+                    content,
+                    Some(ContextMode::Run),
+                );
+                messages.map(eval_message_to_lsp_diagnostic).collect()
+            }
+            _ => vec![],
         }
     }
 
