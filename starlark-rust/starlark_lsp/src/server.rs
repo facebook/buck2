@@ -28,7 +28,6 @@ use std::sync::RwLock;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
@@ -47,6 +46,7 @@ use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
+use lsp_types::DidSaveTextDocumentParams;
 use lsp_types::Documentation;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
@@ -76,6 +76,7 @@ use lsp_types::WorkspaceFolder;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::LogMessage;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
@@ -298,6 +299,12 @@ pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult;
 
+    fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+        _ = uri;
+        _ = content;
+        vec![]
+    }
+
     /// Resolve a path given in a `load()` statement.
     ///
     /// `path` is the string representation in the `load()` statement. Its meaning is
@@ -391,12 +398,18 @@ pub(crate) enum LoadContentsError {
     WrongScheme(String, LspUrl),
 }
 
+pub(crate) struct LastValidParse {
+    module: Arc<LspModule>,
+    content: String,
+    diagnostics: Vec<Diagnostic>,
+}
+
 pub(crate) struct Backend<T: LspContext> {
     connection: Connection,
     pub(crate) context: T,
     /// The `AstModule` from the last time that a file was opened / changed and parsed successfully.
     /// Entries are evicted when the file is closed.
-    pub(crate) last_valid_parse: RwLock<HashMap<LspUrl, Arc<LspModule>>>,
+    pub(crate) last_valid_parse: RwLock<HashMap<LspUrl, LastValidParse>>,
 }
 
 /// The logic implementations of stuff
@@ -420,7 +433,7 @@ impl<T: LspContext> Backend<T> {
 
     fn get_ast(&self, uri: &LspUrl) -> Option<Arc<LspModule>> {
         let last_valid_parse = self.last_valid_parse.read().unwrap();
-        last_valid_parse.get(uri).duped()
+        last_valid_parse.get(uri).map(|x| x.module.dupe())
     }
 
     pub(crate) fn get_ast_or_load_from_disk(
@@ -439,13 +452,35 @@ impl<T: LspContext> Backend<T> {
 
     fn validate(&self, uri: Url, version: Option<i64>, text: String) -> anyhow::Result<()> {
         let lsp_url = uri.clone().try_into()?;
+        let content = text.clone();
         let eval_result = self.context.parse_file_with_contents(&lsp_url, text);
         if let Some(ast) = eval_result.ast {
             let module = Arc::new(LspModule::new(ast));
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
-            last_valid_parse.insert(lsp_url, module);
+            last_valid_parse.insert(
+                lsp_url,
+                LastValidParse {
+                    module,
+                    content,
+                    diagnostics: eval_result.diagnostics.clone(),
+                },
+            );
         }
         self.publish_diagnostics(uri, eval_result.diagnostics, version);
+        Ok(())
+    }
+
+    fn validate_eval(&self, uri: Url, version: Option<i64>) -> anyhow::Result<()> {
+        let lsp_url: LspUrl = uri.clone().try_into()?;
+        let last_valid_parse = self.last_valid_parse.read().unwrap();
+        let mut diagnostics = vec![];
+        if let Some(lvp) = last_valid_parse.get(&lsp_url) {
+            diagnostics.extend_from_slice(&lvp.diagnostics);
+            let text = lvp.content.clone();
+            let mut eval_diagnostics = self.context.eval_file_with_contents(&lsp_url, text);
+            diagnostics.append(&mut eval_diagnostics);
+            self.publish_diagnostics(uri, diagnostics, version);
+        }
         Ok(())
     }
 
@@ -465,6 +500,10 @@ impl<T: LspContext> Backend<T> {
             Some(params.text_document.version as i64),
             change.text,
         )
+    }
+
+    fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
+        self.validate_eval(params.text_document.uri, None)
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
@@ -840,6 +879,7 @@ impl<T: LspContext> Backend<T> {
                 Some(uri) => doc_uri != uri,
                 None => true,
             })
+            .map(|(a, b)| (a, b.module.dupe()))
         {
             let Ok(load_path) =
                 self.context
@@ -871,7 +911,8 @@ impl<T: LspContext> Backend<T> {
                 None => true,
             })
             .flat_map(|(doc_uri, doc)| {
-                doc.get_loaded_symbols()
+                doc.module
+                    .get_loaded_symbols()
                     .into_iter()
                     .map(move |symbol| (doc_uri, symbol))
             })
@@ -1240,6 +1281,8 @@ impl<T: LspContext> Backend<T> {
                         self.did_open(params)?;
                     } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
                         self.did_change(params)?;
+                    } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
+                        self.did_save(params)?;
                     } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
                         self.did_close(params)?;
                     }
@@ -1289,14 +1332,20 @@ pub fn server_with_connection<T: LspContext>(
     });
     connection.initialize_finish(init_request_id, initialize_data)?;
 
-    Backend {
+    let backend = Backend {
         connection,
         context,
         last_valid_parse: RwLock::default(),
-    }
-    .main_loop(initialization_params)?;
+    };
 
-    Ok(())
+    let main_exit = backend.main_loop(initialization_params);
+
+    if let Err(e) = main_exit.as_ref() {
+        // Log any error that caused us to shut down
+        backend.log_message(MessageType::ERROR, &e.to_string());
+    }
+
+    main_exit
 }
 
 fn as_notification<T>(x: &Notification) -> Option<T::Params>
