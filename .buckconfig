@@ -15,7 +15,8 @@ ignore = \
     app_dep_graph_rules, \
     examples, \
     integrations/rust-project/tests, \
-    tests
+    tests, \
+    target
 
 [rust]
 default_edition = 2024
