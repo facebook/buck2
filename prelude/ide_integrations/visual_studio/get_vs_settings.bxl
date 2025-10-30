@@ -71,6 +71,8 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
         IMMEDIATE_BUCK_OPTIONS: [_unescape_arg(o) for o in cli_args.immediate_buck_options],
     }
 
+    # TODO(zhaopuwang): I think target.label is messed up because of the hash change. Might want to use raw target label instead
+    # to avoid the "Failed to infer debug settings for command_alias target" errors.
     if attrs["buck_type"] == "alias":
         actual_target_label = attrs_lazy.get("actual").label.configured_target()
         actual_target_debug_settings = vs_settings_dict[actual_target_label][BY_MODES][default_mode_file]
@@ -81,8 +83,11 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
             target.label.cell + "//" + target.label.package + ":" + target.label.name.removesuffix("_oxx_runner"),
             modifiers = bxl_ctx.modifiers,
         )
-        debug_settings[DEBUG_CMD] = vs_settings_dict[base_binary_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
-        debug_settings[ADDITIONAL_TARGETS] += [base_binary_target.label.raw_target()]
+        if base_binary_target.label in vs_settings_dict:
+            debug_settings[DEBUG_CMD] = vs_settings_dict[base_binary_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
+            debug_settings[ADDITIONAL_TARGETS] += [base_binary_target.label.raw_target()]
+        else:
+            log_warn("Failed to infer debug settings for command_alias target ({}).", target.label)
         oxx_runner_path = []
         for key, value in debug_settings[DEBUG_ENV].items():
             if key == "BUCK_EXTRA_LIB_SEARCH_PATH_COUNT" or not key.startswith("BUCK_EXTRA_LIB_SEARCH_PATH_"):
