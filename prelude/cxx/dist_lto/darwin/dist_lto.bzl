@@ -11,6 +11,7 @@ load(
     "make_artifact_tset",
 )
 load("@prelude//apple:apple_utility.bzl", "get_apple_architecture")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:shared_library_interfaces.bzl", "get_shared_library_interface_generation_linker_flags")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
@@ -38,6 +39,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":common_types.bzl", "DThinLTOLinkData", "DynamicLibraryLinkData", "EagerBitcodeLinkData", "LazyBitcodeLinkData", "LinkDataType")
 load(":thin_link.bzl", "thin_link")
 load(":thin_link_record_defs.bzl", "BitcodeMergeState", "ObjectFileOptimizationPlan")
@@ -71,6 +73,20 @@ def _sort_index_link_data(input_list: list[DThinLTOLinkData]) -> list[DThinLTOLi
             dynamic_libraries.append(link_data)
 
     return force_loaded_archives + object_files + dynamic_libraries + regular_archives
+
+# Generate linker flags that are common to thin-link, native-link, and the link invocation used
+# to generate a shared library interface
+def _get_common_linker_flags(ctx: AnalysisContext, link_infos: list[LinkInfo], executable_link: bool, sanitizer_runtime_args: list[ArgLike]):
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    result = cmd_args(cxx_link_cmd_parts(cxx_toolchain, executable_link).linker_flags)
+    result.add(get_extra_darwin_linker_flags(ctx))
+    result.add(sanitizer_runtime_args)
+
+    for link in link_infos:
+        result.add(link.pre_flags)
+        result.add(link.post_flags)
+
+    return result
 
 DoubleCodegenState = enum(
     "disabled",
@@ -276,11 +292,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
             else:
                 fail("Unhandled linkable type: {}".format(str(linkable)))
 
-    # linker flags that are common to both thin-link and native-link
-    common_link_flags = cmd_args(cxx_link_cmd_parts(cxx_toolchain, executable_link).linker_flags)
-    common_link_flags.add(get_extra_darwin_linker_flags(ctx))
-    common_link_flags.add(sanitizer_runtime_args.extra_link_args)
-    common_link_flags.add(deps_linker_flags)
+    common_link_flags = _get_common_linker_flags(ctx, link_infos, executable_link, sanitizer_runtime_args.extra_link_args)
 
     sorted_index_link_data = _sort_index_link_data(raw_link_data)
 
@@ -559,6 +571,83 @@ PreparedArchiveArtitfacts = record(
     extracted_object_files_dir = field(Artifact),
 )
 
+def generate_shared_library_interface(
+        ctx: AnalysisContext,
+        identifier: str,
+        executable_link: bool,
+        link_infos: list[LinkInfo],
+        output: Artifact,
+        sanitizer_runtime_args: list[ArgLike],
+        shared_library_interface_out: Artifact):
+    # This flag generation logic must be at least semmantically equivalent to the logic used to create a thin-link invocation.
+    # Do not for example change the input order in one place, they must be kept in sync to generate an accurate interface.
+
+    common_linker_flags = _get_common_linker_flags(ctx, link_infos, executable_link, sanitizer_runtime_args)
+
+    eager_objects = cmd_args()
+    lazy_objects = cmd_args()
+    dynamic_libraries = cmd_args()
+
+    for link in link_infos:
+        for linkable in link.linkables:
+            if isinstance(linkable, ObjectsLinkable):
+                for obj in linkable.objects:
+                    eager_objects.add(obj)
+            elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
+                lazy_objects.add("-Wl,--start-lib")
+                for obj in linkable.archive.external_objects:
+                    lazy_objects.add(obj)
+                lazy_objects.add("-Wl,--end-lib")
+            elif isinstance(linkable, ArchiveLinkable):
+                # Thin link requires that we extract all archives beforehand via dynamic output so that we can declare various
+                # artifacts for each member. These artifacts are the link plan, the summary shard, the merged bitcode file etc.
+                # However, this linking invocation does not produce any of those, it only produces the shared library interface.
+                # Passing the archive directly instead of extracting it, then passing the members between --start-lib --end-lib
+                # flags should be semantically equivalent. Note however, that we only do this in this branch where we are dealing
+                # with some kind of pre-build static archive where Buck is not aware of the contents. If we built this static archive,
+                # just pass the members directly above, don't bother creating an archive for no reason.
+                lazy_objects.add(linkable.archive.artifact)
+            elif isinstance(linkable, SharedLibLinkable):
+                append_linkable_args(dynamic_libraries, linkable)
+            elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+                # These linkables are handled separately for flag deduplication purposes, as in append_linkable_args:
+                # https://www.internalfb.com/code/fbsource/[c6d2c820b394]/fbcode/buck2/prelude/linking/link_info.bzl?lines=271-278
+                pass
+            else:
+                fail("Unhandled linkable type: {}".format(str(linkable)))
+
+    interface_generation_linker_args = cmd_args()
+    interface_generation_linker_args.add(common_linker_flags)
+    interface_generation_linker_args.add(eager_objects)
+    interface_generation_linker_args.add(lazy_objects)
+    interface_generation_linker_args.add(dynamic_libraries)
+    output_as_string = cmd_args(output, ignore_artifacts = True)
+    interface_generation_linker_args.add("-o", output_as_string)
+    interface_generation_linker_argsfile = ctx.actions.declare_output(output.basename + ".shared_library_interface_generation_argsfile")
+    interface_generation_linker_argsfile, _ = ctx.actions.write(
+        interface_generation_linker_argsfile,
+        interface_generation_linker_args,
+        with_inputs = True,
+        allow_args = True,
+    )
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    linker = cxx_link_cmd_parts(cxx_toolchain, executable_link).linker
+    interface_generation_linker_invocation = cmd_args(linker)
+    interface_generation_linker_invocation.add(cmd_args(interface_generation_linker_argsfile, format = "@{}"))
+
+    def _get_shared_library_interface_generation_linker_flags(shared_library_interface: Artifact) -> cmd_args:
+        # @oss-disable
+        return get_shared_library_interface_generation_linker_flags(shared_library_interface)
+
+        # starlark-lint-disable unreachable
+        # @oss-enable
+        return cmd_args()
+
+    interface_generation_linker_invocation.add(
+        _get_shared_library_interface_generation_linker_flags(shared_library_interface_out),
+    )
+    ctx.actions.run(interface_generation_linker_invocation, category = "generate_shared_library_interface", identifier = identifier)
+
 def cxx_darwin_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
@@ -568,6 +657,7 @@ def cxx_darwin_dist_link(
         double_codegen_enabled: bool,
         executable_link: bool,
         sanitizer_runtime_args: CxxSanitizerRuntimeArguments,
+        shared_library_interface: Artifact | None,
         linker_map: Artifact | None = None) -> (LinkedObject, dict[str, list[DefaultInfo]]):
     """
     Perform a distributed thin-lto link into the supplied output
@@ -668,6 +758,17 @@ def cxx_darwin_dist_link(
 
     if linker_map:
         link_outputs.append(linker_map.as_output())
+
+    if opts.produce_shared_library_interface:
+        generate_shared_library_interface(
+            ctx = ctx,
+            identifier = opts.identifier,
+            executable_link = executable_link,
+            link_infos = link_infos,
+            output = output,
+            sanitizer_runtime_args = sanitizer_runtime_args.extra_link_args,
+            shared_library_interface_out = shared_library_interface,
+        )
 
     ctx.actions.dynamic_output(
         dynamic = archive_manifests,

@@ -12,6 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:shared_library_interfaces.bzl", "get_shared_library_interface_generation_linker_flags")
 load(
     "@prelude//cxx:cxx_bolt.bzl",
     "bolt",
@@ -94,6 +95,11 @@ CxxLinkResult = record(
     # A dictionary of extra linker outputs generated from
     # the extra_linker_outputs_factory
     extra_outputs = field(dict[str, list[DefaultInfo]], default = {}),
+    # A representation of a shared library to link against, rather than the shared library
+    # itself. This can be advantageous because the interface is faster to generate,
+    # or because it hides implementation changes to the shared library that would cause
+    # unnecessary build invalidation.
+    shared_library_interface = [Artifact, None],
 )
 
 def link_external_debug_info(
@@ -148,6 +154,7 @@ def cxx_link_into(
         linker_map = None
         linker_map_data = None
 
+    shared_library_interface = ctx.actions.declare_output(output.short_path + ".tbd") if opts.produce_shared_library_interface else None
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
@@ -163,6 +170,7 @@ def cxx_link_into(
                 linker_info.thin_lto_double_codegen_enabled,
                 is_result_executable,
                 sanitizer_runtime_args,
+                shared_library_interface,
                 linker_map,
             )
         elif linker_type == LinkerType("gnu"):
@@ -188,6 +196,7 @@ def cxx_link_into(
             ),
             sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
             extra_outputs = extra_outputs,
+            shared_library_interface = shared_library_interface,
         )
 
     link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
@@ -258,6 +267,40 @@ def cxx_link_into(
         with_inputs = True,
         uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
     )
+
+    if opts.produce_shared_library_interface:
+        # If we ask the linker to produce a shared library interface, it won't produce any other outputs
+        # so we shouldn't declare any extra outputs.
+        shared_library_interface_generation_linker_args = create_local_linker_invocation(add_linker_outputs = False).link_args
+        shared_library_interface_generation_argfile, _ = ctx.actions.write(
+            output.short_path + ".cxx_shared_library_interface_generation_argsfile",
+            shared_library_interface_generation_linker_args,
+            allow_args = True,
+            with_inputs = True,
+            uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
+        )
+        link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
+        shared_library_interface_generation_command = cmd_args(
+            link_cmd_parts.linker,
+            cmd_args(shared_library_interface_generation_argfile, format = "@{}"),
+        )
+
+        def _get_shared_library_interface_generation_linker_flags(shared_library_interface: Artifact) -> cmd_args:
+            # @oss-disable
+            return get_shared_library_interface_generation_linker_flags(shared_library_interface)
+
+            # starlark-lint-disable unreachable
+            # @oss-enable
+            return cmd_args()
+
+        shared_library_interface_generation_command.add(
+            _get_shared_library_interface_generation_linker_flags(shared_library_interface),
+        )
+        ctx.actions.run(
+            shared_library_interface_generation_command,
+            category = "generate_shared_library_interface",
+            identifier = opts.identifier,
+        )
 
     bitcode_linkables = []
     for link_item in opts.links:
@@ -412,6 +455,7 @@ def cxx_link_into(
         link_execution_preference_info = link_execution_preference_info,
         sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
         extra_outputs = extra_linker_outputs.providers,
+        shared_library_interface = shared_library_interface,
     )
 
 _AnonLinkInfo = provider(fields = {
@@ -514,6 +558,7 @@ def _anon_cxx_link(
             preference = LinkExecutionPreference("any"),
         ),
         sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
+        shared_library_interface = None,
     )
 
 def cxx_link(

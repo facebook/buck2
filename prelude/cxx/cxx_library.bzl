@@ -2029,13 +2029,16 @@ def _shared_library(
             extra_linker_outputs_factory = impl_params.extra_linker_outputs_factory,
             extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
             extra_distributed_thin_lto_opt_outputs_merger = impl_params.extra_distributed_thin_lto_opt_outputs_merger,
+            produce_shared_library_interface = effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"),
         ),
         name = soname if impl_params.use_soname else None,
         shared_library_flags = impl_params.shared_library_flags,
     )
     exported_shlib = link_result.linked_object.output
 
-    if effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_library"):
+    if effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"):
+        exported_shlib = link_result.shared_library_interface
+    elif effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_library"):
         # Generate a library interface from the linked library output.
         # This will prevent relinking rdeps when changes do not affect
         # the library symbols.

@@ -18,6 +18,7 @@ ShlibInterfacesMode = enum(
     # This known to be incorrect in the presence of static libraries, as they won't be represented in the interface.
     "stub_from_library",  # Generate an interface from the completed shared library via some external tool.
     "stub_from_object_files",  # Generate an interface from the input files (ie. object files, archives, etc.) without actually linking them together, again via external tool.
+    "stub_from_linker_invocation",  # For linkers that support it, generate an interface from the linker invocation that would ordinarily produce the shared library, adding some extra flags
 )
 
 # TODO(T110378149): Consider whether it makes sense to move these things to
