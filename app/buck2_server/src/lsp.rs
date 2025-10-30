@@ -52,6 +52,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
+use dice::CancellationContext;
 use dice::DiceEquality;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -61,6 +62,7 @@ use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
 use lsp_server::Connection;
 use lsp_server::Message;
+use lsp_types::Diagnostic;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
@@ -420,6 +422,46 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
+    async fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+        match self
+            .eval_file_from_contents_and_handle_diagnostic(uri, content)
+            .await
+        {
+            Ok(res) => res,
+            Err(e) => {
+                let message = EvalMessage::from_error(uri.path(), &e.into());
+                vec![eval_message_to_lsp_diagnostic(message)]
+            }
+        }
+    }
+
+    async fn eval_file_from_contents_and_handle_diagnostic(
+        &self,
+        uri: &LspUrl,
+        _content: String,
+    ) -> buck2_error::Result<Vec<Diagnostic>> {
+        let import_path = self.import_path_from_url(uri).await?;
+
+        self.with_dice_ctx(|mut dice_ctx| async move {
+            let mut calculator = dice_ctx
+                .get_interpreter_calculator(import_path.clone().into_starlark_path())
+                .await?;
+
+            let module_path = import_path.borrow();
+            let eval_result = calculator
+                .eval_module_uncached(module_path, CancellationContext::never_cancelled())
+                .await;
+            match eval_result {
+                Ok(_lm) => Ok(Vec::new()),
+                Err(e) => {
+                    let message = EvalMessage::from_error(uri.path(), &e.into());
+                    Ok(vec![eval_message_to_lsp_diagnostic(message)])
+                }
+            }
+        })
+        .await
+    }
+
     async fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match self
             .parse_file_from_contents_and_handle_diagnostic(uri, content)
@@ -575,6 +617,19 @@ impl LspContext for BuckLspContext<'_> {
                         self.parse_file_with_contents(uri, content).await
                     }
                     _ => LspEvalResult::default(),
+                }
+            }))
+    }
+
+    fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+        let dispatcher = self.server_ctx.events().dupe();
+        self.runtime
+            .block_on(with_dispatcher_async(dispatcher, async {
+                match uri {
+                    LspUrl::File(_) | LspUrl::Starlark(_) => {
+                        self.eval_file_with_contents(uri, content).await
+                    }
+                    _ => vec![],
                 }
             }))
     }
