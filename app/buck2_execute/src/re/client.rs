@@ -653,6 +653,7 @@ impl RemoteExecutionClientImpl {
                             {
                                 Buck2CopyPolicy::Copy => CopyPolicy::FULL_COPY,
                                 Buck2CopyPolicy::Reflink => CopyPolicy::SOFT_COPY,
+                                Buck2CopyPolicy::Hybrid => CopyPolicy::HYBRID_COPY,
                             },
                             ..Default::default()
                         };
