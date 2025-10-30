@@ -157,6 +157,8 @@ pub struct Evaluator<'v, 'a, 'e> {
     /// Field that can be used for any purpose you want (can store types you define).
     /// Typically accessed via native functions you also define.
     pub extra: Option<&'a dyn AnyLifetime<'e>>,
+    /// Like `extra`, but mutable
+    pub extra_mut: Option<&'a mut dyn AnyLifetime<'e>>,
     /// Called to perform console IO each time `breakpoint` function is called.
     pub(crate) breakpoint_handler:
         Option<Box<dyn Fn() -> anyhow::Result<Box<dyn BreakpointConsole>>>>,
@@ -189,6 +191,7 @@ fn _check_variance() {
         let _: &Option<&'a2 dyn FileLoader> = &a.loader;
         let _: &EvaluationInstrumentation<'a2, '_> = &a.eval_instrumentation;
         let _: &Option<&'a2 dyn AnyLifetime<'_>> = &a.extra;
+        let _: &Option<&'a2 mut dyn AnyLifetime<'_>> = &a.extra_mut;
         let _: &&'a2 (dyn PrintHandler + 'a2) = &a.print_handler;
         let _: &&'a2 (dyn SoftErrorHandler + 'a2) = &a.soft_error_handler;
         let _: &Box<dyn Fn() -> bool + 'a2> = &a.is_cancelled;
@@ -247,6 +250,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             current_frame: BcFramePtr::null(),
             loader: None,
             extra: None,
+            extra_mut: None,
             next_gc_level: GC_THRESHOLD,
             disable_gc: false,
             alloca: Alloca::new(),
