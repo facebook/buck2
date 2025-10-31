@@ -84,7 +84,7 @@ public class IncrementalCompilationValidatorTest {
     RebuildReason result =
         incrementalCompilationValidator.validate(actionMetadata, null, null, jvmAbiGenWorkingDir);
 
-    assertEquals(RebuildReason.NO_JVM_ABI_DIR, result);
+    assertEquals(RebuildReason.NO_JVM_ABI_WORKING_DIR, result);
   }
 
   @Test

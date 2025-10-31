@@ -17,7 +17,7 @@ import java.nio.file.Paths
 class PostBuildParams(
     val libraryJar: Path?,
     val abiJar: Path?,
-    val jvmAbiGenDir: Path?,
+    val jvmAbiGen: Path?,
     val abiOutputDir: Path?,
     val usedClassesPaths: List<Path>,
     val depFile: Path?,
@@ -32,7 +32,7 @@ class PostBuildParams(
         PostBuildParams(
             model.libraryJar.takeIf { it.isNotEmpty() }?.let(Paths::get),
             model.abiJar.takeIf { it.isNotEmpty() }?.let(Paths::get),
-            model.jvmAbiGenDir.takeIf { it.isNotEmpty() }?.let(Paths::get),
+            model.jvmAbiGen.takeIf { it.isNotEmpty() }?.let(Paths::get),
             model.abiOutputDir.takeIf { it.isNotEmpty() }?.let(Paths::get),
             model.usedClassesList?.map(Paths::get).orEmpty(),
             model.depFile.takeIf { it.isNotEmpty() }?.let(Paths::get),

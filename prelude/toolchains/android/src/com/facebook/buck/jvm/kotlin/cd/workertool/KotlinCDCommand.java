@@ -30,6 +30,7 @@ import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLogger;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLoggerAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriter;
+import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriterFactory;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriter;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriterFactory;
 import com.google.common.base.Preconditions;
@@ -209,6 +210,7 @@ public class KotlinCDCommand implements JvmCDCommand {
     List<Path> oldPostBuildOutputs = new ArrayList<>();
     oldPostBuildOutputs.add(postBuildParams.getLibraryJar());
     oldPostBuildOutputs.add(postBuildParams.getAbiJar());
+    oldPostBuildOutputs.add(postBuildParams.getJvmAbiGen());
     oldPostBuildOutputs.add(postBuildParams.getAbiOutputDir());
     oldPostBuildOutputs.addAll(postBuildParams.getUsedClassesPaths());
     oldPostBuildOutputs.addAll(postBuildParams.getOptionalDirsPaths());
@@ -234,14 +236,21 @@ public class KotlinCDCommand implements JvmCDCommand {
 
   protected void maybeWriteClassAbi() {
     if (!postBuildParams.getShouldCreateClassAbi()) {
-      Preconditions.checkState(postBuildParams.getJvmAbiGenDir() == null);
+      Preconditions.checkState(postBuildParams.getJvmAbiGen() == null);
       return;
     }
 
     ClassAbiWriter classAbiWriter =
-        ClassAbiWriter.create(
+        ClassAbiWriterFactory.create(
+            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally(),
+            buildKotlinCommand
+                .getKotlinExtraParams()
+                .getIncrementalStateDir()
+                .map(absPath -> absPath.resolve(KOTLIN_CLASSES_DIR))
+                .orElse(null),
+            buildKotlinCommand.getKotlinExtraParams().getJvmAbiGenWorkingDir().orElse(null),
+            postBuildParams.getJvmAbiGen(),
             postBuildParams.getLibraryJar(),
-            postBuildParams.getJvmAbiGenDir(),
             postBuildParams.getAbiJar());
     classAbiWriter.execute();
   }

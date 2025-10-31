@@ -71,6 +71,6 @@ class DirectoryReader implements LibraryReader {
 
   @Override
   public InputStream openInputStream(Path relativePath) throws IOException {
-    return new BufferedInputStream(Files.newInputStream(root.resolve(relativePath.toString())));
+    return new BufferedInputStream(Files.newInputStream(root.resolve(relativePath)));
   }
 }

@@ -52,10 +52,14 @@ data class KotlinExtraParams(
   val ksp2CachesDir: Optional<AbsPath> =
       incrementalStateDir.map { dir: AbsPath -> dir.resolve(KSP2_CACHES_DIR) }
 
+  val jvmAbiGenWorkingDir: Optional<AbsPath> =
+      incrementalStateDir.map { dir: AbsPath -> dir.resolve(KOTLINC_JVM_ABI_GEN_WORKING_DIR) }
+
   val languageVersion: LanguageVersion = LanguageVersion(languageVersionString)
 
   companion object {
     private val KOTLINC_WORKING_DIR: String = "kotlinc_working_dir"
     private val KSP2_CACHES_DIR: String = "ksp2_caches_dir"
+    private val KOTLINC_JVM_ABI_GEN_WORKING_DIR: String = "jvm_abi_gen_working_dir"
   }
 }

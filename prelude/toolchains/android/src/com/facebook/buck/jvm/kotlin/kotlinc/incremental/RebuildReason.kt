@@ -15,5 +15,5 @@ enum class RebuildReason(val message: String) {
   BUILD_CONFIGURATION_CHANGED("Build configuration has been changed"),
   NO_LAST_DEP_FILE("dep-file.txt not found"),
   NO_LAST_USED_JARS("used-jars.json not found"),
-  NO_JVM_ABI_DIR("jvm_abi_gen_dir not found"),
+  NO_JVM_ABI_WORKING_DIR("jvm_abi_gen_working_dir not found"),
 }

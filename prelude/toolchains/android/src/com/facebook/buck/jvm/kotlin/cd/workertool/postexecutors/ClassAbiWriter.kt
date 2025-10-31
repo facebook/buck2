@@ -17,29 +17,93 @@ import com.facebook.buck.jvm.java.abi.StubJar
 import java.nio.file.Path
 import java.nio.file.Paths
 
-class ClassAbiWriter(
-    private val libraryStubJar: StubJar,
-    private val jvmAbiGenDir: AbsPath,
-    private val abiJar: AbsPath,
-) {
+sealed interface ClassAbiWriter {
 
-  fun execute() {
+  fun execute()
+}
+
+internal data class NonIncrementalAbiWriter(
+    private val libraryStubJar: StubJar,
+    private val jvmAbiGenJar: AbsPath,
+    private val abiJar: AbsPath,
+) : ClassAbiWriter {
+
+  constructor(
+      libraryJar: AbsPath,
+      jvmAbiGenJar: AbsPath,
+      abiJar: AbsPath,
+  ) : this(StubJar(libraryJar), jvmAbiGenJar, abiJar)
+
+  override fun execute() {
+    check(jvmAbiGenJar.toFile().exists())
+
     libraryStubJar.apply {
-      setExistingAbiJar(jvmAbiGenDir)
+      setExistingAbiJar(jvmAbiGenJar)
       writeTo(abiJar)
     }
   }
+}
 
-  companion object {
+internal data class IncrementalAbiWriter(
+    private val kotlincOutputStubJar: StubJar,
+    private val jvmAbiGenWorkingDir: AbsPath,
+    private val jvmAbiGenJar: AbsPath,
+    private val libraryStubJar: StubJar,
+    private val abiJar: AbsPath,
+) : ClassAbiWriter {
 
-    private val root: AbsPath = AbsPath.of(Paths.get(".").toAbsolutePath().normalize())
+  constructor(
+      kotlincOutputDir: AbsPath,
+      jvmAbiGenWorkingDir: AbsPath,
+      jvmAbiGenJar: AbsPath,
+      libraryJar: AbsPath,
+      abiJar: AbsPath,
+  ) : this(
+      StubJar(kotlincOutputDir),
+      jvmAbiGenWorkingDir,
+      jvmAbiGenJar,
+      StubJar(libraryJar),
+      abiJar,
+  )
 
-    @JvmStatic
-    fun create(libraryJar: Path?, jvmAbiGenDir: Path?, abiJar: Path?): ClassAbiWriter =
-        ClassAbiWriter(
-            StubJar(root.resolve(requireNotNull(libraryJar))),
-            root.resolve(requireNotNull(jvmAbiGenDir)),
-            root.resolve(requireNotNull(abiJar)),
-        )
+  override fun execute() {
+    kotlincOutputStubJar.apply {
+      setExistingAbiJar(jvmAbiGenWorkingDir)
+      writeTo(jvmAbiGenJar)
+    }
+
+    libraryStubJar.apply {
+      setExistingAbiJar(jvmAbiGenJar)
+      writeTo(abiJar)
+    }
+  }
+}
+
+@JvmName("create")
+fun ClassAbiWriter(
+    shouldKotlincRunIncrementally: Boolean,
+    kotlincOutputDir: AbsPath?,
+    jvmAbiGenWorkingDir: AbsPath?,
+    jvmAbiGenJar: Path?,
+    libraryJar: Path?,
+    abiJar: Path?,
+): ClassAbiWriter {
+
+  val root: AbsPath = AbsPath.of(Paths.get(".").toAbsolutePath().normalize())
+
+  return if (shouldKotlincRunIncrementally) {
+    IncrementalAbiWriter(
+        kotlincOutputDir = requireNotNull(kotlincOutputDir),
+        jvmAbiGenWorkingDir = requireNotNull(jvmAbiGenWorkingDir),
+        jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
+        libraryJar = root.resolve(requireNotNull(libraryJar)),
+        abiJar = root.resolve(requireNotNull(abiJar)),
+    )
+  } else {
+    NonIncrementalAbiWriter(
+        libraryJar = root.resolve(requireNotNull(libraryJar)),
+        jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
+        abiJar = root.resolve(requireNotNull(abiJar)),
+    )
   }
 }

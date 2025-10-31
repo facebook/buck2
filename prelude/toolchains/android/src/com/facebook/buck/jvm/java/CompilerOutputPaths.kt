@@ -52,8 +52,8 @@ data class CompilerOutputPaths(
     }
 
     @JvmStatic
-    fun getJvmAbiGenDirPath(outputJarDirPath: RelPath): RelPath {
-      return outputJarDirPath.resolveRel("jvm_abi_gen_dir")
+    fun getJvmAbiGenFilePath(outputJarDirPath: RelPath): RelPath {
+      return outputJarDirPath.resolveRel("jvm-abi-gen.jar")
     }
 
     /**

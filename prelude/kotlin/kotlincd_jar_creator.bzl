@@ -109,12 +109,12 @@ def create_jar_artifact_kotlincd(
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar", uses_experimental_content_based_path_hashing)
         class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", uses_experimental_content_based_path_hashing, dir = True)
-        jvm_abi_gen_dir = cmd_args(output_paths.jar.as_output(), format = "{}/jvm_abi_gen_dir", parent = 1)
+        jvm_abi_gen = cmd_args(output_paths.jar.as_output(), format = "{}/jvm-abi-gen.jar", parent = 1)
         should_use_jvm_abi_gen = True
     else:
         class_abi_jar = None
         class_abi_output_dir = None
-        jvm_abi_gen_dir = None
+        jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
@@ -135,7 +135,7 @@ def create_jar_artifact_kotlincd(
         srcs,
         should_create_class_abi,
         class_abi_jar,
-        jvm_abi_gen_dir,
+        jvm_abi_gen,
         class_abi_output_dir,
         optional_dirs,
         track_class_usage,
@@ -435,7 +435,7 @@ def _define_kotlincd_action(
         srcs: list[Artifact],
         should_create_class_abi: bool,
         class_abi_jar: [Artifact, None],
-        jvm_abi_gen_dir: [cmd_args, None],
+        jvm_abi_gen: [cmd_args, None],
         class_abi_output_dir: [Artifact, None],
         optional_dirs: list[OutputArtifact],
         track_class_usage: bool,
@@ -481,7 +481,7 @@ def _define_kotlincd_action(
         post_build_params["shouldCreateClassAbi"] = True
         post_build_params["libraryJar"] = output_paths.jar.as_output()
         post_build_params["abiJar"] = class_abi_jar.as_output()
-        post_build_params["jvmAbiGenDir"] = jvm_abi_gen_dir
+        post_build_params["jvmAbiGen"] = jvm_abi_gen
         post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
 
     if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
