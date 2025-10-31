@@ -41,6 +41,7 @@ public class KotlincModeFactory {
       final boolean isTrackClassUsageEnabled,
       final RelPath depFilePath,
       final RelPath usedJarsPath,
+      final RelPath jvmAbiGenDir,
       final KotlinExtraParams extraParams,
       final Optional<ActionMetadata> actionMetadata,
       final ImmutableList<AbsPath> classpathSnapshots) {
@@ -79,18 +80,7 @@ public class KotlincModeFactory {
               metadata,
               depFile,
               usedJars,
-              getJvmAbiGenWorkingDir(
-                  extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir())));
+              extraParams.getShouldUseJvmAbiGen() ? rootProjectDir.resolve(jvmAbiGenDir) : null));
     }
-  }
-
-  private static @Nullable AbsPath getJvmAbiGenWorkingDir(
-      boolean shouldUseJvmAbiGen, Optional<AbsPath> jvmAbiGenWorkingDir) {
-    if (!shouldUseJvmAbiGen) {
-      return null;
-    }
-
-    return jvmAbiGenWorkingDir.orElseThrow(
-        () -> new IllegalStateException("jvm_abi_gen_working_dir is not created"));
   }
 }

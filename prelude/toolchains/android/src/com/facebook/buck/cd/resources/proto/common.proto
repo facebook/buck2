@@ -35,7 +35,7 @@ message RelPathMapEntry {
 message PostBuildParams {
   string libraryJar = 1;
   string abiJar = 2;
-  string jvmAbiGen = 4;
+  string jvmAbiGenDir = 4;
   string abiOutputDir = 5;
   repeated string usedClasses = 6;
   string depFile = 7;

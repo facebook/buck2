@@ -107,6 +107,8 @@ public class KotlinCStepsBuilder {
                         parameters.getOutputPaths().getOutputJarDirPath()),
                     CompilerOutputPaths.getUsedJarsFilePath(
                         parameters.getOutputPaths().getOutputJarDirPath()),
+                    CompilerOutputPaths.getJvmAbiGenDirPath(
+                        parameters.getOutputPaths().getOutputJarDirPath()),
                     extraParams,
                     Optional.ofNullable(actionMetadata),
                     classpathSnapshots),
@@ -184,7 +186,9 @@ public class KotlinCStepsBuilder {
       // we add 'outputDir' param, if it is missing
       if (!hasOutputDirParam) {
         final AbsPath jvmOutputDir =
-            getJvmAbiGenOutputPath(buildCellRootPath, parameters, extraParams);
+            buildCellRootPath.resolve(
+                CompilerOutputPaths.getJvmAbiGenDirPath(
+                    parameters.getOutputPaths().getOutputJarDirPath()));
         ImmutableMap.Builder<String, String> jvmPluginOptionsBuilder = ImmutableMap.builder();
         if (jvmPluginOptions != null) {
           jvmPluginOptionsBuilder.putAll(jvmPluginOptions);
@@ -201,18 +205,5 @@ public class KotlinCStepsBuilder {
       return jvmAbiPluginArgs;
     }
     return ImmutableList.of();
-  }
-
-  // when incremental compiler is on, we need to work with directory, not jar (which is used by
-  // default)
-  private static AbsPath getJvmAbiGenOutputPath(
-      AbsPath buildCellRootPath, CompilerParameters parameters, KotlinExtraParams extraParams) {
-    if (extraParams.getShouldKotlincRunIncrementally()) {
-      return extraParams.getJvmAbiGenWorkingDir().get();
-    }
-
-    return buildCellRootPath.resolve(
-        CompilerOutputPaths.getJvmAbiGenFilePath(
-            parameters.getOutputPaths().getOutputJarDirPath()));
   }
 }
