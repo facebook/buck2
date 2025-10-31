@@ -32,6 +32,8 @@ AppleToolchainInfo = provider(
         "lipo": provider_field(RunInfo),
         "mapc": provider_field(RunInfo | None, default = None),
         "merge_index_store": provider_field(RunInfo),
+        "metal": provider_field(RunInfo | None, default = None),
+        "metallib": provider_field(RunInfo | None, default = None),
         "momc": provider_field(RunInfo),
         "objdump": provider_field(RunInfo | None, default = None),
         "platform_path": provider_field(str | Artifact),
@@ -51,10 +53,12 @@ AppleToolsInfo = provider(
     # @unsorted-dict-items
     fields = {
         "assemble_bundle": provider_field(RunInfo),
+        "signing_context": provider_field(RunInfo),
         "split_arch_combine_dsym_bundles_tool": provider_field(RunInfo),
         "dry_codesign_tool": provider_field(RunInfo),
         "adhoc_codesign_tool": provider_field(RunInfo),
         "codesign_manifest_tree_postprocessor": provider_field(RunInfo),
+        "signing_context_tree_postprocessor": provider_field(RunInfo),
         "selective_debugging_scrubber": provider_field(RunInfo),
         "info_plist_processor": provider_field(RunInfo),
         "ipa_package_maker": provider_field(RunInfo),

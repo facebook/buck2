@@ -33,9 +33,9 @@ use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_forkserver::client::ForkserverClient;
-use buck2_forkserver::run::CommandResult;
-use buck2_forkserver::run::GatherOutputStatus;
+use buck2_execute_local::CommandResult;
+use buck2_execute_local::GatherOutputStatus;
+use buck2_execute_local::StdRedirectPaths;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
 use buck2_worker_proto::ExecuteResponse;
@@ -57,6 +57,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::Status;
 use tonic::transport::Channel;
 
+use crate::executors::local::ForkserverAccess;
+
 const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
 
 #[derive(buck2_error::Error, Debug)]
@@ -77,6 +79,7 @@ pub enum WorkerInitError {
     InternalError(buck2_error::Error),
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 impl WorkerInitError {
     pub(crate) fn to_command_execution_result(
         &self,
@@ -133,14 +136,13 @@ impl WorkerInitError {
 
 #[cfg(unix)]
 fn spawn_via_forkserver(
-    forkserver: ForkserverClient,
+    forkserver: ForkserverAccess,
     exe: OsString,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
     working_directory: AbsNormPathBuf,
     liveliness_observer: impl LivelinessObserver + 'static,
-    stdout_path: &AbsNormPathBuf,
-    stderr_path: &AbsNormPathBuf,
+    std_redirects: &StdRedirectPaths,
     socket_path: &AbsNormPathBuf,
     graceful_shutdown_timeout_s: Option<u32>,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
@@ -148,13 +150,14 @@ fn spawn_via_forkserver(
 
     use crate::executors::local::apply_local_execution_environment;
 
-    let stdout_path = stdout_path.clone();
-    let stderr_path = stderr_path.clone();
+    let ForkserverAccess::Client(forkserver) = forkserver else {
+        unreachable!("Worker should not be spawned without a forkserver")
+    };
+
+    let std_redirects = std_redirects.clone();
 
     let socket_path = socket_path.clone();
     tokio::spawn(async move {
-        use buck2_resource_control::CommandType;
-
         let mut req = buck2_forkserver_proto::CommandRequest {
             exe: exe.as_bytes().into(),
             argv: args.into_iter().map(|s| s.as_bytes().into()).collect(),
@@ -165,19 +168,15 @@ fn spawn_via_forkserver(
             timeout: None,
             enable_miniperf: false,
             std_redirects: Some(buck2_forkserver_proto::command_request::StdRedirectPaths {
-                stdout: stdout_path.as_os_str().as_bytes().into(),
-                stderr: stderr_path.as_os_str().as_bytes().into(),
+                stdout: std_redirects.stdout.to_string(),
+                stderr: std_redirects.stderr.to_string(),
             }),
             graceful_shutdown_timeout_s,
-            action_digest: None,
+            command_cgroup: None,
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver
-            .execute(
-                req,
-                async move { liveliness_observer.while_alive().await },
-                CommandType::Worker,
-            )
+            .execute(req, async move { liveliness_observer.while_alive().await })
             .await
             .map(|CommandResult { status, .. }| status);
 
@@ -192,14 +191,13 @@ fn spawn_via_forkserver(
 
 #[cfg(not(unix))]
 fn spawn_via_forkserver(
-    _forkserver: ForkserverClient,
+    _forkserver: ForkserverAccess,
     _exe: OsString,
     _args: Vec<OsString>,
     _env: Vec<(OsString, OsString)>,
     _working_directory: AbsNormPathBuf,
     _liveliness_observer: impl LivelinessObserver + 'static,
-    _stdout_path: &AbsNormPathBuf,
-    _stderr_path: &AbsNormPathBuf,
+    _std_redirects: &StdRedirectPaths,
     _socket_path: &AbsNormPathBuf,
     _graceful_shutdown_timeout_s: Option<u32>,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
@@ -207,15 +205,17 @@ fn spawn_via_forkserver(
 }
 
 async fn spawn_worker(
-    worker_spec: &WorkerSpec,
+    worker_id: WorkerId,
+    args: Vec<String>,
     env: impl IntoIterator<Item = (OsString, OsString)>,
+    streaming: bool,
     root: &AbsNormPathBuf,
-    forkserver: ForkserverClient,
+    forkserver: ForkserverAccess,
     dispatcher: EventDispatcher,
     graceful_shutdown_timeout_s: Option<u32>,
 ) -> Result<WorkerHandle, WorkerInitError> {
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
-    let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
+    let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_id);
     let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())
         .map_err(|e| WorkerInitError::InternalError(e.into()))?
         .join(FileName::unchecked_new(&dir_name));
@@ -231,11 +231,12 @@ async fn spawn_worker(
         ));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
-    let stdout_path = worker_dir.join(FileName::unchecked_new("stdout"));
-    let stderr_path = worker_dir.join(FileName::unchecked_new("stderr"));
+    let std_redirects = StdRedirectPaths {
+        stdout: worker_dir.join(FileName::unchecked_new("stdout")),
+        stderr: worker_dir.join(FileName::unchecked_new("stderr")),
+    };
     fs_util::create_dir_all(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))?;
 
-    let args = worker_spec.exe.to_vec();
     tracing::info!(
         "Starting worker with logs at {}:\n$ {}\n",
         worker_dir,
@@ -256,8 +257,7 @@ async fn spawn_worker(
         env.clone(),
         root.clone(),
         liveliness_observer,
-        &stdout_path,
-        &stderr_path,
+        &std_redirects,
         &socket_path,
         graceful_shutdown_timeout_s,
     );
@@ -267,8 +267,6 @@ async fn spawn_worker(
     // Might want to make this configurable, and/or measure impact of worker initialization on critical path
     let timeout = Duration::from_secs(60);
     let (channel, check_exit) = {
-        let stdout_path = &stdout_path;
-        let stderr_path = &stderr_path;
         let socket_path = &socket_path;
 
         let connect = retrying(initial_delay, max_delay, timeout, move || {
@@ -298,9 +296,9 @@ async fn spawn_worker(
             futures::future::Either::Right((command_result, _)) => Err(match command_result {
                 Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
                 Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
-                    let stdout = fs_util::read_to_string(stdout_path)
+                    let stdout = fs_util::read_to_string(&std_redirects.stdout)
                         .map_err(|e| WorkerInitError::InternalError(e.into()))?;
-                    let stderr = fs_util::read_to_string(stderr_path)
+                    let stderr = fs_util::read_to_string(&std_redirects.stderr)
                         .map_err(|e| WorkerInitError::InternalError(e.into()))?;
                     WorkerInitError::EarlyExit {
                         exit_code: Some(exit_code),
@@ -329,7 +327,7 @@ async fn spawn_worker(
     });
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
-    let client = if worker_spec.streaming {
+    let client = if streaming {
         WorkerClient::stream(channel)
             .await
             .map_err(|e| WorkerInitError::SpawnFailed(e.to_string()))?
@@ -340,8 +338,7 @@ async fn spawn_worker(
     Ok(WorkerHandle::new(
         client,
         child_exited_observer,
-        stdout_path,
-        stderr_path,
+        std_redirects,
         liveliness_guard,
     ))
 }
@@ -384,7 +381,7 @@ impl WorkerPool {
         worker_spec: &WorkerSpec,
         env: impl IntoIterator<Item = (OsString, OsString)>,
         root: &AbsNormPathBuf,
-        forkserver: ForkserverClient,
+        forkserver: ForkserverAccess,
         dispatcher: EventDispatcher,
     ) -> (bool, WorkerFuture) {
         let mut workers = self.workers.lock();
@@ -392,14 +389,17 @@ impl WorkerPool {
             (false, worker_fut.clone())
         } else {
             let worker_id = worker_spec.id;
-            let worker_spec = worker_spec.clone();
+            let args = worker_spec.exe.to_vec();
+            let streaming = worker_spec.streaming;
             let root = root.clone();
             let env: Vec<(OsString, OsString)> = env.into_iter().collect();
             let graceful_shutdown_timeout_s = self.graceful_shutdown_timeout_s;
             let fut = async move {
                 match spawn_worker(
-                    &worker_spec,
+                    worker_id,
+                    args,
                     env,
+                    streaming,
                     &root,
                     forkserver,
                     dispatcher,
@@ -531,8 +531,7 @@ impl WorkerClient {
 pub struct WorkerHandle {
     client: WorkerClient,
     child_exited_observer: Arc<dyn LivelinessObserver>,
-    stdout_path: AbsNormPathBuf,
-    stderr_path: AbsNormPathBuf,
+    std_redirects: StdRedirectPaths,
     _liveliness_guard: LivelinessGuard,
 }
 
@@ -540,15 +539,13 @@ impl WorkerHandle {
     fn new(
         client: WorkerClient,
         child_exited_observer: Arc<dyn LivelinessObserver>,
-        stdout_path: AbsNormPathBuf,
-        stderr_path: AbsNormPathBuf,
+        std_redirects: StdRedirectPaths,
         liveliness_guard: LivelinessGuard,
     ) -> Self {
         Self {
             client,
             child_exited_observer,
-            stdout_path,
-            stderr_path,
+            std_redirects,
             _liveliness_guard: liveliness_guard,
         }
     }
@@ -618,7 +615,7 @@ impl WorkerHandle {
                         (
                             GatherOutputStatus::SpawnFailed(format!(
                                 "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
-                                err, self.stdout_path, self.stderr_path,
+                                err, self.std_redirects.stdout, self.std_redirects.stderr,
                             )),
                             // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
                             vec![],
@@ -631,7 +628,7 @@ impl WorkerHandle {
                 (
                     GatherOutputStatus::SpawnFailed(format!(
                         "Worker exited while running command, see worker logs:\n{}\n{}",
-                        self.stdout_path, self.stderr_path,
+                        self.std_redirects.stdout, self.std_redirects.stderr,
                     )),
                     vec![],
                     vec![],

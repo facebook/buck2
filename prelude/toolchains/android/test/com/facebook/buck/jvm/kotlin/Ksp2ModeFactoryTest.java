@@ -197,17 +197,17 @@ public class Ksp2ModeFactoryTest {
 
   @Test
   public void when_classpath_changed_then_reprocess_reason_set() {
-    Path jarFile1 = Paths.get("lib/dependency1.jar");
-    Path jarFile2 = Paths.get("lib/dependency2.jar");
+    Path snapshotFile1 = Paths.get("lib/dependency1.bin");
+    Path snapshotFile2 = Paths.get("lib/dependency2.bin");
     Path sourceFile = Paths.get("src/main/kotlin/File.kt");
     ImmutableMap<Path, String> previousDigest =
         ImmutableMap.of(
-            jarFile1, "old_jar_digest",
+            snapshotFile1, "old_snapshot_digest",
             sourceFile, "source_digest");
     ImmutableMap<Path, String> currentDigest =
         ImmutableMap.of(
-            jarFile1, "new_jar_digest",
-            jarFile2, "new_jar_digest",
+            snapshotFile1, "new_snapshot_digest",
+            snapshotFile2, "new_snapshot_digest",
             sourceFile, "source_digest");
     when(mockActionMetadata.getPreviousDigest()).thenReturn(previousDigest);
     when(mockActionMetadata.getCurrentDigest()).thenReturn(currentDigest);
@@ -224,18 +224,18 @@ public class Ksp2ModeFactoryTest {
   }
 
   @Test
-  public void when_jar_removed_from_classpath_then_reprocess_reason_set() {
-    Path jarFile1 = Paths.get("lib/dependency1.jar");
-    Path jarFile2 = Paths.get("lib/dependency2.jar");
+  public void when_snapshot_removed_from_classpath_then_reprocess_reason_set() {
+    Path snapshotFile1 = Paths.get("lib/dependency1.bin");
+    Path snapshotFile2 = Paths.get("lib/dependency2.bin");
     Path sourceFile = Paths.get("src/main/kotlin/File.kt");
     ImmutableMap<Path, String> previousDigest =
         ImmutableMap.of(
-            jarFile1, "jar_digest",
-            jarFile2, "jar_digest",
+            snapshotFile1, "snapshot_digest",
+            snapshotFile2, "snapshot_digest",
             sourceFile, "source_digest");
     ImmutableMap<Path, String> currentDigest =
         ImmutableMap.of(
-            jarFile1, "jar_digest",
+            snapshotFile1, "snapshot_digest",
             sourceFile, "source_digest");
     when(mockActionMetadata.getPreviousDigest()).thenReturn(previousDigest);
     when(mockActionMetadata.getCurrentDigest()).thenReturn(currentDigest);
@@ -253,11 +253,11 @@ public class Ksp2ModeFactoryTest {
 
   @Test
   public void when_no_classpath_changes_then_no_reprocess_reason() {
-    Path jarFile = Paths.get("lib/dependency.jar");
+    Path snapshotFile = Paths.get("lib/dependency.bin");
     Path sourceFile = Paths.get("src/main/kotlin/File.kt");
     ImmutableMap<Path, String> digest =
         ImmutableMap.of(
-            jarFile, "jar_digest",
+            snapshotFile, "snapshot_digest",
             sourceFile, "source_digest");
     when(mockActionMetadata.getPreviousDigest()).thenReturn(digest);
     when(mockActionMetadata.getCurrentDigest()).thenReturn(digest);
@@ -283,15 +283,15 @@ public class Ksp2ModeFactoryTest {
     assertTrue("Existing cache file should exist before test", Files.exists(existingFile));
 
     // Set up classpath change scenario
-    Path jarFile = Paths.get("lib/dependency.jar");
+    Path snapshotFile = Paths.get("lib/dependency.bin");
     Path sourceFile = Paths.get("src/main/kotlin/File.kt");
     ImmutableMap<Path, String> previousDigest =
         ImmutableMap.of(
-            jarFile, "old_jar_digest",
+            snapshotFile, "old_snapshot_digest",
             sourceFile, "source_digest");
     ImmutableMap<Path, String> currentDigest =
         ImmutableMap.of(
-            jarFile, "new_jar_digest",
+            snapshotFile, "new_snapshot_digest",
             sourceFile, "source_digest");
     when(mockActionMetadata.getPreviousDigest()).thenReturn(previousDigest);
     when(mockActionMetadata.getCurrentDigest()).thenReturn(currentDigest);

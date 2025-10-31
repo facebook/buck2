@@ -121,7 +121,7 @@ pub(crate) struct BcPtrAddr<'b> {
 impl<'b> BcPtrAddr<'b> {
     /// Constructor.
     unsafe fn new(ptr: *const u8, range: IfDebug<BcPtrRange>) -> BcPtrAddr<'b> {
-        debug_assert!(ptr as usize % BC_INSTR_ALIGN == 0);
+        debug_assert!((ptr as usize).is_multiple_of(BC_INSTR_ALIGN));
         range.if_debug(|range| range.assert_in_range(ptr));
         BcPtrAddr {
             ptr,

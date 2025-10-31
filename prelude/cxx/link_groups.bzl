@@ -721,10 +721,17 @@ def get_filtered_links(
     return infos
 
 def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]):
-    return [label.raw_target() for label in labels_to_links_map.keys()]
+    # labels_to_links_map will include entries for shared link group libraries
+    # as well as libraries being statically linked into this link unit.
+    statically_linked_targets = []
+    for label, info in labels_to_links_map.items():
+        if info.output_style != LibOutputStyle("shared_lib"):
+            statically_linked_targets.append(label.raw_target())
+
+    return statically_linked_targets
 
 def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo:
-    json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
+    json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets), pretty = True)
     return DefaultInfo(default_output = json_map)
 
 def _find_all_relevant_roots(

@@ -42,9 +42,9 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
+use starlark::values::FrozenHeap;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -57,7 +57,7 @@ use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
 use strong_hash::StrongHash;
 
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::BxlContext;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -155,7 +155,7 @@ impl BxlExecutionResolution {
 }
 
 pub(crate) fn validate_action_instantiation(
-    this: &BxlContextNoDice<'_>,
+    this: &BxlContext<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,
 ) -> buck2_error::Result<()> {
     let mut registry = this.state.state.borrow_mut();
@@ -198,11 +198,12 @@ impl<'v> BxlActions<'v> {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
-        eval: &mut Evaluator<'v, '_, '_>,
+        heap: &'v Heap,
+        frozen_heap: &'v FrozenHeap,
         ctx: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<BxlActions<'v>> {
-        let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
-        let toolchains = alloc_deps(toolchains, eval, ctx).await?;
+        let exec_deps = alloc_deps(exec_deps, heap, frozen_heap, ctx).await?;
+        let toolchains = alloc_deps(toolchains, heap, frozen_heap, ctx).await?;
         Ok(Self {
             actions,
             exec_deps,
@@ -225,7 +226,8 @@ impl<'v> BxlActions<'v> {
 
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
-    eval: &mut Evaluator<'v, '_, '_>,
+    heap: &'v Heap,
+    frozen_heap: &'v FrozenHeap,
     ctx: &'c mut DiceComputations<'_>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx
@@ -248,9 +250,9 @@ async fn alloc_deps<'v, 'c>(
 
             let starlark_label = StarlarkProvidersLabel::new(configured.unconfigured());
             let dependency = Dependency::new(
-                eval.heap(),
+                heap,
                 configured,
-                v.value().owned_frozen_value_typed(eval.frozen_heap()),
+                v.value().owned_frozen_value_typed(frozen_heap),
                 None,
             );
 
@@ -258,7 +260,7 @@ async fn alloc_deps<'v, 'c>(
         })
         .collect::<Result<_, _>>()?;
 
-    Ok(eval.heap().alloc_typed_unchecked(AllocDict(deps)).cast())
+    Ok(heap.alloc_typed_unchecked(AllocDict(deps)).cast())
 }
 
 #[starlark_value(type = "bxl.Actions", StarlarkTypeRepr, UnpackValue)]

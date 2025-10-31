@@ -63,14 +63,6 @@ def _base_module_arg():
 """),
     }
 
-def _platform_arg():
-    return {
-        "platform": attrs.option(attrs.string(), default = None, doc = """
-    The name of the Python platform *flavor* to build against by default as defined in
-     the buckconfig#`python`section of `.buckconfig`.
-"""),
-    }
-
 def _linker_flags_arg():
     return {
         "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
@@ -155,7 +147,6 @@ python_common = struct(
     resources_arg = _resources_arg,
     platform_resources_arg = _platform_resources_arg,
     base_module_arg = _base_module_arg,
-    platform_arg = _platform_arg,
     linker_flags_arg = _linker_flags_arg,
     package_style_arg = _package_style_arg,
     preload_deps_arg = _preload_deps_arg,

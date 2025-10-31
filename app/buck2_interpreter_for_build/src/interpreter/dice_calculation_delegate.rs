@@ -289,10 +289,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned()));
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
-        let (_finished_eval, evaluation) = configs
+        let evaluation = configs
             .eval_module(
                 starlark_file,
                 &mut buckconfigs,
@@ -427,7 +427,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::LoadPackageFile(path.dupe());
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
@@ -569,11 +569,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ctx = &mut *self.ctx;
 
             now = Some(Instant::now());
-            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+            let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
-            let (finished_eval, eval_result) = span(start_event, move || {
+            let (profile_data, eval_result) = span(start_event, move || {
                 let result_with_stats = configs
                     .eval_build_file(
                         &build_file_path,
@@ -615,14 +615,14 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             })?;
 
             let mut eval_result = eval_result.result;
-            let profile_data = finished_eval.finish(None)?;
+
             if eval_result.starlark_profile.is_some() {
                 return (
                     now.unwrap().elapsed(),
                     Err(internal_error!("starlark_profile field must not be set yet").into()),
                 );
             }
-            eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
+            eval_result.starlark_profile = profile_data.map(|d| d as _);
             eval_result
         };
 

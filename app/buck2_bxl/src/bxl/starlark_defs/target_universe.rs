@@ -119,19 +119,21 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        let heap = eval.heap();
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async move {
-                    let inputs = &*TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
-                        .await?
-                        .get(dice)
-                        .await?;
+                    let inputs =
+                        &*TargetListExpr::<'v, TargetNode>::unpack(targets, &this.ctx, dice)
+                            .await?
+                            .get(dice)
+                            .await?;
 
                     let result = this
                         .target_universe
                         .get_from_targets(inputs.iter().map(|i| i.label().dupe()));
 
-                    Ok(eval.heap().alloc_typed(StarlarkTargetSet::from(result)))
+                    Ok(heap.alloc_typed(StarlarkTargetSet::from(result)))
                 }
                 .boxed_local()
             })

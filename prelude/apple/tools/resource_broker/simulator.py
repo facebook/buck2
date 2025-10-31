@@ -42,7 +42,7 @@ class SimulatorType(str, Enum):
         return {
             SimulatorType.iphoneUnbooted: "iPhone 11",
             SimulatorType.iphoneBooted: "iPhone 11",
-            SimulatorType.ipad: "iPad (7th generation)",
+            SimulatorType.ipad: "iPad (A16)",
             SimulatorType.watch: "Apple Watch Series 10 (46mm)",
         }[self]
 

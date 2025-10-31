@@ -110,6 +110,18 @@ async def test_apk_gen_rule(buck: Buck) -> None:
     ]
 
 
+@buck_test(inplace=True, skip_for_os=["windows"])
+async def test_instrumentation_test(buck: Buck) -> None:
+    result = await buck.bxl(
+        "prelude//debugging/fdb.bxl:inspect_target",
+        "--",
+        "--target",
+        "fbsource//fbandroid/buck2/tests/good/instrumentation_test:single_apk_test",
+    )
+    exec_info: ExecInfo = ExecInfo.from_buck_result(result)
+    assert "argsfile" in exec_info.data["program"]
+
+
 # This is to ensure at least one of the tests is passing on Windows otherwise CI fails
 @buck_test(inplace=True)
 async def test_noop(buck: Buck) -> None:

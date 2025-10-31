@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 
 git_fetch = prelude_rule(
     name = "git_fetch",
@@ -45,12 +45,12 @@ git_fetch = prelude_rule(
                 to the serde_derive subdirectory of the repo as `":serde.git[serde_derive]"`.
             """,
             ),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "_git_fetch_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//git/tools:git_fetch")),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

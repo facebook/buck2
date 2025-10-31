@@ -28,7 +28,6 @@ ocaml_binary = prelude_rule(
 
 
         ```
-
         ocaml_binary(
           name='greet',
           srcs=[
@@ -66,7 +65,6 @@ ocaml_binary = prelude_rule(
             'bridge.c',
           ],
         )
-
         ```
     """,
     further = None,
@@ -78,17 +76,17 @@ ocaml_binary = prelude_rule(
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.string(), default = []),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -106,7 +104,6 @@ ocaml_library = prelude_rule(
 
 
         ```
-
         ocaml_library(
           name='greeting',
           srcs=[
@@ -116,7 +113,6 @@ ocaml_library = prelude_rule(
             ':join',
           ],
         )
-
         ```
     """,
     further = None,
@@ -128,16 +124,16 @@ ocaml_library = prelude_rule(
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "native_plugin": attrs.bool(default = False),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -153,18 +149,18 @@ prebuilt_ocaml_library = prelude_rule(
             "bytecode_lib": attrs.option(attrs.string(), default = None),
             "bytecode_only": attrs.bool(default = False),
             "c_libs": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "include_dir": attrs.string(default = ""),
-            "labels": attrs.list(attrs.string(), default = []),
             "lib_dir": attrs.string(default = ""),
             "lib_name": attrs.string(default = ""),
-            "licenses": attrs.list(attrs.source(), default = []),
             "native_c_libs": attrs.list(attrs.string(), default = []),
             "native_lib": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

@@ -10,14 +10,14 @@
 
 package com.facebook.buck.jvm.java
 
-import com.facebook.buck.jvm.java.version.JavaVersion
+import com.facebook.buck.jvm.java.version.utils.JavaVersionUtils
 
 data class JavacLanguageLevelOptions(val sourceLevel: String, val targetLevel: String) {
-  val sourceLevelValue: JavaVersion
-    get() = JavaVersion.toJavaLanguageVersion(sourceLevel)
+  val sourceLevelValue: Int
+    get() = JavaVersionUtils.getMajorVersionFromString(sourceLevel)
 
-  val targetLevelValue: JavaVersion
-    get() = JavaVersion.toJavaLanguageVersion(targetLevel)
+  val targetLevelValue: Int
+    get() = JavaVersionUtils.getMajorVersionFromString(targetLevel)
 
   companion object {
     // Default combined source and target level.

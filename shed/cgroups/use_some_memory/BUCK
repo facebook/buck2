@@ -1,0 +1,9 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+oncall("build_infra")
+
+python_binary(
+    name = "use_some_memory",
+    srcs = ["use_some_memory.py"],
+    main_function = "buck2.shed.cgroups.use_some_memory.use_some_memory.main",
+)

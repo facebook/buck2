@@ -1,0 +1,7 @@
+features = ["ssl"]
+cargo_env = ["CARGO_PKG_VERSION"]
+
+[buildscript.run.env]
+OPT_LEVEL = "3"
+PROFILE = "release"
+DEBUG = "false"

@@ -87,3 +87,22 @@ impl<D, L> DirectoryEntry<D, L> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::directory::entry::DirectoryEntry;
+    use crate::directory::exclusive_directory::ExclusiveDirectory;
+    use crate::directory::immutable_directory::ImmutableDirectory;
+    use crate::directory::shared_directory::SharedDirectory;
+    use crate::directory::test::NopEntry;
+    use crate::directory::test::TestDigest;
+
+    #[test]
+    fn test_bounds() {
+        fn assert_impls_eq<T: std::cmp::Eq>() {}
+
+        assert_impls_eq::<DirectoryEntry<ExclusiveDirectory<NopEntry, TestDigest>, NopEntry>>();
+        assert_impls_eq::<DirectoryEntry<SharedDirectory<NopEntry, TestDigest>, NopEntry>>();
+        assert_impls_eq::<DirectoryEntry<ImmutableDirectory<NopEntry, TestDigest>, NopEntry>>();
+    }
+}

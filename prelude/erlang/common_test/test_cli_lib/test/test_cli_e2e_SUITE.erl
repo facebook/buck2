@@ -36,7 +36,7 @@ init_per_suite(Config) ->
         ct_opts = [],
         erl_cmd = ErlCmd,
         extra_flags = [],
-        artifact_annotation_mfa = {foo, bar, 42},
+        artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
         trampolines = []
     }),
 

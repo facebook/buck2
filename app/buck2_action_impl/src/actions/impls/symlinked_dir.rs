@@ -260,7 +260,7 @@ impl Action for SymlinkedDirAction {
                     srcs.push((src, relative_dest, dest_entry.map_dir(|d| d.as_immutable())));
                 }
                 CopyMode::Symlink => {
-                    builder.add_symlinked(value, src.as_ref(), temp_dest.as_ref())?;
+                    builder.add_symlinked(value, src, temp_dest.as_ref())?;
                 }
             };
         }

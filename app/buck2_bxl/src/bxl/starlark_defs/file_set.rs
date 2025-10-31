@@ -39,8 +39,8 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 /// FileSetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be file sets. It will accept either a
@@ -54,10 +54,7 @@ pub(crate) enum FileSetExpr<'v> {
 }
 
 impl<'a> FileSetExpr<'a> {
-    pub(crate) async fn get(
-        self,
-        bxl: &BxlContextNoDice<'_>,
-    ) -> buck2_error::Result<Cow<'a, FileSet>> {
+    pub(crate) async fn get(self, bxl: &BxlContext<'_>) -> buck2_error::Result<Cow<'a, FileSet>> {
         let set = match self {
             FileSetExpr::Literal(val) => Cow::Owned(FileSet::from_iter([FileNode(
                 bxl.parse_query_file_literal(val)?,

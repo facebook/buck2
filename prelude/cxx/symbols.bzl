@@ -12,7 +12,6 @@ load(
     "CxxToolchainInfo",
     "LinkerType",
 )
-load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _extract_symbol_names(
@@ -167,7 +166,7 @@ def _anon_extract_symbol_names_impl(ctx):
         prefer_local = ctx.attrs.prefer_local,
         undefined_only = ctx.attrs.undefined_only,
         undefined_weak = ctx.attrs.undefined_weak,
-        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
     return [DefaultInfo(), _SymbolsInfo(artifact = output)]
 
@@ -314,7 +313,7 @@ def _create_symbols_file_from_script(
 
     all_symbol_files = actions.write(name + ".symbols", symbol_files)
     all_symbol_files = cmd_args(all_symbol_files, hidden = symbol_files)
-    output = actions.declare_output(name)
+    output = actions.declare_output(name, uses_experimental_content_based_path_hashing = True)
     cmd = [
         "/usr/bin/env",
         "bash",

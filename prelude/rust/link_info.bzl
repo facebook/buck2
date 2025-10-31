@@ -41,6 +41,10 @@ load(
     "LinkGroupInfo",  # @unused Used as a type
 )
 load(
+    "@prelude//cxx:transformation_spec.bzl",
+    "TransformationSpecContext",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
     "LinkGroupLibInfo",  # @unused Used as a type
@@ -411,7 +415,8 @@ def inherited_third_party_builds(ctx: AnalysisContext, dep_ctx: DepCollectionCon
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        link_strategy: LinkStrategy) -> RustCxxLinkGroupInfo | None:
+        link_strategy: LinkStrategy,
+        transformation_spec_context: TransformationSpecContext | None) -> RustCxxLinkGroupInfo | None:
     # Check minimum requirements
     if not cxx_is_gnu(ctx) or not ctx.attrs.auto_link_groups:
         return None
@@ -467,6 +472,7 @@ def inherited_rust_cxx_link_group_info(
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = ctx.attrs.anonymous_link_groups,
         public_nodes = public_link_group_nodes,
+        transformation_spec_context = transformation_spec_context,
     )
 
     auto_link_groups = {}

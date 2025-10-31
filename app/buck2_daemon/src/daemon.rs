@@ -29,6 +29,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -182,6 +183,17 @@ impl DaemonCommand {
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> buck2_error::Result<()> {
+        let cgroup_tree = if self.has_cgroup {
+            // Note: It's important that we do this before daemonizing, as otherwise there may be
+            // stray processes laying around in this cgroup
+            //
+            // FIXME(JakobDegen): It'd be better if we could do this even earlier, ideally spawning
+            // the daemon directly into the cgroup it's supposed to be in. With memory controllers
+            // enabled, moving an existing process is always a bit suspicious
+            Some(BuckCgroupTree::set_up_for_process()?)
+        } else {
+            None
+        };
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
 
@@ -198,7 +210,6 @@ impl DaemonCommand {
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
-            has_cgroup: self.has_cgroup,
         };
 
         let span = tracing::info_span!("daemon_listener");
@@ -396,6 +407,7 @@ impl DaemonCommand {
                 delegate,
                 server_init_ctx,
                 process_info,
+                cgroup_tree,
                 daemon_constraints,
                 Box::pin(listener),
                 handle,
@@ -573,6 +585,8 @@ mod tests {
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_daemon_smoke() {
+        buck2_certs::certs::maybe_setup_cryptography();
+
         let fbinit = unsafe { fbinit::perform_init() };
 
         buck2_core::client_only::CLIENT_ONLY_VAL.init(false);
@@ -628,9 +642,9 @@ mod tests {
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),
-                has_cgroup: false,
             },
             process_info.clone(),
+            None,
             gen_daemon_constraints(&DaemonStartupConfig::testing_empty()).unwrap(),
             Box::pin(listener),
             Handle::current(),

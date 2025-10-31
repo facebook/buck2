@@ -10,12 +10,14 @@ rust_library(
             "linux",
             [
                 "fbsource//third-party/rust:psutil",
+                "//buck2/app/buck2_forkserver:buck2_forkserver",
             ],
         ),
         (
             "macos",
             [
                 "fbsource//third-party/rust:psutil",
+                "//buck2/app/buck2_forkserver:buck2_forkserver",
             ],
         ),
     ],
@@ -35,6 +37,7 @@ rust_library(
         "fbsource//third-party/rust:flate2",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:inferno",
+        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:once_cell",
@@ -70,7 +73,6 @@ rust_library(
         "//buck2/app/buck2_execute:buck2_execute",
         "//buck2/app/buck2_execute_impl:buck2_execute_impl",
         "//buck2/app/buck2_file_watcher:buck2_file_watcher",
-        "//buck2/app/buck2_forkserver:buck2_forkserver",
         "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/app/buck2_http:buck2_http",
         "//buck2/app/buck2_interpreter:buck2_interpreter",

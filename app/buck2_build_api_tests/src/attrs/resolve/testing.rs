@@ -216,7 +216,7 @@ pub(crate) fn resolution_ctx_with_providers(
         }
 
         fn get_dep(
-            &self,
+            &mut self,
             target: &ConfiguredProvidersLabel,
         ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
             Ok(self
@@ -228,7 +228,7 @@ pub(crate) fn resolution_ctx_with_providers(
         }
 
         fn resolve_unkeyed_placeholder(
-            &self,
+            &mut self,
             name: &str,
         ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
             for providers in self.deps.values() {
@@ -244,7 +244,7 @@ pub(crate) fn resolution_ctx_with_providers(
             Ok(None)
         }
 
-        fn resolve_query(&self, _query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
+        fn resolve_query(&mut self, _query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
             unimplemented!("This test resolution context doesn't handle queries")
         }
 

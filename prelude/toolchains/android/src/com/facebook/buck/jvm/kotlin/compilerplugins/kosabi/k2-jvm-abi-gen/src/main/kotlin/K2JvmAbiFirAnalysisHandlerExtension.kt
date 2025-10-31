@@ -10,6 +10,7 @@
 
 package com.facebook
 
+import com.facebook.buck.jvm.kotlin.compilerplugins.common.isStub
 import java.io.File
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -86,9 +87,7 @@ import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.expressions.IrReturn
-import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
@@ -162,6 +161,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           updatedConfiguration,
           module,
           analysisResults,
+          sourceFiles,
       )
     } finally {
       Disposer.dispose(disposable)
@@ -174,6 +174,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       targetId: TargetId,
       analysisResults: FirResult,
       environment: ModuleCompilerEnvironment,
+      sourceFiles: List<KtFile>,
   ): ModuleCompilerIrBackendInput {
     val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
     val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
@@ -181,7 +182,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             extensions,
             configuration,
             environment.diagnosticsReporter,
-            listOf(NonAbiDeclarationsStrippingIrExtension()),
+            listOf(NonAbiDeclarationsStrippingIrExtension(sourceFiles)),
         )
 
     return ModuleCompilerIrBackendInput(
@@ -203,6 +204,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       configuration: CompilerConfiguration,
       module: Module,
       analysisResults: FirResult,
+      sourceFiles: List<KtFile>,
   ): ModuleCompilerOutput {
     // Ignore all FE errors
     val cleanDiagnosticReporter =
@@ -214,13 +216,24 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             TargetId(module),
             analysisResults,
             compilerEnvironment,
+            sourceFiles,
         )
 
     return generateCodeFromIr(irInput, compilerEnvironment)
   }
 
-  private class NonAbiDeclarationsStrippingIrExtension : IrGenerationExtension {
+  private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
+      IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
+      // Filter out files generated from stubs, similar to K1 implementation
+      val stubs = sourceFiles.filter { it.isStub() }
+      if (stubs.isNotEmpty()) {
+        val stubPaths: Set<String> = stubs.map { it.viewProvider.virtualFile.path }.toSet()
+
+        // Remove IR files that were generated from stubs
+        moduleFragment.files.removeAll { irFile -> stubPaths.contains(irFile.fileEntry.name) }
+      }
+
       moduleFragment.transform(
           NonAbiDeclarationsStrippingIrVisitor(pluginContext.irFactory, pluginContext.irBuiltIns),
           null,
@@ -338,26 +351,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         }
       }
       return super.visitSimpleFunction(declaration, data)
-    }
-
-    override fun visitProperty(declaration: IrProperty, data: Nothing?): IrStatement {
-      if (declaration.parent is IrClass || declaration.parent is IrFile) {
-        if (declaration.parent !is IrDeclarationContainer || !declaration.origin.isSynthetic) {
-
-          // the compiler generates backing fields for properties
-          // initializers for the backing fields may contain missing types
-          val backingField = declaration.backingField
-          if (
-              backingField != null &&
-                  (backingField.initializer?.expression as? IrGetValueImpl)?.origin !=
-                      IrStatementOrigin.INITIALIZE_PROPERTY_FROM_PARAMETER &&
-                  backingField.initializer != null
-          ) {
-            backingField.initializer = null
-          }
-        }
-      }
-      return super.visitProperty(declaration, data)
     }
 
     override fun visitAnonymousInitializer(

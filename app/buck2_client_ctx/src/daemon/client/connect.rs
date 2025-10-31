@@ -27,16 +27,15 @@ use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_common::resource_control::ParentSlice;
-use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::ResourceControlRunnerConfig;
-use buck2_common::resource_control::replace_unit_delimiter;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_resource_control::systemd::ParentSlice;
+use buck2_resource_control::systemd::ResourceControlRunner;
+use buck2_resource_control::systemd::replace_unit_delimiter;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::kill::process_exists;
@@ -400,22 +399,21 @@ impl<'a> BuckdLifecycle<'a> {
             })
             .collect::<Vec<_>>()
             .join("_");
+
+        let daemon_uuid = buck2_events::daemon_id::DAEMON_UUID.to_string();
+
         let slice_name = format!(
-            "buck2-daemon.{}.{}",
-            replace_unit_delimiter(&project_dir_underscore_string),
+            "buck2-daemon.{}.{}.{}",
+            replace_unit_delimiter(daemon_uuid.as_str()),
+            replace_unit_delimiter(project_dir_underscore_string.as_str()),
             replace_unit_delimiter(self.paths.isolation.as_str())
         );
         let resource_control_runner = ResourceControlRunner::create_if_enabled(
-            &ResourceControlRunnerConfig::daemon_runner_config(
-                &daemon_startup_config.resource_control,
-                ParentSlice::Root(slice_name.clone()),
-            ),
+            &daemon_startup_config.resource_control,
+            ParentSlice::Root(slice_name.clone()),
         )?;
         let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
             has_cgroup = true;
-            resource_control_runner
-                .ensure_scope_stopped(&format!("{}.scope", &slice_name))
-                .await?;
             resource_control_runner
                 .cgroup_scoped_command(daemon_exe, &slice_name, &project_dir.root())
                 .into()
@@ -1035,6 +1033,7 @@ async fn get_constraints(
         .unpack_oneshot({
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
                 snapshot: false,
+                include_tokio_runtime_metrics: false,
             }))
         })
         .await?;

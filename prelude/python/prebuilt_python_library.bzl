@@ -206,7 +206,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     if pp_args:
         providers.append(cxx_merge_cpreprocessors(
-            ctx = ctx,
+            actions = ctx.actions,
             own = [
                 CPreprocessor(
                     args = CPreprocessorArgs(

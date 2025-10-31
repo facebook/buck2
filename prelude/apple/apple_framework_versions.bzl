@@ -383,6 +383,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (12, 0, 0),
         "watchos": (8, 0, 0),
     },
+    "DeclaredAgeRange": {
+        "iphoneos": (26, 0, 0),
+        "maccatalyst": (26, 0, 0),
+        "macosx": (26, 0, 0),
+    },
     "DeveloperToolsSupport": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
@@ -457,6 +462,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 0, 0),
         "watchos": (2, 0, 0),
+    },
+    "FoundationModels": {
+        "iphoneos": (26, 0, 0),
+        "maccatalyst": (26, 0, 0),
+        "macosx": (26, 0, 0),
     },
     "GLKit": {
         "appletvos": (9, 0, 0),
@@ -1083,10 +1093,14 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 2, 0),
     },
+    "WiFiAware": {
+        "iphoneos": (26, 0, 0),
+    },
     "WidgetKit": {
         "iphoneos": (14, 0, 0),
         "maccatalyst": (14, 0, 0),
         "macosx": (11, 0, 0),
+        "watchos": (9, 0, 0),
     },
     "iAd": {"iphoneos": (4, 0, 0), "maccatalyst": (13, 0, 0)},
     "iTunesLibrary": {"maccatalyst": (14, 0, 0), "macosx": (10, 13, 0)},

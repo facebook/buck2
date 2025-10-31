@@ -7,15 +7,14 @@
 
 %% @format
 -module(shell_buck2_module_search).
-
--export([find_module/1, find_module_source/1]).
-
--compile(warn_missing_spec_all).
 -moduledoc """
 Configurable hook for module discovery
 """.
+-compile(warn_missing_spec_all).
 
--eqwalizer(ignore).
+-export([find_module/1, find_module_source/1]).
+
+-import(common_util, [unicode_characters_to_binary/1]).
 
 -callback find_module_source(module()) ->
     {source, file:filename_all()}
@@ -37,9 +36,7 @@ find_module(Module) ->
         [found] ->
             available;
         _ ->
-            _ = application:load(buck2_shell_utils),
-            % elp:ignore W0011 (application_get_env)
-            case application:get_env(buck2_shell_utils, search_module) of
+            case shell_buck2_utils:get_app_env(search_module) of
                 {ok, Mod} ->
                     Mod:find_module_source(Module);
                 _ ->
@@ -53,24 +50,34 @@ find_module(Module) ->
 find_module_source(Module) ->
     Root = shell_buck2_utils:cell_root(),
     io:format("use ~ts as root", [Root]),
-    {ok, Output} = shell_buck2_utils:run_command(
-        "find ~ts -type d "
-        "\\( -path \"~ts/_build*\" -path \"~ts/erl/_build*\" -o -path ~ts/buck-out \\) -prune "
-        "-o -name '~ts.erl' -print",
-        [Root, Root, Root, Root, Module]
-    ),
+    {ok, Output} = shell_buck2_utils:run_command([
+        "find",
+        Root,
+        "-type",
+        "d",
+        "(",
+        "-path",
+        io_lib:format("~ts/_build*", [Root]),
+        "-o",
+        "-path",
+        io_lib:format("~ts/erl/_build*", [Root]),
+        "-o",
+        "-path",
+        io_lib:format("~ts/buck-out", [Root]),
+        ")",
+        "-prune",
+        "-o",
+        "-name",
+        io_lib:format("~ts.erl", [Module]),
+        "-print"
+    ]),
     case
         [
-            case unicode:characters_to_list(RelPath) of
-                Value when not is_tuple(Value) -> Value
-            end
-         || RelPath <- [
-                string:prefix(Path, [Root, "/"])
-             || Path <- string:split(Output, "\n", all)
-            ],
-            RelPath =/= nomatch,
-            string:prefix(RelPath, "buck-out") == nomatch,
-            string:str(binary_to_list(RelPath), "_build") == 0
+            RelPath
+         || Path <- string:split(Output, ~"\n", all),
+            RelPath <- [unicode_characters_to_binary(P) || P <- [string:prefix(Path, [Root, ~"/"])], P =/= nomatch],
+            string:prefix(RelPath, ~"buck-out") == nomatch,
+            binary:match(RelPath, ~"_build") == nomatch
         ]
     of
         [ModulePath] ->
@@ -80,7 +87,9 @@ find_module_source(Module) ->
         Candidates ->
             %% check if there are actually targets associated
             {ok, RawOutput} = shell_buck2_utils:buck2_query(
-                "owner(\\\"\%s\\\")", "--json", Candidates
+                ~|owner(\\"%s\\")|,
+                [~"--json"],
+                Candidates
             ),
             SourceTargetMapping = json:decode(RawOutput),
             case

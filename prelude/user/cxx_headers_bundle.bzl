@@ -15,7 +15,7 @@ load(":rule_spec.bzl", "RuleRegistrationSpec")
 def _headers(ctx: AnalysisContext, deps: list[Dependency]) -> dict[str, Artifact]:
     headers = {}
 
-    pp_info = cxx_merge_cpreprocessors(ctx, [], [d[CPreprocessorInfo] for d in deps])
+    pp_info = cxx_merge_cpreprocessors(ctx.actions, [], [d[CPreprocessorInfo] for d in deps])
     for pps in pp_info.set.traverse():
         for pp in pps:
             for hdr in pp.headers:

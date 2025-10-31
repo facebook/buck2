@@ -6,7 +6,9 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+derive_more = { workspace = true }
 parking_lot = { workspace = true }
+ref-cast = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
@@ -26,4 +28,4 @@ tempfile = { workspace = true }
 nix = { workspace = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)", "cfg(fbcode_build)"] }

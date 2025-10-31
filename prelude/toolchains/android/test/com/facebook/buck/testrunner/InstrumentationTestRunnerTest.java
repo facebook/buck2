@@ -449,6 +449,93 @@ public class InstrumentationTestRunnerTest {
     Assert.assertFalse(actualCommand.contains("RANDOM_ENV_VAR"));
   }
 
+  @Test
+  public void installsSingleApkWhenNoApkUnderTest() throws Throwable {
+    List<String> installedPackages = new ArrayList<>();
+    IDevice device =
+        new TestDevice() {
+          @Override
+          public synchronized void installPackage(
+              String packageFilePath, boolean reinstall, String... extraArgs) {
+            installedPackages.add(packageFilePath);
+          }
+
+          @Override
+          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
+            // Ignore shell commands for this test
+          }
+
+          @Override
+          public FileListingService getFileListingService() {
+            return new FileListingService(this);
+          }
+        };
+
+    String[] args = {
+      "--target-package-name",
+      "com.example",
+      "--test-package-name",
+      "com.example.test",
+      "--test-runner",
+      "com.example.test.TestRunner",
+      "--adb-executable-path",
+      "required_but_not_used",
+      "--output",
+      "/dev/null",
+      "--auto-run-on-connected-device",
+      "--instrumentation-apk-path",
+      "/path/to/test.apk"
+      // Note: No --apk-under-test-path
+    };
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
+    argsParser.fromArgs(args);
+
+    InstrumentationTestRunner runner =
+        new InstrumentationTestRunner(
+            deviceArgs,
+            argsParser.packageName,
+            argsParser.targetPackageName,
+            argsParser.testRunner,
+            argsParser.outputDirectory,
+            argsParser.instrumentationApkPath,
+            argsParser.apkUnderTestPath,
+            argsParser.exopackageLocalPath,
+            argsParser.apkUnderTestExopackageLocalPath,
+            argsParser.attemptUninstallApkUnderTest,
+            argsParser.attemptUninstallInstrumentationApk,
+            argsParser.debug,
+            argsParser.codeCoverage,
+            argsParser.codeCoverageOutputFile,
+            argsParser.isSelfInstrumenting,
+            argsParser.extraInstrumentationArguments,
+            argsParser.extraInstrumentationTestListener,
+            argsParser.extraFilesToPull,
+            argsParser.extraDirsToPull,
+            argsParser.clearPackageData,
+            argsParser.disableAnimations,
+            argsParser.preTestSetupScript,
+            argsParser.extraApksToInstall) {
+          @Override
+          protected IDevice getAndroidDevice(
+              boolean autoRunOnConnectedDevice, String deviceSerial) {
+            return device;
+          }
+
+          @Override
+          protected void initializeAndroidDevice() throws Exception {
+            // Skip AndroidDevice initialization for tests
+          }
+        };
+
+    runner.run();
+
+    // Verify only one APK was installed
+    Assert.assertEquals(1, installedPackages.size());
+    Assert.assertTrue(installedPackages.contains("/path/to/test.apk"));
+  }
+
   private IDevice createCommandCapturingTestDevice(
       List<String> capturedShellCommands, Map<String, String> mockResponses) {
     return new TestDevice() {
@@ -575,6 +662,11 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
+          protected void initializeAndroidDevice() throws Exception {
+            // Skip AndroidDevice initialization for tests
+          }
+
+          @Override
           protected void pullWithSyncService(
               IDevice device, FileListingService.FileEntry[] filesToPull, String destinationDir)
               throws Exception {
@@ -625,9 +717,7 @@ public class InstrumentationTestRunnerTest {
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
-    if (argsParser.collectTombstones) {
-      runner.addReportLayer(new TombstonesReportLayer(runner));
-    }
+    runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }

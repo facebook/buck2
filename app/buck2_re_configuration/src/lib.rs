@@ -74,6 +74,7 @@ impl FromStr for CASdMode {
 pub enum CopyPolicy {
     Copy,
     Reflink,
+    Hybrid,
 }
 
 impl FromStr for CopyPolicy {
@@ -81,6 +82,7 @@ impl FromStr for CopyPolicy {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "hybrid" => Ok(CopyPolicy::Hybrid),
             "reflink" => Ok(CopyPolicy::Reflink),
             _ => Ok(CopyPolicy::Copy),
         }

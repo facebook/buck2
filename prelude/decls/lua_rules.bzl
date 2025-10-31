@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":lua_common.bzl", "lua_common")
 
@@ -27,7 +27,6 @@ cxx_lua_extension = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a Lua extension from a single .cpp file.
         cxx_lua_extension(
           name = 'mymodule',
@@ -50,18 +49,15 @@ cxx_lua_extension = prelude_rule(
             ':mymodule',
           ],
         )
-
         ```
 
         ```
-
         -- The `utils.lua` source, wrapped by the `utils` rule above.
 
         -- Import the C/C++ extension build above.
         require "foo.bar.mymodule"
 
         ...
-
         ```
     """,
     further = None,
@@ -80,7 +76,6 @@ cxx_lua_extension = prelude_rule(
         cxx_common.linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -90,13 +85,11 @@ cxx_lua_extension = prelude_rule(
             "frameworks": attrs.list(attrs.string(), default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
@@ -105,7 +98,10 @@ cxx_lua_extension = prelude_rule(
             "prefix_header": attrs.option(attrs.source(), default = None),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -117,7 +113,6 @@ lua_binary = prelude_rule(
     """,
     examples = """
         ```
-
         lua_binary(
           name = 'tailer',
           main_module = 'tailer',
@@ -130,7 +125,6 @@ lua_binary = prelude_rule(
           name = 'tailerutils',
           srcs = glob(['*.lua']),
         )
-
         ```
     """,
     further = None,
@@ -143,16 +137,15 @@ lua_binary = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 `lua_library()` rules to this binary will access.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "native_starter_library": attrs.option(attrs.dep(), default = None),
             "package_style": attrs.option(attrs.enum(LuaPlatformPackageStyle), default = None),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "python_platform": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -164,7 +157,6 @@ lua_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .py file.
         lua_library(
           name = 'fileutil',
@@ -178,7 +170,6 @@ lua_library = prelude_rule(
           name = 'testutil',
           srcs = glob(['testutil/**/*.lua'],
         )
-
         ```
     """,
     further = None,
@@ -191,12 +182,12 @@ lua_library = prelude_rule(
                 Other `lua_library()` rules which list `srcs` from
                  which this rule imports modules.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

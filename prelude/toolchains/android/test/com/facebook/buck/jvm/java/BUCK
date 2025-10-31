@@ -82,7 +82,6 @@ buck_java_test(
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/classes:classes",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/javax:javax",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/runner:runner",
-        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version:version",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
         "prelude//toolchains/android/src/com/facebook/buck/step:step",
         "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",

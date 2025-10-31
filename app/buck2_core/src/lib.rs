@@ -18,7 +18,6 @@
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![feature(used_with_arg)]
-#![feature(let_chains)]
 
 #[macro_use]
 pub mod error;
@@ -39,6 +38,7 @@ pub mod directory_digest;
 pub mod env;
 pub mod event;
 pub mod execution_types;
+pub mod faster_directories;
 pub mod fs;
 pub mod global_cfg_options;
 pub mod io_counters;
@@ -47,6 +47,7 @@ pub mod package;
 pub mod pattern;
 pub mod plugins;
 pub mod provider;
+pub mod quick_debug_event;
 pub mod rollout_percentage;
 pub mod target;
 pub mod target_aliases;

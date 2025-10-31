@@ -48,27 +48,6 @@ use crate::target::TargetInfo;
 
 const CLIENT_METADATA_RUST_PROJECT: &str = "--client-metadata=id=rust-project";
 
-const DEFAULT_XPLAT_PLATFORMS: [&str; 2] = ["CXX", "FBCODE"];
-
-pub(crate) fn infer_xplat_platforms(targets: &[Target]) -> Vec<&'static str> {
-    let mut xplat_platforms = vec!["CXX"];
-    for target in targets {
-        if target.contains("fbcode") {
-            xplat_platforms.push("FBCODE");
-            break;
-        }
-    }
-
-    // If the user is running rust-project on macOS, assume they want
-    // APPLE as an available platform. This is only a heuristic: users'
-    // projects may not necessarily match the platform they're currently
-    // developing on, but it's often true in practice.
-    if cfg!(target_os = "macos") {
-        xplat_platforms.push("APPLE");
-    }
-    xplat_platforms
-}
-
 pub(crate) fn to_project_json(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
@@ -473,7 +452,7 @@ impl Buck {
     ///
     /// Care should be taken to ensure that buck is invoked with the same set
     /// options and configuration to avoid invalidating caches.
-    fn command<I, S>(&self, subcommands: I, xplat_platforms: &[&str]) -> Command
+    fn command<I, S>(&self, subcommands: I) -> Command
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
@@ -483,13 +462,6 @@ impl Buck {
             "-c=client.id=rust-project",
             "-c=rust.rust_project_build=true",
         ]);
-
-        if !xplat_platforms.is_empty() {
-            cmd.arg(format!(
-                "-c=xplat.available_platforms={}",
-                xplat_platforms.join(",")
-            ));
-        }
 
         cmd
     }
@@ -535,7 +507,7 @@ impl Buck {
     }
 
     pub(crate) fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command(["audit", "config"], &DEFAULT_XPLAT_PLATFORMS);
+        let mut command = self.command(["audit", "config"]);
         command.args(["--json", "--", "rust.sysroot_src_path"]);
         command
             .stderr(Stdio::null())
@@ -562,7 +534,7 @@ impl Buck {
         use_clippy: bool,
         saved_file: &Path,
     ) -> Result<CheckOutput, anyhow::Error> {
-        let mut command = self.command(["bxl"], &DEFAULT_XPLAT_PLATFORMS);
+        let mut command = self.command(["bxl"]);
 
         if let Some(mode) = &self.mode {
             command.arg(mode);
@@ -606,8 +578,7 @@ impl Buck {
             return Ok(ExpandedAndResolved::default());
         }
 
-        let xplat_platforms = infer_xplat_platforms(targets);
-        let mut command = self.command(["bxl"], &xplat_platforms);
+        let mut command = self.command(["bxl"]);
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
@@ -671,9 +642,7 @@ impl Buck {
         targets: &[Target],
         universe_targets: &[Target],
     ) -> anyhow::Result<FxHashMap<Target, AliasedTargetInfo>> {
-        let xplat_platforms = infer_xplat_platforms(targets);
-
-        let mut command = self.command(["cquery"], &xplat_platforms);
+        let mut command = self.command(["cquery"]);
 
         if let Some(mode) = &self.mode {
             command.arg(mode);
@@ -696,7 +665,7 @@ impl Buck {
         &self,
         targets: &[Target],
     ) -> FxHashMap<Target, AliasedTargetInfo> {
-        let mut command = self.command(["uquery"], &[]);
+        let mut command = self.command(["uquery"]);
 
         if let Some(mode) = &self.mode {
             command.arg(mode);
@@ -724,8 +693,7 @@ impl Buck {
     ) -> Result<FxHashMap<Target, AliasedTargetInfo>, anyhow::Error> {
         // FIXME: Do this in bxl as well instead of manually writing a separate query
 
-        let xplat_platforms = infer_xplat_platforms(targets);
-        let mut command = self.command(["cquery"], &xplat_platforms);
+        let mut command = self.command(["cquery"]);
 
         // Fetch all aliases used by transitive deps. This is so we
         // can translate an apparent dependency of e.g.
@@ -766,7 +734,7 @@ impl Buck {
         input: Input,
         max_extra_targets: usize,
     ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let mut command = self.command(["bxl"], &DEFAULT_XPLAT_PLATFORMS);
+        let mut command = self.command(["bxl"]);
 
         command.args([
             "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",

@@ -66,6 +66,7 @@ public class KotlincModeFactoryTest {
                 true,
                 relPath,
                 relPath,
+                relPath,
                 mockKotlinExtraParams,
                 Optional.empty(),
                 ImmutableList.of());
@@ -84,6 +85,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 true,
+                relPath,
                 relPath,
                 relPath,
                 mockKotlinExtraParams,
@@ -107,6 +109,7 @@ public class KotlincModeFactoryTest {
             true,
             relPath,
             relPath,
+            relPath,
             mockKotlinExtraParams,
             Optional.of(mockActionMetadata),
             ImmutableList.of());
@@ -126,6 +129,7 @@ public class KotlincModeFactoryTest {
             true,
             relPath,
             relPath,
+            relPath,
             mockKotlinExtraParams,
             Optional.empty(),
             ImmutableList.of());
@@ -137,7 +141,6 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
-    when(mockKotlinExtraParams.getJvmAbiGenWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
 
     KotlincMode kotlincMode =
         new KotlincModeFactory(incrementalCompilationValidator)
@@ -146,6 +149,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 true,
+                relPath,
                 relPath,
                 relPath,
                 mockKotlinExtraParams,
@@ -170,6 +174,7 @@ public class KotlincModeFactoryTest {
                 absPath,
                 absPath,
                 false,
+                relPath,
                 relPath,
                 relPath,
                 mockKotlinExtraParams,

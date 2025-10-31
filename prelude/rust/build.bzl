@@ -37,6 +37,10 @@ load(
     "get_shared_library_name_linker_flags",
 )
 load(
+    "@prelude//cxx:transformation_spec.bzl",
+    "TransformationSpecContext",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
@@ -392,6 +396,7 @@ def rust_compile(
         # output of the action is going to be depended on
         infallible_diagnostics: bool = False,
         rust_cxx_link_group_info: RustCxxLinkGroupInfo | None = None,
+        transformation_spec_context: TransformationSpecContext | None = None,
         profile_mode: ProfileMode | None = None) -> RustcOutput:
     toolchain_info = compile_ctx.toolchain_info
 
@@ -436,7 +441,7 @@ def rust_compile(
         )
 
         linker_args = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = common_args.subdir + "/linker_wrapper",
             cmd = linker_cmd,
             language = ctx.attrs._exec_os_type[OsLookup].script,
@@ -563,7 +568,7 @@ def rust_compile(
                 link_strategy = params.dep_link_strategy,
                 swiftmodule_linkable = None,
                 prefer_stripped = False,
-                transformation_spec_context = None,
+                transformation_spec_context = transformation_spec_context,
             )
 
         if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):
@@ -722,7 +727,7 @@ def rust_compile(
         dwp_output = None
 
     stripped_output = strip_debug_info(
-        ctx,
+        ctx.actions,
         paths.join(common_args.subdir, "stripped", output_filename(
             compile_ctx,
             attr_simple_crate_for_filenames(ctx),
@@ -730,6 +735,7 @@ def rust_compile(
             params,
         )),
         filtered_output,
+        compile_ctx.cxx_toolchain_info,
     )
 
     return RustcOutput(
@@ -1271,24 +1277,17 @@ def _explain(
     if emit == Emit("expand"):
         base = "expand"
 
-    if emit == Emit("llvm-ir"):
-        link_strategy_suffix = {
-            LinkStrategy("static"): " [static]",
-            LinkStrategy("static_pic"): " [pic]",
-            LinkStrategy("shared"): " [shared]",
-        }[link_strategy]
-        base = "llvm-ir" + link_strategy_suffix
+    for emit_type in ["asm", "llvm-ir", "mir"]:
+        if emit == Emit(emit_type):
+            link_strategy_suffix = {
+                LinkStrategy("static"): " [static]",
+                LinkStrategy("static_pic"): " [pic]",
+                LinkStrategy("shared"): " [shared]",
+            }[link_strategy]
+            base = emit_type + link_strategy_suffix
 
     if emit == Emit("llvm-ir-noopt"):
         base = "llvm-ir-noopt"
-
-    if emit == Emit("mir"):
-        link_strategy_suffix = {
-            LinkStrategy("static"): " [static]",
-            LinkStrategy("static_pic"): " [pic]",
-            LinkStrategy("shared"): " [shared]",
-        }[link_strategy]
-        base = "mir" + link_strategy_suffix
 
     if base == None:
         fail("unrecognized rustc action:", crate_type, link_strategy, emit)

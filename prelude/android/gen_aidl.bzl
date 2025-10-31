@@ -38,7 +38,7 @@ def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
 
     aidl_cmd.add(cmd_args(hidden = dep_srcs))
 
-    aidl_out = ctx.actions.declare_output("aidl_output", dir = True, uses_experimental_content_based_path_hashing = True)
+    aidl_out = ctx.actions.declare_output("aidl_output", dir = True, has_content_based_path = True)
     aidl_cmd.add("-o", aidl_out.as_output())
     aidl_cmd.add(ctx.attrs.aidl)
 
@@ -66,7 +66,7 @@ def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     jar_cmd = cmd_args(java_toolchain.jar)
     jar_cmd.add("-cfM")
-    out = ctx.actions.declare_output("{}_aidl_java_output.src.zip".format(ctx.attrs.name), uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("{}_aidl_java_output.src.zip".format(ctx.attrs.name), has_content_based_path = True)
     jar_cmd.add(out.as_output())
     jar_cmd.add(aidl_out)
 

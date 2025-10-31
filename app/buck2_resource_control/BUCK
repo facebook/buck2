@@ -24,8 +24,13 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:tempfile",
     ],
+    test_env = {
+        "PREP_CGROUP_SCRIPT": "$(location fbcode//buck2/shed/cgroups:prep_cgroup)",
+    },
     deps = [
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",

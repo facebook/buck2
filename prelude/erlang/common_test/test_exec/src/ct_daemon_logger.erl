@@ -15,9 +15,7 @@ CT handles logging and printing by sending a message to the ct_logs
  control over the output and to avoid starting ct processes that
  might interfere with test shell's functionality.
 """.
--eqwalizer(ignore).
-
--include_lib("kernel/include/logger.hrl").
+-compile(warn_missing_spec_all).
 
 -behaviour(gen_server).
 
@@ -34,9 +32,21 @@ CT handles logging and printing by sending a message to the ct_logs
     Result :: {ok, state()}.
 init(_) -> {ok, #{}}.
 
--spec handle_info(Info, State) -> {noreply, State} when
-    Info :: term(),
-    State :: state().
+-spec handle_info
+    (LogMsg, State) -> {noreply, State} when
+        LogMsg :: {
+            log,
+            sync | async,
+            FromPid :: pid(),
+            GL :: pid(),
+            Category :: atom(),
+            Importance :: non_neg_integer(),
+            Content :: [{io:format(), [term()]}],
+            EscChars :: boolean()
+        };
+    (Info, State) -> {noreply, State} when
+        Info :: none(),
+        State :: state().
 handle_info({log, _SyncOrAsync, _FromPid, _GL, _Category, _Importance, Content, _EscChars} = _Info, State) when
     is_list(Content)
 ->

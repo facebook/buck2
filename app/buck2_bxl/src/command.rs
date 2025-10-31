@@ -460,6 +460,9 @@ impl BxlServerCommand {
                 unstable_include_artifact_hash_information: false,
                 unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
                 graph_properties_opts: Default::default(),
+                unstable_streaming_build_report_filename: bxl_opts
+                    .unstable_streaming_build_report_filename
+                    .clone(),
             };
 
             generate_build_report(

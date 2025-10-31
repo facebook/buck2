@@ -13,18 +13,19 @@
 //! Implementation of several server commands.
 
 #![feature(box_patterns)]
-#![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(used_with_arg)]
 
-pub mod commands;
-pub mod dot;
-pub mod html;
-pub(crate) mod json;
-pub(crate) mod query_output_format;
-pub mod target_hash;
+pub(crate) mod build;
+pub(crate) mod complete;
+pub(crate) mod debug_eval;
+pub(crate) mod expand_external_cells;
+pub(crate) mod explain;
+#[cfg(fbcode_build)]
+pub(crate) mod explain_code;
+pub(crate) mod init_commands;
+pub(crate) mod install;
 
 pub fn init_late_bindings() {
-    commands::init_commands::init_other_server_commands();
-    commands::query::printer::init_print_action_node();
+    init_commands::init_other_server_commands();
 }

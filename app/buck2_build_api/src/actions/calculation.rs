@@ -211,6 +211,7 @@ async fn build_action_inner(
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
+    let is_eligible_for_dedupe = is_action_eligible_for_dedupe(action, &ensured_inputs);
     let (execute_result, command_reports) =
         executor.execute(ensured_inputs, action, cancellation).await;
 
@@ -421,8 +422,33 @@ async fn build_action_inner(
             target_rule_type_name,
             scheduling_mode: scheduling_mode.map(|h| h as i32),
             incremental_kind: incremental_kind.map(|k| k as i32),
+            eligible_for_dedupe: is_eligible_for_dedupe as i32,
         }),
     )
+}
+
+fn is_action_eligible_for_dedupe(
+    action: &Arc<RegisteredAction>,
+    inputs: &IndexMap<ArtifactGroup, ArtifactGroupValues>,
+) -> buck2_data::EligibleForDedupe {
+    if !action.all_outputs_are_content_based() {
+        return buck2_data::EligibleForDedupe::IneligibleOutput;
+    }
+
+    let target_platform =
+        if let BaseDeferredKey::TargetLabel(configured_label) = action.key().owner() {
+            Some(configured_label.cfg())
+        } else {
+            None
+        };
+
+    for (ag, _agv) in inputs.iter() {
+        if !ag.is_eligible_for_dedupe(target_platform) {
+            return buck2_data::EligibleForDedupe::IneligibleInput;
+        }
+    }
+
+    buck2_data::EligibleForDedupe::Eligible
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or
@@ -668,6 +694,7 @@ async fn command_execution_report_to_proto(
     buck2_data::CommandExecution {
         details: Some(details),
         status: Some(status),
+        inline_environment_metadata: Some(report.inline_environment_metadata),
     }
 }
 

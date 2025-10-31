@@ -49,8 +49,8 @@ use starlark::values::ValueOf;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
@@ -255,7 +255,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack_opt(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -279,7 +279,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         // TODO(nga): this does not accept unconfigured targets, so should be narrower type here.
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, false).await
@@ -288,7 +288,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack_allow_unconfigured(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, true).await
@@ -314,7 +314,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     async fn unpack_literal(
         arg: ConfiguredTargetNodeArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -349,7 +349,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack_keep_going(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
@@ -364,7 +364,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     async fn unpack_string_literal(
         val: &str,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
         keep_going: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -431,7 +431,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     async fn unpack_iterable(
         value: ValueOf<'v, ConfiguredTargetListArg<'v>>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -500,7 +500,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 impl<'v> TargetListExpr<'v, TargetNode> {
     pub(crate) async fn unpack(
         value: TargetListExprArg<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
@@ -511,7 +511,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
 
     async fn unpack_literal(
         value: TargetNodeOrTargetLabelOrStr<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
@@ -551,7 +551,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
 
     async fn unpack_iterable(
         value: TargetSetOrTargetList<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {

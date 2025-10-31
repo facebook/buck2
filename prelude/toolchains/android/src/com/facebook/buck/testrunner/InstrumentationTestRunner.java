@@ -21,6 +21,9 @@ import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
+import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
+import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
 import com.facebook.buck.testrunner.reportlayer.ReportLayer;
@@ -43,6 +46,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -90,6 +97,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
       "/storage/emulated/0/Android/media/%s/test_result/%s/";
   private static final String PRE_TEST_SETUP_SCRIPT = "PRE_TEST_SETUP_SCRIPT";
   private static final String APEXES_TO_INSTALL = "APEXES_TO_INSTALL";
+  // Minimum Android SDK version that supports --fastdeploy flag (Android 10+)
+  // https://developer.android.com/tools/releases/platform-tools#2905_october_2019
+  private static final int MIN_SDK_VERSION_FOR_FASTDEPLOY = 29;
 
   private final String packageName;
   private final String targetPackageName;
@@ -115,9 +125,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private final String preTestSetupScript;
   private final List<String> apexesToInstall;
 
+  private final CrashAnalyzer crashAnalyzer = new CrashAnalyzer();
+
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
+  private AndroidDevice androidDevice = null;
+  private AdbUtils adbUtils = null;
+  private volatile boolean testRunFailed = false;
 
   public InstrumentationTestRunner(
       DeviceArgs deviceArgs,
@@ -168,6 +183,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.disableAnimations = disableAnimations;
     this.preTestSetupScript = preTestSetupScript;
     this.apexesToInstall = apexesToInstall;
+    this.adbUtils = new AdbUtils(getAdbPath(), 0);
   }
 
   protected static class ArgsParser {
@@ -387,6 +403,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return this.device;
   }
 
+  public boolean hasTestRunFailed() {
+    return this.testRunFailed;
+  }
+
   public void addReportLayer(ReportLayer reportLayer) {
     reportLayers.add(reportLayer);
   }
@@ -423,9 +443,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
-    if (argsParser.collectTombstones) {
-      runner.addReportLayer(new TombstonesReportLayer(runner));
-    }
+    runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }
@@ -446,7 +464,50 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   protected void installPackage(IDevice device, String path) throws Throwable {
-    device.installPackage(path, true);
+    if (getSdkVersion() >= MIN_SDK_VERSION_FOR_FASTDEPLOY) {
+      try {
+        String adbCommand = buildFastdeployInstallCommand(device, path);
+        RunShellCommand.run(adbCommand);
+      } catch (Exception e) {
+        device.installPackage(path, true);
+      }
+    } else {
+      device.installPackage(path, true);
+    }
+  }
+
+  private String buildFastdeployInstallCommand(IDevice device, String path) {
+    String deviceSerial = androidDevice.getSerialNumber();
+    return getAdbPath() + " -s " + deviceSerial + " install --fastdeploy " + path;
+  }
+
+  protected void initializeAndroidDevice() throws Exception {
+    if (this.androidDevice == null) {
+      String deviceSerial = deviceArgs.deviceSerial;
+
+      // Validate device selection arguments
+      if (deviceSerial == null && !deviceArgs.autoRunOnConnectedDevice) {
+        throw new IllegalArgumentException(
+            "Either deviceSerial must be provided or autoRunOnConnectedDevice must be enabled");
+      }
+
+      // If both deviceSerial and autoRunOnConnectedDevice are specified, deviceSerial takes
+      // precedence
+      if (deviceSerial == null && deviceArgs.autoRunOnConnectedDevice) {
+        List<AndroidDevice> devices = this.adbUtils.getDevices();
+        if (!devices.isEmpty()) {
+          // TODO: If more than one device is attached, we currently select the first one.
+          // Consider warning the user or providing a way to specify which device to use.
+          this.androidDevice = devices.get(0);
+        }
+      } else if (deviceSerial != null) {
+        this.androidDevice = new AndroidDeviceImpl(deviceSerial, this.adbUtils);
+      }
+
+      if (this.androidDevice == null) {
+        throw new RuntimeException("Failed to initialize AndroidDevice");
+      }
+    }
   }
 
   @SuppressWarnings({"PMD.BlacklistedSystemGetenv", "PMD.BlacklistedDefaultProcessMethod"})
@@ -454,11 +515,51 @@ public class InstrumentationTestRunner extends DeviceRunner {
     IDevice device = getAndroidDevice(deviceArgs.autoRunOnConnectedDevice, deviceArgs.deviceSerial);
     this.device = device;
 
+    initializeAndroidDevice();
+
     if (this.instrumentationApkPath != null) {
       DdmPreferences.setTimeOut(60000);
-      installPackage(device, this.instrumentationApkPath);
+
       if (this.apkUnderTestPath != null) {
-        installPackage(device, this.apkUnderTestPath);
+        // Install both APKs in parallel to improve performance
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+          Future<Void> instrumentationFuture =
+              executor.submit(
+                  () -> {
+                    try {
+                      installPackage(device, this.instrumentationApkPath);
+                      return null;
+                    } catch (Throwable t) {
+                      throw new RuntimeException("Failed to install instrumentation APK", t);
+                    }
+                  });
+
+          Future<Void> apkUnderTestFuture =
+              executor.submit(
+                  () -> {
+                    try {
+                      installPackage(device, this.apkUnderTestPath);
+                      return null;
+                    } catch (Throwable t) {
+                      throw new RuntimeException("Failed to install APK under test", t);
+                    }
+                  });
+
+          // Wait for both installations to complete and handle any exceptions
+          try {
+            instrumentationFuture.get();
+            apkUnderTestFuture.get();
+          } catch (ExecutionException e) {
+            throw e.getCause();
+          }
+        } finally {
+          executor.shutdown();
+          executor.awaitTermination(60, TimeUnit.SECONDS);
+        }
+      } else {
+        // Single APK installation (no APK under test)
+        installPackage(device, this.instrumentationApkPath);
       }
     }
 
@@ -515,17 +616,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // that can be added in preTestSetupScript, e.g.
     // arvr/projects/codec_avatar/prod/pre_test_setup_script_with_apex.sh.
     if (this.apexesToInstall != null && !this.apexesToInstall.isEmpty()) {
-      // APEX install sometimes requires root.
-      if (!device.root()) {
-        throw new RuntimeException("Failed to root device.");
-      }
-
       for (final String apexPath : this.apexesToInstall) {
         System.err.println(String.format("Installing APEX: %s...", apexPath));
-        DdmPreferences.setTimeOut(60000);
-        // If the APEX is not present, we will install it.
-        // If the APEX is already installed, we will update it.
-        device.installPackage(apexPath, false, "--apex");
+        androidDevice.installApexOnDevice(new File(apexPath), false);
         System.err.println(String.format("APEX installed: %s.", apexPath));
       }
     }
@@ -664,6 +757,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             @Override
             public void testRunFailed(String errorMessage) {
               System.err.println("Test Run Failed: " + errorMessage);
+              testRunFailed = true;
             }
 
             @Override
@@ -757,11 +851,18 @@ public class InstrumentationTestRunner extends DeviceRunner {
         layer.report();
       }
       if (this.attemptUninstallInstrumentationApk) {
-        // Best effort uninstall from the emulator/device.
-        device.uninstallPackage(this.packageName);
+        try {
+          androidDevice.uninstallPackage(this.packageName);
+        } catch (Exception e) {
+          System.err.printf("Failed to uninstall instrumentation package: %s\n", e);
+        }
       }
       if (this.attemptUninstallApkUnderTest) {
-        device.uninstallPackage(this.targetPackageName);
+        try {
+          androidDevice.uninstallPackage(this.targetPackageName);
+        } catch (Exception e) {
+          System.err.printf("Failed to uninstall target package: %s\n", e);
+        }
       }
     }
   }
@@ -801,6 +902,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
   @SuppressWarnings("PMD.BlacklistedSystemGetenv")
   private void collectAdbLogs(IDevice device) {
     try {
+      StringBuilder allLogOutput = new StringBuilder();
+
       for (LogcatBuffer buffer : this.collectedLogcatBuffers) {
         String bufferName = buffer.getCliArgument();
         Path traPath = this.createPathForLogcatBuffer(bufferName);
@@ -811,10 +914,19 @@ public class InstrumentationTestRunner extends DeviceRunner {
         if (logOutput == null) {
           continue;
         }
+
+        // Accumulate all log output for crash analysis
+        allLogOutput.append("=== ").append(bufferName.toUpperCase()).append(" BUFFER ===\n");
+        allLogOutput.append(logOutput).append("\n");
+
         try (FileWriter logWriter = new FileWriter(traPath.toString())) {
           logWriter.write(logOutput);
         }
       }
+
+      // Analyze all collected logcat output for crash information
+      crashAnalyzer.analyzeCrashInformation(allLogOutput.toString());
+
     } catch (IOException e) {
       e.printStackTrace(System.err);
       System.err.printf("Failed to write logs from buffer failed with error: %s\n", e);
@@ -1001,7 +1113,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
       String targetPackageName,
       boolean isSelfInstrumenting,
       String folderName) {
-    int sdkVersion = getSdkVersion(device);
+    int sdkVersion = getSdkVersion();
     // App Scoped Storage was introduced in Android 11
     if (sdkVersion == -1 || sdkVersion < 30) {
       return null;
@@ -1021,12 +1133,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return String.format(artifactsDirTemplate, devicePathPackage, folderName);
   }
 
-  private int getSdkVersion(IDevice device) {
-    String sdk = device.getProperty("ro.build.version.sdk");
+  private int getSdkVersion() {
     try {
+      String sdk = androidDevice.getProperty("ro.build.version.sdk");
       return Integer.parseInt(sdk);
     } catch (NumberFormatException e) {
       System.err.printf("Unable to determine SDK version for device: %s\n", e);
+    } catch (Exception e) {
+      System.err.printf("Unable to get SDK version property: %s\n", e);
     }
     return -1;
   }

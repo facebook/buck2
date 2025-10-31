@@ -29,6 +29,7 @@ use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -45,7 +46,6 @@ use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
 use futures::FutureExt;
 use starlark::collections::SmallMap;
-use starlark::environment::Module;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -74,7 +74,7 @@ pub(crate) struct CfgConstructor {
 
 async fn eval_pre_constraint_analysis<'v, 'a>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
-    reentrant_eval: &mut ReentrantStarlarkEvaluator<'_, 'v, 'a, '_>,
+    reentrant_eval: &mut ReentrantStarlarkEvaluator<'v, 'a, '_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
@@ -181,7 +181,7 @@ async fn analyze_constraints(
 fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
     params: Value<'v>,
-    eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
+    eval: &mut ReentrantStarlarkEvaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
 ) -> buck2_error::Result<ConfigurationData> {
     eval.with_evaluator(|eval| -> buck2_error::Result<ConfigurationData> {
@@ -221,46 +221,51 @@ async fn eval_underlying(
     rule_type: &RuleType,
     cancellation: &CancellationContext,
 ) -> buck2_error::Result<ConfigurationData> {
-    let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
     let eval_kind = StarlarkEvalKind::Unknown("constraint-analysis invocation".into());
-    let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
-    let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
+    let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
-    // Pre constraint-analysis
-    let (refs, params) = eval_pre_constraint_analysis(
-        cfg_constructor
-            .cfg_constructor_pre_constraint_analysis
-            .value(),
-        &mut reentrant_eval,
-        cfg,
-        package_cfg_modifiers,
-        target_cfg_modifiers,
-        cli_modifiers,
-        rule_type,
-        cfg_constructor.aliases.as_ref(),
-        cfg_constructor.extra_data.as_ref(),
-        &print,
-    )
-    .await?;
+    BuckStarlarkModule::with_profiling_async(|env_provider| async move {
+        let module = env_provider.make();
+        let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
 
-    // Constraint analysis
-    let refs_providers_map = analyze_constraints(ctx, refs).await?;
+        // Pre constraint-analysis
+        let (refs, params) = eval_pre_constraint_analysis(
+            cfg_constructor
+                .cfg_constructor_pre_constraint_analysis
+                .value(),
+            &mut reentrant_eval,
+            cfg,
+            package_cfg_modifiers,
+            target_cfg_modifiers,
+            cli_modifiers,
+            rule_type,
+            cfg_constructor.aliases.as_ref(),
+            cfg_constructor.extra_data.as_ref(),
+            &print,
+        )
+        .await?;
 
-    // Post constraint-analysis
-    let res = eval_post_constraint_analysis(
-        cfg_constructor
-            .cfg_constructor_post_constraint_analysis
-            .value(),
-        params,
-        &mut reentrant_eval,
-        refs_providers_map,
-    );
+        // Constraint analysis
+        let refs_providers_map = analyze_constraints(ctx, refs).await?;
 
-    let _finished_eval = reentrant_eval.finish_evaluation();
+        // Post constraint-analysis
+        let res = eval_post_constraint_analysis(
+            cfg_constructor
+                .cfg_constructor_post_constraint_analysis
+                .value(),
+            params,
+            &mut reentrant_eval,
+            refs_providers_map,
+        )?;
 
-    res
+        let finished_eval = reentrant_eval.finish_evaluation();
+        let (token, _) = finished_eval.finish(None)?;
+
+        Ok((token, res))
+    })
+    .await
 }
 
 #[async_trait]

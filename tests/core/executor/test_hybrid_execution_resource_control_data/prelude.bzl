@@ -142,10 +142,11 @@ allocate_memory = rule(
     },
 )
 
+_use_some_memory = read_root_config("use_some_memory", "path")
+
 def _freeze_unfreeze_impl(ctx) -> list[Provider]:
     output0 = ctx.actions.declare_output("output0.txt")
-    script = ctx.attrs.script
-    cmd0 = cmd_args(["fbpython", script, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()])
+    cmd0 = cmd_args([_use_some_memory, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()])
 
     # this action will be frozen
     ctx.actions.run(cmd0, category = "freeze_unfreeze", identifier = "action_to_be_frozen", prefer_local = prefer_local)
@@ -153,7 +154,7 @@ def _freeze_unfreeze_impl(ctx) -> list[Provider]:
     output1 = ctx.actions.declare_output("output1.txt")
 
     # this action will not be frozen
-    cmd1 = cmd_args(["fbpython", script, "--allocate-count", "40", "--each-tick-allocate-memory", "1", "--tick-duration", "0.1", "--output", output1.as_output()])
+    cmd1 = cmd_args([_use_some_memory, "--allocate-count", "40", "--each-tick-allocate-memory", "1", "--tick-duration", "0.1", "--output", output1.as_output()])
     ctx.actions.run(cmd1, category = "freeze_unfreeze", identifier = "small_action", prefer_local = prefer_local)
 
     final_output = ctx.actions.declare_output("final_output.txt")
@@ -169,22 +170,19 @@ def _freeze_unfreeze_impl(ctx) -> list[Provider]:
 
 freeze_unfreeze = rule(
     impl = _freeze_unfreeze_impl,
-    attrs = {
-        "script": attrs.source(),
-    },
+    attrs = {},
 )
 
 def _parent_cgroup_slice_memory_high_unset_restore_impl(ctx) -> list[Provider]:
-    script = ctx.attrs.script
     output0 = ctx.actions.declare_output("output0.txt")
     output1 = ctx.actions.declare_output("output1.txt")
 
     # this action will be frozen
-    cmd0 = cmd_args(["fbpython", script, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()])
+    cmd0 = cmd_args([_use_some_memory, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()])
     ctx.actions.run(cmd0, category = "freeze_unfreeze", identifier = "action_to_be_frozen", prefer_local = prefer_local)
 
     # this action will not be frozen
-    cmd1 = cmd_args(["fbpython", script, "--allocate-count", "40", "--each-tick-allocate-memory", "1", "--tick-duration", "0.1", "--output", output1.as_output(), "--pre-exit-sleep-duration", "30"])
+    cmd1 = cmd_args([_use_some_memory, "--allocate-count", "40", "--each-tick-allocate-memory", "1", "--tick-duration", "0.1", "--output", output1.as_output(), "--pre-exit-sleep-duration", "30"])
     ctx.actions.run(cmd1, category = "freeze_unfreeze", identifier = "small_action", prefer_local = prefer_local)
 
     final_output = ctx.actions.declare_output("final_output.txt")
@@ -199,7 +197,5 @@ def _parent_cgroup_slice_memory_high_unset_restore_impl(ctx) -> list[Provider]:
 
 parent_cgroup_slice_memory_high_unset_restore = rule(
     impl = _parent_cgroup_slice_memory_high_unset_restore_impl,
-    attrs = {
-        "script": attrs.source(),
-    },
+    attrs = {},
 )

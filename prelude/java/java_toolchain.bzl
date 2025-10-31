@@ -20,7 +20,6 @@ JavaPlatformInfo = provider(
 )
 
 JavaToolchainInfo = provider(
-    # @unsorted-dict-items
     doc = "Java toolchain info",
     fields = {
         "abi_generation_mode": provider_field(typing.Any, default = None),
@@ -52,6 +51,7 @@ JavaToolchainInfo = provider(
         "javacd_jvm_args": provider_field(typing.Any, default = None),
         "javacd_jvm_args_target": provider_field(typing.Any, default = None),
         "javacd_main_class": provider_field(typing.Any, default = None),
+        "javacd_remote_worker": provider_field(typing.Any, default = None),
         "javacd_worker": provider_field(typing.Any, default = None),
         "jlink": provider_field(typing.Any, default = None),
         "jmod": provider_field(typing.Any, default = None),
@@ -63,6 +63,8 @@ JavaToolchainInfo = provider(
         "postprocessor_runner": provider_field(typing.Any, default = None),
         "proguard_jar": provider_field(typing.Any, default = None),
         "proguard_max_heap_size": provider_field(typing.Any, default = None),
+        "semanticdb_javac": provider_field(typing.Any, default = None),
+        "semanticdb_sourceroot": provider_field(typing.Any, default = None),
         "source_level": provider_field(typing.Any, default = None),
         "src_root_elements": provider_field(typing.Any, default = None),
         "src_root_prefixes": provider_field(typing.Any, default = None),
@@ -74,7 +76,6 @@ JavaToolchainInfo = provider(
 )
 
 JavaTestToolchainInfo = provider(
-    # @unsorted-dict-items
     doc = "Java test toolchain info",
     fields = {
         "junit5_test_runner_main_class_args": provider_field(typing.Any, default = None),

@@ -110,7 +110,7 @@ def should_scrub_with_focused_targets_output_paths(
     else:
         # occasionally archive file can be directly from source.
         (package, name) = os.path.split(debug_file_path)
-        while package != "":
+        while package != "" and package != "/":
             if f"{package}/__{name}__" in focused_targets_output_paths:
                 return False
             (package, name) = os.path.split(package)

@@ -31,7 +31,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
-load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "TransformationResultProvider", "transformation_spec_impl")
+load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "transformation_spec_impl")
 load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
 load("@prelude//decls:android_rules.bzl", "android_rules")
 load("@prelude//decls:common.bzl", "IncludeType", "buck")
@@ -66,7 +66,7 @@ load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_binary_transition", "go_exported_library_transition", "go_library_transition", "go_stdlib_transition", "go_test_transition")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary_impl")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
@@ -325,17 +325,7 @@ cxx_extra_attributes = {
     },
     "cxx_library": _cxx_extra_library_attrs,
     "cxx_precompiled_header": _cxx_extra_library_attrs,
-    "cxx_test": _merge_dictionaries(
-        [
-            re_test_common.test_args(),
-            {
-                "transformation_spec": attrs.option(
-                    attrs.dep(providers = [TransformationResultProvider]),
-                    default = None,
-                ),
-            },
-        ],
-    ),
+    "cxx_test": re_test_common.test_args(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
     "llvm_link_bitcode": {
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -547,24 +537,6 @@ categorized_extra_attributes = {
     _RUST_RULES_KEY: _rust_extra_attributes,
     _SHELL_RULES_KEY: _shell_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
-}
-
-# Configuration transitions to pass `cfg` for builtin rules.
-transitions = {
-    "android_binary": constraint_overrides.transition,
-    "cxx_binary": constraint_overrides.transition,
-    "cxx_test": constraint_overrides.transition,
-    "export_file": constraint_overrides.transition,
-    "filegroup": constraint_overrides.transition,
-    "genrule": constraint_overrides.transition,
-    "go_binary": go_binary_transition,
-    "go_exported_library": go_exported_library_transition,
-    "go_library": go_library_transition,
-    "go_stdlib": go_stdlib_transition,
-    "go_test": go_test_transition,
-    "python_binary": constraint_overrides.python_transition,
-    "python_test": constraint_overrides.python_transition,
-    "sh_test": constraint_overrides.transition,
 }
 
 toolchain_rule_names = [

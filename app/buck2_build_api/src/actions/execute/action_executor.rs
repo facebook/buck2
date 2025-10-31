@@ -61,6 +61,7 @@ use buck2_execute::output_size::OutputCountAndBytes;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_futures::cancellation::CancellationContext;
@@ -70,6 +71,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
+use fxhash::FxHashMap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
@@ -268,6 +270,7 @@ impl HasActionExecutor for DiceComputations<'_> {
             action_cache_checker,
             remote_dep_file_cache_checker,
             cache_uploader,
+            output_trees_download_config,
         } = self.get_command_executor_from_dice(executor_config).await?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
@@ -299,6 +302,7 @@ impl HasActionExecutor for DiceComputations<'_> {
             http_client,
             mergebase,
             invalidation_tracking_enabled,
+            output_trees_download_config,
         )))
     }
 }
@@ -315,6 +319,7 @@ pub struct BuckActionExecutor {
     http_client: HttpClient,
     mergebase: Mergebase,
     invalidation_tracking_enabled: bool,
+    output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 impl BuckActionExecutor {
@@ -330,6 +335,7 @@ impl BuckActionExecutor {
         http_client: HttpClient,
         mergebase: Mergebase,
         invalidation_tracking_enabled: bool,
+        output_trees_download_config: OutputTreesDownloadConfig,
     ) -> Self {
         BuckActionExecutor {
             command_executor,
@@ -343,6 +349,7 @@ impl BuckActionExecutor {
             http_client,
             mergebase,
             invalidation_tracking_enabled,
+            output_trees_download_config,
         }
     }
 }
@@ -393,7 +400,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn artifact_path_mapping(
         &self,
         filter: Option<IndexSet<ArtifactGroup>>,
-    ) -> IndexMap<&Artifact, ContentBasedPathHash> {
+    ) -> FxHashMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
             .filter(|(ag, _)| {
@@ -655,6 +662,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn http_client(&self) -> HttpClient {
         self.executor.http_client.dupe()
     }
+
+    fn output_trees_download_config(&self) -> &OutputTreesDownloadConfig {
+        &self.executor.output_trees_download_config
+    }
 }
 
 impl BuckActionExecutor {
@@ -829,6 +840,7 @@ mod tests {
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+    use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
     use buck2_futures::cancellation::CancellationContext;
     use buck2_http::HttpClientBuilder;
     use dupe::Dupe;
@@ -849,6 +861,7 @@ mod tests {
 
     #[tokio::test]
     async fn can_execute_some_action() {
+        buck2_certs::certs::maybe_setup_cryptography();
         let cells = CellResolver::testing_with_name_and_path(
             CellName::testing_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
@@ -899,6 +912,7 @@ mod tests {
                 .build(),
             Default::default(),
             true,
+            OutputTreesDownloadConfig::new(None, true),
         );
 
         #[derive(Debug, Allocative)]

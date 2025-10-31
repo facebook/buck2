@@ -52,7 +52,6 @@ impl Dupe for ChannelEventSink {}
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::time::SystemTime;
 
     use buck2_data::CommandStart;
@@ -78,8 +77,7 @@ mod tests {
             SpanStartEvent {
                 data: Some(
                     CommandStart {
-                        data: None,
-                        metadata: HashMap::new(),
+                        ..Default::default()
                     }
                     .into(),
                 ),

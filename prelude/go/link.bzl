@@ -100,6 +100,7 @@ def _process_shared_dependencies(
 def link(
         ctx: AnalysisContext,
         main: GoPkg,
+        cgo_enabled: bool,
         pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
         build_mode: GoBuildMode = GoBuildMode("exe"),
@@ -108,6 +109,10 @@ def link(
         linker_flags: list[typing.Any] = [],
         external_linker_flags: list[typing.Any] = []):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
+    if not cgo_enabled and (go_toolchain.asan or go_toolchain.race):
+        fail("`race=True` and `asan=True` are only supported when `cgo_enabled=True`")
+
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
         shared_extension = ".dll"
@@ -133,7 +138,7 @@ def link(
         file_extension = executable_extension
         use_shared_code = False  # non-PIC
     final_output_name = ctx.label.name + file_extension
-    output = ctx.actions.declare_output(ctx.label.name + "-tmp" + file_extension)
+    output = ctx.actions.declare_output(ctx.label.name + "-tmp" + file_extension, has_content_based_path = True)
 
     cmd = cmd_args()
 
@@ -206,10 +211,16 @@ def link(
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
         # we can generate the platform-specific stuff once and re-use?
+        ext_link_argfile, _ = ctx.actions.write(
+            output.short_path + ".go_ext_link_argsfile",
+            ext_link_args,
+            allow_args = True,
+            has_content_based_path = True,
+        )
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,
-                ext_link_args,
+                cmd_args(ext_link_argfile, format = "@{}"),
                 "%*" if is_win else "\"$@\"",
             ],
             delimiter = " ",
@@ -219,8 +230,9 @@ def link(
             ([] if is_win else ["#!/bin/sh"]) + [cxx_link_cmd],
             allow_args = True,
             is_executable = True,
+            has_content_based_path = True,
         )
-        cmd.add("-extld", linker_wrapper, cmd_args(hidden = cxx_link_cmd))
+        cmd.add("-extld", linker_wrapper, cmd_args(hidden = [cxx_link_cmd, ext_link_args, ext_link_args_output.hidden]))
         cmd.add("-extldflags", cmd_args(
             cxx_toolchain.linker_info.linker_flags,
             go_toolchain.external_linker_flags,
@@ -236,7 +248,7 @@ def link(
 
     ctx.actions.run(cmd, env = env, category = "go_link", identifier = identifier_prefix)
 
-    output = stamp_build_info(ctx, output)
+    output = stamp_build_info(ctx, output, has_content_based_path = True)
 
     final_output = ctx.actions.copy_file(final_output_name, output)
 

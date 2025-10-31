@@ -13,7 +13,6 @@ use std::sync::Arc;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::events_ctx::EventsCtx;
-use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -41,13 +40,6 @@ pub(crate) struct ForkserverCommand {
 
     #[clap(long)]
     state_dir: String,
-
-    #[clap(long, value_parser = ResourceControlConfig::deserialize)]
-    resource_control: ResourceControlConfig,
-
-    /// If set, indicates this forkserver is running in a dedicated cgroup.
-    #[clap(long)]
-    has_cgroup: bool,
 }
 
 impl ForkserverCommand {
@@ -74,13 +66,11 @@ impl ForkserverCommand {
                 .enable_all()
                 .build()?;
 
-            Ok(rt.block_on(buck2_forkserver::unix::run_forkserver(
+            Ok(rt.block_on(buck2_forkserver::command::run_forkserver(
                 self.fd,
                 self.socket_path,
                 log_reload_handle,
                 state_dir,
-                self.resource_control,
-                self.has_cgroup,
             ))?)
         }
 

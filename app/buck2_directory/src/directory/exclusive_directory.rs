@@ -48,6 +48,7 @@ where
         let DirectoryData {
             entries,
             fingerprint,
+            size,
             _hash,
         } = self.data;
 
@@ -59,6 +60,7 @@ where
         let new_data = DirectoryData {
             entries,
             fingerprint,
+            size,
             _hash,
         };
 
@@ -69,11 +71,16 @@ where
     where
         C: FromIterator<(FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)>,
     {
+        self.into_entries().collect()
+    }
+
+    pub fn into_entries(
+        self,
+    ) -> impl Iterator<Item = (FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)> {
         self.data
             .entries
             .into_iter()
             .map(|(k, v)| (k, v.map_dir(|v| v.into_builder())))
-            .collect()
     }
 
     pub fn entries(
@@ -92,6 +99,10 @@ where
 
     pub fn fingerprint(&self) -> &H {
         self.data.fingerprint()
+    }
+
+    pub fn size(&self) -> u64 {
+        self.data.size
     }
 
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {

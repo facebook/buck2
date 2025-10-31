@@ -53,6 +53,7 @@ def _python_executable_attrs():
         ),
         "executable_name": attrs.option(attrs.string(), default = None),
         "inplace_build_args": attrs.list(attrs.arg(), default = []),
+        "lazy_imports_analyzer": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "link_group": attrs.option(attrs.string(), default = None),
         "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
@@ -121,6 +122,7 @@ def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs["_test_main"] = attrs.source(default = "prelude//python/tools:__test_main__.py")
     test_attrs["implicit_test_library"] = attrs.option(attrs.dep(providers = [PythonLibraryInfo]), default = None)
+    test_attrs["safer_lazy_imports"] = attrs.bool(default = False)  # TODO(T240038931) When enabling lazy imports by default, remove this line
     test_attrs.update(re_test_common.test_args())
     return test_attrs
 
@@ -163,7 +165,6 @@ cxx_python_extension = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a Python extension from a single .cpp file.
         cxx_python_extension(
           name = 'mymodule',
@@ -183,18 +184,15 @@ cxx_python_extension = prelude_rule(
             ':mymodule',
           ],
         )
-
         ```
 
         ```
-
         ## The `utils.py` source, wrapped by the `utils` rule above.
 
         ## Import the C/C++ extension build above.
         from foo.bar import mymodule
 
         ...
-
         ```
     """,
     further = None,
@@ -229,9 +227,9 @@ cxx_python_extension = prelude_rule(
         cxx_common.linker_flags_arg() |
         cxx_common.local_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
+        cxx_common.supports_stripping() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -245,7 +243,6 @@ cxx_python_extension = prelude_rule(
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "module_name": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
@@ -281,7 +278,9 @@ cxx_python_extension = prelude_rule(
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
             "_target_os_type": buck.target_os_type_arg(),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -304,7 +303,6 @@ prebuilt_python_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A simple prebuilt_python_library with no external dependencies.
         remote_file(
           name = "requests-download",
@@ -331,7 +329,6 @@ prebuilt_python_library = prelude_rule(
             ":greenlet",
           ],
         )
-
         ```
     """,
     further = None,
@@ -350,11 +347,9 @@ prebuilt_python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
             "infer_cxx_header_dirs": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "strip_soabi_tags": attrs.bool(
                 default = False,
                 doc = """
@@ -369,7 +364,9 @@ prebuilt_python_library = prelude_rule(
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -385,7 +382,6 @@ python_binary = prelude_rule(
 
 
         ```
-
         # BUCK
 
         python_binary(
@@ -402,7 +398,6 @@ python_binary = prelude_rule(
           # (Separated out from the glob pattern for clarity.)
           srcs = glob(['tailer.py', '*.py']),
         )
-
         ```
     """,
     further = None,
@@ -427,7 +422,6 @@ python_binary = prelude_rule(
                  that contains the BUCK file.
             """),
         } |
-        python_common.platform_arg() |
         python_common.deps_arg() |
         python_common.version_selections_arg() |
         python_common.preload_deps_arg() |
@@ -436,15 +430,14 @@ python_binary = prelude_rule(
         python_common.deduplicate_merged_link_roots() |
         python_common.executable_deps_arg() |
         native_common.link_group_deps() |
+        native_common.transformation_spec_arg() |
         native_common.link_group_public_deps_label() |
         {
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
             "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = False)), default = []),
@@ -453,10 +446,13 @@ python_binary = prelude_rule(
             "prefer_stripped_native_objects": attrs.bool(default = False),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
+        buck.licenses_arg() |
+        buck.contacts_arg() |
         buck.allow_cache_upload_arg() |
         _typing_arg() |
         _python_binary_attrs()
     ),
+    cfg = constraint_overrides.python_transition,
 )
 
 python_library = prelude_rule(
@@ -470,7 +466,6 @@ python_library = prelude_rule(
 
 
         ```
-
         # BUCK
 
         # A rule that includes a single Python file.
@@ -492,7 +487,6 @@ python_library = prelude_rule(
             'testdata.dat',
           ],
         )
-
         ```
     """,
     further = None,
@@ -508,10 +502,8 @@ python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
@@ -523,6 +515,8 @@ python_library = prelude_rule(
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
         } |
+        buck.licenses_arg() |
+        buck.contacts_arg() |
         _typing_arg()
     ),
 )
@@ -540,7 +534,6 @@ python_test = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .py file containing tests.
         python_test(
           name = 'fileutil_test',
@@ -560,7 +553,6 @@ python_test = prelude_rule(
             'testdata.dat',
           ],
         )
-
         ```
     """,
     further = None,
@@ -568,7 +560,6 @@ python_test = prelude_rule(
         # @unsorted-dict-items
         {k: attrs.default_only(v) for k, v in cxx_rules.cxx_binary.attrs.items()} |
         buck.inject_test_env_arg() |
-        buck.labels_arg() |
         python_common.srcs_arg() |
         python_common.platform_srcs_arg() |
         python_common.resources_arg() |
@@ -586,7 +577,6 @@ python_test = prelude_rule(
                  as `__test_main__.main(sys.argv)`.
             """),
         } |
-        python_common.platform_arg() |
         {
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
                 A map of environment names and values to set when running the test.
@@ -613,15 +603,14 @@ python_test = prelude_rule(
         python_common.executable_deps_arg() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
+        native_common.transformation_spec_arg() |
         {
             "additional_coverage_targets": attrs.list(attrs.dep(), default = []),
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
@@ -635,10 +624,14 @@ python_test = prelude_rule(
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
         _typing_arg() |
         test_common.attributes() |
         _python_test_attrs()
     ),
+    cfg = constraint_overrides.python_transition,
 )
 
 python_test_runner = prelude_rule(
@@ -650,12 +643,12 @@ python_test_runner = prelude_rule(
         # @unsorted-dict-items
         buck.labels_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "main_module": attrs.string(default = ""),
             "src": attrs.source(),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 

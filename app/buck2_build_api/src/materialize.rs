@@ -104,7 +104,7 @@ async fn materialize_artifact_group(
                     builder.add_symlinked(
                         // The materializer doesn't care about the `src_value`.
                         &ArtifactValue::dir(digest_config.empty_directory()),
-                        &content_based_path,
+                        content_based_path,
                         &configuration_hash_path,
                     )?;
                     let symlink_value = builder.build(&configuration_hash_path)?;
@@ -165,7 +165,7 @@ async fn ensure_uploaded(
             }
             .as_ref(),
         )?;
-        buck2_execute::directory::insert_artifact(&mut dir, &path, &value)?;
+        buck2_execute::directory::insert_artifact(&mut dir, path, &value)?;
     }
     let dir = dir.fingerprint(digest_config.as_directory_serializer());
     let re_use_case = ctx

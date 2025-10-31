@@ -44,12 +44,14 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
 use buck2_execute_impl::executors::action_cache::RemoteDepFileCacheChecker;
 use buck2_execute_impl::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
 use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
+use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::executors::local::LocalActionCounter;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::local_actions_throttle::LocalActionsThrottle;
@@ -60,7 +62,6 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
@@ -80,7 +81,7 @@ pub struct CommandExecutorFactory {
     strategy: ExecutionStrategy,
     executor_global_knobs: ExecutorGlobalKnobs,
     upload_all_actions: bool,
-    forkserver: Option<ForkserverClient>,
+    forkserver: ForkserverAccess,
     skip_cache_read: bool,
     skip_cache_write: bool,
     project_root: ProjectRoot,
@@ -93,9 +94,11 @@ pub struct CommandExecutorFactory {
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
+    memory_tracker: Option<MemoryTrackerHandle>,
     local_action_counter: Option<Arc<LocalActionCounter>>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
+    output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 impl CommandExecutorFactory {
@@ -108,7 +111,7 @@ impl CommandExecutorFactory {
         strategy: ExecutionStrategy,
         executor_global_knobs: ExecutorGlobalKnobs,
         upload_all_actions: bool,
-        forkserver: Option<ForkserverClient>,
+        forkserver: ForkserverAccess,
         skip_cache_read: bool,
         skip_cache_write: bool,
         project_root: ProjectRoot,
@@ -120,9 +123,10 @@ impl CommandExecutorFactory {
         memory_tracker: Option<MemoryTrackerHandle>,
         incremental_db_state: Arc<IncrementalDbState>,
         deduplicate_get_digests_ttl_calls: bool,
+        output_trees_download_config: OutputTreesDownloadConfig,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
-        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
+        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker.dupe());
         let local_action_counter = local_actions_throttle
             .as_ref()
             .map(|_| LocalActionCounter::new());
@@ -148,9 +152,11 @@ impl CommandExecutorFactory {
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             local_actions_throttle,
+            memory_tracker,
             local_action_counter,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
+            output_trees_download_config,
         }
     }
 
@@ -188,6 +194,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.forkserver.dupe(),
                 self.executor_global_knobs.dupe(),
                 worker_pool,
+                self.memory_tracker.dupe(),
                 self.local_action_counter.dupe(),
             )
         };
@@ -212,6 +219,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
+                output_trees_download_config: self.output_trees_download_config.dupe(),
             });
         }
 
@@ -238,6 +246,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
                     deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                    output_trees_download_config: self.output_trees_download_config.dupe(),
                 }
             };
 
@@ -252,6 +261,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
+                        output_trees_download_config: self.output_trees_download_config.dupe(),
                     })
                 }
             }
@@ -288,12 +298,14 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(RemoteDepFileCacheChecker {
                                 artifact_fs: artifact_fs.clone(),
                                 materializer: self.materializer.dupe(),
+                                incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
                                 deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                                output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         } else {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
@@ -306,12 +318,14 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(ActionCacheChecker {
                                 artifact_fs: artifact_fs.clone(),
                                 materializer: self.materializer.dupe(),
+                                incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
                                 deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                                output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         };
 
@@ -436,6 +450,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     action_cache_checker,
                     remote_dep_file_cache_checker,
                     cache_uploader,
+                    output_trees_download_config: self.output_trees_download_config.dupe(),
                 })
             }
         };

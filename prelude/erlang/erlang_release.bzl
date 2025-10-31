@@ -140,11 +140,11 @@ def _build_boot_script(
             root_apps_spec[spec.name] = app_spec
         else:
             release_applications.append(app_spec)
-    for app_name in root_apps_names:
+    for app_name in root_apps_names[::-1]:
         release_applications.append(root_apps_spec[app_name])
 
     data = {
-        "apps": release_applications,
+        "apps": release_applications[::-1],
         "lib_dir": lib_dir,
         "name": release_name,
         "version": ctx.attrs.version,

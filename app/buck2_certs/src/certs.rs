@@ -20,6 +20,8 @@ use rustls_pki_types::CertificateDer;
 use rustls_pki_types::PrivateKeyDer;
 use rustls_pki_types::pem::PemObject;
 
+pub fn maybe_setup_cryptography() {}
+pub fn setup_cryptography_or_fail() {}
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {

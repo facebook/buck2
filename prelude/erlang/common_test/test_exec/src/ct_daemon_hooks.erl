@@ -12,7 +12,7 @@
 Implementation of hooks functionality. We mimic the behaviour of
 common test hooks so that they can run in test shell
 """.
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -behaviour(gen_server).
 
@@ -25,6 +25,8 @@ common test hooks so that they can run in test shell
     format_ct_error/3,
     get_hooks/0
 ]).
+
+-export_type([part/0]).
 
 %% gen_server callbacks
 -export([
@@ -45,7 +47,7 @@ common test hooks so that they can run in test shell
     | {end_per_group, group_name()}
     | {func_name(), group_name()}
     | func_name().
--type config() :: [{atom(), term()}].
+-type config() :: ct_suite:ct_config().
 
 -type hook() :: {atom(), id()}.
 -type state() :: #{
@@ -108,7 +110,9 @@ get_state(Id) ->
         Error = {error, {not_found, Details}} when is_list(Details) -> Error
     end.
 
--spec wrap(part(), [atom()], fun()) -> fun().
+-spec wrap(part(), [atom()], Fun) -> fun((Config) -> Res) when
+    Fun :: fun((Config) -> Res) | fun((GroupOrTest :: atom(), Config) -> Res),
+    Config :: config().
 wrap(Part, Path, Fun) ->
     WrappedFun = gen_server:call(?MODULE, {wrap, Part, Fun}),
     %% apply path as closure
@@ -136,7 +140,7 @@ init([]) ->
     ({get_state, id()}, gen_server:from(), state()) ->
         {reply, {ok, hook_state()}, state()} | {error, {not_found, list()}};
     ({set_state, id(), hook_state()}, gen_server:from(), state()) -> {reply, ok, state()};
-    ({wrap, part(), fun()}, gen_server:from(), state()) -> {reply, fun(([atom() | config()]) -> term()), state()}.
+    ({wrap, part(), fun()}, gen_server:from(), state()) -> {reply, fun(([atom()], [config()]) -> term()), state()}.
 handle_call({get_state, Id}, _From, State = #{states := HookStates}) ->
     case HookStates of
         #{Id := HookState} -> {reply, {ok, HookState}, State};
@@ -199,11 +203,11 @@ get_hooks_config() ->
     application:get_env(test_exec, ct_daemon_hooks, []) ++
         proplists:get_value(ct_hooks, application:get_env(test_exec, daemon_options, []), []).
 
--spec wrap_part(part(), fun(), state()) -> fun(([atom()], [atom() | config()]) -> term()).
+-spec wrap_part(part(), fun(), state()) -> fun(([atom()], [config()]) -> term()).
 wrap_part(Part, Fun, State) ->
     wrap_init_end(Part, Fun, State).
 
--spec wrap_init_end(part(), fun(), state()) -> fun(([atom()], [atom() | config()]) -> term()).
+-spec wrap_init_end(part(), fun(), state()) -> fun(([atom()], [config()]) -> term()).
 wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
     %% NOTE ON EXECUTION ORDER:
     %%
@@ -319,8 +323,13 @@ wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
         handle_post_result(HooksInInstallationOrder, build_test_name(Part, PathArg), Suite, Result)
     end.
 
--spec handle_post_result([hook()], test_name(), module(), {ok, [config()]} | {skip, term()} | {fail, term()}) ->
-    hook_response().
+-spec handle_post_result(Hooks, TestName, Suite, Result) ->
+    hook_response()
+when
+    Hooks :: [hook()],
+    TestName :: test_name(),
+    Suite :: module(),
+    Result :: {ok, [config()]} | {skip, term()} | {fail, term()}.
 handle_post_result(Hooks, TestName, Suite, Result) ->
     ReverseHooks = lists:reverse(Hooks),
     case Result of
@@ -530,7 +539,7 @@ is_exported(Fun) ->
             module := Module,
             name := Function,
             arity := Arity
-        } ->
+        } when is_atom(Module), is_atom(Function), is_integer(Arity) ->
             erlang:function_exported(Module, Function, Arity);
         _ ->
             false

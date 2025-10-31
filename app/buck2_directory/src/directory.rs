@@ -9,6 +9,7 @@
  */
 
 pub mod builder;
+pub mod builder_lazy;
 pub mod dashmap_directory_interner;
 pub mod directory;
 pub mod directory_data;

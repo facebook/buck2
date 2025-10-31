@@ -15,6 +15,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -55,6 +57,7 @@ use crate::actions::impls::json::validate_json;
 use crate::actions::impls::json::visit_json_artifacts;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::artifact_groups::TransitiveSetProjectionWrapper;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -121,6 +124,9 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
 
     /// For each projection, whether it uses content based paths or not.
     pub(crate) projection_uses_content_based_paths: Box<[bool]>,
+
+    /// For each projection, whether it uses configuration based paths or not.
+    pub(crate) projection_is_eligible_for_dedupe: Box<[bool]>,
 
     /// Further transitive sets.
     pub children: Box<[V]>,
@@ -223,7 +229,6 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         TransitiveSetProjectionKey {
             key: self.key.dupe(),
             projection,
-            uses_content_based_paths: self.projection_uses_content_based_paths[projection],
         }
     }
 
@@ -266,11 +271,14 @@ impl FrozenTransitiveSet {
             let v =
                 TransitiveSet::from_value(v.to_value()).buck_error_context("Invalid deferred")?;
             sub_inputs.push(ArtifactGroup::TransitiveSetProjection(Arc::new(
-                TransitiveSetProjectionKey {
-                    key: v.key().dupe(),
-                    projection,
-                    uses_content_based_paths: v.projection_uses_content_based_paths[projection],
-                },
+                TransitiveSetProjectionWrapper::new(
+                    TransitiveSetProjectionKey {
+                        key: v.key().dupe(),
+                        projection,
+                    },
+                    v.projection_uses_content_based_paths[projection],
+                    v.projection_is_eligible_for_dedupe[projection],
+                ),
             )));
         }
         Ok(sub_inputs)
@@ -382,6 +390,7 @@ impl<'v> Freeze for TransitiveSet<'v> {
             node,
             reductions,
             projection_uses_content_based_paths,
+            projection_is_eligible_for_dedupe,
             children,
         } = self;
         let definition = definition.freeze(freezer)?;
@@ -396,6 +405,7 @@ impl<'v> Freeze for TransitiveSet<'v> {
             node,
             reductions,
             projection_uses_content_based_paths,
+            projection_is_eligible_for_dedupe,
             children,
         })
     }
@@ -484,30 +494,31 @@ impl<'v> TransitiveSet<'v> {
                 })
                 .collect::<Result<Box<[_]>, _>>()?;
 
-        struct HasContentBasedInputVisitor {
+        struct InputVisitor {
+            target_platform: Option<ConfigurationData>,
             has_content_based_input: bool,
+            is_eligible_for_dedupe: bool,
         }
 
-        impl HasContentBasedInputVisitor {
-            fn new() -> Self {
+        impl InputVisitor {
+            fn new(target_platform: Option<ConfigurationData>) -> Self {
                 Self {
+                    target_platform,
                     has_content_based_input: false,
+                    is_eligible_for_dedupe: true,
                 }
             }
         }
 
-        impl<'v> CommandLineArtifactVisitor<'v> for HasContentBasedInputVisitor {
+        impl<'v> CommandLineArtifactVisitor<'v> for InputVisitor {
             fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-                let is_content_based_input = match input {
-                    ArtifactGroup::Artifact(a) => a.has_content_based_path(),
-                    // Promised artifacts are not allowed to use content-based paths
-                    ArtifactGroup::Promise(_) => false,
-                    ArtifactGroup::TransitiveSetProjection(transitive_set_projection_key) => {
-                        transitive_set_projection_key.uses_content_based_paths
-                    }
-                };
-                if is_content_based_input {
+                if input.uses_content_based_path() {
                     self.has_content_based_input = true;
+                }
+
+                if self.is_eligible_for_dedupe {
+                    self.is_eligible_for_dedupe =
+                        input.is_eligible_for_dedupe(self.target_platform.as_ref());
                 }
             }
 
@@ -519,32 +530,34 @@ impl<'v> TransitiveSet<'v> {
             }
 
             fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
-
-            fn visit_declared_artifact(
-                &mut self,
-                declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
-                _tags: Vec<&ArtifactTag>,
-            ) -> buck2_error::Result<()> {
-                if declared_artifact.has_content_based_path() {
-                    self.has_content_based_input = true;
-                }
-
-                Ok(())
-            }
         }
 
-        let projection_uses_content_based_paths = def
+        let owner = key.holder_key().owner();
+        let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) = owner {
+            Some(configured_label.cfg().dupe())
+        } else {
+            None
+        };
+
+        let (projection_uses_content_based_paths_iter, projection_is_eligible_for_dedupe_iter): (
+            Vec<bool>,
+            Vec<bool>,
+        ) = def
             .operations()
             .projections
             .iter()
             .enumerate()
             .map(|(idx, (_name, spec))| {
+                let mut uses_content_based_paths = false;
+                let mut is_eligible_for_dedupe = true;
+
                 if let Some(node) = &node {
                     let projection = node
                         .projections
                         .get(idx)
                         .buck_error_context("Invalid projection id")?;
-                    let mut visitor = HasContentBasedInputVisitor::new();
+
+                    let mut visitor = InputVisitor::new(target_platform.dupe());
                     match spec.kind {
                         TransitiveSetProjectionKind::Args => {
                             TransitiveSetArgsProjection::as_command_line(*projection)?
@@ -555,32 +568,76 @@ impl<'v> TransitiveSet<'v> {
                         }
                     }
                     if visitor.has_content_based_input {
-                        return buck2_error::Ok(true);
+                        uses_content_based_paths = true;
+                    }
+                    if !visitor.is_eligible_for_dedupe {
+                        is_eligible_for_dedupe = false;
                     }
                 }
 
                 for child in children_sets.iter() {
-                    let child_projection_uses_content_based_paths = child
+                    if *child
                         .projection_uses_content_based_paths
                         .get(idx)
-                        .buck_error_context("Invalid projection id")?;
-                    if *child_projection_uses_content_based_paths {
-                        return buck2_error::Ok(true);
+                        .buck_error_context("Invalid projection id")?
+                    {
+                        uses_content_based_paths = true;
+                    }
+
+                    if is_eligible_for_dedupe
+                        && !*child
+                            .projection_is_eligible_for_dedupe
+                            .get(idx)
+                            .buck_error_context("Invalid projection id")?
+                    {
+                        let target_platform_ref = match target_platform {
+                            Some(ref target_platform) => target_platform,
+                            None => {
+                                is_eligible_for_dedupe = false;
+                                continue;
+                            }
+                        };
+                        let is_child_eligible_for_dedupe = child
+                            .key
+                            .holder_key()
+                            .owner()
+                            .configured_label()
+                            .is_some_and(|l| l.cfg() != target_platform_ref);
+                        if !is_child_eligible_for_dedupe {
+                            is_eligible_for_dedupe = false;
+                        }
                     }
                 }
 
-                buck2_error::Ok(false)
+                Ok::<(bool, bool), buck2_error::Error>((
+                    uses_content_based_paths,
+                    is_eligible_for_dedupe,
+                ))
             })
-            .collect::<Result<Box<[_]>, _>>()?;
+            .collect::<Result<Vec<(bool, bool)>, _>>()?
+            .into_iter()
+            .unzip();
 
+        let (projection_uses_content_based_paths, projection_is_eligible_for_dedupe) = (
+            projection_uses_content_based_paths_iter.into_boxed_slice(),
+            projection_is_eligible_for_dedupe_iter.into_boxed_slice(),
+        );
+
+        // Cast lifetime from 'v to 'static
+        let definition =
+            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<
+                FrozenTransitiveSetDefinition,
+            >::to_frozen_value(
+                definition
+            ))
+            .buck_error_context("internal error")?;
         Ok(Self {
             key,
-            definition:
-            // Cast lifetime from 'v to 'static
-            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).buck_error_context("internal error")?,
+            definition,
             node,
             reductions,
             projection_uses_content_based_paths,
+            projection_is_eligible_for_dedupe,
             children,
         })
     }

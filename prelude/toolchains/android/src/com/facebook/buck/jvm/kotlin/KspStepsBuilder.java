@@ -363,6 +363,7 @@ public class KspStepsBuilder {
         resolvedKosabiPluginOptionPath,
         kosabiJvmAbiGenEarlyTerminationMessagePrefix,
         sourceOnlyAbiClasspath,
+        shouldTrackClassUsage,
         kotlinCDAnalytics);
   }
 

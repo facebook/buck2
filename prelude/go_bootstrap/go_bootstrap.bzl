@@ -35,12 +35,13 @@ def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     target_is_win = go_toolchain.env_go_os == "windows"
     exe_suffix = ".exe" if target_is_win else ""
-    output = ctx.actions.declare_output(ctx.label.name + exe_suffix)
+    output = ctx.actions.declare_output(ctx.label.name + exe_suffix, has_content_based_path = True)
 
     # Copy files, because go:embed doesn't work with symlinks
     srcs_dir = ctx.actions.copied_dir(
         "__srcs_dir__",
         {paths.relativize(src.short_path, ctx.attrs.workdir): src for src in ctx.attrs.srcs},
+        has_content_based_path = True,
     )
 
     cmd = cmd_args([

@@ -107,3 +107,68 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+    use crate::directory::entry::DirectoryEntry;
+    use crate::directory::test::NopEntry;
+    use crate::directory::test::TestDirectoryBuilder;
+    use crate::directory::test::TestHasher;
+    use crate::directory::test::path;
+
+    #[test]
+    fn test_directory_interner() -> buck2_error::Result<()> {
+        let interner = DashMapDirectoryInterner::new();
+
+        let d1 = {
+            let mut b = TestDirectoryBuilder::empty();
+            b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+            b.fingerprint(&TestHasher).shared(&interner)
+        };
+
+        let d2 = {
+            let mut b = TestDirectoryBuilder::empty();
+            b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+            b.fingerprint(&TestHasher).shared(&interner)
+        };
+
+        assert!(d1.ptr_eq(&d2));
+
+        assert_eq!(interner.len(), 2);
+
+        drop(d1);
+        assert_eq!(interner.len(), 2);
+
+        drop(d2);
+        assert_eq!(interner.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_directory_interner_deep() -> buck2_error::Result<()> {
+        let interner = DashMapDirectoryInterner::new();
+
+        let d1 = {
+            let mut b = TestDirectoryBuilder::empty();
+            b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+            b.fingerprint(&TestHasher).shared(&interner)
+        };
+
+        let _d2 = {
+            let mut b = TestDirectoryBuilder::empty();
+            b.insert(path("b"), DirectoryEntry::Leaf(NopEntry))?;
+            b.fingerprint(&TestHasher).shared(&interner)
+        };
+
+        assert_eq!(interner.len(), 2);
+
+        drop(d1);
+
+        // Now we only have d2.
+        assert_eq!(interner.len(), 1);
+
+        Ok(())
+    }
+}

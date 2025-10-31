@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "buck", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -19,7 +20,6 @@ sh_binary = prelude_rule(
         This sh\\_binary() just cats a sample data file back at the user.
 
         ```
-
         # $REPO/BUCK
         sh_binary(
             name = "script",
@@ -28,12 +28,10 @@ sh_binary = prelude_rule(
                 "data.dat",
             ],
         )
-
         ```
 
 
         ```
-
         # Sample data file with data we need at runtime
         $ echo "I'm a datafile" > data.dat
 
@@ -50,7 +48,6 @@ sh_binary = prelude_rule(
         Jobs completed: 4. Time elapsed: 0.2s.
         BUILD SUCCEEDED
         I'm a datafile
-
         ```
     """,
     further = None,
@@ -87,13 +84,13 @@ sh_binary = prelude_rule(
                 By default, sh_binary attempts to use symbolic links for the resources. This can be changed so,
                 that copies are made instead.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "_target_os_type": buck.target_os_type_arg(),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -109,7 +106,6 @@ sh_test = prelude_rule(
         This sh\\_test() fails if a string does not match a value.
 
         ```
-
         # $REPO/BUCK
         sh_test(
             name = "script_pass",
@@ -122,13 +118,10 @@ sh_test = prelude_rule(
             test = "script.sh",
             args = ["--fail"],
         )
-
-
         ```
 
 
         ```
-
         # Create a simple script that prints out the resource
         $ cat > script.sh
         #!/bin/sh
@@ -160,7 +153,6 @@ sh_test = prelude_rule(
         TESTS FAILED: 1 FAILURE
         Failed target: //:script_fail
         FAIL //:script_fail
-
         ```
     """,
     further = None,
@@ -187,11 +179,8 @@ sh_test = prelude_rule(
             "type": attrs.option(attrs.string(), default = None, doc = """
                 If provided, this will be sent to any configured `.buckconfig`
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "list_args": attrs.option(attrs.list(attrs.string()), default = None),
             "list_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
             "resources": attrs.list(attrs.source(), default = []),
@@ -199,10 +188,15 @@ sh_test = prelude_rule(
             "run_env": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "run_test_separately": attrs.bool(default = False),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-        } | test_common.attributes() |
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
+        test_common.attributes() |
         re_test_common.test_args() |
         test_common.attributes()
     ),
+    cfg = constraint_overrides.transition,
 )
 
 shell_rules = struct(

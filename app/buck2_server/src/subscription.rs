@@ -29,10 +29,9 @@ pub(crate) async fn run_subscription_server_command(
     >,
     mut req: StreamingRequestHandler<buck2_cli_proto::SubscriptionRequestWrapper>,
 ) -> buck2_error::Result<buck2_cli_proto::SubscriptionCommandResponse> {
-    let start_event = buck2_data::CommandStart {
-        metadata: ctx.request_metadata().await?,
-        data: Some(buck2_data::SubscriptionCommandStart {}.into()),
-    };
+    let start_event = ctx
+        .command_start_event(buck2_data::SubscriptionCommandStart {}.into())
+        .await?;
     span_async(start_event, async move {
         let result: buck2_error::Result<buck2_cli_proto::SubscriptionCommandResponse> = try {
             // NOTE: Long term if we expose more things here then we should probably move this error to

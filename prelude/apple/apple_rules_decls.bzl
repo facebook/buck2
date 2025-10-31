@@ -15,13 +15,14 @@ load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
+load("@prelude//apple:apple_metal_library.bzl", "apple_metal_library_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
@@ -71,6 +72,7 @@ load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_xcuitest_extra_attrs",
+    "get_apple_resources_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
@@ -615,7 +617,6 @@ apple_library = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.meta_apple_library_validation_enabled_arg() |
-        apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
@@ -708,7 +709,11 @@ apple_library = prelude_rule(
                 "DEFAULT": False,
                 "config//features/apple:swift_enable_testing_enabled": True,
             })),
-            "uses_experimental_content_based_path_hashing": attrs.bool(default = read_bool("apple", "uses_experimental_content_based_path_hashing", False)),
+            "uses_experimental_content_based_path_hashing": attrs.bool(default = select({
+                "DEFAULT": read_bool("apple", "uses_experimental_content_based_path_hashing", False),
+                "config//features/apple:content_based_path_hashing_enabled": True,
+                "config//features/apple:content_based_path_hashing_disabled": False,
+            })),
             APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
             VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
@@ -740,6 +745,48 @@ apple_library_for_distribution = prelude_rule(
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
     cfg = target_sdk_version_transition,
+)
+
+apple_metal_library = prelude_rule(
+    name = "apple_metal_library",
+    impl = apple_metal_library_impl,
+    docs = """
+        An `apple_metal_library()` rule contains .metal and .h source files
+        to be bundled together to create a .metallib
+    """,
+    examples = """
+        ```
+
+        apple_metal_library(
+          name = 'MyShaderLibrary',
+          srcs = [
+              MyShaderFile.metal,
+              SharedShaderHelpers.metal,
+          ],
+          headers = [ SharedShaderHelpers.h ],
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        {
+            "headers": attrs.list(attrs.source(), default = []),
+            "labels": attrs.list(attrs.string(), default = []),
+            "metal_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+                Flags to use when compiling Metal sources.
+            """),
+            "metal_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+                Flags to use when linking Metal `.air` files using `metallib`.
+            """),
+            "metal_version": attrs.option(attrs.string(), default = None),
+            "out": attrs.option(attrs.string(), default = None, doc = """
+                The name of the compiled library (must end in `.metallib`). Defaults to the target's name.
+            """),
+            "srcs": attrs.list(attrs.source(), default = []),
+            "_apple_toolchain": get_apple_resources_toolchain_attr(),
+        }
+    ),
 )
 
 apple_package = prelude_rule(
@@ -940,7 +987,6 @@ apple_test = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.apple_sanitizer_compatibility_arg() |
-        apple_common.enable_private_swift_module_arg() |
         apple_common.executable_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         cxx_common.supported_platforms_regex_arg() |
@@ -1075,6 +1121,8 @@ apple_toolchain = prelude_rule(
             "lipo": attrs.exec_dep(providers = [RunInfo]),
             "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "merge_index_store": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools/index:merge_index_store")),
+            "metal": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "metallib": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "min_version": attrs.string(default = ""),
             "momc": attrs.exec_dep(providers = [RunInfo]),
             "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -1178,7 +1226,7 @@ prebuilt_apple_framework = prelude_rule(
             """),
             "binary": attrs.option(attrs.string(), default = None, doc = """
               Optional name for the binary contained in the framework. Otherwise the framework name is used.
-              Therefore, if your framework binary is named something like `libFrameworkName-iPhone.a` instead 
+              Therefore, if your framework binary is named something like `libFrameworkName-iPhone.a` instead
               of `FrameworkName`, you can declare this here.
             """),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -1368,6 +1416,8 @@ apple_tools = prelude_rule(
         "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
         "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
         "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
+        "signing_context": attrs.exec_dep(providers = [RunInfo]),
+        "signing_context_tree_postprocessor": attrs.exec_dep(providers = [RunInfo]),
         "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
         "spm_packager": attrs.exec_dep(providers = [RunInfo]),
         "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),
@@ -1506,7 +1556,7 @@ apple_resource_bundle = prelude_rule(
             "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
             "universal": attrs.option(attrs.bool(), default = None),
             # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
-            "_apple_toolchain": attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo]),
+            "_apple_toolchain": get_apple_resources_toolchain_attr(),
             # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
             # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
             "_bundle_target_name": attrs.string(),
@@ -1514,7 +1564,8 @@ apple_resource_bundle = prelude_rule(
         } | get_apple_info_plist_build_system_identification_attrs() |
         apple_common.apple_tools_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
-        apple_common.info_plist_substitutions_arg()
+        apple_common.info_plist_substitutions_arg() |
+        apple_common.enforce_minimum_os_plist_key()
     ),
 )
 
@@ -1584,6 +1635,7 @@ apple_rules = struct(
     apple_library = apple_library,
     apple_library_for_distribution = apple_library_for_distribution,
     apple_macos_bundle = apple_macos_bundle,
+    apple_metal_library = apple_metal_library,
     apple_package = apple_package,
     apple_ipa_package = apple_ipa_package,
     apple_resource = apple_resource,

@@ -7,6 +7,10 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileStyle",
+)
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library.bzl",
@@ -26,6 +30,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
@@ -143,6 +148,13 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         error_handler = cxx_toolchain.cxx_error_handler,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+        precompiled_header = ctx.attrs.precompiled_header,
+        prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
+        separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)

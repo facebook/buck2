@@ -189,7 +189,7 @@ impl Action for CopyAction {
                     )?;
                 }
                 CopyMode::Symlink => {
-                    builder.add_symlinked(src_value, src.as_ref(), tmp_dest.as_ref())?;
+                    builder.add_symlinked(src_value, src.clone(), tmp_dest.as_ref())?;
                 }
             }
 

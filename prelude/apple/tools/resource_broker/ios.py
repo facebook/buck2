@@ -81,7 +81,20 @@ def _compatible_device_type_from_runtime(
         if simulator_type.matches_device_identifier(device_type.identifier)
     ]
     if device:
-        device_types = [t for t in device_types if t.name == device]
+        if device.startswith("com.apple."):
+            # filter by device type identifier
+            device_types = [
+                device_type
+                for device_type in device_types
+                if device_type.identifier == device
+            ]
+        else:
+            # filter by device name
+            device_types = [
+                device_type
+                for device_type in device_types
+                if device_type.name == device
+            ]
     if not device_types:
         return None
     selected_device = next(
@@ -158,17 +171,28 @@ def choose_simulators(
             )
         )
 
+    # Check if device is a device type identifier
+    device_type_identifier: Optional[str] = None
+    if device is not None and device.startswith("com.apple."):
+        device_type_identifier = device
+        device = None
+
     filtered_simulators = filter(
-        lambda s: (
+        lambda simulator: (
             (
-                normalize_os_version(s.os_version).major
+                normalize_os_version(simulator.os_version).major
                 == normalize_os_version(os_version).major
-                and normalize_os_version(s.os_version).minor
+                and normalize_os_version(simulator.os_version).minor
                 == normalize_os_version(os_version).minor
                 if os_version
                 else True
             )
-            and (s.name == device if device is not None else True)
+            and (
+                simulator.device_type_identifier == device_type_identifier
+                if device_type_identifier is not None
+                else True
+            )
+            and (simulator.name == device if device is not None else True)
         ),
         simulators,
     )

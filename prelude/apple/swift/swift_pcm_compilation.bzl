@@ -17,6 +17,10 @@ load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
+load(
+    ":swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
@@ -150,7 +154,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         # (e.g `raw_headers`) because of that we need to provide search paths of such targets to
         # pcm compilation actions in order for them to be successful.
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(uncompiled_pcm_info.exported_deps)
-        preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
+        preprocessors = cxx_merge_cpreprocessors(ctx.actions, [], inherited_preprocessor_infos)
         cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
 
         # When compiling pcm files, module's exported pps and inherited pps
@@ -302,9 +306,9 @@ def _get_base_pcm_flags(
         sdk_deps_tset: SwiftCompiledModuleTset,
         pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
-    pcm_output = ctx.actions.declare_output(module_name + ".pcm")
-
+    pcm_output = ctx.actions.declare_output(module_name + ".pcm", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
         get_sdk_flags(ctx),

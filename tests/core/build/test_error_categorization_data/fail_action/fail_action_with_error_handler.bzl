@@ -12,10 +12,12 @@ def _error_handler_produced_error_categories(ctx):
 
         categories.append(ctx.new_sub_error(
             category = "FirstError",
+            message = "FirstError message",
         ))
 
         categories.append(ctx.new_sub_error(
             category = "SecondError",
+            message = "SecondError message",
         ))
 
         return categories

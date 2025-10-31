@@ -68,7 +68,8 @@ public class DaemonJavacToJarStepFactory extends BaseJavacToJarStepFactory {
               compilerOutputPathsValue,
               compilerParameters,
               abiJarParameters,
-              libraryJarParameters));
+              libraryJarParameters,
+              false));
     } else {
       super.createCompileToJarStepImpl(
           buckOut,

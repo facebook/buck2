@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -36,7 +38,6 @@ def configure_memory_limit(buck: Buck) -> None:
 def configure_freezing_with_pressure(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 0\n")
 
@@ -75,25 +76,6 @@ async def test_no_local_action_when_full_hybrid_given_memory_pressure(
     assert not any(
         "LocalCommand" in c or "OmittedLocalCommand" in c for c in commands
     ), "Actions should be forced to run on RE since memory limit is set to 0 and we are always under memory pressure"
-
-    pressure_starts = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanStart",
-        "data",
-        "MemoryPressure",
-    )
-    pressure_ends = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "MemoryPressure",
-    )
-    assert len(pressure_starts) == 1
-    assert len(pressure_ends) == 1
 
 
 @dataclass
@@ -176,6 +158,13 @@ def _get(data: Dict[str, Any], *key: str) -> Any:
     return data
 
 
+def _use_some_memory_args(buck: Buck) -> list[str]:
+    return [
+        "-c",
+        f"use_some_memory.path={os.environ["USE_SOME_MEMORY_BIN"]}",
+    ]
+
+
 @buck_test(skip_for_os=["darwin", "windows"])
 @env("BUCK2_HARD_ERROR", "panic")
 async def test_action_freezing(
@@ -194,24 +183,43 @@ async def test_action_freezing(
         "--local-only",
     )
 
-    result = await buck.log("show")
-    frozen_count = 0
-    for line in result.stdout.splitlines():
-        json_object = json.loads(line)
-        action_end: Optional[Dict[str, Any]] = _get(
-            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
-        )
-        if action_end is not None:
-            action_commands = _get(action_end, "commands")
-            assert len(action_commands) == 1
+    commands = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "commands",
+    )
 
-            metadata = _get(action_commands[0], "details", "metadata")
-            was_frozen = metadata["was_frozen"]
-            if was_frozen:
-                frozen_count += 1
+    frozen_count = 0
+    for command in commands:
+        if command[0]["details"]["metadata"]["was_frozen"] is True:
+            frozen_count += 1
+            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
 
     # Check that at least one action was frozen (and the command didn't block indefinitely)
     assert frozen_count > 0
+
+    pressure_starts = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanStart",
+        "data",
+        "MemoryPressure",
+    )
+    pressure_ends = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "MemoryPressure",
+    )
+    assert len(pressure_starts) == 1
+    assert len(pressure_ends) == 1
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
@@ -241,8 +249,6 @@ async def test_memory_pressure_telemetry(
 ) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write("memory_high_per_action = 1048576\n")  # 1 MiB
 
     await buck.build(
@@ -274,46 +280,77 @@ async def test_action_freezing_unfreezing(
 ) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
 
-    target = "prelude//:freeze_unfreeze_target"
-    output = await buck.build(
-        target,
+    await buck.build(
+        *(
+            [
+                "prelude//:freeze_unfreeze_target",
+                "--no-remote-cache",
+                "-c",
+                "build.use_limited_hybrid=False",
+                "-c",
+                "build.execution_platforms=//:platforms",
+                "--local-only",
+            ]
+            + _use_some_memory_args(buck)
+        ),
+    )
+
+    commands = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "commands",
+    )
+
+    frozen_count = 0
+    for command in commands:
+        if command[0]["details"]["metadata"]["was_frozen"] is True:
+            frozen_count += 1
+            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
+
+    assert frozen_count == 1
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_resource_control_events_created(
+    buck: Buck,
+) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("status = required\n")
+        f.write("enable_action_cgroup_pool_v2 = true\n")
+        f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
+        f.write("enable_action_freezing = true\n")
+        f.write("memory_pressure_threshold_percent = 1\n")
+
+    await buck.build(
+        "prelude//:freeze_unfreeze_target",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=False",
         "-c",
         "build.execution_platforms=//:platforms",
         "--local-only",
+        *_use_some_memory_args(buck),
     )
-    with open(
-        output.get_build_report().output_for_target(target),
-        "r",
-    ) as f:
-        print(f.read())
 
-    result = await buck.log("show")
-    frozen_count = 0
+    event = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "ResourceControlEvents",
+    )
 
-    for line in result.stdout.splitlines():
-        json_object = json.loads(line)
-        action_end: Optional[Dict[str, Any]] = _get(
-            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
-        )
-        if action_end is not None:
-            action_commands = _get(action_end, "commands")
-            assert len(action_commands) == 1
-
-            metadata = _get(action_commands[0], "details", "metadata")
-            was_frozen = metadata["was_frozen"]
-            if was_frozen:
-                frozen_count += 1
-    # only the action whose identifier is `action_to_be_frozen` will be frozen
-    assert frozen_count == 1
+    assert len(event) > 0
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
@@ -322,10 +359,8 @@ async def test_local_action_running_count(
     buck: Buck,
 ) -> None:
     await buck.build(
-        ":merge_100",
+        ":sleep_merge",
         "--no-remote-cache",
-        "-c",
-        "test.prefer_local=True",
         "--local-only",
     )
 
@@ -368,8 +403,6 @@ async def test_parent_slice_memory_high_unset_and_restore(
     memory_high_total = 5 * 1024 * 1024 * 1024  # 5 GB
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
-        f.write("enable_action_cgroup_pool = true\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
@@ -392,8 +425,6 @@ async def test_parent_slice_memory_high_unset_and_restore(
         slice_memory_high = int(f.read().strip())
     assert slice_memory_high == memory_high_total
 
-    target = "prelude//:parent_cgroup_slice_memory_high_unset_restore_target"
-
     # Variables to store the memory.high values
     delayed_memory_high = None
 
@@ -415,39 +446,33 @@ async def test_parent_slice_memory_high_unset_and_restore(
     )
     memory_reader_thread.start()
 
-    output = await buck.build(
-        target,
+    await buck.build(
+        "prelude//:freeze_unfreeze_target",
         "--no-remote-cache",
         "-c",
         "build.use_limited_hybrid=False",
         "-c",
         "build.execution_platforms=//:platforms",
         "--local-only",
+        *_use_some_memory_args(buck),
     )
 
-    with open(
-        output.get_build_report().output_for_target(target),
-        "r",
-    ) as f:
-        print(f.read())
+    commands = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "commands",
+    )
 
-    ## Test if freezing is working as expected
-    result = await buck.log("show")
     frozen_count = 0
+    for command in commands:
+        if command[0]["details"]["metadata"]["was_frozen"] is True:
+            frozen_count += 1
+            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
 
-    for line in result.stdout.splitlines():
-        json_object = json.loads(line)
-        action_end: Optional[Dict[str, Any]] = _get(
-            json_object, "Event", "data", "SpanEnd", "data", "ActionExecution"
-        )
-        if action_end is not None:
-            action_commands = _get(action_end, "commands")
-            assert len(action_commands) == 1
-
-            metadata = _get(action_commands[0], "details", "metadata")
-            was_frozen = metadata["was_frozen"]
-            if was_frozen:
-                frozen_count += 1
     assert frozen_count == 1
 
     memory_reader_thread.join()
@@ -462,7 +487,6 @@ async def test_parent_slice_memory_high_unset_and_restore(
 async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("status = required\n")
         f.write("memory_high = 50%\n")
 
     # start buck2 daemon
@@ -471,7 +495,7 @@ async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
     pid = await get_daemon_pid(buck)
     daemon_cgroup_path = get_daemon_cgroup_path(pid)
     # the parent of the cgroup that contains daemon, forkserver and workers cgroups
-    parent_cgroup_path = daemon_cgroup_path.parent.parent
+    parent_cgroup_path = daemon_cgroup_path.parent.parent.parent
 
     try:
         parent_cgroup_memory_high = 200 * 1024 * 1024 * 1024  # 10 GB
@@ -485,7 +509,7 @@ async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
         pid = await get_daemon_pid(buck)
         daemon_cgroup_path = get_daemon_cgroup_path(pid)
         # the cgroup that contains daemon, forkserver and workers cgroups
-        slice_cgroup_path = daemon_cgroup_path.parent
+        slice_cgroup_path = daemon_cgroup_path.parent.parent
         with open(slice_cgroup_path / "memory.high", "r") as f:
             slice_memory_high = int(f.read().strip())
         assert slice_memory_high == (parent_cgroup_memory_high * 0.5)
@@ -493,3 +517,96 @@ async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
         # reset the parent memory.high value to max
         with open(parent_cgroup_path / "memory.high", "w") as f:
             f.write("max")
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+@env("BUCK_LOG", "buck2_resource_control::action_cgroups=trace")
+async def test_reading_ancestor_cgroup_constraints(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_resource_control]\n")
+        f.write("status = required\n")
+        f.write("enable_action_freezing = true\n")
+
+    # start buck2 daemon
+    await buck.server()
+
+    pid = await get_daemon_pid(buck)
+    daemon_cgroup_path = get_daemon_cgroup_path(pid)
+    # the cgroup that contains all the isolation dirs buck2 cgroup slices (buck2.slice)
+    buck2_slice_cgroup_path: Path = daemon_cgroup_path.parent.parent.parent
+
+    memory_high = 200 * 1024 * 1024 * 1024  # 200 GB
+    memory_max = 300 * 1024 * 1024 * 1024  # 300 GB
+    memory_swap_max = 301 * 1024 * 1024 * 1024  # 301 GB
+    memory_swap_high = 201 * 1024 * 1024 * 1024  # 201 GB
+
+    def set_buck_slice_cgroup_memory(memory_file_name: str, val: int | str) -> None:
+        with open(buck2_slice_cgroup_path / memory_file_name, "w") as f:
+            f.write(str(val))
+
+    try:
+        set_buck_slice_cgroup_memory("memory.high", memory_high)
+        set_buck_slice_cgroup_memory("memory.max", memory_max)
+        set_buck_slice_cgroup_memory("memory.swap.max", memory_swap_max)
+        set_buck_slice_cgroup_memory("memory.swap.high", memory_swap_high)
+
+        # restart buck2 daemon to make the parent memory values value effective
+        await buck.kill()
+        await buck.server()
+
+        deamon_std = await buck.daemon_stderr()
+
+        # Parse the log to extract AncestorCgroupConstraints values
+        constraints_found = False
+        for line in deamon_std.splitlines():
+            if "AncestorCgroupConstraints" in line:
+                constraints_found = True
+                # Extract memory values using regex
+                memory_max_match = re.search(r"memory_max: Some\((\d+)\)", line)
+                memory_high_match = re.search(r"memory_high: Some\((\d+)\)", line)
+                memory_swap_max_match = re.search(
+                    r"memory_swap_max: Some\((\d+)\)", line
+                )
+                memory_swap_high_match = re.search(
+                    r"memory_swap_high: Some\((\d+)\)", line
+                )
+
+                assert memory_max_match, f"memory_max not found in line: {line}"
+                extracted_memory_max = int(memory_max_match.group(1))
+                assert (
+                    extracted_memory_max == memory_max
+                ), f"Expected memory_max {memory_max}, got {extracted_memory_max}"
+
+                assert memory_high_match, f"memory_high not found in line: {line}"
+                extracted_memory_high = int(memory_high_match.group(1))
+                assert (
+                    extracted_memory_high == memory_high
+                ), f"Expected memory_high {memory_high}, got {extracted_memory_high}"
+
+                assert (
+                    memory_swap_max_match
+                ), f"memory_swap_max not found in line: {line}"
+                extracted_memory_swap_max = int(memory_swap_max_match.group(1))
+                assert (
+                    extracted_memory_swap_max == memory_swap_max
+                ), f"Expected memory_swap_max {memory_swap_max}, got {extracted_memory_swap_max}"
+
+                assert (
+                    memory_swap_high_match
+                ), f"memory_swap_high not found in line: {line}"
+                extracted_memory_swap_high = int(memory_swap_high_match.group(1))
+                assert (
+                    extracted_memory_swap_high == memory_swap_high
+                ), f"Expected memory_swap_high {memory_swap_high}, got {extracted_memory_swap_high}"
+
+                break
+
+        assert (
+            constraints_found
+        ), "AncestorCgroupConstraints log not found in daemon stderr"
+    finally:
+        # reset the parent memory values to max
+        set_buck_slice_cgroup_memory("memory.high", "max")
+        set_buck_slice_cgroup_memory("memory.max", "max")
+        set_buck_slice_cgroup_memory("memory.swap.max", "max")
+        set_buck_slice_cgroup_memory("memory.swap.high", "max")

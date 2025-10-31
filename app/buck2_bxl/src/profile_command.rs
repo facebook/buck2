@@ -138,7 +138,6 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             .await
                             .map_err(|e| e.error)?
                             .1
-                            .map(Arc::new)
                             .expect("No bxl profile data found"),
                     )
                 }

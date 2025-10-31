@@ -17,14 +17,10 @@ IMMEDIATE_BUCK_OPTIONS = "ImmediateBuckOptions"
 
 BY_MODES = "ByModes"
 
-CXXFLAGS = "cxxflags"
-CXXPPFLAGS = "cxxppflags"
-FLAGS_LOCATION = "flags_location"
-LDFLAGS = "ldflags"
 TOOLSET = "toolset"
 LANGUAGE_STANDARD = "language_standard"
 
-ANDROID = "android"
 CLANG = "clang"
+CLANG_WINDOWS = "clang_windows"
 VS2019 = "vs2019"
 VS2022 = "vs2022"

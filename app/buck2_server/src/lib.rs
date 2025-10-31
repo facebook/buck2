@@ -28,6 +28,8 @@ mod materialize;
 mod net_io;
 pub(crate) mod new_generic;
 pub mod profile;
+pub(crate) mod profile_patterns;
+pub mod profiling_manager;
 mod snapshot;
 mod subscription;
 mod trace_io;

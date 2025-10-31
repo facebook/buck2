@@ -308,7 +308,7 @@ impl ExactPathMetadata {
                             .path
                             .parent()
                             .expect("We pushed a component to this so it cannot be empty")
-                            .join_system(&dest)
+                            .join_system_normalized(&dest)
                             .with_buck_error_context(|| {
                                 format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                             })?;
@@ -349,7 +349,12 @@ impl ExactPathSymlinkMetadata {
             },
             Self::InternalSymlink(mut link_path, mut rel_link_path) => {
                 link_path.push(&rest);
-                rel_link_path.push(&rest);
+                // FIXME(JakobDegen): The `relative_path` crate has a misbehavior where it pushes a
+                // trailing `/` onto the path if this is empty. One of many reasons to stop using
+                // that crate.
+                if !rest.is_empty() {
+                    rel_link_path.push(&rest);
+                }
                 RawPathMetadata::Symlink {
                     at: curr.path,
                     to: RawSymlink::Relative(link_path, Arc::new(Symlink::new(rel_link_path))),

@@ -9,13 +9,9 @@
  */
 
 #![feature(error_generic_member_access)]
-#![cfg_attr(windows, feature(windows_process_extensions_main_thread_handle))]
+
 pub mod client;
+pub mod command;
 pub(crate) mod convert;
-pub mod run;
-
-#[cfg(unix)]
-pub mod unix;
-
-#[cfg(windows)]
-mod win;
+pub mod launch;
+pub(crate) mod service;

@@ -8,69 +8,35 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    compatible_with = [
+        "ovr_config//os:linux",
+        "ovr_config//os:macos",
+    ],
     os_deps = [
         (
             "linux",
             [
-                "fbsource//third-party/rust:nix",
-                "fbsource//third-party/rust:rand",
-                "//buck2/app/buck2_grpc:buck2_grpc",
-                "//buck2/app/buck2_util:buck2_util",
                 ":buck2_miniperf_data",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:nix",
-                "fbsource//third-party/rust:rand",
-                "//buck2/app/buck2_grpc:buck2_grpc",
-                "//buck2/app/buck2_util:buck2_util",
-            ],
-        ),
-        (
-            "windows",
-            [
-                "fbsource//third-party/rust:winapi",
-                "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
-            ],
-        ),
-    ],
-    test_deps = [
-        "fbsource//third-party/rust:assert_matches",
-        "fbsource//third-party/rust:sysinfo",
-        "fbsource//third-party/rust:tempfile",
-        "fbsource//third-party/rust:tokio-stream",
-    ],
-    test_os_deps = [
-        (
-            "windows",
-            [
-                "//buck2/app/buck2_util:buck2_util",
             ],
         ),
     ],
     deps = [
         "fbsource//third-party/rust:arc-swap",
         "fbsource//third-party/rust:async-trait",
-        "fbsource//third-party/rust:bincode",
-        "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:libc",
-        "fbsource//third-party/rust:pin-project",
-        "fbsource//third-party/rust:take_mut",
+        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tokio-util",
         "fbsource//third-party/rust:tonic-0-12-3",
-        "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
-        "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
+        "//buck2/app/buck2_execute_local:buck2_execute_local",
         "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
-        "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
+        "//buck2/app/buck2_grpc:buck2_grpc",
         "//buck2/app/buck2_resource_control:buck2_resource_control",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

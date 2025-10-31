@@ -43,6 +43,14 @@ AppleBundleCodesignManifestTree = record(
     inner_codesign_manifests = field(dict[str, typing.Any]),
 )
 
+AppleBundleSigningContextTree = record(
+    # Signing context for the bundle itself
+    signing_context = field(Artifact),
+    # Signing contexts for inner bundles.
+    # Maps from relative bundle destination -> AppleBundleSigningContextTree
+    inner_signing_contexts = field(dict[str, typing.Any]),
+)
+
 AppleBundleManifestInfo = provider(
     fields = {
         "manifest": provider_field(AppleBundleManifest),
@@ -69,6 +77,7 @@ AppleBundleInfo = provider(
         # List of extra paths (relative to bundle root) to be codesigned.
         "extra_codesign_paths": provider_field([list[str], None], default = None),
         "codesign_manifest_tree": provider_field(AppleBundleCodesignManifestTree | None, default = None),
+        "signing_context_tree": provider_field(AppleBundleSigningContextTree | None, default = None),
     },
 )
 

@@ -130,9 +130,6 @@ def buck_e2e_test(
     if "windows" in skip_for_os:
         labels += ci.remove_labels(ci.windows(ci.opt()))
 
-    metadata = {}
-    metadata["buck.cfg_modifiers"] = cfg_modifiers
-
     python_pytest(
         name = name,
         base_module = base_module,
@@ -148,7 +145,7 @@ def buck_e2e_test(
         pytest_marks = pytest_marks,
         pytest_expr = pytest_expr,
         pytest_confcutdir = pytest_confcutdir,
-        metadata = metadata,
+        modifiers = cfg_modifiers,
         compatible_with = compatible_with,
     )
 

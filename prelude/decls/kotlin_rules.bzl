@@ -35,7 +35,6 @@ kotlin_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that compiles a single .kt file.
         kotlin_library(
           name = 'JsonUtil',
@@ -80,7 +79,6 @@ kotlin_library = prelude_rule(
             '//java/com/facebook/base:base',
           ],
         )
-
         ```
     """,
     further = None,
@@ -128,15 +126,14 @@ kotlin_library = prelude_rule(
         jvm_common.javac() |
         jvm_common.enable_used_classes() |
         jvm_common.content_based_path_for_jar_snapshot() |
+        jvm_common.classic_java_content_based_paths() |
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -150,7 +147,12 @@ kotlin_library = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        } | jvm_common.plugins() | jvm_common.should_kosabi_jvm_abi_gen_use_k2() | validation_common.attrs_validators_arg()
+        } |
+        buck.licenses_arg() |
+        buck.contacts_arg() |
+        jvm_common.plugins() |
+        jvm_common.should_kosabi_jvm_abi_gen_use_k2() |
+        validation_common.attrs_validators_arg()
     ),
 )
 
@@ -215,6 +217,7 @@ kotlin_test = prelude_rule(
         jvm_common.annotation_processors() |
         jvm_common.enable_used_classes() |
         jvm_common.incremental() |
+        jvm_common.classic_java_content_based_paths() |
         jvm_common.kotlincd_content_based_paths() |
         jvm_common.javac() |
         jvm_common.k2() |
@@ -224,7 +227,6 @@ kotlin_test = prelude_rule(
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
@@ -239,7 +241,6 @@ kotlin_test = prelude_rule(
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -261,6 +262,8 @@ kotlin_test = prelude_rule(
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         } |
+        buck.licenses_arg() |
+        buck.contacts_arg() |
         test_common.attributes()
     ),
 )

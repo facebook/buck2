@@ -19,7 +19,7 @@ Our goal is to understand how Buck2 manages dependencies.
 2. Create a library with a simple function
 3. Define a `rust_binary` target for our library
 4. Build the library independently
-5. Update our binary to depend on an use this new library
+5. Update our binary to depend on and use this new library
 6. Add a logging dependency to our application
 7. Build and run the binary
 

@@ -7,31 +7,19 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-async-recursion = { workspace = true }
 async-trait = { workspace = true }
-blake3 = { workspace = true }
 chrono = { workspace = true }
-derive_more = { workspace = true }
-flate2 = { workspace = true }
 futures = { workspace = true }
-indent_write = { workspace = true }
+fxhash = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
-once_cell = { workspace = true }
-os_str_bytes = { workspace = true }
-regex = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-siphasher = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-zstd = { workspace = true }
 
 dice = { workspace = true }
 dupe = { workspace = true }
-gazebo = { workspace = true }
 starlark_map = { workspace = true }
 
 buck2_artifact = { workspace = true }
@@ -47,11 +35,9 @@ buck2_event_log = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
-buck2_futures = { workspace = true }
 buck2_install_proto = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
-buck2_profile = { workspace = true }
 buck2_query = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_util = { workspace = true }

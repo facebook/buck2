@@ -180,6 +180,21 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
     }
 }
 
+fn eden_network_error_tag(code: i32) -> ErrorTag {
+    const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+    const CURLE_RECV_ERROR: i32 = curl_sys::CURLE_RECV_ERROR as i32;
+    const CURLE_SSL_CERTPROBLEM: i32 = curl_sys::CURLE_SSL_CERTPROBLEM as i32;
+
+    match code {
+        CURLE_OPERATION_TIMEDOUT => ErrorTag::IoEdenNetworkCurlTimedout, // 28
+        CURLE_RECV_ERROR | CURLE_SSL_CERTPROBLEM => ErrorTag::IoEdenNetworkTls, // 56 and 58
+        401 => ErrorTag::HttpUnauthorized, // http::StatusCode::UNAUTHORIZED
+        403 => ErrorTag::HttpForbidden,    // http::StatusCode::FORBIDDEN
+        503 => ErrorTag::HttpServiceUnavailable, // http::StatusCode::SERVICE_UNAVAILABLE
+        _ => ErrorTag::IoEdenNetworkUncategorized,
+    }
+}
+
 fn eden_service_error_tag(error: &edenfs::EdenError) -> ErrorTag {
     match error.errorType {
         EdenErrorType::WIN32_ERROR => ErrorTag::IoEdenWin32Error,
@@ -202,6 +217,10 @@ pub enum EdenError {
     #[buck2(tag = eden_posix_error_tag(code))]
     PosixError { error: edenfs::EdenError, code: i32 },
 
+    #[error("Eden network error (code = {code}): {0}", error.message)]
+    #[buck2(tag = eden_network_error_tag(code))]
+    NetworkError { error: edenfs::EdenError, code: i32 },
+
     #[error("Eden service error: {0}", error.message)]
     #[buck2(tag = eden_service_error_tag(&error))]
     ServiceError { error: edenfs::EdenError },
@@ -216,6 +235,13 @@ impl From<edenfs::EdenError> for EdenError {
         if error.errorType == EdenErrorType::POSIX_ERROR {
             if let Some(error_code) = error.errorCode {
                 return Self::PosixError {
+                    error,
+                    code: error_code,
+                };
+            }
+        } else if error.errorType == EdenErrorType::NETWORK_ERROR {
+            if let Some(error_code) = error.errorCode {
+                return Self::NetworkError {
                     error,
                     code: error_code,
                 };

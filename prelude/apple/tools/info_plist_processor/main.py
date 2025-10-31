@@ -60,6 +60,12 @@ def _create_preprocess_subparser(
         type=Path,
         help="JSON file containing substitutions mapping",
     )
+    parser.add_argument(
+        "--enforce-minimum-os-plist-key",
+        metavar="<Minimum OS Version Key>",
+        type=str,
+        help="Key for minimum OS version that should not be present in the plist file",
+    )
 
 
 def _create_process_subparser(
@@ -141,7 +147,13 @@ def main() -> None:
                 if args.substitutions_json is not None
                 else None
             )
-            preprocess(input_file, output_file, substitutions_json, args.product_name)
+            preprocess(
+                input_file,
+                output_file,
+                substitutions_json,
+                args.product_name,
+                args.enforce_minimum_os_plist_key,
+            )
     elif args.subcommand_name == _SubcommandName.process:
         with ExitStack() as stack:
             input_file = stack.enter_context(args.input.open(mode="rb"))

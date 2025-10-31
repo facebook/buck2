@@ -28,8 +28,11 @@ public class TombstonesReportLayer extends ReportLayer {
 
   public static final String ARG = "--collect-tombstones";
 
-  public TombstonesReportLayer(InstrumentationTestRunner runner) {
+  private final boolean collectAlways;
+
+  public TombstonesReportLayer(InstrumentationTestRunner runner, boolean collectAlways) {
     super(runner);
+    this.collectAlways = collectAlways;
   }
 
   @Override
@@ -37,10 +40,12 @@ public class TombstonesReportLayer extends ReportLayer {
 
   @Override
   public void report() {
-    try {
-      this.collectTombstones(this.runner.getDevice());
-    } catch (Exception e) {
-      System.err.printf("Failed to collect tombstones with error: %s\n", e);
+    if (this.collectAlways || this.runner.hasTestRunFailed()) {
+      try {
+        this.collectTombstones(this.runner.getDevice());
+      } catch (Exception e) {
+        System.err.printf("Failed to collect tombstones with error: %s\n", e);
+      }
     }
   }
 

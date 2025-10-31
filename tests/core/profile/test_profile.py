@@ -162,8 +162,8 @@ async def test_query_profile(buck: Buck, tmp_path: Path, profiler: str) -> None:
         with open(buck.cwd / file_path / "targets.txt", "r") as f:
             lines = [x.rstrip() for x in sorted(f.readlines())]
             assert [
-                "loading:root//query/a",
-                "loading:root//query/b",
+                "load/root//query/a",
+                "load/root//query/b",
             ] == lines
     else:
         assert not os.path.exists(buck.cwd / file_path)

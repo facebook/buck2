@@ -12,7 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 
 halide_library = prelude_rule(
@@ -24,7 +24,6 @@ halide_library = prelude_rule(
     """,
     examples = """
         ```
-
         halide_library(
           # Your library name.
           name = 'brighter',
@@ -46,7 +45,6 @@ halide_library = prelude_rule(
             # ...
           ],
         )
-
         ```
     """,
     further = None,
@@ -75,7 +73,6 @@ halide_library = prelude_rule(
         {
             "compiler_invocation_flags": attrs.list(attrs.string(), default = []),
             "configs": attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -91,13 +88,11 @@ halide_library = prelude_rule(
             "headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -117,7 +112,10 @@ halide_library = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

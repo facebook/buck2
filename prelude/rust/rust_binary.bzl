@@ -31,6 +31,7 @@ load(
     "get_link_group_map_json",
 )
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
+load("@prelude//cxx:transformation_spec.bzl", "build_transformation_spec_context")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -52,6 +53,10 @@ load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
+)
+load(
+    "@prelude//utils:build_graph_pattern.bzl",
+    "new_build_graph_info",
 )
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
@@ -119,10 +124,11 @@ def _rust_binary_common(
     link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
+    cxx_deps = cxx_attr_deps(ctx)
     resources = flatten_dict(gather_resources(
         label = ctx.label,
         resources = rust_attr_resources(ctx),
-        deps = cxx_attr_deps(ctx),
+        deps = cxx_deps,
     ).values())
 
     extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
@@ -143,10 +149,14 @@ def _rust_binary_common(
         predeclared_output = ctx.actions.declare_output(name)
         final_output = predeclared_output
 
+    build_graph_info = new_build_graph_info(ctx, cxx_deps)
+    transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
+
     rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
         ctx,
         compile_ctx.dep_ctx,
         link_strategy = link_strategy,
+        transformation_spec_context = transformation_spec_context,
     )
     if rust_cxx_link_group_info != None:
         link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
@@ -182,7 +192,7 @@ def _rust_binary_common(
         use_link_groups = rust_cxx_link_group_info != None,
         link_group_ctx = link_group_ctx,
         link_strategy = link_strategy,
-        shared_libraries = traverse_shared_library_info(shlib_info, transformation_provider = None),
+        shared_libraries = traverse_shared_library_info(shlib_info, transformation_provider = transformation_spec_context),
         extra_shared_libraries = [],
     )
 
@@ -207,6 +217,7 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
+        transformation_spec_context = transformation_spec_context,
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
@@ -322,6 +333,7 @@ def _rust_binary_common(
             extra_flags = extra_flags,
             infallible_diagnostics = True,
             incremental_enabled = incr,
+            transformation_spec_context = transformation_spec_context,
         )
         clippy_artifacts[incr] = rust_compile(
             ctx = ctx,
@@ -332,6 +344,7 @@ def _rust_binary_common(
             extra_flags = extra_flags,
             infallible_diagnostics = True,
             incremental_enabled = incr,
+            transformation_spec_context = transformation_spec_context,
         )
 
     providers = [RustcExtraOutputsInfo(
@@ -396,24 +409,16 @@ def _rust_binary_common(
     )
     sub_targets["profile"] = profiles
 
-    extra_compiled_targets["llvm_ir"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("llvm-ir"),
-        params = params,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
-    extra_compiled_targets["mir"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("mir"),
-        params = params,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
+    for emit_type in ["asm", "llvm-ir", "mir"]:
+        extra_compiled_targets[emit_type] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit(emit_type),
+            params = params,
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        ).output
 
     doc_output = generate_rustdoc(
         ctx = ctx,

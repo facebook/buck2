@@ -48,7 +48,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(MockitoJUnitRunner.Silent.class)
 public class AdbHelperTest {
 
   private static final Logger LOGGER = Logger.getLogger(AdbHelperTest.class.getName());

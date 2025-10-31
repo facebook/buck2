@@ -184,6 +184,8 @@ class Args(NamedTuple):
     manifest_dir: Path
     create_cwd: Path
     outfile: IO[str]
+    rustc_link_lib: bool
+    rustc_link_search: bool
 
 
 def arg_parse() -> Args:
@@ -194,6 +196,8 @@ def arg_parse() -> Args:
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--create-cwd", type=Path, required=True)
     parser.add_argument("--outfile", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--rustc-link-lib", action="store_true")
+    parser.add_argument("--rustc-link-search", action="store_true")
 
     return Args(**vars(parser.parse_args()))
 
@@ -230,6 +234,10 @@ def main() -> None:  # noqa: C901
 
     cargo_rustc_cfg_pattern = re.compile("^cargo::?rustc-cfg=(.*)")
     cargo_rustc_env_pattern = re.compile("^cargo::?rustc-env=(.+?)=(.*)")
+    cargo_rustc_link_lib_pattern = re.compile("^cargo::?rustc-link-lib=(.*)")
+    cargo_rustc_link_search_pattern = re.compile(
+        "^cargo::?rustc-link-search=([a-z]+=)?(.+)"
+    )
     flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
@@ -246,6 +254,22 @@ def main() -> None:  # noqa: C901
                 flags += f"--env-set={key}=$(abspath {relative_path})\n"
             else:
                 flags += f"--env-set={key}={value}\n"
+            continue
+        cargo_rustc_link_lib_match = cargo_rustc_link_lib_pattern.match(line)
+        if args.rustc_link_lib and cargo_rustc_link_lib_match:
+            value = cargo_rustc_link_lib_match.group(1)
+            flags += f"-l{value}\n"
+            continue
+        cargo_rustc_link_search_match = cargo_rustc_link_search_pattern.match(line)
+        if args.rustc_link_search and cargo_rustc_link_search_match:
+            kind = cargo_rustc_link_search_match.group(1) or ""
+            path = cargo_rustc_link_search_match.group(2)
+            if path.startswith(TOOL_CWD):
+                relative_path = path[len(TOOL_CWD) :]
+                flags += f"-L{kind}$(abspath {relative_path})\n"
+            else:
+                # Disregard link search not located within the build script's out dir.
+                pass
             continue
         print(line, end="\n")
     args.outfile.write(flags)

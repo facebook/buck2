@@ -53,6 +53,7 @@ use buck2_execute::execute::blocking::BuckBlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
@@ -63,11 +64,11 @@ use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::file_watcher::FileWatcher;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
@@ -142,7 +143,7 @@ pub struct DaemonStateData {
     /// materializations to work properly between distinct build commands.
     pub(crate) materializer: Arc<dyn Materializer>,
 
-    pub(crate) forkserver: Option<ForkserverClient>,
+    pub(crate) forkserver: ForkserverAccess,
 
     #[allocative(skip)]
     pub scribe_sink: Option<Arc<dyn EventSinkWithStats>>,
@@ -187,6 +188,9 @@ pub struct DaemonStateData {
     /// Config used to display system warnings
     pub system_warning_config: SystemWarningConfig,
 
+    #[allocative(skip)]
+    pub cgroup_tree: Option<BuckCgroupTree>,
+
     /// Tracks memory usage. Used to make scheduling decisions.
     #[allocative(skip)]
     pub memory_tracker: Option<MemoryTrackerHandle>,
@@ -197,9 +201,6 @@ pub struct DaemonStateData {
     /// State of the Incremental Action DB for content-based hash paths
     #[allocative(skip)]
     pub incremental_db_state: Arc<IncrementalDbState>,
-
-    /// Whether this daemon has resource control enabled.
-    pub has_cgroup: bool,
 }
 
 impl DaemonStateData {
@@ -232,13 +233,21 @@ impl DaemonState {
         rt: Handle,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
+        cgroup_tree: Option<BuckCgroupTree>,
     ) -> Result<Self, buck2_error::Error> {
-        let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
-            .await
-            .map_err(|e| {
-                e.context("Error initializing DaemonStateData")
-                    .tag([ErrorTag::DaemonStateInitFailed])
-            })?;
+        let data = Self::init_data(
+            fb,
+            paths.clone(),
+            init_ctx,
+            rt.clone(),
+            materializations,
+            cgroup_tree,
+        )
+        .await
+        .map_err(|e| {
+            e.context("Error initializing DaemonStateData")
+                .tag([ErrorTag::DaemonStateInitFailed])
+        })?;
 
         crate::daemon::panic::initialize(data.dupe());
 
@@ -262,6 +271,7 @@ impl DaemonState {
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
         materializations: MaterializationMethod,
+        cgroup_tree: Option<BuckCgroupTree>,
     ) -> buck2_error::Result<Arc<DaemonStateData>> {
         if buck2_env!(
             "BUCK2_TEST_INIT_DAEMON_ERROR",
@@ -551,6 +561,7 @@ impl DaemonState {
             )?;
 
             let memory_tracker = memory_tracker::create_memory_tracker(
+                cgroup_tree.as_ref(),
                 &init_ctx.daemon_startup_config.resource_control,
             )
             .await?;
@@ -560,18 +571,13 @@ impl DaemonState {
             let forkserver = maybe_launch_forkserver(
                 root_config,
                 &paths.forkserver_state_dir(),
-                &init_ctx.daemon_startup_config.resource_control,
-                memory_tracker.dupe(),
+                cgroup_tree.as_ref(),
             )
             .await?;
 
             let dice = init_ctx
                 .construct_dice(io.dupe(), digest_config, root_config)
                 .await?;
-
-            // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
-            // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
-            // this list should be safe until we can revert it to Expr::True.
 
             let file_watcher = <dyn FileWatcher>::new(
                 fb,
@@ -650,7 +656,7 @@ impl DaemonState {
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
-                format!("has-cgroup:{}", init_ctx.has_cgroup),
+                format!("has-cgroup:{}", cgroup_tree.is_some()),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
@@ -678,10 +684,10 @@ impl DaemonState {
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 tags,
                 system_warning_config,
+                cgroup_tree,
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
-                has_cgroup: init_ctx.has_cgroup,
             }))
         })
         .await?
@@ -959,6 +965,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_startup_config_defaults_internal() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let builder =
             http_client_from_startup_config(&DaemonStartupConfig::testing_empty()).await?;
         assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects().unwrap());
@@ -981,6 +988,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_startup_config_overrides() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let config = parse(
             &[(
                 "config",
@@ -1010,6 +1018,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_startup_config_zero_for_unset() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let config = parse(
             &[(
                 "config",

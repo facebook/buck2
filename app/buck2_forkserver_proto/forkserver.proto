@@ -16,7 +16,7 @@ import "data.proto";
 package buck.forkserver;
 
 message CommandRequest {
-  reserved 3, 4, 7, 13;
+  reserved 3, 4, 7, 10, 11, 13, 15, 16;
   // The executable that should be run.
   bytes exe = 1;
   // The arguments to give the executable.
@@ -31,8 +31,9 @@ message CommandRequest {
   bool enable_miniperf = 9;
 
   message StdRedirectPaths {
-    bytes stdout = 10;
-    bytes stderr = 11;
+    // reserved 10, 11
+    string stdout = 1;
+    string stderr = 2;
   }
   // Used to optionally redirect stdout and stderr to files.
   // If set, stdout and stderr events will not be streamed.
@@ -41,9 +42,8 @@ message CommandRequest {
   // before sending SIGKILL.
   // Should only be needed for daemonized processes (workers).
   optional uint32 graceful_shutdown_timeout_s = 14;
-  // Used to create an unique cgroup name for action
-  // FIXME this is not an action digest, rename to cgroup_command_id
-  optional string action_digest = 15;
+  // The cgroup that the command should be spawned into. Must already exist.
+  optional string command_cgroup = 17;
 }
 
 message WorkingDirectory {
@@ -73,6 +73,7 @@ message EnvDirective {
 }
 
 message CommandEvent {
+  reserved 8;
   oneof data {
     ExitEvent exit = 1;
     TimeoutEvent timeout = 2;
@@ -80,13 +81,21 @@ message CommandEvent {
     StreamEvent stderr = 5;
     CancelEvent cancel = 6;
     SpawnFailedEvent spawn_failed = 7;
-    Cgroup cgroup = 8;
   }
 }
 
+// Like `buck.data.CommandExecutionStats`, but without memory information
+message CollectedExecutionStats {
+  optional uint64 cpu_instructions_user = 1;
+  optional uint64 cpu_instructions_kernel = 2;
+  optional buck.data.CpuCounter userspace_events = 3;
+  optional buck.data.CpuCounter kernel_events = 4;
+}
+
 message ExitEvent {
+  reserved 2;
   int32 exit_code = 1;
-  optional buck.data.CommandExecutionStats execution_stats = 2;
+  optional CollectedExecutionStats execution_stats = 3;
 }
 
 message TimeoutEvent {
@@ -122,18 +131,9 @@ message SetLogFilterRequest {
 
 message SetLogFilterResponse {}
 
-message GetCgroupRequest {}
-
-message GetCgroupResponse {
-  optional string cgroup_path = 1;
-}
-
 service Forkserver {
   rpc Run(stream RequestEvent) returns (stream CommandEvent) {}
 
   // Update the daemon's log filter.
   rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);
-
-  // Query the forkserver's cgroup path.
-  rpc GetCgroup(GetCgroupRequest) returns (GetCgroupResponse);
 }

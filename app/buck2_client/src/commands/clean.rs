@@ -28,7 +28,6 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
@@ -230,15 +229,14 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     let walk = WalkDir::new(path);
     let thread_pool = ThreadPool::new(buck2_util::threads::available_parallelism());
     let error = Arc::new(Mutex::new(None));
-    // collect dir paths to delete them after deleting files in them
-    // we need reverse order to make sure the dir is already empty when
-    // we delete it, otherwise remove would fail with DirNotEmpty exception
-    let mut reverse_dir_paths = Vec::new();
     for dir_entry in walk.into_iter().flatten() {
-        if dir_entry.file_type().is_dir() {
-            // The walk gives us back absolute paths since we give it absolute paths.
-            reverse_dir_paths.push(AbsPathBuf::new(dir_entry.into_path()).unwrap());
-        } else {
+        let file_type = dir_entry.file_type();
+        // As in the daemon, heavily parallel writes to directories in btrfs perform really poorly,
+        // so we only parallelize file deletions and do the rest synchronously.
+        //
+        // FIXME(JakobDegen): The parallelism cap for file deletions in the daemon is much smaller
+        // than it is here. Change that or write a comment justifying it.
+        if !file_type.is_dir() && !file_type.is_symlink() {
             let error = error.dupe();
             thread_pool.execute(move || {
                 // The wlak gives us back absolute paths since we give it absolute paths.
@@ -263,10 +261,14 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
         return Err(e.into());
     }
 
-    // first entry is buck-out root dir and we don't want to remove it
-    for path in reverse_dir_paths.iter().skip(1).rev() {
-        fs_util::remove_dir(path)?;
+    // Buck's cwd is typically the directory that is passed in here, which means that on Windows we
+    // often fail to delete this if we don't clean up all our child processes. Leaving zombies
+    // around isn't great though...
+    let dir = fs_util::read_dir(path)?;
+    for entry in dir {
+        let entry = entry?;
+        let path = entry.path();
+        fs_util::remove_dir_all(path)?;
     }
-
     Ok(())
 }

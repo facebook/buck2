@@ -217,3 +217,96 @@ impl<'a, D: DirectoryRef<'a>> WalkType<'a> for OrderedDirectoryWalkType<'a, D> {
         entries.into_iter()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+
+    use crate::directory::directory::Directory;
+    use crate::directory::directory_iterator::DirectoryIterator;
+    use crate::directory::directory_iterator::DirectoryIteratorPathStack;
+    use crate::directory::entry::DirectoryEntry;
+    use crate::directory::test::NopEntry;
+    use crate::directory::test::TestDirectoryBuilder;
+    use crate::directory::test::path;
+    use crate::directory::walk::ordered_entry_walk;
+
+    #[test]
+    fn test_walk() -> buck2_error::Result<()> {
+        let mut b = TestDirectoryBuilder::empty();
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+        b.insert(
+            path("b"),
+            DirectoryEntry::Dir(TestDirectoryBuilder::empty()),
+        )?;
+
+        {
+            let mut it = b.ordered_walk().with_paths();
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p, path("a"))
+            );
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p, path("a/b"))
+            );
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p, path("b"))
+            );
+
+            assert_matches!(it.next(), None);
+        }
+
+        {
+            let it = b.unordered_walk().with_paths();
+            let mut collected = it.collect::<Vec<_>>();
+            collected.sort_by_key(|(name, _)| name.clone());
+            let mut it = collected.into_iter();
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p, path("a"))
+            );
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p, path("a/b"))
+            );
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p, path("b"))
+            );
+
+            assert_matches!(it.next(), None);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_entry_walk() {
+        {
+            let e = DirectoryEntry::<TestDirectoryBuilder, _>::Leaf(NopEntry);
+            let mut it = ordered_entry_walk(e.as_ref().map_dir(|d| d.as_ref()));
+
+            assert_matches!(
+                it.next(),
+                Some((p, _)) => assert_eq!(p.get(), path(""))
+            );
+
+            assert_matches!(it.next(), None);
+        }
+
+        {
+            let e = DirectoryEntry::<_, NopEntry>::Dir(TestDirectoryBuilder::empty());
+            let mut it = ordered_entry_walk(e.as_ref().map_dir(|d| d.as_ref()));
+
+            assert_matches!(it.next(), None);
+        }
+    }
+}

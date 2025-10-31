@@ -19,6 +19,7 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
+use buck2_build_api::artifact_groups::TransitiveSetProjectionWrapper;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::context::SetBuildContextData;
@@ -205,11 +206,14 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let result = dice
         .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(Arc::new(
-            TransitiveSetProjectionKey {
-                key: set.key.dupe(),
-                projection: 0,
-                uses_content_based_paths: false,
-            },
+            TransitiveSetProjectionWrapper::new(
+                TransitiveSetProjectionKey {
+                    key: set.key.dupe(),
+                    projection: 0,
+                },
+                false,
+                false,
+            ),
         )))
         .await?
         .iter()

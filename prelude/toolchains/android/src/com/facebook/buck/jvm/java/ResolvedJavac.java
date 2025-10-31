@@ -64,7 +64,7 @@ public interface ResolvedJavac {
      * Produces a source-only ABI jar. {@link #buildClasses} may not be called on an invocation on
      * which this has been called.
      */
-    int buildSourceOnlyAbiJar() throws InterruptedException;
+    int buildSourceOnlyAbiJar(boolean isMixedModule) throws InterruptedException;
 
     /** Produces a source ABI jar. Must be called before {@link #buildClasses} */
     int buildSourceAbiJar() throws InterruptedException;

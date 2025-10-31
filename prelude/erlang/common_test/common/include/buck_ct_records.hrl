@@ -10,18 +10,23 @@
 -record(test_info, {
     dependencies :: [file:filename()],
     test_suite :: binary(),
-    config_files :: [binary()],
+    config_files :: [file:filename_all()],
     providers :: [{atom(), [term()]}],
     ct_opts :: [term()],
     erl_cmd :: [binary()],
-    extra_flags :: [string()],
-    common_app_env :: #{string() => string()},
+    extra_flags :: [binary()],
+    common_app_env :: #{binary() => binary()},
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary(),
     trampolines :: [binary()]
 }).
 
--record(ct_test, {suite, groups, test_name, canonical_name}).
+-record(ct_test, {
+    suite :: module(),
+    groups :: [atom()],
+    test_name :: atom(),
+    canonical_name :: string()
+}).
 
 -record(test_env, {
     suite :: module(),
@@ -29,17 +34,18 @@
     suite_path :: file:filename_all(),
     output_dir :: file:filename_all(),
     dependencies :: [file:filename_all()],
-    test_spec_file :: file:filename_all() | undefined,
+    test_spec_file :: file:filename_all(),
     output_format :: xml | json,
     config_files :: [file:filename_all()],
     providers :: [{module(), [term()]}],
     ct_opts :: [term()],
-    common_app_env :: #{string() => string()},
+    common_app_env :: #{binary() => binary()},
     erl_cmd :: [binary()],
-    extra_flags :: [string()],
+    extra_flags :: [binary()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary() | undefined,
-    trampolines :: [binary()]
+    trampolines :: [binary()],
+    timeout :: timeout()
 }).
 
 -record(run_specs, {

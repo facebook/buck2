@@ -19,26 +19,25 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_metrics_cgroup_neither(buck: Buck) -> None:
     write_config(buck, resource_control=False, action_cgroup_pool=False)
     snapshot = await start_daemon_and_get_snapshot(buck)
-    assert snapshot["daemon_cgroup"] is None
-    assert snapshot["forkserver_cgroup"] is None
-
-
-@buck_test(skip_for_os=["darwin", "windows"])
-async def test_metrics_cgroup_daemon_only(buck: Buck) -> None:
-    write_config(buck, resource_control=True, action_cgroup_pool=False)
-    snapshot = await start_daemon_and_get_snapshot(buck)
-    assert snapshot["daemon_cgroup"]["anon"] > 0
-    assert snapshot["forkserver_cgroup"] is None
+    assert snapshot["allprocs_cgroup"] is None
+    assert snapshot["forkserver_actions_cgroup"] is None
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
 async def test_metrics_cgroup_both(buck: Buck) -> None:
     write_config(buck, resource_control=True, action_cgroup_pool=True)
     snapshot = await start_daemon_and_get_snapshot(buck)
-    assert snapshot["daemon_cgroup"]["anon"] >= snapshot["forkserver_cgroup"]["anon"]
-    assert snapshot["daemon_cgroup"]["file"] >= snapshot["forkserver_cgroup"]["file"]
+    # Daemon should have allocated at least 500KB of anon memory
+    assert snapshot["allprocs_cgroup"]["anon"] >= (
+        snapshot["forkserver_actions_cgroup"]["anon"] + 500000
+    )
     assert (
-        snapshot["daemon_cgroup"]["kernel"] >= snapshot["forkserver_cgroup"]["kernel"]
+        snapshot["allprocs_cgroup"]["file"]
+        >= snapshot["forkserver_actions_cgroup"]["file"]
+    )
+    assert (
+        snapshot["allprocs_cgroup"]["kernel"]
+        >= snapshot["forkserver_actions_cgroup"]["kernel"]
     )
 
 
@@ -54,7 +53,7 @@ def write_config(
         buckconfig.write("[buck2_resource_control]\n")
         buckconfig.write(f"status = {"required" if resource_control else "off"}\n")
         buckconfig.write(
-            f"enable_action_cgroup_pool = {"true" if action_cgroup_pool else "false"}\n"
+            f"enable_action_cgroup_pool_v2 = {"true" if action_cgroup_pool else "false"}\n"
         )
 
 

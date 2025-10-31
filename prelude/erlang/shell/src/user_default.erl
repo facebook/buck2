@@ -11,25 +11,25 @@
 
 -compile(warn_missing_spec_all).
 
--eqwalizer(ignore).
-
 -export([
     c/1, c/2, c/3,
     l/1
 ]).
 
+-import(common_util, [filename_all_to_filename/1]).
+
 -type c_ret() :: {ok, module()} | error.
 -type c_options() :: [compile:option()] | compile:option().
 
--spec c(module()) -> c_ret().
+-spec c(module()) -> c_ret() | {error, non_existing}.
 c(Module) ->
     c(Module, []).
 
--spec c(module(), c_options()) -> c_ret().
+-spec c(module(), c_options()) -> c_ret() | {error, non_existing}.
 c(Module, Options) ->
     c(Module, Options, fun(_) -> true end).
 
--spec c(module(), c_options(), fun((compile:option()) -> boolean())) -> c_ret().
+-spec c(module(), c_options(), fun((compile:option()) -> boolean())) -> c_ret() | {error, non_existing}.
 c(Module, _Options, _Filter) ->
     case code:which(Module) of
         non_existing ->
@@ -46,14 +46,16 @@ c(Module, _Options, _Filter) ->
             end
     end.
 
--spec l(module()) -> code:load_ret().
+-spec l(module()) ->
+    code:load_ret()
+    | {error, not_found | {ambiguous, [file:filename_all()]}}.
 l(Module) ->
     case shell_buck2_module_search:find_module(Module) of
         available ->
             c:l(Module);
         {source, RelSource} ->
             AbsSource = filename:absname(RelSource),
-            Paths = shell_buck2_utils:get_additional_paths(AbsSource),
+            Paths = [filename_all_to_filename(Path) || Path <- shell_buck2_utils:get_additional_paths(AbsSource)],
             ok = code:add_paths(Paths),
             ok = ct_daemon:push_paths(Paths),
             c:l(Module);

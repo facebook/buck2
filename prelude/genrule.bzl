@@ -117,11 +117,11 @@ def genrule_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _declare_output(ctx: AnalysisContext, path: str, content_based: bool) -> Artifact:
     if path == ".":
-        return ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True, uses_experimental_content_based_path_hashing = content_based)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True, has_content_based_path = content_based)
     elif path.endswith("/"):
-        return ctx.actions.declare_output(GENRULE_OUT_DIR, path[:-1], dir = True, uses_experimental_content_based_path_hashing = content_based)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, path[:-1], dir = True, has_content_based_path = content_based)
     else:
-        return ctx.actions.declare_output(GENRULE_OUT_DIR, path, uses_experimental_content_based_path_hashing = content_based)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, path, has_content_based_path = content_based)
 
 def _project_output(out: Artifact, path: str) -> Artifact:
     if path == ".":
@@ -130,6 +130,27 @@ def _project_output(out: Artifact, path: str) -> Artifact:
         return out.project(path[:-1], hide_prefix = True)
     else:
         return out.project(path, hide_prefix = True)
+
+def _generate_error_handler(category: str, stderr_errorformats: list[str] | None, stdout_errorformats: list[str] | None) -> typing.Callable[[ActionErrorCtx], list[ActionSubError]]:
+    def handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+        structured_errors = []
+        if stderr_errorformats != None:
+            structured_errors = ctx.parse_with_errorformat(
+                category = category,
+                error = ctx.stderr,
+                errorformats = stderr_errorformats,
+            )
+
+        if stdout_errorformats != None:
+            errors = ctx.parse_with_errorformat(
+                category = category,
+                error = ctx.stdout,
+                errorformats = stdout_errorformats,
+            )
+            structured_errors += errors
+        return structured_errors
+
+    return handler
 
 def process_genrule(
         ctx: AnalysisContext,
@@ -152,7 +173,7 @@ def process_genrule(
 
     executable_outs = getattr(ctx.attrs, "executable_outs", None)
 
-    content_based = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    content_based = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False) or getattr(ctx.attrs, "has_content_based_path", False)
 
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
@@ -161,7 +182,7 @@ def process_genrule(
         default_outputs = [out_artifact]
         expect(executable_outs == None, "`executable_outs` should not be set when `out` is set")
     elif outs_attr != None:
-        out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True, uses_experimental_content_based_path_hashing = content_based)
+        out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True, has_content_based_path = content_based)
 
         named_outputs = {
             name: [_project_output(out_artifact, path) for path in outputs]
@@ -227,7 +248,7 @@ def process_genrule(
     srcs_artifact = ctx.actions.symlinked_dir(
         "srcs" if not identifier else "{}-srcs".format(identifier),
         symlinks,
-        uses_experimental_content_based_path_hashing = content_based,
+        has_content_based_path = content_based,
     )
 
     if ctx.attrs.environment_expansion_separator:
@@ -272,28 +293,20 @@ def process_genrule(
 
     # Create required directories.
     if is_windows:
-        if content_based:
-            outs_to_create = [".\\{}\\..\\..\\output_artifact\\out", ".\\{}\\..\\..\\output_artifacts\\out"]
-        else:
-            outs_to_create = [".\\{}\\..\\out"]
+        out = ".\\{}\\..\\..\\output_artifacts\\out" if content_based else ".\\{}\\..\\out"
         script = [
             cmd_args(
                 srcs_artifact,
                 format = "if not exist {0} mkdir {0}".format(out),
-            )
-            for out in outs_to_create
-        ] + [cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\"")]
+            ),
+            cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\""),
+        ]
         script_extension = "bat"
     else:
-        if content_based:
-            outs_to_create = ["./{}/../../output_artifact/out", "./{}/../../output_artifacts/out"]
-        else:
-            outs_to_create = ["./{}/../out"]
+        out = "./{}/../../output_artifacts/out" if content_based else "./{}/../out"
         script = [
             # Use a somewhat unique exit code so this can get retried on RE (T99656531).
-            cmd_args(srcs_artifact, format = "mkdir -p {} || exit 99".format(out))
-            for out in outs_to_create
-        ] + [
+            cmd_args(srcs_artifact, format = "mkdir -p {} || exit 99".format(out)),
             cmd_args("export TMP=${TMPDIR:-/tmp}"),
         ]
         script_extension = "sh"
@@ -367,7 +380,7 @@ def process_genrule(
         script,
         is_executable = True,
         allow_args = True,
-        uses_experimental_content_based_path_hashing = content_based,
+        has_content_based_path = content_based,
     )
     if is_windows:
         script_args = ["cmd.exe", "/v:off", "/c", sh_script]
@@ -382,6 +395,17 @@ def process_genrule(
         metadata_args["metadata_path"] = ctx.attrs.metadata_path
     if ctx.attrs.remote_execution_dependencies:
         metadata_args["remote_execution_dependencies"] = ctx.attrs.remote_execution_dependencies
+
+    if genrule_error_handler == None:
+        error_handler_category = getattr(ctx.attrs, "error_handler_category", None)
+        error_handler_stderr_errorformats = getattr(ctx.attrs, "error_handler_stderr_errorformats", None)
+        error_handler_stdout_errorformats = getattr(ctx.attrs, "error_handler_stdout_errorformats", None)
+        if error_handler_category != None and (error_handler_stderr_errorformats != None or error_handler_stdout_errorformats != None):
+            genrule_error_handler = _generate_error_handler(
+                error_handler_category,
+                error_handler_stderr_errorformats,
+                error_handler_stdout_errorformats,
+            )
 
     category = "genrule"
     if ctx.attrs.type != None:

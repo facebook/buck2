@@ -173,11 +173,6 @@ def _uses_explicit_modules_arg():
         "uses_explicit_modules": attrs.bool(default = False),
     }
 
-def _enable_private_swift_module_arg():
-    return {
-        "enable_private_swift_module": attrs.bool(default = False),
-    }
-
 def _meta_apple_library_validation_enabled_default_value():
     if not is_full_meta_repo():
         return False
@@ -283,6 +278,11 @@ def _apple_installer_arg():
         "installer": attrs.default_only(attrs.exec_dep(default = installer_target)),
     }
 
+def _enforce_minimum_os_plist_key():
+    return {
+        "enforce_minimum_os_plist_key": attrs.bool(default = False),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -300,7 +300,6 @@ apple_common = struct(
     meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
     skip_universal_resource_dedupe_arg = _skip_universal_resource_dedupe_arg,
     apple_sanitizer_compatibility_arg = _apple_sanitizer_compatibility_arg,
-    enable_private_swift_module_arg = _enable_private_swift_module_arg,
     apple_tools_arg = _apple_tools_arg,
     product_name_from_module_name_arg = _product_name_from_module_name_arg,
     executable_name_for_universal_arg = _executable_name_for_universal_arg,
@@ -308,4 +307,5 @@ apple_common = struct(
     apple_toolchain_arg = _apple_toolchain_arg,
     asset_catalogs_compilation_options_arg = _asset_catalogs_compilation_options_arg,
     apple_installer_arg = _apple_installer_arg,
+    enforce_minimum_os_plist_key = _enforce_minimum_os_plist_key,
 )

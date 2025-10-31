@@ -8,6 +8,7 @@
 
 _BuildGraphPatternKind = enum(
     "root",
+    "root/...",
     "first_order_deps",
 )
 
@@ -34,6 +35,8 @@ def parse_build_graph_pattern(pattern: str) -> BuildGraphPattern:
             return label == info.root
         elif kind == _BuildGraphPatternKind("first_order_deps"):
             return label in info.first_order_deps
+        elif kind == _BuildGraphPatternKind("root/..."):
+            return label.package.startswith(info.root.package)
         return False
 
     return BuildGraphPattern(matches = matches)

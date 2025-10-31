@@ -17,7 +17,6 @@
 #![feature(never_type)]
 #![feature(try_trait_v2)]
 #![feature(used_with_arg)]
-#![feature(let_chains)]
 #![feature(try_blocks)]
 
 pub mod argv;
@@ -25,8 +24,6 @@ pub mod buckd_connection;
 pub mod build_count;
 pub mod buildfiles;
 pub mod cas_digest;
-#[cfg(unix)]
-pub mod cgroup_pool;
 pub mod chunk_reader;
 pub mod client_utils;
 pub mod convert;
@@ -55,7 +52,6 @@ pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
-pub mod resource_control;
 pub mod rlimits;
 pub mod scope;
 pub mod self_test_timeout;

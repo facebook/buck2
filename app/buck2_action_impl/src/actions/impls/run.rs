@@ -537,12 +537,18 @@ impl RunAction {
 
         let worker = if let Some(worker) = values.worker {
             let mut worker_rendered = Vec::<String>::new();
+            let mut local_worker_visitor = SimpleCommandLineArtifactVisitor::new();
             worker.exe.add_to_command_line(
                 &mut worker_rendered,
                 &mut cli_ctx,
                 &artifact_path_mapping,
             )?;
-            worker.exe.visit_artifacts(artifact_visitor)?;
+            worker.exe.add_to_command_line(
+                &mut command_line_digest_for_dep_files,
+                &mut cli_ctx,
+                &artifact_path_mapping_for_dep_files,
+            )?;
+            worker.exe.visit_artifacts(&mut local_worker_visitor)?;
             let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
                 .env
                 .into_iter()
@@ -554,10 +560,37 @@ impl RunAction {
                         &mut ctx,
                         &artifact_path_mapping,
                     )?;
-                    v.visit_artifacts(artifact_visitor)?;
+                    v.visit_artifacts(&mut local_worker_visitor)?;
+
+                    command_line_digest_for_dep_files.push_arg(k.to_owned());
+                    v.add_to_command_line(
+                        &mut command_line_digest_for_dep_files,
+                        &mut ctx,
+                        &artifact_path_mapping_for_dep_files,
+                    )?;
+                    command_line_digest_for_dep_files.push_count();
                     Ok((k.to_owned(), env))
                 })
                 .collect();
+
+            let local_worker_inputs: Vec<&ArtifactGroupValues> = local_worker_visitor
+                .inputs()
+                .map(|group| action_execution_ctx.artifact_values(group))
+                .collect();
+
+            let inputs: Vec<CommandExecutionInput> = local_worker_inputs[..]
+                .map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+
+            let input_paths = CommandExecutionPaths::new(
+                inputs,
+                IndexSet::new(),
+                action_execution_ctx.fs(),
+                action_execution_ctx.digest_config(),
+                action_execution_ctx
+                    .run_action_knobs()
+                    .action_paths_interner
+                    .as_ref(),
+            )?;
 
             let worker_key = if worker.supports_bazel_remote_persistent_worker_protocol {
                 let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
@@ -584,6 +617,7 @@ impl RunAction {
             } else {
                 None
             };
+
             Some(WorkerSpec {
                 exe: worker_rendered,
                 id: worker.id,
@@ -591,6 +625,7 @@ impl RunAction {
                 concurrency: worker.concurrency,
                 streaming: worker.streaming,
                 remote_key: worker_key,
+                input_paths,
             })
         } else {
             None
@@ -603,6 +638,11 @@ impl RunAction {
                 &mut remote_worker_init_rendered,
                 &mut cli_ctx,
                 &artifact_path_mapping,
+            )?;
+            remote_worker.exe.add_to_command_line(
+                &mut command_line_digest_for_dep_files,
+                &mut cli_ctx,
+                &artifact_path_mapping_for_dep_files,
             )?;
             remote_worker
                 .exe
@@ -620,6 +660,14 @@ impl RunAction {
                         &artifact_path_mapping,
                     )?;
                     v.visit_artifacts(&mut remote_worker_init_visitor)?;
+
+                    command_line_digest_for_dep_files.push_arg(k.to_owned());
+                    v.add_to_command_line(
+                        &mut command_line_digest_for_dep_files,
+                        &mut ctx,
+                        &artifact_path_mapping_for_dep_files,
+                    )?;
+                    command_line_digest_for_dep_files.push_count();
                     Ok((k.to_owned(), env))
                 })
                 .collect();
@@ -971,6 +1019,7 @@ impl RunAction {
             run_action_visitor.dep_files_visitor,
             cmdline_digest_for_dep_files,
             &prepared_run_action.paths,
+            prepared_run_action.worker.as_ref().map(|w| &w.input_paths),
         )?;
 
         // First, check in the local dep file cache if an identical action can be found there.

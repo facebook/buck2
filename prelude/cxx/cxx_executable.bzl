@@ -227,7 +227,7 @@ CxxExecutableOutput = record(
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
     # Gather preprocessor inputs.
-    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
+    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [impl_params.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
@@ -246,7 +246,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # Compile objects.
     compile_cmd_output = create_compile_cmds(
-        ctx,
+        ctx.actions,
+        ctx.label,
+        get_cxx_toolchain_info(ctx),
+        get_cxx_platform_info(ctx),
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
@@ -265,11 +268,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             compile_flavors.add(CxxCompileFlavor("optimized"))
 
     cxx_outs = compile_cxx(
-        ctx = ctx,
+        actions = ctx.actions,
+        target_label = ctx.label,
+        toolchain = get_cxx_toolchain_info(ctx),
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = compile_flavors,
         provide_syntax_only = True,
+        separate_debug_info = impl_params.separate_debug_info,
         use_header_units = impl_params.use_header_units,
+        cuda_compile_style = impl_params.cuda_compile_style,
     )
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]

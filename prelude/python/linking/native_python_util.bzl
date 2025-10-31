@@ -375,7 +375,7 @@ def suffix_symbols(
 
         artifacts.append(artifact)
         updated_base, _ = paths.split_extension(artifact.short_path)
-        stripped_artifacts.append(strip_debug_info(ctx, updated_base + ".stripped.o", artifact))
+        stripped_artifacts.append(strip_debug_info(ctx.actions, updated_base + ".stripped.o", artifact, cxx_toolchain))
 
     default = ObjectsLinkable(
         objects = artifacts,

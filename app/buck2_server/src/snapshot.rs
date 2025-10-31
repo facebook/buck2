@@ -300,10 +300,13 @@ impl SnapshotCollector {
     }
 
     fn add_memory_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        #[cfg(not(unix))]
+        {
+            let _snapshot = snapshot;
+        }
         #[cfg(unix)]
         {
-            use buck2_util::cgroup_info::CGroupInfo;
-            use buck2_util::cgroup_info::MemoryStat;
+            use buck2_resource_control::cgroup_files::MemoryStat;
 
             fn convert_stats(stats: &MemoryStat) -> buck2_data::UnixCgroupMemoryStats {
                 buck2_data::UnixCgroupMemoryStats {
@@ -315,21 +318,13 @@ impl SnapshotCollector {
 
             // Try to read Buck2 daemon memory information from cgroup
 
-            if self.daemon.has_cgroup {
-                if let Ok(stat) = CGroupInfo::read().and_then(|cg| cg.read_memory_stat()) {
-                    snapshot.daemon_cgroup = Some(convert_stats(&stat));
+            if let Some(cgroup_tree) = self.daemon.cgroup_tree.as_ref() {
+                if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat() {
+                    snapshot.allprocs_cgroup = Some(convert_stats(&stat))
                 }
-            }
 
-            // Try to read forkserver memory information if available
-            if let Some(cgroup) = self
-                .daemon
-                .forkserver
-                .as_ref()
-                .and_then(|f| f.cgroup_info())
-            {
-                if let Ok(stat) = cgroup.read_memory_stat() {
-                    snapshot.forkserver_cgroup = Some(convert_stats(&stat));
+                if let Ok(stat) = cgroup_tree.forkserver_and_actions().read_memory_stat() {
+                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat))
                 }
             }
         }

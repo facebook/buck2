@@ -35,9 +35,9 @@ http_archive(
 
 go_bootstrap_distr(
     name = "go_bootstrap_distr",
-    go_os = select({
-        "config//os:linux": "linux",
-        "config//os:macos": "darwin",
+    go_os_arch = select({
+        "config//os:linux": select({"config//cpu:x86_64": ("linux", "amd64")}),
+        "config//os:macos": select({"config//cpu:arm64": ("darwin", "arm64")}),
     }),
     go_root = select({
         "config//os:linux": select({"config//cpu:x86_64": ":archive_go1.24.4.linux-amd64"}),
@@ -61,13 +61,9 @@ go_bootstrap_toolchain(
 
 go_distr(
     name = "go_distr",
-    go_arch = select({
-        "config//cpu:arm64": "arm64",
-        "config//cpu:x86_64": "amd64",
-    }),
-    go_os = select({
-        "config//os:linux": "linux",
-        "config//os:macos": "darwin",
+    go_os_arch = select({
+        "config//os:linux": select({"config//cpu:x86_64": ("linux", "amd64")}),
+        "config//os:macos": select({"config//cpu:arm64": ("darwin", "arm64")}),
     }),
     go_root = select({
         "config//os:linux": select({"config//cpu:x86_64": ":archive_go1.24.4.linux-amd64"}),

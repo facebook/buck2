@@ -131,6 +131,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     Ok(AnonTargetAttr::PromiseArtifact(PromiseArtifactAttr {
                         id: promise_artifact.artifact.id.as_ref().clone(),
                         short_path: promise_artifact.short_path.clone(),
+                        has_content_based_path: promise_artifact.has_content_based_path,
                     }))
                 } else if let Some(artifact_like) = ValueAsInputArtifactLike::unpack_value(value)? {
                     let artifact = artifact_like.0.get_bound_artifact()?;

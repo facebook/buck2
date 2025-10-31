@@ -9,7 +9,6 @@
  */
 
 use std::collections::HashSet;
-use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -17,6 +16,8 @@ use std::task::Context;
 use std::task::Poll;
 
 use buck2_core::buck2_env;
+use buck2_core::fs::fs_util::disk_space_stats;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -52,7 +53,6 @@ use futures::stream::FuturesOrdered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use pin_project::pin_project;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -100,7 +100,6 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// used by the rest of Buck.
     rt: Handle,
     pub(super) defer_write_actions: bool,
-    log_buffer: LogBuffer,
     /// Keep track of artifact versions to avoid callbacks clobbering state if the state has moved
     /// forward.
     version_tracker: VersionTracker,
@@ -281,35 +280,6 @@ impl VersionTracker {
     }
 }
 
-/// Simple ring buffer for tracking recent commands, to be shown on materializer error
-#[derive(Clone)]
-pub(super) struct LogBuffer {
-    inner: VecDeque<String>,
-}
-
-impl LogBuffer {
-    pub(super) fn new(capacity: usize) -> Self {
-        Self {
-            inner: VecDeque::with_capacity(capacity),
-        }
-    }
-
-    fn push(&mut self, item: String) {
-        if self.inner.len() == self.inner.capacity() {
-            self.inner.pop_front();
-            self.inner.push_back(item);
-        } else {
-            self.inner.push_back(item);
-        }
-    }
-}
-
-impl std::fmt::Display for LogBuffer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner.iter().join("\n"))
-    }
-}
-
 #[pin_project]
 struct CommandStream<T: 'static> {
     high_priority: UnboundedReceiver<MaterializerCommand<T>>,
@@ -377,7 +347,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         sqlite_db: Option<MaterializerStateSqliteDb>,
         rt: Handle,
         defer_write_actions: bool,
-        log_buffer: LogBuffer,
         command_sender: Arc<MaterializerSender<T>>,
         tree: ArtifactTree,
         cancellations: &'static CancellationContext,
@@ -396,7 +365,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             sqlite_db,
             rt,
             defer_write_actions,
-            log_buffer,
             version_tracker,
             command_sender,
             tree,
@@ -422,6 +390,41 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         match get_dispatcher_opt() {
             Some(dispatcher) => rt.spawn(with_dispatcher_async(dispatcher, f)),
             None => rt.spawn(f),
+        }
+    }
+
+    fn get_artifact_ttl(
+        decreased_ttl_hours_disk_threshold: Option<f64>,
+        decreased_ttl_hours: Option<std::time::Duration>,
+        default_ttl: std::time::Duration,
+    ) -> std::time::Duration {
+        #[cfg(target_os = "windows")]
+        {
+            return default_ttl;
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let (threshold, lower_ttl) =
+                match (decreased_ttl_hours_disk_threshold, decreased_ttl_hours) {
+                    (Some(t), Some(l)) => (t, l),
+                    _ => return default_ttl,
+                };
+
+            let root_path_str = "/";
+
+            let disk_stats = match AbsPath::new(root_path_str).and_then(disk_space_stats) {
+                Ok(stats) => stats,
+                Err(e) => {
+                    let _unused = soft_error!("disk_space_stats", e);
+                    return default_ttl;
+                }
+            };
+            if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
+                lower_ttl
+            } else {
+                default_ttl
+            }
         }
     }
 
@@ -480,13 +483,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         while let Some(op) = stream.next().await {
             match op {
                 Op::Command(command) => {
-                    self.log_buffer.push(format!("{command:?}"));
                     self.process_one_command(command);
                     counters.ack_received();
                     self.flush_access_times(access_time_update_max_buffer_size);
                 }
                 Op::LowPriorityCommand(command) => {
-                    self.log_buffer.push(format!("{command:?}"));
                     self.process_one_low_priority_command(command);
                     counters.ack_received();
                 }
@@ -536,8 +537,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Op::CleanStaleRequest => {
                     if let Some(config) = clean_stale_config.as_ref() {
                         let dispatcher = self.daemon_dispatcher.dupe();
+
+                        let artifact_ttl = Self::get_artifact_ttl(
+                            config.decreased_ttl_hours_disk_threshold,
+                            config.decreased_ttl_hours,
+                            config.artifact_ttl,
+                        );
+
                         let cmd = CleanStaleArtifactsCommand {
-                            keep_since_time: chrono::Utc::now() - config.artifact_ttl,
+                            keep_since_time: chrono::Utc::now() - artifact_ttl,
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
@@ -743,7 +751,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 {
                     soft_error!(
                         "materializer_materialize_error",
-                        e.context(format!("{}", self.log_buffer)).into(),
+                        e,
                         quiet: true
                     )
                     .unwrap();
@@ -791,7 +799,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let metadata = ArtifactMetadata::new(value.entry(), !persist_full_directory_structure);
         on_materialization(
             self.sqlite_db.as_mut(),
-            &self.log_buffer,
             &self.subscriptions,
             path,
             &metadata,
@@ -1018,7 +1025,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        soft_error!("has_artifact_update_time", e.context(format!("{}", self.log_buffer)).into(), quiet: true).unwrap();
+                        soft_error!("has_artifact_update_time", e, quiet: true).unwrap();
                     }
                 }
             }
@@ -1411,7 +1418,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             // future on this path.
                             on_materialization(
                                 self.sqlite_db.as_mut(),
-                                &self.log_buffer,
                                 &self.subscriptions,
                                 &artifact_path,
                                 &metadata,
@@ -1455,7 +1461,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 /// Run callbacks for an artifact being materialized at `path`.
 fn on_materialization(
     sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-    log_buffer: &LogBuffer,
     subscriptions: &MaterializerSubscriptions,
     path: &ProjectRelativePath,
     metadata: &ArtifactMetadata,
@@ -1467,8 +1472,7 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            soft_error!(error_name, e.context(format!("{log_buffer}")).into(), quiet: true)
-                .unwrap();
+            soft_error!(error_name, e, quiet: true).unwrap();
         }
     }
 

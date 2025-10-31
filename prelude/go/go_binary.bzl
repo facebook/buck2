@@ -27,6 +27,7 @@ load(":toolchain.bzl", "evaluate_cgo_enabled")
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
+    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
 
     lib, pkg_info = build_package(
         ctx = ctx,
@@ -38,11 +39,12 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
         embedcfg = ctx.attrs.embedcfg,
-        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
+        cgo_enabled = cgo_enabled,
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,
         lib,
+        cgo_enabled = cgo_enabled,
         deps = ctx.attrs.deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         build_mode = GoBuildMode(value_or(ctx.attrs.build_mode, "exe")),

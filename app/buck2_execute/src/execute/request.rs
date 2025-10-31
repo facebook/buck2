@@ -28,6 +28,7 @@ use buck2_core::soft_error;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::buck2_error;
 use derive_more::Display;
 use dupe::Dupe;
@@ -225,7 +226,7 @@ impl CommandExecutionPaths {
         digest_config: DigestConfig,
         interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
     ) -> buck2_error::Result<Self> {
-        let mut builder = inputs_directory(&inputs, fs)?;
+        let mut builder = inputs_directory(&inputs, digest_config, fs)?;
 
         // RE spec requires outputs to be sorted:
         // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L667-L669
@@ -262,7 +263,11 @@ impl CommandExecutionPaths {
             None => input_directory,
         };
 
-        let input_files_bytes = Self::calculate_inputs_size_bytes(&input_directory);
+        let input_files_bytes = if buck2_core::faster_directories::is_enabled() {
+            input_directory.size()
+        } else {
+            Self::calculate_inputs_size_bytes(&input_directory)
+        };
 
         Ok(Self {
             inputs,
@@ -322,7 +327,6 @@ impl CommandExecutionPaths {
 #[derive(Copy, Clone, Dupe, Debug, Display, Allocative, Hash, PartialEq, Eq)]
 pub struct WorkerId(pub u64);
 
-#[derive(Clone, Debug)]
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
@@ -330,6 +334,13 @@ pub struct WorkerSpec {
     pub concurrency: Option<usize>,
     pub streaming: bool,
     pub remote_key: Option<TrackedFileDigest>,
+    pub input_paths: CommandExecutionPaths,
+}
+
+impl WorkerSpec {
+    pub fn inputs(&self) -> &[CommandExecutionInput] {
+        &self.input_paths.inputs
+    }
 }
 
 pub struct RemoteWorkerSpec {

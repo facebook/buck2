@@ -352,8 +352,6 @@ impl EventLogPathBuf {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;
@@ -388,8 +386,7 @@ mod tests {
             SpanStartEvent {
                 data: Some(
                     CommandStart {
-                        data: None,
-                        metadata: HashMap::new(),
+                        ..Default::default()
                     }
                     .into(),
                 ),

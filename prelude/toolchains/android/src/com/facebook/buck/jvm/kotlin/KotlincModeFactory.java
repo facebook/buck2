@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 public class KotlincModeFactory {
   private static final Logger LOG = Logger.get(KotlincModeFactory.class);
 
-  private IncrementalCompilationValidator incrementalCompilationValidator;
+  private final IncrementalCompilationValidator incrementalCompilationValidator;
 
   public KotlincModeFactory() {
     this(new IncrementalCompilationValidator());
@@ -41,6 +41,7 @@ public class KotlincModeFactory {
       final boolean isTrackClassUsageEnabled,
       final RelPath depFilePath,
       final RelPath usedJarsPath,
+      final RelPath jvmAbiGenDir,
       final KotlinExtraParams extraParams,
       final Optional<ActionMetadata> actionMetadata,
       final ImmutableList<AbsPath> classpathSnapshots) {
@@ -51,17 +52,10 @@ public class KotlincModeFactory {
       LOG.info("Non-incremental mode applied: source-only build requested");
       return KotlincMode.NonIncremental.INSTANCE;
     } else {
-      AbsPath incrementalStateDir =
-          extraParams
-              .getIncrementalStateDir()
-              .orElseThrow(() -> new IllegalStateException("incremental_state_dir is not created"));
-
       @Nullable
-      AbsPath depFile =
-          isTrackClassUsageEnabled ? incrementalStateDir.resolve(depFilePath.getFileName()) : null;
+      AbsPath depFile = isTrackClassUsageEnabled ? rootProjectDir.resolve(depFilePath) : null;
       @Nullable
-      AbsPath usedJars =
-          isTrackClassUsageEnabled ? incrementalStateDir.resolve(usedJarsPath.getFileName()) : null;
+      AbsPath usedJars = isTrackClassUsageEnabled ? rootProjectDir.resolve(usedJarsPath) : null;
 
       AbsPath kotlicWorkingDir =
           extraParams
@@ -80,24 +74,13 @@ public class KotlincModeFactory {
           buildDir,
           kotlicWorkingDir,
           KotlinSourceChanges.ToBeCalculated.INSTANCE,
-          ClasspathChangesFactory.create(new JarsActionMetadata(metadata), classpathSnapshots),
+          ClasspathChangesFactory.create(new SnapshotsActionMetadata(metadata), classpathSnapshots),
           depFile,
           incrementalCompilationValidator.validate(
               metadata,
               depFile,
               usedJars,
-              getJvmAbiGenWorkingDir(
-                  extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir())));
+              extraParams.getShouldUseJvmAbiGen() ? rootProjectDir.resolve(jvmAbiGenDir) : null));
     }
-  }
-
-  private static @Nullable AbsPath getJvmAbiGenWorkingDir(
-      boolean shouldUseJvmAbiGen, Optional<AbsPath> jvmAbiGenWorkingDir) {
-    if (!shouldUseJvmAbiGen) {
-      return null;
-    }
-
-    return jvmAbiGenWorkingDir.orElseThrow(
-        () -> new IllegalStateException("jvm_abi_gen_working_dir is not created"));
   }
 }

@@ -14,6 +14,8 @@ load("@prelude//utils:expect.bzl", "expect")
 # in v1 (https://fburl.com/diffusion/kqd2ylcy).
 # TODO(T110378136): It might make more sense to pass these in via the toolchain.
 Linker = record(
+    # Given the soname for the shared library, how to format the install name argument
+    shared_library_install_name_format = str,
     # The extension to use for the shared library if not set in the toolchain.
     default_shared_library_extension = str,
     # The format to use for the versioned shared library extension if not set in the toolchain.
@@ -34,20 +36,25 @@ SharedLibraryFlagOverrides = record(
     shared_library_flags = list[ArgLike],
 )
 
+DARWIN_SHARED_LIBRARY_INSTALL_NAME_FORMAT_STRING = "@rpath/{}"
+
 LINKERS = {
     LinkerType("darwin"): Linker(
+        shared_library_install_name_format = DARWIN_SHARED_LIBRARY_INSTALL_NAME_FORMAT_STRING,
         default_shared_library_extension = "dylib",
         default_shared_library_versioned_extension_format = "{}.dylib",
-        shared_library_name_linker_flags_format = ["-install_name", "@rpath/{}"],
+        shared_library_name_linker_flags_format = ["-install_name", DARWIN_SHARED_LIBRARY_INSTALL_NAME_FORMAT_STRING],
         shared_library_flags = ["-shared"],
     ),
     LinkerType("gnu"): Linker(
+        shared_library_install_name_format = "{}",
         default_shared_library_extension = "so",
         default_shared_library_versioned_extension_format = "so.{}",
         shared_library_name_linker_flags_format = ["-Wl,-soname,{}"],
         shared_library_flags = ["-shared"],
     ),
     LinkerType("wasm"): Linker(
+        shared_library_install_name_format = "{}",
         default_shared_library_extension = "wasm",
         default_shared_library_versioned_extension_format = "{}.wasm",
         shared_library_name_linker_flags_format = [],
@@ -56,6 +63,7 @@ LINKERS = {
         shared_library_flags = ["-shared"],
     ),
     LinkerType("windows"): Linker(
+        shared_library_install_name_format = "{}",
         default_shared_library_extension = "dll",
         default_shared_library_versioned_extension_format = "dll",
         # NOTE(agallagher): I *think* windows doesn't support a flag to set the
@@ -153,6 +161,9 @@ def get_shared_library_name_linker_flags(linker_type: LinkerType, soname: str, f
         f.format(soname)
         for f in shared_library_name_linker_flags_format
     ]
+
+def get_shared_library_install_name(linker_type: LinkerType, soname: str) -> str:
+    return LINKERS[linker_type].shared_library_install_name_format.format(soname)
 
 def get_shared_library_flags(linker_type: LinkerType, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[ArgLike]:
     """

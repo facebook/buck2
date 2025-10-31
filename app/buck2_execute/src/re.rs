@@ -14,6 +14,7 @@ pub mod convert;
 pub mod error;
 pub mod manager;
 pub mod metadata;
+pub mod output_trees_download_config;
 pub mod re_get_session_id;
 pub mod remote_action_result;
 mod stats;

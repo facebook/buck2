@@ -147,6 +147,7 @@ def create_jar_artifact_javacd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
+        incremental_metadata_ignored_inputs_tag = None,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
@@ -292,6 +293,7 @@ def _define_javacd_action(
         compiler = compiler,
         main_class = java_toolchain.javacd_main_class,
         worker = java_toolchain.javacd_worker[WorkerInfo] if java_toolchain.javacd_worker else None,
+        remote_worker = java_toolchain.javacd_remote_worker[WorkerInfo] if java_toolchain.javacd_remote_worker else None,
         target_specified_debug_port = debug_port,
         toolchain_specified_debug_port = java_toolchain.javacd_debug_port,
         toolchain_specified_debug_target = java_toolchain.javacd_debug_target,

@@ -999,3 +999,14 @@ class Buck(Executable):
             result_type=BuckResult,
             exception_type=BuckException,
         )
+
+    async def get_daemon_dir(self) -> Path:
+        return Path((await self.debug("daemon-dir")).stdout.strip())
+
+    async def daemon_stderr(self) -> str:
+        daemon_dir = await self.get_daemon_dir()
+        return (daemon_dir / "buckd.stderr").read_text()
+
+    async def prev_daemon_stderr(self) -> str:
+        daemon_dir = await self.get_daemon_dir()
+        return (daemon_dir / "prev/buckd.stderr").read_text()

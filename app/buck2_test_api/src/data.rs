@@ -133,6 +133,7 @@ pub enum TestStatus {
     OMITTED,
     FATAL,
     TIMEOUT,
+    INFRA_FAILURE,
     // There is something called unknown, adding it here for now,
     // we can change it later on.
     UNKNOWN,

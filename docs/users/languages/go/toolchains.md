@@ -51,13 +51,9 @@ load("@prelude//toolchains/go:go_toolchain.bzl", "go_distr", "go_toolchain")
 # Note: selects are resolved against execution-platform
 go_distr(
     name = "go_distr",
-    go_arch = select({
-        "config//cpu:arm64": "arm64",
-        "config//cpu:x86_64": "amd64",
-    }),
-    go_os = select({
-        "config//os:linux": "linux",
-        "config//os:macos": "darwin",
+    go_os_arch = select({
+        "config//os:linux": select({"config//cpu:x86_64": ("linux", "amd64")}),
+        "config//os:macos": select({"config//cpu:arm64": ("darwin", "arm64")}),
     }),
     go_root = select({
         "config//os:linux": select({"config//cpu:x86_64": "path/to/go-linux-amd64"}),
@@ -84,6 +80,59 @@ go_toolchain(
 
 For a complete example using `http_archive`, see
 [examples/toolchains/go_toolchain](https://github.com/facebook/buck2/blob/main/examples/toolchains/go_toolchain/toolchains/BUCK).
+
+### Advanced: Multi-platform Toolchains
+
+If you support multiple execution platforms using standard Go distributions
+(produced by `go tool dist`), you may encounter a situation where you have
+multiple copies of the Go distribution with almost identical content.
+
+The `go_distr` rule supports a non-standard layout of the Go distribution,
+allowing you to maintain a single copy of the source code with `bin` and
+`pkg/tool` directories containing binaries for all execution platforms you
+support.
+
+Set `multiplatform = True` on `go_distr` to enable this behavior. In this case,
+the `bin` and `pkg/tool` directories must contain binaries in `goos_goarch`
+subdirectories (built for the corresponding platforms).
+
+See the example for a Go distribution supporting two execution platforms:
+linux/amd64 and darwin/arm64.
+
+```
+third-party/go/1.25.1
+├── api
+├── bin
+│   ├── darwin_arm64
+│   │   ├── go
+│   │   └── gofmt
+│   └── linux_amd64
+│       └── ...
+├── ...
+├── pkg
+│   ├── include
+│   └── tool
+│       ├── darwin_arm64
+│       │   ├── asm
+│       │   ├── cgo
+│       │   └── ...
+│       └── linux_amd64
+│           └── ...
+└── ...
+```
+
+You can produce it by downloading the `src` distribution from https://go.dev/dl/
+and running the following commands (assuming you are running on `linux/amd64`
+and have Go installed on your system).
+
+```
+$ cd distr_dir/src
+$ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 ./make.bash
+$ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 ./make.bash
+$ mkdir ../bin/linux_amd64
+$ mv ../bin/go ../bin/linux_amd64
+$ mv ../bin/gofmt ../bin/linux_amd64
+```
 
 ## System Toolchains
 

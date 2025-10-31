@@ -26,13 +26,16 @@ enum SourceLabelResolutionError {
 }
 
 pub(crate) trait SourceAttrTypeExt {
-    fn resolve_single_file<'v>(ctx: &dyn AttrResolutionContext<'v>, path: SourcePath) -> Value<'v> {
+    fn resolve_single_file<'v>(
+        ctx: &mut dyn AttrResolutionContext<'v>,
+        path: SourcePath,
+    ) -> Value<'v> {
         ctx.heap()
             .alloc(StarlarkArtifact::new(SourceArtifact::new(path).into()))
     }
 
     fn resolve_label<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         label: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<Vec<Value<'v>>> {
         let dep = ctx.get_dep(label)?;
@@ -45,7 +48,7 @@ pub(crate) trait SourceAttrTypeExt {
     }
 
     fn resolve_single_label<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         value: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<Value<'v>> {
         let mut resolved = Self::resolve_label(ctx, value)?;

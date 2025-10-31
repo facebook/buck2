@@ -11,7 +11,6 @@
 #![feature(once_cell_try)]
 #![feature(error_generic_member_access)]
 #![feature(if_let_guard)]
-#![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 #![feature(used_with_arg)]

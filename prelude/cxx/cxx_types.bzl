@@ -8,6 +8,10 @@
 
 load("@prelude//:artifact_tset.bzl", "ArtifactInfoTag", "ArtifactTSet")
 load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileStyle",
+)
+load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
 )
@@ -29,10 +33,12 @@ load(
     "SharedLibrary",  # @unused Used as a type
 )
 load(":argsfiles.bzl", "CompileArgsfiles")
+load(":compile_types.bzl", "CxxSrcCompileCommand")
 load(
     ":cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     ":headers.bzl",
     "CxxHeadersLayout",
@@ -231,6 +237,8 @@ CxxRuleConstructorParams = record(
     # and the last parameter a list of matching dictionaries representing all the opt outputs
     # to be merged to bind the final outputs.
     extra_distributed_thin_lto_opt_outputs_merger = field(typing.Callable | None, None),
+    # Whether to allow cache uploads for locally-executed actions (except for linking, see "exe_allow_cache_upload").
+    allow_cache_upload = field(bool, False),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.
@@ -250,7 +258,7 @@ CxxRuleConstructorParams = record(
     # modulename-Swift.h header for building objc targets that rely on this swift dep
     swift_objc_header = field([Artifact, None], None),
     error_handler = field([typing.Callable, None], None),
-    index_store_factory = field(typing.Callable | None, None),
+    index_store_factory = field(typing.Callable[[AnalysisActions, Label, CxxSrcCompileCommand, CxxToolchainInfo, cmd_args], Artifact | None] | None, None),
     # Swift index stores to propagate
     index_stores = field(list[Artifact] | None, None),
     # Whether to add header units from dependencies to the command line.
@@ -268,4 +276,23 @@ CxxRuleConstructorParams = record(
     anon_targets_allowed = field(bool, True),
     # Any extra diagnostics to include in transitive diagnostics provider
     extra_transitive_diagnostics = field(list[Artifact], []),
+    # Any extra diagnostics to include in [check] subtarget, maps from
+    # identifier (usually filename) to diagnostic output.
+    extra_diagnostics = field(dict[str, Artifact] | None, None),
+    # Whether to use fbcc Rust wrapper
+    use_fbcc_rust_wrapper = field(bool, False),
+    # Precompiled header
+    precompiled_header = field(Dependency | None, None),
+    # Prefix header
+    prefix_header = field(Artifact | None, None),
+    # Store "_cxx_toolchain" as "Dependency" for use in "anon_target"
+    _cxx_toolchain = field(Dependency | None, None),
+    # Use content-based filepaths for artifacts
+    use_content_based_paths = field(bool, False),
+    # Coverage instrumentation compiler flags
+    coverage_instrumentation_compiler_flags = field(list[str], []),
+    # Separate debug info
+    separate_debug_info = field(bool, False),
+    # Cuda compile stype
+    cuda_compile_style = field(CudaCompileStyle | None, None),
 )

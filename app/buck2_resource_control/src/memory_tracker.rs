@@ -13,14 +13,12 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::SystemdCreationDecision;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::Span;
-use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 use parking_lot::Mutex;
@@ -33,6 +31,10 @@ use tokio::sync::watch;
 use tokio::sync::watch::Sender;
 
 use crate::action_cgroups::ActionCgroups;
+use crate::buck_cgroup_tree::BuckCgroupTree;
+use crate::cgroup_info::CGroupInfo;
+use crate::path::CgroupPathBuf;
+use crate::pool::CgroupPool;
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum TrackedMemoryState {
@@ -62,13 +64,20 @@ pub struct MemoryStates {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
-    /// Contains value from `memory.current` file for cgroup covering
+    /// Contains value from `memory.current` file for buck2.slice cgroup covering
     /// all aspects of build (daemon, forkserver & local action processes).
-    pub memory_current: u64,
-    /// Contains the avg10 value from the 'some' role of `memory.pressure` file.
+    pub buck2_slice_memory_current: u64,
+    /// Contains value from `memory.swap.current` file for buck2.slice cgroup covering
+    /// all aspects of build (daemon, forkserver & local action processes).
+    pub buck2_slice_memory_swap_current: u64,
+    /// Contains the avg10 value from the 'some' role of `memory.pressure` file for buck2.slice cgroup.
     /// This is a sliding window average of the % where any action is under memory pressure
     /// over the last 10 seconds
-    pub memory_pressure: u64,
+    pub buck2_slice_memory_pressure: u64,
+    /// Contains value from `memory.current` file for daemon cgroup.
+    pub daemon_memory_current: u64,
+    /// Contains value from `memory.swap.current` file for daemon cgroup.
+    pub daemon_memory_swap_current: u64,
 }
 
 #[derive(Allocative)]
@@ -118,30 +127,42 @@ pub struct MemoryTrackerHandleInner {
     pub reading_sender: Sender<Option<MemoryReading>>,
     // Written to by executors and tracker, read by executors
     #[allocative(skip)]
-    pub(crate) action_cgroups: Option<Arc<tokio::sync::Mutex<ActionCgroups>>>,
+    pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
+    #[allocative(skip)]
+    pub(crate) cgroup_pool: CgroupPool,
 }
 
 impl MemoryTrackerHandleInner {
-    fn new(action_cgroups: Option<ActionCgroups>) -> Self {
+    fn new(cgroup_pool: CgroupPool, action_cgroups: ActionCgroups) -> Self {
         let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         let (reading_sender, _rx) = watch::channel(None);
         Self {
             state_sender,
             reading_sender,
-            action_cgroups: action_cgroups.map(|c| Arc::new(tokio::sync::Mutex::new(c))),
+            action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
+            cgroup_pool,
         }
     }
 }
 
 #[derive(Allocative)]
 pub struct MemoryTracker {
-    /// Open `memory.current` file in cgroup of our process
+    /// Open `memory.current` file for buck2.slice cgroup of our process
     #[allocative(skip)]
-    memory_current: File,
+    buck2_slice_memory_current: File,
+    /// Open `memory.swap.current` file for buck2.slice cgroup of our process
+    #[allocative(skip)]
+    buck2_slice_memory_swap_current: File,
+    /// Open `memory.pressure` file for buck2.slice cgroup of our process
+    #[allocative(skip)]
+    buck2_slice_memory_pressure: File,
 
-    /// Open `memory.pressure` file in cgroup of our process
+    /// Open `memory.current` file for daemon cgroup of our process
     #[allocative(skip)]
-    memory_pressure: File,
+    daemon_memory_current: File,
+    /// Open `memory.swap.current` file for daemon cgroup of our process
+    #[allocative(skip)]
+    daemon_memory_swap_current: File,
 
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
@@ -154,21 +175,31 @@ pub struct MemoryTracker {
 #[buck2(tag = Tier0)]
 enum MemoryTrackerError {
     #[error("Expected cgroup scope `{0}` to be placed inside a parent slice.")]
-    ParentSliceExpected(String),
+    ParentSliceExpected(CgroupPathBuf),
 }
 
-async fn open_daemon_memory_file(file_name: &str) -> buck2_error::Result<File> {
-    // This contains daemon cgroup scope path
-    // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
+async fn open_daemon_memory_file(file_name: &FileName) -> buck2_error::Result<File> {
+    let path = CGroupInfo::read_async()
+        .await?
+        .path
+        .as_abs_path()
+        .join(file_name);
+    File::open(&path)
+        .await
+        .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
+}
+
+async fn open_buck2_cgroup_memory_file(file_name: &FileName) -> buck2_error::Result<File> {
     let info = CGroupInfo::read_async().await?;
     // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
     // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
     let Some(daemon_and_forkserver_slice) = info.get_slice() else {
         return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
     };
-    File::open(daemon_and_forkserver_slice.to_owned() + "/" + file_name)
+    let path = daemon_and_forkserver_slice.as_abs_path().join(file_name);
+    File::open(&path)
         .await
-        .map_err(|e| e.into())
+        .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
 }
 
 pub struct MemoryReporter {
@@ -190,12 +221,12 @@ pub fn spawn_memory_reporter(
         loop {
             if let TrackedMemoryState::Reading(state) = *state_receiver.borrow() {
                 let mut span = span.lock();
-                match (span.is_some(), state.memory_current_state) {
-                    (false, MemoryCurrentState::AboveLimit) => {
+                match (span.is_some(), state.memory_pressure_state) {
+                    (false, MemoryPressureState::AbovePressureLimit) => {
                         let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
                         *span = Some(new_span);
                     }
-                    (true, MemoryCurrentState::BelowLimit) => {
+                    (true, MemoryPressureState::BelowPressureLimit) => {
                         if let Some(span) = span.take() {
                             span.end(buck2_data::MemoryPressureEnd {});
                         }
@@ -206,8 +237,8 @@ pub fn spawn_memory_reporter(
 
             if let Some(reading) = *reading_receiver.borrow() {
                 let mut peak_pressure = peak_memory_pressure.lock();
-                if reading.memory_pressure > *peak_pressure {
-                    *peak_pressure = reading.memory_pressure;
+                if reading.buck2_slice_memory_pressure > *peak_pressure {
+                    *peak_pressure = reading.buck2_slice_memory_pressure;
                     // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
                     // and can't be more than 100). We should always limit this as sending more can overload scribe
                     dispatcher.instant_event(buck2_data::MemoryPressure {
@@ -254,48 +285,61 @@ impl Drop for MemoryReporter {
 }
 
 pub async fn create_memory_tracker(
+    cgroup_tree: Option<&BuckCgroupTree>,
     resource_control_config: &ResourceControlConfig,
 ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
-    if let SystemdCreationDecision::Create =
-        ResourceControlRunner::creation_decision(&resource_control_config.status)
-    {
-        let action_cgroups = ActionCgroups::init(resource_control_config);
-        let handle = MemoryTrackerHandleInner::new(action_cgroups);
-        const MAX_RETRIES: u32 = 5;
-        let memory_limit_bytes = resource_control_config
-            .hybrid_execution_memory_limit_gibibytes
-            .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
-        let memory_tracker = MemoryTracker::new(
-            handle,
-            open_daemon_memory_file("memory.current").await?,
-            open_daemon_memory_file("memory.pressure").await?,
-            MAX_RETRIES,
-            memory_limit_bytes,
-            resource_control_config
-                .memory_pressure_threshold_percent
-                .unwrap_or(10),
-        );
-        let tracker_handle = memory_tracker.handle.dupe();
-        const TICK_DURATION: Duration = Duration::from_millis(300);
-        memory_tracker.spawn(TICK_DURATION).await?;
-        Ok(Some(tracker_handle))
-    } else {
-        Ok(None)
-    }
+    let Some(cgroup_tree) = cgroup_tree else {
+        return Ok(None);
+    };
+
+    let cgroup_pool = CgroupPool::create_in_parent_cgroup(
+        cgroup_tree.forkserver_and_actions().path(),
+        &resource_control_config,
+        &cgroup_tree.enabled_controllers,
+    )?;
+    let action_cgroups = ActionCgroups::init(resource_control_config).await?;
+    let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);
+    const MAX_RETRIES: u32 = 5;
+    let memory_limit_bytes = resource_control_config
+        .hybrid_execution_memory_limit_gibibytes
+        .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
+    let memory_tracker = MemoryTracker::new(
+        handle,
+        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
+        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
+        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.pressure")).await?,
+        open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
+        open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
+        MAX_RETRIES,
+        memory_limit_bytes,
+        resource_control_config
+            .memory_pressure_threshold_percent
+            .unwrap_or(10),
+    );
+    let tracker_handle = memory_tracker.handle.dupe();
+    const TICK_DURATION: Duration = Duration::from_millis(300);
+    memory_tracker.spawn(TICK_DURATION).await?;
+    Ok(Some(tracker_handle))
 }
 impl MemoryTracker {
     fn new(
         handle: MemoryTrackerHandleInner,
-        memory_current: File,
-        memory_pressure: File,
+        buck2_slice_memory_current: File,
+        buck2_slice_memory_swap_current: File,
+        buck2_slice_memory_pressure: File,
+        daemon_memory_current: File,
+        daemon_memory_swap_current: File,
         max_retries: u32,
         memory_limit_bytes: Option<u64>,
         memory_pressure_threshold: u64,
     ) -> Self {
         Self {
             handle: Arc::new(handle),
-            memory_current,
-            memory_pressure,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap_current,
             max_retries,
             memory_limit_bytes,
             memory_pressure_threshold,
@@ -329,14 +373,36 @@ impl MemoryTracker {
             }
 
             let old_state = *self.handle.state_sender.borrow();
-            let (new_state, new_reading) = match (
-                read_memory_current(&mut self.memory_current).await,
-                self.read_some_memory_pressure_avg10().await,
+
+            // Manual destructuring to allow parallel reads of different files
+            let MemoryTracker {
+                ref mut buck2_slice_memory_current,
+                ref mut buck2_slice_memory_swap_current,
+                ref mut buck2_slice_memory_pressure,
+                ref mut daemon_memory_current,
+                ref mut daemon_memory_swap_current,
+                ref handle,
+                memory_pressure_threshold,
+                ..
+            } = self;
+
+            let (new_state, new_reading) = match tokio::try_join!(
+                read_memory_current(buck2_slice_memory_current),
+                read_memory_swap_current(buck2_slice_memory_swap_current),
+                read_some_memory_pressure_avg10(buck2_slice_memory_pressure),
+                read_memory_current(daemon_memory_current),
+                read_memory_swap_current(daemon_memory_swap_current),
             ) {
-                (Ok(memory_current), Ok(avg_mem_pressure)) => {
+                Ok((
+                    buck2_slice_memory_current,
+                    buck2_slice_memory_swap_current,
+                    buck2_slice_avg_mem_pressure,
+                    daemon_memory_current,
+                    daemon_memory_swap_current,
+                )) => {
                     let memory_current_state =
                         if let Some(memory_limit_bytes) = self.memory_limit_bytes {
-                            if memory_current < memory_limit_bytes {
+                            if buck2_slice_memory_current < memory_limit_bytes {
                                 MemoryCurrentState::BelowLimit
                             } else {
                                 MemoryCurrentState::AboveLimit
@@ -345,38 +411,42 @@ impl MemoryTracker {
                             MemoryCurrentState::NoLimitSet
                         };
 
-                    let pressure_percent = avg_mem_pressure.round() as u64;
-                    let memory_pressure_state = if pressure_percent < self.memory_pressure_threshold
-                    {
+                    let pressure_percent = buck2_slice_avg_mem_pressure.round() as u64;
+                    let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
                         MemoryPressureState::BelowPressureLimit
                     } else {
                         MemoryPressureState::AbovePressureLimit
                     };
 
-                    if let Some(action_cgroups) = self.handle.action_cgroups.as_ref() {
-                        let mut action_cgroups = action_cgroups.lock().await;
-                        action_cgroups.update(memory_pressure_state).await;
-                    }
+                    let memory_reading = MemoryReading {
+                        buck2_slice_memory_current,
+                        buck2_slice_memory_swap_current,
+                        buck2_slice_memory_pressure: pressure_percent,
+                        daemon_memory_current,
+                        daemon_memory_swap_current,
+                    };
+
+                    let mut action_cgroups = handle.action_cgroups.as_ref().lock().await;
+                    action_cgroups
+                        .update(memory_pressure_state, &memory_reading)
+                        .await;
 
                     (
                         TrackedMemoryState::Reading(MemoryStates {
                             memory_current_state,
                             memory_pressure_state,
                         }),
-                        Some(MemoryReading {
-                            memory_current,
-                            memory_pressure: pressure_percent,
-                        }),
+                        Some(memory_reading),
                     )
                 }
                 _ => (TrackedMemoryState::Failure, None),
             };
-            self.handle.state_sender.send_if_modified(|x| {
+            handle.state_sender.send_if_modified(|x| {
                 *x = new_state;
                 old_state != new_state
             });
 
-            self.handle.reading_sender.send_replace(new_reading);
+            handle.reading_sender.send_replace(new_reading);
 
             match (old_state, new_state) {
                 (TrackedMemoryState::Failure, TrackedMemoryState::Failure) => {
@@ -403,51 +473,19 @@ impl MemoryTracker {
             }
         }
     }
-
-    // The content should consistently have the following format:
-    //  ```
-    //  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
-    //  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
-    //  ```
-    // 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
-    async fn read_some_memory_pressure_avg10(&mut self) -> buck2_error::Result<f32> {
-        self.memory_pressure.rewind().await?;
-        let reader = BufReader::new(&mut self.memory_pressure);
-        let mut lines = reader.lines();
-        while let Some(line) = lines.next_line().await? {
-            if line.starts_with("some") {
-                let parts = line.split_whitespace().collect::<Vec<_>>();
-                let avg10 = parts.get(1).ok_or(internal_error!(
-                    "unexpected memory.pressure format, could not parse 2nd value"
-                ))?;
-                let string_value = avg10.strip_prefix("avg10=").ok_or(internal_error!(
-                    "unexpected memory.pressure format, 2nd value doesn't start with 'avg10='"
-                ))?;
-
-                return string_value
-                    .parse::<f32>()
-                    .map_err(buck2_error::Error::from)
-                    .with_buck_error_context(|| {
-                        format!("Expected a numeric value, found {}", string_value)
-                    });
-            }
-        }
-
-        Err(internal_error!("no 'some' line found in memory.pressure"))
-    }
 }
 
-pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
-    memory_current.rewind().await?;
-    // memory.current contains a byte count as a string which is at most u64::MAX (20 digits)
+async fn read_memory_file(file: &mut File, file_name: &str) -> buck2_error::Result<u64> {
+    file.rewind().await?;
+    // Memory cgroup files contain a byte count as a string which is at most u64::MAX (20 digits)
     // using fixed buffer to avoid heap allocation
     let mut data = vec![0u8; 24];
-    let read = memory_current
+    let read = file
         .read(&mut data)
         .await
-        .with_buck_error_context(|| "Error reading cgroup current memory")?;
+        .with_buck_error_context(|| format!("Error reading cgroup {}", file_name))?;
     if read == 0 {
-        return Err(internal_error!("no bytes read from memory.current"));
+        return Err(internal_error!("no bytes read from {}", file_name));
     }
 
     data.truncate(read);
@@ -458,6 +496,46 @@ pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Resu
         .with_buck_error_context(|| {
             format!("Expected a numeric value in cgroup file, found {}", string)
         })
+}
+
+// The content should consistently have the following format:
+//  ```
+//  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
+//  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
+//  ```
+// 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
+async fn read_some_memory_pressure_avg10(memory_pressure: &mut File) -> buck2_error::Result<f32> {
+    memory_pressure.rewind().await?;
+    let reader = BufReader::new(memory_pressure);
+    let mut lines = reader.lines();
+    while let Some(line) = lines.next_line().await? {
+        if line.starts_with("some") {
+            let parts = line.split_whitespace().collect::<Vec<_>>();
+            let avg10 = parts.get(1).ok_or(internal_error!(
+                "unexpected memory.pressure format, could not parse 2nd value"
+            ))?;
+            let string_value = avg10.strip_prefix("avg10=").ok_or(internal_error!(
+                "unexpected memory.pressure format, 2nd value doesn't start with 'avg10='"
+            ))?;
+
+            return string_value
+                .parse::<f32>()
+                .map_err(buck2_error::Error::from)
+                .with_buck_error_context(|| {
+                    format!("Expected a numeric value, found {}", string_value)
+                });
+        }
+    }
+
+    Err(internal_error!("no 'some' line found in memory.pressure"))
+}
+
+pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
+    read_memory_file(memory_current, "memory.current").await
+}
+
+pub async fn read_memory_swap_current(memory_swap_current: &mut File) -> buck2_error::Result<u64> {
+    read_memory_file(memory_swap_current, "memory.swap.current").await
 }
 
 #[cfg(test)]
@@ -480,16 +558,38 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
-        let memory_current = File::open(current.clone()).await?;
+        let buck2_slice_memory_current = File::open(current.clone()).await?;
+        let swap = dir.path().join("current.swap");
+        fs::write(&swap, "2").unwrap();
+        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
             "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
         )
         .unwrap();
-        let memory_pressure = File::open(pressure.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(None);
-        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
+        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
+        let daemon_current = dir.path().join("daemon.memory");
+        fs::write(&daemon_current, "4").unwrap();
+        let daemon_memory_current = File::open(daemon_current.clone()).await?;
+        let daemon_memory_swap_current = dir.path().join("daemon.swap");
+        fs::write(&daemon_memory_swap_current, "1").unwrap();
+        let daemon_memory_swap = File::open(daemon_memory_swap_current.clone()).await?;
+        let Some(testing_pool) = CgroupPool::testing_new() else {
+            return Ok(());
+        };
+        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
+        let tracker = MemoryTracker::new(
+            handle,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap,
+            0,
+            Some(7),
+            10,
+        );
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn(TICK_DURATION).await?;
@@ -511,9 +611,15 @@ mod tests {
         );
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure, 1);
+        assert_eq!(reading.buck2_slice_memory_current, 6);
+        assert_eq!(reading.buck2_slice_memory_swap_current, 2);
+        assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 4);
+        assert_eq!(reading.daemon_memory_swap_current, 1);
         fs::write(&current, "9").unwrap();
+        fs::write(&swap, "3").unwrap();
+        fs::write(&daemon_current, "7").unwrap();
+        fs::write(&daemon_memory_swap_current, "2").unwrap();
 
         state_rx.changed().await?;
         assert_eq!(
@@ -525,16 +631,23 @@ mod tests {
         );
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.memory_current, 9);
-        assert_eq!(reading.memory_pressure, 1);
+        assert_eq!(reading.buck2_slice_memory_current, 9);
+        assert_eq!(reading.buck2_slice_memory_swap_current, 3);
+        assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 7);
+        assert_eq!(reading.daemon_memory_swap_current, 2);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
+        fs::write(&swap, "4").unwrap();
         reading_rx.changed().await?;
 
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.memory_current, 10);
-        assert_eq!(reading.memory_pressure, 1);
+        assert_eq!(reading.buck2_slice_memory_current, 10);
+        assert_eq!(reading.buck2_slice_memory_swap_current, 4);
+        assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 7);
+        assert_eq!(reading.daemon_memory_swap_current, 2);
         // expect timeout error, no state change
         assert!(
             tokio::time::timeout(TIMEOUT_DURATION, state_rx.changed())
@@ -550,16 +663,41 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "6").unwrap();
-        let memory_current = File::open(current.clone()).await?;
+        let buck2_slice_memory_current = File::open(current.clone()).await?;
+        let swap = dir.path().join("current.swap");
+        fs::write(&swap, "1").unwrap();
+        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
         let pressure = dir.path().join("current.pressure");
         fs::write(
             &pressure,
             "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
         )
         .unwrap();
-        let memory_pressure = File::open(pressure.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(None);
-        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 0, Some(7), 10);
+        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
+
+        let daemon_memory = dir.path().join("daemon.memory");
+        fs::write(&daemon_memory, "3").unwrap();
+        let daemon_memory_current = File::open(daemon_memory.clone()).await?;
+
+        let daemon_swap = dir.path().join("daemon.swap");
+        fs::write(&daemon_swap, "4").unwrap();
+        let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
+
+        let Some(testing_pool) = CgroupPool::testing_new() else {
+            return Ok(());
+        };
+        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
+        let tracker = MemoryTracker::new(
+            handle,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap_current,
+            0,
+            Some(7),
+            10,
+        );
         let mut state_rx = tracker.handle.state_sender.subscribe();
         let mut reading_rx = tracker.handle.reading_sender.subscribe();
         tracker.spawn(TICK_DURATION).await?;
@@ -580,8 +718,11 @@ mod tests {
             })
         );
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure, 1);
+        assert_eq!(reading.buck2_slice_memory_current, 6);
+        assert_eq!(reading.buck2_slice_memory_swap_current, 1);
+        assert_eq!(reading.buck2_slice_memory_pressure, 1);
+        assert_eq!(reading.daemon_memory_current, 3);
+        assert_eq!(reading.daemon_memory_swap_current, 4);
         fs::write(
             &pressure,
             "some avg10=15.95 avg60=0.00 avg300=0.00 total=440000",
@@ -597,8 +738,11 @@ mod tests {
             })
         );
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure, 16);
+        assert_eq!(reading.buck2_slice_memory_current, 6);
+        assert_eq!(reading.buck2_slice_memory_swap_current, 1);
+        assert_eq!(reading.buck2_slice_memory_pressure, 16);
+        assert_eq!(reading.daemon_memory_current, 3);
+        assert_eq!(reading.daemon_memory_swap_current, 4);
 
         // change reading but not state
         fs::write(
@@ -608,8 +752,11 @@ mod tests {
         .unwrap();
         reading_rx.changed().await?;
         let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.memory_current, 6);
-        assert_eq!(reading.memory_pressure, 18);
+        assert_eq!(reading.buck2_slice_memory_current, 6);
+        assert_eq!(reading.buck2_slice_memory_swap_current, 1);
+        assert_eq!(reading.buck2_slice_memory_pressure, 18);
+        assert_eq!(reading.daemon_memory_current, 3);
+        assert_eq!(reading.daemon_memory_swap_current, 4);
 
         Ok(())
     }
@@ -619,12 +766,34 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let current = dir.path().join("current.memory");
         fs::write(&current, "abc").unwrap();
+        let swap = dir.path().join("current.swap");
+        fs::write(&swap, "xyz").unwrap();
         let pressure = dir.path().join("current.pressure");
         fs::write(&pressure, "idk").unwrap();
-        let memory_current = File::open(current.clone()).await?;
-        let memory_pressure = File::open(pressure.clone()).await?;
-        let handle = MemoryTrackerHandleInner::new(None);
-        let tracker = MemoryTracker::new(handle, memory_current, memory_pressure, 3, Some(0), 0);
+        let daemon_current = dir.path().join("daemon.swap");
+        fs::write(&daemon_current, "aaa").unwrap();
+        let daemon_swap = dir.path().join("daemon.pressure");
+        fs::write(&daemon_swap, "idc").unwrap();
+        let buck2_slice_memory_current = File::open(current.clone()).await?;
+        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
+        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
+        let daemon_memory_current = File::open(daemon_current.clone()).await?;
+        let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
+        let Some(testing_pool) = CgroupPool::testing_new() else {
+            return Ok(());
+        };
+        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
+        let tracker = MemoryTracker::new(
+            handle,
+            buck2_slice_memory_current,
+            buck2_slice_memory_swap_current,
+            buck2_slice_memory_pressure,
+            daemon_memory_current,
+            daemon_memory_swap_current,
+            3,
+            Some(0),
+            0,
+        );
         let handle = tracker.handle.dupe();
         tracker.spawn(Duration::from_millis(100)).await?;
         let mut rx = handle.reading_sender.subscribe();

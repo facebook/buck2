@@ -11,6 +11,9 @@ Options:
       --all
           Enable printing status for all running buckd
 
+      --include-tokio-runtime-metrics
+          Enable printing metrics from the Tokio runtime
+
   -h, --help
           Print help (see a summary with '-h')
 

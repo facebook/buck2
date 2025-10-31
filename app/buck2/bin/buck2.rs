@@ -140,7 +140,7 @@ fn main() -> ! {
         buck2_analysis::init_late_bindings();
         buck2_anon_target::init_late_bindings();
         buck2_action_impl::init_late_bindings();
-        buck2_audit_server::init_late_bindings();
+        buck2_cmd_audit_server::init_late_bindings();
         buck2_build_api::init_late_bindings();
         buck2_cmd_docs_server::init_late_bindings();
         buck2_external_cells::init_late_bindings();
@@ -152,6 +152,8 @@ fn main() -> ! {
         buck2_query_impls::init_late_bindings();
         buck2_interpreter_for_build::init_late_bindings();
         buck2_server_commands::init_late_bindings();
+        buck2_cmd_targets_server::init_late_bindings();
+        buck2_cmd_query_server::init_late_bindings();
         buck2_cmd_starlark_server::init_late_bindings();
         buck2_test::init_late_bindings();
         buck2_validation::init_late_bindings();
@@ -162,6 +164,9 @@ fn main() -> ! {
         win_internal_version: std::option_env!("BUCK2_WIN_INTERNAL_VERSION"),
         release_timestamp: std::option_env!("BUCK2_RELEASE_TIMESTAMP"),
     });
+
+    // Set up crypto impl once per process
+    buck2_certs::certs::setup_cryptography_or_fail();
 
     fn init_shared_context() -> buck2_error::Result<SharedProcessContext> {
         panic::initialize().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;

@@ -53,6 +53,7 @@ load(
     "EntryPointKind",
 )
 load(":internal_tools.bzl", "PythonInternalToolsInfo")
+load(":lazy_imports.bzl", "run_lazy_imports_analyzer")
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_py_package")
 load(
     ":manifest.bzl",
@@ -294,6 +295,13 @@ def _compute_pex_providers(
 
     if dbg_source_db_output:
         extra_artifacts["dbg-db.json"] = dbg_source_db_output
+
+    # Run lazy import analysis using the existing dbg-db.json only if the attribute is enabled
+    if getattr(ctx.attrs, "lazy_imports_analyzer", None):
+        lazy_import_analysis_output = ctx.actions.declare_output("lazy-import-analysis.json")
+        run_lazy_imports_analyzer(ctx, dbg_source_db.other_outputs, lazy_import_analysis_output, dbg_source_db_output)
+        if lazy_import_analysis_output:
+            extra_artifacts["lazy-import-analysis.json"] = lazy_import_analysis_output
 
     extra_artifacts["sitecustomize.py"] = python_internal_tools.default_sitecustomize
 

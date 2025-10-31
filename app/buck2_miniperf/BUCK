@@ -24,7 +24,6 @@ rust_binary(
             "fbsource//third-party/rust:smallvec",
             "fbsource//third-party/rust:thiserror",
             "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
-            "//buck2/app/buck2_util:buck2_util",
         ],
     }),
 )

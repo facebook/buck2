@@ -11,7 +11,7 @@
 Simple gen_server that will run the the test and
 communicates the result to the test runner.
 """.
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -behavior(gen_server).
 
@@ -36,6 +36,8 @@ communicates the result to the test runner.
     generate_arg_tuple/2,
     project_root/0
 ]).
+
+-import(common_util, [unicode_characters_to_binary/1, filename_all_to_filename/1]).
 
 -type opt() ::
     {packet, N :: 1 | 2 | 4}
@@ -64,23 +66,40 @@ communicates the result to the test runner.
 
 -define(DEFAULT_LAUNCH_PORT_OPTIONS, [exit_status, nouse_stdio]).
 
+-type initial_state() :: #{
+    test_env := #test_env{}
+}.
+-type state() ::
+    #{
+        test_env := #test_env{},
+        std_out := [string()],
+        port := erlang:port()
+    }.
+
 %% Starts and monitor (through an erlang port) a ct_run.
 %% Reports the result of the execution to the test runner.
--spec start_link(#test_env{}) -> {ok, pid()} | {error, term()}.
+-spec start_link(#test_env{}) -> gen_server:start_ret().
 start_link(#test_env{} = TestEnv) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [TestEnv], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, TestEnv, []).
 
-init([#test_env{} = TestEnv]) ->
+-spec init(TestEnv) -> {ok, initial_state(), {continue, {run, PortEpmd}}} when
+    TestEnv :: #test_env{},
+    PortEpmd :: inet:port_number().
+init(#test_env{} = TestEnv) ->
     process_flag(trap_exit, true),
     PortEpmd = epmd_manager:get_port(),
-    {ok, #{test_env => TestEnv, std_out => []}, {continue, {run, PortEpmd}}}.
+    {ok, #{test_env => TestEnv}, {continue, {run, PortEpmd}}}.
 
-handle_continue(
-    {run, PortEpmd},
-    #{test_env := TestEnv} = State
-) ->
+-spec handle_continue({run, PortEpmd}, State0) -> {noreply, State1} | {stop, Reason, State0} when
+    PortEpmd :: inet:port_number(),
+    State0 :: initial_state(),
+    State1 :: state(),
+    Reason :: ct_runner_failed.
+handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
     try run_test(TestEnv, PortEpmd) of
-        Port -> {noreply, State#{port => Port}}
+        Port ->
+            State1 = State0#{std_out => [], port => Port},
+            {noreply, State1}
     catch
         Class:Reason:Stack ->
             ErrorMsg = io_lib:format("Ct Runner failed to launch test due to ~ts\n", [
@@ -88,8 +107,23 @@ handle_continue(
             ]),
             ?LOG_ERROR(ErrorMsg),
             test_runner:mark_failure(ErrorMsg),
-            {stop, ct_runner_failed, State}
+            {stop, ct_runner_failed, State0}
     end.
+
+-spec handle_info
+    ({Port, {exit_status, ExitStatus}}, state()) ->
+        {stop, {ct_run_finished, ExitStatus}, state()} | {noreply, state()}
+    when
+        Port :: erlang:port(),
+        ExitStatus :: integer();
+    ({Port, {data, Data}}, state()) -> {noreply, state()} when
+        Port :: erlang:port(),
+        Data :: string();
+    ({Port, closed}, state()) -> {stop, ct_port_closed, state()} | {noreply, state()} when
+        Port :: erlang:port();
+    ({'EXIT', Port, Reason}, state()) -> {stop, {ct_port_exit, Reason}, state()} | {noreply, state()} when
+        Port :: erlang:port(),
+        Reason :: term().
 
 handle_info(
     {Port, {exit_status, ExitStatus}},
@@ -104,19 +138,15 @@ handle_info(
             ErrorMsg =
                 case ExitStatus of
                     N when N == 137 orelse N == 143 ->
-                        unicode:characters_to_list(
-                            io_lib:format(
-                                ("ct runner killed by SIGKILL (exit code ~b), likely due to running out of memory."
-                                " Check https://fburl.com/wiki/01s5fnom for information about memory limits for tests"),
-                                [ExitStatus]
-                            )
+                        io_lib:format(
+                            ("ct runner killed by SIGKILL (exit code ~b), likely due to running out of memory."
+                            " Check https://fburl.com/wiki/01s5fnom for information about memory limits for tests"),
+                            [ExitStatus]
                         );
                     _ ->
-                        unicode:characters_to_list(
-                            io_lib:format("ct run exited with status exit ~tp", [
-                                ExitStatus
-                            ])
-                        )
+                        io_lib:format("ct run exited with status exit ~tp", [
+                            ExitStatus
+                        ])
                 end,
             ?LOG_ERROR(ErrorMsg),
             test_runner:mark_failure(ErrorMsg)
@@ -132,10 +162,15 @@ handle_info({'EXIT', Port, Reason}, #{port := Port} = State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
-handle_call(_Request, _From, State) -> {reply, ok, State}.
+-spec handle_call(term(), gen_server:from(), state()) -> no_return().
+handle_call(_Request, _From, _State) -> error(not_implemented).
 
-handle_cast(_Request, State) -> {noreply, State}.
+-spec handle_cast(term(), state()) -> no_return().
+handle_cast(_Request, _State) -> error(not_implemented).
 
+-spec terminate(Reason, State) -> ok when
+    Reason :: normal | shutdown | {shutdown, term()} | term(),
+    State :: initial_state() | state().
 terminate(_Reason, #{port := Port}) ->
     test_exec:kill_process(Port);
 terminate(_Reason, _State) ->
@@ -166,9 +201,10 @@ run_test(
     % where the suite is as part of the dependencies.
     SuiteFolder = filename:dirname(filename:absname(SuitePath)),
     CodePath = [SuiteFolder | Dependencies],
-    CommonAppEnv1 = CommonAppEnv0#{"raw_target" => lists:flatten(io_lib:format("~0p", [RawTarget]))},
+    CommonAppEnv1 = CommonAppEnv0#{~"raw_target" => unicode_characters_to_binary(io_lib:format("~0p", [RawTarget]))},
+    {ok, ServerPort} = ct_executor_watchdog:start_server(),
 
-    Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv1),
+    Args = build_run_args(OutputDir, ServerPort, Providers, Suite, TestSpecFile, CommonAppEnv1),
 
     {ok, ProjectRoot} = file:get_cwd(),
 
@@ -192,42 +228,44 @@ run_test(
 -spec build_common_args(
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()]
-) -> [string()].
+) -> [binary() | string()].
 build_common_args(CodePath, ConfigFiles) ->
     lists:append([
-        ["-noinput"],
-        ["-pa"],
+        [~"-noinput"],
+        [~"-pa"],
         CodePath,
         config_arg(ConfigFiles)
     ]).
 
 -spec build_run_args(
     OutputDir :: file:filename_all(),
+    ServerPort :: number(),
     Providers :: [{module(), [term()]}],
     Suite :: module(),
     TestSpecFile :: file:filename_all(),
-    CommonAppEnv :: #{string() => string()}
-) -> [string()].
-build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv) ->
+    CommonAppEnv :: #{binary() => binary()}
+) -> [binary()].
+build_run_args(OutputDir, ServerPort, Providers, Suite, TestSpecFile, CommonAppEnv) ->
     lists:append(
         [
-            ["-run", "ct_executor", "run"],
+            [~"-run", ~"ct_executor", ~"run"],
             generate_arg_tuple(output_dir, OutputDir),
+            generate_arg_tuple(server_port, ServerPort),
             generate_arg_tuple(providers, Providers),
             generate_arg_tuple(suite, Suite),
-            ["ct_args"],
+            [~"ct_args"],
             generate_arg_tuple(spec, TestSpecFile),
             common_app_env_args(CommonAppEnv)
         ]
     ).
 
--spec common_app_env_args(Env :: #{string() => string()}) -> [string()].
+-spec common_app_env_args(Env :: #{binary() => binary()}) -> [binary()].
 common_app_env_args(Env) ->
-    lists:append([["-common", Key, Value] || Key := Value <- Env]).
+    lists:append([[~"-common", Key, Value] || Key := Value <- Env]).
 
 -spec start_test_node(
     Erl :: [binary()],
-    ExtraFlags :: [string()],
+    ExtraFlags :: [binary()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
     OutputDir :: file:filename_all(),
@@ -254,8 +292,8 @@ start_test_node(
 
 -spec start_test_node(
     Erl :: [binary()],
-    Trampolines :: [string()],
-    ExtraFlags :: [string()],
+    Trampolines :: [file:filename_all()],
+    ExtraFlags :: [binary()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
     OutputDir :: file:filename_all(),
@@ -286,7 +324,7 @@ start_test_node(
             proplists:get_value(args, PortSettings0, []),
 
     Env = proplists:get_value(env, PortSettings0, []),
-    LaunchEnv = [{"HOME", HomeDir} | Env],
+    LaunchEnv = [{"HOME", filename_all_to_filename(HomeDir)} | Env],
 
     LaunchCD = proplists:get_value(cd, PortSettings0, HomeDir),
 
@@ -323,14 +361,16 @@ start_test_node(
 
     erlang:open_port({spawn_executable, Executable}, LaunchSettings).
 
--spec generate_arg_tuple(atom(), [] | term()) -> [io_lib:chars()].
+-spec generate_arg_tuple(atom(), [] | term()) -> [binary()].
 generate_arg_tuple(_Prop, []) ->
     [];
 generate_arg_tuple(Prop, ConfigFiles) ->
-    [lists:flatten(io_lib:format("~tp", [{Prop, ConfigFiles}]))].
+    [unicode_characters_to_binary(io_lib:format("~tp", [{Prop, ConfigFiles}]))].
 
+-spec config_arg(ConfigFiles) -> [string() | binary()] when
+    ConfigFiles :: [binary() | string()].
 config_arg([]) -> [];
-config_arg(ConfigFiles) -> ["-config"] ++ ConfigFiles.
+config_arg(ConfigFiles) -> [~"-config" | ConfigFiles].
 
 -doc """
 Create a set up a home dir in the output directory.

@@ -84,7 +84,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         sysroot_args = cmd_args()
 
     shim = cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "__rustc_shim",
         cmd = cmd_args(toolchain_info.compiler, sysroot_args, relative_to = cwd),
         language = ctx.attrs._exec_os_type[OsLookup].script,
@@ -112,6 +112,11 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args("--create-cwd=", cwd.as_output(), delimiter = ""),
         cmd_args("--outfile=", rustc_flags.as_output(), delimiter = ""),
     ]
+
+    if ctx.attrs.rustc_link_lib:
+        cmd.append("--rustc-link-lib")
+    if ctx.attrs.rustc_link_search:
+        cmd.append("--rustc-link-search")
 
     # See https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
 
@@ -174,6 +179,8 @@ _cargo_buildscript_rule = rule(
         # we want the `rustc --cfg` for the target platform, not the exec platform.
         "rustc_cfg": attrs.dep(default = "prelude//rust/tools:rustc_cfg"),
         "rustc_host_tuple": attrs.dep(default = "prelude//rust/tools:rustc_host_tuple"),
+        "rustc_link_lib": attrs.bool(default = False),
+        "rustc_link_search": attrs.bool(default = False),
         "version": attrs.string(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": toolchains_common.rust(),

@@ -193,6 +193,7 @@ def create_dummy_omnibus(
             links = [LinkArgs(flags = extra_ldflags)],
             category_suffix = "dummy_omnibus",
             link_execution_preference = LinkExecutionPreference("any"),
+            produce_shared_library_interface = False,
         ),
         anonymous = anonymous,
     )
@@ -318,6 +319,7 @@ def _create_root(
             identifier = root.name or output,
             link_execution_preference = LinkExecutionPreference("any"),
             allow_cache_upload = allow_cache_upload,
+            produce_shared_library_interface = False,
         ),
         anonymous = anonymous,
     )
@@ -589,6 +591,7 @@ def _create_omnibus(
             enable_distributed_thinlto = enable_distributed_thinlto,
             identifier = soname,
             allow_cache_upload = allow_cache_upload,
+            produce_shared_library_interface = False,
         ),
     )
 

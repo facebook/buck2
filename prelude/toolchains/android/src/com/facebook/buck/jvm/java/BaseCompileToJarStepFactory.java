@@ -96,7 +96,6 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
 
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(outputPaths.getClassesDir()));
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(outputPaths.getAnnotationPath()));
-    steps.addAll(MakeCleanDirectoryIsolatedStep.of(outputPaths.getOutputJarDirPath()));
 
     // If there are resources, then link them to the appropriate place in the classes directory.
     steps.addAll(CopyResourcesStep.of(resourcesMap));
@@ -153,7 +152,9 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
         resolvedJavac,
         actionMetadata,
         extraParams,
-        kotlinClassesDir);
+        kotlinClassesDir,
+        null,
+        false);
 
     steps.add(new JarDirectoryStep(libraryJarParameters));
   }
@@ -177,7 +178,9 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       T extraParams,
-      @Nullable RelPath kotlinClassesDir);
+      @Nullable RelPath kotlinClassesDir,
+      JarParameters abiJarParameters,
+      boolean mixedCompilationMode);
 
   public boolean supportsCompilationDaemon() {
     return false;

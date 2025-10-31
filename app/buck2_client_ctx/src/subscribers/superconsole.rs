@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_event_observer::action_sub_error_display::ActionSubErrorDisplay;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -643,9 +644,15 @@ impl StatefulSuperConsoleImpl {
                     let sub_errors = &sub_errors.sub_errors;
                     if !sub_errors.is_empty() {
                         for sub_error in sub_errors {
-                            if let Some(message) = &sub_error.message {
+                            // Display only sub-errors with messages but no location information.
+                            // Errors with location info are filtered out due to user feedback about console noise.
+                            // TODO(nero): Improve presentation of errors with location info; may require redesigning Buck's diagnostic output
+                            if let Some(msg) = &sub_error.message
+                                && !msg.is_empty()
+                                && !sub_error.has_location_info()
+                            {
                                 lines.push(Line::from_iter([Span::new_styled_lossy(
-                                    format!("[{}] {}", sub_error.category, message)
+                                    format!("[{}] {}", sub_error.category, msg)
                                         .with(Color::DarkCyan),
                                 )]));
                             }
@@ -1123,8 +1130,8 @@ mod tests {
                 buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                     data: Some(
                         buck2_data::CommandStart {
-                            metadata: Default::default(),
                             data: Some(buck2_data::BuildCommandStart {}.into()),
+                            ..Default::default()
                         }
                         .into(),
                     ),

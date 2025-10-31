@@ -12,11 +12,10 @@ package com.facebook.buck.jvm.java
 
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
-import com.facebook.buck.jvm.java.version.JavaVersion
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSortedSet
 import java.io.File
-import java.util.Optional
+import java.util.*
 import java.util.stream.Collectors
 
 /** Resolved JavacOptions used in [JavacPipelineState] */
@@ -86,10 +85,10 @@ data class ResolvedJavacOptions(
     ) {
       // Add some standard options.
 
-      val sourceLevel = languageLevelOptions.sourceLevelValue.version
-      val targetLevel = languageLevelOptions.targetLevelValue.version
-      optionsConsumer.addOptionValue("source", sourceLevel)
-      optionsConsumer.addOptionValue("target", targetLevel)
+      val sourceLevel = languageLevelOptions.sourceLevelValue
+      val targetLevel = languageLevelOptions.targetLevelValue
+      optionsConsumer.addOptionValue("source", sourceLevel.toString())
+      optionsConsumer.addOptionValue("target", targetLevel.toString())
 
       // Set the sourcepath to stop us reading source files out of jars by mistake.
       optionsConsumer.addOptionValue("sourcepath", "")
@@ -103,7 +102,7 @@ data class ResolvedJavacOptions(
       }
 
       // Override the bootclasspath if Buck is building Java code for Android.
-      if (languageLevelOptions.targetLevelValue <= JavaVersion.VERSION_8) {
+      if (languageLevelOptions.targetLevelValue <= 8) {
         bootclasspathString.ifPresent { bootclasspath: String? ->
           optionsConsumer.addOptionValue("bootclasspath", bootclasspath)
         }

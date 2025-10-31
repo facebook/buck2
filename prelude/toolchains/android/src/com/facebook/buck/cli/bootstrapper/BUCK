@@ -12,6 +12,7 @@ buck_java_binary(
         "fbcode//buck2/platform/...",
         "fbsource//xplat/buck2/platform/...",
         "prelude//toolchains/android/config:",
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/remote_worker/...",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/worker:",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/worker:",
         "toolchains//...",

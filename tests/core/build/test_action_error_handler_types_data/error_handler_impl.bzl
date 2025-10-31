@@ -6,6 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
 def error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
     categories = []
 
@@ -13,18 +17,16 @@ def error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
         categories.append(ctx.new_sub_error(
             category = "foo_category",
             message = "foo message",
-            locations = [
-                ctx.new_error_location(file = "foo_file", line = 1),
-            ],
+            file = "foo_file",
+            lnum = 1,
         ))
 
     if "bar" in ctx.stderr:
         categories.append(ctx.new_sub_error(
             category = "bar_category",
             message = "bar message",
-            locations = [
-                ctx.new_error_location(file = "bar_file", line = 1),
-            ],
+            file = "bar_file",
+            lnum = 1,
         ))
 
     return categories
@@ -56,5 +58,41 @@ def _error_handler_nonetype_impl(ctx: AnalysisContext):
 
 error_handler_nonetype_impl = rule(
     impl = _error_handler_nonetype_impl,
+    attrs = {},
+)
+
+def error_handler_errorformat_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    res = ctx.parse_with_errorformat(
+        category = "test_failure0",
+        error = ctx.stdout,
+        errorformats = ["%f:%l: %m"],
+    )
+    _assert_eq(len(res), 1)
+    _assert_eq(res[0].category, "test_failure0")
+    _assert_eq(res[0].message, "expected `;`, found `}`")
+    _assert_eq(res[0].file, "main.rs")
+    _assert_eq(res[0].lnum, 10)
+    _assert_eq(res[0].col, None)
+    _assert_eq(res[0].end_lnum, None)
+    _assert_eq(res[0].end_col, None)
+    _assert_eq(res[0].error_type, None)
+    _assert_eq(res[0].error_number, None)
+
+    res[0].category = "test_failure"
+    _assert_eq(res[0].category, "test_failure")
+    return res
+
+def _error_handler_with_errorformat(ctx: AnalysisContext):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["fbpython", "-c", "import sys\nprint('main.rs:10: expected `;`, found `}`')\nsys.exit(1)"], hidden = out.as_output()),
+        category = "test_failure",
+        error_handler = error_handler_errorformat_impl,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+error_handler_with_errorformat = rule(
+    impl = _error_handler_with_errorformat,
     attrs = {},
 )

@@ -30,7 +30,6 @@ import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLogger;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLoggerAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriter;
-import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriterFactory;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriter;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriterFactory;
 import com.google.common.base.Preconditions;
@@ -203,7 +202,7 @@ public class KotlinCDCommand implements JvmCDCommand {
   }
 
   private void cleanupOldPostBuildOutputs() throws IOException {
-    if (!buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally()) {
+    if (!buildKotlinCommand.getKotlinExtraParams().getShouldActionRunIncrementally()) {
       return;
     }
 
@@ -212,9 +211,7 @@ public class KotlinCDCommand implements JvmCDCommand {
     oldPostBuildOutputs.add(postBuildParams.getAbiJar());
     oldPostBuildOutputs.add(postBuildParams.getAbiOutputDir());
     oldPostBuildOutputs.addAll(postBuildParams.getUsedClassesPaths());
-    oldPostBuildOutputs.add(postBuildParams.getDepFile());
     oldPostBuildOutputs.addAll(postBuildParams.getOptionalDirsPaths());
-    oldPostBuildOutputs.add(postBuildParams.getUsedJarsPath());
 
     removePaths(oldPostBuildOutputs);
   }
@@ -237,21 +234,14 @@ public class KotlinCDCommand implements JvmCDCommand {
 
   protected void maybeWriteClassAbi() {
     if (!postBuildParams.getShouldCreateClassAbi()) {
-      Preconditions.checkState(postBuildParams.getJvmAbiGen() == null);
+      Preconditions.checkState(postBuildParams.getJvmAbiGenDir() == null);
       return;
     }
 
     ClassAbiWriter classAbiWriter =
-        ClassAbiWriterFactory.create(
-            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally(),
-            buildKotlinCommand
-                .getKotlinExtraParams()
-                .getIncrementalStateDir()
-                .map(absPath -> absPath.resolve(KOTLIN_CLASSES_DIR))
-                .orElse(null),
-            buildKotlinCommand.getKotlinExtraParams().getJvmAbiGenWorkingDir().orElse(null),
-            postBuildParams.getJvmAbiGen(),
+        ClassAbiWriter.create(
             postBuildParams.getLibraryJar(),
+            postBuildParams.getJvmAbiGenDir(),
             postBuildParams.getAbiJar());
     classAbiWriter.execute();
   }
@@ -268,22 +258,17 @@ public class KotlinCDCommand implements JvmCDCommand {
     Preconditions.checkState(
         (postBuildParams.getDepFile() == null)
             == (postBuildParams.getUsedClassesPaths().isEmpty()));
+
     if (postBuildParams.getDepFile() != null) {
       // we won't run javac if not necessary and used classes for java may not exist
       List<Path> usedClassesMapPaths = filterExistingFiles(postBuildParams.getUsedClassesPaths());
       Preconditions.checkState(!usedClassesMapPaths.isEmpty());
-      Optional<Path> prevDepFile = Optional.empty();
-      if (postBuildParams.getIncrementalStateDir() != null) {
-        Path possibleprevDepFile = postBuildParams.getIncrementalStateDir().resolve("dep-file.txt");
-        if (Files.exists(possibleprevDepFile)) {
-          prevDepFile = Optional.of(possibleprevDepFile);
-        }
-      }
+
       DepFileUtils.usedClassesToDepFile(
           usedClassesMapPaths,
           postBuildParams.getDepFile(),
           Optional.ofNullable(postBuildParams.getJarToJarDirMap()),
-          prevDepFile);
+          buildKotlinCommand.getKotlinExtraParams().getShouldActionRunIncrementally());
     }
   }
 
@@ -316,11 +301,8 @@ public class KotlinCDCommand implements JvmCDCommand {
     PreviousStateWriter previousStateWriter =
         PreviousStateWriterFactory.create(
             buildKotlinCommand.getKotlinExtraParams().getShouldActionRunIncrementally(),
-            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally(),
             postBuildParams.getIncrementalStateDir(),
-            actionMetadataPath.orElse(null),
-            postBuildParams.getDepFile(),
-            postBuildParams.getUsedJarsPath());
+            actionMetadataPath.orElse(null));
 
     previousStateWriter.execute();
   }
@@ -336,16 +318,10 @@ public class KotlinCDCommand implements JvmCDCommand {
             .collect(Collectors.toList());
     Preconditions.checkState(!usedClassesMapPaths.isEmpty());
 
-    Optional<Path> prevUsedJarsPath = Optional.empty();
-    if (postBuildParams.getIncrementalStateDir() != null) {
-      Path possiblePrevUsedJarsPath =
-          postBuildParams.getIncrementalStateDir().resolve("used-jars.json");
-      if (Files.exists(possiblePrevUsedJarsPath)) {
-        prevUsedJarsPath = Optional.of(possiblePrevUsedJarsPath);
-      }
-    }
     DepFileUtils.usedClassesToUsedJars(
-        usedClassesMapPaths, postBuildParams.getUsedJarsPath(), prevUsedJarsPath);
+        usedClassesMapPaths,
+        postBuildParams.getUsedJarsPath(),
+        buildKotlinCommand.getKotlinExtraParams().getShouldActionRunIncrementally());
   }
 
   @Override

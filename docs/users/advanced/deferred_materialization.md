@@ -5,9 +5,9 @@ title: Deferred Materialization
 
 import { OssOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 
-When using [Remote Execution](../remote_execution.md), Buck2 can optionally
-operate with Deferred Materialization, which means that Buck2 will avoid
-downloading outputs until they are required by a local action.
+When using [Remote Execution](../remote_execution.md), Buck2 operates with
+Deferred Materialization, which means that Buck2 will avoid downloading outputs
+until they are required by a local action.
 
 This can provide very substantial performance savings on builds that execute
 primarily on Remote Execution, since those builds become able to proceed without
@@ -34,16 +34,6 @@ daemon when it encounters an expired artifact.
 <OssOnly>
 At Meta, artifacts get periodically refreshed, but open source RE backends do not expose the TTL of artifacts, so this feature does not work outside of Meta.
 </OssOnly>
-
-## Enabling Deferred Materialization
-
-To enable deferred materialization, add this to your
-[Buckconfig](../../concepts/buckconfig.md):
-
-```ini
-[buck2]
-materializations = deferred
-```
 
 ## On-disk state
 

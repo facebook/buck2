@@ -135,3 +135,75 @@ where
         DirectoryEntry::Leaf(leaf) => Err(A::new(next_path_needle, path_rest, leaf)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+
+    use crate::directory::directory::Directory;
+    use crate::directory::entry::DirectoryEntry;
+    use crate::directory::find::find;
+    use crate::directory::find::find_prefix;
+    use crate::directory::test::NopEntry;
+    use crate::directory::test::TestDirectoryBuilder;
+    use crate::directory::test::path;
+
+    #[test]
+    fn test_find() -> buck2_error::Result<()> {
+        let mut a = TestDirectoryBuilder::empty();
+        a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
+
+        assert_matches!(
+            find(a.as_ref(), path("a/b/c")),
+            Ok(Some(DirectoryEntry::Leaf(..)))
+        );
+
+        assert_matches!(
+            find(a.as_ref(), path("a/b")),
+            Ok(Some(DirectoryEntry::Dir(..)))
+        );
+
+        assert_matches!(
+            find(a.as_ref(), path("")),
+            Ok(Some(DirectoryEntry::Dir(..)))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_find_prefix() -> buck2_error::Result<()> {
+        let mut a = TestDirectoryBuilder::empty();
+        a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
+
+        assert_matches!(
+            find_prefix(a.as_ref(), path("a/b/c")),
+            Ok(Some((
+                DirectoryEntry::Leaf(..),
+                path
+            ))) if path.is_empty()
+        );
+        assert_matches!(
+            find_prefix(a.as_ref(), path("a/b")),
+            Ok(Some((
+                DirectoryEntry::Dir(..),
+                path
+            ))) if path.is_empty()
+        );
+
+        assert_matches!(
+            find_prefix(a.as_ref(), path("a/b/c/d")),
+            Ok(Some((DirectoryEntry::Leaf(..), rest))) => {
+                assert_eq!(rest, path("d"));
+            }
+        );
+        assert_matches!(
+            find_prefix(a.as_ref(), path("a/b/c/d/e")),
+            Ok(Some((DirectoryEntry::Leaf(..), rest))) => {
+                assert_eq!(rest, path("d/e"));
+            }
+        );
+
+        Ok(())
+    }
+}

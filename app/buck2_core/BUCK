@@ -24,12 +24,14 @@ rust_library(
             "linux",
             [
                 "fbsource//third-party/rust:nix",
+                "fbsource//third-party/rust:libc",
             ],
         ),
         (
             "macos",
             [
                 "fbsource//third-party/rust:nix",
+                "fbsource//third-party/rust:libc",
             ],
         ),
         (
@@ -58,7 +60,6 @@ rust_library(
         "fbsource//third-party/rust:hostname",
         "fbsource//third-party/rust:indent_write",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:linkme",
         "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:once_cell",
@@ -89,6 +90,7 @@ rust_library(
         "//buck2/shed/static_interner:static_interner",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         # @oss-disable[end= ]: "//common/rust/shed/detect_eden:detect_eden",
+        # @oss-disable[end= ]: "//common/rust/user:user",
     ],
 )
 

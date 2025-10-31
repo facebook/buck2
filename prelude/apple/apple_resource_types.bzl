@@ -7,6 +7,9 @@
 # above-listed licenses.
 
 load("@prelude//:artifacts.bzl", "ArtifactOutputs")
+load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
+load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
+load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
 # Represents the values for the `destination` field of `apple_resource`
 AppleResourceDestination = enum(
@@ -42,4 +45,12 @@ AppleResourceProcessingOptions = record(
 
 CxxResourceSpec = record(
     resources = field(dict[str, ArtifactOutputs], {}),
+)
+
+AppleResourceSelectionOutput = record(
+    resource_specs = field(list[AppleResourceSpec]),
+    asset_catalog_specs = field(list[AppleAssetCatalogSpec]),
+    core_data_specs = field(list[AppleCoreDataSpec]),
+    scene_kit_assets_spec = field(list[SceneKitAssetsSpec]),
+    cxx_resource_specs = field(list[CxxResourceSpec]),
 )

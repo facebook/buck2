@@ -41,6 +41,8 @@ pub struct StatusCommand {
     snapshot: bool,
     #[clap(long, help = "Enable printing status for all running buckd")]
     all: bool,
+    #[clap(long, help = "Enable printing metrics from the Tokio runtime")]
+    include_tokio_runtime_metrics: bool,
 }
 
 impl StatusCommand {
@@ -76,7 +78,11 @@ impl StatusCommand {
                             bootstrap_client
                                 .to_connector()
                                 .with_flushing()
-                                .status(&mut events_ctx, self.snapshot)
+                                .status(
+                                    &mut events_ctx,
+                                    self.snapshot,
+                                    self.include_tokio_runtime_metrics,
+                                )
                                 .await?,
                         )?);
                     }
@@ -99,7 +105,11 @@ impl StatusCommand {
                         let json_status = process_status(
                             client
                                 .with_flushing()
-                                .status(&mut events_ctx, self.snapshot)
+                                .status(
+                                    &mut events_ctx,
+                                    self.snapshot,
+                                    self.include_tokio_runtime_metrics,
+                                )
                                 .await?,
                         )?;
                         buck2_client_ctx::println!(
@@ -157,6 +167,10 @@ fn process_status(status: StatusResponse) -> buck2_error::Result<serde_json::Val
         "http2": status.http2,
         "io_provider": status.io_provider,
     });
+
+    if let Some(tokio_runtime_metrics) = status.tokio_runtime_metrics {
+        value["tokio_runtime_metrics"] = serde_json::to_value(tokio_runtime_metrics)?;
+    }
 
     if let Some(valid_working_directory) = status.valid_working_directory {
         value["valid_working_directory"] = serde_json::to_value(valid_working_directory)?;

@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
 public class InstallerService extends InstallerGrpc.InstallerImplBase {
 
   // TODO: make configurable or pass from buck2 w/ install info data.
-  private static final long INSTALL_MAX_WAIT_TIME = 4;
+  private static final long INSTALL_MAX_WAIT_TIME = 6;
   private static final TimeUnit INSTALL_TIMEOUT_UNIT = TimeUnit.MINUTES;
 
   private static final ThreadPoolExecutor THREAD_POOL =

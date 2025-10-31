@@ -10,8 +10,9 @@
 
 import json
 import re
+import sys
 from enum import Enum
-from typing import Dict, TextIO
+from typing import Dict, Optional, TextIO
 
 
 class _ReGroupName(str, Enum):
@@ -46,8 +47,18 @@ def _make_substitution_dict(
 
 
 def _process_line(
-    line: str, pattern: re.Pattern[str], substitutions: Dict[str, str]
+    line: str,
+    pattern: re.Pattern[str],
+    substitutions: Dict[str, str],
+    minimum_os_version_key: Optional[str],
 ) -> str:
+    if (
+        minimum_os_version_key is not None
+        and line.strip() == f"<key>{minimum_os_version_key}</key>"
+    ):
+        print("Found minimum OS version key in plist file", file=sys.stderr)
+        sys.exit(1)
+
     result = line
     pos = 0
     substituted_keys = set()
@@ -78,8 +89,11 @@ def preprocess(
     output_file: TextIO,
     substitutions_file: TextIO,
     product_name: str,
+    minimum_os_version_key: Optional[str] = None,
 ) -> None:
     pattern = re.compile(_re_string)
     substitutions = _make_substitution_dict(substitutions_file, product_name)
     for line in input_file:
-        output_file.write(_process_line(line, pattern, substitutions))
+        output_file.write(
+            _process_line(line, pattern, substitutions, minimum_os_version_key)
+        )

@@ -374,6 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_default_builder() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let builder = HttpClientBuilder::https_with_system_roots().await?;
 
         assert_eq!(None, builder.max_redirects);
@@ -384,6 +385,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_supports_vpnless_set_true() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_supports_vpnless();
 
@@ -393,6 +395,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_http2_option() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         assert!(builder.http2);
         builder.with_http2(false);
@@ -403,6 +406,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_max_redirects_overrides_default() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_max_redirects(5);
 
@@ -412,6 +416,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_builder_with_proxy_adds_proxy() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let proxy = Proxy::new(Intercept::All, "http://localhost:12345".try_into()?);
         let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_proxy(proxy);
@@ -422,6 +427,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_set_connect_timeout() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_connect_timeout(Some(Duration::from_millis(1000)));
 
@@ -439,6 +445,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_set_connect_and_read_timeouts() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder
             .with_connect_timeout(Some(Duration::from_millis(1000)))

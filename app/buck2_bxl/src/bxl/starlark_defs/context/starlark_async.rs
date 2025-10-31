@@ -38,7 +38,7 @@ enum ViaError {
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
 /// This also provides a handle for dice.
-pub(crate) trait BxlDiceComputations {
+pub(crate) trait BxlDiceComputations<'s> {
     // via() below provides a more useful api for consumers.
     fn via_impl<'a: 'b, 'b>(
         &'a mut self,
@@ -53,9 +53,15 @@ pub(crate) trait BxlDiceComputations {
     fn global_data(&self) -> &DiceData;
 
     fn per_transaction_data(&self) -> &UserComputationData;
+
+    /// Avoid using if at all possible; use `via_impl` instead
+    fn with_inner_less_safe<'a: 'b, 'b>(
+        &'a mut self,
+        f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
+    );
 }
 
-impl dyn BxlDiceComputations + '_ {
+impl<'s> dyn BxlDiceComputations<'s> + '_ {
     // We require that BxlDiceComputations be object-safe, but that means we can't have a type parameter in `via_impl`.
     // It's really inconvenient to not have that, though, so we provide an implementation here that supports it.
     pub(crate) fn via<'a, T: 'a>(
@@ -80,7 +86,7 @@ impl dyn BxlDiceComputations + '_ {
     }
 }
 
-impl BxlDiceComputations for BxlSafeDiceComputations<'_, '_> {
+impl<'s, 'x: 's> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s, 'x> {
     fn via_impl<'a: 'b, 'b>(
         &'a mut self,
         f: Box<
@@ -117,6 +123,13 @@ impl BxlDiceComputations for BxlSafeDiceComputations<'_, '_> {
 
     fn per_transaction_data(&self) -> &UserComputationData {
         self.0.per_transaction_data()
+    }
+
+    fn with_inner_less_safe<'a: 'b, 'b>(
+        &'a mut self,
+        f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
+    ) {
+        f(self.0)
     }
 }
 

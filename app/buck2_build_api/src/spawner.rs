@@ -86,8 +86,7 @@ mod tests {
 
     fn create_start_end_events() -> (CommandStart, CommandEnd) {
         let start = CommandStart {
-            data: Default::default(),
-            metadata: Default::default(),
+            ..Default::default()
         };
         let end = CommandEnd {
             ..Default::default()

@@ -61,6 +61,7 @@ priorities:
 - `bot` is the dual, so handles `pre_end_per_*` and `post_init_per_*` for the same reason
 - `top` also handles common initializations, since it's `init/2` function is called first
 """.
+-compile(warn_missing_spec_all).
 
 -export_type([
     role/0,

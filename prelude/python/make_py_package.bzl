@@ -476,7 +476,7 @@ def _make_py_package_impl(
             package_style == PackageStyle("inplace_lite")):
         fail("unsupported package style: {}".format(package_style))
 
-    pyc_mode = PycInvalidationMode("unchecked_hash") if inplace else PycInvalidationMode("checked_hash")
+    pyc_mode = PycInvalidationMode("checked_hash") if inplace else PycInvalidationMode("unchecked_hash")
 
     # Accumulate all of the artifacts required by the build
     runtime_artifacts = []
@@ -768,7 +768,6 @@ def _make_py_package_live(
             metadata_path = "action_metadata-{}.json".format(name),
             category = "par",
             identifier = "make_live_par_incremental{}".format(output_suffix),
-            prefer_local = True,
             no_outputs_cleanup = True,
         )
     else:

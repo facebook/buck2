@@ -8,15 +8,68 @@
  * above-listed licenses.
  */
 
+use std::cell::OnceCell;
+use std::rc::Rc;
+
 use async_trait::async_trait;
 use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use dice::DiceComputations;
+use starlark::eval::Evaluator;
 
 #[async_trait(?Send)]
 pub trait AnonPromisesDyn<'v>: 'v {
-    async fn run_promises(
+    async fn run_promises<'a, 'e: 'a>(
         self: Box<Self>,
-        dice: &mut DiceComputations,
-        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
     ) -> buck2_error::Result<()>;
+}
+
+pub trait RunAnonPromisesAccessor<'v, 'a, 'e> {
+    fn with_evaluator(
+        &mut self,
+        closure: &mut dyn FnMut(&mut Evaluator<'v, 'a, 'e>) -> buck2_error::Result<()>,
+    ) -> buck2_error::Result<()>;
+
+    fn via_dice_impl<'s: 'b, 'b>(
+        &'s mut self,
+        f: Box<dyn for<'d> FnOnce(&'s mut DiceComputations<'d>) + 'b>,
+    );
+}
+
+pub struct RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>(
+    pub &'me mut ReentrantStarlarkEvaluator<'v, 'a, 'e>,
+    pub &'me mut DiceComputations<'d>,
+);
+
+impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e>
+    for RunAnonPromisesAccessorPair<'me, 'v, 'a, 'e, 'd>
+{
+    fn with_evaluator(
+        &mut self,
+        closure: &mut dyn FnMut(&mut Evaluator<'v, 'a, 'e>) -> buck2_error::Result<()>,
+    ) -> buck2_error::Result<()> {
+        self.0.with_evaluator(closure)
+    }
+
+    fn via_dice_impl<'s: 'b, 'b>(
+        &'s mut self,
+        f: Box<dyn for<'d2> FnOnce(&'s mut DiceComputations<'d2>) + 'b>,
+    ) {
+        f(self.1)
+    }
+}
+
+impl<'v, 'a, 'e> dyn RunAnonPromisesAccessor<'v, 'a, 'e> + '_ {
+    pub fn with_dice<'s, T: 's>(
+        &'s mut self,
+        f: impl for<'d> FnOnce(&'s mut DiceComputations<'d>) -> T,
+    ) -> T {
+        // We can't capture a &mut res here in the closure unfortunately, so we need to do this little dance to get values out.
+        let res: Rc<OnceCell<T>> = Rc::new(OnceCell::new());
+        let res2 = res.clone();
+        self.via_dice_impl(Box::new(move |dice| {
+            res2.set(f(dice)).ok().unwrap();
+        }));
+        Rc::try_unwrap(res).ok().unwrap().take().unwrap()
+    }
 }

@@ -412,3 +412,64 @@ async def test_peak_stats(buck: Buck, tmp_path: Path) -> None:
     assert record["max_in_progress_local_actions"] == 1
     assert record["max_in_progress_remote_actions"] == 0
     assert record["max_in_progress_remote_uploads"] == 0
+
+
+@buck_test()
+async def test_parallelism_logging(buck: Buck, tmp_path: Path) -> None:
+    # Test multiple parallelism values
+    parallelism_values = [1, 4, 8]
+
+    for parallelism in parallelism_values:
+        record = tmp_path / f"record_{parallelism}.json"
+
+        # Test with different -j values to control concurrency
+        await buck.build(
+            ":pass",
+            "-j",
+            str(parallelism),
+            "--unstable-write-invocation-record",
+            str(record),
+        )
+
+        record = read_invocation_record(record)
+
+        # Verify that command_options is present and contains parallelism data
+        assert "command_options" in record
+        command_options = record["command_options"]
+
+        assert "configured_parallelism" in command_options
+        assert "available_parallelism" in command_options
+
+        # The configured parallelism should match what we passed via -j
+        assert command_options["configured_parallelism"] == parallelism
+
+        # The available parallelism should be a positive integer (system dependent)
+        assert isinstance(command_options["available_parallelism"], int)
+        assert command_options["available_parallelism"] > 0
+
+    # Test without -j flag - configured_parallelism should be null
+    record_no_j = tmp_path / "record_no_j.json"
+    await buck.build(
+        ":pass",
+        "--unstable-write-invocation-record",
+        str(record_no_j),
+    )
+
+    record_no_j = read_invocation_record(record_no_j)
+
+    # Verify that command_options is present and contains parallelism data
+    assert "command_options" in record_no_j
+    command_options_no_j = record_no_j["command_options"]
+
+    assert "configured_parallelism" in command_options_no_j
+    assert "available_parallelism" in command_options_no_j
+
+    # When no -j is specified, configured_parallelism should equal available_parallelism
+    assert (
+        command_options_no_j["configured_parallelism"]
+        == command_options_no_j["available_parallelism"]
+    )
+
+    # The available parallelism should still be a positive integer (system dependent)
+    assert isinstance(command_options_no_j["available_parallelism"], int)
+    assert command_options_no_j["available_parallelism"] > 0

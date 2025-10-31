@@ -121,6 +121,8 @@ def get_android_binary_native_library_info(
 
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
         enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
+        enhance_ctx.debug_output("linker_argsfiles", ctx.actions.symlinked_dir("linker_argsfiles", {}))
+        enhance_ctx.debug_output("linker_commands", ctx.actions.write("linker_commands", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         enhance_ctx.debug_output("unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}))
@@ -144,6 +146,8 @@ def get_android_binary_native_library_info(
     non_root_module_metadata_assets = ctx.actions.declare_output("non_root_module_metadata_assets_symlink")
     non_root_module_lib_assets = ctx.actions.declare_output("non_root_module_lib_assets_symlink")
 
+    linker_argsfiles = ctx.actions.declare_output("linker_argsfiles", dir = True)
+    linker_commands = ctx.actions.declare_output("linker_commands")
     unstripped_native_libraries = ctx.actions.declare_output("unstripped_native_libraries")
     unstripped_native_libraries_json = ctx.actions.declare_output("unstripped_native_libraries_json")
     unstripped_native_libraries_files = ctx.actions.declare_output("unstripped_native_libraries.links", dir = True)
@@ -153,6 +157,8 @@ def get_android_binary_native_library_info(
         native_libs_metadata,
         native_libs_always_in_primary_apk,
         native_lib_assets_for_primary_apk,
+        linker_argsfiles,
+        linker_commands,
         unstripped_native_libraries,
         unstripped_native_libraries_json,
         unstripped_native_libraries_files,
@@ -364,6 +370,8 @@ def get_android_binary_native_library_info(
                 fail("Native libraries in modules should only depend on libraries in the same module or the root. Remove these deps:\n" + "\n".join(cross_module_link_errors))
 
         native_lib_dynamic_outputs = {
+            "linker_argsfiles": outputs[linker_argsfiles],
+            "linker_commands": outputs[linker_commands],
             "native_lib_assets_for_primary_apk": outputs[native_lib_assets_for_primary_apk],
             "native_libs": outputs[native_libs],
             "native_libs_always_in_primary_apk": outputs[native_libs_always_in_primary_apk],
@@ -446,6 +454,8 @@ def get_android_binary_native_library_info(
     if native_merge_debug:
         enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
 
+    enhance_ctx.debug_output("linker_argsfiles", linker_argsfiles)
+    enhance_ctx.debug_output("linker_commands", linker_commands)
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
@@ -465,6 +475,8 @@ def get_android_binary_native_library_info(
 _NativeLibSubtargetArtifacts = record(
     default = Artifact,
     unrelinked = Artifact | None,
+    linker_command = Artifact | None,
+    linker_argsfile = Artifact | None,
 )
 
 def _post_native_lib_graph_finalization_steps(
@@ -472,6 +484,8 @@ def _post_native_lib_graph_finalization_steps(
         final_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
         all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
         get_module_from_target: typing.Callable,
+        linker_argsfiles: Artifact,
+        linker_commands: Artifact,
         unstripped_native_libraries: Artifact,
         unstripped_native_libraries_json: Artifact,
         unstripped_native_libraries_files: Artifact,
@@ -489,9 +503,24 @@ def _post_native_lib_graph_finalization_steps(
         final_shared_libs_by_platform, pre_bolt_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
 
     unstripped_libs = {}
+    linker_argsfiles_list = []
+    linker_commands_json = []
     for platform, libs in final_shared_libs_by_platform.items() + pre_bolt_libs_by_platform.items():
         for lib in libs.values():
             unstripped_libs[lib.lib.output] = platform
+            if lib.lib.linker_argsfile:
+                linker_argsfiles_list.append(lib.lib)
+            linker_commands_json.append({
+                "argsfile": lib.lib.linker_argsfile,
+                "command": lib.lib.linker_command,
+                "filename": lib.lib.output.short_path,
+            })
+
+    ctx.actions.symlinked_dir(linker_argsfiles, {
+        "{}".format(lib.output.basename): lib.linker_argsfile
+        for lib in linker_argsfiles_list
+    })
+    ctx.actions.write_json(linker_commands, linker_commands_json, with_inputs = False)
     ctx.actions.write(unstripped_native_libraries, unstripped_libs.keys())
     ctx.actions.write_json(unstripped_native_libraries_json, unstripped_libs)
     ctx.actions.symlinked_dir(unstripped_native_libraries_files, {
@@ -548,18 +577,28 @@ def _declare_library_subtargets(
             output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
             lib_output = ctx.actions.declare_output(output_path, dir = True)
             dynamic_outputs.append(lib_output)
+
             if enable_relinker:
+                linker_command_output = ctx.actions.declare_output(output_path + ".linker_command")
+                dynamic_outputs.append(linker_command_output)
+                linker_argsfile_output = ctx.actions.declare_output(output_path + ".linker_argsfile")
+                dynamic_outputs.append(linker_argsfile_output)
+
                 output_path = output_path + ".unrelinked"
                 unrelinked_lib_output = ctx.actions.declare_output(output_path, dir = True)
                 dynamic_outputs.append(unrelinked_lib_output)
                 lib_outputs[soname] = _NativeLibSubtargetArtifacts(
                     default = lib_output,
                     unrelinked = unrelinked_lib_output,
+                    linker_command = linker_command_output,
+                    linker_argsfile = linker_argsfile_output,
                 )
             else:
                 lib_outputs[soname] = _NativeLibSubtargetArtifacts(
                     default = lib_output,
                     unrelinked = None,
+                    linker_command = None,
+                    linker_argsfile = None,
                 )
 
         lib_outputs_by_platform[platform] = lib_outputs
@@ -580,6 +619,9 @@ def _link_library_subtargets(
         unrelinked: bool = False):
     for platform, final_shared_libs in final_shared_libs_by_platform.items():
         merged_lib_outputs = {}
+        linker_commands_by_soname = {}
+        linker_argsfiles_by_soname = {}
+
         for soname, lib in final_shared_libs.items():
             base_soname = soname
             if split_groups and soname in split_groups:
@@ -587,6 +629,16 @@ def _link_library_subtargets(
 
             group_outputs = merged_lib_outputs.setdefault(base_soname, {})
             group_outputs[soname] = lib.lib.output
+
+            if not unrelinked:
+                if lib.lib.linker_command:
+                    linker_commands_by_soname[soname] = {
+                        "argsfile": lib.lib.linker_argsfile,
+                        "command": lib.lib.linker_command,
+                        "filename": lib.lib.output.short_path,
+                    }
+                if lib.lib.linker_argsfile:
+                    linker_argsfiles_by_soname[soname] = lib.lib.linker_argsfile
 
         for soname, lib_outputs in lib_outputs_by_platform[platform].items():
             if soname in merged_lib_outputs:
@@ -607,6 +659,17 @@ def _link_library_subtargets(
                 output = lib_outputs.unrelinked
             ctx.actions.symlinked_dir(outputs[output], group_outputs)
 
+            if not unrelinked and lib_outputs.linker_command:
+                if soname in linker_commands_by_soname:
+                    ctx.actions.write_json(outputs[lib_outputs.linker_command], linker_commands_by_soname[soname])
+                else:
+                    ctx.actions.write_json(outputs[lib_outputs.linker_command], {})
+
+                if soname in linker_argsfiles_by_soname:
+                    ctx.actions.symlink_file(outputs[lib_outputs.linker_argsfile], linker_argsfiles_by_soname[soname])
+                else:
+                    ctx.actions.write_json(outputs[lib_outputs.linker_argsfile], {})
+
 def _create_library_subtargets(
         lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]],
         native_libs: Artifact,
@@ -614,15 +677,22 @@ def _create_library_subtargets(
     def create_library_subtarget(output: _NativeLibSubtargetArtifacts, create_default_outputs: bool):
         if not create_default_outputs and not output.unrelinked:
             fail("create_default_outputs can only be False when relinking")
+
+        sub_targets = {}
+        if output.linker_command:
+            sub_targets["linker_command"] = [DefaultInfo(default_outputs = [output.linker_command])]
+        if output.linker_argsfile:
+            sub_targets["linker_argsfile"] = [DefaultInfo(default_outputs = [output.linker_argsfile])]
+
         if output.unrelinked:
-            sub_targets = {"unrelinked": [DefaultInfo(default_outputs = [output.unrelinked])]}
+            sub_targets["unrelinked"] = [DefaultInfo(default_outputs = [output.unrelinked])]
             if create_default_outputs:
                 default_outputs = [output.default]
             else:
-                sub_targets |= {"relinked": [DefaultInfo(default_outputs = [output.default])]}
+                sub_targets["relinked"] = [DefaultInfo(default_outputs = [output.default])]
                 default_outputs = []
             return [DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets)]
-        return [DefaultInfo(default_outputs = [output.default])]
+        return [DefaultInfo(default_outputs = [output.default], sub_targets = sub_targets)]
 
     if len(lib_outputs_by_platform) > 1:
         return {
@@ -948,15 +1018,22 @@ def _get_native_libs_as_assets_metadata(
 def _get_native_libs_as_assets_dir(module: str) -> str:
     return "assets/{}".format("lib" if is_root_module(module) else module)
 
-def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared_libraries_to_exclude) -> dict[str, SharedLibrary]:
+def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared_libraries_to_exclude: set) -> dict[str, SharedLibrary]:
     shared_library_info = merge_shared_libraries(
         ctx.actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
     )
+
+    # Filter out shared libraries whose label.raw_target() is in shared_libraries_to_exclude
+    # Do it before calling with_unique_str_sonames to skip duplication check for excluded libs
+    shared_libraries = [
+        shared_lib
+        for shared_lib in traverse_shared_library_info(shared_library_info, transformation_provider = None)
+        if (shared_lib.label.raw_target() not in shared_libraries_to_exclude)
+    ]
     return {
         soname: shared_lib
-        for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info, transformation_provider = None)).items()
-        if shared_lib.label.raw_target() not in shared_libraries_to_exclude
+        for soname, shared_lib in with_unique_str_sonames(shared_libraries).items()
     }
 
 _LinkableSharedNode = record(
@@ -1093,7 +1170,7 @@ def _platform_output_path(path: str, platform: [str, None] = None):
         return platform + "/" + path
     return path
 
-def _transitive_has_linkable(
+def _transitive_has_non_prebuilt_linkable_deps(
         target: Label,
         linkable_nodes: dict[Label, LinkableNode],
         transitive_linkable_cache: dict[Label, bool]) -> bool:
@@ -1102,11 +1179,17 @@ def _transitive_has_linkable(
 
     target_node = linkable_nodes.get(target)
     for dep in target_node.deps:
-        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache):
+        dep_node = linkable_nodes.get(dep)
+        if (
+            _has_linkable(dep_node) and not _is_prebuilt_shared(dep_node)
+        ) or _transitive_has_non_prebuilt_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
             transitive_linkable_cache[target] = True
             return True
     for dep in target_node.exported_deps:
-        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache):
+        dep_node = linkable_nodes.get(dep)
+        if (
+            _has_linkable(dep_node) and not _is_prebuilt_shared(dep_node)
+        ) or _transitive_has_non_prebuilt_linkable_deps(dep, linkable_nodes, transitive_linkable_cache):
             transitive_linkable_cache[target] = True
             return True
 
@@ -1129,16 +1212,10 @@ def _shared_lib_for_prebuilt_shared(
     # TODO(cjhopman): We don't currently support prebuilt shared libs with deps on other libs because
     # we don't compute the shared lib deps of prebuilt shared libs here. That
     # shouldn't be too hard, but we haven't needed it.
-    for dep in node_data.deps:
-        expect(
-            not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
-            "prebuilt shared library `{}` with deps not supported by somerge".format(target),
-        )
-    for dep in node_data.exported_deps:
-        expect(
-            not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
-            "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target),
-        )
+    expect(
+        not _transitive_has_non_prebuilt_linkable_deps(target, linkable_nodes, transitive_linkable_cache),
+        "prebuilt shared library `{}` with non-prebuilt linkable deps not supported by somerge".format(target),
+    )
 
     shlib = node_data.shared_libs.libraries[0]
     soname = shlib.soname.ensure_str()

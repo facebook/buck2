@@ -20,7 +20,7 @@ def _complex_source_impl(ctx: AnalysisContext) -> list[Provider]:
 source = rule(impl = _complex_source_impl, attrs = {})
 
 _dep_mirror = rule(impl = _mirror_impl, attrs = {
-    "dep": attrs.dep(default = "//anon_invalid_defaults/dep:dep"),
+    "dep_attr": attrs.dep(default = "//anon_invalid_defaults/dep:dep"),
 })
 
 def _complex_dep_impl(ctx: AnalysisContext) -> Promise:

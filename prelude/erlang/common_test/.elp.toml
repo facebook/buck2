@@ -1,4 +1,0 @@
-[buck]
-build_deps = false
-enabled = true
-included_targets = ["prelude//erlang/common_test/..."]

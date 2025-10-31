@@ -18,6 +18,7 @@ import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.BaseJavacToJarStepFactory;
 import com.facebook.buck.jvm.java.CompilerOutputPathsValue;
 import com.facebook.buck.jvm.java.CompilerParameters;
+import com.facebook.buck.jvm.java.JarParameters;
 import com.facebook.buck.jvm.java.JavaExtraParams;
 import com.facebook.buck.jvm.java.ResolvedJavac;
 import com.facebook.buck.jvm.java.ResolvedJavacOptions;
@@ -44,20 +45,8 @@ public class JavacStepsBuilder {
       ImmutableList<RelPath> declaredClasspathEntries,
       ImmutableList<AbsPath> extraClassPaths,
       RelPath outputDirectory,
-      ImmutableSortedSet.Builder<RelPath> sourceBuilder) {
-
-    // Kotlin source-only-abi is only available for pure-kotlin targets
-    // It's not applicable for:
-    // - Java targets
-    // - Mixed targets
-    //
-    // Buck doesn't check if it runs source-only-abi for non-pure-kotlin targets,
-    // source-only-abi applicability for target should be verified externally.
-    //
-    // source-only-abi.jar packing happens via [KotlincToJarStepFactory::createCompileToJarStepImpl]
-    if (invokingRule.isSourceOnlyAbi()) {
-      return;
-    }
+      ImmutableSortedSet.Builder<RelPath> sourceBuilder,
+      JarParameters abiJarParameter) {
 
     // Note that this filters out only .kt files, so this keeps both .java and .src.zip files.
     ImmutableSortedSet<RelPath> javaSourceFiles =
@@ -100,6 +89,8 @@ public class JavacStepsBuilder {
         resolvedJavac,
         null,
         JavaExtraParams.of(resolvedJavacOptions, /* addAnnotationPath */ false),
-        null);
+        null,
+        abiJarParameter,
+        true);
   }
 }

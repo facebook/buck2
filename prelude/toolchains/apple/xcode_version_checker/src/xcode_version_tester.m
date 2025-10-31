@@ -26,8 +26,10 @@ typedef struct {
 
 typedef struct {
   NSString* plistPath;
-  BOOL(*plistFunction)
-  (NSString* plistPath, NSString* expectedValue, BOOL logComparisonFailure);
+  BOOL (*plistFunction)(
+      NSString* plistPath,
+      NSString* expectedValue,
+      BOOL logComparisonFailure);
   NSString* expectedValue;
   BOOL versionsMatch;
 } plist_check;

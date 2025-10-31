@@ -84,6 +84,7 @@ use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::re::client::RemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_file_watcher::mergebase::SetMergebase;
@@ -92,8 +93,8 @@ use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
+use buck2_interpreter::factory::SetProfileEventListener;
 use buck2_interpreter::prelude_path::prelude_path;
-use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
@@ -129,6 +130,8 @@ use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
+use crate::profile_patterns::FileWritingProfileEventListener;
+use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot::SnapshotCollector;
 
 #[derive(Debug, buck2_error::Error)]
@@ -195,7 +198,7 @@ pub struct ServerCommandContext<'a> {
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
-    pub starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    pub starlark_profiling_manager: StarlarkProfilingManager,
 
     debugger_handle: Option<BuckStarlarkDebuggerHandle>,
 
@@ -237,7 +240,7 @@ impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
-        starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+        starlark_profiling_manager: StarlarkProfilingManager,
         build_options: Option<&CommonBuildOptions>,
         paths: &InvocationPaths,
         cert_state: CertState,
@@ -331,7 +334,7 @@ impl<'a> ServerCommandContext<'a> {
             client_id_from_client_metadata,
             _re_connection_handle: re_connection_handle,
             cert_state,
-            starlark_profiler_instrumentation_override,
+            starlark_profiling_manager,
             buck_out_dir: paths.buck_out_dir(),
             isolation_prefix: paths.isolation.clone(),
             build_options: build_options.cloned(),
@@ -438,6 +441,10 @@ impl<'a> ServerCommandContext<'a> {
                 .build_options
                 .as_ref()
                 .is_some_and(|opts| opts.materialize_failed_outputs),
+            profile_event_listener: self
+                .starlark_profiling_manager
+                .profile_event_listener
+                .dupe(),
         })
     }
 
@@ -446,6 +453,12 @@ impl<'a> ServerCommandContext<'a> {
             .daemon
             .re_client_manager
             .get_re_connection()
+    }
+
+    // Called at the end of the command to perform any necessary final actions or cleanup.
+    pub(crate) fn finalize(self) -> buck2_error::Result<()> {
+        self.starlark_profiling_manager.finalize()?;
+        Ok(())
     }
 }
 
@@ -528,6 +541,7 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     concurrency: Option<usize>,
     executor_config: Arc<CommandExecutorConfig>,
     re_connection: Arc<ReConnectionHandle>,
+    profile_event_listener: Option<Arc<FileWritingProfileEventListener>>,
     build_signals: BuildSignalsInstaller,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
@@ -580,14 +594,15 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
 
         ctx.set_enabled_optional_validations(optional_validations)?;
 
+        let profiler_instrumentation_override =
+            &self.cmd_ctx.starlark_profiling_manager.configuration;
+
         setup_interpreter(
             &mut ctx,
             cell_resolver,
             configuror,
             cells_and_configs.external_data,
-            self.cmd_ctx
-                .starlark_profiler_instrumentation_override
-                .clone(),
+            profiler_instrumentation_override.clone(),
             self.cmd_ctx.disable_starlark_types,
             self.cmd_ctx.unstable_typecheck,
         )?;
@@ -740,6 +755,33 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(false);
 
+        let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
+            section: "buck2",
+            property: "output_trees_download_semaphore_size",
+        })?;
+
+        let fingerprint_re_output_trees_eagerly = root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "fingerprint_re_output_trees_eagerly",
+            })?
+            .unwrap_or(true);
+
+        let output_trees_download_config = OutputTreesDownloadConfig::new(
+            output_trees_download_semaphore_size,
+            fingerprint_re_output_trees_eagerly,
+        );
+
+        _ = buck2_core::faster_directories::VALUE.store(
+            root_config
+                .parse::<bool>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "faster_directories",
+                })?
+                .unwrap_or(true),
+            std::sync::atomic::Ordering::Relaxed,
+        );
+
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())?),
@@ -768,6 +810,9 @@ impl DiceCommandUpdater<'_, '_> {
         // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
         // We should not override the cas_artifact usecase or else the ttl may not match the action declaration.
         data.set_re_client(self.re_connection.get_client());
+        if let Some(v) = &self.profile_event_listener {
+            SetProfileEventListener::set(&mut data, v.clone());
+        }
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
@@ -789,6 +834,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,
+            output_trees_download_config.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
@@ -1004,6 +1050,20 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
                 4096,
                 StderrOutputWriter::new(self)?,
             ),
+        })
+    }
+
+    /// Create command start event with metadata
+    async fn command_start_event(
+        &self,
+        data: buck2_data::command_start::Data,
+    ) -> buck2_error::Result<buck2_data::CommandStart> {
+        Ok(buck2_data::CommandStart {
+            metadata: self.request_metadata().await?,
+            data: Some(data),
+            cli_args: self.sanitized_argv.clone(),
+            tags: self.base_context.daemon.tags.clone(),
+            ..Default::default()
         })
     }
 

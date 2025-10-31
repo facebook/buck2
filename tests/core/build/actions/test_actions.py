@@ -185,17 +185,17 @@ async def test_anon_targets(buck: Buck) -> None:
 
     await expect_failure(
         buck.build("//anon_invalid_defaults/source:default_source_fails"),
-        stderr_regex="Anon targets do not support default values for `attrs.source\\(\\)`",
+        stderr_regex="Anon targets do not support default values for `attrs.source\\(\\)`, specify `source_attr` explicitly",
     )
 
     await expect_failure(
         buck.build("//anon_invalid_defaults/dep:default_dep_fails"),
-        stderr_regex="Anon targets do not support default values for `attrs.dep\\(\\)`",
+        stderr_regex="Anon targets do not support default values for `attrs.dep\\(\\)`, specify `dep_attr` explicitly",
     )
 
     await expect_failure(
         buck.build("//anon_invalid_defaults/arg:default_arg_fails"),
-        stderr_regex="Anon targets do not support default values for `attrs.arg\\(\\)`",
+        stderr_regex="Anon targets do not support default values for `attrs.arg\\(\\)`, specify `arg_attr` explicitly",
     )
 
     await expect_failure(

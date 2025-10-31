@@ -195,6 +195,7 @@ struct TestStatuses {
     passed: CounterWithExamples,
     skipped: CounterWithExamples,
     failed: CounterWithExamples,
+    infra_failure: CounterWithExamples,
     fatals: CounterWithExamples,
     listing_success: CounterWithExamples,
     listing_failed: CounterWithExamples,
@@ -208,6 +209,7 @@ impl TestStatuses {
             TestStatus::OMITTED => self.skipped.add(&result.name),
             TestStatus::FATAL => self.fatals.add(&result.name),
             TestStatus::TIMEOUT => self.failed.add(&result.name),
+            TestStatus::INFRA_FAILURE => self.infra_failure.add(&result.name),
             TestStatus::UNKNOWN => {}
             TestStatus::RERUN => {}
             TestStatus::LISTING_SUCCESS => self.listing_success.add(&result.name),
@@ -230,6 +232,8 @@ enum TestError {
     ListingFailed,
     #[error("Fatal error encountered during test execution")]
     Fatal,
+    #[error("Infra Failure error encountered during test execution")]
+    InfraFailure,
 }
 
 #[derive(Debug, buck2_error_derive::Error)]
@@ -494,6 +498,13 @@ async fn test(
                 .fatals
                 .to_cli_proto_counter(),
         ),
+        infra_failure: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .infra_failure
+                .to_cli_proto_counter(),
+        ),
         listing_success: Some(
             test_outcome
                 .executor_report
@@ -550,6 +561,13 @@ async fn test(
     if let Some(failed) = &test_statuses.failed {
         if failed.count > 0 {
             errors.push(buck2_data::ErrorReport::from(&TestError::TestFailed.into()));
+        }
+    }
+    if let Some(infra_failure) = &test_statuses.infra_failure {
+        if infra_failure.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::InfraFailure.into(),
+            ));
         }
     }
     if let Some(fatal) = &test_statuses.fatals {
@@ -631,11 +649,14 @@ async fn test_targets(
         ];
         args.extend(external_runner_args);
 
-        args.extend(
-            tpx_experiments
-                .iter()
-                .flat_map(|experiment| ["--experiment".to_owned(), experiment.to_owned()]),
-        );
+        if cfg!(fbcode_build) {
+            // Our OSS test runner does not support `--experiment` flags, so only pass these flags internally.
+            args.extend(
+                tpx_experiments
+                    .iter()
+                    .flat_map(|experiment| ["--experiment".to_owned(), experiment.to_owned()]),
+            );
+        }
 
         args
     };
@@ -751,7 +772,7 @@ async fn test_targets(
                     .context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
-                let mut builder = BuildTargetResultBuilder::new();
+                let mut builder = BuildTargetResultBuilder::new(None);
                 for event in driver.error_events {
                     builder.event(event)?;
                 }
@@ -1322,7 +1343,7 @@ async fn build_target_result(
     }
 
     let materialization_and_upload = MaterializationAndUploadContext::skip();
-    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new(None);
     consumer.consume(BuildEvent::new_configured(
         label.dupe(),
         ConfiguredBuildEventVariant::MapModifiers { modifiers },

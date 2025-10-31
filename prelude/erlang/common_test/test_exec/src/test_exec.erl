@@ -12,6 +12,7 @@ The test_exec application deals with running
 the test as part of a separate sub-process along
 with the epmd daemon.
 """.
+-compile(warn_missing_spec_all).
 
 -behavior(application).
 
@@ -19,6 +20,9 @@ with the epmd daemon.
 -export([start/2, stop/1, kill_process/1]).
 -include_lib("common/include/buck_ct_records.hrl").
 
+-spec start(Type, Args) -> {'ok', pid()} | {'error', supervisor:startlink_err()} when
+    Type :: application:start_type(),
+    Args :: term().
 start(_Type, _Args) ->
     case application:get_env(test_exec, test_env) of
         {ok, #test_env{} = TestEnv} ->
@@ -28,6 +32,8 @@ start(_Type, _Args) ->
             {ok, spawn(fun() -> ok end)}
     end.
 
+-spec stop(State) -> ok when
+    State :: term().
 stop(_State) -> ok.
 
 -spec kill_process(port()) -> ok.

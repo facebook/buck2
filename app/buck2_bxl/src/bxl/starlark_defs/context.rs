@@ -48,6 +48,7 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -66,6 +67,7 @@ use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
 use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 pub(crate) mod actions;
@@ -167,31 +169,12 @@ impl<'v> Display for BxlContextType<'v> {
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlContext<'v> {
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
-    pub(crate) data: BxlContextNoDice<'v>,
-}
-
-impl<'v> Deref for BxlContext<'v> {
-    type Target = BxlContextNoDice<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-#[derive(Derivative, Display, Trace, NoSerialize, Allocative)]
-#[derivative(Debug)]
-#[display("{:?}", self)]
-pub(crate) struct BxlContextNoDice<'v> {
     state: ValueTyped<'v, AnalysisActions<'v>>,
     context_type: BxlContextType<'v>,
     core: Rc<BxlContextCoreData>,
 }
 
-impl Deref for BxlContextNoDice<'_> {
+impl<'v> Deref for BxlContext<'v> {
     type Target = BxlContextCoreData;
 
     fn deref(&self) -> &Self::Target {
@@ -353,7 +336,6 @@ impl<'v> BxlContext<'v> {
         core: Rc<BxlContextCoreData>,
         stream_state: OutputStreamState,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
         let root_data = RootBxlContextData {
@@ -367,82 +349,69 @@ impl<'v> BxlContext<'v> {
         let context_type = BxlContextType::Root(root_data);
 
         Ok(Self {
-            async_ctx: async_ctx.clone(),
-            data: BxlContextNoDice {
-                state: heap.alloc_typed(AnalysisActions {
-                    state: RefCell::new(None),
-                    attributes: None,
-                    plugins: None,
-                    digest_config,
-                }),
-                context_type,
-                core,
-            },
+            state: heap.alloc_typed(AnalysisActions {
+                state: RefCell::new(None),
+                attributes: None,
+                plugins: None,
+                digest_config,
+            }),
+            context_type,
+            core,
         })
     }
 
     pub(crate) fn new_dynamic(
         heap: &'v Heap,
         core: Rc<BxlContextCoreData>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            async_ctx,
-            data: BxlContextNoDice {
-                state: heap.alloc_typed(AnalysisActions {
-                    state: RefCell::new(Some(analysis_registry)),
-                    attributes: None,
-                    plugins: None,
-                    digest_config,
-                }),
-                context_type: BxlContextType::Dynamic(dynamic_data),
-                core,
-            },
+            state: heap.alloc_typed(AnalysisActions {
+                state: RefCell::new(Some(analysis_registry)),
+                attributes: None,
+                plugins: None,
+                digest_config,
+            }),
+            context_type: BxlContextType::Dynamic(dynamic_data),
+            core,
         })
     }
 
     pub(crate) fn new_anon(
         heap: &'v Heap,
         core: Rc<BxlContextCoreData>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         attributes: ValueOfUnchecked<'v, StructRef<'static>>,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            async_ctx,
-            data: BxlContextNoDice {
-                state: heap.alloc_typed(AnalysisActions {
-                    state: RefCell::new(Some(analysis_registry)),
-                    attributes: Some(attributes),
-                    plugins: None,
-                    digest_config,
-                }),
-                context_type: BxlContextType::AnonTarget,
-                core,
-            },
+            state: heap.alloc_typed(AnalysisActions {
+                state: RefCell::new(Some(analysis_registry)),
+                attributes: Some(attributes),
+                plugins: None,
+                digest_config,
+            }),
+            context_type: BxlContextType::AnonTarget,
+            core,
         })
     }
 
-    /// runs the async computation over dice as sync,
-    /// This should generally only be called at the top level functions in bxl.
-    /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
-    /// via_dice, as that breaks borrow invariants of the dice computations.
+    /// Provides access to dice
     pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
-        f: impl for<'x> FnOnce(
-            &'x mut dyn BxlDiceComputations,
-            &'a BxlContextNoDice<'v>,
-        ) -> buck2_error::Result<T>,
-    ) -> buck2_error::Result<T>
+        eval: &'a mut Evaluator<'v, '_, '_>,
+        f: impl FnOnce(&'a mut dyn BxlDiceComputations) -> T,
+    ) -> T
     where
         'v: 'a,
     {
-        let data = &self.data;
-        f(&mut *self.async_ctx.borrow_mut(), data)
+        f(&mut *BxlEvalExtra::from_context(eval)
+            // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
+            // good evidence that this is indeed a bxl evaluation
+            .unwrap()
+            .dice)
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
@@ -450,11 +419,10 @@ impl<'v> BxlContext<'v> {
         value: ValueTyped<'v, BxlContext<'v>>,
     ) -> buck2_error::Result<(AnalysisRegistry<'v>, OutputStreamOutcome)> {
         let this = value.as_ref();
-        let root_data = this.data.context_type.unpack_root()?;
+        let root_data = this.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
 
         let analysis_registry = this
-            .data
             .state
             .as_ref()
             .state
@@ -484,7 +452,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn take_state_dynamic_or_anon_impl(
         &self,
     ) -> buck2_error::Result<AnalysisRegistry<'v>> {
-        let state = self.data.state.as_ref();
+        let state = self.state.as_ref();
         state.state()?.assert_no_promises()?;
 
         Ok(state
@@ -509,7 +477,7 @@ pub(crate) trait ErrorPrinter {
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()>;
 }
 
-impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
+impl<'v> ErrorPrinter for BxlContext<'v> {
     // Used for caching error logs emitted from within the BXL core.
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {

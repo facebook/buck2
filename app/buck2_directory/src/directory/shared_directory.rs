@@ -95,6 +95,10 @@ where
         self.inner.data.fingerprint()
     }
 
+    pub fn size(&self) -> u64 {
+        self.inner.data.size
+    }
+
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
         DirectoryBuilder::Immutable(self.as_immutable())
     }
@@ -117,6 +121,17 @@ where
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone().map_dir(|v| v.into_builder())))
             .collect()
+    }
+
+    pub fn into_entries(
+        self,
+    ) -> impl Iterator<Item = (FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)> {
+        // Hard to convince the borrow checker that this is safe, so write this using indexing in
+        // this slightly awkward way
+        (0..self.inner.data.entries.len()).map(move |i| {
+            let (k, v) = self.inner.data.entries.get_key_value_at_index(i).unwrap();
+            (k.clone(), v.clone().map_dir(|v| v.into_builder()))
+        })
     }
 }
 

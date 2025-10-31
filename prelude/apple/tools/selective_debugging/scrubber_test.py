@@ -224,6 +224,20 @@ class Test(unittest.TestCase):
                 "xplat/some/path/fooo/prebuilt_lib.a(baz.m.o)",
             ),
         )
+        self.assertEqual(
+            True,
+            should_scrub_with_focused_targets_output_paths(
+                focused_targets_output_paths,
+                "/tmp/lto.tmp",
+            ),
+        )
+        self.assertEqual(
+            True,
+            should_scrub_with_focused_targets_output_paths(
+                focused_targets_output_paths,
+                "/",
+            ),
+        )
 
 
 def _get_focused_and_scrubbed_paths(

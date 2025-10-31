@@ -16,7 +16,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub(crate) trait ConfigurationDepAttrTypeExt {
     fn resolve_single<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         label: &ProvidersLabel,
     ) -> buck2_error::Result<Value<'v>> {
         Ok(ctx.heap().alloc(label.to_string()))

@@ -452,7 +452,7 @@ async fn path_artifact_value(
                 let artifact_fs = ctx.get_artifact_fs().await?;
                 let target_path = artifact_fs.resolve_cell_path((*target).as_ref())?;
                 let mut builder = ActionDirectoryBuilder::empty();
-                insert_artifact(&mut builder, &target_path, &target_artifact_value)?;
+                insert_artifact(&mut builder, target_path, &target_artifact_value)?;
                 let deps = builder
                     .fingerprint(
                         ctx.global_data()
@@ -508,10 +508,12 @@ impl Key for EnsureProjectedArtifactKey {
             BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source.get_path())?,
         };
 
-        let mut builder = ActionDirectoryBuilder::empty();
-        insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
+        let projected_path = base_path.join(path);
 
-        let value = extract_artifact_value(&builder, &base_path.join(path), digest_config)
+        let mut builder = ActionDirectoryBuilder::empty();
+        insert_artifact(&mut builder, base_path, &base_value)?;
+
+        let value = extract_artifact_value(&builder, &projected_path, digest_config)
             .with_buck_error_context(|| {
                 format!("The path `{path}` cannot be projected in the artifact `{base}`. Are you calling project() on a symlink?")
             })?

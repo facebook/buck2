@@ -43,25 +43,25 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
         cvtres_exe_script = "cvtres.exe"
     else:
         cl_exe_script = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = "cl",
             cmd = cmd_args(run_msvc_tool, cl_exe_json),
             language = ScriptLanguage("bat"),
         )
         cvtres_exe_script = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = "cvtres",
             cmd = cmd_args(run_msvc_tool, cvtres_exe_json),
             language = ScriptLanguage("bat"),
         )
         ml64_exe_script = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = "ml64",
             cmd = cmd_args(run_msvc_tool, ml64_exe_json),
             language = ScriptLanguage("bat"),
         )
         rc_exe_script = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = "rc",
             cmd = cmd_args(run_msvc_tool, rc_exe_json),
             language = ScriptLanguage("bat"),
@@ -72,13 +72,13 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
         link_exe_script = "link.exe"
     else:
         lib_exe_script = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = "lib",
             cmd = cmd_args(run_msvc_tool, lib_exe_json),
             language = ScriptLanguage("bat"),
         )
         link_exe_script = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = "link",
             cmd = cmd_args(run_msvc_tool, link_exe_json),
             language = ScriptLanguage("bat"),
@@ -154,7 +154,7 @@ def _windows_linker_wrapper(ctx: AnalysisContext, linker: [cmd_args, str]) -> cm
     #
     # We wrap the linker to flatten @file arguments down to 1 level of nesting.
     return cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "windows_linker",
         cmd = cmd_args(
             ctx.attrs.linker_wrapper[RunInfo],

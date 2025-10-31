@@ -130,6 +130,11 @@ pub trait ServerCommandContextTrait: Send + Sync {
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>>;
 
+    async fn command_start_event(
+        &self,
+        data: buck2_data::command_start::Data,
+    ) -> buck2_error::Result<buck2_data::CommandStart>;
+
     async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>>;
 
     async fn config_metadata(

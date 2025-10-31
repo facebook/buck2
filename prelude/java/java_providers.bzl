@@ -348,7 +348,7 @@ def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, librar
     # itself some actions output artifact, so we replace directory
     # separators to get a path that we can uniquely own.
     # TODO(cjhopman): This probably should take in the output path.
-    class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path.replace("/", "_")), uses_experimental_content_based_path_hashing = True)
+    class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path.replace("/", "_")), has_content_based_path = True)
     cmd = [
         class_abi_generator[RunInfo],
         library,
@@ -382,7 +382,7 @@ def generate_java_classpath_snapshot(
             identifier,
             "cl" if ClasspathSnapshotGranularity("CLASS_LEVEL") == granularity else "cml",
         ),
-        uses_experimental_content_based_path_hashing = uses_content_based_path,
+        has_content_based_path = uses_content_based_path,
     )
     actions.run(
         [

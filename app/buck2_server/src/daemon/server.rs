@@ -56,16 +56,20 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationMethod;
+use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_dropcancel;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
+use buck2_server_ctx::late_bindings::QUERY_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::TARGETS_SERVER_COMMANDS;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
@@ -112,6 +116,7 @@ use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
 use crate::profile::profile_command;
+use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot;
 use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
@@ -165,7 +170,6 @@ pub struct BuckdServerInitPreferences {
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
-    pub has_cgroup: bool,
 }
 
 impl BuckdServerInitPreferences {
@@ -238,6 +242,7 @@ impl BuckdServer {
         delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
+        cgroup_tree: Option<BuckCgroupTree>,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
@@ -267,7 +272,16 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let daemon_state = Arc::new(
-            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await?,
+            DaemonState::new(
+                fb,
+                paths,
+                init_ctx,
+                rt.clone(),
+                materializations,
+                cwd,
+                cgroup_tree,
+            )
+            .await?,
         );
 
         #[cfg(fbcode_build)]
@@ -472,10 +486,18 @@ impl BuckdServer {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
 
+                        let client_ctx = req.client_context()?;
+
+                        let profiling_manager = StarlarkProfilingManager::new(
+                            client_ctx.profile_pattern_opts.as_ref(),
+                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            &base_context.events,
+                        )?;
+
                         let context = ServerCommandContext::new(
                             base_context,
-                            req.client_context()?,
-                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            client_ctx,
+                            profiling_manager,
                             req.build_options(),
                             &daemon_state.paths,
                             cert_state.dupe(),
@@ -483,8 +505,14 @@ impl BuckdServer {
                             cancellations,
                         )?;
 
-                        func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
+                        let res =
+                            func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
+                                .await;
+
+                        context.finalize()?;
+                        res?
                     };
+
                     // Do not kill the process prematurely.
                     drop(version_control_revision_collector);
                     #[cfg(unix)]
@@ -901,7 +929,8 @@ impl DaemonApi for BuckdServer {
             let io_provider = daemon_state.data().io.name().to_owned();
 
             let uptime = self.0.start_instant.elapsed();
-            let base = StatusResponse {
+
+            let mut base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),
                 start_time: Some(self.0.start_time),
                 uptime: Some(uptime.try_into()?),
@@ -909,7 +938,11 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(daemon_constraints),
                 project_root: daemon_state.paths.project_root().to_string(),
                 isolation_dir: daemon_state.paths.isolation.to_string(),
-                forkserver_pid: daemon_state.data.forkserver.as_ref().map(|f| f.pid()),
+                forkserver_pid: match &daemon_state.data.forkserver {
+                    #[cfg(unix)]
+                    ForkserverAccess::Client(f) => Some(f.pid()),
+                    ForkserverAccess::None => None,
+                },
                 supports_vpnless: Some(daemon_state.data().http_client.supports_vpnless()),
                 http2: Some(daemon_state.data().http_client.http2()),
                 valid_working_directory: Some(valid_working_directory),
@@ -917,6 +950,16 @@ impl DaemonApi for BuckdServer {
                 io_provider: Some(io_provider),
                 ..Default::default()
             };
+
+            if req.include_tokio_runtime_metrics {
+                let tokio_metrics = self.0.rt.metrics();
+                let metrics_response = TokioRuntimeMetrics {
+                    num_workers: tokio_metrics.num_workers() as u64,
+                    num_alive_tasks: tokio_metrics.num_alive_tasks() as u64,
+                    global_queue_depth: tokio_metrics.global_queue_depth() as u64,
+                };
+                base.tokio_runtime_metrics = Some(metrics_response);
+            }
             Ok(base)
         })
         .await
@@ -1011,7 +1054,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    QUERY_SERVER_COMMANDS
                         .get()?
                         .aquery(ctx, partial_result_dispatcher, req)
                         .await
@@ -1031,7 +1074,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    QUERY_SERVER_COMMANDS
                         .get()?
                         .uquery(ctx, partial_result_dispatcher, req)
                         .await
@@ -1052,7 +1095,7 @@ impl DaemonApi for BuckdServer {
             QueryCommandOptions { profile_mode },
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    QUERY_SERVER_COMMANDS
                         .get()?
                         .cquery(ctx, partial_result_dispatcher, req)
                         .await
@@ -1072,7 +1115,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    TARGETS_SERVER_COMMANDS
                         .get()?
                         .targets(ctx, partial_result_dispatcher, req)
                         .await
@@ -1092,7 +1135,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    TARGETS_SERVER_COMMANDS
                         .get()?
                         .ctargets(ctx, partial_result_dispatcher, req)
                         .await
@@ -1112,7 +1155,7 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    OTHER_SERVER_COMMANDS
+                    TARGETS_SERVER_COMMANDS
                         .get()?
                         .targets_show_outputs(ctx, partial_result_dispatcher, req)
                         .await
@@ -1464,9 +1507,10 @@ impl DaemonApi for BuckdServer {
                 .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
         }
 
+        #[cfg(unix)]
         if req.forkserver {
             let data = self.0.daemon_state.data();
-            if let Some(forkserver) = data.forkserver.as_ref() {
+            if let ForkserverAccess::Client(forkserver) = &data.forkserver {
                 forkserver
                     .set_log_filter(req.log_filter)
                     .await

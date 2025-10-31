@@ -43,6 +43,7 @@ load(
     "get_linkable_graph_node_map_func",
     get_link_info_for_node = "get_link_info",
 )
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load(
     "@prelude//python:manifest.bzl",
     "ManifestInfo",
@@ -179,6 +180,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     srcs = []
     extensions = {}
     shared_libs = []
+    native_deps = {}
     for dep in libraries.values():
         manifests = dep[PythonLibraryInfo].manifests.value
         if manifests.srcs != None:
@@ -192,12 +194,18 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 fail("Duplicate extension entry for {}. Did your library_query forget to filter by `target_deps()`?".format(extension))
             extensions[extension] = dep
 
+        # These are non-extension native deps that may be dlopen'ed at
+        # runtime and should be included in the search space for omnibus roots.
+        for native_dep in dep[PythonLibraryInfo].native_deps.value.native_deps.values():
+            if SharedLibraryInfo in native_dep:
+                native_deps[native_dep.label] = native_dep
+
     # We support two modes of linking:
     # - omnibus: All native deps of all extensions are linked into a shared DSO
     # - static-everything: Each extension statically links all its deps (note
     #       this can mean each extension gets its own copy of common deps).
     if ctx.attrs.omnibus:
-        deps = extensions.values()
+        deps = (extensions | native_deps).values()
         linkable_graph = create_linkable_graph(
             ctx = ctx,
             deps = deps,

@@ -30,13 +30,14 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_interpreter::factory::BuckStarlarkModule;
+use buck2_interpreter::factory::BuckStarlarkModuleProvider;
 use buck2_interpreter::factory::FinishedStarlarkEvaluation;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::file_type::StarlarkFileType;
-use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::import_paths::ImplicitImportPaths;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::parse_import::RelativeImports;
@@ -49,6 +50,7 @@ use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
@@ -58,7 +60,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
-use starlark::environment::Module;
 use starlark::syntax::AstModule;
 use starlark::values::OwnedFrozenRef;
 use starlark::values::any_complex::StarlarkAnyComplex;
@@ -318,10 +319,11 @@ impl InterpreterForDir {
 
     fn create_env(
         &self,
+        env_provider: BuckStarlarkModuleProvider,
         starlark_path: StarlarkPath<'_>,
         loaded_modules: &LoadedModules,
-    ) -> buck2_error::Result<Module> {
-        let env = Module::new();
+    ) -> buck2_error::Result<BuckStarlarkModule> {
+        let env = env_provider.make();
 
         if let Some(prelude_import) = self.prelude_import(starlark_path) {
             let prelude_env = loaded_modules
@@ -353,12 +355,13 @@ impl InterpreterForDir {
     // implicit package include.
     fn create_build_env(
         &self,
+        env_provider: BuckStarlarkModuleProvider,
         build_file: &BuildFilePath,
         package_listing: &PackageListing,
         super_package: SuperPackage,
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
-    ) -> buck2_error::Result<(Module, ModuleInternals)> {
+    ) -> buck2_error::Result<(BuckStarlarkModule, ModuleInternals)> {
         let internals = self.global_state.configuror.new_extra_context(
             &self.cell_info,
             build_file.clone(),
@@ -371,7 +374,11 @@ impl InterpreterForDir {
                 .as_ref()
                 .to_owned(),
         )?;
-        let env = self.create_env(StarlarkPath::BuildFile(build_file), loaded_modules)?;
+        let env = self.create_env(
+            env_provider,
+            StarlarkPath::BuildFile(build_file),
+            loaded_modules,
+        )?;
 
         if let Some(root_import) = self.root_import() {
             let root_env = loaded_modules
@@ -487,7 +494,7 @@ impl InterpreterForDir {
 
     fn eval(
         self: &Arc<Self>,
-        env: &Module,
+        env: &BuckStarlarkModule,
         ast: AstModule,
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
@@ -560,35 +567,39 @@ impl InterpreterForDir {
         loaded_modules: LoadedModules,
         eval_provider: StarlarkEvaluatorProvider,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<(FinishedStarlarkEvaluation, FrozenModule)> {
-        let env = self.create_env(starlark_path.into(), &loaded_modules)?;
-        let extra_context = match starlark_path {
-            StarlarkModulePath::LoadFile(bzl) => PerFileTypeContext::Bzl(BzlEvalCtx {
-                bzl_path: bzl.clone(),
-            }),
-            StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
-            StarlarkModulePath::JsonFile(j) => PerFileTypeContext::Json(j.clone()),
-        };
-        let typecheck = self.global_state.unstable_typecheck
-            || matches!(starlark_path, StarlarkModulePath::BxlFile(..))
-            || match self.global_state.configuror.prelude_import() {
-                Some(prelude_import) => {
-                    prelude_import.prelude_cell()
-                        == self.cell_info.cell_alias_resolver().resolve_self()
-                }
-                None => false,
+    ) -> buck2_error::Result<FrozenModule> {
+        BuckStarlarkModule::with_profiling(|env| {
+            let env = self.create_env(env, starlark_path.into(), &loaded_modules)?;
+            let extra_context = match starlark_path {
+                StarlarkModulePath::LoadFile(bzl) => PerFileTypeContext::Bzl(BzlEvalCtx {
+                    bzl_path: bzl.clone(),
+                }),
+                StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
+                StarlarkModulePath::JsonFile(j) => PerFileTypeContext::Json(j.clone()),
             };
-        let (finished_eval, _) = self.eval(
-            &env,
-            ast,
-            buckconfigs,
-            loaded_modules,
-            extra_context,
-            eval_provider,
-            typecheck,
-            cancellation,
-        )?;
-        Ok((finished_eval, env.freeze().map_err(from_freeze_error)?))
+            let typecheck = self.global_state.unstable_typecheck
+                || matches!(starlark_path, StarlarkModulePath::BxlFile(..))
+                || match self.global_state.configuror.prelude_import() {
+                    Some(prelude_import) => {
+                        prelude_import.prelude_cell()
+                            == self.cell_info.cell_alias_resolver().resolve_self()
+                    }
+                    None => false,
+                };
+            let (finished_eval, _) = self.eval(
+                &env,
+                ast,
+                buckconfigs,
+                loaded_modules,
+                extra_context,
+                eval_provider,
+                typecheck,
+                cancellation,
+            )?;
+            let (token, frozen, _) = finished_eval.freeze_and_finish(env)?;
+
+            Ok((token, frozen))
+        })
     }
 
     pub(crate) fn eval_package_file(
@@ -601,48 +612,52 @@ impl InterpreterForDir {
         eval_provider: StarlarkEvaluatorProvider,
         cancellation: &CancellationContext,
     ) -> buck2_error::Result<SuperPackage> {
-        let env = self.create_env(
-            StarlarkPath::PackageFile(package_file_path),
-            &loaded_modules,
-        )?;
+        BuckStarlarkModule::with_profiling(|env| {
+            let env = self.create_env(
+                env,
+                StarlarkPath::PackageFile(package_file_path),
+                &loaded_modules,
+            )?;
 
-        let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx {
-            path: package_file_path.clone(),
-            parent,
-            visibility: RefCell::new(None),
-            test_config_unification_rollout: RefCell::new(None),
-        });
+            let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx {
+                path: package_file_path.clone(),
+                parent,
+                visibility: RefCell::new(None),
+                test_config_unification_rollout: RefCell::new(None),
+            });
 
-        let (_finished_eval, eval_result) = self.eval(
-            &env,
-            ast,
-            buckconfigs,
-            loaded_modules,
-            extra_context,
-            eval_provider,
-            false,
-            cancellation,
-        )?;
+            let (finished_eval, eval_result) = self.eval(
+                &env,
+                ast,
+                buckconfigs,
+                loaded_modules,
+                extra_context,
+                eval_provider,
+                false,
+                cancellation,
+            )?;
 
-        let per_file_context = eval_result.additional;
+            let per_file_context = eval_result.additional;
 
-        let extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>> =
-            if InterpreterExtraValue::get(&env)?
-                .package_extra
-                .get()
-                .is_some()
-            {
-                // Only freeze if there's something to freeze, otherwise we will needlessly freeze
-                // globals. TODO(nga): add API to only freeze extra.
-                let env = env.freeze().map_err(from_freeze_error)?;
-                FrozenPackageFileExtra::get(&env)?
-            } else {
-                None
-            };
+            let (token, extra): (_, Option<OwnedFrozenRef<FrozenPackageFileExtra>>) =
+                if InterpreterExtraValue::get(&env)?
+                    .package_extra
+                    .get()
+                    .is_some()
+                {
+                    // Only freeze if there's something to freeze, otherwise we will needlessly freeze
+                    // globals. TODO(nga): add API to only freeze extra.
+                    let (token, frozen, _) = finished_eval.freeze_and_finish(env)?;
+                    (token, FrozenPackageFileExtra::get(&frozen)?)
+                } else {
+                    let (token, _) = finished_eval.finish(None)?;
+                    (token, None)
+                };
 
-        let package_file_eval_ctx = per_file_context.into_package_file()?;
+            let package_file_eval_ctx = per_file_context.into_package_file()?;
 
-        package_file_eval_ctx.build_super_package(extra)
+            Ok((token, package_file_eval_ctx.build_super_package(extra)?))
+        })
     }
 
     /// Evaluates the AST for a parsed build file. Loaded modules must contain the
@@ -660,64 +675,76 @@ impl InterpreterForDir {
         eval_provider: StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<(FinishedStarlarkEvaluation, EvaluationResultWithStats)> {
-        let (env, internals) = self.create_build_env(
-            build_file,
-            &listing,
-            super_package,
-            package_boundary_exception,
-            &loaded_modules,
-        )?;
-        let buckconfig_key = BuckconfigKeyRef {
-            section: "buck2",
-            property: "check_starlark_peak_memory",
-        };
-        let starlark_peak_mem_config_enabled = LegacyBuckConfig::parse_value(
-            buckconfig_key,
-            buckconfigs
-                .read_root_cell_config(buckconfig_key)?
-                .as_deref(),
-        )?
-        .unwrap_or(false);
+    ) -> buck2_error::Result<(
+        Option<Arc<StarlarkProfileDataAndStats>>,
+        EvaluationResultWithStats,
+    )> {
+        BuckStarlarkModule::with_profiling(|env_provider| {
+            let (env, internals) = self.create_build_env(
+                env_provider,
+                build_file,
+                &listing,
+                super_package,
+                package_boundary_exception,
+                &loaded_modules,
+            )?;
+            let buckconfig_key = BuckconfigKeyRef {
+                section: "buck2",
+                property: "check_starlark_peak_memory",
+            };
+            let starlark_peak_mem_config_enabled = LegacyBuckConfig::parse_value(
+                buckconfig_key,
+                buckconfigs
+                    .read_root_cell_config(buckconfig_key)?
+                    .as_deref(),
+            )?
+            .unwrap_or(false);
 
-        let (finished_eval, eval_result) = self.eval(
-            &env,
-            ast,
-            buckconfigs,
-            loaded_modules,
-            PerFileTypeContext::Build(internals),
-            eval_provider,
-            unstable_typecheck,
-            cancellation,
-        )?;
+            let (finished_eval, eval_result) = self.eval(
+                &env,
+                ast,
+                buckconfigs,
+                loaded_modules,
+                PerFileTypeContext::Build(internals),
+                eval_provider,
+                unstable_typecheck,
+                cancellation,
+            )?;
 
-        let internals = eval_result.additional.into_build()?;
-        let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
-        let starlark_peak_mem_check_enabled =
-            !eval_result.is_profiling_enabled && starlark_peak_mem_config_enabled;
-        let starlark_mem_limit = eval_result
-            .starlark_peak_allocated_byte_limit
-            .get()
-            .and_then(|limit| *limit)
-            .unwrap_or(DEFAULT_STARLARK_MEMORY_USAGE_LIMIT);
+            let internals = eval_result.additional.into_build()?;
+            let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
+            let starlark_peak_mem_check_enabled =
+                !eval_result.is_profiling_enabled && starlark_peak_mem_config_enabled;
+            let starlark_mem_limit = eval_result
+                .starlark_peak_allocated_byte_limit
+                .get()
+                .and_then(|limit| *limit)
+                .unwrap_or(DEFAULT_STARLARK_MEMORY_USAGE_LIMIT);
 
-        if starlark_peak_mem_check_enabled && starlark_peak_allocated_bytes > starlark_mem_limit {
-            Err(StarlarkPeakMemoryError::ExceedsThreshold(
-                build_file.to_owned(),
-                HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
-                HumanizedBytes::fixed_width(starlark_mem_limit),
-                get_starlark_warning_link().to_owned(),
-            )
-            .into())
-        } else {
-            Ok((
-                finished_eval,
-                EvaluationResultWithStats {
-                    result: EvaluationResult::from(internals),
-                    starlark_peak_allocated_bytes,
-                    cpu_instruction_count: eval_result.cpu_instruction_count,
-                },
-            ))
-        }
+            if starlark_peak_mem_check_enabled && starlark_peak_allocated_bytes > starlark_mem_limit
+            {
+                Err(StarlarkPeakMemoryError::ExceedsThreshold(
+                    build_file.to_owned(),
+                    HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
+                    HumanizedBytes::fixed_width(starlark_mem_limit),
+                    get_starlark_warning_link().to_owned(),
+                )
+                .into())
+            } else {
+                let (token, profile_data) = finished_eval.finish(None)?;
+
+                Ok((
+                    token,
+                    (
+                        profile_data,
+                        EvaluationResultWithStats {
+                            result: EvaluationResult::from(internals),
+                            starlark_peak_allocated_bytes,
+                            cpu_instruction_count: eval_result.cpu_instruction_count,
+                        },
+                    ),
+                ))
+            }
+        })
     }
 }

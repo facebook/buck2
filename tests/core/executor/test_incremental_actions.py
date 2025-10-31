@@ -11,8 +11,9 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import random_string
+from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 
 # Incremental actions use the output of previous actions, mimic this behavior by
@@ -250,6 +251,68 @@ async def test_basic_incremental_action_cached_with_content_based_path(
     await basic_incremental_action_cached_helper(buck, use_content_based_path=True)
 
 
+async def basic_incremental_action_after_cache_hit_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    # Populate the remote cache
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--remote-only",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    await buck.clean()
+
+    # Run again, and make sure we got an action cache hit
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+    execution_kinds = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "execution_kind",
+    )
+    ACTION_EXECUTION_KIND_ACTION_CACHE = 3
+    assert execution_kinds[-1] == ACTION_EXECUTION_KIND_ACTION_CACHE
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+
+    assert result.stdout == "foo bar"
+
+
+@buck_test()
+async def test_basic_incremental_action_after_cache_hit(buck: Buck) -> None:
+    await basic_incremental_action_after_cache_hit_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_basic_incremental_action_after_cache_hit_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await basic_incremental_action_after_cache_hit_helper(
+        buck, use_content_based_path=True
+    )
+
+
 async def incremental_action_interleave_platforms_helper(
     buck: Buck, platform: str, use_content_based_path: bool
 ) -> BuckResult:
@@ -438,6 +501,53 @@ async def test_incremental_action_persist_between_daemon_restart_with_content_ba
     buck: Buck,
 ) -> None:
     await incremental_action_persist_between_daemon_restart_helper(
+        buck, use_content_based_path=True
+    )
+
+
+# If we haven't materialized the outputs, then we won't run incrementally on the first run
+# after a daemon restart
+async def unmaterialized_incremental_action_not_persist_between_daemon_restart_helper(
+    buck: Buck, use_content_based_path: bool
+) -> None:
+    await buck.build(
+        "root//:basic_incremental_action",
+        "--remote-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+        "--materializations",
+        "none",
+    )
+
+    await buck.kill()
+
+    result = await buck.run(
+        "root//:basic_incremental_action",
+        "--local-only",
+        "-c",
+        f"test.seed={random_string()}",
+        "-c",
+        f"test.use_content_based_path={use_content_based_path}",
+    )
+    assert result.stdout == "foo"
+
+
+@buck_test()
+async def test_unmaterialized_incremental_action_not_persist_between_daemon_restart(
+    buck: Buck,
+) -> None:
+    await unmaterialized_incremental_action_not_persist_between_daemon_restart_helper(
+        buck, use_content_based_path=False
+    )
+
+
+@buck_test()
+async def test_unmaterialized_incremental_action_not_persist_between_daemon_restart_with_content_based_path(
+    buck: Buck,
+) -> None:
+    await unmaterialized_incremental_action_not_persist_between_daemon_restart_helper(
         buck, use_content_based_path=True
     )
 

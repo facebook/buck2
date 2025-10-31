@@ -81,6 +81,13 @@ public class StubJar {
     return this;
   }
 
+  public void writeClasses(AbsPath classesDir) throws IOException {
+    try (LibraryReader input = libraryReaderSupplier.get();
+        StubJarWriter writer = new StubClassFileWriter(classesDir)) {
+      writeTo(input, writer, null);
+    }
+  }
+
   /** Writes output into the passed absolute path. */
   public void writeTo(AbsPath outputAbsPath) throws IOException {
     // The order of these declarations is important -- FilesystemStubJarWriter must be declared

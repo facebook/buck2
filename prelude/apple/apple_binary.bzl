@@ -26,6 +26,7 @@ load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfiles",
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load(
@@ -42,8 +43,10 @@ load(
     "CxxRuleAdditionalParams",
     "CxxRuleConstructorParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//cxx:headers.bzl",
+    "HeaderMode",
     "cxx_attr_headers",
     "cxx_get_regular_cxx_headers_layout",
     "prepare_headers",
@@ -68,6 +71,8 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "map_val")
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -101,9 +106,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             False,  # parse_as_library
             deps_providers,
             module_name,
-            module_name + "_Private",
             [],
-            None,
             None,
             framework_search_path_flags,
             objc_bridging_header_flags,
@@ -133,6 +136,20 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             swift_compile,
         )
 
+        link_group_info = get_link_group_info(ctx)
+        binary_subtargets = {
+            "swift-compilation-database": [
+                DefaultInfo(
+                    default_output = swift_compile.compilation_database.db if swift_compile else None,
+                    other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
+                ),
+            ],
+        } | get_xplugins_usage_subtargets(
+            ctx,
+            usage_info = get_xplugins_usage_info(ctx),
+            link_group_info = link_group_info,
+        )
+
         validation_deps_outputs = get_validation_deps_outputs(ctx)
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
@@ -149,14 +166,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 # follow.
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
-                subtargets = {
-                    "swift-compilation-database": [
-                        DefaultInfo(
-                            default_output = swift_compile.compilation_database.db if swift_compile else None,
-                            other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
-                        ),
-                    ],
-                },
+                subtargets = binary_subtargets,
                 external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
             ),
             extra_link_input = swift_object_files,
@@ -165,7 +175,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             strip_executable = stripped,
             strip_args_factory = apple_strip_args,
             cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: apple_populate_xcode_attributes(local_ctx, contains_swift_sources = contains_swift_sources, **kwargs),
-            link_group_info = get_link_group_info(ctx),
+            link_group_info = link_group_info,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
             # Some apple rules rely on `static` libs *not* following dependents.
             link_groups_force_static_follows_dependents = False,
@@ -184,6 +194,9 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             extra_linker_outputs_factory = _get_extra_linker_outputs,
             extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
             extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
+            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+            precompiled_header = ctx.attrs.precompiled_header,
+            prefix_header = ctx.attrs.prefix_header,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
@@ -313,7 +326,10 @@ def _get_bridging_header_flags(ctx: AnalysisContext) -> list[ArgLike]:
         header_map = {paths.join(h.namespace, h.name): h.artifact for h in headers}
 
         # We need to expose private headers to swift-compile action, in case something is imported to bridging header.
-        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers")
+        cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+        header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
+        header_root = prepare_headers(ctx.actions, cxx_toolchain_info, header_map, "apple-binary-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload)
         if header_root != None:
             private_headers_args = [cmd_args("-I"), header_root.include_path]
         else:

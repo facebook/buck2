@@ -7,15 +7,15 @@
 %% of this source tree.
 
 -module(json_interfacer).
-% Methods used for serialization to the type
-% defined in tpx in
-% https://www.internalfb.com/code/fbsource/[bb9e81daacad]/fbcode/testinfra/tpx/tpx-output/src/erl_parser.rs
-%
-%
-%
--eqwalizer(ignore).
+-moduledoc """
+Methods used for serialization to the type
+defined in tpx [here](https://www.internalfb.com/code/fbsource/[bb9e81daacad]/fbcode/testinfra/tpx/tpx-output/src/erl_parser.rs).
+""".
+-compile(warn_missing_spec_all).
 
 -export([write_json_output/2, format_json/1, status_name/1]).
+
+-import(common_util, [unicode_characters_to_binary/1]).
 
 -define(PASSED, <<"PASSED">>).
 -define(FAILED, <<"FAILED">>).
@@ -66,7 +66,7 @@ summary(omitted) -> ?OMITTED.
         ends := [formatted_result()]
     }.
 
--spec write_json_output(string(), [case_result()]) -> {ok, file:filename_all()}.
+-spec write_json_output(file:filename_all(), [case_result()]) -> {ok, file:filename_all()}.
 write_json_output(OutputDir, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
     file:write_file(OuptputFile, format_json(TpxResults), [raw, binary]),
@@ -74,7 +74,7 @@ write_json_output(OutputDir, TpxResults) ->
 
 -spec format_json([case_result()]) -> iodata().
 format_json(TpxResults) ->
-    json:encode(lists:map(fun(CaseResult) -> format_case(CaseResult) end, TpxResults)).
+    json:encode([format_case(CaseResult) || CaseResult <- TpxResults]).
 
 -spec format_case(case_result()) -> formatted_case_result().
 format_case(
@@ -102,7 +102,7 @@ format_method_result(
     } = _TestResult
 ) ->
     #{
-        name => unicode_characters_to_binary(Name),
+        name => name_to_binary(Name),
         endedTime => trunc(End),
         durationSecs => End - Start,
         status => status(Outcome),
@@ -119,7 +119,7 @@ format_method_result(
     } = _TestResult
 ) ->
     #{
-        name => unicode_characters_to_binary(Name),
+        name => name_to_binary(Name),
         status => status(Outcome),
         summary => summary(Outcome),
         details => unicode_characters_to_binary(Details),
@@ -127,8 +127,9 @@ format_method_result(
         durationSecs => 0.0
     }.
 
--spec unicode_characters_to_binary(io_lib:chars()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    case unicode:characters_to_binary(Chars) of
-        Binary when is_binary(Binary) -> Binary
-    end.
+-spec name_to_binary(Name) -> binary() when
+    Name :: cth_tpx_test_tree:name().
+name_to_binary(Name) when is_atom(Name) ->
+    atom_to_binary(Name);
+name_to_binary(Name) when is_list(Name) ->
+    unicode_characters_to_binary(Name).

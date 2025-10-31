@@ -45,15 +45,38 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           throw AndroidInstallException.tempFolderNotWritable()
         }
       }
-      // TODO consider using --fastdeploy after intaller is stable
+
+      val installArgs = buildString {
+        append("-r -d")
+        // --fastdeploy has a bug, it hides INSTALL_FAILED_UPDATE_INCOMPATIBLE error when there is a
+        // mismatch between the apk on the device and the one being installed. The operation will
+        // appear as successful without the apk being updated.
+        // https://issuetracker.google.com/231040652
+        // if (shouldUseFastDeploy()) append(" --fastdeploy")
+
+        if (stagedInstallMode) append(" --staged")
+      }
+
       executeAdbCommandCatching(
-          "install -r -d${if (stagedInstallMode) " --staged" else ""} ${apk.absolutePath}",
+          "install $installArgs ${apk.absolutePath}",
           "Failed to install ${apk.name}.",
       )
     }
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info("Installed ${apk.name} (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
     return true
+  }
+
+  private fun shouldUseFastDeploy(): Boolean {
+    val sdkVersion =
+        try {
+          getProperty("ro.build.version.sdk").toInt()
+        } catch (e: Exception) {
+          LOG.warn("Unable to determine SDK version, defaulting to legacy install: ${e.message}")
+          -1
+        }
+
+    return sdkVersion >= MIN_SDK_VERSION_FOR_FASTDEPLOY
   }
 
   override fun installApexOnDevice(apex: File, quiet: Boolean): Boolean {
@@ -434,5 +457,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   companion object {
     private val LINE_ENDING: Pattern = Pattern.compile("\r?\n")
     private val LOG: Logger = Logger.get(AndroidDeviceImpl::class.java.name)
+
+    // --fastdeploy is only supported on Android 10+ (API 29+)
+    // https://developer.android.com/tools/releases/platform-tools#2905_october_2019
+    private const val MIN_SDK_VERSION_FOR_FASTDEPLOY = 29
   }
 }

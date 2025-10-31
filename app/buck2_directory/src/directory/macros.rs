@@ -33,6 +33,10 @@ macro_rules! impl_fingerprinted_directory {
             fn fingerprint(&self) -> &H {
                 $this::fingerprint(self)
             }
+
+            fn size(&self) -> u64 {
+                $this::size(self)
+            }
         }
 
         impl<L, H> PartialEq for $this<L, H>

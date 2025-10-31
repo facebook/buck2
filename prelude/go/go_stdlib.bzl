@@ -41,10 +41,10 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         env["CGO_CFLAGS"] = cflags
         env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
 
-    importcfg = ctx.actions.declare_output("stdlib.importcfg")
-    importcfg_shared = ctx.actions.declare_output("stdlib_shared.importcfg")
-    stdlib_pkgdir = ctx.actions.declare_output("stdlib_pkgdir", dir = True)
-    stdlib_pkgdir_shared = ctx.actions.declare_output("stdlib_pkgdir_shared", dir = True)
+    importcfg = ctx.actions.declare_output("stdlib.importcfg", has_content_based_path = True)
+    importcfg_shared = ctx.actions.declare_output("stdlib_shared.importcfg", has_content_based_path = True)
+    stdlib_pkgdir = ctx.actions.declare_output("stdlib_pkgdir", dir = True, has_content_based_path = True)
+    stdlib_pkgdir_shared = ctx.actions.declare_output("stdlib_pkgdir_shared", dir = True, has_content_based_path = True)
 
     def build_variant(out: Artifact, shared: bool) -> cmd_args:
         local_assembler_flags = [] + assembler_flags

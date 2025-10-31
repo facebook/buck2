@@ -19,6 +19,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::configuration::data::ConfigurationData;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -30,6 +31,44 @@ use crate::actions::calculation::BuildKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
+
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[display("{} {}", promise_artifact, has_content_based_path)]
+pub struct PromiseArtifactWrapper {
+    pub promise_artifact: PromiseArtifact,
+    pub has_content_based_path: bool,
+}
+
+impl PromiseArtifactWrapper {
+    pub fn new(artifact: PromiseArtifact, has_content_based_path: bool) -> Self {
+        Self {
+            promise_artifact: artifact,
+            has_content_based_path,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[display("{} {}", key, has_content_based_path)]
+pub struct TransitiveSetProjectionWrapper {
+    pub key: TransitiveSetProjectionKey,
+    pub has_content_based_path: bool,
+    pub is_eligible_for_dedupe: bool,
+}
+
+impl TransitiveSetProjectionWrapper {
+    pub fn new(
+        key: TransitiveSetProjectionKey,
+        has_content_based_path: bool,
+        is_eligible_for_dedupe: bool,
+    ) -> Self {
+        Self {
+            key,
+            has_content_based_path,
+            is_eligible_for_dedupe,
+        }
+    }
+}
 
 /// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts will be made available
 /// to Actions when they execute.
@@ -46,8 +85,8 @@ use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 )]
 pub enum ArtifactGroup {
     Artifact(Artifact),
-    TransitiveSetProjection(Arc<TransitiveSetProjectionKey>),
-    Promise(Arc<PromiseArtifact>),
+    TransitiveSetProjection(Arc<TransitiveSetProjectionWrapper>),
+    Promise(Arc<PromiseArtifactWrapper>),
 }
 
 assert_eq_size!(ArtifactGroup, [usize; 2]);
@@ -66,12 +105,12 @@ impl ArtifactGroup {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
             ArtifactGroup::TransitiveSetProjection(a) => {
-                ResolvedArtifactGroup::TransitiveSetProjection(a)
+                ResolvedArtifactGroup::TransitiveSetProjection(&a.key)
             }
-            ArtifactGroup::Promise(p) => match p.get() {
+            ArtifactGroup::Promise(p) => match p.promise_artifact.get() {
                 Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
                 None => {
-                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, ctx).await?;
+                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(&p.promise_artifact, ctx).await?;
                     ResolvedArtifactGroup::Artifact(artifact)
                 }
             },
@@ -81,9 +120,50 @@ impl ArtifactGroup {
     pub fn uses_content_based_path(&self) -> bool {
         match self {
             ArtifactGroup::Artifact(a) => a.has_content_based_path(),
-            ArtifactGroup::TransitiveSetProjection(a) => a.uses_content_based_paths,
-            // Promised artifacts are not allowed to use content-based paths
-            ArtifactGroup::Promise(_) => false,
+            ArtifactGroup::TransitiveSetProjection(a) => a.has_content_based_path,
+            ArtifactGroup::Promise(p) => p.has_content_based_path,
+        }
+    }
+
+    /// Determines whether or not this artifact group is eligible for deduplication across different
+    /// configurations.
+    ///
+    /// This is true if the underlying artifacts are source artifacts, or if they are content-based.
+    /// It is also true if they are configured with a different platform than the target platform of
+    /// the current node (e.g. execution deps do not prevent dedupe from taking place, even if they
+    /// are configuration-based).
+    ///
+    /// Note that this does not handle transitions correctly. That is generally okay, since we usually
+    /// transition at the binary level and those don't tend to be eligible for dedupe anyway. We could
+    /// fix that by looking at the execution platform, but we don't have access to that.
+    pub fn is_eligible_for_dedupe(&self, target_platform: Option<&ConfigurationData>) -> bool {
+        let is_artifact_group_eligible_for_dedupe = match self {
+            ArtifactGroup::Artifact(a) => !a.has_configuration_based_path(),
+            ArtifactGroup::TransitiveSetProjection(p) => p.is_eligible_for_dedupe,
+            ArtifactGroup::Promise(p) => p.has_content_based_path,
+        };
+
+        if is_artifact_group_eligible_for_dedupe {
+            return true;
+        }
+
+        if let Some(target_platform) = target_platform {
+            let artifact_group_owner = match self {
+                ArtifactGroup::Artifact(a) => a.owner().expect(
+                    "Artifact must have an owner, otherwise it would be eligible for dedupe",
+                ),
+                ArtifactGroup::TransitiveSetProjection(p) => p.key.key.holder_key().owner(),
+                // We have to assume that anonymous targets are not eligible for dedupe unless they are content-based,
+                // since they have a hash based on their inputs, which will very likely be different across configurations.
+                ArtifactGroup::Promise(_) => return false,
+            };
+
+            artifact_group_owner
+                .configured_label()
+                .is_some_and(|l| l.cfg() != target_platform)
+        } else {
+            // Not building for a specified target platform, input itself needs to be eligible for dedupe
+            false
         }
     }
 }
@@ -107,5 +187,4 @@ pub enum ResolvedArtifactGroupBuildSignalsKey {
 pub struct TransitiveSetProjectionKey {
     pub key: TransitiveSetKey,
     pub projection: usize,
-    pub uses_content_based_paths: bool,
 }

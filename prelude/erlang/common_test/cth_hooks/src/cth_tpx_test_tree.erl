@@ -7,7 +7,7 @@
 
 %% @format
 -module(cth_tpx_test_tree).
--eqwalizer(ignore).
+-compile([warn_missing_spec_all]).
 
 -include("method_ids.hrl").
 
@@ -15,6 +15,8 @@
     tree/0,
     tree_node/0,
     test_leaf/0,
+
+    name/0,
 
     method_result/0,
     case_result/0,
@@ -34,6 +36,8 @@
     register_result/4,
     get_result/2
 ]).
+
+-import(common_util, [unicode_characters_to_list/1]).
 
 -type tree() :: test_leaf() | tree_node().
 
@@ -82,14 +86,14 @@
 Gets the name for a testcase in a given group-path
 The groups order expected here is [leaf_group, ...., root_group]
 """.
--spec qualified_name(group_path(), TC :: string()) -> string().
+-spec qualified_name(Groups, TestCase) -> string() when
+    Groups :: group_path(),
+    TestCase :: name().
 qualified_name(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
     Raw = io_lib:format("~ts.~ts", [JoinedGroups, TestCase]),
-    case unicode:characters_to_list(Raw, unicode) of
-        Res when not is_tuple(Res) -> Res
-    end.
+    unicode_characters_to_list(Raw).
 
 %% Tree creation and update
 
@@ -167,7 +171,9 @@ insert_result(TreeNode, ResultTest, [], MethodId) ->
 Provides a result for the RequestedResults based on the collected results.
 The format of the requested_results is a map from a list of groups to the list of test_cases that are sub-cases from the last group from the list.
 """.
--spec get_result(tree(), #{group_path() => [string()]}) -> [case_result()].
+-spec get_result(TreeResult, RequestedResults) -> [case_result()] when
+    TreeResult :: tree(),
+    RequestedResults :: #{group_path() => [atom()]}.
 get_result(TreeResult, RequestedResults) ->
     [
         collect_result(TreeResult, Groups, CaseRequest)
@@ -178,9 +184,12 @@ get_result(TreeResult, RequestedResults) ->
 -doc """
 Provides a result for a given specific requested_result.
 """.
--spec collect_result(tree(), group_path(), string()) -> case_result().
+-spec collect_result(TreeResult, Groups, TestCase) -> case_result() when
+    TreeResult :: tree(),
+    Groups :: group_path(),
+    TestCase :: atom().
 collect_result(TreeResult, Groups, TestCase) ->
-    QualifiedName = cth_tpx_test_tree:qualified_name(lists:reverse(Groups), TestCase),
+    QualifiedName = qualified_name(lists:reverse(Groups), TestCase),
     LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName),
     #{ends := EndsResults, main := MainResult} = LeafResult,
     MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
@@ -202,7 +211,7 @@ report_end_failure(
 ) ->
     MergedOutcome = merge_outcome(EndOutcome, ResultOutcome),
     EndFailedDetails =
-        unicode_characters_to_string([
+        unicode_characters_to_list([
             io_lib:format("~tp ~tp because ~tp failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails
         ]),
     MergedDetails =
@@ -210,7 +219,7 @@ report_end_failure(
             passed ->
                 EndFailedDetails;
             _ ->
-                unicode_characters_to_string(
+                unicode_characters_to_list(
                     lists:flatten(
                         io_lib:format("~ts~n~n~ts", [ResultDetails, EndFailedDetails])
                     )
@@ -235,7 +244,7 @@ Collects all the inits / ends methods results linked to a requested_result.
     Inits :: [method_result()],
     Ends :: [method_result()],
     Groups :: group_path(),
-    TestCase :: string(),
+    TestCase :: atom(),
     QualifiedName :: string()
 ) -> case_result().
 collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
@@ -248,7 +257,10 @@ collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
             #{inits => lists:reverse(NewInits), main => MainResult, ends => NewEnds}
     end.
 
--spec get_child(tree(), group_path(), TC :: string()) -> {tree(), group_path()}.
+-spec get_child(Node, Groups, TestCase) -> {tree(), group_path()} when
+    Node :: tree(),
+    Groups :: group_path(),
+    TestCase :: atom().
 get_child(#{sub_groups := SubGroups}, [Group | Groups], _TestCase) ->
     {maps:get(Group, SubGroups, new_node(Group)), Groups};
 get_child(#{test_cases := TestCases}, [], TestCase) ->
@@ -342,7 +354,7 @@ merge_std_out(#{type := leaf} = TestLeaf) ->
             none -> "";
             _ -> maps:get(std_out, OptMethodEnd)
         end,
-    unicode_characters_to_string(InitStdOut ++ MainStdOut ++ EndStdOut).
+    unicode_characters_to_list([InitStdOut, MainStdOut, EndStdOut]).
 
 -doc """
 Creates a method_result for a requested method for which no result was registered.
@@ -352,7 +364,7 @@ Attempts to locate if one of the inits is responsible for the missing result.
 get_missing_result(Inits, QualifiedName) ->
     MainResult =
         #{
-            name => unicode_characters_to_string(
+            name => unicode_characters_to_list(
                 io_lib:format("~ts.[main_testcase]", [QualifiedName])
             ),
             outcome => failed,
@@ -368,14 +380,14 @@ Generates an user informative message in the case of the missing result by attem
 handle_missing_results([], MainResult) ->
     MainResult;
 handle_missing_results([Init | Inits], MainResult) ->
-    InitStdOut = unicode_characters_to_string(
-        maps:get(name, Init) ++ " stdout: " ++ maps:get(std_out, Init)
-    ),
+    InitStdOut = unicode_characters_to_list([
+        name_to_string(maps:get(name, Init)), " stdout: ", maps:get(std_out, Init)
+    ]),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
                 details =>
-                    unicode_characters_to_string(
+                    unicode_characters_to_list(
                         io_lib:format(
                             "no results for this test were recorded because init ~ts failed with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -385,7 +397,7 @@ handle_missing_results([Init | Inits], MainResult) ->
             };
         timeout ->
             MainResult#{
-                details => unicode_characters_to_string(
+                details => unicode_characters_to_list(
                     io_lib:format(
                         "no results for this test were recorded because init ~ts timed-out with error message : \n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
@@ -397,7 +409,7 @@ handle_missing_results([Init | Inits], MainResult) ->
             handle_skipped_result([Init | Inits], MainResult);
         omitted ->
             MainResult#{
-                details => unicode_characters_to_string(
+                details => unicode_characters_to_list(
                     io_lib:format(
                         "no results for this test were recorded because init ~ts was omitted with message : \n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
@@ -417,15 +429,15 @@ handle_missing_results([Init | Inits], MainResult) ->
 handle_skipped_result([], MainResult) ->
     MainResult;
 handle_skipped_result([Init | Inits], MainResult) ->
-    InitStdOut = unicode_characters_to_string(
-        maps:get(name, Init) ++ " stdout: " ++ maps:get(std_out, Init)
-    ),
+    InitStdOut = unicode_characters_to_list([
+        name_to_string(maps:get(name, Init)), " stdout: ", maps:get(std_out, Init)
+    ]),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
                 outcome => failed,
                 details =>
-                    unicode_characters_to_string(
+                    unicode_characters_to_list(
                         io_lib:format(
                             "Failed because init ~ts failed, with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -437,7 +449,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
             MainResult#{
                 outcome => timeout,
                 details =>
-                    unicode_characters_to_string(
+                    unicode_characters_to_list(
                         io_lib:format(
                             "Timed-out because init ~ts timed-out, with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -453,7 +465,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
             MainResult#{
                 outcome => failed,
                 details =>
-                    unicode_characters_to_string(
+                    unicode_characters_to_list(
                         io_lib:format(
                             "Failed because init ~ts was omitted, with error message : \n ~ts",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -463,8 +475,9 @@ handle_skipped_result([Init | Inits], MainResult) ->
             }
     end.
 
--spec unicode_characters_to_string(io_lib:chars()) -> string().
-unicode_characters_to_string(Chars) ->
-    case unicode:characters_to_list(Chars) of
-        String when is_list(String) -> String
-    end.
+-spec name_to_string(Name) -> string() when
+    Name :: name().
+name_to_string(Name) when is_atom(Name) ->
+    atom_to_list(Name);
+name_to_string(Name) when is_list(Name) ->
+    Name.

@@ -57,6 +57,7 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_directory = { workspace = true }
 buck2_error = { workspace = true }
+buck2_errorformat = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
@@ -71,4 +72,5 @@ buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
+buck2_certs = { workspace = true }
 buck2_wrapper_common = { workspace = true }

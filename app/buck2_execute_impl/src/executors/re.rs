@@ -36,6 +36,7 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandCancellationReason;
 use buck2_execute::execute::result::CommandExecutionErrorType;
+use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -45,6 +46,7 @@ use buck2_execute::re::client::ExecuteResponseOrCancelled;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::error::get_re_error_tag;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -86,6 +88,7 @@ pub struct ReExecutor {
     pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub deduplicate_get_digests_ttl_calls: bool,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 impl ReExecutor {
@@ -204,18 +207,6 @@ impl ReExecutor {
                 execute_response_fut.await
             };
 
-        let response = match execute_response {
-            Ok(ExecuteResponseOrCancelled::Response(result)) => result,
-            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled)) => {
-                let reason = cancelled.reason.map(|reason| match reason {
-                    CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
-                    CancellationReason::ReQueueTimeout => CommandCancellationReason::ReQueueTimeout,
-                });
-                return ControlFlow::Break(manager.cancel(reason));
-            }
-            Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
-        };
-
         let remote_details = RemoteCommandExecutionDetails::new(
             action_digest.dupe(),
             None,
@@ -223,6 +214,35 @@ impl ReExecutor {
             self.re_client.use_case,
             &platform,
         );
+
+        let response = match execute_response {
+            Ok(ExecuteResponseOrCancelled::Response(result)) => result,
+            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats)) => {
+                let reason = cancelled
+                    .reason
+                    .map(|reason| match reason {
+                        CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
+                        CancellationReason::ReQueueTimeout => {
+                            CommandCancellationReason::ReQueueTimeout
+                        }
+                    })
+                    .unwrap_or(CommandCancellationReason::NotSpecified);
+                return ControlFlow::Break(manager.cancel(
+                    CommandExecutionKind::Remote {
+                        details: remote_details,
+                        queue_time: queue_stats.cumulative_queue_duration,
+                        materialized_inputs_for_failed: None,
+                        materialized_outputs_for_failed_actions: None,
+                    },
+                    reason,
+                    CommandExecutionMetadata {
+                        queue_duration: Some(queue_stats.cumulative_queue_duration),
+                        ..Default::default()
+                    },
+                ));
+            }
+            Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
+        };
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
@@ -421,6 +441,7 @@ impl PreparedCommandExecutor for ReExecutor {
             self.materialize_failed_inputs,
             self.materialize_failed_outputs,
             additional_message,
+            &self.output_trees_download_config,
         )
         .boxed()
         .await;

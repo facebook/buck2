@@ -87,7 +87,7 @@ mod tests {
             expected.push(empty_file.digest.to_re());
             let _unused = insert_file(
                 &mut builder,
-                ProjectRelativePath::new(file).unwrap(),
+                ProjectRelativePath::new(file).unwrap().to_buf(),
                 empty_file,
             );
         }

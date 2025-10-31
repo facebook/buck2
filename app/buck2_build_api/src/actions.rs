@@ -56,11 +56,13 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
+use fxhash::FxHashMap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
@@ -275,7 +277,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn artifact_path_mapping(
         &self,
         filter: Option<IndexSet<ArtifactGroup>>,
-    ) -> IndexMap<&Artifact, ContentBasedPathHash>;
+    ) -> FxHashMap<&Artifact, ContentBasedPathHash>;
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
@@ -296,6 +298,8 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// Http client used for fetching and downloading remote artifacts.
     fn http_client(&self) -> HttpClient;
+
+    fn output_trees_download_config(&self) -> &OutputTreesDownloadConfig;
 }
 
 #[derive(buck2_error::Error, Debug)]

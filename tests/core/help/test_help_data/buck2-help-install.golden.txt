@@ -77,6 +77,12 @@ Options:
           `package-project-relative-paths`: emit the project-relative path of packages for the
           targets that were built.
 
+      --streaming-build-report <PATH>
+          Stream intermediary build reports to a file in json lines format.
+
+          Each output materialization will trigger a new build report which will be written to the
+          file as a single line json.
+
   -j, --num-threads <THREADS>
           Number of threads to use during execution (default is # cores)
 
@@ -95,6 +101,8 @@ Options:
       --prefer-remote
           Enable hybrid execution. Will prefer executing actions that can execute remotely on RE and
           will avoid racing local and remote execution
+
+          [env: BUCK_PREFER_REMOTE=]
 
       --unstable-no-execution
           Experimental: Disable all execution
@@ -241,6 +249,55 @@ Starlark Options:
 
           If a command outputs targets (like `targets` command), starlark call stacks will be
           printed after the targets.
+
+      --profile-patterns <PROFILE_PATTERNS>
+          Enables profiling for all evaluations whose evaluation identifier matches one of the
+          provided patterns.
+
+          Some examples identifiers: analysis/cell//buck2/app/buck2_action_impl:buck2_action_impl
+          (cfg:linux-x86_64#27ac5723e0c99706) load/cell//build_defs/json.bzl
+          load/prelude//playground/test.bxl load/cell//build_defs/json.bzl@other_cell
+          load_buildfile/fbcode//third-party-buck/platform010/build/ncurses
+          load_packagefile/fbcode//cli/rust/cli_delegate anon_analysis/anon//:_anon_link_rule (anon:
+          766183dc9b6f680a) (fbcode//buck2/platform/execution:linux-x86_64#08961b14cfb182aa)
+          bxl/prelude//playground/test.bxl:playground
+
+          You can pass `--profile-patterns=.*` to enable no-op profiling for everything
+          (additionally pass `--profile-patterns-mode=none` to use no-op profiling to just get a
+          list of all the identifiers).
+
+          The profile results will be written to individual .profile files in
+          `<ROOT_OUTPUT>/<data+time>-<uuid>/` where ROOT_OUTPUT comes from the
+          --profile-patterns-output flag. In that directory there will also be a file listing all
+          the identifiers that were profiled.
+
+          Enabling/disabling profiling of an evaluation will invalidate the results of that
+          evaluation and it will be recomputed. In some cases, this will cause other work to also
+          need to be redone (for example, invalidating the result of loading PACKAGE files causes
+          all consumers to be recomputed). But if you keep profiling options consistent between
+          commands, only the work that is otherwise invalidated will be redone (and only for those
+          would profiling results be created).
+
+          You must also pass --profile-patterns-mode and --profile-patterns-output.
+
+      --profile-patterns-output <PATH>
+
+
+      --profile-patterns-mode <PROFILE_PATTERNS_MODE>
+          Profile mode.
+
+          Memory profiling modes have suffixes either `-allocated` or `-retained`.
+
+          `-retained` means memory kept in frozen starlark heaps after analysis completes.
+          `-retained` does not work when profiling loading, because no memory is retained after
+          loading and frozen heap is not even created. This is probably what you want when profiling
+          analysis.
+
+          `-allocated` means allocated memory, including memory which is later garbage collected.
+
+          [possible values: time-flame, heap-allocated, heap-retained, heap-flame-allocated,
+          heap-flame-retained, heap-summary-allocated, heap-summary-retained, statement, bytecode,
+          bytecode-pairs, typecheck, coverage, none]
 
 Console Options:
       --console <super|simple|...>

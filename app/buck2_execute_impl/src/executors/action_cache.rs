@@ -31,24 +31,29 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ActionCacheResult;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
 
+use crate::incremental_actions_helper::save_content_based_incremental_state;
 use crate::re::download::DownloadResult;
 use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
+use crate::sqlite::incremental_state_db::IncrementalDbState;
 
 pub struct ActionCacheChecker {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
+    pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
     pub deduplicate_get_digests_ttl_calls: bool,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 enum CacheType {
@@ -70,6 +75,7 @@ async fn query_action_cache_and_download_result(
     cache_type: CacheType,
     artifact_fs: &ArtifactFs,
     materializer: &Arc<dyn Materializer>,
+    incremental_db_state: &Arc<IncrementalDbState>,
     re_client: &ManagedRemoteExecutionClient,
     re_action_key: &Option<String>,
     paranoid: &Option<ParanoidDownloader>,
@@ -81,6 +87,7 @@ async fn query_action_cache_and_download_result(
     log_action_keys: bool,
     details: RemoteCommandExecutionDetails,
     deduplicate_get_digests_ttl_calls: bool,
+    output_trees_download_config: &OutputTreesDownloadConfig,
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
     let action_blobs = &command.prepared_action.action_and_blobs.blobs;
@@ -191,6 +198,7 @@ async fn query_action_cache_and_download_result(
         false,
         false,
         None,
+        output_trees_download_config,
     )
     .await;
 
@@ -211,6 +219,17 @@ async fn query_action_cache_and_download_result(
             );
             res.action_result = Some(response.0.action_result);
         }
+    }
+
+    if let Some(run_action_key) = request.run_action_key()
+        && !request.outputs_cleanup
+    {
+        save_content_based_incremental_state(
+            run_action_key.clone(),
+            &incremental_db_state,
+            &artifact_fs,
+            &res,
+        );
     }
 
     ControlFlow::Break(res)
@@ -241,6 +260,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             cache_type,
             &self.artifact_fs,
             &self.materializer,
+            &self.incremental_db_state,
             &self.re_client,
             &self.re_action_key,
             &self.paranoid,
@@ -252,6 +272,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.knobs.log_action_keys,
             details,
             self.deduplicate_get_digests_ttl_calls,
+            &self.output_trees_download_config,
         )
         .await
     }
@@ -260,12 +281,14 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
 pub struct RemoteDepFileCacheChecker {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
+    pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
     pub deduplicate_get_digests_ttl_calls: bool,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 #[async_trait]
@@ -302,6 +325,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             cache_type,
             &self.artifact_fs,
             &self.materializer,
+            &self.incremental_db_state,
             &self.re_client,
             &self.re_action_key,
             &self.paranoid,
@@ -313,6 +337,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.knobs.log_action_keys,
             details,
             self.deduplicate_get_digests_ttl_calls,
+            &self.output_trees_download_config,
         )
         .await
     }

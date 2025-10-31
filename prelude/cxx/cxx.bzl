@@ -12,8 +12,12 @@ load(
     "merge_android_packageable_info",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
+load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileStyle",
+)
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
-load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload", "cxx_attrs_use_fbcc_rust_wrapper")
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
@@ -93,7 +97,7 @@ load(
     "filter_and_map_idx",
     "value_or",
 )
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
 load(
     ":cxx_library.bzl",
@@ -232,6 +236,15 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         export_header_unit_filter = ctx.attrs.export_header_unit_filter,
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
+        use_fbcc_rust_wrapper = cxx_attrs_use_fbcc_rust_wrapper(ctx.attrs),
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+        precompiled_header = ctx.attrs.precompiled_header,
+        prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        use_content_based_paths = ctx.attrs.use_content_based_paths,
+        coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
+        separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -300,6 +313,15 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
+        use_fbcc_rust_wrapper = cxx_attrs_use_fbcc_rust_wrapper(ctx.attrs),
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+        precompiled_header = ctx.attrs.precompiled_header,
+        prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        use_content_based_paths = ctx.attrs.use_content_based_paths,
+        coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
+        separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
     output = cxx_executable(ctx, params)
 
@@ -373,8 +395,9 @@ def _prebuilt_item(
     if item != None:
         return item
 
+    cxx_platform_info = get_cxx_platform_info(ctx)
     if platform_items != None:
-        items = dedupe(cxx_by_platform(ctx, platform_items))
+        items = dedupe(cxx_by_platform(cxx_platform_info, platform_items))
         if len(items) == 0:
             return None
         if len(items) != 1:
@@ -414,7 +437,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     providers = []
 
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
     linker_type = linker_info.type
 
     # Parse library parameters.
@@ -443,7 +467,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Prepare the stripped static lib.
     static_lib_stripped = None
     if not ctx.attrs.prestripped and static_lib != None:
-        static_lib_stripped = strip_debug_info(ctx, static_lib.short_path, static_lib)
+        static_lib_stripped = strip_debug_info(ctx.actions, static_lib.short_path, static_lib, toolchain_info)
 
     # Prepare the stripped static PIC lib.  If the static PIC lib is the same
     # artifact as the static lib, then just re-use the stripped static lib.
@@ -452,7 +476,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         if static_lib == static_pic_lib:
             static_pic_lib_stripped = static_lib_stripped
         elif static_pic_lib != None:
-            static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
+            static_pic_lib_stripped = strip_debug_info(ctx.actions, static_pic_lib.short_path, static_pic_lib, toolchain_info)
 
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
@@ -482,7 +506,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if args:
         exported_items.append(CPreprocessor(args = CPreprocessorArgs(args = args, precompile_args = args)))
     propagated_preprocessor = cxx_merge_cpreprocessors(
-        ctx,
+        ctx.actions,
         exported_items,
         inherited_pp_infos,
     )
@@ -799,7 +823,7 @@ def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
     inherited_link = cxx_inherited_link_info(ctx.attrs.deps)
     return [
         DefaultInfo(default_output = ctx.attrs.src),
-        cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
+        cxx_merge_cpreprocessors(ctx.actions, [], inherited_pp_infos),
         create_merged_link_info_for_propagation(ctx, inherited_link),
         CPrecompiledHeaderInfo(header = ctx.attrs.src, compiled = False),
     ]
@@ -833,6 +857,15 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
+        use_fbcc_rust_wrapper = cxx_attrs_use_fbcc_rust_wrapper(ctx.attrs),
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+        precompiled_header = ctx.attrs.precompiled_header,
+        prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        use_content_based_paths = ctx.attrs.use_content_based_paths,
+        coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
+        separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":common.bzl", "AbiGenerationMode", "ForkMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "prelude_rule")
+load(":common.bzl", "AbiGenerationMode", "ForkMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 
 scala_library = prelude_rule(
@@ -21,15 +21,12 @@ scala_library = prelude_rule(
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -46,7 +43,12 @@ scala_library = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
-        } | jvm_common.plugins() | jvm_common.javac()
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
+        jvm_common.plugins() |
+        jvm_common.javac()
     ),
 )
 
@@ -62,7 +64,6 @@ scala_test = prelude_rule(
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
@@ -77,8 +78,6 @@ scala_test = prelude_rule(
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "fork_mode": attrs.enum(ForkMode, default = "none"),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -104,7 +103,12 @@ scala_test = prelude_rule(
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
-        } | jvm_common.plugins() | jvm_common.javac()
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
+        jvm_common.plugins() |
+        jvm_common.javac()
     ),
 )
 

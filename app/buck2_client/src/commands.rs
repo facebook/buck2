@@ -23,7 +23,6 @@ pub mod killall;
 pub mod lsp;
 pub mod profile;
 pub mod query;
-pub mod rage;
 pub mod root;
 pub mod run;
 pub mod server;

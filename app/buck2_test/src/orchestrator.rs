@@ -117,6 +117,7 @@ use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
 use buck2_execute_impl::executors::local::materialize_inputs;
+use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -149,6 +150,7 @@ use futures::FutureExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
+use fxhash::FxHashMap;
 use host_sharing::HostSharingRequirements;
 use host_sharing::convert::host_sharing_requirements_to_grpc;
 use indexmap::IndexMap;
@@ -907,13 +909,15 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.get_blocking_executor();
 
-        materialize_inputs(
+        let materialized_inputs = materialize_inputs(
             &fs,
             materializer.as_ref(),
             &execution_request,
             self.dice.global_data().get_digest_config(),
         )
         .await?;
+
+        prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 
         create_output_dirs(
             &fs,
@@ -925,7 +929,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         .await?;
 
         for local_resource_setup_command in setup_commands.iter() {
-            materialize_inputs(
+            let materialized_inputs = materialize_inputs(
                 &fs,
                 materializer.as_ref(),
                 &local_resource_setup_command.execution_request,
@@ -933,6 +937,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             )
             .await?;
             let blocking_executor = self.dice.get_blocking_executor();
+
+            prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 
             create_output_dirs(
                 &fs,
@@ -1031,6 +1037,7 @@ impl BuckTestOrchestrator<'_> {
         let command_exec_result = match stage {
             TestStage::Listing { suite, cacheable } => {
                 let start = TestDiscoveryStart {
+                    target_label: Some(test_target.target.as_proto()),
                     suite_name: suite.clone(),
                 };
                 let (result, cached) = events
@@ -1056,6 +1063,7 @@ impl BuckTestOrchestrator<'_> {
                         };
                         let end = TestDiscoveryEnd {
                             suite_name: suite.clone(),
+                            target_label: Some(test_target.target.as_proto()),
                             command_report: Some(
                                 result
                                     .report
@@ -1208,7 +1216,10 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind,
                 outputs,
             },
-            CommandExecutionStatus::Cancelled { reason } => {
+            CommandExecutionStatus::Cancelled {
+                execution_kind: _,
+                reason,
+            } => {
                 let reason = reason.map(|reason| match reason {
                     CommandCancellationReason::NotSpecified => CancellationReason::NotSpecified,
                     CommandCancellationReason::ReQueueTimeout => CancellationReason::ReQueueTimeout,
@@ -1261,6 +1272,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker,
             remote_dep_file_cache_checker: _,
             cache_uploader,
+            output_trees_download_config: _,
         } = dice.get_command_executor_from_dice(executor_config).await?;
 
         // Caching is enabled only for listings
@@ -1302,6 +1314,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker: _,
             remote_dep_file_cache_checker: _,
             cache_uploader: _,
+            output_trees_download_config: _,
         } = dice
             .get_command_executor_from_dice(&executor_config)
             .await?;
@@ -1415,6 +1428,7 @@ impl BuckTestOrchestrator<'_> {
                 fs: executor_fs,
                 cmd,
                 env,
+                digest_config: dice.global_data().get_digest_config(),
             };
 
             let inputs = expander.get_inputs()?;
@@ -1622,7 +1636,7 @@ impl BuckTestOrchestrator<'_> {
             })
             .await?;
 
-        let artifact_path_mapping: IndexMap<_, _> = inputs
+        let artifact_path_mapping: FxHashMap<_, _> = inputs
             .iter()
             .flat_map(|v| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))
@@ -1775,6 +1789,7 @@ struct Execute2RequestExpander<'a> {
     fs: &'a ExecutorFs<'a>,
     cmd: Cow<'a, [ArgValue]>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+    digest_config: DigestConfig,
 }
 
 fn make_visit_arg_artifacts<'v>(
@@ -1858,6 +1873,7 @@ impl<'a> Execute2RequestExpander<'a> {
             fs,
             cmd,
             env,
+            digest_config,
         } = self;
         let cli_args_for_interpolation = test_info
             .command()
@@ -1963,6 +1979,14 @@ impl<'a> Execute2RequestExpander<'a> {
                     concurrency: worker.concurrency(),
                     streaming: worker.streaming(),
                     remote_key: None,
+                    // TODO(ianc): Support input_paths on test workers
+                    input_paths: CommandExecutionPaths::new(
+                        vec![],
+                        indexset![],
+                        fs.fs(),
+                        digest_config,
+                        None,
+                    )?,
                 })
             }
             _ => None,

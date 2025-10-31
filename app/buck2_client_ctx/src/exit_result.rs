@@ -359,7 +359,7 @@ impl ExitResultVariant {
                 tracing::debug!("Exiting with {:?} ({:?})", exit_code, e);
 
                 match exit_code {
-                    ExitCode::SignalInterrupt | ExitCode::BrokenPipe => {
+                    ExitCode::SignalInterrupt | ExitCode::ClientIoBrokenPipe => {
                         // No logging for those.
                     }
                     _ => {

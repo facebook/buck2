@@ -234,6 +234,7 @@ pub enum TaskState {
     cancelled(CancelledTaskState),
     over_quota(OverQuotaTaskState),
     acquiring_dependencies(AcquiringDependenciesTaskState),
+    waiting_for_gang_allocation(WaitingForGangAllocationTaskState),
     UnknownField(i32),
 }
 
@@ -260,6 +261,9 @@ pub struct WaitingOnReservationTaskState {}
 
 #[derive(Clone, Default)]
 pub struct AcquiringDependenciesTaskState {}
+
+#[derive(Clone, Default)]
+pub struct WaitingForGangAllocationTaskState {}
 
 #[derive(Clone, Default)]
 pub struct OperationMetadata {

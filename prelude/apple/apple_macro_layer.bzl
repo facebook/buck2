@@ -129,6 +129,19 @@ def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     apple_library_rule(**kwargs)
 
+def apple_metal_library_macro_impl(apple_metal_library_rule = None, **kwargs):
+    if "exec_compatible_with" in kwargs:
+        fail("Cannot set `exec_compatible_with` for apple_metal_library()")
+    kwargs["exec_compatible_with"] = [
+        # It's possible a buck2 daemon host machine has the correct Xcode
+        # version selected but does not have the Metal toolchain installed.
+        # Because this would lead to a build failure, we have to send actions
+        # remotely where we it's guaranteed the Metal toolchain will be
+        # installed alongside Xcode.
+        "prelude//platforms:runs_only_remote",
+    ]
+    apple_metal_library_rule(**kwargs)
+
 def apple_library_for_distribution_macro_impl(apple_library_for_distribution_rule = None, **kwargs):
     apple_library_macro_impl(apple_library_rule = apple_library_for_distribution_rule, **kwargs)
 

@@ -23,7 +23,7 @@ public class IncrementalCompilationValidator {
       ActionMetadata actionMetadata,
       @Nullable AbsPath depFile,
       @Nullable AbsPath usedJars,
-      @Nullable AbsPath jvmAbiGenWorkingDir) {
+      @Nullable AbsPath jvmAbiGenDir) {
     if (actionMetadata.getPreviousIncrementalMetadataDigest() == null) {
       return RebuildReason.NO_LAST_BUILD_CONFIGURATION;
     }
@@ -42,8 +42,8 @@ public class IncrementalCompilationValidator {
       return RebuildReason.NO_LAST_USED_JARS;
     }
 
-    if (jvmAbiGenWorkingDir != null && !jvmAbiGenWorkingDir.toFile().exists()) {
-      return RebuildReason.NO_JVM_ABI_WORKING_DIR;
+    if (jvmAbiGenDir != null && !jvmAbiGenDir.toFile().exists()) {
+      return RebuildReason.NO_JVM_ABI_DIR;
     }
 
     return null;

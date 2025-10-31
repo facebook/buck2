@@ -93,7 +93,6 @@ def erlang_tests(
         deps: list[str] = [],
         resources: list[str] = [],
         srcs: list[str] = [],
-        property_tests: list[str] = [],
         config_files: list[str] = [],
         common_app_env: dict[str, str] = {},
         **common_attributes):
@@ -107,7 +106,6 @@ def erlang_tests(
         deps = deps,
         resources = resources,
         srcs = srcs,
-        property_tests = property_tests,
         config_files = config_files,
         common_app_env = common_app_env,
         **common_attributes

@@ -8,6 +8,34 @@
  * above-listed licenses.
  */
 
+#[cfg(unix)]
+pub mod action_cgroups;
+#[cfg(unix)]
+pub mod buck_cgroup_tree;
+#[cfg(unix)]
+pub mod cgroup;
+#[cfg(unix)]
+pub mod cgroup_files;
+#[cfg(unix)]
+pub mod cgroup_info;
+#[cfg(unix)]
+pub mod memory_tracker;
+pub mod path;
+#[cfg(unix)]
+pub mod pool;
+pub mod systemd;
+
+#[cfg(not(unix))]
+pub mod buck_cgroup_tree {
+    pub struct BuckCgroupTree;
+
+    impl BuckCgroupTree {
+        pub fn set_up_for_process() -> buck2_error::Result<Self> {
+            unreachable!("not used on windows")
+        }
+    }
+}
+
 #[cfg(not(unix))]
 pub mod memory_tracker {
     use std::sync::Arc;
@@ -15,12 +43,15 @@ pub mod memory_tracker {
     use allocative::Allocative;
     use buck2_common::init::ResourceControlConfig;
 
+    use crate::buck_cgroup_tree::BuckCgroupTree;
+
     #[derive(Allocative)]
     pub struct MemoryTracker {}
 
     pub type MemoryTrackerHandle = Arc<MemoryTracker>;
 
     pub async fn create_memory_tracker(
+        _cgroup_tree: Option<&BuckCgroupTree>,
         _resource_control_config: &ResourceControlConfig,
     ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
         Ok(None)
@@ -29,28 +60,46 @@ pub mod memory_tracker {
 
 #[derive(Clone, Copy, Debug)]
 pub enum CommandType {
-    Action,
+    Build,
     Test,
     Worker,
 }
 
+impl std::fmt::Display for CommandType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            CommandType::Build => "BUILD",
+            CommandType::Test => "TEST",
+            CommandType::Worker => "WORKER",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[cfg(not(unix))]
 pub mod action_cgroups {
-    use std::path::PathBuf;
+    use std::time::Duration;
+
+    use buck2_events::dispatch::EventDispatcher;
 
     use crate::CommandType;
     use crate::memory_tracker::MemoryTrackerHandle;
+    use crate::path::CgroupPathBuf;
 
-    pub struct ActionCgroupSession {}
+    pub struct ActionCgroupSession {
+        pub path: CgroupPathBuf,
+    }
     impl ActionCgroupSession {
-        pub fn maybe_create(
+        pub async fn maybe_create(
             _tracker: &Option<MemoryTrackerHandle>,
+            _dispatcher: EventDispatcher,
             _command_type: CommandType,
-        ) -> Option<Self> {
-            None
+            _action_digest: Option<String>,
+        ) -> buck2_error::Result<Option<Self>> {
+            Ok(None)
         }
 
-        pub async fn command_started(&mut self, _cgroup_path: PathBuf) {}
+        pub async fn command_started(&mut self, _cgroup_path: CgroupPathBuf) {}
 
         pub async fn command_finished(&mut self) -> ActionCgroupResult {
             unreachable!("not supported");
@@ -61,10 +110,6 @@ pub mod action_cgroups {
         pub memory_peak: Option<u64>,
         pub error: Option<buck2_error::Error>,
         pub was_frozen: bool,
+        pub freeze_duration: Option<Duration>,
     }
 }
-
-#[cfg(unix)]
-pub mod action_cgroups;
-#[cfg(unix)]
-pub mod memory_tracker;

@@ -16,6 +16,7 @@ def filegroup_impl(ctx):
     Each symlink is based on the `short_path` for the provided `src`.
     """
     output_name = ctx.attrs.out if ctx.attrs.out else ctx.label.name
+    has_content_based_path = ctx.attrs.uses_experimental_content_based_path_hashing or ctx.attrs.has_content_based_path
 
     if type(ctx.attrs.srcs) == type({}):
         srcs = ctx.attrs.srcs
@@ -38,7 +39,7 @@ def filegroup_impl(ctx):
             output_name,
             srcs,
             executable_bit_override = ctx.attrs.executable_bit_override,
-            uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing,
+            has_content_based_path = has_content_based_path,
         )
     elif ctx.attrs.executable_bit_override != None:
         fail("filegroup does not allow specifying `executable_bit_override` with `copy = False`")
@@ -46,7 +47,7 @@ def filegroup_impl(ctx):
         output = ctx.actions.symlinked_dir(
             output_name,
             srcs,
-            uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing,
+            has_content_based_path = has_content_based_path,
         )
 
     if type(ctx.attrs.srcs) == type([]):

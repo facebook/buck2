@@ -7,11 +7,10 @@
 
 %% @format
 -module(bounded_buffer).
-
--compile(warn_missing_spec).
 -moduledoc """
 A bounded FIFO queue
 """.
+-compile(warn_missing_spec_all).
 
 %% Public API
 -export([new/1, put/2, get_elements/1]).

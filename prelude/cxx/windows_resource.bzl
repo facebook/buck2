@@ -30,7 +30,7 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(non_exported_deps)
 
     preprocessor = cxx_merge_cpreprocessors(
-        ctx,
+        ctx.actions,
         [own_non_exported_preprocessor_info],
         inherited_non_exported_preprocessor_infos,
     )

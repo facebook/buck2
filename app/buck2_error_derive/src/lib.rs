@@ -11,7 +11,6 @@
 // This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
 
 #![allow(clippy::manual_map)]
-#![feature(let_chains)]
 
 mod ast;
 mod attr;

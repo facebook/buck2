@@ -11,6 +11,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "LinkerType",
@@ -325,6 +326,20 @@ def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFil
 
     return result
 
+def _link_info_to_tbd_creation_args(value: LinkInfo) -> cmd_args:
+    result = cmd_args()
+    for linkable in value.linkables:
+        if isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
+            for object in linkable.archive.external_objects:
+                result.add(object)
+        elif isinstance(linkable, ArchiveLinkable):
+            result.add(linkable.archive.artifact)
+        if isinstance(linkable, ObjectsLinkable):
+            for object in linkable.objects:
+                result.add(object)
+
+    return result
+
 LinkableFlavor = enum(
     # Provides compile outputs
     "default",
@@ -370,6 +385,9 @@ def _link_info_object_files_and_lazy_archives_only_args(infos: LinkInfos) -> cmd
 def _link_info_excluding_object_files_and_lazy_archives_args(infos: LinkInfos) -> cmd_args:
     return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives"))
 
+def _link_info_tbd_creation_args(infos: LinkInfos) -> cmd_args:
+    return _link_info_to_tbd_creation_args(infos.default)
+
 def link_info_to_metadata_args(info: LinkInfo, args: cmd_args | None = None) -> ArgLike:
     if args == None:
         args = cmd_args()
@@ -389,6 +407,7 @@ LinkInfosTSet = transitive_set(
         "metadata": _link_info_metadata_args,
         "object_files_and_lazy_archives_only": _link_info_object_files_and_lazy_archives_only_args,
         "stripped": _link_info_stripped_link_args,
+        "tbd_creation_args": _link_info_tbd_creation_args,
     },
 )
 
@@ -734,6 +753,24 @@ def unpack_link_args_object_files_and_lazy_archives_only(args: LinkArgs) -> [Arg
 
     fail("Unpacked invalid empty link args")
 
+def unpack_link_args_for_tbd_creation(args: LinkArgs) -> ArgLike:
+    if args.tset != None:
+        if args.tset.prefer_stripped:
+            fail("Preferring stripped link infos is not supported by this function.")
+
+        return args.tset.infos.project_as_args("tbd_creation_args")
+
+    if args.infos != None:
+        result_args = cmd_args()
+        for info in args.infos:
+            result_args.add(_link_info_to_tbd_creation_args(info))
+        return result_args
+
+    if args.flags != None:
+        return None
+
+    fail("Unpacked invalid empty link args")
+
 def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs) -> ArtifactTSet:
     if args.tset != None:
         if args.tset.prefer_stripped:
@@ -806,8 +843,9 @@ def get_link_args_for_strategy(
     )
 
     if transformation_spec_context and not transformation_spec_context.provider.is_empty:
+        link_ordering = get_cxx_toolchain_info(ctx).linker_info.link_ordering or "preorder"
         flattened_results = []
-        for link_infos in infos.traverse():
+        for link_infos in infos.traverse(ordering = link_ordering):
             link_info = get_link_info_for_transformation(
                 transformation_spec_context,
                 link_infos,
@@ -827,11 +865,14 @@ def get_link_args_for_strategy(
         ),
     )
 
-def get_link_info_for_transformation(transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+def _get_non_transformed_info(link_infos: LinkInfos, prefer_stripped: bool) -> LinkInfo:
     if prefer_stripped:
         return link_infos.stripped or link_infos.default
+    return link_infos.default
 
-    info = link_infos.default
+def get_link_info_for_transformation(transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+    info = None
+
     if label:
         transformation_kind = transformation_spec_context.provider.determine_transformation(label, transformation_spec_context.graph_info)
         if transformation_kind:
@@ -840,7 +881,7 @@ def get_link_info_for_transformation(transformation_spec_context: Transformation
             elif transformation_kind == TransformationKind("optimized"):
                 info = link_infos.optimized
 
-    return info or link_infos.default
+    return info or _get_non_transformed_info(link_infos, prefer_stripped)
 
 def get_lib_output_style(
         requested_link_strategy: LinkStrategy,

@@ -49,6 +49,7 @@ public class Ksp1Step extends KotlincStep {
       ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath,
       @Nullable String kosabiEarlyTerminationMessagePrefix,
       ImmutableList<AbsPath> sourceOnlyAbiClasspath,
+      boolean shouldTrackClassUsage,
       KotlinCDAnalytics kotlinCDAnalytics) {
     super(
         invokingRule,
@@ -62,7 +63,7 @@ public class Ksp1Step extends KotlincStep {
         extraArguments,
         ImmutableList.of(VERBOSE),
         outputPaths,
-        false,
+        shouldTrackClassUsage,
         configuredBuckOut,
         resolvedKosabiPluginOptionPath,
         kosabiEarlyTerminationMessagePrefix,

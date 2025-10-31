@@ -1,0 +1,43 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_cmd_targets_server",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/lib.rs",
+    test_deps = [],
+    deps = [
+        "fbsource//third-party/rust:async-recursion",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:blake3",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:flate2",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:os_str_bytes",
+        "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:siphasher",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:zstd",
+        "//buck2/app/buck2_artifact:buck2_artifact",
+        "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_cli_proto:buck2_cli_proto",
+        "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_data:buck2_data",
+        "//buck2/app/buck2_error:buck2_error",
+        "//buck2/app/buck2_execute:buck2_execute",
+        "//buck2/app/buck2_futures:buck2_futures",
+        "//buck2/app/buck2_interpreter:buck2_interpreter",
+        "//buck2/app/buck2_node:buck2_node",
+        "//buck2/app/buck2_query:buck2_query",
+        "//buck2/app/buck2_server_ctx:buck2_server_ctx",
+        "//buck2/app/buck2_util:buck2_util",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
+    ],
+)

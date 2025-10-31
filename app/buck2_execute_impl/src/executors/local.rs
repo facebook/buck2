@@ -19,6 +19,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -26,6 +27,7 @@ use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::async_fs_util;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -71,22 +73,25 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_forkserver::client::ForkserverClient;
-use buck2_forkserver::run::CommandResult;
-use buck2_forkserver::run::GatherOutputStatus;
-use buck2_forkserver::run::gather_output;
-use buck2_forkserver::run::maybe_absolutize_exe;
-use buck2_forkserver::run::timeout_into_cancellation;
+use buck2_execute_local::CommandResult;
+use buck2_execute_local::DefaultKillProcess;
+use buck2_execute_local::GatherOutputStatus;
+use buck2_execute_local::decode_command_event_stream;
+use buck2_execute_local::maybe_absolutize_exe;
+use buck2_execute_local::spawn_command_and_stream_events;
+use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_resource_control::CommandType;
+use buck2_resource_control::action_cgroups::ActionCgroupSession;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
 use derive_more::From;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
 use futures::future::join_all;
-use futures::future::select;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
@@ -94,7 +99,6 @@ use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
 use indexmap::IndexMap;
 use tracing::info;
-use uuid::Uuid;
 
 use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
@@ -164,6 +168,13 @@ enum LocalExecutionError {
     RemoteOnlyAction,
 }
 
+#[derive(Clone, Dupe, Allocative)]
+pub enum ForkserverAccess {
+    None,
+    #[cfg(unix)]
+    Client(buck2_forkserver::client::ForkserverClient),
+}
+
 #[derive(Clone)]
 pub struct LocalExecutor {
     artifact_fs: ArtifactFs,
@@ -172,11 +183,11 @@ pub struct LocalExecutor {
     blocking_executor: Arc<dyn BlockingExecutor>,
     pub(crate) host_sharing_broker: Arc<HostSharingBroker>,
     root: AbsNormPathBuf,
-    #[cfg_attr(not(unix), allow(unused))]
-    forkserver: Option<ForkserverClient>,
+    forkserver: ForkserverAccess,
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
     worker_pool: Option<Arc<WorkerPool>>,
+    memory_tracker: Option<MemoryTrackerHandle>,
     local_action_counter: Option<Arc<LocalActionCounter>>,
 }
 
@@ -188,9 +199,10 @@ impl LocalExecutor {
         blocking_executor: Arc<dyn BlockingExecutor>,
         host_sharing_broker: Arc<HostSharingBroker>,
         root: AbsNormPathBuf,
-        forkserver: Option<ForkserverClient>,
+        forkserver: ForkserverAccess,
         knobs: ExecutorGlobalKnobs,
         worker_pool: Option<Arc<WorkerPool>>,
+        memory_tracker: Option<MemoryTrackerHandle>,
         local_action_counter: Option<Arc<LocalActionCounter>>,
     ) -> Self {
         Self {
@@ -203,6 +215,7 @@ impl LocalExecutor {
             forkserver,
             knobs,
             worker_pool,
+            memory_tracker,
             local_action_counter,
         }
     }
@@ -219,8 +232,7 @@ impl LocalExecutor {
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
-        cgroup_command_id: &'a str,
-        command_type: CommandType,
+        cgroup: Option<CgroupPathBuf>,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             if let Some(counter) = self.local_action_counter.as_ref() {
@@ -230,36 +242,25 @@ impl LocalExecutor {
             let working_directory = self.root.join_cow(working_directory);
 
             let result = match &self.forkserver {
-                Some(forkserver) => {
-                    #[cfg(unix)]
-                    {
-                        unix::exec_via_forkserver(
-                            forkserver,
-                            exe,
-                            args,
-                            env,
-                            &working_directory,
-                            timeout,
-                            env_inheritance,
-                            liveliness_observer,
-                            self.knobs.enable_miniperf && !disable_miniperf,
-                            cgroup_command_id,
-                            command_type,
-                        )
-                        .await
-                    }
-
-                    #[cfg(not(unix))]
-                    {
-                        let _unused = (forkserver, disable_miniperf, cgroup_command_id);
-                        Err(buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "Forkserver is not supported off-UNIX"
-                        ))
-                    }
+                #[cfg(unix)]
+                ForkserverAccess::Client(forkserver) => {
+                    unix::exec_via_forkserver(
+                        forkserver,
+                        exe,
+                        args,
+                        env,
+                        &working_directory,
+                        timeout,
+                        env_inheritance,
+                        liveliness_observer,
+                        self.knobs.enable_miniperf && !disable_miniperf,
+                        cgroup,
+                    )
+                    .await
                 }
-
-                None => {
+                ForkserverAccess::None => {
+                    let _disable_miniperf = disable_miniperf;
+                    let _cgroup = cgroup;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
@@ -270,16 +271,23 @@ impl LocalExecutor {
                         env,
                         env_inheritance,
                     );
-                    let timeout = timeout_into_cancellation(timeout);
 
                     let alive = liveliness_observer
                         .while_alive()
                         .map(|()| Ok(GatherOutputStatus::Cancelled));
 
-                    let cancellation =
-                        select(timeout.boxed(), alive.boxed()).map(|r| r.factor_first().0);
-
-                    gather_output(cmd, cancellation).await
+                    let stream = spawn_command_and_stream_events(
+                        cmd,
+                        timeout,
+                        alive,
+                        DefaultStatusDecoder,
+                        DefaultKillProcess::default(),
+                        None,
+                        true,
+                        true,
+                    )
+                    .await?;
+                    decode_command_event_stream(stream).await
                 }
                 .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
             };
@@ -290,6 +298,194 @@ impl LocalExecutor {
 
             result
         }
+    }
+
+    async fn exec_once(
+        &self,
+        action_digest: &ActionDigest,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        cancellations: &CancellationContext,
+        liveliness_observer: impl LivelinessObserver + 'static,
+        scratch_path: &ScratchPath,
+        args: &[String],
+        worker: Option<&WorkerHandle>,
+        env: &[(&str, StrOrOsStr<'_>)],
+        cgroup: Option<CgroupPathBuf>,
+    ) -> Result<
+        (
+            Duration,
+            SystemTime,
+            CommandResult,
+            CommandExecutionManagerWithClaim,
+        ),
+        CommandExecutionResult,
+    > {
+        if let Err(e) = executor_stage_async(
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
+            },
+            async {
+                tokio::try_join!(
+                    create_output_dirs(
+                        &self.artifact_fs,
+                        request,
+                        self.materializer.dupe(),
+                        self.blocking_executor.dupe(),
+                        cancellations,
+                    ),
+                    prep_scratch_path(&scratch_path, &self.artifact_fs),
+                )
+                .buck_error_context("Error creating output directories")?;
+
+                buck2_error::Ok(())
+            },
+        )
+        .boxed()
+        .await
+        {
+            return Err(manager.error("prepare_output_dirs_failed", e));
+        };
+
+        let (execution_time, start_time, res) = executor_stage_async(
+            {
+                let env = env
+                    .iter()
+                    .copied()
+                    .map(|(k, v)| buck2_data::EnvironmentEntry {
+                        key: k.to_owned(),
+                        value: v.into_string_lossy(),
+                    })
+                    .collect();
+
+                let stage = match worker {
+                    None => buck2_data::LocalExecute {
+                        command: Some(buck2_data::LocalCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: args.to_vec(),
+                            env,
+                        }),
+                    }
+                    .into(),
+                    Some(_) => buck2_data::WorkerExecute {
+                        command: Some(buck2_data::WorkerCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: request.args().to_vec(),
+                            env,
+                            fallback_exe: request.exe().to_vec(),
+                        }),
+                    }
+                    .into(),
+                };
+                buck2_data::LocalStage { stage: Some(stage) }
+            },
+            async move {
+                let execution_start = Instant::now();
+                let start_time = SystemTime::now();
+
+                let env = env.iter().map(|(k, v)| (k, v.into_os_str()));
+                let r = if let Some(worker) = worker {
+                    let env: Vec<(OsString, OsString)> = env
+                        .into_iter()
+                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
+                        .collect();
+                    Ok(worker
+                        .exec_cmd(request.args(), env, request.timeout())
+                        .await)
+                } else {
+                    self.exec(
+                        &args[0],
+                        &args[1..],
+                        env,
+                        request.working_directory(),
+                        request.timeout(),
+                        request.local_environment_inheritance(),
+                        liveliness_observer,
+                        request.disable_miniperf(),
+                        cgroup,
+                    )
+                    .await
+                };
+
+                let execution_time = execution_start.elapsed();
+
+                (execution_time, start_time, r)
+            },
+        )
+        .boxed()
+        .await;
+
+        match res {
+            Ok(res) => Ok((execution_time, start_time, res, manager)),
+            Err(e) => Err(manager.error("exec_failed", e)),
+        }
+    }
+
+    async fn exec_with_resource_control(
+        &self,
+        action_digest: &ActionDigest,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        cancellations: &CancellationContext,
+        liveliness_observer: impl LivelinessObserver + 'static,
+        scratch_path: &ScratchPath,
+        args: &[String],
+        worker: Option<&WorkerHandle>,
+        env: &[(&str, StrOrOsStr<'_>)],
+        dispatcher: EventDispatcher,
+    ) -> Result<
+        (
+            Duration,
+            SystemTime,
+            CommandResult,
+            CommandExecutionManagerWithClaim,
+        ),
+        CommandExecutionResult,
+    > {
+        let cgroup_session = if worker.is_some() {
+            None
+        } else {
+            let command_type = if request.is_test() {
+                CommandType::Test
+            } else {
+                CommandType::Build
+            };
+            match ActionCgroupSession::maybe_create(
+                &self.memory_tracker,
+                dispatcher,
+                command_type,
+                Some(action_digest.to_string()),
+            )
+            .await
+            {
+                Ok(x) => x,
+                Err(e) => return Err(manager.error("initializing_resource_control", e)),
+            }
+        };
+
+        let mut res = self
+            .exec_once(
+                action_digest,
+                request,
+                manager,
+                cancellations,
+                liveliness_observer,
+                scratch_path,
+                args,
+                worker,
+                env,
+                cgroup_session.as_ref().map(|s| s.path.clone()),
+            )
+            .await;
+
+        if let Some(mut cgroup_session) = cgroup_session {
+            let cgroup_res = cgroup_session.command_finished().await;
+            if let Ok(res) = &mut res {
+                res.2.cgroup_result = Some(cgroup_res);
+            }
+        }
+
+        res
     }
 
     async fn exec_request(
@@ -369,77 +565,10 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().boxed().await;
 
-        let scratch_path = &scratch_path.0;
-
-        if let Err(e) = executor_stage_async(
-            buck2_data::LocalStage {
-                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
-            },
-            async move {
-                create_output_dirs(
-                    &self.artifact_fs,
-                    request,
-                    self.materializer.dupe(),
-                    self.blocking_executor.dupe(),
-                    cancellations,
-                )
-                .await
-                .buck_error_context("Error creating output directories")?;
-
-                buck2_error::Ok(())
-            },
-        )
-        .boxed()
-        .await
-        {
-            return manager.error("prepare_output_dirs_failed", e);
-        };
-
         info!(
             "Local execution command line:\n```\n$ {}\n```",
             args.join(" "),
         );
-
-        let scratch_path_abs;
-
-        let tmpdirs = if let Some(scratch_path) = scratch_path {
-            // For the $TMPDIR - important it is absolute
-            scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
-
-            if cfg!(windows) {
-                const MAX_PATH: usize = 260;
-                if scratch_path_abs.as_os_str().len() > MAX_PATH {
-                    return manager.error(
-                        "scratch_dir_too_long",
-                        buck2_error!(
-                            buck2_error::ErrorTag::Environment,
-                            "Scratch directory path is longer than MAX_PATH: {}",
-                            scratch_path_abs
-                        ),
-                    );
-                }
-                vec![
-                    ("TEMP", scratch_path_abs.as_os_str()),
-                    ("TMP", scratch_path_abs.as_os_str()),
-                ]
-            } else {
-                vec![("TMPDIR", scratch_path_abs.as_os_str())]
-            }
-        } else {
-            vec![]
-        };
-
-        let local_resource_env_vars: Vec<(&str, StrOrOsStr)> = local_resource_holders
-            .iter()
-            .flat_map(|h| {
-                h.as_ref().0.iter().map(|env_var| {
-                    (
-                        env_var.key.as_str(),
-                        StrOrOsStr::from(env_var.value.as_str()),
-                    )
-                })
-            })
-            .collect();
 
         let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
         let dispatcher = match get_dispatcher_opt() {
@@ -456,30 +585,54 @@ impl LocalExecutor {
         };
         let build_id: &str = &dispatcher.trace_id().to_string();
 
-        let iter_env = || {
-            tmpdirs
+        let mut env = vec![];
+
+        let scratch_path_abs;
+
+        if let Some(scratch_path) = &scratch_path.0 {
+            // For the $TMPDIR - important it is absolute
+            scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
+
+            if cfg!(windows) {
+                const MAX_PATH: usize = 260;
+                if scratch_path_abs.as_os_str().len() > MAX_PATH {
+                    return manager.error(
+                        "scratch_dir_too_long",
+                        buck2_error!(
+                            buck2_error::ErrorTag::Environment,
+                            "Scratch directory path is longer than MAX_PATH: {}",
+                            scratch_path_abs
+                        ),
+                    );
+                }
+                env.push(("TEMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+                env.push(("TMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+            } else {
+                env.push(("TMPDIR", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+            }
+        }
+        env.extend(
+            request
+                .env()
                 .iter()
-                .map(|(k, v)| (*k, StrOrOsStr::from(*v)))
-                .chain(
-                    request
-                        .env()
-                        .iter()
-                        .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+                .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+        );
+
+        env.extend(local_resource_holders.iter().flat_map(|h| {
+            h.as_ref().0.iter().map(|env_var| {
+                (
+                    env_var.key.as_str(),
+                    StrOrOsStr::from(env_var.value.as_str()),
                 )
-                .chain(local_resource_env_vars.iter().copied())
-                .chain(std::iter::once((
-                    "BUCK2_DAEMON_UUID",
-                    StrOrOsStr::from(daemon_uuid),
-                )))
-                .chain(std::iter::once((
-                    "BUCK_BUILD_ID",
-                    StrOrOsStr::from(build_id),
-                )))
-        };
+            })
+        }));
+        env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(daemon_uuid)));
+        env.push(("BUCK_BUILD_ID", StrOrOsStr::from(build_id)));
+
         let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
 
         let (worker, manager) = self
-            .initialize_worker(request, manager, dispatcher)
+            .initialize_worker(request, manager, dispatcher.dupe())
             .boxed()
             .await?;
 
@@ -497,102 +650,44 @@ impl LocalExecutor {
             },
         };
 
-        let (mut timing, res) = executor_stage_async(
-            {
-                let env = iter_env()
-                    .map(|(k, v)| buck2_data::EnvironmentEntry {
-                        key: k.to_owned(),
-                        value: v.into_string_lossy(),
-                    })
-                    .collect();
-
-                let stage = match worker {
-                    None => buck2_data::LocalExecute {
-                        command: Some(buck2_data::LocalCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: args.to_vec(),
-                            env,
-                        }),
-                    }
-                    .into(),
-                    Some(_) => buck2_data::WorkerExecute {
-                        command: Some(buck2_data::WorkerCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: request.args().to_vec(),
-                            env,
-                            fallback_exe: request.exe().to_vec(),
-                        }),
-                    }
-                    .into(),
-                };
-                buck2_data::LocalStage { stage: Some(stage) }
-            },
-            async move {
-                let execution_start = Instant::now();
-                let start_time = SystemTime::now();
-
-                let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
-                let r = if let Some(worker) = worker {
-                    let env: Vec<(OsString, OsString)> = env
-                        .into_iter()
-                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
-                        .collect();
-                    Ok(worker
-                        .exec_cmd(request.args(), env, request.timeout())
-                        .await)
-                } else {
-                    let cgroup_command_id = Uuid::new_v4().to_string();
-                    let command_type = if request.is_test() {
-                        CommandType::Test
-                    } else {
-                        CommandType::Action
-                    };
-                    self.exec(
-                        &args[0],
-                        &args[1..],
-                        env,
-                        request.working_directory(),
-                        request.timeout(),
-                        request.local_environment_inheritance(),
-                        liveliness_observer,
-                        request.disable_miniperf(),
-                        &cgroup_command_id,
-                        command_type,
-                    )
-                    .await
-                };
-
-                let execution_time = execution_start.elapsed();
-
-                let timing = Box::new(CommandExecutionMetadata {
-                    wall_time: execution_time,
-                    execution_time,
-                    start_time,
-                    execution_stats: None, // We fill this in later if available.
-                    input_materialization_duration,
-                    hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
-                    hashed_artifacts_count: 0,
-                    queue_duration: None,
-                    was_frozen: false, // Will fill in later if avalable
-                });
-
-                (timing, r)
-            },
-        )
-        .boxed()
-        .await;
+        let (execution_time, start_time, res, manager) = match self
+            .exec_with_resource_control(
+                action_digest,
+                request,
+                manager,
+                cancellations,
+                liveliness_observer,
+                &scratch_path,
+                args,
+                worker.as_deref(),
+                &env,
+                dispatcher,
+            )
+            .await
+        {
+            Ok(x) => x,
+            Err(e) => return e,
+        };
 
         let CommandResult {
             status,
             stdout,
             stderr,
             cgroup_result,
-        } = match res {
-            Ok(res) => res,
-            Err(e) => {
-                return manager.error("exec_failed", e);
-            }
-        };
+        } = res;
+
+        let mut timing = Box::new(CommandExecutionMetadata {
+            wall_time: execution_time,
+            execution_time,
+            start_time,
+            execution_stats: None, // We fill this in later if available.
+            input_materialization_duration,
+            hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
+            hashed_artifacts_count: 0,
+            queue_duration: None,
+            was_frozen: false, // Will fill in later if avalable
+            freeze_duration: None,
+        });
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
 
@@ -612,15 +707,21 @@ impl LocalExecutor {
                     }
                 };
 
+                let execution_stats = execution_stats.map(|s| buck2_data::CommandExecutionStats {
+                    cpu_instructions_user: s.cpu_instructions_user,
+                    cpu_instructions_kernel: s.cpu_instructions_kernel,
+                    userspace_events: s.userspace_events,
+                    kernel_events: s.kernel_events,
+                    memory_peak: cgroup_result.as_ref().and_then(|c| c.memory_peak),
+                });
+
                 timing.execution_stats = execution_stats;
                 if let Some(cgroup_result) = cgroup_result {
-                    if let Some(mut stats) = execution_stats {
-                        stats.memory_peak = cgroup_result.memory_peak;
-                    }
                     if let Some(e) = cgroup_result.error {
                         let _unused = soft_error!("action_cgroup_error", e);
                     }
                     timing.was_frozen = cgroup_result.was_frozen;
+                    timing.freeze_duration = cgroup_result.freeze_duration;
                 }
 
                 timing.hashing_duration = hashing_time.hashing_duration;
@@ -711,7 +812,7 @@ impl LocalExecutor {
                     None,
                 )
             }
-            GatherOutputStatus::Cancelled => manager.cancel_claim(),
+            GatherOutputStatus::Cancelled => manager.cancel_claim(execution_kind, *timing),
         };
 
         if let Some(run_action_key) = request.run_action_key()
@@ -733,7 +834,7 @@ impl LocalExecutor {
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<(IndexMap<CommandExecutionOutput, ArtifactValue>, HashingInfo)> {
-        let mut builder = inputs_directory(request.inputs(), &self.artifact_fs)?;
+        let mut builder = inputs_directory(request.inputs(), digest_config, &self.artifact_fs)?;
 
         // Read outputs from disk and add them to the builder
         let mut entries = Vec::new();
@@ -758,7 +859,7 @@ impl LocalExecutor {
             total_hashing_time += hashing_info.hashing_duration;
             total_hashed_outputs += hashing_info.hashed_artifacts_count;
             if let Some(entry) = entry {
-                insert_entry(&mut builder, &path, entry)?;
+                insert_entry(&mut builder, path.clone(), entry)?;
                 entries.push((output.cloned(), path));
             }
         }
@@ -804,7 +905,7 @@ impl LocalExecutor {
                                 ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
                             builder.add_symlinked(
                                 &value,
-                                &hashed_path,
+                                hashed_path.clone(),
                                 &configuration_hash_path,
                             )?;
                             let symlink_value = builder.build(&configuration_hash_path)?;
@@ -821,7 +922,7 @@ impl LocalExecutor {
                                 value.dupe(),
                                 vec![CopiedArtifact {
                                     src: output_path.clone(),
-                                    dest: hashed_path.clone(),
+                                    dest: hashed_path,
                                     dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
                                     executable_bit_override: None,
                                 }],
@@ -902,6 +1003,20 @@ impl LocalExecutor {
         }
     }
 
+    #[cfg(not(unix))]
+    async fn initialize_worker(
+        &self,
+        _request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        _dispatcher: EventDispatcher,
+    ) -> ControlFlow<
+        CommandExecutionResult,
+        (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
+    > {
+        ControlFlow::Continue((None, manager))
+    }
+
+    #[cfg(unix)]
     async fn initialize_worker(
         &self,
         request: &CommandExecutionRequest,
@@ -911,12 +1026,9 @@ impl LocalExecutor {
         CommandExecutionResult,
         (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
     > {
-        if let (Some(worker_spec), Some(worker_pool), Some(forkserver), true) = (
-            request.worker(),
-            self.worker_pool.dupe(),
-            self.forkserver.dupe(),
-            cfg!(unix),
-        ) {
+        if let (Some(worker_spec), Some(worker_pool), ForkserverAccess::Client(_)) =
+            (request.worker(), self.worker_pool.dupe(), &self.forkserver)
+        {
             let env = worker_spec
                 .env
                 .iter()
@@ -925,7 +1037,7 @@ impl LocalExecutor {
                 worker_spec,
                 env,
                 &self.root,
-                forkserver.clone(),
+                self.forkserver.dupe(),
                 dispatcher,
             );
 
@@ -1046,17 +1158,9 @@ impl LocalExecutor {
                 }
             }
 
-            join_all(copy_futs).await.map(|result| {
-                if let Err(e) = result {
-                    // Builds can still pass without incremental outputs so we shouldn't error out, but would be good to track
-                    soft_error!(
-                        "content_based_incremental_copy_failed",
-                        buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e).into(),
-                        quiet: true
-                    )
-                    .unwrap();
-                };
-            });
+            // The materialization we do for incremental action outputs is best-effort. The copy
+            // will fail if the materialization failed, and that's okay.
+            join_all(copy_futs).await;
         }
 
         Ok(())
@@ -1169,10 +1273,11 @@ pub struct MaterializedInputPaths {
     pub paths: Vec<ProjectRelativePathBuf>,
 }
 
-/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed locally.
+/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed
+/// locally.
 ///
-/// This also discovers the scratch directory if any was passed (if multiple are passed, one of
-/// them is returned).
+/// This also discovers the scratch directory if any was passed, but does not yet do anything with
+/// it - call `prep_scratch_path`.
 pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
@@ -1183,7 +1288,13 @@ pub async fn materialize_inputs(
     let mut scratch = ScratchPath(None);
     let mut configuration_path_to_content_based_path_symlinks = vec![];
 
-    for input in request.inputs() {
+    for input in request.inputs().iter().chain(
+        request
+            .worker()
+            .as_ref()
+            .map(|w| w.inputs())
+            .unwrap_or_default(),
+    ) {
         match input {
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, artifact_value) in group.iter() {
@@ -1205,7 +1316,7 @@ pub async fn materialize_inputs(
                                     ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
                                 builder.add_symlinked(
                                     artifact_value,
-                                    &content_based_path,
+                                    content_based_path,
                                     &configuration_hash_path,
                                 )?;
                                 let symlink_value = builder.build(&configuration_hash_path)?;
@@ -1228,10 +1339,11 @@ pub async fn materialize_inputs(
             CommandExecutionInput::ScratchPath(path) => {
                 let path = artifact_fs.buck_out_path_resolver().resolve_scratch(path)?;
 
-                // Clean and produce it.
-                CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
-                fs_util::create_dir_all(artifact_fs.fs().resolve(&path))?;
-
+                if scratch.0.is_some() {
+                    return Err(buck2_error::internal_error!(
+                        "Multiple scratch paths for one action"
+                    ));
+                }
                 scratch.0 = Some(path);
             }
             CommandExecutionInput::IncrementalRemoteOutput(..) => {
@@ -1275,6 +1387,17 @@ pub async fn materialize_inputs(
 
 /// A scratch path discovered during `materialize_inputs`.
 pub struct ScratchPath(Option<ProjectRelativePathBuf>);
+
+pub async fn prep_scratch_path(
+    scratch_path: &ScratchPath,
+    artifact_fs: &ArtifactFs,
+) -> buck2_error::Result<()> {
+    let Some(path) = scratch_path.0.as_ref() else {
+        return Ok(());
+    };
+    CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
+    async_fs_util::create_dir_all(artifact_fs.fs().resolve(path)).await
+}
 
 async fn check_inputs(
     manager: CommandExecutionManagerWithClaim,
@@ -1483,12 +1606,10 @@ impl EnvironmentBuilder for Command {
 mod unix {
     use std::os::unix::ffi::OsStrExt;
 
-    use buck2_resource_control::CommandType;
-
     use super::*;
 
     pub async fn exec_via_forkserver(
-        forkserver: &ForkserverClient,
+        forkserver: &buck2_forkserver::client::ForkserverClient,
         exe: impl AsRef<OsStr>,
         args: impl IntoIterator<Item = impl AsRef<OsStr>>,
         env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
@@ -1497,8 +1618,7 @@ mod unix {
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
-        cgroup_command_id: &str,
-        command_type: CommandType,
+        cgroup_path: Option<CgroupPathBuf>,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1516,15 +1636,11 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            action_digest: Some(cgroup_command_id.to_owned()),
+            command_cgroup: cgroup_path.map(|p| p.to_string()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
-            .execute(
-                req,
-                async move { liveliness_observer.while_alive().await },
-                command_type,
-            )
+            .execute(req, async move { liveliness_observer.while_alive().await })
             .await
     }
 
@@ -1619,8 +1735,9 @@ mod tests {
                 1,
             )),
             temp.path().root().to_buf(),
-            None,
+            ForkserverAccess::None,
             ExecutorGlobalKnobs::default(),
+            None,
             None,
             None,
         );
@@ -1643,8 +1760,7 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                CommandType::Action,
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1680,8 +1796,7 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                CommandType::Action,
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1706,8 +1821,7 @@ mod tests {
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                CommandType::Action,
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
