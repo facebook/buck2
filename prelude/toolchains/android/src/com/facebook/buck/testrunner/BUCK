@@ -161,8 +161,23 @@ buck_java_library(
     ],
 )
 
+# Vanilla Java test runner binary without Android instrumentation
 buck_java_binary(
     name = "testrunner-bin",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        ":junit",
+        ":testng",
+    ],
+)
+
+# Android test runner binary with instrumentation support
+buck_java_binary(
+    name = "testrunner-bin-android",
     visibility = [
         "PUBLIC",
     ],
@@ -178,6 +193,7 @@ buck_java_binary(
 
 # Strip out classes we don't want automatically added to the classpath for
 # tests, leaving just the extra buck classes.
+# This version is for vanilla Java tests.
 fb_native.zip_file(
     name = "testrunner-bin-fixed",
     out = "testrunner-bin-fixed.jar",
@@ -189,5 +205,22 @@ fb_native.zip_file(
     ],
     zip_srcs = [
         ":testrunner-bin",
+    ],
+)
+
+# Strip out classes we don't want automatically added to the classpath for
+# tests, leaving just the extra buck classes.
+# This version includes Android instrumentation support.
+fb_native.zip_file(
+    name = "testrunner-bin-android-fixed",
+    out = "testrunner-bin-android-fixed.jar",
+    entries_to_exclude = [
+        "^(?!com/facebook/buck/|META-INF/services/org.junit.jupiter|com/fasterxml/jackson/core|kotlin/).*",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    zip_srcs = [
+        ":testrunner-bin-android",
     ],
 )

@@ -86,7 +86,7 @@ def system_android_toolchain(
     kwargs["installer"] = "prelude//toolchains/android/src/com/facebook/buck/installer/android:android_installer"
     kwargs["instrumentation_test_can_run_locally"] = True
     kwargs["instrumentation_test_runner_classpath"] = [
-        "prelude//toolchains/android/src/com/facebook/buck/testrunner:testrunner-bin-fixed",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:testrunner-bin-android-fixed",
         "prelude//toolchains/android/third-party:android-common",
         "prelude//toolchains/android/third-party:ddmlib",
         "prelude//toolchains/android/third-party:guava-jar",
