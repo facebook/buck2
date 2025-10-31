@@ -859,11 +859,18 @@ public class InstrumentationTestRunner extends DeviceRunner {
         layer.report();
       }
       if (this.attemptUninstallInstrumentationApk) {
-        // Best effort uninstall from the emulator/device.
-        device.uninstallPackage(this.packageName);
+        try {
+          androidDevice.uninstallPackage(this.packageName);
+        } catch (Exception e) {
+          System.err.printf("Failed to uninstall instrumentation package: %s\n", e);
+        }
       }
       if (this.attemptUninstallApkUnderTest) {
-        device.uninstallPackage(this.targetPackageName);
+        try {
+          androidDevice.uninstallPackage(this.targetPackageName);
+        } catch (Exception e) {
+          System.err.printf("Failed to uninstall target package: %s\n", e);
+        }
       }
     }
   }
