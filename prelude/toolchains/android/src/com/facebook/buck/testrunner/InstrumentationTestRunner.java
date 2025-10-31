@@ -477,7 +477,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   private String buildFastdeployInstallCommand(IDevice device, String path) {
-    String deviceSerial = device.getSerialNumber();
+    String deviceSerial = androidDevice.getSerialNumber();
     return getAdbPath() + " -s " + deviceSerial + " install --fastdeploy " + path;
   }
 
