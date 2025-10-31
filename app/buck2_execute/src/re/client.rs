@@ -49,7 +49,6 @@ use remote_execution::BuckInfo;
 use remote_execution::ClientBuilderCommonMethods;
 use remote_execution::DownloadRequest;
 use remote_execution::ExecuteRequest;
-use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
 use remote_execution::ExtendDigestsTtlRequest;
 use remote_execution::GetDigestsTtlRequest;
@@ -94,6 +93,8 @@ use crate::re::error::test_re_error;
 use crate::re::error::with_error_handler;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::queue_stats::QueueStats;
+use crate::re::remote_action_result::ExecuteResponseWithQueueStats;
 use crate::re::stats::LocalCacheRemoteExecutionClientStats;
 use crate::re::stats::LocalCacheStats;
 use crate::re::stats::OpStats;
@@ -135,13 +136,8 @@ pub struct RemoteExecutionClient {
 // The large one is the actual default case
 #[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponseOrCancelled {
-    Response(ExecuteResponse),
+    Response(ExecuteResponseWithQueueStats),
     Cancelled(Cancelled, QueueStats),
-}
-
-#[derive(Default)]
-pub struct QueueStats {
-    pub cumulative_queue_duration: Duration,
 }
 
 #[derive(Allocative)]
@@ -1250,7 +1246,12 @@ impl RemoteExecutionClientImpl {
 
             // Return the result if we're done
             if let Some(execute_response) = progress_response.execute_response {
-                return Ok(ExecuteResponseOrCancelled::Response(execute_response));
+                return Ok(ExecuteResponseOrCancelled::Response(
+                    ExecuteResponseWithQueueStats {
+                        execute_response,
+                        queue_stats,
+                    },
+                ));
             }
 
             // Change the stage

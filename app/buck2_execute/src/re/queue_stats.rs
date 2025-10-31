@@ -8,16 +8,9 @@
  * above-listed licenses.
  */
 
-pub mod action_identity;
-pub mod client;
-pub mod convert;
-pub mod error;
-pub mod manager;
-pub mod metadata;
-pub mod output_trees_download_config;
-pub mod queue_stats;
-pub mod re_get_session_id;
-pub mod remote_action_result;
-mod stats;
-pub mod streams;
-pub mod uploader;
+use std::time::Duration;
+
+#[derive(Default)]
+pub struct QueueStats {
+    pub cumulative_queue_duration: Duration,
+}

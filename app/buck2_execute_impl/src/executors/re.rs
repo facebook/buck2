@@ -47,13 +47,13 @@ use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::error::get_re_error_tag;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
+use buck2_execute::re::remote_action_result::ExecuteResponseWithQueueStats;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexMap;
 use remote_execution as RE;
-use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
 use tracing::info;
 
@@ -165,7 +165,8 @@ impl ReExecutor {
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
-    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
+    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponseWithQueueStats)>
+    {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
             request.all_args_str(),
@@ -246,14 +247,15 @@ impl ReExecutor {
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
-        let additional_message = if response.status.message.is_empty() {
+        let additional_message = if response.execute_response.status.message.is_empty() {
             None
         } else {
-            Some(response.status.message.clone())
+            Some(response.execute_response.status.message.clone())
         };
 
-        if response.status.code != TCode::OK {
-            let res = if let Some(out) = as_missing_outputs_error(&response.status) {
+        if response.execute_response.status.code != TCode::OK {
+            let res = if let Some(out) = as_missing_outputs_error(&response.execute_response.status)
+            {
                 // TODO: Add a dedicated report variant for this.
                 // NOTE: We don't get stdout / stderr from RE when this happens, so the best we can
                 // do here is just pass on the error.
@@ -269,7 +271,9 @@ impl ReExecutor {
                     Default::default(),
                     additional_message,
                 )
-            } else if is_timeout_error(&response.status) && request.timeout().is_some() {
+            } else if is_timeout_error(&response.execute_response.status)
+                && request.timeout().is_some()
+            {
                 manager.timeout(
                     execution_kind,
                     IndexMap::new(),
@@ -281,7 +285,8 @@ impl ReExecutor {
                     additional_message,
                 )
             } else {
-                let error_type = if is_storage_resource_exhausted(&response.status) {
+                let error_type = if is_storage_resource_exhausted(&response.execute_response.status)
+                {
                     CommandExecutionErrorType::StorageResourceExhausted
                 } else {
                     CommandExecutionErrorType::Other
@@ -290,7 +295,7 @@ impl ReExecutor {
                     "remote_exec_error",
                     ReErrorWrapper {
                         action_digest: action_digest.dupe(),
-                        inner: response.status,
+                        inner: response.execute_response.status,
                     },
                     error_type,
                 )
@@ -412,11 +417,11 @@ impl PreparedCommandExecutor for ReExecutor {
             )
             .await?;
 
-        let exit_code = response.action_result.exit_code;
-        let additional_message = if response.status.message.is_empty() {
+        let exit_code = response.execute_response.action_result.exit_code;
+        let additional_message = if response.execute_response.status.message.is_empty() {
             None
         } else {
-            Some(response.status.message.clone())
+            Some(response.execute_response.status.message.clone())
         };
 
         let res = download_action_results(
@@ -447,7 +452,7 @@ impl PreparedCommandExecutor for ReExecutor {
         .await;
 
         let DownloadResult::Result(mut res) = res;
-        res.action_result = Some(response.action_result);
+        res.action_result = Some(response.execute_response.action_result);
 
         if let Some(run_action_key) = request.run_action_key()
             && !request.outputs_cleanup
