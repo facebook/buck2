@@ -635,14 +635,9 @@ def generate_shared_library_interface(
     interface_generation_linker_invocation = cmd_args(linker)
     interface_generation_linker_invocation.add(cmd_args(interface_generation_linker_argsfile, format = "@{}"))
 
-    def _get_shared_library_interface_generation_linker_flags(shared_library_interface: Artifact) -> cmd_args:
-        # @oss-disable[end= ]: return get_shared_library_interface_generation_linker_flags(shared_library_interface)
-
-        # starlark-lint-disable unreachable
-        return cmd_args()
-
     interface_generation_linker_invocation.add(
-        _get_shared_library_interface_generation_linker_flags(shared_library_interface_out),
+        # @oss-disable[end= ]: get_shared_library_interface_generation_linker_flags(shared_library_interface_out),
+        cmd_args(),
     )
     ctx.actions.run(interface_generation_linker_invocation, category = "generate_shared_library_interface", identifier = identifier)
 

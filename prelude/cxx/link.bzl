@@ -285,14 +285,9 @@ def cxx_link_into(
             cmd_args(shared_library_interface_generation_argfile, format = "@{}"),
         )
 
-        def _get_shared_library_interface_generation_linker_flags(shared_library_interface: Artifact) -> cmd_args:
-            # @oss-disable[end= ]: return get_shared_library_interface_generation_linker_flags(shared_library_interface)
-
-            # starlark-lint-disable unreachable
-            return cmd_args()
-
         shared_library_interface_generation_command.add(
-            _get_shared_library_interface_generation_linker_flags(shared_library_interface),
+            # @oss-disable[end= ]: get_shared_library_interface_generation_linker_flags(shared_library_interface),
+            cmd_args(),
         )
         ctx.actions.run(
             shared_library_interface_generation_command,
