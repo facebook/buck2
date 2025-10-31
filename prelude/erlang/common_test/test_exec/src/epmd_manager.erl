@@ -14,7 +14,6 @@ each suite execution.
 -compile(warn_missing_spec_all).
 
 -include_lib("common/include/buck_ct_records.hrl").
--include_lib("kernel/include/logger.hrl").
 
 %% UI methods
 -export([start_link/1, get_epmd_out_path/1, get_port/0]).
@@ -96,7 +95,7 @@ handle_call(get_port, _From, State = #{epmd_port := Port}) -> {reply, Port, Stat
     ({PortEpmd, closed}, State) -> {stop, epmd_port_closed, State} when
         PortEpmd :: erlang:port(),
         State :: local_epmd_state();
-    ({'EXIT', PortEpmd, Reason}, State) -> {stop, {epmd_exit, Reason}, State} when
+    ({'EXIT', PortEpmd, Reason}, State) -> {stop, {epmd_exit, Reason}, State} | {noreply, State} when
         PortEpmd :: erlang:port(),
         Reason :: term(),
         State :: local_epmd_state();
@@ -114,8 +113,7 @@ handle_info({PortEpmd, {exit_status, ExitStatus}}, State) ->
 handle_info({PortEpmd, closed}, State) ->
     #{epmd_erlang_port := PortEpmd} = State,
     {stop, epmd_port_closed, State};
-handle_info({'EXIT', PortEpmd, Reason}, State) ->
-    #{epmd_erlang_port := PortEpmd} = State,
+handle_info({'EXIT', PortEpmd, Reason}, #{epmd_erlang_port := PortEpmd} = State) ->
     {stop, {epmd_exit, Reason}, State};
 handle_info({PortEpmd, {data, TaggedData}}, State) ->
     #{epmd_erlang_port := PortEpmd, log_handle := LogHandle} = State,
