@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//bxl:lazy.bxl", "batch_apply_lazy_catch_each")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("gen_filters.bxl", "gen_filters")
 load("gen_sln.bxl", "gen_sln")
@@ -68,7 +69,7 @@ def _main(bxl_ctx):
     https://buck2.build/docs/developers/dynamic_output/#dynamic-output
     """
     actions = bxl_ctx.bxl_actions().actions
-    targets = []  # list[TargetLabel]. Target list from command line after target pattern expansion.
+    targets = []  # list[ConfiguredTargetNode]. Configured target list from command line after target pattern expansion.
     explicit_targets = {}  # dict[TargetLabel, True]. Explicit target list from command line, i.e., not from target pattern expansion.
     for ulabel in bxl_ctx.cli_args.target:
         # Add explicit cell name when it's omitted as otherwise BXL will use cell name of BXL script, i.e., prelude.
@@ -78,23 +79,40 @@ def _main(bxl_ctx):
             elif ulabel.startswith("//"):
                 ulabel = "fbsource" + ulabel
 
+        is_explicit_target = ":" in ulabel
+
+        # Using bxl_ctx.configured_targets on a wildcard target label will cause all targets to fail
+        # if one of the targets is incompatible. We are using unconfigured_target_nodes_keep_going
+        # to filter out the incompatible targets first.
+        success_targets, error_map = bxl_ctx.lazy.unconfigured_target_nodes_keep_going(ulabel).resolve()
+
+        # Handle errors
+        for package_path, _ in error_map.items():
+            log_debug("Failed to configure target {}, skipping", package_path, bxl_ctx = bxl_ctx)
+
         # Pass along modifiers as required by API to get same configuration as buck2 build.
         # bxl_ctx.modifiers includes modifiers from both command line and mode file.
-        ctargets = bxl_ctx.configured_targets(ulabel, modifiers = bxl_ctx.modifiers)
-        if ctargets == None:
-            pass
-        elif isinstance(ctargets, bxl.ConfiguredTargetSet):
-            targets += [node.label.raw_target() for node in ctargets]
-        else:
-            targets.append(ctargets.label.raw_target())
-            if ":" in ulabel:
-                explicit_targets[ctargets.label.raw_target()] = True
+        def configured_target_with_modifiers(target: bxl.UnconfiguredTargetNode) -> bxl.Lazy:
+            return bxl_ctx.lazy.configured_target_node(target, modifiers = bxl_ctx.modifiers)
 
+        utargets = list(success_targets)
+
+        results = batch_apply_lazy_catch_each(bxl_ctx, configured_target_with_modifiers, utargets)
+        for unode, res in zip(utargets, results):
+            if res.is_ok():
+                cnode = res.unwrap()
+                targets.append(cnode)
+                if is_explicit_target:
+                    explicit_targets[cnode.label.raw_target()] = True
+            else:
+                log_debug("Failed to configure target {}, skipping", unode, bxl_ctx = bxl_ctx)
+
+    target_set = bxl.ctarget_set(targets)
     missing_mode_hashes = [m for m in bxl_ctx.cli_args.mode_files if m not in (bxl_ctx.cli_args.mode_hashes or {})]
     if len(bxl_ctx.cli_args.mode_files) > 1 and missing_mode_hashes:
         warning("Missing mode hashes for following mode files: " + str(missing_mode_hashes))
 
-    deps = get_deps(bxl_ctx, targets)  # list[bxl.ConfiguredTargetNode]
+    deps = get_deps(bxl_ctx, target_set)  # list[bxl.ConfiguredTargetNode]
     # print(deps)
 
     target_exclude_patterns = [_normalize_include_exclude_pattern(p) for p in bxl_ctx.cli_args.target_exclude_pattern]
