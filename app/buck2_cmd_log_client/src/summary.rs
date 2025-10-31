@@ -324,11 +324,11 @@ impl BuckSubcommand for SummaryCommand {
 
         let (invocation, mut events) = log_path.unpack_stream().await?;
 
-        buck2_client_ctx::eprintln!(
+        buck2_client_ctx::println!(
             "Showing summary from: {}",
             invocation.display_command_line()
         )?;
-        buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
+        buck2_client_ctx::println!("build ID: {}", invocation.trace_id)?;
 
         let mut stats = Stats {
             re_max_download_speeds: vec![
@@ -350,7 +350,7 @@ impl BuckSubcommand for SummaryCommand {
                 StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
             }
         }
-        buck2_client_ctx::eprintln!("{}", stats)?;
+        buck2_client_ctx::println!("{}", stats)?;
         ExitResult::success()
     }
 }
