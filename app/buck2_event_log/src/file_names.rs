@@ -46,7 +46,7 @@ pub(crate) fn get_logfile_name(
 
 pub(crate) async fn remove_old_logs(logdir: &AbsNormPath, retained_event_logs: usize) {
     if let Ok(logfiles) = get_files_in_log_dir(logdir) {
-        futures::stream::iter(logfiles.into_iter().rev().skip(retained_event_logs))
+        futures::stream::iter(logfiles.into_iter().rev().skip(retained_event_logs - 1))
             .then(|file| async move {
                 // The oldest logs might be open from another concurrent build, so suppress error.
                 tokio::fs::remove_file(file).await.ok()
@@ -72,7 +72,10 @@ pub fn get_local_logs(logdir: &AbsNormPath) -> buck2_error::Result<Vec<EventLogP
 }
 
 fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
-    let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
+    let mut logfiles = dir
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_file()))
+        .collect::<Vec<_>>();
     logfiles.sort_by_cached_key(|file| {
         // Return Unix epoch if unable to get creation time.
         if let Ok(metadata) = file.metadata() {
@@ -125,4 +128,70 @@ pub fn retrieve_nth_recent_log(
 pub fn retrieve_all_logs(paths: &InvocationPaths) -> buck2_error::Result<Vec<EventLogPathBuf>> {
     let log_dir = paths.log_dir();
     get_local_logs(&log_dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use buck2_core::fs::fs_util;
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    use buck2_core::fs::paths::abs_path::AbsPath;
+    use std::fs::File;
+    use std::time::{Duration, SystemTime};
+
+    #[tokio::test]
+    async fn test_remove_old_logs_with_mix_of_files_and_folders() -> buck2_error::Result<()> {
+        let logdir = tempfile::tempdir()?;
+        let logdir_path = AbsPath::new(logdir.path())?;
+        let logdir_norm = AbsNormPath::new(logdir_path)?;
+
+        // Create 5 subfolders in logdir, each with a file inside
+        let mut subdirs = Vec::new();
+        for i in 0..5 {
+            let subdir_path = logdir.path().join(format!("subdir{}", i));
+            let subdir = AbsPath::new(&subdir_path)?;
+            fs_util::create_dir_all(&subdir)?;
+            let inside_file = subdir.join("inside.txt");
+            fs_util::write(&inside_file, format!("content in subdir{}", i))?;
+            subdirs.push((subdir.to_owned(), inside_file));
+        }
+
+        let base_time = SystemTime::now().checked_sub(Duration::from_secs(100)).unwrap();
+
+        // Create 5 log files directly in logdir with incrementing modification times
+        let mut log_paths = Vec::new();
+        for i in 0..5 {
+            let log_path = logdir_path.join(format!("buck-log-{}.zst", i));
+            fs_util::write(&log_path, format!("log content {}", i))?;
+
+            let file = File::open(&log_path)?;
+            let mod_time = base_time + Duration::from_secs((i as u64) * 10);
+            let times = std::fs::FileTimes::new().set_modified(mod_time);
+            file.set_times(times)?;
+
+            log_paths.push(log_path.clone());
+        }
+
+        // Call the function to keep 3 logs (should delete 3 oldest, leave 2 newest)
+        remove_old_logs(&logdir_norm, 3).await;
+
+        // Check that the 3 oldest logs are removed (indices 0,1,2 - earliest created)
+        for path in &log_paths[0..3] {
+            assert!(!path.exists(), "{} should be removed", path.display());
+        }
+
+        // Check that the 2 newest logs remain (indices 3,4 - latest created)
+        for path in &log_paths[3..5] {
+            assert!(path.exists(), "{} should remain", path.display());
+        }
+
+        // Check that all subfolders remain
+        for (subdir, inside_file) in subdirs {
+            assert!(subdir.exists(), "{} should remain", subdir.display());
+            // Ensure the file inside subdirectory is still there
+            assert!(inside_file.exists(), "{} should remain", inside_file.display());
+        }
+
+        Ok(())
+    }
 }
