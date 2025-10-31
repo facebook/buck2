@@ -21,6 +21,9 @@ import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
+import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
+import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
 import com.facebook.buck.testrunner.reportlayer.ReportLayer;
@@ -127,6 +130,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
+  private AndroidDevice androidDevice = null;
+  private AdbUtils adbUtils = null;
   private volatile boolean testRunFailed = false;
 
   public InstrumentationTestRunner(
@@ -178,6 +183,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.disableAnimations = disableAnimations;
     this.preTestSetupScript = preTestSetupScript;
     this.apexesToInstall = apexesToInstall;
+    this.adbUtils = new AdbUtils(getAdbPath(), 0);
   }
 
   protected static class ArgsParser {
@@ -458,7 +464,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   protected void installPackage(IDevice device, String path) throws Throwable {
-    if (getSdkVersion(device) >= MIN_SDK_VERSION_FOR_FASTDEPLOY) {
+    if (getSdkVersion() >= MIN_SDK_VERSION_FOR_FASTDEPLOY) {
       try {
         String adbCommand = buildFastdeployInstallCommand(device, path);
         RunShellCommand.run(adbCommand);
@@ -475,10 +481,41 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return getAdbPath() + " -s " + deviceSerial + " install --fastdeploy " + path;
   }
 
+  protected void initializeAndroidDevice() throws Exception {
+    if (this.androidDevice == null) {
+      String deviceSerial = deviceArgs.deviceSerial;
+
+      // Validate device selection arguments
+      if (deviceSerial == null && !deviceArgs.autoRunOnConnectedDevice) {
+        throw new IllegalArgumentException(
+            "Either deviceSerial must be provided or autoRunOnConnectedDevice must be enabled");
+      }
+
+      // If both deviceSerial and autoRunOnConnectedDevice are specified, deviceSerial takes
+      // precedence
+      if (deviceSerial == null && deviceArgs.autoRunOnConnectedDevice) {
+        List<AndroidDevice> devices = this.adbUtils.getDevices();
+        if (!devices.isEmpty()) {
+          // TODO: If more than one device is attached, we currently select the first one.
+          // Consider warning the user or providing a way to specify which device to use.
+          this.androidDevice = devices.get(0);
+        }
+      } else if (deviceSerial != null) {
+        this.androidDevice = new AndroidDeviceImpl(deviceSerial, this.adbUtils);
+      }
+
+      if (this.androidDevice == null) {
+        throw new RuntimeException("Failed to initialize AndroidDevice");
+      }
+    }
+  }
+
   @SuppressWarnings({"PMD.BlacklistedSystemGetenv", "PMD.BlacklistedDefaultProcessMethod"})
   public void run() throws Throwable {
     IDevice device = getAndroidDevice(deviceArgs.autoRunOnConnectedDevice, deviceArgs.deviceSerial);
     this.device = device;
+
+    initializeAndroidDevice();
 
     if (this.instrumentationApkPath != null) {
       DdmPreferences.setTimeOut(60000);
@@ -1077,7 +1114,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
       String targetPackageName,
       boolean isSelfInstrumenting,
       String folderName) {
-    int sdkVersion = getSdkVersion(device);
+    int sdkVersion = getSdkVersion();
     // App Scoped Storage was introduced in Android 11
     if (sdkVersion == -1 || sdkVersion < 30) {
       return null;
@@ -1097,12 +1134,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return String.format(artifactsDirTemplate, devicePathPackage, folderName);
   }
 
-  private int getSdkVersion(IDevice device) {
-    String sdk = device.getProperty("ro.build.version.sdk");
+  private int getSdkVersion() {
     try {
+      String sdk = androidDevice.getProperty("ro.build.version.sdk");
       return Integer.parseInt(sdk);
     } catch (NumberFormatException e) {
       System.err.printf("Unable to determine SDK version for device: %s\n", e);
+    } catch (Exception e) {
+      System.err.printf("Unable to get SDK version property: %s\n", e);
     }
     return -1;
   }

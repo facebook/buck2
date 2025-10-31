@@ -522,6 +522,11 @@ public class InstrumentationTestRunnerTest {
               boolean autoRunOnConnectedDevice, String deviceSerial) {
             return device;
           }
+
+          @Override
+          protected void initializeAndroidDevice() throws Exception {
+            // Skip AndroidDevice initialization for tests
+          }
         };
 
     runner.run();
@@ -654,6 +659,11 @@ public class InstrumentationTestRunnerTest {
           protected IDevice getAndroidDevice(
               boolean autoRunOnConnectedDevice, String deviceSerial) {
             return device;
+          }
+
+          @Override
+          protected void initializeAndroidDevice() throws Exception {
+            // Skip AndroidDevice initialization for tests
           }
 
           @Override

@@ -112,6 +112,8 @@ buck_java_library(
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
     deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
+        "prelude//toolchains/android/src/com/facebook/buck/android:utils_api",
         "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
         "prelude//toolchains/android/src/com/facebook/buck/util/escaper:bash",
         "prelude//toolchains/android/third-party:ddmlib",
