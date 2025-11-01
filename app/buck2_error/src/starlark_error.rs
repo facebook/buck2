@@ -118,7 +118,7 @@ fn from_starlark_impl(
 ) -> crate::Error {
     let starlark_context = if e.has_diagnostic() {
         Some(StarlarkContext {
-            call_stack: format!("{}", e.call_stack()),
+            call_stack: e.call_stack().clone(),
             error_msg: format!("{}", e.without_diagnostic()),
             span: e.span().cloned(),
         })
@@ -236,6 +236,8 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use starlark_syntax::call_stack::CallStack;
+    use starlark_syntax::frame::Frame;
 
     use crate::any::ProvidableMetadata;
     use crate::buck2_error;
@@ -273,6 +275,15 @@ mod tests {
     impl crate::TypedContext for FullMetadataError {
         fn eq(&self, _other: &dyn crate::TypedContext) -> bool {
             true
+        }
+    }
+
+    fn example_call_stack() -> CallStack {
+        CallStack {
+            frames: vec![Frame {
+                name: "frame".to_owned(),
+                location: None,
+            }],
         }
     }
 
@@ -316,7 +327,7 @@ mod tests {
         let context_key = "Some context key";
         let error_tag = crate::ErrorTag::IoWindowsSharingViolation;
         let starlark_context = StarlarkContext {
-            call_stack: "Some call stack".to_owned(),
+            call_stack: example_call_stack(),
             error_msg: "Some error message".to_owned(),
             span: None,
         };
@@ -337,9 +348,9 @@ mod tests {
     fn test_pop_base_error_from_context() {
         let base_error = "Some base error";
         let starlark_error = "Starlark error message";
-        let starlark_call_stack = "Some call stack";
+        let starlark_call_stack = example_call_stack();
         let starlark_context = StarlarkContext {
-            call_stack: starlark_call_stack.to_owned(),
+            call_stack: starlark_call_stack.clone(),
             error_msg: starlark_error.to_owned(),
             span: None,
         };
@@ -349,7 +360,11 @@ mod tests {
         let base_replaced = error_with_starlark_context(&e, starlark_context);
 
         assert!(!base_replaced.to_string().contains(base_error));
-        assert!(base_replaced.to_string().contains(starlark_call_stack));
+        assert!(
+            base_replaced
+                .to_string()
+                .contains(&starlark_call_stack.to_string())
+        );
         assert!(base_replaced.to_string().contains(starlark_error));
     }
 
@@ -362,10 +377,10 @@ mod tests {
             || FullMetadataError,
         );
 
-        let starlark_call_stack = "Some call stack";
+        let starlark_call_stack = example_call_stack();
         let starlark_error_msg = "Starlark error message";
         let starlark_context = StarlarkContext {
-            call_stack: starlark_call_stack.to_owned(),
+            call_stack: starlark_call_stack.clone(),
             error_msg: starlark_error_msg.to_owned(),
             span: None,
         };
@@ -373,7 +388,7 @@ mod tests {
         let starlark_err = error_with_starlark_context(&e, starlark_context);
         let starlark_err_string = format!("{starlark_err:#}");
 
-        assert!(starlark_err_string.contains(starlark_call_stack));
+        assert!(starlark_err_string.contains(&starlark_call_stack.to_string()));
         assert!(starlark_err_string.contains(starlark_error_msg));
         // Root error shouldn't be lost
         assert!(starlark_err_string.contains(base_error));

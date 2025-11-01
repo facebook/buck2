@@ -28,12 +28,14 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use allocative::Allocative;
+
 use crate::frame::Frame;
 
 pub const CALL_STACK_TRACEBACK_PREFIX: &str = "Traceback (most recent call last):";
 
 /// Owned call stack.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct CallStack {
     /// The frames.
     pub frames: Vec<Frame>,
