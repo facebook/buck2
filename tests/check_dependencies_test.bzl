@@ -138,6 +138,7 @@ def assert_dependencies_test(
         expected_deps,
         expect_failure_msg = None,
         deps = None,
+        labels = [],
         **kwargs):
     """
     Creates a test target fromfbcode//buck2/tests/assert_dependencies_test.bxl:test bxl script.
@@ -159,7 +160,7 @@ def assert_dependencies_test(
             "FLAVOR": "assert_dependencies_test",
             "TARGET": target,
         },
-        labels = ["assert_dependencies_test"],
+        labels = labels + ["assert_dependencies_test"],
         deps = deps,
         **kwargs
     )
