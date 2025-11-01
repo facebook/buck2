@@ -19,12 +19,14 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use allocative::Allocative;
+
 use crate::codemap::FileSpan;
 use crate::fast_string;
 use crate::fast_string::CharIndex;
 
 /// A frame of the call-stack.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Allocative)]
 pub struct Frame {
     /// The name of the entry on the call-stack.
     pub name: String,
