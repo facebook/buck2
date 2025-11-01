@@ -405,6 +405,21 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
+    async fn import_path_from_url(
+        &self,
+        uri: &LspUrl,
+    ) -> buck2_error::Result<OwnedStarlarkModulePath> {
+        match uri {
+            LspUrl::File(path) => self.import_path(path).await,
+            LspUrl::Starlark(path) => self.starlark_import_path(path).await,
+            LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
+                "file:// or starlark:".to_owned(),
+                uri.clone(),
+            )
+            .into()),
+        }
+    }
+
     async fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match self
             .parse_file_from_contents_and_handle_diagnostic(uri, content)
@@ -426,15 +441,7 @@ impl<'a> BuckLspContext<'a> {
         uri: &LspUrl,
         content: String,
     ) -> buck2_error::Result<LspEvalResult> {
-        let import_path: OwnedStarlarkModulePath = match uri {
-            LspUrl::File(path) => self.import_path(path).await,
-            LspUrl::Starlark(path) => self.starlark_import_path(path).await,
-            LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
-                "file:// or starlark:".to_owned(),
-                uri.clone(),
-            )
-            .into()),
-        }?;
+        let import_path = self.import_path_from_url(uri).await?;
 
         self.with_dice_ctx(|mut dice_ctx| async move {
             let calculator = dice_ctx
