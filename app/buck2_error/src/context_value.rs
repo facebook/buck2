@@ -116,6 +116,9 @@ pub struct StarlarkContext {
     pub call_stack: CallStack,
     pub error_msg: String,
     pub span: Option<FileSpan>,
+    /// If true, we render the span / call stack in buck output.
+    /// Otherwise, data is only for LSP to fish out.
+    pub show_span_in_buck_output: bool,
     ///
     /// We don't render the root error if `replaces_root_error` is set.
     /// We render this in preference because it has a starlark
@@ -146,6 +149,7 @@ impl StarlarkContext {
                 error_msg: ctx.error_msg.clone(),
                 span: ctx.span.clone(),
                 replaces_root_error: ctx.replaces_root_error,
+                show_span_in_buck_output: true,
             }
         } else {
             self.clone()

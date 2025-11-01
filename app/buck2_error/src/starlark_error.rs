@@ -140,6 +140,7 @@ fn from_starlark_impl(
         Some(StarlarkContext {
             call_stack: e.call_stack().clone(),
             span: e.span().cloned(),
+            show_span_in_buck_output: true,
             //
             // These two are overwritten by inject_starlark_context
             error_msg: String::new(),
@@ -356,6 +357,7 @@ mod tests {
             error_msg: sc_message.to_owned(),
             span: None,
             replaces_root_error: false,
+            show_span_in_buck_output: true,
         };
 
         let e = crate::Error::from(FullMetadataError);
@@ -387,6 +389,7 @@ mod tests {
             error_msg: starlark_error.to_owned(),
             span: None,
             replaces_root_error: false,
+            show_span_in_buck_output: true,
         };
 
         let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
@@ -416,6 +419,7 @@ mod tests {
             error_msg: starlark_error_msg.to_owned(),
             span: None,
             replaces_root_error: false,
+            show_span_in_buck_output: true,
         };
 
         let injected = inject_starlark_context(&e, starlark_context);
