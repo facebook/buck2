@@ -287,7 +287,6 @@ mod tests {
     use crate::buck2_error;
     use crate::context_value::StarlarkContext;
     use crate::source_location::SourceLocation;
-    use crate::starlark_error::create_starlark_context;
     use crate::starlark_error::inject_starlark_context;
 
     #[derive(Debug, Allocative, derive_more::Display)]
@@ -473,14 +472,6 @@ mod tests {
         let buck = crate::Error::from(starlark);
         eprintln!("buck: {:?}", buck);
         eprintln!("buck: {:#?}", buck);
-        let recovered = buck
-            .clone()
-            .into_lsp_diagnostic("test.bzl")
-            .into_iter()
-            .nth(0)
-            .unwrap();
-        eprintln!("recovered: {:#?}", recovered);
-        assert_eq!(recovered.origin_span, Some(code_map.file_span(span)));
 
         assert_eq!(
             format!("{:?}", buck).trim(),

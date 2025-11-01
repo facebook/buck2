@@ -28,6 +28,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -63,6 +64,9 @@ use futures::channel::mpsc::UnboundedSender;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_types::Diagnostic;
+use lsp_types::DiagnosticSeverity;
+use lsp_types::NumberOrString;
+use lsp_types::Range;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
@@ -422,22 +426,76 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    async fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+    /// We have `AstModule::parse(project_relative_path.as_str(), ...)`
+    /// So all our codemaps, file spans, etc, are project relative paths.
+    ///
+    fn project_relative_path_from_url(
+        &self,
+        uri: &LspUrl,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        match uri {
+            LspUrl::File(path) => {
+                let abs_path = AbsPath::new(path)?;
+                self.fs.relativize_any(abs_path)
+            }
+            LspUrl::Starlark(path) => {
+                let path_str = path.to_str().buck_error_context("Path is not UTF-8")?;
+                ProjectRelativePath::new(path_str.strip_prefix('/').unwrap_or(path_str))
+                    .map(|p| p.to_owned())
+            }
+            LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
+                "file:// or starlark:".to_owned(),
+                uri.clone(),
+            )
+            .into()),
+        }
+    }
+
+    fn to_diagnostics(
+        &self,
+        current_file_path: &ProjectRelativePath,
+        e: buck2_error::Error,
+    ) -> Vec<Diagnostic> {
+        e.into_lsp_diagnostics(current_file_path.as_str())
+            .into_iter()
+            .map(|diag| {
+                let buck2_error::lsp::LspDiagnostic { span, rendered } = diag;
+                let origin_range = match span {
+                    Some(s) => s.resolve_span().into(),
+                    _ => Range::default(),
+                };
+                lsp_types::Diagnostic::new(
+                    origin_range,
+                    Some(DiagnosticSeverity::ERROR),
+                    Some(NumberOrString::String("error".to_owned())),
+                    Some("eval".to_owned()),
+                    rendered,
+                    None,
+                    None,
+                )
+            })
+            .collect()
+    }
+
+    async fn eval_file_with_contents(
+        &self,
+        uri: &LspUrl,
+        project_relative: &ProjectRelativePath,
+        content: String,
+    ) -> Vec<Diagnostic> {
         match self
-            .eval_file_from_contents_and_handle_diagnostic(uri, content)
+            .eval_file_from_contents_and_handle_diagnostic(uri, project_relative, content)
             .await
         {
             Ok(res) => res,
-            Err(e) => {
-                let message = EvalMessage::from_error(uri.path(), &e.into());
-                vec![eval_message_to_lsp_diagnostic(message)]
-            }
+            Err(e) => self.to_diagnostics(project_relative, e),
         }
     }
 
     async fn eval_file_from_contents_and_handle_diagnostic(
         &self,
         uri: &LspUrl,
+        project_relative: &ProjectRelativePath,
         _content: String,
     ) -> buck2_error::Result<Vec<Diagnostic>> {
         let import_path = self.import_path_from_url(uri).await?;
@@ -453,10 +511,7 @@ impl<'a> BuckLspContext<'a> {
                 .await;
             match eval_result {
                 Ok(_lm) => Ok(Vec::new()),
-                Err(e) => {
-                    let message = EvalMessage::from_error(uri.path(), &e.into());
-                    Ok(vec![eval_message_to_lsp_diagnostic(message)])
-                }
+                Err(e) => Ok(self.to_diagnostics(project_relative, e)),
             }
         })
         .await
@@ -499,7 +554,7 @@ impl<'a> BuckLspContext<'a> {
                     ast: Some(ast),
                 }),
                 Err(e) => {
-                    let message = EvalMessage::from_error(uri.path(), &e.into());
+                    let message = EvalMessage::from_error(uri.path(), &e);
                     Ok(LspEvalResult {
                         diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
                         ast: None,
@@ -627,7 +682,11 @@ impl LspContext for BuckLspContext<'_> {
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(_) | LspUrl::Starlark(_) => {
-                        self.eval_file_with_contents(uri, content).await
+                        let Ok(project_relative) = self.project_relative_path_from_url(uri) else {
+                            return vec![];
+                        };
+                        self.eval_file_with_contents(uri, &project_relative, content)
+                            .await
                     }
                     _ => vec![],
                 }
