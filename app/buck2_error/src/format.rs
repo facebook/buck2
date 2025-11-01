@@ -62,6 +62,8 @@ pub(crate) fn into_anyhow_for_format(
             if ctx.replaces_root_error {
                 // ignore the root error, treat this as the root
                 out = AnyhowWrapperForFormat::Root(ctx.to_string()).into();
+            } else if !ctx.show_span_in_buck_output {
+                out = out.context(ctx.error_msg.clone())
             } else {
                 // Because context_stack is reversed, the right ordering is first error last to preserve stack ordering
                 starlark_error = Some(ctx.concat(starlark_error));
