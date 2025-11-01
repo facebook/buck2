@@ -72,6 +72,7 @@ fn from_starlark_impl(
         Some(StarlarkContext {
             call_stack: e.call_stack().clone(),
             span: e.span().cloned(),
+            show_span_in_buck_output: true,
         })
     } else {
         None
@@ -233,6 +234,7 @@ mod tests {
         let starlark_context = StarlarkContext {
             call_stack: example_call_stack(),
             span: None,
+            show_span_in_buck_output: true,
         };
 
         let e = crate::Error::from(FullMetadataError);
@@ -257,6 +259,7 @@ mod tests {
         let starlark_context = StarlarkContext {
             call_stack: starlark_call_stack.clone(),
             span: None,
+            show_span_in_buck_output: true,
         };
 
         let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error)
@@ -287,6 +290,7 @@ mod tests {
         let starlark_context = StarlarkContext {
             call_stack: starlark_call_stack.clone(),
             span: None,
+            show_span_in_buck_output: true,
         };
 
         let injected = error_with_starlark_context(e, starlark_context);

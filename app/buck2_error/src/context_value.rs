@@ -105,6 +105,9 @@ impl<T: TypedContext> From<T> for ContextValue {
 pub struct StarlarkContext {
     pub call_stack: CallStack,
     pub span: Option<FileSpan>,
+    /// If true, we render the span / call stack in buck output.
+    /// Otherwise, data is only for LSP to fish out.
+    pub show_span_in_buck_output: bool,
 }
 
 impl StarlarkContext {
@@ -118,6 +121,7 @@ impl StarlarkContext {
             Self {
                 call_stack: self.call_stack,
                 span: inner.span,
+                show_span_in_buck_output: true,
             }
         } else {
             self
