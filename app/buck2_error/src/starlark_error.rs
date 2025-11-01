@@ -287,6 +287,7 @@ mod tests {
     use crate::buck2_error;
     use crate::context_value::StarlarkContext;
     use crate::source_location::SourceLocation;
+    use crate::starlark_error::create_starlark_context;
     use crate::starlark_error::inject_starlark_context;
 
     #[derive(Debug, Allocative, derive_more::Display)]
@@ -484,6 +485,45 @@ mod tests {
             buck.to_string().trim(),
             expect_display,
             "(Display): Buck error should format the same as the original"
+        );
+    }
+
+    #[test]
+    fn test_recover_starlark_span_through_context() {
+        use starlark_syntax::codemap::CodeMap;
+        use starlark_syntax::codemap::Pos;
+        use starlark_syntax::codemap::Span;
+        let code_map = CodeMap::new(
+            "test.bzl".to_owned(),
+            "# invalid\ndef and(): pass".to_owned(),
+        );
+        let span = Span::new(Pos::new(14), Pos::new(17));
+        let starlark = starlark_syntax::Error::new_spanned(
+            starlark_syntax::ErrorKind::Native(anyhow::format_err!("test_recover_starlark_span")),
+            span,
+            &code_map,
+        );
+        eprintln!("starlark: {:#?}", starlark);
+        let buck = crate::Error::from(starlark).context("wrapper");
+        eprintln!("buck: {:?}", buck);
+        eprintln!("buck: {:#?}", buck);
+        let recovered = starlark_syntax::Error::from(buck.clone());
+        eprintln!("recovered: {:#?}", recovered);
+        assert_eq!(recovered.span(), None);
+
+        let recovered2 = starlark_syntax::Error::from(buck.clone());
+        assert_eq!(
+            format!("{:?}", crate::Error::from(recovered2)),
+            "wrapper
+
+Caused by:
+\x20\x20\x20\x20
+    error: test_recover_starlark_span
+     --> test.bzl:2:5
+      |
+    2 | def and(): pass
+      |     ^^^
+      |"
         );
     }
 }
