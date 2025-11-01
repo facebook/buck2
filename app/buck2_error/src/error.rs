@@ -52,9 +52,14 @@ pub struct Error(pub(crate) Arc<ErrorKind>);
 /// Right now, this type can represent an error root, together with a stack of context information.
 #[derive(allocative::Allocative)]
 pub(crate) enum ErrorKind {
+    /// The originating error, before context is added
     Root(Box<ErrorRoot>),
-    /// For now we use untyped context to maximize compatibility with anyhow.
+    /// The output of [`e.context(...)`][Error::context]; recursively contains Error.
+    /// There is eventually a [Self::Root] at the bottom.
     WithContext(ContextValue, Error),
+    /// The output of [`e.mark_emitted()`][Error::mark_emitted]; recursively contains Error.
+    /// There is eventually a [Self::Root] at the bottom.
+    ///
     /// Indicates that the error has been emitted, ie shown to the user.
     // This `Arc` should ideally be a `Box`. However, that doesn't work right now because of the
     // implementation of `into_anyhow_for_format`.
