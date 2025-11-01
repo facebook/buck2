@@ -116,21 +116,23 @@ fn from_starlark_impl(
     error_handling: NativeErrorHandling,
     skip_stacktrace: bool,
 ) -> crate::Error {
-    if let starlark_syntax::ErrorKind::Native(err) = e.kind() {
-        if let Some(wrapper) = err.downcast_ref::<StarlarkErrorWrapper>() {
-            if !e.has_diagnostic() {
-                return wrapper.0.clone();
-            }
-
-            let starlark_context = StarlarkContext {
-                call_stack: format!("{}", e.call_stack()),
-                error_msg: format!("{}", e.without_diagnostic()),
-                span: e.span().cloned(),
-            };
-
-            return error_with_starlark_context(&wrapper.0, starlark_context);
-        }
+    let starlark_context = if e.has_diagnostic() && !skip_stacktrace {
+        Some(StarlarkContext {
+            call_stack: format!("{}", e.call_stack()),
+            error_msg: format!("{}", e.without_diagnostic()),
+            span: e.span().cloned(),
+        })
+    } else {
+        None
     };
+
+    if let starlark_syntax::ErrorKind::Native(err) = e.kind()
+        && let Some(wrapper) = err.downcast_ref::<StarlarkErrorWrapper>()
+    {
+        return starlark_context
+            .map(|sc| error_with_starlark_context(&wrapper.0, sc))
+            .unwrap_or_else(|| wrapper.0.clone());
+    }
 
     let tag = match e.kind() {
         starlark_syntax::ErrorKind::Fail(_) => crate::ErrorTag::StarlarkFail,
@@ -163,13 +165,9 @@ fn from_starlark_impl(
     let source_location = SourceLocation::new(caller_location.file())
         .with_source_line(caller_location.line())
         .with_type_name(variant_name);
-    let description = if skip_stacktrace {
-        format!("{}", e.without_diagnostic())
-    } else {
-        format!("{e}")
-    };
+    let description = format!("{}", e.without_diagnostic());
 
-    match e.into_kind() {
+    let crate_error = match e.into_kind() {
         starlark_syntax::ErrorKind::Fail(e)
         | starlark_syntax::ErrorKind::StackOverflow(e)
         | starlark_syntax::ErrorKind::Internal(e)
@@ -185,7 +183,11 @@ fn from_starlark_impl(
             recover_crate_error(std_err, source_location, tag)
         }
         _ => crate::Error::new(description, tag, source_location, None),
-    }
+    };
+
+    starlark_context
+        .map(|sc| error_with_starlark_context(&crate_error, sc))
+        .unwrap_or(crate_error)
 }
 
 pub(crate) struct BuckStarlarkError(pub(crate) anyhow::Error, String);
