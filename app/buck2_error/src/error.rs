@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use buck2_data::ActionError;
 use smallvec::SmallVec;
+use starlark_syntax::codemap::FileSpan;
 
 use crate::ErrorTag;
 use crate::ExitCode;
@@ -217,6 +218,30 @@ impl Error {
             ContextValue::StarlarkError(context),
             self,
         )))
+    }
+
+    /// Attach a human-readable message and a starlark span to the error.
+    /// The message is preserved as a regular context layer; the span (when
+    /// present) is added as a `StarlarkContext` for diagnostic rendering.
+    ///
+    /// In general, formatted errors will render the message and starlark
+    /// context together.
+    pub fn starlark_context(
+        self,
+        message: String,
+        span: Option<FileSpan>,
+        show_span_in_buck_output: bool,
+    ) -> Self {
+        let e = self.context(message);
+        if span.is_some() {
+            e.context_for_starlark_backtrace(StarlarkContext {
+                span,
+                call_stack: Default::default(),
+                show_span_in_buck_output,
+            })
+        } else {
+            e
+        }
     }
 
     pub fn tag(self, tags: impl IntoIterator<Item = crate::ErrorTag>) -> Self {

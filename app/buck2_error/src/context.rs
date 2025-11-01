@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use smallvec::smallvec;
+use starlark_syntax::codemap::FileSpan;
 
 use crate::context_value::ContextValue;
 use crate::context_value::TypedContext;
@@ -49,6 +50,11 @@ pub trait BuckErrorContext<T>: Sealed {
         self.with_buck_error_context(|| format!("{} (internal error)", f()))
             .tag(crate::ErrorTag::InternalError)
     }
+
+    #[track_caller]
+    fn with_starlark_context<F>(self, f: F) -> crate::Result<T>
+    where
+        F: FnOnce() -> (String, Option<FileSpan>, bool);
 
     /// Supports adding context to an error by either augmenting the most recent context if its
     /// the requested type or by adding a new context.
@@ -91,6 +97,19 @@ where
         match self {
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::from(e).context(f())),
+        }
+    }
+
+    fn with_starlark_context<F>(self, f: F) -> crate::Result<T>
+    where
+        F: FnOnce() -> (String, Option<FileSpan>, bool),
+    {
+        match self {
+            Ok(x) => Ok(x),
+            Err(e) => {
+                let (message, span, show_span_in_buck_output) = f();
+                Err(crate::Error::from(e).starlark_context(message, span, show_span_in_buck_output))
+            }
         }
     }
 
