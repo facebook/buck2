@@ -171,10 +171,7 @@ def _k2():
 def _incremental():
     return {
         "incremental": attrs.bool(
-            default = select({
-                "DEFAULT": True,
-                # @oss-disable[end= ]: "ovr_config//runtime/constraints:android-host-test": False,
-            }),
+            default = True,
             doc = """
                 Enables Kotlin incremental compilation.
             """,
