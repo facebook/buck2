@@ -32,6 +32,7 @@ use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use threadpool::ThreadPool;
+use uuid::Uuid;
 use walkdir::WalkDir;
 
 use crate::commands::clean_stale::CleanStaleCommand;
@@ -125,7 +126,6 @@ impl CleanCommand {
 
 struct InnerCleanCommand {
     dry_run: bool,
-    #[allow(dead_code)]
     background: bool,
     common_opts: CommonCommandOptions,
 }
@@ -139,12 +139,23 @@ impl BuckSubcommand for InnerCleanCommand {
         ctx: ClientCommandContext<'_>,
         _events_ctx: &mut buck2_client_ctx::events_ctx::EventsCtx,
     ) -> ExitResult {
-        let buck_out_dir = ctx.paths()?.buck_out_path();
-        let daemon_dir = ctx.paths()?.daemon_dir()?;
+        let paths = ctx.paths()?;
+        let buck_out_dir = paths.buck_out_path();
+        let daemon_dir = paths.daemon_dir()?;
+        let trash_dir = paths.trash_dir();
         let console = &self.common_opts.console_opts.final_console();
 
         if self.dry_run {
-            return clean(buck_out_dir, daemon_dir, console, None).await.into();
+            return clean(
+                buck_out_dir,
+                daemon_dir,
+                trash_dir,
+                console,
+                None,
+                self.background,
+            )
+            .await
+            .into();
         }
 
         // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
@@ -158,9 +169,16 @@ impl BuckSubcommand for InnerCleanCommand {
 
         kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
 
-        clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock))
-            .await
-            .into()
+        clean(
+            buck_out_dir,
+            daemon_dir,
+            trash_dir,
+            console,
+            Some(&lifecycle_lock),
+            self.background,
+        )
+        .await
+        .into()
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
@@ -171,31 +189,87 @@ impl BuckSubcommand for InnerCleanCommand {
 async fn clean(
     buck_out_dir: AbsNormPathBuf,
     daemon_dir: DaemonDir,
+    trash_dir: AbsNormPathBuf,
     console: &FinalConsole,
     // None means "dry run".
     lifecycle_lock: Option<&BuckdLifecycleLock>,
+    background: bool,
 ) -> buck2_error::Result<()> {
-    let mut paths_to_clean = Vec::new();
-    if buck_out_dir.exists() {
-        paths_to_clean =
-            collect_paths_to_clean(&buck_out_dir)?.map(|path| path.display().to_string());
-        if lifecycle_lock.is_some() {
-            tokio::task::spawn_blocking(move || clean_buck_out_with_retry(&buck_out_dir))
-                .await?
-                .buck_error_context("Failed to spawn clean")?;
+    if background {
+        let trash_uuid = Uuid::new_v4();
+        let trash_target = trash_dir.as_abs_path().join(trash_uuid.to_string());
+
+        // Create trash directory if it doesn't exist
+        if !trash_dir.exists() {
+            fs_util::create_dir_all(&trash_dir)?;
+        }
+
+        // Move buck-out to trash folder
+        if buck_out_dir.exists() {
+            console.print_stderr(&format!(
+                "Moving {} to {}",
+                buck_out_dir.display(),
+                trash_target.display()
+            ))?;
+            fs_util::rename(&buck_out_dir, &trash_target)?;
+        }
+
+        // Clean the daemon_dir first
+        let mut paths_to_clean = Vec::new();
+        if daemon_dir.path.exists() {
+            paths_to_clean.push(daemon_dir.to_string());
+            if let Some(lifecycle_lock) = lifecycle_lock {
+                lifecycle_lock.clean_daemon_dir(false)?;
+            }
+        }
+
+        console.print_stderr("Buck-out moved to trash. Now cleaning up...")?;
+        console.print_stderr(
+            "Tip: Use Ctrl-Z to put this in the background, or run in a new terminal.",
+        )?;
+        console.print_stderr("You can run other buck2 commands while this completes.")?;
+
+        // Delete the moved directory
+        let trash_target_normalized = AbsNormPathBuf::new(trash_target.to_path_buf())?;
+        if trash_target_normalized.exists() {
+            paths_to_clean.extend(
+                collect_paths_to_clean(&trash_target_normalized)?
+                    .map(|path| path.display().to_string()),
+            );
+            tokio::task::spawn_blocking(move || {
+                clean_buck_out_with_retry(&trash_target_normalized)
+            })
+            .await?
+            .buck_error_context("Failed to spawn clean")?;
+        }
+        for path in paths_to_clean {
+            console.print_stderr(&path)?;
+        }
+    } else {
+        let mut paths_to_clean = Vec::new();
+
+        if buck_out_dir.exists() {
+            paths_to_clean =
+                collect_paths_to_clean(&buck_out_dir)?.map(|path| path.display().to_string());
+            if lifecycle_lock.is_some() {
+                tokio::task::spawn_blocking(move || clean_buck_out_with_retry(&buck_out_dir))
+                    .await?
+                    .buck_error_context("Failed to spawn clean")?;
+            }
+        }
+
+        if daemon_dir.path.exists() {
+            paths_to_clean.push(daemon_dir.to_string());
+            if let Some(lifecycle_lock) = lifecycle_lock {
+                lifecycle_lock.clean_daemon_dir(false)?;
+            }
+        }
+
+        for path in paths_to_clean {
+            console.print_stderr(&path)?;
         }
     }
 
-    if daemon_dir.path.exists() {
-        paths_to_clean.push(daemon_dir.to_string());
-        if let Some(lifecycle_lock) = lifecycle_lock {
-            lifecycle_lock.clean_daemon_dir(false)?;
-        }
-    }
-
-    for path in paths_to_clean {
-        console.print_stderr(&path)?;
-    }
     Ok(())
 }
 

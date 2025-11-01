@@ -180,6 +180,17 @@ impl InvocationPaths {
         self.buck_out_path()
             .join(ForwardRelativePath::unchecked_new("health_check"))
     }
+
+    /// Trash directory for background clean operations.
+    /// Files moved here can be deleted asynchronously without blocking the main clean operation.
+    /// This points to buck-out/tmp/stale-buck-out which is used as the trash directory.
+    pub fn trash_dir(&self) -> AbsNormPathBuf {
+        self.roots
+            .project_root
+            .root()
+            .join(Self::buck_out_dir_prefix())
+            .join(ForwardRelativePath::unchecked_new("tmp/stale-buck-out"))
+    }
 }
 
 #[cfg(test)]
