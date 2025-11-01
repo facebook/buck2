@@ -21,6 +21,9 @@ Options:
           actions - State getting deleted (e.g., new buckversion that changes the on-disk state
           format) - Writing to `buck-out` without being expected by Buck
 
+      --background
+          Run the clean operation in the background
+
   -m, --modifier <VALUE>
           This option is not used
 

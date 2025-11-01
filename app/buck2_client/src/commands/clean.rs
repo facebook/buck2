@@ -69,6 +69,12 @@ the specified duration, without killing the daemon",
     #[clap(long = "tracked-only", requires = "stale")]
     tracked_only: bool,
 
+    #[clap(
+        long = "background",
+        help = "Run the clean operation in the background"
+    )]
+    background: bool,
+
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
     _target_cfg: TargetCfgUnusedOptions,
@@ -96,6 +102,7 @@ impl CleanCommand {
             ctx.exec(
                 InnerCleanCommand {
                     dry_run: self.dry_run,
+                    background: self.background,
                     common_opts: self.common_opts,
                 },
                 matches,
@@ -118,6 +125,8 @@ impl CleanCommand {
 
 struct InnerCleanCommand {
     dry_run: bool,
+    #[allow(dead_code)]
+    background: bool,
     common_opts: CommonCommandOptions,
 }
 
