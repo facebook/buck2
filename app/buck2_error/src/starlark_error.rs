@@ -450,4 +450,40 @@ mod tests {
         // Root error shouldn't be lost
         assert_eq!(debug_out.matches(base_error).count(), 1);
     }
+
+    #[test]
+    fn test_format_starlark_error_via_buck() {
+        use starlark_syntax::codemap::CodeMap;
+        use starlark_syntax::codemap::Pos;
+        use starlark_syntax::codemap::Span;
+        let code_map = CodeMap::new(
+            "test.bzl".to_owned(),
+            "# invalid\ndef and(): pass".to_owned(),
+        );
+        let span = Span::new(Pos::new(14), Pos::new(17));
+        let starlark = starlark_syntax::Error::new_spanned(
+            starlark_syntax::ErrorKind::Native(anyhow::format_err!("test_recover_starlark_span")),
+            span,
+            &code_map,
+        );
+        eprintln!("starlark: {:#?}", starlark);
+        let expect_debug = starlark.to_string().trim().to_owned();
+        let expect_display = starlark.to_string().trim().to_owned();
+        let buck = crate::Error::from(starlark);
+        eprintln!("buck: {:?}", buck);
+        eprintln!("buck: {:#?}", buck);
+
+        assert_eq!(
+            format!("{:?}", buck).trim(),
+            expect_debug,
+            "(Debug): Buck error should format the same as the original"
+        );
+
+        // Check we haven't duplicated the source printout
+        assert_eq!(
+            buck.to_string().trim(),
+            expect_display,
+            "(Display): Buck error should format the same as the original"
+        );
+    }
 }
