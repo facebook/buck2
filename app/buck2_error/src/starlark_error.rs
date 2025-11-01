@@ -393,4 +393,53 @@ mod tests {
         // Root error shouldn't be lost
         assert!(starlark_err_string.contains(base_error));
     }
+
+    #[test]
+    fn test_recover_starlark_span() {
+        use starlark_syntax::codemap::CodeMap;
+        use starlark_syntax::codemap::Pos;
+        use starlark_syntax::codemap::Span;
+        let code_map = CodeMap::new(
+            "test.bzl".to_owned(),
+            "# invalid\ndef and(): pass".to_owned(),
+        );
+        let span = Span::new(Pos::new(14), Pos::new(17));
+        let starlark = starlark_syntax::Error::new_spanned(
+            starlark_syntax::ErrorKind::Native(anyhow::format_err!("test_recover_starlark_span")),
+            span,
+            &code_map,
+        );
+        eprintln!("starlark: {:#?}", starlark);
+        let expect_debug = starlark.to_string().trim().to_owned();
+        let expect_display = starlark.to_string().trim().to_owned();
+        let buck = crate::Error::from(starlark);
+        eprintln!("buck: {:?}", buck);
+        eprintln!("buck: {:#?}", buck);
+        let recovered = starlark_syntax::Error::from(buck.clone());
+        eprintln!("recovered: {:#?}", recovered);
+        assert_eq!(recovered.span(), Some(&code_map.file_span(span)));
+
+        assert_eq!(
+            format!("{:?}", buck).trim(),
+            expect_debug,
+            "(Debug): Buck error should format the same as the original"
+        );
+        assert_eq!(
+            format!("{:?}", recovered).trim(),
+            expect_debug,
+            "(Debug): Recovered error should format the same as the original"
+        );
+
+        // Check we haven't duplicated the source printout
+        assert_eq!(
+            buck.to_string().trim(),
+            expect_display,
+            "(Display): Buck error should format the same as the original"
+        );
+        assert_eq!(
+            recovered.to_string().trim(),
+            expect_display,
+            "(Display): Recovered error should format the same as the original"
+        );
+    }
 }
