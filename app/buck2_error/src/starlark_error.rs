@@ -22,9 +22,14 @@ use crate::source_location::SourceLocation;
 
 impl From<crate::Error> for starlark_syntax::Error {
     fn from(e: crate::Error) -> starlark_syntax::Error {
+        let span = e.find_starlark_context().and_then(|c| c.span.clone());
         let error = Into::into(StarlarkErrorWrapper(e));
         let error_kind = starlark_syntax::ErrorKind::Native(error);
-        starlark_syntax::Error::new_kind(error_kind)
+        let mut error = starlark_syntax::Error::new_kind(error_kind);
+        if let Some(span) = span {
+            error.set_file_span(span);
+        }
+        error
     }
 }
 
@@ -110,6 +115,7 @@ fn error_with_starlark_context(
     }
 }
 
+#[track_caller]
 fn from_starlark_impl(
     e: starlark_syntax::Error,
     error_handling: NativeErrorHandling,
@@ -158,7 +164,10 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
         _ => "StarlarkError",
     };
-    let source_location = SourceLocation::new(std::file!()).with_type_name(variant_name);
+    let caller_location = std::panic::Location::caller();
+    let source_location = SourceLocation::new(caller_location.file())
+        .with_source_line(caller_location.line())
+        .with_type_name(variant_name);
     let description = if skip_stacktrace {
         format!("{}", e.without_diagnostic())
     } else {

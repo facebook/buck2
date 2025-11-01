@@ -100,7 +100,7 @@ pub struct ParseData(
     pub Arc<Vec<(Option<FileSpan>, OwnedStarlarkModulePath)>>,
 );
 
-pub type ParseResult = Result<ParseData, buck2_error::Error>;
+pub type ParseResult = Result<ParseData, starlark_syntax::Error>;
 
 impl ParseData {
     fn new(
@@ -463,10 +463,7 @@ impl InterpreterForDir {
         ) {
             Ok(ast) => ast,
             Err(e) => {
-                return Ok(Err(buck2_error::Error::from(e).context(format!(
-                    "Error parsing: `{}`",
-                    OwnedStarlarkPath::new(import)
-                ))));
+                return Ok(Err(e));
             }
         };
         let mut implicit_imports = Vec::new();

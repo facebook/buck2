@@ -262,6 +262,13 @@ impl Error {
         })
     }
 
+    pub fn find_starlark_context(&self) -> Option<&StarlarkContext> {
+        self.iter_context().find_map(|kind| match kind {
+            ContextValue::StarlarkError(c) => Some(c),
+            _ => None,
+        })
+    }
+
     pub fn string_tags(&self) -> Vec<String> {
         let mut tags: Vec<String> = self
             .iter_context()
