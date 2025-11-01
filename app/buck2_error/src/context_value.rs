@@ -77,6 +77,12 @@ impl std::fmt::Display for ContextValue {
     }
 }
 
+impl std::fmt::Debug for ContextValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        std::fmt::Display::fmt(&self, f)
+    }
+}
+
 impl From<String> for ContextValue {
     fn from(value: String) -> Self {
         ContextValue::Dyn(value.into())
