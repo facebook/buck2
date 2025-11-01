@@ -13,6 +13,7 @@
 use std::fmt;
 
 use ref_cast::RefCast;
+use starlark_syntax::codemap::FileSpan;
 
 use crate::__for_macro::ContextValue;
 use crate::any::recover_crate_error;
@@ -26,6 +27,28 @@ impl From<crate::Error> for starlark_syntax::Error {
         let error_kind = starlark_syntax::ErrorKind::Native(error);
         starlark_syntax::Error::new_kind(error_kind)
     }
+}
+
+/// If true, we render the span / call stack in buck output.
+/// Otherwise, the span data is only for LSP to fish out.
+///
+/// The purpose of passing "false" is to add a span for the LSP
+/// diagnostic formatter.
+///
+// (Span is optional because some callsites only have one 99% of the time, and
+// it's very inconvenient to span.map(create_starlark_context).unwrap_or(...).)
+pub fn create_starlark_context(
+    message: String,
+    span: Option<FileSpan>,
+    show_span_in_buck_output: bool,
+) -> ContextValue {
+    ContextValue::StarlarkError(StarlarkContext {
+        error_msg: message,
+        span,
+        call_stack: Default::default(),
+        show_span_in_buck_output,
+        replaces_root_error: false,
+    })
 }
 
 /// Whether or not to mark a starlark error as an input/user error.
