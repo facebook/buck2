@@ -12,6 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use smallvec::SmallVec;
+use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::span_display::span_display;
 
@@ -106,9 +107,7 @@ impl<T: TypedContext> From<T> for ContextValue {
 
 #[derive(Clone, allocative::Allocative, Debug, PartialEq, Eq, Hash)]
 pub struct StarlarkContext {
-    // TODO(minglunli): We could take in the CallStack type and do some magic to make it look nicer
-    // but I think just concatenating the string form and it's accurate and look good enough
-    pub call_stack: String,
+    pub call_stack: CallStack,
     pub error_msg: String,
     pub span: Option<FileSpan>,
 }
@@ -116,12 +115,16 @@ pub struct StarlarkContext {
 impl StarlarkContext {
     pub fn concat(&self, other: Option<Self>) -> Self {
         if let Some(ctx) = other {
-            let trimmed = ctx
+            let frames = self
                 .call_stack
-                .trim_start_matches(starlark_syntax::call_stack::CALL_STACK_TRACEBACK_PREFIX);
-            let call_stack = format!("{}{}", self.call_stack, trimmed);
+                .frames
+                .iter()
+                .chain(ctx.call_stack.frames.iter())
+                .cloned()
+                .collect();
+
             Self {
-                call_stack,
+                call_stack: CallStack { frames },
                 error_msg: ctx.error_msg.clone(),
                 span: ctx.span.clone(),
             }
