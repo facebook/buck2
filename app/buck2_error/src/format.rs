@@ -59,11 +59,16 @@ pub(crate) fn into_anyhow_for_format(
     let mut out: anyhow::Error = base.into();
     for context in context_stack.into_iter().rev() {
         if let ContextValue::StarlarkError(ctx) = context {
-            // Because context_stack is reversed, the right ordering would be first error last to preserve stack ordering
-            starlark_error = Some(ctx.concat(starlark_error));
+            if ctx.replaces_root_error {
+                // ignore the root error, treat this as the root
+                out = AnyhowWrapperForFormat::Root(ctx.to_string()).into();
+            } else {
+                // Because context_stack is reversed, the right ordering is first error last to preserve stack ordering
+                starlark_error = Some(ctx.concat(starlark_error));
+            }
             continue;
         }
-        if let Some(ctx) = starlark_error {
+        if let Some(ref ctx) = starlark_error {
             out = out.context(format!("{ctx}"));
             starlark_error = None;
         }

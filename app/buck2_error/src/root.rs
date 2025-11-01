@@ -74,6 +74,7 @@ impl ErrorRoot {
         self.id
     }
 
+    #[allow(unused)]
     pub(crate) fn error_tag(&self) -> ErrorTag {
         self.error_tag
     }

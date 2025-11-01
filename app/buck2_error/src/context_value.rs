@@ -110,6 +110,18 @@ pub struct StarlarkContext {
     pub call_stack: CallStack,
     pub error_msg: String,
     pub span: Option<FileSpan>,
+    ///
+    /// We don't render the root error if `replaces_root_error` is set.
+    /// We render this in preference because it has a starlark
+    /// span and call stack.
+    ///
+    /// This is only to be set if error_msg contains a rendering of the root error.
+    ///
+    /// This field enables us to keep an actual StarlarkContext tha can be rendered
+    /// as an LSP span instead of literally replacing the root context with a
+    /// stringified span.
+    ///
+    pub replaces_root_error: bool,
 }
 
 impl StarlarkContext {
@@ -127,6 +139,7 @@ impl StarlarkContext {
                 call_stack: CallStack { frames },
                 error_msg: ctx.error_msg.clone(),
                 span: ctx.span.clone(),
+                replaces_root_error: ctx.replaces_root_error,
             }
         } else {
             self.clone()
