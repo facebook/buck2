@@ -81,6 +81,7 @@ pub fn recover_crate_error(
     // context that is not included in the `base` error yet.
     let mut e = base;
     for context_value in context_stack.into_iter().rev() {
+        // XXX: this seems sus. If the downcast succeeds, we just write N copies of {starlark_err}.
         if let Some(starlark_err) = cur.downcast_ref::<crate::starlark_error::BuckStarlarkError>() {
             e = e.context(format!("{starlark_err}"));
         } else {
