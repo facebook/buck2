@@ -404,7 +404,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
     }
 
-    async fn eval_package_file_uncached(
+    pub async fn eval_package_file_uncached(
         &mut self,
         path: PackageLabel,
         cancellation: &CancellationContext,
