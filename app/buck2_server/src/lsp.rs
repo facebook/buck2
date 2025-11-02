@@ -16,9 +16,11 @@ use std::thread;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_cli_proto::*;
+use buck2_common::buildfiles::HasBuildfiles;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
@@ -28,6 +30,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -42,6 +45,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
@@ -353,29 +357,50 @@ impl<'a> BuckLspContext<'a> {
             .await?
     }
 
-    async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkModulePath> {
+    async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkPath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
-        let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
-            .await?;
-        let cell_path = cell_resolver.get_cell_path(&relative_path);
+        self.with_dice_ctx(|mut dice_ctx| async move {
+            let cell_resolver = dice_ctx.get_cell_resolver().await?;
 
-        match path.extension() {
-            Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
-                cell_path,
-            )?)),
-            _ => {
-                // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
-                // Unlike the build commands and such, there is no meaningful "build file cell" versus
-                // the cell of the file being currently evaluated.
-                let bfc = BuildFileCell::new(cell_path.cell());
+            let cell_path = cell_resolver.get_cell_path(&relative_path);
+            let buildfile_names = dice_ctx.get_buildfiles(cell_path.cell()).await?;
 
-                Ok(OwnedStarlarkModulePath::LoadFile(
-                    ImportPath::new_hack_for_lsp(cell_path, bfc)?,
-                ))
+            if path.extension().is_some_and(|e| e == "bxl") {
+                return Ok(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
             }
-        }
+
+            let file_name = path.file_name().and_then(|x| x.to_str());
+            let matching_buildfile_name = buildfile_names
+                .iter()
+                .find(|name| file_name.is_some_and(|f| f == name.as_str()));
+
+            if let Some(buildfile_name) = matching_buildfile_name {
+                let parent = cell_path
+                    .as_ref()
+                    .parent()
+                    .expect("It has a filename, therefore it has a parent dir");
+                let package_label = PackageLabel::from_cell_path(parent)?;
+                return Ok(OwnedStarlarkPath::BuildFile(BuildFilePath::new(
+                    package_label,
+                    buildfile_name.clone(),
+                )));
+            }
+
+            if let Some(pfp) = PackageFilePath::from_file_path(cell_path.as_ref()) {
+                return Ok(OwnedStarlarkPath::PackageFile(pfp));
+            }
+
+            // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
+            // Unlike the build commands and such, there is no meaningful "build file cell" versus
+            // the cell of the file being currently evaluated.
+            let bfc = BuildFileCell::new(cell_path.cell());
+
+            Ok(OwnedStarlarkPath::LoadFile(ImportPath::new_hack_for_lsp(
+                cell_path, bfc,
+            )?))
+        })
+        .await
     }
 
     async fn starlark_import_path(
@@ -405,13 +430,13 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    async fn import_path_from_url(
-        &self,
-        uri: &LspUrl,
-    ) -> buck2_error::Result<OwnedStarlarkModulePath> {
+    async fn import_path_from_url(&self, uri: &LspUrl) -> buck2_error::Result<OwnedStarlarkPath> {
         match uri {
             LspUrl::File(path) => self.import_path(path).await,
-            LspUrl::Starlark(path) => self.starlark_import_path(path).await,
+            LspUrl::Starlark(path) => self
+                .starlark_import_path(path)
+                .await
+                .map(|mod_path| mod_path.into_starlark_path()),
             LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
                 "file:// or starlark:".to_owned(),
                 uri.clone(),
@@ -445,12 +470,11 @@ impl<'a> BuckLspContext<'a> {
 
         self.with_dice_ctx(|mut dice_ctx| async move {
             let calculator = dice_ctx
-                .get_interpreter_calculator(import_path.clone().into_starlark_path())
+                .get_interpreter_calculator(import_path.clone())
                 .await?;
 
-            let module_path = import_path.borrow();
-            let path = module_path.starlark_path();
-            let parse_result = calculator.prepare_eval_with_content(path, content)?;
+            let parse_result =
+                calculator.prepare_eval_with_content(import_path.borrow(), content)?;
             match parse_result {
                 Ok(ParseData(ast, _)) => Ok(LspEvalResult {
                     diagnostics: Vec::new(),
@@ -591,18 +615,16 @@ impl LspContext for BuckLspContext<'_> {
                 match current_file {
                     LspUrl::File(current_file) => {
                         let current_import_path = self.import_path(current_file).await?;
-                        let borrowed_current_import_path = current_import_path.borrow();
+                        let current_import_path = &current_import_path;
                         let url = self
                             .with_dice_ctx(|mut dice_ctx| async move {
                                 let calculator = dice_ctx
-                                    .get_interpreter_calculator(OwnedStarlarkPath::new(
-                                        borrowed_current_import_path.starlark_path(),
-                                    ))
+                                    .get_interpreter_calculator(current_import_path.clone())
                                     .await?;
 
-                                let starlark_file = borrowed_current_import_path.starlark_path();
-                                let loaded_import_path =
-                                    calculator.resolve_load(starlark_file, path).await?;
+                                let loaded_import_path = calculator
+                                    .resolve_load(current_import_path.borrow(), path)
+                                    .await?;
                                 let relative_path = dice_ctx
                                     .get_cell_resolver()
                                     .await?
@@ -646,7 +668,8 @@ impl LspContext for BuckLspContext<'_> {
                 }
                 .map_err(buck2_error::Error::from)?;
 
-                let current_package = import_path.path();
+                let current_package = import_path.borrow().path();
+                let current_package_ref = current_package.as_ref().as_ref();
 
                 // Right now we swallow the errors up as they can happen for a lot of reasons that are
                 // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
@@ -655,12 +678,13 @@ impl LspContext for BuckLspContext<'_> {
                 // buck2_error::Error sort of obscures the root causes, so we just have
                 // to assume if it failed, it's fine, and we can maybe try the next thing.
                 if let Ok(Some(string_literal)) = self
-                    .parse_target_from_string(current_package, literal)
+                    .parse_target_from_string(current_package_ref, literal)
                     .await
                 {
                     Ok(Some(string_literal))
-                } else if let Ok(Some(string_literal)) =
-                    self.parse_file_from_string(current_package, literal).await
+                } else if let Ok(Some(string_literal)) = self
+                    .parse_file_from_string(current_package_ref, literal)
+                    .await
                 {
                     Ok(Some(string_literal))
                 } else {
@@ -681,7 +705,7 @@ impl LspContext for BuckLspContext<'_> {
                         self.with_dice_ctx(|mut dice_ctx| async move {
                             DiceFileComputations::read_file_if_exists(
                                 &mut dice_ctx,
-                                path.borrow().path().as_ref(),
+                                path.borrow().path().as_ref().as_ref(),
                             )
                             .await
                         })
