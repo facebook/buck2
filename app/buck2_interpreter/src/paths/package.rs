@@ -14,6 +14,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::package::PackageLabel;
 
 /// Represents the path to a PACKAGE file.
 ///
@@ -45,6 +46,15 @@ impl PackageFilePath {
         Self::package_file_names().map(move |name| PackageFilePath {
             path: path.join(name),
         })
+    }
+
+    pub fn package_label(&self) -> PackageLabel {
+        PackageLabel::from_cell_path(
+            self.path()
+                .parent()
+                .expect("Constructed to contain a PACKAGE filename"),
+        )
+        .expect("Should not have a question mark")
     }
 
     pub fn package_file_for_dir(path: CellPathRef) -> PackageFilePath {
