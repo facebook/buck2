@@ -137,6 +137,20 @@ impl StarlarkContext {
             format!("{}\n{}", span, call_stack)
         }
     }
+
+    pub fn find_span_in_file(&self, filename: &str) -> Option<FileSpan> {
+        self.span
+            .as_ref()
+            .filter(|x| x.filename() == filename)
+            .or_else(|| {
+                self.call_stack
+                    .frames
+                    .iter()
+                    .filter_map(|f| f.location.as_ref())
+                    .find(|span| span.filename() == filename)
+            })
+            .cloned()
+    }
 }
 
 #[cfg(test)]
