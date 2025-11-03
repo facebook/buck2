@@ -176,6 +176,7 @@ fn from_starlark_impl(
         | starlark_syntax::ErrorKind::Scope(e)
         | starlark_syntax::ErrorKind::Parser(e)
         | starlark_syntax::ErrorKind::Other(e)
+        | starlark_syntax::ErrorKind::Freeze(e)
         | starlark_syntax::ErrorKind::Native(e) => {
             let error: anyhow::Error = Into::into(BuckStarlarkError(e, description));
             let std_err: &'_ (dyn std::error::Error + 'static) = error.as_ref();
