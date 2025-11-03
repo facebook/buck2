@@ -33,7 +33,7 @@ use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ActionCacheResult;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
 

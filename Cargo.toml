@@ -66,7 +66,7 @@ members = [
     "app/buck2_test_runner",
     "app/buck2_forkserver",
     "app/buck2_forkserver_proto",
-    "app/buck2_futures",
+    "app/dice_futures",
     "app/buck2_profile",
     "app/buck2_protoc_dev",
     "app/buck2_query",
@@ -413,7 +413,6 @@ buck2_external_cells_bundled = { path = "app/buck2_external_cells_bundled" }
 buck2_file_watcher = { path = "app/buck2_file_watcher" }
 buck2_forkserver = { path = "app/buck2_forkserver" }
 buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
-buck2_futures = { path = "app/buck2_futures" }
 buck2_grpc = { path = "app/buck2_grpc" }
 buck2_health_check = { path = "app/buck2_health_check" }
 buck2_health_check_proto = { path = "app/buck2_health_check_proto" }
@@ -449,6 +448,7 @@ buck2_util = { path = "app/buck2_util" }
 buck2_validation = { path = "app/buck2_validation" }
 buck2_worker_proto = { path = "app/buck2_worker_proto" }
 buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
+dice_futures = { path = "app/dice_futures" }
 
 [profile.release]
 incremental = true

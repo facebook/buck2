@@ -10,9 +10,9 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
-use buck2_futures::cancellation::CancellationContext;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 use crate::arc::Arc;

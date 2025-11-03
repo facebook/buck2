@@ -7,7 +7,7 @@ version = "0.0.0"
 
 [dev-dependencies]
 allocative = { workspace = true }
-buck2_futures = { workspace = true }
+dice_futures = { workspace = true }
 dupe = { workspace = true }
 
 anyhow = { workspace = true }

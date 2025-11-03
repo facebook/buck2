@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
 

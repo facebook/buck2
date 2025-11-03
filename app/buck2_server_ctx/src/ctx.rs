@@ -36,10 +36,10 @@ use buck2_data::DiceCriticalSectionEnd;
 use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 use crate::concurrency::ConcurrencyHandler;

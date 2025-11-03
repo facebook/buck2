@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_util::cycle_detector::CycleDescriptor;
 use buck2_util::cycle_detector::LazyCycleDetector;
 use buck2_util::cycle_detector::LazyCycleDetectorGuard;
@@ -23,6 +22,7 @@ use dice::DynKey;
 use dice::Key;
 use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
+use dice_futures::cancellation::CancellationContext;
 use futures::Future;
 use tracing::debug;
 

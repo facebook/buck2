@@ -19,12 +19,12 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InvalidationSourcePriority;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 

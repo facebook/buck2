@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use dice_error::DiceResult;
+use dice_futures::cancellation::CancellationContext;
 use futures::future::BoxFuture;
 
 use crate::DiceKeyTrackedInvalidationPaths;

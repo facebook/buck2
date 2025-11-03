@@ -16,10 +16,10 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_events::dispatch::console_message;
-use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;

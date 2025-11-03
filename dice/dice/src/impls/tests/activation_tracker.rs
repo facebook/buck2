@@ -13,8 +13,8 @@ use std::sync::Mutex;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 use crate::ActivationData;

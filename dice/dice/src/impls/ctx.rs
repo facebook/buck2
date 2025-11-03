@@ -15,12 +15,12 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_futures::owning_future::OwningFuture;
 use derivative::Derivative;
 use dice_error::DiceError;
 use dice_error::DiceResult;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::owning_future::OwningFuture;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::TryFutureExt;

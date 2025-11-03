@@ -31,7 +31,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;

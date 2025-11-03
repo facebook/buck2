@@ -24,7 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
 use remote_execution::TActionResult2;

@@ -21,10 +21,10 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use ref_cast::RefCast;
 

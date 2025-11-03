@@ -25,8 +25,8 @@ rust_binary(
         "fbsource//third-party/rust:tracing-subscriber",
         "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
-        "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_futures:dice_futures",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

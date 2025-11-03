@@ -12,8 +12,8 @@ use std::any::Any;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_futures::spawner::Spawner;
-use buck2_futures::spawner::TokioSpawner;
+use dice_futures::spawner::Spawner;
+use dice_futures::spawner::TokioSpawner;
 
 use crate::DynKey;
 use crate::api::activation_tracker::ActivationTracker;

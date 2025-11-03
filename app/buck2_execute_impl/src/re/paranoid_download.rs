@@ -26,7 +26,7 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
