@@ -26,9 +26,6 @@ def helper_bin_flags() -> List[str]:
 
 @buck_test(skip_for_os=["windows", "darwin"])
 async def test_instruction_count_disabled(buck: Buck) -> None:
-    # disable resource control as it uses miniperf to read cgroup's memory peak
-    env = {"BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off"}'}
-
     await buck.build(
         "root//:three_billion_instructions",
         "-c",
@@ -38,7 +35,6 @@ async def test_instruction_count_disabled(buck: Buck) -> None:
         "-c",
         f"test.cache_buster={random_string()}",
         *helper_bin_flags(),
-        env=env,
     )
 
     events = await filter_events(

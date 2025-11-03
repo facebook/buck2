@@ -707,13 +707,20 @@ impl LocalExecutor {
                     }
                 };
 
-                let execution_stats = execution_stats.map(|s| buck2_data::CommandExecutionStats {
-                    cpu_instructions_user: s.cpu_instructions_user,
-                    cpu_instructions_kernel: s.cpu_instructions_kernel,
-                    userspace_events: s.userspace_events,
-                    kernel_events: s.kernel_events,
-                    memory_peak: cgroup_result.as_ref().and_then(|c| c.memory_peak),
-                });
+                let mut execution_stats =
+                    execution_stats.map(|s| buck2_data::CommandExecutionStats {
+                        cpu_instructions_user: s.cpu_instructions_user,
+                        cpu_instructions_kernel: s.cpu_instructions_kernel,
+                        userspace_events: s.userspace_events,
+                        kernel_events: s.kernel_events,
+                        memory_peak: None,
+                    });
+
+                if let Some(memory_peak) =
+                    cgroup_result.as_ref().and_then(|r| r.memory_peak.as_ref())
+                {
+                    execution_stats.get_or_insert_default().memory_peak = Some(*memory_peak);
+                }
 
                 timing.execution_stats = execution_stats;
                 if let Some(cgroup_result) = cgroup_result {
