@@ -184,6 +184,14 @@ fn cmd_content_markdown(
         writeln!(template).unwrap();
     }
 
+    // common options link
+    writeln!(
+        template,
+        "### Common Options:\n\n\
+        Common options are documented on the [Common Options](../common-options) page.\n"
+    )
+    .unwrap();
+
     // options
     let options = cmd
         .get_arguments()

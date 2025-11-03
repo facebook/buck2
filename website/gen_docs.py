@@ -193,6 +193,11 @@ id: index
 title: buck2 commands
 ---
 """
+    common_options_section = """\
+
+For common options available across multiple commands, see [Common Options](./common-options).
+
+"""
     lines = [
         "| Command       | Description                  |",
         "|---------------|------------------------------|",
@@ -205,7 +210,7 @@ title: buck2 commands
         safe_help = short_help.replace("|", "\\|")
         lines.append(f"| {cmd_with_link} | {safe_help} |")
 
-    return titile + "\n".join(lines)
+    return titile + common_options_section + "\n".join(lines)
 
 
 def generate_help_docs(buck: str) -> None:
