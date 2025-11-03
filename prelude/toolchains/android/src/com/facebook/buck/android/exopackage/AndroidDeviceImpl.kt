@@ -22,6 +22,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.Optional
+import java.util.UUID
 import java.util.regex.Pattern
 import kotlin.system.measureTimeMillis
 
@@ -37,8 +38,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
         try {
-          executeAdbShellCommand("echo exo > /data/local/tmp/buck-experiment")
-          executeAdbShellCommand("rm /data/local/tmp/buck-experiment")
+          val uniqueFileName = "buck-experiment-${UUID.randomUUID()}"
+          executeAdbShellCommand("echo exo > /data/local/tmp/$uniqueFileName")
+          executeAdbShellCommand("rm /data/local/tmp/$uniqueFileName")
         } catch (e: AdbCommandFailedException) {
           // TODO: we should check for specific failure here
           LOG.error("Failed to write to /data/local/tmp: ${e.message}")

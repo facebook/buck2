@@ -17,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -45,9 +46,20 @@ class AndroidDeviceImplTest {
     // Test with verifyTempWritable = true, SDK < 29 (no fastdeploy)
     val result = androidDevice.installApkOnDevice(apkFile, false, false, true, false)
 
+    // Verify temp file check uses UUID pattern
     verify(mockAdbUtils)
-        .executeAdbShellCommand("echo exo > /data/local/tmp/buck-experiment", serialNumber)
-    verify(mockAdbUtils).executeAdbShellCommand("rm /data/local/tmp/buck-experiment", serialNumber)
+        .executeAdbShellCommand(
+            argThat { matches(Regex("echo exo > /data/local/tmp/buck-experiment-[0-9a-f\\-]+")) },
+            org.mockito.kotlin.eq(serialNumber),
+            org.mockito.kotlin.any(),
+        )
+    verify(mockAdbUtils)
+        .executeAdbShellCommand(
+            argThat { matches(Regex("rm /data/local/tmp/buck-experiment-[0-9a-f\\-]+")) },
+            org.mockito.kotlin.eq(serialNumber),
+            org.mockito.kotlin.any(),
+        )
+
     verify(mockAdbUtils).executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber)
     assertTrue(result)
   }

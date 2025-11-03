@@ -12,6 +12,7 @@ standard_java_test(
     with_test_data = True,
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
+        "prelude//toolchains/android/src/com/facebook/buck/android:utils_api",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",

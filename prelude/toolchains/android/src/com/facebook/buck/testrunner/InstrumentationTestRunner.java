@@ -97,9 +97,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
       "/storage/emulated/0/Android/media/%s/test_result/%s/";
   private static final String PRE_TEST_SETUP_SCRIPT = "PRE_TEST_SETUP_SCRIPT";
   private static final String APEXES_TO_INSTALL = "APEXES_TO_INSTALL";
-  // Minimum Android SDK version that supports --fastdeploy flag (Android 10+)
-  // https://developer.android.com/tools/releases/platform-tools#2905_october_2019
-  private static final int MIN_SDK_VERSION_FOR_FASTDEPLOY = 29;
 
   private final String packageName;
   private final String targetPackageName;
@@ -463,22 +460,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
     }
   }
 
-  protected void installPackage(IDevice device, String path) throws Throwable {
-    if (getSdkVersion() >= MIN_SDK_VERSION_FOR_FASTDEPLOY) {
-      try {
-        String adbCommand = buildFastdeployInstallCommand(device, path);
-        RunShellCommand.run(adbCommand);
-      } catch (Exception e) {
-        device.installPackage(path, true);
-      }
-    } else {
-      device.installPackage(path, true);
-    }
-  }
-
-  private String buildFastdeployInstallCommand(IDevice device, String path) {
-    String deviceSerial = androidDevice.getSerialNumber();
-    return getAdbPath() + " -s " + deviceSerial + " install --fastdeploy " + path;
+  protected void installPackage(String path) throws Throwable {
+    androidDevice.installApkOnDevice(new File(path), false, false, false);
   }
 
   protected void initializeAndroidDevice() throws Exception {
@@ -528,7 +511,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
               executor.submit(
                   () -> {
                     try {
-                      installPackage(device, this.instrumentationApkPath);
+                      installPackage(this.instrumentationApkPath);
                       return null;
                     } catch (Throwable t) {
                       throw new RuntimeException("Failed to install instrumentation APK", t);
@@ -539,7 +522,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
               executor.submit(
                   () -> {
                     try {
-                      installPackage(device, this.apkUnderTestPath);
+                      installPackage(this.apkUnderTestPath);
                       return null;
                     } catch (Throwable t) {
                       throw new RuntimeException("Failed to install APK under test", t);
@@ -559,7 +542,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       } else {
         // Single APK installation (no APK under test)
-        installPackage(device, this.instrumentationApkPath);
+        installPackage(this.instrumentationApkPath);
       }
     }
 

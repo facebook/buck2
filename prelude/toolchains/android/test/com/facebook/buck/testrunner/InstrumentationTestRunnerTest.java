@@ -16,12 +16,14 @@ import com.android.ddmlib.IShellEnabledDevice;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.testrunner.InstrumentationResultParser;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
+import com.facebook.buck.android.TestAndroidDevice;
 import com.facebook.buck.android.TestDevice;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
 import com.facebook.buck.testrunner.reportlayer.TombstonesReportLayer;
 import com.facebook.buck.testrunner.reportlayer.VideoRecordingReportLayer;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableSet;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -452,14 +454,23 @@ public class InstrumentationTestRunnerTest {
   @Test
   public void installsSingleApkWhenNoApkUnderTest() throws Throwable {
     List<String> installedPackages = new ArrayList<>();
+
+    TestAndroidDevice androidDevice =
+        new TestAndroidDevice() {
+          @Override
+          public boolean installApkOnDevice(
+              File apk,
+              boolean installViaSd,
+              boolean quiet,
+              boolean verifyTempWritable,
+              boolean stagedInstallMode) {
+            installedPackages.add(apk.getPath());
+            return true;
+          }
+        };
+
     IDevice device =
         new TestDevice() {
-          @Override
-          public synchronized void installPackage(
-              String packageFilePath, boolean reinstall, String... extraArgs) {
-            installedPackages.add(packageFilePath);
-          }
-
           @Override
           public void executeShellCommand(String command, IShellOutputReceiver receiver) {
             // Ignore shell commands for this test
@@ -526,6 +537,11 @@ public class InstrumentationTestRunnerTest {
           @Override
           protected void initializeAndroidDevice() throws Exception {
             // Skip AndroidDevice initialization for tests
+          }
+
+          @Override
+          protected void installPackage(String path) throws Throwable {
+            androidDevice.installApkOnDevice(new File(path), false, false, false);
           }
         };
 

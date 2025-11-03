@@ -10,7 +10,6 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.IDevice;
 import com.facebook.buck.testrunner.reportlayer.TombstonesReportLayer;
 import com.facebook.buck.testrunner.reportlayer.VideoRecordingReportLayer;
 import java.io.File;
@@ -132,7 +131,7 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
   }
 
   @Override
-  protected void installPackage(IDevice device, String path) throws Throwable {
+  protected void installPackage(String path) throws Throwable {
     RunShellCommand.run(getAdbPath(), "install " + path);
   }
 }
