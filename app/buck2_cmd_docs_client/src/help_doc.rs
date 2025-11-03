@@ -72,7 +72,7 @@ fn generate_query_redirect_page() -> String {
 
 `query` is an alias for the `uquery` command.
 
-Please see the [uquery](./uquery) documentation for details.
+Please see the [uquery](../uquery) documentation for details.
 "#;
     markdown.to_owned()
 }
