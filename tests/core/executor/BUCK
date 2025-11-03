@@ -27,6 +27,12 @@ buck2_core_tests(
                 "THREE_BILLION_INSTRUCTIONS_BIN": "$(location //buck2/shed/three_billion_instructions:three_billion_instructions-bin)",
             },
         },
+        "test_memory_reporting": {
+            "env": {
+                "USE_SOME_MEMORY_BIN": "$(location //buck2/shed/cgroups/use_some_memory:use_some_memory)",
+            },
+            "use_compiled_buck2_client_and_tpx": True,
+        },
         "test_outputs_ordering": {
             "env": {
                 "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",

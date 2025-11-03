@@ -56,8 +56,8 @@ def is_memory_pressure_detected(current_time: float, all_times: List[float]) -> 
 
 
 class MemoryPressure:
-    def __init__(self, output_file: str):
-        self.output_file = open(output_file, "w")
+    def __init__(self, output_file: str | None):
+        self.output_file = open(output_file or "/dev/null", "w")
         self.total_allocated = 0.0
 
     def log(self, message: str) -> None:
@@ -142,7 +142,7 @@ def parse_arguments() -> argparse.Namespace:
         help="Memory to allocate per tick in MB",
     )
     parser.add_argument(
-        "--output", type=str, required=True, help="Output log file path"
+        "--output", type=str, required=False, help="Output log file path"
     )
     parser.add_argument(
         "--pre-exit-sleep-duration",
