@@ -36,6 +36,7 @@ fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) 
     }
 }
 
+/// Walk a StdError (e.g. anyhow::Error) down to its source, and rebuild it as a [struct@crate::Error].
 pub fn recover_crate_error(
     value: &'_ (dyn StdError + 'static),
     source_location: SourceLocation,
