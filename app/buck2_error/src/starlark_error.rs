@@ -136,7 +136,7 @@ fn from_starlark_impl(
     error_handling: NativeErrorHandling,
     skip_stacktrace: bool,
 ) -> crate::Error {
-    let starlark_context = if e.has_diagnostic() {
+    let starlark_context = if e.has_diagnostic() && !skip_stacktrace {
         Some(StarlarkContext {
             call_stack: e.call_stack().clone(),
             span: e.span().cloned(),
@@ -189,11 +189,7 @@ fn from_starlark_impl(
     let source_location = SourceLocation::new(caller_location.file())
         .with_source_line(caller_location.line())
         .with_type_name(variant_name);
-    let description = if skip_stacktrace {
-        format!("{}", e.without_diagnostic())
-    } else {
-        format!("{e}")
-    };
+    let description = format!("{}", e.without_diagnostic());
 
     let crate_error = match e.into_kind() {
         starlark_syntax::ErrorKind::Fail(e)
