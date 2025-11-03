@@ -240,7 +240,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             .into_anyhow_result()
             .with_context(|| {
                 format!(
-                    "Error unpacking value for parameter `{}` of type `{}",
+                    "Error unpacking value for parameter `{}` of type `{}`",
                     param_name,
                     Self::starlark_type_repr()
                 )
