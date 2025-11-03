@@ -1394,6 +1394,8 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9;
   // This action was served via a local action cache
   ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE = 10;
+  // This action was executed remotely via a persistent worker.
+  ACTION_EXECUTION_KIND_REMOTE_WORKER = 11;
 }
 
 // A name for a particular action, suitable for offline analytics and user
@@ -1897,6 +1899,7 @@ message ReExecute {
   RePlatform platform = 2;
   optional string action_key = 3;
   string use_case = 4;
+  bool persistent_worker = 5;
 }
 
 message RePlatform {
@@ -2243,6 +2246,7 @@ message RemoteCommandDetails {
   optional string session_id = 1;
   string use_case = 2;
   RePlatform platform = 3;
+  bool persistent_worker = 4;
 }
 
 // Header in binary event log.

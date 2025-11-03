@@ -250,6 +250,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
             &command.prepared_action.platform,
+            false,
         );
         let cache_type = CacheType::ActionCache;
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
@@ -315,6 +316,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
             &command.prepared_action.platform,
+            false,
         );
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
             &cache_type,

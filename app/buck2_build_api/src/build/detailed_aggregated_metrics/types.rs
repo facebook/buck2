@@ -155,7 +155,7 @@ impl TopLevelTargetAggregatedData {
                 self.local_max_memory_peak_bytes =
                     max(self.local_max_memory_peak_bytes, memory_peak);
             }
-            ActionExecutionKind::Remote => {
+            ActionExecutionKind::Remote | ActionExecutionKind::RemoteWorker => {
                 self.remote_max_memory_peak_bytes =
                     max(self.remote_max_memory_peak_bytes, memory_peak);
             }
@@ -205,7 +205,8 @@ impl AggregatedBuildMetrics {
                     self.local_execution_time_ms += factor * (ev.execution_time_ms as f64);
                     self.local_executions += factor;
                 }
-                buck2_data::ActionExecutionKind::Remote => {
+                buck2_data::ActionExecutionKind::Remote
+                | buck2_data::ActionExecutionKind::RemoteWorker => {
                     self.remote_execution_time_ms += factor * (ev.execution_time_ms as f64);
                     self.remote_executions += factor;
                 }

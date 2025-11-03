@@ -454,6 +454,12 @@ impl fmt::Display for WhatRanCommandConsoleFormat<'_> {
 }
 
 fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
+    let exec = if execute.persistent_worker {
+        "re_worker"
+    } else {
+        "re"
+    };
+
     if let Some(platform) = &execute.platform {
         let platform = platform
             .properties
@@ -461,9 +467,9 @@ fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
             .map(|Property { name, value }| format!("{name}={value}"))
             .collect::<Vec<String>>()
             .join(",");
-        format!("re({platform})")
+        format!("{exec}({platform})")
     } else {
-        "re".to_owned()
+        exec.to_owned()
     }
 }
 
@@ -492,6 +498,7 @@ mod tests {
             }),
             action_key: None,
             use_case: "".to_owned(),
+            persistent_worker: false,
         };
         let result = executor_with_platform(&execute);
         assert_eq!(

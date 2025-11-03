@@ -214,6 +214,7 @@ impl ReExecutor {
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
             &platform,
+            worker_tool_action_digest.is_some(),
         );
 
         let response = match execute_response {
@@ -357,6 +358,7 @@ impl PreparedCommandExecutor for ReExecutor {
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
             &platform,
+            request.remote_worker().is_some() && worker_tool_init_action.is_some(),
         );
         let manager = manager.with_execution_kind(CommandExecutionKind::Remote {
             details: details.clone(),

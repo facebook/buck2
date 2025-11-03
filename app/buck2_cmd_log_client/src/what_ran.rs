@@ -403,11 +403,21 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                             }
                         }
                     },
-                    CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
-                        digest: &re_execute.action_digest,
-                        platform_properties: into_index_map(&re_execute.platform),
-                        action_key: re_execute.action_key.as_deref(),
-                    },
+                    CommandReproducer::ReExecute(re_execute) => {
+                        if re_execute.persistent_worker {
+                            JsonReproducer::ReWorker {
+                                digest: &re_execute.action_digest,
+                                platform_properties: into_index_map(&re_execute.platform),
+                                action_key: re_execute.action_key.as_deref(),
+                            }
+                        } else {
+                            JsonReproducer::Re {
+                                digest: &re_execute.action_digest,
+                                platform_properties: into_index_map(&re_execute.platform),
+                                action_key: re_execute.action_key.as_deref(),
+                            }
+                        }
+                    }
                     CommandReproducer::LocalExecute(local_execute) => JsonReproducer::Local {
                         command: local_execute.command.as_ref().map_or_else(
                             || Cow::Owned(Vec::new()),
@@ -541,6 +551,12 @@ mod json_reproducer {
             action_key: Option<&'a str>,
         },
         Re {
+            digest: &'a str,
+            platform_properties: IndexMap<&'a str, &'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            action_key: Option<&'a str>,
+        },
+        ReWorker {
             digest: &'a str,
             platform_properties: IndexMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]

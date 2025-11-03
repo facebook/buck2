@@ -988,6 +988,7 @@ impl RemoteExecutionClientImpl {
         re_max_queue_time: Option<Duration>,
         platform: &remote_execution::Platform,
         knobs: &ExecutorGlobalKnobs,
+        persistent_worker: bool,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         use buck2_data::ReAfterAction;
         use buck2_data::ReBeforeAction;
@@ -1155,6 +1156,7 @@ impl RemoteExecutionClientImpl {
             platform: &remote_execution::Platform,
             action_key: &Option<String>,
             use_case: String,
+            persistent_worker: bool,
         ) -> re_stage::Stage {
             match stage {
                 Stage::QUEUED => get_queue_state(action_digest, use_case, operation_metadata),
@@ -1170,6 +1172,7 @@ impl RemoteExecutionClientImpl {
                     platform: Some(platform_to_proto(platform)),
                     action_key: action_key.clone(),
                     use_case,
+                    persistent_worker,
                 }),
                 Stage::AFTER_ACTION => {
                     re_stage::Stage::AfterActionExecution(ReAfterAction { action_digest })
@@ -1229,6 +1232,7 @@ impl RemoteExecutionClientImpl {
                     platform,
                     &action_key,
                     re_use_case.clone(),
+                    persistent_worker,
                 ),
                 manager,
                 &mut queue_stats,
@@ -1353,6 +1357,7 @@ impl RemoteExecutionClientImpl {
                 re_max_queue_time,
                 platform,
                 knobs,
+                worker_tool_action_digest.is_some(),
             )
             .await,
         )
