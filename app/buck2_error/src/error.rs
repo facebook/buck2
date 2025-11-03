@@ -262,6 +262,16 @@ impl Error {
         })
     }
 
+    /// Useful to check if StarlarkContext got injected properly
+    #[cfg(test)]
+    #[allow(unused)]
+    pub(crate) fn find_starlark_context(&self) -> Option<&StarlarkContext> {
+        self.iter_context().find_map(|kind| match kind {
+            ContextValue::StarlarkError(sc) => Some(sc),
+            _ => None,
+        })
+    }
+
     pub fn string_tags(&self) -> Vec<String> {
         let mut tags: Vec<String> = self
             .iter_context()
