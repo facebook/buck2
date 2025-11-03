@@ -30,6 +30,11 @@ pub(crate) struct MarkdownHelpDocCommand {
 
 impl MarkdownHelpDocCommand {
     pub(crate) fn exec(self, top_level_cmd: clap::Command) -> ExitResult {
+        if self.sub_cmd == "common-options" {
+            let markdown = generate_common_options_doc(&top_level_cmd);
+            return ExitResult::success().with_stdout(markdown.into_bytes());
+        }
+
         for subcommand in top_level_cmd.get_subcommands() {
             if subcommand.get_name() == self.sub_cmd {
                 let markdown = cmd_markdown_help(subcommand);
@@ -46,6 +51,75 @@ fn cmd_markdown_help(cmd: &Command) -> String {
     let header = cmd_header_markdown(cmd);
     let content = cmd_content_markdown(cmd, vec!["buck2".to_owned()]).unwrap();
     format!("{header}\n{content}")
+}
+
+fn generate_common_options_doc(cmd: &Command) -> String {
+    let mut markdown = String::new();
+
+    // Add a header
+    writeln!(markdown, "# Common Options").unwrap();
+    writeln!(markdown, "\nThis document provides an overview of common options that are available across multiple buck2 commands.\n").unwrap();
+
+    // Define the sections we want to extract
+    let target_sections = vec![
+        "Universal Options",
+        "Event Log Options",
+        "Buckconfig Options",
+        "Console Options",
+    ];
+
+    // Collect options from the top-level command
+    for section_name in &target_sections {
+        if let Some(section_content) = extract_section_options(cmd, section_name) {
+            writeln!(markdown, "## {}\n", section_name).unwrap();
+            markdown.push_str(&section_content);
+            markdown.push('\n');
+        }
+    }
+
+    // If we couldn't find options in the top-level command, search in subcommands
+    // This is needed because some options might only appear in specific subcommands
+    for section_name in &target_sections {
+        if markdown.contains(&format!("## {}", section_name)) {
+            continue; // Already found this section
+        }
+
+        for subcommand in cmd.get_subcommands() {
+            if let Some(section_content) = extract_section_options(subcommand, section_name) {
+                writeln!(markdown, "## {}\n", section_name).unwrap();
+                markdown.push_str(&section_content);
+                markdown.push('\n');
+                break;
+            }
+        }
+    }
+
+    markdown
+}
+
+fn extract_section_options(cmd: &Command, section_heading: &str) -> Option<String> {
+    let mut section_options = vec![];
+
+    // Get all arguments (both positional and options)
+    for arg in cmd.get_arguments() {
+        // Check if this argument belongs to the target help heading
+        if let Some(help_heading) = arg.get_help_heading() {
+            if help_heading == section_heading && !arg.is_hide_set() {
+                section_options.push(arg);
+            }
+        }
+    }
+
+    if section_options.is_empty() {
+        return None;
+    }
+
+    let mut output = String::new();
+    for arg in section_options {
+        write_arg_markdown(&mut output, arg).ok()?;
+    }
+
+    Some(output)
 }
 
 fn cmd_header_markdown(cmd: &clap::Command) -> String {
