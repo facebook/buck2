@@ -214,6 +214,7 @@ export const sidebars: SidebarsConfig = {
         'rule_authors/optimization',
         isInternal() ? 'rule_authors/rule_writing_tips' : null,
         'rule_authors/incremental_actions',
+        'rule_authors/load',
         'rule_authors/alias',
         'rule_authors/subdir_glob',
         'rule_authors/local_resources',
