@@ -43,6 +43,12 @@ impl MarkdownHelpDocCommand {
             return ExitResult::success().with_stdout(markdown.into_bytes());
         }
 
+        // Handle "query" as an alias for "uquery"
+        if self.sub_cmd == "query" {
+            let markdown = generate_query_redirect_page();
+            return ExitResult::success().with_stdout(markdown.into_bytes());
+        }
+
         for subcommand in top_level_cmd.get_subcommands() {
             if subcommand.get_name() == self.sub_cmd {
                 let markdown = cmd_markdown_help(subcommand);
@@ -59,6 +65,16 @@ fn cmd_markdown_help(cmd: &Command) -> String {
     let header = cmd_header_markdown(cmd);
     let content = cmd_content_markdown(cmd, vec!["buck2".to_owned()]).unwrap();
     format!("{header}\n{content}")
+}
+
+fn generate_query_redirect_page() -> String {
+    let markdown = r#"# query
+
+`query` is an alias for the `uquery` command.
+
+Please see the [uquery](./uquery) documentation for details.
+"#;
+    markdown.to_owned()
 }
 
 fn generate_common_options_doc(cmd: &Command) -> String {
