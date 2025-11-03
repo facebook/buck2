@@ -219,10 +219,10 @@ impl FromStr for JsonArguments {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|_| {
+        serde_json::from_str(s).map_err(|e| {
             anyhow::anyhow!(
-                "Expected a JSON object with a key of `path`, `buildfile`, or `label`. Got: {}",
-                s
+                "Expected a JSON object with a key of `path`, `buildfile`, or `label`. Got serde error: {}",
+                e,
             )
         })
     }
