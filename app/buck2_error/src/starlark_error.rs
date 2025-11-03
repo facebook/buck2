@@ -56,10 +56,7 @@ pub fn from_starlark_with_options(
 
 // If the top context is a string context, then it should be popped off as otherwise
 // the error will be duplicated since the top level error is used to build the stacktrace.
-fn error_with_starlark_context(
-    e: &crate::Error,
-    starlark_context: StarlarkContext,
-) -> crate::Error {
+fn inject_starlark_context(e: &crate::Error, starlark_context: StarlarkContext) -> crate::Error {
     let mut context_stack: Vec<ContextValue> = Vec::new();
     let mut buck2_error = e.clone();
 
@@ -130,7 +127,7 @@ fn from_starlark_impl(
         && let Some(wrapper) = err.downcast_ref::<StarlarkErrorWrapper>()
     {
         return starlark_context
-            .map(|sc| error_with_starlark_context(&wrapper.0, sc))
+            .map(|sc| inject_starlark_context(&wrapper.0, sc))
             .unwrap_or_else(|| wrapper.0.clone());
     }
 
@@ -191,7 +188,7 @@ fn from_starlark_impl(
     };
 
     starlark_context
-        .map(|sc| error_with_starlark_context(&crate_error, sc))
+        .map(|sc| inject_starlark_context(&crate_error, sc))
         .unwrap_or(crate_error)
 }
 
@@ -244,7 +241,7 @@ mod tests {
     use crate::buck2_error;
     use crate::context_value::StarlarkContext;
     use crate::source_location::SourceLocation;
-    use crate::starlark_error::error_with_starlark_context;
+    use crate::starlark_error::inject_starlark_context;
 
     #[derive(Debug, Allocative, derive_more::Display)]
     struct FullMetadataError;
@@ -338,7 +335,7 @@ mod tests {
         let e = e.tag([error_tag]);
         let e = e.string_tag(context_key);
 
-        let context_popped = error_with_starlark_context(&e, starlark_context);
+        let context_popped = inject_starlark_context(&e, starlark_context);
 
         assert!(!context_popped.to_string().contains(context_error));
         assert!(context_popped.tags().contains(&error_tag));
@@ -358,7 +355,7 @@ mod tests {
 
         let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
 
-        let base_replaced = error_with_starlark_context(&e, starlark_context);
+        let base_replaced = inject_starlark_context(&e, starlark_context);
 
         assert!(!base_replaced.to_string().contains(base_error));
         assert!(
@@ -386,7 +383,7 @@ mod tests {
             span: None,
         };
 
-        let starlark_err = error_with_starlark_context(&e, starlark_context);
+        let starlark_err = inject_starlark_context(&e, starlark_context);
         let starlark_err_string = format!("{starlark_err:#}");
 
         assert!(starlark_err_string.contains(&starlark_call_stack.to_string()));
