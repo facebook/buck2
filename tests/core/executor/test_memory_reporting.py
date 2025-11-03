@@ -79,7 +79,7 @@ async def test_memory_reporting(buck: Buck) -> None:
 
     memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
     assert memory_peak > 10000000
-    assert memory_peak < 50000000
+    assert memory_peak < 15000000
 
 
 @buck_test(skip_for_os=["windows", "darwin"])
@@ -101,7 +101,7 @@ async def test_memory_reporting_in_test(buck: Buck) -> None:
 
     memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
     assert memory_peak > 10000000
-    assert memory_peak < 50000000
+    assert memory_peak < 15000000
 
 
 @buck_test()
