@@ -88,6 +88,12 @@ pub mod action_cgroups {
     use crate::memory_tracker::MemoryTrackerHandle;
     use crate::path::CgroupPathBuf;
 
+    #[derive(Debug)]
+    pub struct KillFuture(pub std::future::Pending<Result<RetryFuture, ()>>);
+
+    #[derive(Debug)]
+    pub struct RetryFuture(pub std::future::Pending<Result<KillFuture, ()>>);
+
     pub struct ActionCgroupSession {
         pub path: CgroupPathBuf,
     }
@@ -97,7 +103,8 @@ pub mod action_cgroups {
             _dispatcher: EventDispatcher,
             _command_type: CommandType,
             _action_digest: Option<String>,
-        ) -> buck2_error::Result<Option<Self>> {
+            _disable_kill_and_retry_freeze: bool,
+        ) -> buck2_error::Result<Option<(Self, Option<KillFuture>)>> {
             Ok(None)
         }
 

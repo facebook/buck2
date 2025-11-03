@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pytest
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import filter_events, timestamp_ms
@@ -35,11 +37,13 @@ def configure_memory_limit(buck: Buck) -> None:
         f.write("hybrid_execution_memory_limit_gibibytes = 0\n")
 
 
-def configure_freezing_with_pressure(buck: Buck) -> None:
+def configure_freezing_with_pressure(buck: Buck, kill_and_retry: bool) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
         f.write("enable_action_freezing = true\n")
         f.write("memory_pressure_threshold_percent = 0\n")
+        if kill_and_retry:
+            f.write("preferred_freeze_strategy = kill_and_retry\n")
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
@@ -167,10 +171,12 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
 
 @buck_test(skip_for_os=["darwin", "windows"])
 @env("BUCK2_HARD_ERROR", "panic")
+@pytest.mark.parametrize("kill_and_retry", [True, False])
 async def test_action_freezing(
     buck: Buck,
+    kill_and_retry: bool,
 ) -> None:
-    configure_freezing_with_pressure(buck)
+    configure_freezing_with_pressure(buck, kill_and_retry)
     await buck.build(
         ":sleep_merge",
         "--no-remote-cache",
@@ -224,10 +230,12 @@ async def test_action_freezing(
 
 @buck_test(skip_for_os=["darwin", "windows"])
 @env("BUCK2_HARD_ERROR", "panic")
+@pytest.mark.parametrize("kill_and_retry", [True, False])
 async def test_action_freezing_stress_test(
     buck: Buck,
+    kill_and_retry: bool,
 ) -> None:
-    configure_freezing_with_pressure(buck)
+    configure_freezing_with_pressure(buck, kill_and_retry)
 
     # Stress test that nothing breaks with fast running actions (faster than memory tracker ticks)
     await buck.build(

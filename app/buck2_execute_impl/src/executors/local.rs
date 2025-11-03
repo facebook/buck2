@@ -24,6 +24,7 @@ use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
+use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -91,6 +92,7 @@ use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
+use futures::future::Shared;
 use futures::future::join_all;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
@@ -425,7 +427,7 @@ impl LocalExecutor {
         &self,
         action_digest: &ActionDigest,
         request: &CommandExecutionRequest,
-        manager: CommandExecutionManagerWithClaim,
+        mut manager: CommandExecutionManagerWithClaim,
         cancellations: &CancellationContext,
         liveliness_observer: impl LivelinessObserver + 'static,
         scratch_path: &ScratchPath,
@@ -442,41 +444,91 @@ impl LocalExecutor {
         ),
         CommandExecutionResult,
     > {
-        let cgroup_session = if worker.is_some() {
-            None
+        let (cgroup_session, mut kill_future) = if worker.is_some() {
+            (None, None)
         } else {
             let command_type = if request.is_test() {
                 CommandType::Test
             } else {
                 CommandType::Build
             };
+            let disable_kill_and_retry_freeze = !request.outputs_cleanup;
             match ActionCgroupSession::maybe_create(
                 &self.memory_tracker,
                 dispatcher,
                 command_type,
                 Some(action_digest.to_string()),
+                disable_kill_and_retry_freeze,
             )
             .await
             {
-                Ok(x) => x,
+                Ok(Some((session, kill_future))) => (Some(session), kill_future),
+                Ok(None) => (None, None),
                 Err(e) => return Err(manager.error("initializing_resource_control", e)),
             }
         };
 
-        let mut res = self
-            .exec_once(
-                action_digest,
-                request,
-                manager,
-                cancellations,
-                liveliness_observer,
-                scratch_path,
-                args,
-                worker,
-                env,
-                cgroup_session.as_ref().map(|s| s.path.clone()),
-            )
-            .await;
+        let liveliness_observer: Arc<dyn LivelinessObserver> = Arc::new(liveliness_observer);
+
+        let mut res = loop {
+            let retry_future = Arc::new(std::sync::Mutex::new(None));
+
+            let kill_observer = if let Some(kill_future) = kill_future {
+                let retry_future_dup = retry_future.dupe();
+                let kill_awaiter = async move {
+                    let retry_future = kill_future.0.await;
+                    *retry_future_dup.lock().unwrap() = Some(retry_future);
+                };
+
+                struct FutureLivelinessObserver<F: Future<Output = ()> + Send + Sync>(Shared<F>);
+
+                #[async_trait::async_trait]
+                impl<F: Future<Output = ()> + Send + Sync> LivelinessObserver for FutureLivelinessObserver<F> {
+                    async fn while_alive(&self) {
+                        self.0.clone().await
+                    }
+                }
+
+                Arc::new(FutureLivelinessObserver(kill_awaiter.shared()))
+                    as Arc<dyn LivelinessObserver>
+            } else {
+                Arc::new(NoopLivelinessObserver) as Arc<dyn LivelinessObserver>
+            };
+
+            let liveliness_observer = liveliness_observer.dupe().and(kill_observer);
+            let res = self
+                .exec_once(
+                    action_digest,
+                    request,
+                    manager,
+                    cancellations,
+                    liveliness_observer,
+                    scratch_path,
+                    args,
+                    worker,
+                    env,
+                    cgroup_session.as_ref().map(|s| s.path.clone()),
+                )
+                .await;
+
+            let res = match res {
+                Ok((duration, start_time, status, res_manager)) => {
+                    if matches!(status.status, GatherOutputStatus::Cancelled) {
+                        // Err case shouldn't really happen but also seems fine to ignore
+                        let f = retry_future.lock().unwrap().take();
+                        if let Some(Ok(retry_future)) = f {
+                            kill_future = retry_future.0.await.ok();
+                            manager = res_manager;
+                            continue;
+                        }
+                    }
+                    Ok((duration, start_time, status, res_manager))
+                }
+                Err(e) => Err(e),
+            };
+
+            break res;
+        };
 
         if let Some(mut cgroup_session) = cgroup_session {
             let cgroup_res = cgroup_session.command_finished().await;

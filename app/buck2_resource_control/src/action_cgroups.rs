@@ -17,6 +17,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_common::init::FreezeStrategy;
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
@@ -30,6 +31,7 @@ use nix::sys::stat::Mode;
 use nix::unistd;
 use tokio::fs::File;
 use tokio::sync::Mutex;
+use tokio::sync::oneshot;
 
 use crate::CommandType;
 use crate::cgroup_info::CGroupInfo;
@@ -130,6 +132,27 @@ impl ActionCgroupResult {
     }
 }
 
+/// A channel associated with an unfrozen action that resolves when the action is killed for
+/// resource control
+#[derive(Debug)]
+pub struct KillFuture(pub oneshot::Receiver<RetryFuture>);
+
+/// A channel associated with a frozen action that resolves when the action should be restarted
+#[derive(Debug)]
+pub struct RetryFuture(pub oneshot::Receiver<KillFuture>);
+
+#[derive(Debug)]
+enum FreezeImplementation {
+    CgroupFreeze,
+    KillAndRetry(oneshot::Sender<RetryFuture>),
+}
+
+#[derive(Debug)]
+enum UnfreezeImplementation {
+    CgroupUnfreeze { freeze_file: OwnedFd },
+    KillAndRetry(oneshot::Sender<KillFuture>),
+}
+
 #[derive(Debug)]
 struct ActionCgroup {
     path: CgroupPathBuf,
@@ -154,17 +177,19 @@ struct ActionCgroup {
 #[derive(Debug)]
 struct UnfrozenActionCgroup {
     cgroup: ActionCgroup,
+    freeze_implementation: FreezeImplementation,
 }
 
 #[derive(Debug)]
 struct FrozenActionCgroup {
     cgroup: ActionCgroup,
     freeze_start: Instant,
-    freeze_file: OwnedFd,
+    unfreeze_implementation: UnfreezeImplementation,
 }
 
 pub(crate) struct ActionCgroups {
     enable_freezing: bool,
+    preferred_freeze_strategy: FreezeStrategy,
     unfrozen_cgroups: HashMap<CgroupPathBuf, UnfrozenActionCgroup>,
     frozen_cgroups: HashMap<CgroupPathBuf, FrozenActionCgroup>,
     unfreeze_order: VecDeque<CgroupPathBuf>,
@@ -200,7 +225,8 @@ impl ActionCgroupSession {
         dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
-    ) -> buck2_error::Result<Option<Self>> {
+        disable_kill_and_retry_freeze: bool,
+    ) -> buck2_error::Result<Option<(Self, Option<KillFuture>)>> {
         let Some(tracker) = tracker else {
             return Ok(None);
         };
@@ -209,26 +235,33 @@ impl ActionCgroupSession {
 
         let mut action_cgroups = tracker.action_cgroups.lock().await;
 
-        if let Err(e) = action_cgroups
+        let kill_future = match action_cgroups
             .command_started(
                 path.clone(),
                 dispatcher.dupe(),
                 command_type,
                 action_digest.clone(),
+                disable_kill_and_retry_freeze,
             )
             .await
         {
-            // FIXME(JakobDegen): A proper drop impl on the id would be better than this
-            tracker.cgroup_pool.release(cgroup_id);
-            return Err(e);
-        }
+            Ok(x) => x,
+            Err(e) => {
+                // FIXME(JakobDegen): A proper drop impl on the id would be better than this
+                tracker.cgroup_pool.release(cgroup_id);
+                return Err(e);
+            }
+        };
 
-        Ok(Some(ActionCgroupSession {
-            action_cgroups: tracker.action_cgroups.dupe(),
-            cgroup_id,
-            path,
-            tracker: tracker.dupe(),
-        }))
+        Ok(Some((
+            ActionCgroupSession {
+                action_cgroups: tracker.action_cgroups.dupe(),
+                cgroup_id,
+                path,
+                tracker: tracker.dupe(),
+            },
+            kill_future,
+        )))
     }
 
     pub async fn command_finished(&mut self) -> ActionCgroupResult {
@@ -254,15 +287,21 @@ impl ActionCgroups {
 
         let ancestor_cgroup_constraints = AncestorCgroupConstraints::new().await?;
 
-        Ok(Self::new(enable_freezing, ancestor_cgroup_constraints))
+        Ok(Self::new(
+            enable_freezing,
+            resource_control_config.preferred_freeze_strategy,
+            ancestor_cgroup_constraints,
+        ))
     }
 
     pub fn new(
         enable_freezing: bool,
+        freeze_strategy: Option<FreezeStrategy>,
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
     ) -> Self {
         Self {
             enable_freezing,
+            preferred_freeze_strategy: freeze_strategy.unwrap_or(FreezeStrategy::CgroupFreeze),
             unfrozen_cgroups: HashMap::new(),
             frozen_cgroups: HashMap::new(),
             unfreeze_order: VecDeque::new(),
@@ -277,7 +316,7 @@ impl ActionCgroups {
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Self {
-        Self::new(false, None)
+        Self::new(false, None, None)
     }
 
     pub async fn command_started(
@@ -286,7 +325,8 @@ impl ActionCgroups {
         dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
-    ) -> buck2_error::Result<()> {
+        disable_kill_and_retry_freeze: bool,
+    ) -> buck2_error::Result<Option<KillFuture>> {
         let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
@@ -297,6 +337,20 @@ impl ActionCgroups {
 
         let memory_initial = read_memory_current(&mut memory_current_file).await?;
         let swap_initial = read_memory_swap_current(&mut memory_swap_current_file).await?;
+
+        let freeze_strategy = if disable_kill_and_retry_freeze {
+            FreezeStrategy::CgroupFreeze
+        } else {
+            self.preferred_freeze_strategy
+        };
+
+        let (freeze_implementation, kill_future) = match freeze_strategy {
+            FreezeStrategy::CgroupFreeze => (FreezeImplementation::CgroupFreeze, None),
+            FreezeStrategy::KillAndRetry => {
+                let (tx, rx) = oneshot::channel();
+                (FreezeImplementation::KillAndRetry(tx), Some(KillFuture(rx)))
+            }
+        };
 
         let existing = self.unfrozen_cgroups.insert(
             cgroup_path.clone(),
@@ -319,6 +373,7 @@ impl ActionCgroups {
                     action_digest,
                     dispatcher,
                 },
+                freeze_implementation,
             },
         );
         if let Some(existing) = existing {
@@ -328,7 +383,7 @@ impl ActionCgroups {
             ));
         }
 
-        Ok(())
+        Ok(kill_future)
     }
 
     pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
@@ -647,7 +702,7 @@ fn freeze_cgroup(
     cgroup: UnfrozenActionCgroup,
 ) -> Result<FrozenActionCgroup, (UnfrozenActionCgroup, buck2_error::Error)> {
     // Using nix APIs in case more precise control is needed for control file IO.
-    fn freeze_impl(cgroup: &ActionCgroup) -> buck2_error::Result<OwnedFd> {
+    fn cgroup_freeze_impl(cgroup: &ActionCgroup) -> buck2_error::Result<OwnedFd> {
         let dir: Dir = Dir::open(cgroup.path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
             .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup directory"))?;
         let freeze_file = openat(
@@ -657,40 +712,63 @@ fn freeze_cgroup(
             Mode::empty(),
         )
         .map_err(|e| buck2_error::Error::from(e).context("Failed to open cgroup.freeze file"))?;
-        let bytes_written = unistd::write(freeze_file.as_fd(), "1".as_bytes())?;
+        let bytes_written = unistd::write(freeze_file.as_fd(), b"1")?;
         if bytes_written != 1 {
             return Err(internal_error!("Failed to write to cgroup.freeze file"));
         }
         Ok(freeze_file)
     }
 
-    match freeze_impl(&cgroup.cgroup) {
-        Ok(freeze_file) => Ok(FrozenActionCgroup {
-            cgroup: cgroup.cgroup,
-            freeze_file,
-            freeze_start: Instant::now(),
-        }),
-        Err(e) => Err((cgroup, e)),
+    let freeze_start = Instant::now();
+    match cgroup.freeze_implementation {
+        FreezeImplementation::CgroupFreeze => match cgroup_freeze_impl(&cgroup.cgroup) {
+            Ok(freeze_file) => Ok(FrozenActionCgroup {
+                cgroup: cgroup.cgroup,
+                unfreeze_implementation: UnfreezeImplementation::CgroupUnfreeze { freeze_file },
+                freeze_start,
+            }),
+            Err(e) => Err((cgroup, e)),
+        },
+        FreezeImplementation::KillAndRetry(kill_sender) => {
+            let (retry_tx, retry_rx) = oneshot::channel();
+            drop(kill_sender.send(RetryFuture(retry_rx)));
+            Ok(FrozenActionCgroup {
+                cgroup: cgroup.cgroup,
+                unfreeze_implementation: UnfreezeImplementation::KillAndRetry(retry_tx),
+                freeze_start,
+            })
+        }
     }
 }
 
 fn unfreeze_cgroup(cgroup: FrozenActionCgroup) -> UnfrozenActionCgroup {
-    fn unfreeze(freeze_file: OwnedFd) -> buck2_error::Result<()> {
-        static ZERO: [u8; 1] = ["0".as_bytes()[0]];
-        let bytes_written = unistd::write(freeze_file.as_fd(), &ZERO)?;
+    fn cgroup_unfreeze(freeze_file: OwnedFd) -> buck2_error::Result<()> {
+        let bytes_written = unistd::write(freeze_file.as_fd(), b"0")?;
         if bytes_written != 1 {
             return Err(internal_error!("Failed to write to cgroup.freeze file"));
         }
         Ok(())
     }
 
-    if let Err(e) = unfreeze(cgroup.freeze_file) {
-        let _unused: Result<buck2_error::Error, buck2_error::Error> =
-            soft_error!("cgroup_unfreeze_failed", e);
-    }
-
-    UnfrozenActionCgroup {
-        cgroup: cgroup.cgroup,
+    match cgroup.unfreeze_implementation {
+        UnfreezeImplementation::CgroupUnfreeze { freeze_file } => {
+            if let Err(e) = cgroup_unfreeze(freeze_file) {
+                let _unused: Result<buck2_error::Error, buck2_error::Error> =
+                    soft_error!("cgroup_unfreeze_failed", e);
+            }
+            UnfrozenActionCgroup {
+                cgroup: cgroup.cgroup,
+                freeze_implementation: FreezeImplementation::CgroupFreeze,
+            }
+        }
+        UnfreezeImplementation::KillAndRetry(retry_tx) => {
+            let (kill_tx, kill_rx) = oneshot::channel();
+            drop(retry_tx.send(KillFuture(kill_rx)));
+            UnfrozenActionCgroup {
+                cgroup: cgroup.cgroup,
+                freeze_implementation: FreezeImplementation::KillAndRetry(kill_tx),
+            }
+        }
     }
 }
 
@@ -716,13 +794,14 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
 
-        let mut action_cgroups = ActionCgroups::new(false, None);
+        let mut action_cgroups = ActionCgroups::new(false, None, None);
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
                 EventDispatcher::null(),
                 CommandType::Build,
                 Some("action_1".to_owned()),
+                false,
             )
             .await?;
         action_cgroups
@@ -731,6 +810,7 @@ mod tests {
                 EventDispatcher::null(),
                 CommandType::Build,
                 Some("action_2".to_owned()),
+                false,
             )
             .await?;
 
@@ -776,13 +856,14 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
 
-        let mut action_cgroups = ActionCgroups::new(true, None);
+        let mut action_cgroups = ActionCgroups::new(true, None, None);
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
                 EventDispatcher::null(),
                 CommandType::Build,
                 None,
+                false,
             )
             .await?;
         action_cgroups
@@ -791,6 +872,7 @@ mod tests {
                 EventDispatcher::null(),
                 CommandType::Build,
                 None,
+                false,
             )
             .await?;
 

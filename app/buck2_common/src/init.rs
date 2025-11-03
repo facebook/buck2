@@ -260,6 +260,28 @@ pub struct ResourceControlConfig {
     pub memory_pressure_threshold_percent: Option<u64>,
     /// Enable action freezing when memory pressure is high.
     pub enable_action_freezing: Option<bool>,
+    pub preferred_freeze_strategy: Option<FreezeStrategy>,
+}
+
+#[derive(Allocative, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum FreezeStrategy {
+    CgroupFreeze,
+    KillAndRetry,
+}
+
+impl FromStr for FreezeStrategy {
+    type Err = buck2_error::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "kill_and_retry" => Ok(Self::KillAndRetry),
+            "cgroup_freeze" => Ok(Self::CgroupFreeze),
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Invalid freeze strategy: `{}`",
+                s
+            )),
+        }
+    }
 }
 
 #[derive(
@@ -350,6 +372,10 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "enable_action_freezing",
             })?;
+            let preferred_freeze_strategy = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "preferred_freeze_strategy",
+            })?;
             Ok(Self {
                 status,
                 memory_max,
@@ -361,6 +387,7 @@ impl ResourceControlConfig {
                 cgroup_pool_size,
                 memory_pressure_threshold_percent,
                 enable_action_freezing,
+                preferred_freeze_strategy,
             })
         }
     }
