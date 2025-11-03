@@ -97,6 +97,7 @@ use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
+use buck2_resource_control::HasResourceControl;
 use buck2_server_ctx::bxl::InitBxlStreamingTracker;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
@@ -710,6 +711,9 @@ impl DiceCommandUpdater<'_, '_> {
 
         let mut data = DiceData::new();
         data.set(self.cmd_ctx.events().dupe());
+        data.set(HasResourceControl(
+            self.cmd_ctx.base_context.daemon.cgroup_tree.is_some(),
+        ));
 
         let cycle_detector = if root_config
             .parse::<bool>(BuckconfigKeyRef {

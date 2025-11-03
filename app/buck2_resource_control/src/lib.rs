@@ -25,6 +25,8 @@ pub mod path;
 pub mod pool;
 pub mod systemd;
 
+pub struct HasResourceControl(pub bool);
+
 #[cfg(not(unix))]
 pub mod buck_cgroup_tree {
     pub struct BuckCgroupTree;

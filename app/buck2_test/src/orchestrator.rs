@@ -120,6 +120,7 @@ use buck2_execute_impl::executors::local::materialize_inputs;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_resource_control::HasResourceControl;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
@@ -1513,10 +1514,16 @@ impl BuckTestOrchestrator<'_> {
             )?,
             env,
         );
+        let has_resource_control = dice
+            .per_transaction_data()
+            .data
+            .get::<HasResourceControl>()
+            .unwrap()
+            .0;
         request = request
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist())
-            .with_disable_miniperf(true)
+            .with_disable_miniperf(!has_resource_control)
             .with_worker(worker)
             .with_remote_execution_custom_image(re_dynamic_image)
             .with_meta_internal_extra_params(meta_internal_extra_params)
