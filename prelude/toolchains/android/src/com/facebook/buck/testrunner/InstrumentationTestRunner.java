@@ -799,7 +799,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             executeAdbShellCommand("su root cp " + covFileInEmu + " " + covFileInSdcard, device);
 
         System.out.println(cpOutput);
-        device.pullFile(covFileInSdcard, destCovFileInHost);
+        pullFile(covFileInSdcard, destCovFileInHost);
 
         String coverageParser = getenv("COVERAGE_PARSER");
         if (coverageParser != null) {
@@ -818,7 +818,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       }
       for (Map.Entry<String, String> entry : this.extraFilesToPull.entrySet()) {
-        device.pullFile(entry.getKey(), entry.getValue());
+        pullFile(entry.getKey(), entry.getValue());
       }
       for (Map.Entry<String, String> entry : this.extraDirsToPull.entrySet()) {
         pullDir(device, entry.getKey(), entry.getValue());
@@ -1029,6 +1029,11 @@ public class InstrumentationTestRunner extends DeviceRunner {
           TimeoutException {
     return executeAdbShellCommand(String.format("test -d %s && echo exists", dirPath), device)
         .contains("exists");
+  }
+
+  private void pullFile(String remotePath, String localPath) throws Exception {
+    adbUtils.executeAdbCommand(
+        "pull " + remotePath + " " + localPath, androidDevice.getSerialNumber(), false);
   }
 
   private FileListingService.FileEntry locateDir(
