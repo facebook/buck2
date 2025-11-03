@@ -1,0 +1,14 @@
+merge_outputs(
+    name = "merge_100",
+    num_actions = 100,
+)
+
+merge_outputs(
+    name = "sleep_merge",
+    sleep = 1,
+    num_actions = 10,
+)
+
+freeze_unfreeze(
+    name = "freeze_unfreeze_target",
+)

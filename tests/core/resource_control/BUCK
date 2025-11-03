@@ -4,6 +4,15 @@ oncall("build_infra")
 
 buck2_core_tests(
     target_extra_attrs = {
+        "test_action_suspension": {
+            "env": {
+                "USE_SOME_MEMORY_BIN": "$(location //buck2/shed/cgroups/use_some_memory:use_some_memory)",
+            },
+            "skip_for_os": [
+                "darwin",
+                "windows",
+            ],
+        },
         "test_hybrid_execution_resource_control": {
             "env": {
                 "USE_SOME_MEMORY_BIN": "$(location //buck2/shed/cgroups/use_some_memory:use_some_memory)",
