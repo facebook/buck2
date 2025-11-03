@@ -15,6 +15,14 @@ use clap::Command;
 use clap::builder::PossibleValue;
 use regex::Regex;
 
+/// Common option headings that appear across multiple buck2 commands
+const COMMON_OPTION_HEADINGS: &[&str] = &[
+    "Universal Options",
+    "Event Log Options",
+    "Buckconfig Options",
+    "Console Options",
+];
+
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "markdown-help-doc",
@@ -60,16 +68,8 @@ fn generate_common_options_doc(cmd: &Command) -> String {
     writeln!(markdown, "# Common Options").unwrap();
     writeln!(markdown, "\nThis document provides an overview of common options that are available across multiple buck2 commands.\n").unwrap();
 
-    // Define the sections we want to extract
-    let target_sections = vec![
-        "Universal Options",
-        "Event Log Options",
-        "Buckconfig Options",
-        "Console Options",
-    ];
-
     // Collect options from the top-level command
-    for section_name in &target_sections {
+    for section_name in COMMON_OPTION_HEADINGS {
         if let Some(section_content) = extract_section_options(cmd, section_name) {
             writeln!(markdown, "## {}\n", section_name).unwrap();
             markdown.push_str(&section_content);
@@ -79,7 +79,7 @@ fn generate_common_options_doc(cmd: &Command) -> String {
 
     // If we couldn't find options in the top-level command, search in subcommands
     // This is needed because some options might only appear in specific subcommands
-    for section_name in &target_sections {
+    for section_name in COMMON_OPTION_HEADINGS {
         if markdown.contains(&format!("## {}", section_name)) {
             continue; // Already found this section
         }
@@ -187,7 +187,17 @@ fn cmd_content_markdown(
     // options
     let options = cmd
         .get_arguments()
-        .filter(|arg| !arg.is_positional() && !arg.is_hide_set())
+        .filter(|arg| {
+            if arg.is_positional() || arg.is_hide_set() {
+                return false;
+            }
+            // Filter out common options
+            if let Some(help_heading) = arg.get_help_heading() {
+                !COMMON_OPTION_HEADINGS.contains(&help_heading)
+            } else {
+                true
+            }
+        })
         .collect::<Vec<_>>();
 
     if !options.is_empty() {
