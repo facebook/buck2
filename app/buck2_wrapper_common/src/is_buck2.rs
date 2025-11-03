@@ -32,7 +32,9 @@ pub(crate) fn is_buck2_exe(path: &Path, who_is_asking: WhoIsAsking) -> bool {
         OsStr::new("buck2 (deleted)"),
         OsStr::new("buck2-daemon"),
         OsStr::new("buck2-daemon (deleted)"),
-    ].contains(&file_stem) {
+    ]
+    .contains(&file_stem)
+    {
         true
     } else {
         match who_is_asking {
