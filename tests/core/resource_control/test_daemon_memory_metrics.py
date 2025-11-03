@@ -16,16 +16,16 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
-async def test_metrics_cgroup_neither(buck: Buck) -> None:
-    write_config(buck, resource_control=False, action_cgroup_pool=False)
+async def test_metrics_cgroup_no_resource_control(buck: Buck) -> None:
+    write_config(buck, resource_control=False)
     snapshot = await start_daemon_and_get_snapshot(buck)
     assert snapshot["allprocs_cgroup"] is None
     assert snapshot["forkserver_actions_cgroup"] is None
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
-async def test_metrics_cgroup_both(buck: Buck) -> None:
-    write_config(buck, resource_control=True, action_cgroup_pool=True)
+async def test_metrics_cgroup_resource_control(buck: Buck) -> None:
+    write_config(buck, resource_control=True)
     snapshot = await start_daemon_and_get_snapshot(buck)
     # Daemon should have allocated at least 500KB of anon memory
     assert snapshot["allprocs_cgroup"]["anon"] >= (
@@ -46,15 +46,10 @@ async def test_noop() -> None:
     pass
 
 
-def write_config(
-    buck: Buck, *, resource_control: bool, action_cgroup_pool: bool
-) -> None:
+def write_config(buck: Buck, *, resource_control: bool) -> None:
     with open(buck.cwd / ".buckconfig", "a") as buckconfig:
         buckconfig.write("[buck2_resource_control]\n")
         buckconfig.write(f"status = {"required" if resource_control else "off"}\n")
-        buckconfig.write(
-            f"enable_action_cgroup_pool_v2 = {"true" if action_cgroup_pool else "false"}\n"
-        )
 
 
 async def start_daemon_and_get_snapshot(buck: Buck) -> dict[str, typing.Any]:
