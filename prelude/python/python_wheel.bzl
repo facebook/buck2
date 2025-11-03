@@ -117,7 +117,7 @@ def _whl_cmd(
 
     return cmd_args(cmd, hidden = hidden)
 
-def _rpath(dst, rpath):
+def _rpath(rpath, origin):
     """
     Relative the given `rpath` to `dst`, via `$ORIGIN`.
     If `rpath` is absolute, return it as-is.
@@ -125,12 +125,11 @@ def _rpath(dst, rpath):
     if paths.is_absolute(rpath):
         return rpath
 
-    expect(not paths.is_absolute(dst))
+    expect(not paths.is_absolute(origin))
 
     base = "$ORIGIN"
-    dirpath = paths.dirname(dst)
-    if dirpath:
-        base = paths.join(base, *[".." for _ in dirpath.split("/")])
+    if origin:
+        base = paths.join(base, *[".." for _ in origin.split("/")])
     return paths.join(base, rpath)
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
@@ -171,7 +170,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs._patchelf[RunInfo],
             "--output",
             out.as_output(),
-            cmd_args([_rpath(dst, p) for p in rpaths], format = "--rpath={}"),
+            cmd_args([_rpath(p, origin = paths.dirname(dst)) for p in rpaths], format = "--rpath={}"),
             src,
         )
         ctx.actions.run(cmd, category = "patchelf", identifier = dst)
@@ -217,6 +216,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             excluded = {},
         )
 
+        extension_labels = {dep.label: None for dep in extensions.values()}
+
         # Link omnibus libraries.
         omnibus_libs = create_omnibus_libraries(
             ctx = ctx,
@@ -228,11 +229,19 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     python_toolchain.extension_linker_flags +
                     python_toolchain.wheel_extension_linker_flags +
                     [
-                        "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                        "-Wl,-rpath,{}".format(_rpath(rpath, origin = paths.dirname(extension)))
                         for rpath in rpaths
                     ]
                 )
                 for extension, dep in extensions.items()
+            } | {
+                # For non-extension roots, set rpaths relative the lib dir.
+                root: [
+                    "-Wl,-rpath,{}".format(_rpath(rpath, origin = lib_dir))
+                    for rpath in rpaths
+                ]
+                for root in omnibus_graph.roots.keys()
+                if root not in extension_labels
             },
             anonymous = ctx.attrs.anonymous_link,
         )
@@ -285,7 +294,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                         LinkArgs(flags = python_toolchain.extension_linker_flags),
                         LinkArgs(flags = python_toolchain.wheel_linker_flags),
                         LinkArgs(flags = [
-                            "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                            "-Wl,-rpath,{}".format(_rpath(rpath, origin = paths.dirname(extension)))
                             for rpath in rpaths
                         ]),
                         LinkArgs(flags = ctx.attrs.linker_flags),
