@@ -178,6 +178,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         return out
 
     srcs = []
+    native_srcs = []
     extensions = {}
     shared_libs = []
     native_deps = {}
@@ -318,7 +319,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Add shlibs manifest.
     if shared_libs:
-        srcs.append(
+        # NOTE(agallaher): We copy shared libs/roots, rather than symlink, as
+        # some DSO loading frameworks `realpath` the DSO before opening them,
+        # causing the `$ORIGIN` in them to no longer be valid, e.g.
+        # https://github.com/pytorch/pytorch/blob/main/torch/_utils_internal.py#L62
+        native_srcs.append(
             create_manifest_for_shared_libs(
                 actions = ctx.actions,
                 name = "shared_libs.txt",
@@ -387,16 +392,24 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Action to create wheel.
     wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
-    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, manifests = srcs)
+    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, manifests = srcs + native_srcs)
     ctx.actions.run(whl_cmd, category = "wheel")
 
     # Create symlink tree for inplace module layout.
     manifest_args = []
     manifest_srcs = []
     for manifest in srcs:
-        manifest_args.append(cmd_args(manifest.manifest, format = "--manifest={}"))
+        manifest_args.append(cmd_args(manifest.manifest, format = "--link-manifest={}"))
         for a, _ in manifest.artifacts:
             manifest_srcs.append(a)
+    for manifest in native_srcs:
+        manifest_args.append(
+            cmd_args(
+                manifest.manifest,
+                format = "--copy-manifest={}",
+                hidden = [a for (a, _) in manifest.artifacts],
+            ),
+        )
     link_tree = ctx.actions.declare_output("__editable__/tree.d", dir = True)
     link_tree_cmd = cmd_args(
         ctx.attrs._create_link_tree[RunInfo],
