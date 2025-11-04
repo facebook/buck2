@@ -6,61 +6,42 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def _merge_outputs_impl(ctx) -> list[Provider]:
-    outputs = []
-    for i in range(1, ctx.attrs.num_actions):
-        output = ctx.actions.declare_output("output{}.txt".format(i))
-        outputs.append(output)
-
-        sh_cmd = 'head -c 10 /dev/urandom > "$1"'
-        if ctx.attrs.sleep > 0:
-            sh_cmd = "sleep {} && {}".format(ctx.attrs.sleep, sh_cmd)
-
-        ctx.actions.run(["sh", "-c", sh_cmd, "--", output.as_output()], category = "my_action{}".format(i))
-
-    merged = ctx.actions.declare_output("output.txt")
-    cmd = cmd_args("cat", outputs, ">", merged.as_output(), delimiter = " ")
-    ctx.actions.run(["sh", "-c", cmd], category = "merge")
-
-    return [
-        DefaultInfo(merged),
-    ]
-
-merge_outputs = rule(
-    impl = _merge_outputs_impl,
-    attrs = {
-        "num_actions": attrs.int(default = 100),
-        "sleep": attrs.int(default = 0),
-    },
-)
-
 _use_some_memory = read_root_config("use_some_memory", "path")
 
-def _freeze_unfreeze_impl(ctx) -> list[Provider]:
-    output0 = ctx.actions.declare_output("output0.txt")
-    cmd0 = cmd_args([_use_some_memory, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()])
+def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
+    all_outputs = []
+    for i in range(ctx.attrs.width):
+        last_output = cmd_args()
+        for j in range(ctx.attrs.depth):
+            output = ctx.actions.declare_output("output_{}_{}.txt".format(i, j))
+            all_outputs.append(output)
+            cmd = cmd_args(
+                _use_some_memory,
+                "--allocate-count",
+                str(ctx.attrs.ticks),
+                "--each-tick-allocate-memory",
+                str(ctx.attrs.memory_per_tick_mb),
+                "--tick-duration",
+                str(ctx.attrs.tick_duration_ms / 1000.0),
+                "--pre-exit-sleep-duration",
+                str(ctx.attrs.sleep_ms / 1000.0),
+                "--output",
+                output.as_output(),
+                hidden = last_output,
+            )
+            ctx.actions.run(cmd, category = "memory_allocating_actions", identifier = "action_{}_{}".format(i, j))
+            last_output = output
 
-    # this action will be frozen
-    ctx.actions.run(cmd0, category = "freeze_unfreeze", identifier = "action_to_be_frozen")
+    return [DefaultInfo(default_outputs = all_outputs)]
 
-    output1 = ctx.actions.declare_output("output1.txt")
-
-    # this action will not be frozen
-    cmd1 = cmd_args([_use_some_memory, "--allocate-count", "40", "--each-tick-allocate-memory", "1", "--tick-duration", "0.1", "--output", output1.as_output()])
-    ctx.actions.run(cmd1, category = "freeze_unfreeze", identifier = "small_action")
-
-    final_output = ctx.actions.declare_output("final_output.txt")
-
-    combine_output_script = """
-    (cat "$1"; echo "========================"; cat "$2") > "$3"
-    """
-    ctx.actions.run(["sh", "-c", combine_output_script, "--", output0, output1, final_output.as_output()], category = "merge")
-
-    return [
-        DefaultInfo(final_output),
-    ]
-
-freeze_unfreeze = rule(
-    impl = _freeze_unfreeze_impl,
-    attrs = {},
+memory_allocating_actions = rule(
+    impl = _memory_allocating_actions_impl,
+    attrs = {
+        "depth": attrs.int(),
+        "memory_per_tick_mb": attrs.int(),
+        "sleep_ms": attrs.int(),
+        "tick_duration_ms": attrs.int(),
+        "ticks": attrs.int(),
+        "width": attrs.int(),
+    },
 )

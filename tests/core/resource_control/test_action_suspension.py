@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
 
 import pytest
 
@@ -25,11 +24,10 @@ def test_dummy() -> None:
     pass
 
 
-def configure_freezing_with_pressure(buck: Buck, kill_and_retry: bool) -> None:
+def _configure(buck: Buck, kill_and_retry: bool, pressure_limit: int) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("enable_action_freezing = true\n")
-        f.write("memory_pressure_threshold_percent = 0\n")
+        f.write(f"memory_pressure_threshold_percent = {pressure_limit}\n")
         if kill_and_retry:
             f.write("preferred_freeze_strategy = kill_and_retry\n")
 
@@ -50,11 +48,10 @@ async def test_action_freezing(
     buck: Buck,
     kill_and_retry: bool,
 ) -> None:
-    configure_freezing_with_pressure(buck, kill_and_retry)
+    _configure(buck, kill_and_retry, 0)
     await buck.build(
-        ":sleep_merge",
-        "--no-remote-cache",
-        "--local-only",
+        ":sleep_10",
+        *_use_some_memory_args(buck),
     )
 
     commands = await filter_events(
@@ -99,32 +96,36 @@ async def test_action_freezing(
 @buck_test(skip_for_os=["darwin", "windows"])
 @env("BUCK2_HARD_ERROR", "panic")
 @pytest.mark.parametrize("kill_and_retry", [True, False])
-async def test_action_freezing_stress_test(
+async def test_action_suspend_stress_test(
     buck: Buck,
     kill_and_retry: bool,
 ) -> None:
-    configure_freezing_with_pressure(buck, kill_and_retry)
+    _configure(buck, kill_and_retry, 0)
 
     # Stress test that nothing breaks with fast running actions (faster than memory tracker ticks)
     await buck.build(
-        ":merge_100",
-        "--no-remote-cache",
-        "--local-only",
+        ":very_fast_100",
+        *_use_some_memory_args(buck),
+    )
+
+    _configure(buck, kill_and_retry, 1)
+    # And check again without memory pressure
+    await buck.build(
+        ":very_fast_100",
+        *_use_some_memory_args(buck),
     )
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
-async def test_action_freezing_unfreezing(
+@pytest.mark.parametrize("kill_and_retry", [True, False])
+async def test_suspend_one_of_two(
     buck: Buck,
+    kill_and_retry: bool,
 ) -> None:
-    with open(buck.cwd / ".buckconfig.local", "w") as f:
-        f.write("[buck2_resource_control]\n")
-        f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
-        f.write("enable_action_freezing = true\n")
-        f.write("memory_pressure_threshold_percent = 1\n")
+    _configure(buck, kill_and_retry, 1)
 
     await buck.build(
-        ":freeze_unfreeze_target",
+        ":two_mutually_incompatible",
         *_use_some_memory_args(buck),
     )
 
@@ -138,10 +139,15 @@ async def test_action_freezing_unfreezing(
         "commands",
     )
 
-    frozen_count = 0
+    suspend_count = 0
+    not_suspend_count = 0
     for command in commands:
         if command[0]["details"]["metadata"]["was_frozen"] is True:
-            frozen_count += 1
+            suspend_count += 1
             assert command[0]["details"]["metadata"]["freeze_duration"] is not None
+        else:
+            not_suspend_count += 1
 
-    assert frozen_count == 1
+    # Check that we froze only one of the two actions we ran
+    assert suspend_count == 1
+    assert not_suspend_count == 1

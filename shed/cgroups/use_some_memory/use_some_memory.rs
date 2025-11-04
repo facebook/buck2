@@ -119,7 +119,7 @@ impl MemoryPressure {
         allocate_count: usize,
         tick_duration: f64,
         memory_per_tick: f64,
-        sleep_duration_before_exit: u64,
+        sleep_duration_before_exit: f64,
         buffers: &mut Vec<MemoryBuffer>,
     ) {
         let mut allocation_times = Vec::new();
@@ -159,7 +159,7 @@ impl MemoryPressure {
             thread::sleep(Duration::from_secs_f64(tick_duration));
         }
 
-        thread::sleep(Duration::from_secs(sleep_duration_before_exit));
+        thread::sleep(Duration::from_secs_f64(sleep_duration_before_exit));
     }
 }
 
@@ -189,10 +189,10 @@ struct Args {
 
     #[arg(
         long,
-        default_value = "5",
+        default_value = "5.0",
         help = "Sleep duration before exit in seconds"
     )]
-    pre_exit_sleep_duration: u64,
+    pre_exit_sleep_duration: f64,
 }
 
 fn main() {
