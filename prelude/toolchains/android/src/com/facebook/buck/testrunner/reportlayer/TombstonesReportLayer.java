@@ -10,7 +10,6 @@
 
 package com.facebook.buck.testrunner.reportlayer;
 
-import com.android.ddmlib.IDevice;
 import com.facebook.buck.testrunner.InstrumentationTestRunner;
 import java.net.URI;
 import java.nio.file.FileSystem;
@@ -42,15 +41,15 @@ public class TombstonesReportLayer extends ReportLayer {
   public void report() {
     if (this.collectAlways || this.runner.hasTestRunFailed()) {
       try {
-        this.collectTombstones(this.runner.getDevice());
+        this.collectTombstones();
       } catch (Exception e) {
         System.err.printf("Failed to collect tombstones with error: %s\n", e);
       }
     }
   }
 
-  private void collectTombstones(IDevice device) throws Exception {
-    if (!this.runner.directoryExists(TOMBSTONE_REMOTE_PATH, device)) {
+  private void collectTombstones() throws Exception {
+    if (!this.runner.directoryExists(TOMBSTONE_REMOTE_PATH)) {
       return;
     }
     // get the tombstones from the device
@@ -58,7 +57,7 @@ public class TombstonesReportLayer extends ReportLayer {
     if (!Files.exists(tmp)) {
       Files.createDirectory(tmp);
     }
-    this.runner.pullDir(device, TOMBSTONE_REMOTE_PATH, tmp.toString());
+    this.runner.pullDir(TOMBSTONE_REMOTE_PATH, tmp.toString());
 
     // check whether the dir is empty
     if (Files.list(tmp).count() == 0) {

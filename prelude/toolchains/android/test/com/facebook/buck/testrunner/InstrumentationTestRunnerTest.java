@@ -677,6 +677,13 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
+          public boolean directoryExists(String dirPath) throws Exception {
+            return executeAdbShellCommand(
+                    String.format("test -d %s && echo exists", dirPath), device)
+                .contains("exists");
+          }
+
+          @Override
           protected void pullWithSyncService(
               IDevice device, FileListingService.FileEntry[] filesToPull, String destinationDir)
               throws Exception {

@@ -664,13 +664,13 @@ public class InstrumentationTestRunner extends DeviceRunner {
     for (final String devicePath : this.extraDirsToPull.keySet()) {
       String output = executeAdbShellCommand("rm -fr " + devicePath, device);
 
-      if (directoryExists(devicePath, device)) {
+      if (directoryExists(devicePath)) {
         System.err.printf("Failed to clean up directory %s due to error: %s\n", devicePath, output);
         System.exit(1);
       }
 
       output = executeAdbShellCommand("mkdir -p " + devicePath, device);
-      if (!directoryExists(devicePath, device)) {
+      if (!directoryExists(devicePath)) {
         System.err.printf("Failed to create directory %s due to error: %s\n", devicePath, output);
       }
     }
@@ -821,7 +821,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         pullFile(entry.getKey(), entry.getValue());
       }
       for (Map.Entry<String, String> entry : this.extraDirsToPull.entrySet()) {
-        pullDir(device, entry.getKey(), entry.getValue());
+        pullDir(entry.getKey(), entry.getValue());
       }
 
     } finally {
@@ -967,14 +967,13 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   /**
-   * pull dir from device to local
+   * pull dir from device to local /** Pulls file directory from the device to local directory.
    *
-   * @param device the device to pull dir from
    * @param sourceDir the dir of the source
    * @param destinationDir the dir of the destination
    * @throws Exception exceptions may throw from file operations
    */
-  public void pullDir(IDevice device, String sourceDir, String destinationDir) throws Exception {
+  public void pullDir(String sourceDir, String destinationDir) throws Exception {
     FileListingService listingService = device.getFileListingService();
     FileListingService.FileEntry dir = locateDir(device, listingService, sourceDir);
     if (dir == null) {
@@ -1022,13 +1021,13 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return System.getenv();
   }
 
-  public boolean directoryExists(final String dirPath, final IDevice device)
-      throws AdbCommandRejectedException,
-          IOException,
-          ShellCommandUnresponsiveException,
-          TimeoutException {
-    return executeAdbShellCommand(String.format("test -d %s && echo exists", dirPath), device)
-        .contains("exists");
+  public boolean directoryExists(final String dirPath) throws Exception {
+    String output =
+        adbUtils.executeAdbShellCommand(
+            String.format("test -d %s && echo exists", dirPath),
+            androidDevice.getSerialNumber(),
+            true);
+    return output.contains("exists");
   }
 
   private void transferFile(String operation, String source, String destination) throws Exception {
@@ -1046,7 +1045,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
   private FileListingService.FileEntry locateDir(
       IDevice device, FileListingService listingService, String dirPath) throws Exception {
-    if (!directoryExists(dirPath, device)) {
+    if (!directoryExists(dirPath)) {
       return null;
     }
 
