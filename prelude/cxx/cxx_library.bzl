@@ -558,7 +558,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 # Avoid creation of merged dict unless needed, for efficiency reasons
                 input_diagnostics = dict(input_diagnostics)
                 input_diagnostics.update(impl_params.extra_diagnostics)
-            sub_targets["check"], all_diagnostics = check_sub_target(ctx, input_diagnostics)
+            sub_targets["check"], all_diagnostics = check_sub_target(
+                ctx,
+                input_diagnostics,
+                error_handler = impl_params.error_handler,
+            )
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:

@@ -290,7 +290,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     }
     all_diagnostics = None
     if len(diagnostics) > 0:
-        sub_targets["check"], all_diagnostics = check_sub_target(ctx, diagnostics)
+        sub_targets["check"], all_diagnostics = check_sub_target(
+            ctx,
+            diagnostics,
+            error_handler = impl_params.error_handler,
+        )
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds, "compilation-database")
