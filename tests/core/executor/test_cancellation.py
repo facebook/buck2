@@ -12,8 +12,8 @@
 import asyncio
 import os
 import signal
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult, ExitCodeV2
@@ -26,7 +26,7 @@ from buck2.tests.e2e_util.helper.utils import read_invocation_record
 async def _test_cancellation_helper(
     buck: Buck,
     tmp_path: Path,
-    runner: Callable[[Buck, List[str]], Process[BuckResult, BuckException]],
+    runner: Callable[[Buck, list[str]], Process[BuckResult, BuckException]],
 ) -> None:
     """
     This test starts a test that writes its PID to a file then runs for 60

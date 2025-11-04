@@ -12,7 +12,6 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -43,7 +42,7 @@ INELIGIBLE_OUTPUT = 2
 async def build_target_with_different_platforms_and_verify_output_paths_are_identical(
     buck: Buck,
     target: str,
-    args: List[str] | None = None,
+    args: list[str] | None = None,
 ) -> None:
     if args is None:
         args = []
@@ -445,7 +444,7 @@ async def test_output_symlink_is_updated(buck: Buck) -> None:
 
     actual1 = (buck.cwd / path1).resolve()
     assert actual1.exists()
-    with open(actual1, "r") as f:
+    with open(actual1) as f:
         assert f.read() == "hello world"
 
     result2 = await buck.build(
@@ -458,7 +457,7 @@ async def test_output_symlink_is_updated(buck: Buck) -> None:
     actual2 = (buck.cwd / path2).resolve()
     assert actual2.exists()
     assert actual2 != actual1
-    with open(actual2, "r") as f:
+    with open(actual2) as f:
         assert f.read() == "goodbye world"
 
 

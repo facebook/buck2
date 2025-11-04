@@ -12,7 +12,7 @@
 import hashlib
 import typing
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
@@ -42,8 +42,8 @@ CACHE_UPLOAD_REASON_DEP_FILE = 1
 
 async def check_execution_kind(
     buck: Buck,
-    expecteds: typing.List[int],
-    ignored: typing.Optional[typing.List[int]] = None,
+    expecteds: list[int],
+    ignored: typing.Optional[list[int]] = None,
 ) -> None:
     ignored = ignored or []
     execution_kinds = await filter_events(
@@ -68,7 +68,7 @@ class MatchDepFilesEvent(typing.NamedTuple):
 
 async def check_match_dep_files_events(
     buck: Buck,
-    expected_events: typing.List[MatchDepFilesEvent],
+    expected_events: list[MatchDepFilesEvent],
 ) -> None:
     match_dep_files = await filter_events(
         buck, "Event", "data", "SpanStart", "data", "MatchDepFiles"
@@ -100,11 +100,11 @@ def touch(buck: Buck, name: str) -> None:
     """
     Append a random string to the marker in the file
     """
-    with open(buck.cwd / name, "r", encoding="utf-8") as f:
+    with open(buck.cwd / name, encoding="utf-8") as f:
         text = f.read()
 
     with open(buck.cwd / name, "w", encoding="utf-8") as f:
-        f.write(text.replace("__MARKER__", "__MARKER__{}".format(random_string())))
+        f.write(text.replace("__MARKER__", f"__MARKER__{random_string()}"))
 
 
 async def _test_dep_files_impl(buck: Buck, use_content_based_paths: bool) -> None:
@@ -142,9 +142,7 @@ async def _test_dep_files_impl(buck: Buck, use_content_based_paths: bool) -> Non
 
     # Changing the command line itself should cause a rebuild.
     touch(buck, "app/other.h")
-    await buck.build(
-        *args, "-c", "test.unused_command_line_param={}".format(random_string())
-    )
+    await buck.build(*args, "-c", f"test.unused_command_line_param={random_string()}")
     await expect_exec_count(buck, 1)
 
 
@@ -170,7 +168,7 @@ async def _test_dep_files_in_same_package_impl(
         used_input2_contents: str,
         unused_input1_contents: str,
         unused_input2_contents: str,
-    ) -> List[str]:
+    ) -> list[str]:
         return [
             "app:simple_dep_file",
             "--no-remote-cache",
@@ -274,7 +272,7 @@ async def _test_dep_files_in_same_dir_impl(
     def make_args(
         used_input_contents: str,
         unused_input_contents: str,
-    ) -> List[str]:
+    ) -> list[str]:
         return [
             "app:shared_dir_dep_file",
             "--no-remote-cache",
@@ -334,7 +332,7 @@ async def test_dep_files_in_same_dir_without_content_based(buck: Buck) -> None:
     await _test_dep_files_in_same_dir_impl(buck, use_content_based_paths=False)
 
 
-async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
+async def get_cache_queries(buck: Buck) -> list[dict[str, Any]]:
     return await filter_events(
         buck,
         "Event",
@@ -472,13 +470,13 @@ async def test_mismatched_outputs_dep_files(buck: Buck) -> None:
     await buck.build("//:test", "-c", "test.prefix=foo/bar", "-c", "test.suffix=")
 
 
-async def _dep_file_uploads(buck: Buck) -> List[Dict[str, Any]]:
+async def _dep_file_uploads(buck: Buck) -> list[dict[str, Any]]:
     return await filter_events(
         buck, "Event", "data", "SpanEnd", "data", "DepFileUpload"
     )
 
 
-async def _action_executions(buck: Buck) -> List[Dict[str, Any]]:
+async def _action_executions(buck: Buck) -> list[dict[str, Any]]:
     return await filter_events(
         buck, "Event", "data", "SpanEnd", "data", "ActionExecution"
     )

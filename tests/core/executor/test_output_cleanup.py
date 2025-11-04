@@ -11,7 +11,6 @@
 
 import os
 from pathlib import Path
-from typing import Dict
 
 import pytest
 
@@ -39,7 +38,7 @@ output_cleanup_targets = [
 async def test_output_cleanup(
     buck: Buck, tmp_path: Path, first: str, second: str
 ) -> None:
-    def read_dir(d: Path) -> Dict[str, str]:
+    def read_dir(d: Path) -> dict[str, str]:
         steps = 0
         out = {}
 

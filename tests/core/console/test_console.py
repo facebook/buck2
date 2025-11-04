@@ -14,7 +14,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -153,7 +153,7 @@ async def test_stale_snapshot(buck: Buck, tmp_path: Path) -> None:
     assert stale_message not in res.stderr
 
 
-def _get(data: Dict[str, Any], *key: str) -> Dict[str, Any]:
+def _get(data: dict[str, Any], *key: str) -> dict[str, Any]:
     for k in key:
         data = data.get(k)
         if data is None:

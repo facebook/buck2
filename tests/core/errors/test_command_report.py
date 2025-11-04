@@ -12,7 +12,6 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
@@ -22,7 +21,7 @@ from buck2.tests.e2e_util.helper.golden import golden
 from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
-def command_report_test(name: str, command: List[str]) -> None:
+def command_report_test(name: str, command: list[str]) -> None:
     async def impl(buck: Buck, tmp_path: Path) -> None:
         report = tmp_path / "command_report.json"
         await expect_failure(buck.build("--command-report-path", str(report), *command))

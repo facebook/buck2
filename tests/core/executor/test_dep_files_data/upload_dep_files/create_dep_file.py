@@ -10,10 +10,9 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import List
 
 
-def _write_to_dep_file(dep_file: Path, files: List[Path]):
+def _write_to_dep_file(dep_file: Path, files: list[Path]):
     dep_file_text = ""
     for file in files:
         assert isinstance(file, Path)

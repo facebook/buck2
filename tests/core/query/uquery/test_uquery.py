@@ -12,7 +12,6 @@
 import json
 import re
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
@@ -189,7 +188,7 @@ async def test_deps(buck: Buck) -> None:
     # with the nodes themselves so we subtract them out. It's not quite right
     # if a node in the graph of target deps were to have an exec dep on another.
     result = await buck.uquery(
-        "deps(%s, 1, exec_deps()) - %s" % (target_deps_expr, target_deps_expr)
+        "deps({}, 1, exec_deps()) - {}".format(target_deps_expr, target_deps_expr)
     )
     assert (
         result.stdout
@@ -492,7 +491,7 @@ async def test_oncall(buck: Buck) -> None:
 
 @buck_test(data_dir="oncall")
 async def test_output_all_attributes(buck: Buck) -> None:
-    def contains(out: BuckResult, want: List[str], notwant: List[str]) -> None:
+    def contains(out: BuckResult, want: list[str], notwant: list[str]) -> None:
         x = json.loads(out.stdout)["root//:foo"]
         for w in want:
             assert w in x

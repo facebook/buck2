@@ -14,7 +14,6 @@ import shutil
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
@@ -24,7 +23,7 @@ def modify_acess_times_updates(buck: Buck, new_status: str) -> None:
     config_file = buck.cwd / ".buckconfig"
     replace_in_file(
         "update_access_times = full",
-        "update_access_times = {}".format(new_status),
+        f"update_access_times = {new_status}",
         file=config_file,
     )
 
@@ -46,7 +45,7 @@ async def test_artifact_access_time(buck: Buck) -> None:
     result = await buck.build(target)
     assert result.get_build_report().output_for_target(target).exists()
 
-    async def audit_materialized() -> List[str]:
+    async def audit_materialized() -> list[str]:
         return list(
             filter(
                 lambda x: "\tmaterialized" in x,
