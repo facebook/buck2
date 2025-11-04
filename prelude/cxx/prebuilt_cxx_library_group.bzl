@@ -61,6 +61,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "cxx_attr_dep_metadata",
+    "cxx_attr_use_content_based_paths",
     "cxx_inherited_link_info",
     "cxx_use_shlib_intfs",
 )
@@ -162,7 +163,7 @@ def _get_static_link_infos(
             expect(macro == "lib")
             lib = libs[int(param)]
             linkables.append(archive_linkable(lib))
-            linkables_stripped.append(archive_linkable(strip_debug_info(ctx.actions, lib.short_path, lib, anonymous = True, cxx_toolchain = ctx.attrs._cxx_toolchain)))
+            linkables_stripped.append(archive_linkable(strip_debug_info(ctx.actions, lib.short_path, lib, anonymous = True, cxx_toolchain = ctx.attrs._cxx_toolchain, has_content_based_path = cxx_attr_use_content_based_paths(ctx))))
         elif linkables:
             # If we've already seen linkables, put remaining flags/args into
             # post-linker flags.

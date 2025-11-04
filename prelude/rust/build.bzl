@@ -18,7 +18,7 @@ load(
     "apple_build_link_args_with_deduped_flags",
     "apple_get_link_info_by_deduping_link_infos",
 )
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_use_content_based_paths")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "executable_shared_lib_arguments",
@@ -736,6 +736,7 @@ def rust_compile(
         )),
         filtered_output,
         compile_ctx.cxx_toolchain_info,
+        has_content_based_path = cxx_attr_use_content_based_paths(ctx),
     )
 
     return RustcOutput(

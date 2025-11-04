@@ -112,6 +112,7 @@ load(
     "cxx_attr_link_style",
     "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
+    "cxx_attr_use_content_based_paths",
     "cxx_inherited_link_info",
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
@@ -467,7 +468,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Prepare the stripped static lib.
     static_lib_stripped = None
     if not ctx.attrs.prestripped and static_lib != None:
-        static_lib_stripped = strip_debug_info(ctx.actions, static_lib.short_path, static_lib, toolchain_info)
+        static_lib_stripped = strip_debug_info(ctx.actions, static_lib.short_path, static_lib, toolchain_info, has_content_based_path = cxx_attr_use_content_based_paths(ctx))
 
     # Prepare the stripped static PIC lib.  If the static PIC lib is the same
     # artifact as the static lib, then just re-use the stripped static lib.
@@ -476,7 +477,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         if static_lib == static_pic_lib:
             static_pic_lib_stripped = static_lib_stripped
         elif static_pic_lib != None:
-            static_pic_lib_stripped = strip_debug_info(ctx.actions, static_pic_lib.short_path, static_pic_lib, toolchain_info)
+            static_pic_lib_stripped = strip_debug_info(ctx.actions, static_pic_lib.short_path, static_pic_lib, toolchain_info, has_content_based_path = cxx_attr_use_content_based_paths(ctx))
 
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)

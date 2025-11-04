@@ -202,3 +202,9 @@ def cxx_attr_dep_metadata(ctx: AnalysisContext) -> list[DepMetadata]:
     if not getattr(ctx.attrs, "version", None):
         return []
     return [DepMetadata(version = ctx.attrs.version)]
+
+def cxx_attr_use_content_based_paths(ctx: AnalysisContext) -> bool:
+    """
+    Return whether this rule should use content-based paths.
+    """
+    return getattr(ctx.attrs, "use_content_based_paths", False)
