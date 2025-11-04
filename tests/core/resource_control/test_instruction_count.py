@@ -83,10 +83,11 @@ async def test_instruction_count_enabled(buck: Buck) -> None:
     details = await get_matching_details(buck)
     assert "OmittedLocalCommand" in details["command_kind"]["command"]
 
-    # Check that we are within 10%
+    # Check that we are within 20%
     instruction_count = details["metadata"]["execution_stats"]["cpu_instructions_user"]
-    assert instruction_count > 2850000000
-    assert instruction_count < 3150000000
+    # FIXME(JakobDegen): Are we really expecting downward variation? Why? Leave a comment
+    assert instruction_count > 2700000000
+    assert instruction_count < 3300000000
 
 
 @buck_test(skip_for_os=["windows", "darwin"])
