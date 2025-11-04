@@ -66,7 +66,6 @@ use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
 use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
@@ -403,12 +402,12 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
         eval: &'a mut Evaluator<'v, '_, '_>,
-        f: impl FnOnce(&'a mut dyn BxlDiceComputations) -> T,
+        f: impl FnOnce(&'a mut BxlDiceComputations) -> T,
     ) -> T
     where
         'v: 'a,
     {
-        f(&mut *BxlEvalExtra::from_context(eval)
+        f(&mut BxlEvalExtra::from_context(eval)
             // The `.unwrap()` is justifed by the availability of the `BxlContext`, which is pretty
             // good evidence that this is indeed a bxl evaluation
             .unwrap()

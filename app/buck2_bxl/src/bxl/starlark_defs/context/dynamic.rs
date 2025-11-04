@@ -64,7 +64,7 @@ use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::DynamicBxlContextData;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
@@ -170,11 +170,11 @@ impl BxlDynamicOutputEvaluator<'_> {
         BuckStarlarkModule::with_profiling(|env_provider| {
             let env = env_provider.make();
 
-            let bxl_dice = BxlSafeDiceComputations::new(dice, self.liveness.dupe());
+            let bxl_dice = BxlDiceComputations::new(dice, self.liveness.dupe());
 
             let (finished_eval, analysis_registry) = {
                 let data = Rc::new(self.data);
-                let mut extra = BxlEvalExtra::new_dynamic(Box::new(bxl_dice), data.dupe());
+                let mut extra = BxlEvalExtra::new_dynamic(bxl_dice, data.dupe());
                 provider.with_evaluator(&env, self.liveness.into(), |eval, _| {
                     eval.set_print_handler(&self.print);
                     eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);

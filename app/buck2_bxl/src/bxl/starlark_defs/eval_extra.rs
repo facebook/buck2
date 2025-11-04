@@ -30,7 +30,7 @@ enum BxlEvalExtraType {
 /// functions from a non-Bxl context.
 #[derive(ProvidesStaticType)]
 pub(crate) struct BxlEvalExtra<'d> {
-    pub(crate) dice: Box<dyn BxlDiceComputations<'d> + 'd>,
+    pub(crate) dice: BxlDiceComputations<'d>,
     pub(crate) core: Rc<BxlContextCoreData>,
     eval_extra_type: BxlEvalExtraType,
 }
@@ -44,7 +44,7 @@ pub(crate) enum BxlScopeError {
 
 impl<'d> BxlEvalExtra<'d> {
     pub(crate) fn new(
-        dice: Box<dyn BxlDiceComputations<'d> + 'd>,
+        dice: BxlDiceComputations<'d>,
         core: Rc<BxlContextCoreData>,
         stream_state: OutputStreamState,
     ) -> Self {
@@ -55,10 +55,7 @@ impl<'d> BxlEvalExtra<'d> {
         }
     }
 
-    pub(crate) fn new_dynamic(
-        dice: Box<dyn BxlDiceComputations<'d> + 'd>,
-        core: Rc<BxlContextCoreData>,
-    ) -> Self {
+    pub(crate) fn new_dynamic(dice: BxlDiceComputations<'d>, core: Rc<BxlContextCoreData>) -> Self {
         Self {
             dice,
             core,
@@ -66,10 +63,7 @@ impl<'d> BxlEvalExtra<'d> {
         }
     }
 
-    pub(crate) fn new_anon(
-        dice: Box<dyn BxlDiceComputations<'d> + 'd>,
-        core: Rc<BxlContextCoreData>,
-    ) -> Self {
+    pub(crate) fn new_anon(dice: BxlDiceComputations<'d>, core: Rc<BxlContextCoreData>) -> Self {
         Self {
             dice,
             core,

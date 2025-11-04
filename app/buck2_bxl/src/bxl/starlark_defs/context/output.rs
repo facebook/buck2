@@ -338,7 +338,7 @@ struct BxlStreamingWriter {
 }
 
 impl BxlStreamingWriter {
-    fn new(dice: &dyn BxlDiceComputations) -> Self {
+    fn new(dice: &BxlDiceComputations) -> Self {
         let dispatcher = dice.per_transaction_data().get_dispatcher().dupe();
         let streaming_tracker = dice
             .per_transaction_data()
@@ -451,7 +451,7 @@ impl OutputStream {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
-            async_ctx: &'a RefCell<&'s mut dyn BxlDiceComputations<'d>>,
+            async_ctx: &'a RefCell<&'s mut BxlDiceComputations<'d>>,
         }
 
         impl<'v> SerializeValue<'_, 'v, '_, '_> {
@@ -544,7 +544,7 @@ impl OutputStream {
                 value,
                 artifact_fs: &self.artifact_fs,
                 project_fs: &self.project_fs,
-                async_ctx: &RefCell::new(&mut *BxlEvalExtra::from_context(eval)?.dice),
+                async_ctx: &RefCell::new(&mut BxlEvalExtra::from_context(eval)?.dice),
             },
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
@@ -685,7 +685,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
-        let streaming_writer = BxlStreamingWriter::new(&*extra.dice);
+        let streaming_writer = BxlStreamingWriter::new(&extra.dice);
 
         let wait_on = wait_on
             .into_iter()
@@ -743,7 +743,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
-        let streaming_writer = BxlStreamingWriter::new(&*extra.dice);
+        let streaming_writer = BxlStreamingWriter::new(&extra.dice);
         let wait_on = wait_on
             .into_iter()
             .map(|wait_on| match wait_on {

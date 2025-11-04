@@ -66,7 +66,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
 use crate::bxl::starlark_defs::context::output::OutputStreamState;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
@@ -194,7 +194,7 @@ impl BxlInnerEvaluator {
             let env = env_provider.make();
             let key = data.key().dupe();
 
-            let bxl_dice = BxlSafeDiceComputations::new(dice, liveness.dupe());
+            let bxl_dice = BxlDiceComputations::new(dice, liveness.dupe());
             let data = Rc::new(data);
 
             let (finished_eval, (actions, output_stream_outcome)) = {
@@ -209,8 +209,7 @@ impl BxlInnerEvaluator {
                 )?;
 
                 let print = EventDispatcherPrintHandler(dispatcher.clone());
-                let mut extra =
-                    BxlEvalExtra::new(Box::new(bxl_dice), data.dupe(), stream_state.dupe());
+                let mut extra = BxlEvalExtra::new(bxl_dice, data.dupe(), stream_state.dupe());
 
                 provider
                     .with_evaluator(&env, liveness.into(), |eval, _| {

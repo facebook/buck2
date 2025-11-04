@@ -8,9 +8,6 @@
  * above-listed licenses.
  */
 
-use std::cell::OnceCell;
-use std::rc::Rc;
-
 use buck2_common::events::HasEvents;
 use buck2_data::BxlDiceInvocationEnd;
 use buck2_data::BxlDiceInvocationStart;
@@ -20,7 +17,6 @@ use dice::DiceData;
 use dice::UserComputationData;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
-use futures::FutureExt;
 use futures::future::Either;
 use futures::future::LocalBoxFuture;
 use futures::future::select;
@@ -40,33 +36,14 @@ enum ViaError {
 ///
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
+///
 /// This also provides a handle for dice.
-pub(crate) trait BxlDiceComputations<'s> {
-    // via() below provides a more useful api for consumers.
-    fn via_impl<'a: 'b, 'b>(
-        &'a mut self,
-        f: Box<
-            dyn for<'d> FnOnce(
-                    &'a mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'a, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> buck2_error::Result<()>;
+pub(crate) struct BxlDiceComputations<'a>(
+    LifetimeErased<'a, DiceComputationsEraseTypeClass>,
+    CancellationObserver,
+);
 
-    fn global_data(&self) -> &DiceData;
-
-    fn per_transaction_data(&self) -> &UserComputationData;
-
-    /// Avoid using if at all possible; use `via_impl` instead
-    fn with_inner_less_safe<'a: 'b, 'b>(
-        &'a mut self,
-        f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
-    );
-}
-
-impl<'s> dyn BxlDiceComputations<'s> + '_ {
-    // We require that BxlDiceComputations be object-safe, but that means we can't have a type parameter in `via_impl`.
-    // It's really inconvenient to not have that, though, so we provide an implementation here that supports it.
+impl<'s> BxlDiceComputations<'s> {
     pub(crate) fn via<'a, T: 'a>(
         &'a mut self,
         // The returned future as a 'a lifetime to allow people to capture things in the future with a matching lifetime to self.
@@ -75,37 +52,13 @@ impl<'s> dyn BxlDiceComputations<'s> + '_ {
         ) -> LocalBoxFuture<'a, buck2_error::Result<T>>
         + 'a,
     ) -> buck2_error::Result<T> {
-        // We can't capture a &mut res here in the closure unfortunately, so we need to do this little dance to get values out.
-        let res: Rc<OnceCell<T>> = Rc::new(OnceCell::new());
-        let res2 = res.clone();
-        self.via_impl(Box::new(move |dice| {
-            async move {
-                res2.set(f(dice).await?).ok().unwrap();
-                Ok(())
-            }
-            .boxed_local()
-        }))?;
-        Ok(Rc::try_unwrap(res).ok().unwrap().take().unwrap())
-    }
-}
-
-impl<'s> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s> {
-    fn via_impl<'a: 'b, 'b>(
-        &'a mut self,
-        f: Box<
-            dyn for<'d> FnOnce(
-                    &'a mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'a, buck2_error::Result<()>>
-                + 'b,
-        >,
-    ) -> buck2_error::Result<()> {
         let dispatcher = self
             .0
             .access_mut(|dice| dice.per_transaction_data().get_dispatcher().dupe());
 
         dispatcher.span(BxlDiceInvocationStart {}, || {
             let liveness = self.1.dupe();
-            let fut = with_dispatcher_async(dispatcher.clone(), self.0.access_mut(f));
+            let fut = with_dispatcher_async(dispatcher.clone(), self.0.access_mut(Box::new(f)));
             let fut = async move {
                 futures::pin_mut!(fut);
 
@@ -122,18 +75,18 @@ impl<'s> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s> {
         })
     }
 
-    fn global_data<'a>(&'a self) -> &'a DiceData {
+    pub(crate) fn global_data<'a>(&'a self) -> &'a DiceData {
         self.0.access(|dice| dice.global_data())
     }
 
-    fn per_transaction_data(&self) -> &UserComputationData {
+    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
         self.0.access(|dice| dice.per_transaction_data())
     }
 
-    fn with_inner_less_safe<'a: 'b, 'b>(
+    pub(crate) fn with_inner_less_safe<'a: 'b, 'b, R>(
         &'a mut self,
-        f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
-    ) {
+        f: impl for<'d> FnOnce(&'a mut DiceComputations<'d>) -> R,
+    ) -> R {
         self.0.access_mut(f)
     }
 }
@@ -144,12 +97,7 @@ impl LifetimeErasedTypeClass for DiceComputationsEraseTypeClass {
     type Concrete<'d> = DiceComputations<'d>;
 }
 
-pub(crate) struct BxlSafeDiceComputations<'a>(
-    LifetimeErased<'a, DiceComputationsEraseTypeClass>,
-    CancellationObserver,
-);
-
-impl<'a> BxlSafeDiceComputations<'a> {
+impl<'a> BxlDiceComputations<'a> {
     pub(crate) fn new<'d>(
         dice: &'a mut DiceComputations<'d>,
         cancellation: CancellationObserver,

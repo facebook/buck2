@@ -71,7 +71,7 @@ use crate::bxl::eval::LIMITED_EXECUTOR;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
-use crate::bxl::starlark_defs::context::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::context::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 struct BxlAnonCallbackParamSpec;
@@ -260,9 +260,9 @@ async fn eval_bxl_for_anon_target_inner(
 
     BuckStarlarkModule::with_profiling(|env_provider| {
         let env = env_provider.make();
-        let bxl_dice = BxlSafeDiceComputations::new(dice, liveness.dupe());
+        let bxl_dice = BxlDiceComputations::new(dice, liveness.dupe());
         let bxl_ctx_core_data = Rc::new(bxl_ctx_core_data);
-        let mut extra = BxlEvalExtra::new_anon(Box::new(bxl_dice), bxl_ctx_core_data.dupe());
+        let mut extra = BxlEvalExtra::new_anon(bxl_dice, bxl_ctx_core_data.dupe());
 
         let mut reentrant_eval = provider.make_reentrant_evaluator(&env, liveness.into())?;
         let (bxl_ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
