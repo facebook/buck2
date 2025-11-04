@@ -205,6 +205,7 @@ public class GenerateManifestTest {
         manifestWithUnreplacedPlaceholders, SANITY_CHECK_ENABLED);
   }
 
+  @Test
   public void shouldNotThrowExceptionWhenThereArePlaceholdersNotReplacedWhenVerificationDisabled()
       throws IOException {
     String manifestWithUnreplacedPlaceholders =
@@ -218,8 +219,9 @@ public class GenerateManifestTest {
             + "       android:protectionLevel=\"${unreplacedPlaceholder}\" />\n"
             + "</manifest>";
 
-    GenerateManifest.replaceApplicationIdPlaceholders(
-        manifestWithUnreplacedPlaceholders, SANITY_CHECK_DISABLED);
+    String replaced =
+        GenerateManifest.replaceApplicationIdPlaceholders(
+            manifestWithUnreplacedPlaceholders, SANITY_CHECK_DISABLED);
 
     String expected =
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -231,6 +233,221 @@ public class GenerateManifestTest {
             + "       android:name=\"com.package.name.permission.C2D_MESSAGE\"\n"
             + "       android:protectionLevel=\"${unreplacedPlaceholder}\" />\n"
             + "</manifest>";
-    assertEquals(expected, expected);
+    assertEquals(expected, replaced);
+  }
+
+  @Test
+  public void shouldMaintainManifestAsIsWhenActivityAliasHasCorrectOrder() {
+    String goodManifest =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest\n"
+            + "   xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "   xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "   package=\"com.package.name\">\n"
+            + "   <application>\n"
+            + "       <activity android:name=\"TestActivity\" />\n"
+            + "       <activity-alias\n"
+            + "           android:name=\"JustATestAlias\"\n"
+            + "           android:targetActivity=\"TestActivity\" />\n"
+            + "   </application>\n"
+            + "</manifest>";
+
+    String sorted = GenerateManifest.moveActivityAliasesToEnd(goodManifest);
+
+    assertEquals(goodManifest, sorted);
+  }
+
+  @Test
+  public void shouldMoveActivityAliasAfterItsTargetActivityWhenOrderIsIncorrect() {
+    String unsortedManifest =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAlias\"\n"
+            + "            android:targetActivity=\"TestActivity\" />\n"
+            + "        <activity android:name=\"TestActivity\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+
+    String sorted = GenerateManifest.moveActivityAliasesToEnd(unsortedManifest);
+
+    String expected =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity android:name=\"TestActivity\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAlias\"\n"
+            + "            android:targetActivity=\"TestActivity\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+    assertEquals(expected, sorted);
+  }
+
+  @Test
+  public void
+      shouldMoveUnsortedActivityAliasAtTheEndOfTheFileWhenWrongAliasIsBeforeCorrectlySortedAlias() {
+    String unsortedManifest =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+
+    String sorted = GenerateManifest.moveActivityAliasesToEnd(unsortedManifest);
+
+    String expected =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+    assertEquals(expected, sorted);
+  }
+
+  @Test
+  public void
+      shouldMoveUnsortedActivityAliasAtTheEndOfTheFileWhenWrongAliasIsAfterCorrectlySortedAlias() {
+    String unsortedManifest =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+
+    String sorted = GenerateManifest.moveActivityAliasesToEnd(unsortedManifest);
+
+    String expected =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+    assertEquals(expected, sorted);
+  }
+
+  @Test
+  public void shouldMoveUnsortedActivityAliasesAtTheEndWhenMultipleAreUnsortedAndBatched() {
+    String unsortedManifest =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+
+    String sorted = GenerateManifest.moveActivityAliasesToEnd(unsortedManifest);
+
+    String expected =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+    assertEquals(expected, sorted);
+  }
+
+  @Test
+  public void shouldMoveUnsortedActivityAliasesAtTheEndWhenMultipleAreUnsortedAndAlternated() {
+    String unsortedManifest =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+
+    String sorted = GenerateManifest.moveActivityAliasesToEnd(unsortedManifest);
+
+    String expected =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    xmlns:tools=\"http://schemas.android.com/tools\"\n"
+            + "    package=\"com.package.name\" >\n"
+            + "    <application>\n"
+            + "        <activity android:name=\"TestActivityOne\" />\n"
+            + "        <activity android:name=\"TestActivityTwo\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasOne\"\n"
+            + "            android:targetActivity=\"TestActivityOne\" />\n"
+            + "        <activity-alias\n"
+            + "            android:name=\"JustATestAliasTwo\"\n"
+            + "            android:targetActivity=\"TestActivityTwo\" />\n"
+            + "    </application>\n"
+            + "</manifest>";
+    assertEquals(expected, sorted);
   }
 }

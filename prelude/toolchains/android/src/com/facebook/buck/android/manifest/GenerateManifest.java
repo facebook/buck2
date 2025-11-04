@@ -10,6 +10,9 @@
 
 package com.facebook.buck.android.manifest;
 
+import com.android.common.ide.common.xml.XmlFormatPreferences;
+import com.android.common.ide.common.xml.XmlFormatStyle;
+import com.android.common.ide.common.xml.XmlPrettyPrinter;
 import com.android.common.utils.ILogger;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.MergingReport;
@@ -26,12 +29,21 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 public class GenerateManifest {
 
@@ -67,6 +79,7 @@ public class GenerateManifest {
 
     String xmlText = mergingReport.getMergedDocument(MergingReport.MergedManifestKind.MERGED);
     xmlText = replacePlaceholders(xmlText, placeholders);
+    xmlText = moveActivityAliasesToEnd(xmlText);
 
     if (Platform.detect() == Platform.WINDOWS) {
       // Convert line endings to Lf on Windows.
@@ -173,5 +186,96 @@ public class GenerateManifest {
       throw new HumanReadableException(
           "Not handled placeholders (%s) in manifest: %s", nonHandledPlaceholders, content);
     }
+  }
+
+  /**
+   * At the moment all apps using manifest.py in fbsource already handle how activity-alias are
+   * sorted to guarantee they are in the manifest after the activity they target thanks to the post
+   * processing happening in @link{<a href="https://fburl.com/code/fsiow1yu">the manifest.py</a>}.
+   *
+   * <p>In WA this is not the case and we want to guarantee the order is maintained until we are
+   * able to update the ManifestMerging plugin to more recent version. This is a link to a @link{<a
+   * href="https://fburl.com/workplace/byshefjr">discussion</a>} regarding this specific manifest
+   * merging issue.
+   *
+   * <p>Once the latest version of the ManifestMerger will be updated we can clean up this step and
+   * the work is tracked in T239793438
+   */
+  @VisibleForTesting
+  static String moveActivityAliasesToEnd(String xmlContent) {
+    try {
+      // Parse the XML
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setNamespaceAware(true);
+      DocumentBuilder builder = factory.newDocumentBuilder();
+      Document doc = builder.parse(new InputSource(new StringReader(xmlContent)));
+
+      // Find the application element
+      NodeList applicationNodes = doc.getElementsByTagName("application");
+      if (applicationNodes.getLength() == 0) {
+        return xmlContent; // No application element, nothing to do
+      }
+
+      Element application = (Element) applicationNodes.item(0);
+      List<Element> earlyAliases = getEarlyAliases(application);
+
+      if (earlyAliases.isEmpty()) {
+        // No early aliases found, so let's just return the original xmlContent
+        return xmlContent;
+      }
+
+      // Move early aliases to the end
+      for (Element alias : earlyAliases) {
+        application.removeChild(alias);
+        application.appendChild(alias);
+      }
+
+      // Use XmlPrettyPrinter to format the output, matching the manifest merger's formatting
+      XmlFormatPreferences prefs = XmlFormatPreferences.defaults();
+      prefs.removeEmptyLines = true;
+
+      return XmlPrettyPrinter.prettyPrint(
+          doc,
+          prefs,
+          XmlFormatStyle.get(doc),
+          null, /* lineSeparator */
+          false /* endWithNewline */);
+
+    } catch (Exception e) {
+      // If XML processing fails, return original content
+      // This ensures the build doesn't break if there's an issue with the reordering
+      return xmlContent;
+    }
+  }
+
+  private static List<Element> getEarlyAliases(Element application) {
+    Set<String> activityNames = new HashSet<>();
+    List<Element> earlyAliases = new ArrayList<>();
+
+    // Iterate through children to find activities and early aliases
+    NodeList children = application.getChildNodes();
+    String androidNamespace = "http://schemas.android.com/apk/res/android";
+    for (int i = 0; i < children.getLength(); i++) {
+      Node node = children.item(i);
+      if (node.getNodeType() != Node.ELEMENT_NODE) {
+        continue;
+      }
+
+      Element element = (Element) node;
+      String tagName = element.getTagName();
+
+      if ("activity".equals(tagName)) {
+        String name = element.getAttributeNS(androidNamespace, "name");
+        if (name != null && !name.isEmpty()) {
+          activityNames.add(name);
+        }
+      } else if ("activity-alias".equals(tagName)) {
+        String target = element.getAttributeNS(androidNamespace, "targetActivity");
+        if (target != null && !target.isEmpty() && !activityNames.contains(target)) {
+          earlyAliases.add(element);
+        }
+      }
+    }
+    return earlyAliases;
   }
 }
