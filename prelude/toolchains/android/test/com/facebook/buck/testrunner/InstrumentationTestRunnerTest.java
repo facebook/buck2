@@ -70,13 +70,6 @@ public class InstrumentationTestRunnerTest {
   @Test
   public void testSyncExopackageDir() throws Exception {
     final Set<String> pushedFilePaths = new HashSet<>();
-    IDevice device =
-        new TestDevice() {
-          @Override
-          public void pushFile(String local, String remote) {
-            pushedFilePaths.add(remote);
-          }
-        };
     Path rootFolder = tmp.newFolder("dummy_exo_contents").getPath();
     // Set up the files to be written, including the metadata file which specifies the base
     // directory
@@ -86,8 +79,9 @@ public class InstrumentationTestRunnerTest {
     Files.createDirectories(contents);
     Files.write(contents.resolve("foo"), "Hello World".getBytes());
 
-    // Perform the sync
-    InstrumentationTestRunner.syncExopackageDir(rootFolder, device);
+    // Perform the sync with a lambda that tracks pushed files
+    InstrumentationTestRunner.syncExopackageDir(
+        rootFolder, (localPath, remotePath) -> pushedFilePaths.add(remotePath));
 
     // Now verify the results
     Set<String> expectedPaths =

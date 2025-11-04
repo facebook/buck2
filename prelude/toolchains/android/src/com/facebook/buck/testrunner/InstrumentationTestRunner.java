@@ -548,12 +548,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     if (this.exopackageLocalPath != null) {
       Path localBase = Paths.get(exopackageLocalPath);
-      syncExopackageDir(localBase, device);
+      syncExopackageDir(localBase);
     }
 
     if (this.apkUnderTestExopackageLocalPath != null) {
       Path localBase = Paths.get(apkUnderTestExopackageLocalPath);
-      syncExopackageDir(localBase, device);
+      syncExopackageDir(localBase);
     }
 
     String appScopedStorageDeviceArtifactsPath =
@@ -1031,9 +1031,17 @@ public class InstrumentationTestRunner extends DeviceRunner {
         .contains("exists");
   }
 
-  private void pullFile(String remotePath, String localPath) throws Exception {
+  private void transferFile(String operation, String source, String destination) throws Exception {
     adbUtils.executeAdbCommand(
-        "pull " + remotePath + " " + localPath, androidDevice.getSerialNumber(), false);
+        operation + " " + source + " " + destination, androidDevice.getSerialNumber(), false);
+  }
+
+  private void pullFile(String remotePath, String localPath) throws Exception {
+    transferFile("pull", remotePath, localPath);
+  }
+
+  private void pushFile(String localPath, String remotePath) throws Exception {
+    transferFile("push", localPath, remotePath);
   }
 
   private FileListingService.FileEntry locateDir(
@@ -1062,8 +1070,18 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return dir;
   }
 
+  @FunctionalInterface
+  protected interface FilePusher {
+    void pushFile(String localPath, String remotePath) throws Exception;
+  }
+
   /** Copy all local files to the remote device location */
-  protected static void syncExopackageDir(Path localBase, IDevice device) throws Exception {
+  protected void syncExopackageDir(Path localBase) throws Exception {
+    syncExopackageDir(localBase, this::pushFile);
+  }
+
+  /** Copy all local files to the remote device location (static version for testing) */
+  protected static void syncExopackageDir(Path localBase, FilePusher pusher) throws Exception {
     String metadataContents = new String(Files.readAllBytes(localBase.resolve("metadata.txt")));
     Path remoteBase = Paths.get(metadataContents.trim());
     // TODO: speed this up by checking for already installed items
@@ -1074,7 +1092,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         Path localSuffix = localBase.relativize(p);
         Path fullRemotePath = remoteBase.resolve(localSuffix);
         // Remote path is always a unix path
-        device.pushFile(p.toString(), fullRemotePath.toString().replace('\\', '/'));
+        pusher.pushFile(p.toString(), fullRemotePath.toString().replace('\\', '/'));
       }
     }
   }
