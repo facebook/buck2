@@ -14,7 +14,6 @@ import static com.facebook.buck.jvm.kotlin.CompilerPluginUtils.getKotlinCompiler
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
-import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
@@ -24,7 +23,7 @@ import com.facebook.buck.jvm.java.CompilerParameters;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
-import com.facebook.buck.step.isolatedsteps.common.CopyIsolatedStep;
+import com.facebook.buck.step.isolatedsteps.common.SymlinkDirectoryContentsStep;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -116,9 +115,7 @@ public class KotlinCStepsBuilder {
     steps.add(kotlincStep);
 
     if (kotlinClassesDir != null) {
-      steps.add(
-          CopyIsolatedStep.forDirectory(
-              kotlinOutputDirectory, outputDirectory, CopySourceMode.DIRECTORY_CONTENTS_ONLY));
+      steps.add(SymlinkDirectoryContentsStep.of(kotlinOutputDirectory, outputDirectory));
     }
   }
 
