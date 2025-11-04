@@ -599,9 +599,17 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // that can be added in preTestSetupScript, e.g.
     // arvr/projects/codec_avatar/prod/pre_test_setup_script_with_apex.sh.
     if (this.apexesToInstall != null && !this.apexesToInstall.isEmpty()) {
+      // APEX install sometimes requires root.
+      if (!device.root()) {
+        throw new RuntimeException("Failed to root device.");
+      }
+
       for (final String apexPath : this.apexesToInstall) {
         System.err.println(String.format("Installing APEX: %s...", apexPath));
-        androidDevice.installApexOnDevice(new File(apexPath), false);
+        DdmPreferences.setTimeOut(60000);
+        // If the APEX is not present, we will install it.
+        // If the APEX is already installed, we will update it.
+        device.installPackage(apexPath, false, "--apex");
         System.err.println(String.format("APEX installed: %s.", apexPath));
       }
     }
