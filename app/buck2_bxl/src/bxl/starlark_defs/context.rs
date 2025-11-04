@@ -61,9 +61,9 @@ use starlark::values::structs::StructRef;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
-use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
 use crate::bxl::starlark_defs::context::output::OutputStreamState;
+use crate::bxl::starlark_defs::context::output::StarlarkOutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -104,7 +104,7 @@ struct UnconfiguredTargetInAnalysis;
 /// Data object for `BxlContextType::Root`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
 pub(crate) struct RootBxlContextData<'v> {
-    output_stream: ValueTyped<'v, OutputStream>,
+    output_stream: ValueTyped<'v, StarlarkOutputStream>,
     cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
 }
 
@@ -339,7 +339,7 @@ impl<'v> BxlContext<'v> {
     ) -> buck2_error::Result<Self> {
         let root_data = RootBxlContextData {
             cli_args,
-            output_stream: heap.alloc_typed(OutputStream::new(
+            output_stream: heap.alloc_typed(StarlarkOutputStream::new(
                 core.project_fs.clone(),
                 core.artifact_fs.clone(),
                 stream_state,

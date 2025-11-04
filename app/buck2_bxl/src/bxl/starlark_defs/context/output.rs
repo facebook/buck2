@@ -136,7 +136,7 @@ pub(crate) struct OutputStreamOutcome {
 )]
 #[display("{:?}", self)]
 #[derivative(Debug)]
-pub(crate) struct OutputStream {
+pub(crate) struct StarlarkOutputStream {
     #[trace(unsafe_ignore)]
     state: OutputStreamState,
 
@@ -175,7 +175,7 @@ impl EnsuredArtifactOrGroup {
     }
 }
 
-impl Deref for OutputStream {
+impl Deref for StarlarkOutputStream {
     type Target = OutputStreamState;
 
     fn deref(&self) -> &Self::Target {
@@ -364,7 +364,7 @@ impl Write for BxlStreamingWriter {
     }
 }
 
-impl OutputStream {
+impl StarlarkOutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
@@ -557,14 +557,14 @@ impl OutputStream {
 }
 
 #[starlark_value(type = "bxl.OutputStream", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for OutputStream {
+impl<'v> StarlarkValue<'v> for StarlarkOutputStream {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(output_stream_methods)
     }
 }
 
-impl<'v> AllocValue<'v> for OutputStream {
+impl<'v> AllocValue<'v> for StarlarkOutputStream {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
@@ -603,7 +603,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print("test")
     /// ```
     fn print<'v>(
-        this: &'v OutputStream,
+        this: &'v StarlarkOutputStream,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -636,7 +636,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print_json(outputs)
     /// ```
     fn print_json<'v>(
-        this: &'v OutputStream,
+        this: &'v StarlarkOutputStream,
         value: Value<'v>,
         #[starlark(require=named, default=true)] pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -676,7 +676,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.stream("First artifact:", artifact1, wait_on=[artifact1, artifact2])
     /// ```
     fn stream<'v>(
-        this: &'v OutputStream,
+        this: &'v StarlarkOutputStream,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
         #[starlark(require = named, default = UnpackList::default())] wait_on: UnpackList<
@@ -734,7 +734,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///    ctx.output.stream_json({"status": "starting"}, wait_on=[artifact])
     /// ```
     fn stream_json<'v>(
-        this: &'v OutputStream,
+        this: &'v StarlarkOutputStream,
         value: Value<'v>,
         #[starlark(require=named, default=true)] pretty: bool,
         #[starlark(require = named, default = UnpackList::default())] wait_on: UnpackList<
@@ -780,7 +780,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ensured)
     /// ```
     fn ensure<'v>(
-        this: &OutputStream,
+        this: &StarlarkOutputStream,
         artifact: ArtifactArg<'v>,
     ) -> starlark::Result<EnsuredArtifact> {
         let artifact = artifact.into_ensured_artifact()?;
@@ -806,7 +806,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print_json(outputs)
     /// ```
     fn ensure_multiple<'v>(
-        this: &'v OutputStream,
+        this: &'v StarlarkOutputStream,
         // TODO(nga): must be either positional or named.
         artifacts: EnsureMultipleArtifactsArg<'v>,
         heap: &'v Heap,
@@ -907,7 +907,7 @@ pub(crate) fn get_artifact_path_display(
 
 fn get_artifacts_from_bxl_build_result(
     bxl_build_result: &StarlarkBxlBuildResult,
-    output_stream: &OutputStream,
+    output_stream: &StarlarkOutputStream,
 ) -> buck2_error::Result<Vec<EnsuredArtifact>> {
     match &bxl_build_result.0 {
         BxlBuildResult::None => Ok(Vec::new()),

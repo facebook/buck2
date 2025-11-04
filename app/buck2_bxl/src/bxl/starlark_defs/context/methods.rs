@@ -67,7 +67,7 @@ use crate::bxl::starlark_defs::context::analysis;
 use crate::bxl::starlark_defs::context::anon_target::run_anon_target_promises;
 use crate::bxl::starlark_defs::context::build;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
-use crate::bxl::starlark_defs::context::output::OutputStream;
+use crate::bxl::starlark_defs::context::output::StarlarkOutputStream;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
@@ -98,7 +98,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     #[starlark(attribute)]
-    fn output<'v>(this: &'v BxlContext<'v>) -> starlark::Result<ValueTyped<'v, OutputStream>> {
+    fn output<'v>(
+        this: &'v BxlContext<'v>,
+    ) -> starlark::Result<ValueTyped<'v, StarlarkOutputStream>> {
         let output_stream = this
             .context_type
             .unpack_root()
