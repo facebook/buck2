@@ -21,7 +21,6 @@ def thin_link(
         lto_planner: RunInfo,
         post_linker_flags: cmd_args,
         index_argsfile_out: Artifact,
-        final_link_index_out: Artifact,
         link_plan_out: Artifact,
         identifier: str | None,
         premerger_enabled: bool,
@@ -91,7 +90,7 @@ def thin_link(
         with_inputs = True,
     )
 
-    plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", link_plan_out.as_output(), "--final-link-index", final_link_index_out.as_output()])
+    plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", link_plan_out.as_output()])
     if premerger_enabled:
         plan_cmd.add("--enable-premerger")
     plan_cmd.add("--", index_cmd)

@@ -296,7 +296,6 @@ def complete_distributed_link_with_expanded_archive_link_data(
 
     sorted_index_link_data = _sort_index_link_data(raw_link_data)
 
-    final_link_index = ctx.actions.declare_output(final_binary_out.basename + ".final_link_index")
     link_plan_out = ctx.actions.declare_output(final_binary_out.basename + ".link-plan.json")
 
     thin_link(
@@ -308,7 +307,6 @@ def complete_distributed_link_with_expanded_archive_link_data(
         lto_planner = lto_planner,
         post_linker_flags = cxx_link_cmd_parts(cxx_toolchain, executable_link).post_linker_flags,
         index_argsfile_out = outputs[index_argsfile_out],
-        final_link_index_out = final_link_index,
         link_plan_out = link_plan_out,
         identifier = link_options.identifier,
         premerger_enabled = premerger_enabled,
@@ -506,21 +504,34 @@ def complete_distributed_link_with_expanded_archive_link_data(
         # non_lto_objects are the ones that weren't compiled with thinlto
         # flags. In that case, we need to link against the original object.
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
-        opt_objects = []
+
+        object_file_linker_inputs = []
 
         for idx, artifact in enumerate(sorted_index_link_data):
             if artifact.data_type == LinkDataType("dynamic_library"):
                 append_linkable_args(link_args, artifact.link_data.linkable)
             elif artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
+                optimization_plan = ObjectFileOptimizationPlan(**artifacts[artifact.link_data.plan].read_json())
+
+                # Input bitcode files that were loaded in thin-link, but merged into another bitcode file
+                # will not have a native object file output, so we skip them here.
+                if optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+                    continue
+
+                # Same for object files that are not loaded, do not include them in native link.
+                if not optimization_plan.loaded_by_linker:
+                    continue
+
+                link_line_position = optimization_plan.final_link_line_position
+
                 if idx in non_lto_objects:
-                    opt_objects.append(artifact.link_data.input_object_file)
+                    object_file_linker_inputs.append((link_line_position, artifact.link_data.input_object_file))
                 else:
-                    opt_objects.append(artifact.link_data.output_final_native_object_file)
+                    object_file_linker_inputs.append((link_line_position, artifact.link_data.output_final_native_object_file))
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         link_cmd = cmd_args(link_cmd_parts.linker)
         link_args.add(common_link_flags)
-        link_cmd_hidden = []
 
         if link_options.extra_linker_outputs_flags_factory != None:
             # We need the inner artifacts here
@@ -533,19 +544,16 @@ def complete_distributed_link_with_expanded_archive_link_data(
         link_args.add("-o", outputs[final_binary_out].as_output())
         if linker_map_out:
             link_args.add(linker_map_args(cxx_toolchain, outputs[linker_map_out].as_output()).flags)
-        link_cmd_hidden.extend([
-            link_args,
-            opt_objects,
-        ])
+        ordered_object_file_linker_inputs = sorted(object_file_linker_inputs, key = lambda x: x[0])
+        for _, artifact in ordered_object_file_linker_inputs:
+            link_args.add(artifact)
         link_cmd.add(at_argfile(
             actions = ctx.actions,
             name = outputs[linker_argsfile_out],
             args = link_args,
             allow_args = True,
         ))
-        link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         link_cmd.add(link_cmd_parts.post_linker_flags)
-        link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = link_options.identifier)
 
@@ -560,7 +568,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
     ]
 
     ctx.actions.dynamic_output(
-        dynamic = [link_plan_out, final_link_index],
+        dynamic = [link_plan_out] + [artifact.link_data.plan for artifact in sorted_index_link_data if artifact.data_type == LinkDataType("lazy_bitcode") or artifact.data_type == LinkDataType("eager_bitcode")],
         inputs = [],
         outputs = final_link_outputs,
         f = thin_lto_final_link,

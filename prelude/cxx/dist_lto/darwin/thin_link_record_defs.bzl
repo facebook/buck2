@@ -20,4 +20,5 @@ ObjectFileOptimizationPlan = record(
     is_bitcode = field(bool),
     merge_state = field(str | None, None),  # BitcodeMergeState
     loaded_by_linker = field(bool),
+    final_link_line_position = field(int),
 )
