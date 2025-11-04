@@ -79,9 +79,7 @@ use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
 use starlark::docs::DocModule;
 use starlark::docs::markdown::render_doc_item_no_link;
-use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
-use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
 use starlark_lsp::server::LspUrl;
@@ -575,25 +573,28 @@ impl<'a> BuckLspContext<'a> {
         .await
     }
 
-    async fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
+    async fn parse_file_with_contents(
+        &self,
+        uri: &LspUrl,
+        project_relative: &ProjectRelativePath,
+        content: String,
+    ) -> LspEvalResult {
         match self
-            .parse_file_from_contents_and_handle_diagnostic(uri, content)
+            .parse_file_from_contents_and_handle_diagnostic(uri, project_relative, content)
             .await
         {
             Ok(res) => res,
-            Err(e) => {
-                let message = EvalMessage::from_error(uri.path(), &e.into());
-                LspEvalResult {
-                    diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
-                    ast: None,
-                }
-            }
+            Err(e) => LspEvalResult {
+                diagnostics: self.to_diagnostics(project_relative, e),
+                ast: None,
+            },
         }
     }
 
     async fn parse_file_from_contents_and_handle_diagnostic(
         &self,
         uri: &LspUrl,
+        project_relative: &ProjectRelativePath,
         content: String,
     ) -> buck2_error::Result<LspEvalResult> {
         let import_path = self.import_path_from_url(uri).await?;
@@ -611,9 +612,10 @@ impl<'a> BuckLspContext<'a> {
                     ast: Some(ast),
                 }),
                 Err(e) => {
-                    let message = EvalMessage::from_error(uri.path(), &e);
+                    // Do not use starlark_syntax::Error From<buck2_error::Error> / EvalMessage.
+                    // It does not get a span.
                     Ok(LspEvalResult {
-                        diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
+                        diagnostics: self.to_diagnostics(project_relative, e),
                         ast: None,
                     })
                 }
@@ -726,7 +728,14 @@ impl LspContext for BuckLspContext<'_> {
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(_) | LspUrl::Starlark(_) => {
-                        self.parse_file_with_contents(uri, content).await
+                        let Ok(project_relative) = self.project_relative_path_from_url(uri) else {
+                            return LspEvalResult {
+                                diagnostics: vec![],
+                                ast: None,
+                            };
+                        };
+                        self.parse_file_with_contents(uri, &project_relative, content)
+                            .await
                     }
                     _ => LspEvalResult::default(),
                 }
