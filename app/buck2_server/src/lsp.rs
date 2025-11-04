@@ -748,8 +748,13 @@ impl LspContext for BuckLspContext<'_> {
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(_) | LspUrl::Starlark(_) => {
-                        let Ok(project_relative) = self.project_relative_path_from_url(uri) else {
-                            return vec![];
+                        let project_relative = match self.project_relative_path_from_url(uri) {
+                            Ok(project_relative) => project_relative,
+                            Err(e) => {
+                                // Not the end of the world to call to_diagnostics with a random path
+                                // We only use the path to optimise the rendering
+                                return self.to_diagnostics(ProjectRelativePath::empty(), e);
+                            }
                         };
                         self.eval_file_with_contents(uri, &project_relative, content)
                             .await
