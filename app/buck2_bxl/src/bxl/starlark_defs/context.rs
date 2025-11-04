@@ -76,6 +76,7 @@ pub(crate) mod anon_target;
 pub(crate) mod build;
 pub(crate) mod dynamic;
 pub(crate) mod fs;
+pub(crate) mod lifetime_erase;
 pub(crate) mod methods;
 pub(crate) mod output;
 pub(crate) mod starlark_async;

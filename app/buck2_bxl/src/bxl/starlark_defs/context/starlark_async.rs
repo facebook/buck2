@@ -25,6 +25,9 @@ use futures::future::Either;
 use futures::future::LocalBoxFuture;
 use futures::future::select;
 
+use crate::bxl::starlark_defs::context::lifetime_erase::LifetimeErased;
+use crate::bxl::starlark_defs::context::lifetime_erase::LifetimeErasedTypeClass;
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Tier0)]
 enum ViaError {
@@ -86,7 +89,7 @@ impl<'s> dyn BxlDiceComputations<'s> + '_ {
     }
 }
 
-impl<'s, 'x: 's> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s, 'x> {
+impl<'s> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s> {
     fn via_impl<'a: 'b, 'b>(
         &'a mut self,
         f: Box<
@@ -96,11 +99,13 @@ impl<'s, 'x: 's> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s, 'x> {
                 + 'b,
         >,
     ) -> buck2_error::Result<()> {
-        let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
+        let dispatcher = self
+            .0
+            .access_mut(|dice| dice.per_transaction_data().get_dispatcher().dupe());
 
         dispatcher.span(BxlDiceInvocationStart {}, || {
             let liveness = self.1.dupe();
-            let fut = with_dispatcher_async(dispatcher.clone(), async move { f(self.0).await });
+            let fut = with_dispatcher_async(dispatcher.clone(), self.0.access_mut(f));
             let fut = async move {
                 futures::pin_mut!(fut);
 
@@ -117,32 +122,38 @@ impl<'s, 'x: 's> BxlDiceComputations<'s> for BxlSafeDiceComputations<'s, 'x> {
         })
     }
 
-    fn global_data(&self) -> &DiceData {
-        self.0.global_data()
+    fn global_data<'a>(&'a self) -> &'a DiceData {
+        self.0.access(|dice| dice.global_data())
     }
 
     fn per_transaction_data(&self) -> &UserComputationData {
-        self.0.per_transaction_data()
+        self.0.access(|dice| dice.per_transaction_data())
     }
 
     fn with_inner_less_safe<'a: 'b, 'b>(
         &'a mut self,
         f: Box<dyn for<'d> FnOnce(&'a mut DiceComputations<'d>) + 'b>,
     ) {
-        f(self.0)
+        self.0.access_mut(f)
     }
 }
 
-pub(crate) struct BxlSafeDiceComputations<'a, 'd>(
-    &'a mut DiceComputations<'d>,
+struct DiceComputationsEraseTypeClass;
+
+impl LifetimeErasedTypeClass for DiceComputationsEraseTypeClass {
+    type Concrete<'d> = DiceComputations<'d>;
+}
+
+pub(crate) struct BxlSafeDiceComputations<'a>(
+    LifetimeErased<'a, DiceComputationsEraseTypeClass>,
     CancellationObserver,
 );
 
-impl<'a, 'd> BxlSafeDiceComputations<'a, 'd> {
-    pub(crate) fn new(
+impl<'a> BxlSafeDiceComputations<'a> {
+    pub(crate) fn new<'d>(
         dice: &'a mut DiceComputations<'d>,
         cancellation: CancellationObserver,
     ) -> Self {
-        Self(dice, cancellation)
+        Self(LifetimeErased::new(dice), cancellation)
     }
 }
