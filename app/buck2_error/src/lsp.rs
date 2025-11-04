@@ -300,4 +300,26 @@ mod tests {
         let diag_buck = buck.clone().into_lsp_diagnostics(buck_file.filename());
         eprintln!("diag from BUCK: {:#?}", diag_buck);
     }
+
+    #[test]
+    fn attach_context() {
+        use starlark_syntax::codemap::CodeMap;
+        // these errors are all a bit nonsense, they're made up.
+        let bzl_file = CodeMap::new("path/to/test.bzl".to_owned(), "load(\"abc\"".to_owned());
+        let load_span = bzl_file.file_span(bzl_file.full_span());
+        let root_msg = "root cause";
+        let buck = crate::Error::from(root_msg.to_owned())
+            // ..
+            .context(create_starlark_context(
+                "Error loading load at blah".to_owned(),
+                Some(load_span.clone()),
+                true,
+            ));
+        let diag_bzl = buck.clone().into_lsp_diagnostics(bzl_file.filename());
+        eprintln!("diag from bzl: {:#?}", diag_bzl);
+
+        assert_eq!(diag_bzl.len(), 1);
+        let diag = diag_bzl.into_iter().next().unwrap();
+        assert_eq!(diag.span.as_ref(), Some(&load_span));
+    }
 }
