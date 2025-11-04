@@ -139,6 +139,10 @@ enum Command {
         #[clap(long)]
         client: Option<String>,
 
+        /// Optional argument specifying build mode.
+        #[clap(short = 'm', long)]
+        mode: Option<String>,
+
         /// Command used to run `buck2`. Defaults to `"buck2"`.
         #[clap(long)]
         buck2_command: Option<String>,
@@ -401,6 +405,7 @@ fn json_args_pass() {
             client: None,
             buck2_command: None,
             max_extra_targets: None,
+            mode: None,
         }),
         version: false,
     };
@@ -420,6 +425,7 @@ fn json_args_pass() {
             client: None,
             buck2_command: None,
             max_extra_targets: None,
+            mode: None,
         }),
         version: false,
     };
@@ -439,6 +445,7 @@ fn json_args_pass() {
             client: None,
             buck2_command: None,
             max_extra_targets: None,
+            mode: None,
         }),
         version: false,
     };

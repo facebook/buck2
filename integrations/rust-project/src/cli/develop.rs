@@ -117,6 +117,7 @@ impl Develop {
             args,
             buck2_command,
             max_extra_targets,
+            mode,
             ..
         } = command
         {
@@ -135,7 +136,8 @@ impl Develop {
                 }
             };
 
-            let buck = buck::Buck::new(buck2_command, None);
+            let mode = select_mode(mode.as_deref());
+            let buck = buck::Buck::new(buck2_command.clone(), mode);
 
             let develop = Develop {
                 sysroot,
