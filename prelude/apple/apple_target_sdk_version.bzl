@@ -56,6 +56,7 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "18.6": "15.6",
     "19.0": "16.0",  # Tahoe
     "26.0": "26.0",
+    "26.1": "26.1",
 }
 
 _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
