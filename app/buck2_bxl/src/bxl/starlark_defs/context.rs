@@ -13,7 +13,6 @@
 use std::cell::RefCell;
 use std::io::Write;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -171,7 +170,7 @@ impl<'v> Display for BxlContextType<'v> {
 pub(crate) struct BxlContext<'v> {
     state: ValueTyped<'v, AnalysisActions<'v>>,
     context_type: BxlContextType<'v>,
-    core: Rc<BxlContextCoreData>,
+    core: Arc<BxlContextCoreData>,
 }
 
 impl<'v> Deref for BxlContext<'v> {
@@ -333,7 +332,7 @@ impl BxlContextCoreData {
 impl<'v> BxlContext<'v> {
     pub(crate) fn new(
         heap: &'v Heap,
-        core: Rc<BxlContextCoreData>,
+        core: Arc<BxlContextCoreData>,
         stream_state: OutputStreamState,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
         digest_config: DigestConfig,
@@ -362,7 +361,7 @@ impl<'v> BxlContext<'v> {
 
     pub(crate) fn new_dynamic(
         heap: &'v Heap,
-        core: Rc<BxlContextCoreData>,
+        core: Arc<BxlContextCoreData>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
@@ -381,7 +380,7 @@ impl<'v> BxlContext<'v> {
 
     pub(crate) fn new_anon(
         heap: &'v Heap,
-        core: Rc<BxlContextCoreData>,
+        core: Arc<BxlContextCoreData>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         attributes: ValueOfUnchecked<'v, StructRef<'static>>,

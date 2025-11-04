@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::rc::Rc;
 use std::sync::Arc;
 
 use buck2_analysis::analysis::calculation::get_loaded_module;
@@ -261,7 +260,7 @@ async fn eval_bxl_for_anon_target_inner(
     BuckStarlarkModule::with_profiling(|env_provider| {
         let env = env_provider.make();
         let bxl_dice = BxlDiceComputations::new(dice, liveness.dupe());
-        let bxl_ctx_core_data = Rc::new(bxl_ctx_core_data);
+        let bxl_ctx_core_data = Arc::new(bxl_ctx_core_data);
         let mut extra = BxlEvalExtra::new_anon(bxl_dice, bxl_ctx_core_data.dupe());
 
         let mut reentrant_eval = provider.make_reentrant_evaluator(&env, liveness.into())?;

@@ -9,7 +9,6 @@
  */
 
 use std::future::Future;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -195,7 +194,7 @@ impl BxlInnerEvaluator {
             let key = data.key().dupe();
 
             let bxl_dice = BxlDiceComputations::new(dice, liveness.dupe());
-            let data = Rc::new(data);
+            let data = Arc::new(data);
 
             let (finished_eval, (actions, output_stream_outcome)) = {
                 let stream_state = OutputStreamState::new();

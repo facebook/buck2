@@ -9,7 +9,6 @@
  */
 
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -173,7 +172,7 @@ impl BxlDynamicOutputEvaluator<'_> {
             let bxl_dice = BxlDiceComputations::new(dice, self.liveness.dupe());
 
             let (finished_eval, analysis_registry) = {
-                let data = Rc::new(self.data);
+                let data = Arc::new(self.data);
                 let mut extra = BxlEvalExtra::new_dynamic(bxl_dice, data.dupe());
                 provider.with_evaluator(&env, self.liveness.into(), |eval, _| {
                     eval.set_print_handler(&self.print);

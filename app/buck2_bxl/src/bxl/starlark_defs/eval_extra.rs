@@ -9,7 +9,7 @@
  */
 
 use std::io::Write;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use buck2_events::dispatch::console_message;
 use starlark::eval::Evaluator;
@@ -31,7 +31,7 @@ enum BxlEvalExtraType {
 #[derive(ProvidesStaticType)]
 pub(crate) struct BxlEvalExtra<'d> {
     pub(crate) dice: BxlDiceComputations<'d>,
-    pub(crate) core: Rc<BxlContextCoreData>,
+    pub(crate) core: Arc<BxlContextCoreData>,
     eval_extra_type: BxlEvalExtraType,
 }
 
@@ -45,7 +45,7 @@ pub(crate) enum BxlScopeError {
 impl<'d> BxlEvalExtra<'d> {
     pub(crate) fn new(
         dice: BxlDiceComputations<'d>,
-        core: Rc<BxlContextCoreData>,
+        core: Arc<BxlContextCoreData>,
         stream_state: OutputStreamState,
     ) -> Self {
         Self {
@@ -55,7 +55,10 @@ impl<'d> BxlEvalExtra<'d> {
         }
     }
 
-    pub(crate) fn new_dynamic(dice: BxlDiceComputations<'d>, core: Rc<BxlContextCoreData>) -> Self {
+    pub(crate) fn new_dynamic(
+        dice: BxlDiceComputations<'d>,
+        core: Arc<BxlContextCoreData>,
+    ) -> Self {
         Self {
             dice,
             core,
@@ -63,7 +66,7 @@ impl<'d> BxlEvalExtra<'d> {
         }
     }
 
-    pub(crate) fn new_anon(dice: BxlDiceComputations<'d>, core: Rc<BxlContextCoreData>) -> Self {
+    pub(crate) fn new_anon(dice: BxlDiceComputations<'d>, core: Arc<BxlContextCoreData>) -> Self {
         Self {
             dice,
             core,
