@@ -176,6 +176,7 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
         libc::ENOSPC => ErrorTag::IoStorageFull,
         libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
         libc::ENOTCONN => ErrorTag::IoNotConnected,
+        libc::EBADMSG => ErrorTag::IoEdenDataCorruption,
         _ => ErrorTag::IoEdenUncategorized,
     }
 }
