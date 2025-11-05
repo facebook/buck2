@@ -493,7 +493,10 @@ impl BuckConfigBasedCells {
         #[derive(buck2_error::Error, Debug)]
         #[buck2(tag = Input)]
         enum ExternalCellOriginParseError {
-            #[error("Unknown external cell origin `{0}`")]
+            // Disabled is handled outside this function
+            #[error(
+                "Unknown external cell origin `{0}`: valid values are 'bundled', 'git', 'disabled'"
+            )]
             Unknown(String),
             #[error("Missing buckconfig `{0}.{1}` for external cell configuration")]
             MissingConfiguration(String, String),
