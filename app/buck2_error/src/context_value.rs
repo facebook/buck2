@@ -109,24 +109,20 @@ pub struct StarlarkContext {
 }
 
 impl StarlarkContext {
-    pub fn concat(&self, other: Option<Self>) -> Self {
-        if let Some(ctx) = other {
-            let frames = self
-                .call_stack
-                .frames
-                .iter()
-                .chain(ctx.call_stack.frames.iter())
-                .cloned()
-                .chain(self.call_stack.frames.iter().cloned())
-                .collect();
+    /// Concatenate call stacks.
+    ///
+    /// Pass the inner context as the argument, i.e. the one closer to the root cause.
+    pub fn concat(mut self, inner: Option<Self>) -> Self {
+        if let Some(mut inner) = inner {
+            self.call_stack.frames.append(&mut inner.call_stack.frames);
 
             Self {
-                call_stack: CallStack { frames },
-                error_msg: ctx.error_msg.clone(),
-                span: ctx.span.clone(),
+                call_stack: self.call_stack,
+                error_msg: self.error_msg,
+                span: inner.span,
             }
         } else {
-            self.clone()
+            self
         }
     }
 }
