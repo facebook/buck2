@@ -16,9 +16,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.facebook.buck.core.filesystems.AbsPath;
+import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.RebuildReason;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -38,7 +43,8 @@ public class IncrementalCompilationValidatorTest {
     when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn(null);
 
     RebuildReason result =
-        incrementalCompilationValidator.validate(actionMetadata, null, null, null);
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(), actionMetadata, null, null, null);
 
     assertEquals(RebuildReason.NO_LAST_BUILD_CONFIGURATION, result);
   }
@@ -50,7 +56,8 @@ public class IncrementalCompilationValidatorTest {
     when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest2");
 
     RebuildReason result =
-        incrementalCompilationValidator.validate(actionMetadata, null, null, null);
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(), actionMetadata, null, null, null);
 
     assertEquals(RebuildReason.BUILD_CONFIGURATION_CHANGED, result);
   }
@@ -66,9 +73,27 @@ public class IncrementalCompilationValidatorTest {
     when(mockFile.exists()).thenReturn(false);
 
     RebuildReason result =
-        incrementalCompilationValidator.validate(actionMetadata, depFile, null, null);
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(), actionMetadata, depFile, null, null);
 
     assertEquals(RebuildReason.NO_LAST_DEP_FILE, result);
+  }
+
+  @Test
+  public void when_usedJarsNotExists_then_returnNoLastUsedJarsReason() {
+    ActionMetadata actionMetadata = mock(ActionMetadata.class);
+    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
+    when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
+    AbsPath usedJars = mock(AbsPath.class);
+    File mockFile = mock(File.class);
+    when(usedJars.toFile()).thenReturn(mockFile);
+    when(mockFile.exists()).thenReturn(false);
+
+    RebuildReason result =
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(), actionMetadata, null, usedJars, null);
+
+    assertEquals(RebuildReason.NO_LAST_USED_JARS, result);
   }
 
   @Test
@@ -82,28 +107,94 @@ public class IncrementalCompilationValidatorTest {
     when(mockFile.exists()).thenReturn(false);
 
     RebuildReason result =
-        incrementalCompilationValidator.validate(actionMetadata, null, null, jvmAbiGenWorkingDir);
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(), actionMetadata, null, null, jvmAbiGenWorkingDir);
 
     assertEquals(RebuildReason.NO_JVM_ABI_WORKING_DIR, result);
   }
 
   @Test
-  public void when_allConditionsPass_then_returnNull() {
-    ActionMetadata actionMetadata = mock(ActionMetadata.class);
-    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
-    when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
-    AbsPath depFile = mock(AbsPath.class);
-    AbsPath jvmAbiGenWorkingDir = mock(AbsPath.class);
-    File mockFile1 = mock(File.class);
-    File mockFile2 = mock(File.class);
-    when(depFile.toFile()).thenReturn(mockFile1);
-    when(jvmAbiGenWorkingDir.toFile()).thenReturn(mockFile2);
-    when(mockFile1.exists()).thenReturn(true);
-    when(mockFile2.exists()).thenReturn(true);
+  public void when_kotlinCompilerPluginChanged_then_returnKotlinCompilerPluginChangedReason() {
+    Path pluginPath = Paths.get("plugin.jar");
+    RelPath pluginRelPath = RelPath.of(pluginPath);
+    Path metadataPath = Paths.get("metadata.json");
+
+    // Plugin digest changed from "oldDigest" to "newDigest"
+    ActionMetadata actionMetadata =
+        new ActionMetadata(
+            metadataPath,
+            ImmutableMap.of(metadataPath, "digest", pluginPath, "oldDigest"),
+            ImmutableMap.of(metadataPath, "digest", pluginPath, "newDigest"));
 
     RebuildReason result =
         incrementalCompilationValidator.validate(
-            actionMetadata, depFile, null, jvmAbiGenWorkingDir);
+            ImmutableList.of(pluginRelPath), actionMetadata, null, null, null);
+
+    assertEquals(RebuildReason.KOTLIN_COMPILER_PLUGIN_CHANGED, result);
+  }
+
+  @Test
+  public void when_kotlinCompilerPluginNotChanged_then_continueValidation() {
+    Path pluginPath = Paths.get("plugin.jar");
+    RelPath pluginRelPath = RelPath.of(pluginPath);
+    Path metadataPath = Paths.get("metadata.json");
+
+    // Plugin digest is the same in both previous and current
+    ActionMetadata actionMetadata =
+        new ActionMetadata(
+            metadataPath,
+            ImmutableMap.of(metadataPath, "digest", pluginPath, "sameDigest"),
+            ImmutableMap.of(metadataPath, "digest", pluginPath, "sameDigest"));
+
+    AbsPath depFile = mock(AbsPath.class);
+    AbsPath usedJars = mock(AbsPath.class);
+    AbsPath jvmAbiGenWorkingDir = mock(AbsPath.class);
+    File mockFile1 = mock(File.class);
+    File mockFile2 = mock(File.class);
+    File mockFile3 = mock(File.class);
+    when(depFile.toFile()).thenReturn(mockFile1);
+    when(usedJars.toFile()).thenReturn(mockFile2);
+    when(jvmAbiGenWorkingDir.toFile()).thenReturn(mockFile3);
+    when(mockFile1.exists()).thenReturn(true);
+    when(mockFile2.exists()).thenReturn(true);
+    when(mockFile3.exists()).thenReturn(true);
+
+    RebuildReason result =
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(pluginRelPath),
+            actionMetadata,
+            depFile,
+            usedJars,
+            jvmAbiGenWorkingDir);
+
+    // Should return null since plugin hasn't changed and all files exist
+    assertNull(result);
+  }
+
+  @Test
+  public void when_allConditionsPass_then_returnNull() {
+    Path metadataPath = Paths.get("metadata.json");
+    ActionMetadata actionMetadata =
+        new ActionMetadata(
+            metadataPath,
+            ImmutableMap.of(metadataPath, "digest"),
+            ImmutableMap.of(metadataPath, "digest"));
+    AbsPath depFile = mock(AbsPath.class);
+    AbsPath usedJars = mock(AbsPath.class);
+    AbsPath jvmAbiGenWorkingDir = mock(AbsPath.class);
+    File mockFile1 = mock(File.class);
+    File mockFile2 = mock(File.class);
+    File mockFile3 = mock(File.class);
+    when(depFile.toFile()).thenReturn(mockFile1);
+    when(usedJars.toFile()).thenReturn(mockFile2);
+    when(jvmAbiGenWorkingDir.toFile()).thenReturn(mockFile3);
+    when(mockFile1.exists()).thenReturn(true);
+    when(mockFile2.exists()).thenReturn(true);
+    when(mockFile3.exists()).thenReturn(true);
+
+    RebuildReason result =
+        incrementalCompilationValidator.validate(
+            ImmutableList.of(), actionMetadata, depFile, usedJars, jvmAbiGenWorkingDir);
 
     assertNull(result);
   }

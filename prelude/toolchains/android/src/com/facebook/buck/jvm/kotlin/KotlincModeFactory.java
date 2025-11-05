@@ -76,6 +76,9 @@ public class KotlincModeFactory {
           ClasspathChangesFactory.create(new SnapshotsActionMetadata(metadata), classpathSnapshots),
           depFile,
           incrementalCompilationValidator.validate(
+              extraParams.getKotlinCompilerPlugins().keySet().stream()
+                  .map(rootProjectDir::relativize)
+                  .collect(ImmutableList.toImmutableList()),
               metadata,
               depFile,
               usedJars,

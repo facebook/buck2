@@ -11,8 +11,10 @@
 package com.facebook.buck.jvm.kotlin;
 
 import com.facebook.buck.core.filesystems.AbsPath;
+import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.RebuildReason;
+import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 public class IncrementalCompilationValidator {
@@ -20,6 +22,7 @@ public class IncrementalCompilationValidator {
   public IncrementalCompilationValidator() {}
 
   public @Nullable RebuildReason validate(
+      ImmutableList<RelPath> kotlinCompilerPlugins,
       ActionMetadata actionMetadata,
       @Nullable AbsPath depFile,
       @Nullable AbsPath usedJars,
@@ -44,6 +47,11 @@ public class IncrementalCompilationValidator {
 
     if (jvmAbiGenWorkingDir != null && !jvmAbiGenWorkingDir.toFile().exists()) {
       return RebuildReason.NO_JVM_ABI_WORKING_DIR;
+    }
+
+    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    if (kotlinCompilerPlugins.stream().anyMatch(jarsActionMetadata::hasChanged)) {
+      return RebuildReason.KOTLIN_COMPILER_PLUGIN_CHANGED;
     }
 
     return null;

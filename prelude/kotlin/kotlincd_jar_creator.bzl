@@ -193,7 +193,6 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
-        incremental_metadata_ignored_inputs_tag = incremental_metadata_ignored_inputs_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
