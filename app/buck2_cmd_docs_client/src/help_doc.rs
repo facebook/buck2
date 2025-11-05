@@ -140,11 +140,41 @@ fn extract_section_options(cmd: &Command, section_heading: &str) -> Option<Strin
 
 fn cmd_header_markdown(cmd: &clap::Command) -> String {
     let name = cmd.get_name();
+
+    let contents = if name == "install" {
+        "\
+The `buck2 install` command builds an installable target, typically a mobile app (.apk or .app bundle), and installs it using an installer server to some location, typically an emulator/simulator or external device.
+
+## How buck2 install works
+
+The `InstallInfo` provider is used to make targets installable, it specifies an installer implementation (e.g. Android or Apple installer) and a set of files to install. For example (from `buck2 audit providers`):
+```
+InstallInfo(
+    installer = buck//src/com/facebook/buck/installer/apple:apple_installer,
+    files = {
+        \"app_bundle;\": <build artifact HelloWorldBundle.app>,
+        \"options\": <build artifact install_apple_data.json>
+    }
+)
+```
+
+Buck connects to the installer using GRPC and sends individual files to install once they have finished building.
+
+# Exopackage
+
+For Android apks, buck install supports a feature to speed up iterative development called Exopackage. An _exopackage_ is a small shell of an Android app that contains the minimal code and resources needed to bootstrap loading the code for a full-fledged Android application. Loading the application code at runtime avoids a full reinstall of the app when testing typical code changes, which dramatically reduces the length of edit/refresh cycles.
+".to_owned()
+    } else {
+        format!(
+            "This document provides an overview of the commands and options available under `buck2 {name}`."
+        )
+    };
+
     format!(
         "\
 # {name}
 
-This document provides an overview of the commands and options available under `buck2 {name}`.
+{contents}
 
 "
     )
