@@ -81,6 +81,7 @@ export const sidebars: SidebarsConfig = {
         'concepts/build_file',
         'concepts/build_target',
         'concepts/target_pattern',
+        'concepts/buck_query_language',
         'concepts/buck_out',
         'concepts/visibility',
         'concepts/toolchain',
