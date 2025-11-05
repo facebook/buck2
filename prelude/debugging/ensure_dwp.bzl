@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//debugging:labels.bzl", "DBG_INFO_PYTHON_REQUIRES_SECONDARY_NATIVE_DEBUGINFO")
+
 def _ensure_default_info(ctx: bxl.Context, default_info: DefaultInfo) -> None:
     ctx.output.ensure_multiple(cmd_args(default_info.default_outputs, hidden = default_info.other_outputs))
 
@@ -13,10 +15,14 @@ def _ensure_default_info(ctx: bxl.Context, default_info: DefaultInfo) -> None:
 def ensure_subtargets(ctx: bxl.Context, target: bxl.ConfiguredTargetNode):
     providers = ctx.analysis(target).providers()
     subtargets = providers[DefaultInfo].sub_targets
+    labels = target.get_attr("labels") if target.get_attr("labels") else []
 
     # split dwarf targets have ["dwp"] subtargets. this function ensures that all dwp files are materialized
     if "dwp" in subtargets:
         _ensure_default_info(ctx, subtargets["dwp"][DefaultInfo])
+
+    if DBG_INFO_PYTHON_REQUIRES_SECONDARY_NATIVE_DEBUGINFO in labels and "native-executable" in subtargets and "dwp" in subtargets["native-executable"][DefaultInfo].sub_targets:
+        _ensure_default_info(ctx, subtargets["native-executable"][DefaultInfo].sub_targets["dwp"][DefaultInfo])
 
     # ios test targets need to materialize "dwarf-and-dsym" subtarget in order for debugging to work properly.
     if "dwarf-and-dsym" in subtargets:
