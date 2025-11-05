@@ -503,14 +503,13 @@ impl<'a> BuckLspContext<'a> {
             .collect()
     }
 
-    async fn eval_file_with_contents(
+    async fn eval_file(
         &self,
         uri: &LspUrl,
         project_relative: &ProjectRelativePath,
-        content: String,
     ) -> Vec<Diagnostic> {
         match self
-            .eval_file_from_contents_and_handle_diagnostic(uri, project_relative, content)
+            .eval_file_from_disk_and_handle_diagnostic(uri, project_relative)
             .await
         {
             Ok(res) => res,
@@ -518,11 +517,10 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    async fn eval_file_from_contents_and_handle_diagnostic(
+    async fn eval_file_from_disk_and_handle_diagnostic(
         &self,
         uri: &LspUrl,
         project_relative: &ProjectRelativePath,
-        _content: String,
     ) -> buck2_error::Result<Vec<Diagnostic>> {
         let import_path = self.import_path_from_url(uri).await?;
 
@@ -742,7 +740,8 @@ impl LspContext for BuckLspContext<'_> {
             }))
     }
 
-    fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+    fn eval_file_with_contents(&self, uri: &LspUrl, _content: String) -> Vec<Diagnostic> {
+        // We don't need the content. Buckd will fetch it from disk as needed when we ask for eval.
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
@@ -756,8 +755,7 @@ impl LspContext for BuckLspContext<'_> {
                                 return self.to_diagnostics(ProjectRelativePath::empty(), e);
                             }
                         };
-                        self.eval_file_with_contents(uri, &project_relative, content)
-                            .await
+                        self.eval_file(uri, &project_relative).await
                     }
                     _ => vec![],
                 }
