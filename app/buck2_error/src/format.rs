@@ -65,8 +65,24 @@ pub(crate) fn into_anyhow_for_format(
             } else if !ctx.show_span_in_buck_output {
                 out = out.context(ctx.error_msg.clone())
             } else {
-                // Because context_stack is reversed, the right ordering is first error last to preserve stack ordering
-                starlark_error = Some(ctx.concat(starlark_error));
+                // Because context_stack is reversed, the right ordering is first error
+                // last to preserve stack ordering.
+                // Inner's error message are dropped in concat. But if there is one, we add it as
+                // context first.
+                let mut outer = ctx.clone();
+                if let Some(inner) = &mut starlark_error {
+                    // Inner is getting concatenated to outer. Concat will drop its message, so
+                    // preserve it in one way or another.
+                    //
+                    // Error messages may be empty when inject_starlark_context finds another StarlarkContext.
+                    let inner_message = std::mem::take(&mut inner.error_msg);
+                    if outer.error_msg.is_empty() {
+                        outer.error_msg = inner_message;
+                    } else if !inner_message.is_empty() {
+                        out = out.context(inner_message);
+                    }
+                }
+                starlark_error = Some(outer.concat(starlark_error));
             }
             continue;
         }
