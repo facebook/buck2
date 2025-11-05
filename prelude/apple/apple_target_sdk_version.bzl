@@ -55,8 +55,6 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "18.5": "15.5",
     "18.6": "15.6",
     "19.0": "16.0",  # Tahoe
-    "26.0": "26.0",
-    "26.1": "26.1",
 }
 
 _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
@@ -72,6 +70,12 @@ def get_target_sdk_version_map() -> dict[str, str]:
 
 def get_platform_version_for_sdk_version(sdk_name: str, sdk_version: str) -> str:
     if sdk_name == "maccatalyst":
+        sdk_major, _ = sdk_version.split(".", 2)
+
+        # Version numbers are aligned from 26 and up
+        if int(sdk_major) >= 26:
+            return sdk_version
+
         macos_version = _MACCATALYST_IOS_TO_MACOS_VERSION_MAP.get(sdk_version, None)
         if macos_version == None:
             fail("No macos version for maccatalyst version {}".format(sdk_version))
