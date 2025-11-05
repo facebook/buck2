@@ -279,11 +279,9 @@ def _create_framework_module_map(ctx: AnalysisContext) -> Artifact:
     module_name = apple_library_for_distribution_info.module_name
     _, module_map = create_modulemap(
         ctx,
-        "module",
-        module_name,
-        cheaders,
-        None,
-        None,
+        name = "module",
+        module_name = module_name,
+        headers = cheaders,
         is_framework = True,
     )
     return module_map

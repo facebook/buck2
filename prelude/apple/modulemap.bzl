@@ -26,9 +26,8 @@ def preprocessor_info_for_modulemap(
         name: str,
         module_name: str,
         headers: list[CHeader],
-        swift_header: Artifact | None,
-        additional_args: CPreprocessorArgs | None) -> CPreprocessor:
-    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, additional_args)
+        swift_header: Artifact | None) -> CPreprocessor:
+    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header)
     return preprocessor_info
 
 def create_modulemap(
@@ -36,8 +35,7 @@ def create_modulemap(
         name: str,
         module_name: str,
         headers: list[CHeader],
-        swift_header: Artifact | None,
-        additional_args: CPreprocessorArgs | None,
+        swift_header: Artifact | None = None,
         is_framework: bool = False) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module" and not is_framework:
@@ -95,8 +93,7 @@ def create_modulemap(
 
     return CPreprocessor(
         args = CPreprocessorArgs(
-            args = [cmd_args(symlink_tree, format = "-I{}")] + (additional_args.args if additional_args else []),
-            file_prefix_args = additional_args.file_prefix_args if additional_args else [],
+            args = [cmd_args(symlink_tree, format = "-I{}")],
         ),
         modular_args = [cmd_args(output, format = "-fmodule-map-file={}")],
         modulemap_path = cmd_args(output),

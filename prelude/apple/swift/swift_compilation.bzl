@@ -417,7 +417,6 @@ def compile_swift(
         module_name = module_name,
         headers = exported_headers,
         swift_header = output_header,
-        additional_args = None,
     )
     exported_swift_header = CHeader(
         artifact = output_header,

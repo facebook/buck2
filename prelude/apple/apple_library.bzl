@@ -348,7 +348,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             module_name = module_name,
             headers = exported_hdrs,
             swift_header = None,
-            additional_args = None,
         ) if exported_hdrs else None
     else:
         exported_modulemap_pre = None
