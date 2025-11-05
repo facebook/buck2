@@ -26,6 +26,8 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
@@ -326,6 +328,11 @@ enum BuckLspContextError {
     /// The scheme provided was not correct or supported.
     #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
     WrongScheme(String, LspUrl),
+
+    #[error(
+        "Cannot provide LSP evaluation for file in external cell `{0}`.\n\nYou may wish to run `buck2 expand-external-cell {0}` if there\nis not already a copy at `<project root>/{1}`, and add \n    \n[external_cells]\n    {0} = disabled\n\nto your .buckconfig.local"
+    )]
+    ExternalCell(CellName, CellRootPathBuf),
 }
 
 impl<'a> BuckLspContext<'a> {
@@ -372,6 +379,16 @@ impl<'a> BuckLspContext<'a> {
 
             let cell_path = cell_resolver.get_cell_path(&relative_path);
             let buildfile_names = dice_ctx.get_buildfiles(cell_path.cell()).await?;
+
+            // For e.g. editing the prelude in the OSS buck2 repo, with prelude = bundled
+            let cell_instance = cell_resolver.get(cell_path.cell())?;
+            if cell_instance.external().is_some() {
+                return Err(BuckLspContextError::ExternalCell(
+                    cell_path.cell(),
+                    cell_instance.path().to_buf(),
+                )
+                .into());
+            }
 
             if path.extension().is_some_and(|e| e == "bxl") {
                 return Ok(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
