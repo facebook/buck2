@@ -114,6 +114,8 @@ impl<T: TypedContext> From<T> for ContextValue {
 #[derive(Clone, allocative::Allocative, Debug, PartialEq, Eq, Hash)]
 pub struct StarlarkContext {
     pub call_stack: CallStack,
+    /// May be empty when we try to inject some StarlarkContext and there is already a StarlarkContext
+    /// near the top of the error.
     pub error_msg: String,
     pub span: Option<FileSpan>,
     /// If true, we render the span / call stack in buck output.
@@ -134,21 +136,24 @@ pub struct StarlarkContext {
 }
 
 impl StarlarkContext {
-    pub fn concat(&self, other: Option<Self>) -> Self {
-        if let Some(ctx) = other {
+    /// Concatenate call stacks. Keeps self.error_msg, drops inner.error_msg.
+    ///
+    /// Pass the inner context as the argument, i.e. the one closer to the root cause.
+    pub fn concat(&self, inner: Option<Self>) -> Self {
+        if let Some(inner) = inner {
             let frames = self
                 .call_stack
                 .frames
                 .iter()
-                .chain(ctx.call_stack.frames.iter())
+                .chain(inner.call_stack.frames.iter())
                 .cloned()
                 .collect();
 
             Self {
                 call_stack: CallStack { frames },
-                error_msg: ctx.error_msg.clone(),
-                span: ctx.span.clone(),
-                replaces_root_error: ctx.replaces_root_error,
+                error_msg: self.error_msg.clone(),
+                span: inner.span.clone(),
+                replaces_root_error: inner.replaces_root_error,
                 show_span_in_buck_output: true,
             }
         } else {

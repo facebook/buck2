@@ -133,13 +133,20 @@ fn inject_starlark_context(
                             .context_for_starlark_backtrace(starlark_context);
                     }
                     ContextValue::StarlarkError(_) => {
-                        // Starlark context already attached. Don't pierce the veil.
-                        // XXX: reapply context_stack? Otherwise we may lose tags!
+                        // walk back up from where we got to
+                        let mut err = inner.clone();
 
-                        // We will concatenate these by the time we render them, generally.
-                        // Even if not, not the end of the world to have no message.
+                        err = err.context(context_value.clone());
+
+                        for context in context_stack.into_iter().rev() {
+                            err = err.context(context);
+                        }
+
+                        // This code is paired with format.rs -- we could concatenate StarlarkContext
+                        // early here, but prefer during formatting because it retains more spans.
+                        // We have to handle empty error_msg there.
                         starlark_context.error_msg = String::new();
-                        return buck2_error.context_for_starlark_backtrace(starlark_context);
+                        return err.context_for_starlark_backtrace(starlark_context);
                     }
                     ContextValue::Tags(_) | ContextValue::StringTag(_) => {
                         context_stack.push(context_value.clone())
@@ -325,10 +332,16 @@ mod tests {
 
     fn example_call_stack() -> CallStack {
         CallStack {
-            frames: vec![Frame {
-                name: "frame".to_owned(),
-                location: None,
-            }],
+            frames: vec![
+                Frame {
+                    name: "frame".to_owned(),
+                    location: None,
+                },
+                Frame {
+                    name: "function_name".to_owned(),
+                    location: None,
+                },
+            ],
         }
     }
 
@@ -449,6 +462,65 @@ mod tests {
         assert!(!debug_out.contains(starlark_error_msg));
         assert!(injected.find_starlark_context().is_some());
         // Root error shouldn't be lost
+        assert_eq!(debug_out.matches(base_error).count(), 1);
+    }
+
+    #[test]
+    fn test_multiple_starlark_context() {
+        // We are concatenating stack frames.
+        // We have to be careful not to duplicate things when rendering the errors.
+        //
+        let base_error = "Some base error";
+        let sc1_message = "sc1_message";
+        let sc1_frame = "sc1_frame";
+        let sc2_message = "sc2_message";
+        let sc2_frame = "sc2_frame";
+
+        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error)
+            .context_for_starlark_backtrace(StarlarkContext {
+                call_stack: CallStack {
+                    frames: vec![
+                        Frame {
+                            name: sc1_frame.to_owned(),
+                            location: None,
+                        },
+                        Frame {
+                            name: "function_name".to_owned(),
+                            location: None,
+                        },
+                    ],
+                },
+                error_msg: sc1_message.to_owned(),
+                span: None,
+                replaces_root_error: false,
+                show_span_in_buck_output: true,
+            })
+            .context_for_starlark_backtrace(StarlarkContext {
+                call_stack: CallStack {
+                    frames: vec![
+                        Frame {
+                            name: sc2_frame.to_owned(),
+                            location: None,
+                        },
+                        Frame {
+                            name: "function_name".to_owned(),
+                            location: None,
+                        },
+                    ],
+                },
+                error_msg: sc2_message.to_owned(),
+                span: None,
+                replaces_root_error: false,
+                show_span_in_buck_output: true,
+            });
+
+        let debug_out = format!("{e:?}");
+        eprintln!("{debug_out}");
+
+        assert_eq!(debug_out.matches(sc1_message).count(), 1);
+        assert_eq!(debug_out.matches(sc1_frame).count(), 1);
+        assert_eq!(debug_out.matches(sc2_message).count(), 1);
+        assert_eq!(debug_out.matches(sc2_frame).count(), 1);
         assert_eq!(debug_out.matches(base_error).count(), 1);
     }
 
