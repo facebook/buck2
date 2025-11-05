@@ -241,7 +241,7 @@ def _main(bxl_ctx):
     sln_content = gen_sln(
         [dep for (idx, dep) in enumerate(deps) if idx in deps_with_vcxproj_indices],
         [s for (idx, s) in enumerate(basic_vs_settings_list) if idx in deps_with_vcxproj_indices],
-        targets,
+        explicit_targets,
         bxl_ctx.cli_args.startup_target or targets[0],
         bxl_ctx,
     )
