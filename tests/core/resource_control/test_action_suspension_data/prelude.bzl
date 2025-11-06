@@ -13,7 +13,7 @@ def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
     for i in range(ctx.attrs.width):
         last_output = cmd_args()
         for j in range(ctx.attrs.depth):
-            output = ctx.actions.declare_output("output_{}_{}.txt".format(i, j))
+            output = ctx.actions.declare_output("action_{}_{}".format(i, j))
             all_outputs.append(output)
             cmd = cmd_args(
                 _use_some_memory,
@@ -32,7 +32,10 @@ def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.actions.run(cmd, category = "memory_allocating_actions", identifier = "action_{}_{}".format(i, j))
             last_output = output
 
-    return [DefaultInfo(default_outputs = all_outputs)]
+    # Have to do this because we don't show more than one default output for `--show-output`
+    output_paths = ctx.actions.write("output_paths", all_outputs)
+
+    return [DefaultInfo(default_output = output_paths, other_outputs = all_outputs)]
 
 memory_allocating_actions = rule(
     impl = _memory_allocating_actions_impl,
