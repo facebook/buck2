@@ -10,12 +10,9 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.DdmPreferences;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.ddmlib.ShellCommandUnresponsiveException;
-import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
@@ -853,15 +850,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   @Nullable
-  private String getDeviceLogcatOutputForBuffer(IDevice device, LogcatBuffer buffer) {
+  private String getDeviceLogcatOutputForBuffer(LogcatBuffer buffer) {
     String adbCommand = String.format("logcat -d -b \"%s\"", buffer.getCliArgument());
 
     try {
-      return executeAdbShellCommand(adbCommand, device);
-    } catch (TimeoutException
-        | AdbCommandRejectedException
-        | ShellCommandUnresponsiveException
-        | IOException e) {
+      return adbUtils.executeAdbShellCommand(adbCommand, androidDevice.getSerialNumber(), true);
+    } catch (Exception e) {
       System.err.printf("Encountered an error attempting to pull logcat output %s\n", e);
       return null;
     }
@@ -891,7 +885,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         if (traPath == null) {
           return;
         }
-        String logOutput = getDeviceLogcatOutputForBuffer(device, buffer);
+        String logOutput = getDeviceLogcatOutputForBuffer(buffer);
         if (logOutput == null) {
           continue;
         }
