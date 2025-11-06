@@ -201,7 +201,6 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
         hashing_duration: Duration::ZERO,
         hashed_artifacts_count: 0,
         queue_duration: Some(queue_duration),
-        was_suspended: false,
         suspend_duration: None,
     }
 }

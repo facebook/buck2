@@ -105,7 +105,6 @@ pub struct ActionCgroupResult {
     pub memory_peak: Option<u64>,
     pub swap_peak: Option<u64>,
     pub error: Option<buck2_error::Error>,
-    pub was_suspended: bool,
     pub suspend_duration: Option<Duration>,
 }
 
@@ -116,7 +115,6 @@ impl ActionCgroupResult {
             memory_peak: Some(cgroup_info.memory_peak),
             swap_peak: Some(cgroup_info.swap_peak),
             error: cgroup_info.error,
-            was_suspended: cgroup_info.was_suspended,
             suspend_duration: cgroup_info.suspend_duration,
         }
     }
@@ -126,7 +124,6 @@ impl ActionCgroupResult {
             memory_peak: None,
             swap_peak: None,
             error: Some(e),
-            was_suspended: false,
             suspend_duration: None,
         }
     }
@@ -165,7 +162,6 @@ struct ActionCgroup {
     swap_current: u64,
     swap_peak: u64,
     error: Option<buck2_error::Error>,
-    was_suspended: bool,
     suspend_duration: Option<Duration>,
     command_type: CommandType,
     // memory.current value when this cgroup was suspended. Used to calculate whether we can wake early
@@ -368,7 +364,6 @@ impl ActionCgroups {
                     swap_current: swap_initial,
                     swap_peak: 0,
                     error: None,
-                    was_suspended: false,
                     suspend_duration: None,
                     command_type,
                     memory_current_when_suspended: None,
@@ -589,8 +584,6 @@ impl ActionCgroups {
             suspended_cgroup.cgroup.path,
             suspended_cgroup.cgroup.command_type
         );
-
-        suspended_cgroup.cgroup.was_suspended = true;
 
         let suspend_elapsed = suspended_cgroup.suspend_start.elapsed();
 
@@ -905,7 +898,7 @@ mod tests {
             .await;
 
         let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
-        assert_eq!(cgroup_1_res.was_suspended, false);
+        assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
             buck2_slice_memory_current: 0,
@@ -919,7 +912,7 @@ mod tests {
             .await;
 
         let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
-        assert_eq!(cgroup_2_res.was_suspended, true);
+        assert!(cgroup_2_res.suspend_duration.is_some());
 
         Ok(())
     }
