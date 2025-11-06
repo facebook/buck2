@@ -553,8 +553,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     }
 
     String appScopedStorageDeviceArtifactsPath =
-        getAppScopedStoragePath(
-            device, packageName, targetPackageName, isSelfInstrumenting, "artifacts");
+        getAppScopedStoragePath(packageName, targetPackageName, isSelfInstrumenting, "artifacts");
     if (appScopedStorageDeviceArtifactsPath != null) {
       String testArtifactsPath = getenv(TEST_RESULT_ARTIFACTS_ENV);
       if (testArtifactsPath != null) {
@@ -568,12 +567,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (testDimensionsPath != null) {
       String appScopedStorageDeviceDimensionsPath =
           getAppScopedStoragePath(
-              device,
-              packageName,
-              targetPackageName,
-              isSelfInstrumenting,
-              "dimensions",
-              "dimensions.tsv");
+              packageName, targetPackageName, isSelfInstrumenting, "dimensions", "dimensions.tsv");
       if (appScopedStorageDeviceDimensionsPath != null) {
         extraFilesToPull.put(appScopedStorageDeviceDimensionsPath, testDimensionsPath);
         extraInstrumentationArguments.put(
@@ -635,7 +629,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     String appScopedStorageDeviceAnnotationsPath =
         getAppScopedStoragePath(
-            device, packageName, targetPackageName, isSelfInstrumenting, "artifact_annotations");
+            packageName, targetPackageName, isSelfInstrumenting, "artifact_annotations");
     if (appScopedStorageDeviceAnnotationsPath != null) {
       String testArtifactAnnotationsPath = System.getenv(TEST_RESULT_ARTIFACTS_ANNOTATIONS_ENV);
       if (testArtifactAnnotationsPath != null) {
@@ -1063,15 +1057,13 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   private String getAppScopedStoragePath(
-      IDevice device,
       String packageName,
       String targetPackageName,
       boolean isSelfInstrumenting,
       String folderName,
       String fileName) {
     String basePath =
-        getAppScopedStoragePath(
-            device, packageName, targetPackageName, isSelfInstrumenting, folderName);
+        getAppScopedStoragePath(packageName, targetPackageName, isSelfInstrumenting, folderName);
     if (basePath == null) {
       return null;
     }
@@ -1079,7 +1071,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   private String getAppScopedStoragePath(
-      IDevice device,
       String packageName,
       String targetPackageName,
       boolean isSelfInstrumenting,
