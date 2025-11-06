@@ -48,7 +48,7 @@ async def test_sh_test(buck: Buck) -> None:
         buck.test(
             "fbcode//buck2/tests/targets/rules/sh_test:test_fail",
         ),
-        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/sh_test:test_fail - main",
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ fbcode\/\/buck2\/tests\/targets\/rules\/sh_test:test_fail - main",
     )
 
 
@@ -103,7 +103,7 @@ async def test_cpp_test(buck: Buck) -> None:
 
     await expect_failure(
         buck.test("fbcode//buck2/tests/targets/rules/cxx:cpp_test_fail", mode),
-        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/cxx:cpp_test_fail - Simple\.Fail",
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ fbcode\/\/buck2\/tests\/targets\/rules\/cxx:cpp_test_fail - Simple\.Fail",
     )
 
     await buck.test("fbcode//buck2/tests/targets/rules/cxx:cpp_test_local_only", mode)
@@ -140,12 +140,12 @@ async def test_python_test(buck: Buck) -> None:
 
     await expect_failure(
         buck.test("fbcode//buck2/tests/targets/rules/python/test:test_fail"),
-        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/python\/test:test_fail - test",
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ fbcode\/\/buck2\/tests\/targets\/rules\/python\/test:test_fail - test",
     )
 
     await expect_failure(
         buck.test("fbcode//buck2/tests/targets/rules/python/test:test_fatal"),
-        stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/test:test_fatal - test",
+        stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ fbcode\/\/buck2\/tests\/targets\/rules\/python\/test:test_fatal - test",
     )
 
 
@@ -158,13 +158,13 @@ async def test_python_test_with_remote_execution(buck: Buck) -> None:
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fail",
         ),
-        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fail - test",
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ fbcode\/\/buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fail - test",
     )
     await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fatal",
         ),
-        stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fatal - test",
+        stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ fbcode\/\/buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fatal - test",
     )
 
 
@@ -211,7 +211,7 @@ async def test_listing_failure(buck: Buck) -> None:
     )
     assert re.search(r"Listing Fail 1", output.stderr)
     assert re.search(
-        r"1 LISTINGS FAILED\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/broken:broken\n",
+        r"1 LISTINGS FAILED\n(\s)+⚠ fbcode\/\/buck2\/tests\/targets\/rules\/python\/broken:broken\n",
         output.stderr,
         re.DOTALL,
     )
@@ -537,7 +537,10 @@ async def test_passing_test_names_are_not_shown(buck: Buck) -> None:
         "fbcode//buck2/tests/targets/rules/python/test:test",
         get_mode_from_platform(),
     )
-    assert "Pass: buck2/tests/targets/rules/python/test:test - test" not in tests.stderr
+    assert (
+        "Pass: fbcode//buck2/tests/targets/rules/python/test:test - test"
+        not in tests.stderr
+    )
 
 
 @buck_test(inplace=True)
@@ -550,7 +553,7 @@ async def test_failing_test_names_are_shown(buck: Buck) -> None:
             "--env",
             "TEST_ENV=fail",
         ),
-        stderr_regex="Fail: buck2/tests/targets/rules/python/test:test - test",
+        stderr_regex="Fail: fbcode//buck2/tests/targets/rules/python/test:test - test",
     )
 
 
@@ -561,7 +564,10 @@ async def test_no_print_passing_details(buck: Buck) -> None:
         "fbcode//buck2/tests/targets/rules/python/test:test",
         get_mode_from_platform(),
     )
-    assert "Pass: buck2/tests/targets/rules/python/test:test - test" not in tests.stderr
+    assert (
+        "Pass: fbcode//buck2/tests/targets/rules/python/test:test - test"
+        not in tests.stderr
+    )
     assert "TESTED!" not in tests.stderr
 
 
@@ -574,7 +580,10 @@ async def test_print_passing_details(buck: Buck) -> None:
         "--",
         "--print-passing-details",
     )
-    assert "Pass: buck2/tests/targets/rules/python/test:test - test" in tests.stderr
+    assert (
+        "Pass: fbcode//buck2/tests/targets/rules/python/test:test - test"
+        in tests.stderr
+    )
     assert "TESTED!" in tests.stderr
 
 
@@ -736,7 +745,7 @@ async def test_timeout_local(buck: Buck) -> None:
             "SLOW_DURATION=60",
             "--timeout=5",
         ),
-        stderr_regex="Timeout: buck2/tests/targets/rules/python/test:timeout",
+        stderr_regex="Timeout: fbcode//buck2/tests/targets/rules/python/test:timeout",
     )
 
 
@@ -753,7 +762,7 @@ async def test_timeout_re(buck: Buck) -> None:
             "SLOW_DURATION=60",
             "--timeout=5",
         ),
-        stderr_regex="Timeout: buck2/tests/targets/rules/python/test:timeout",
+        stderr_regex="Timeout: fbcode//buck2/tests/targets/rules/python/test:timeout",
     )
 
 
