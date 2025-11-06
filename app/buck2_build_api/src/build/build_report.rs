@@ -79,6 +79,7 @@ use crate::build::graph_properties::DEFAULT_SKETCH_VERSION;
 use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::VersionedSketcher;
 use crate::build::graph_properties::VersionedSketcherMap;
+use crate::bxl::types::BxlFunctionLabel;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -241,12 +242,14 @@ struct BuildReportError {
     cause_index: usize,
 }
 
-#[derive(Derivative, Serialize, Eq, PartialEq, Hash)]
+#[derive(Derivative, Serialize, Eq, PartialEq, Hash, Clone)]
 #[derivative(Debug)]
 #[serde(untagged)]
 enum EntryLabel {
     #[derivative(Debug = "transparent")]
     Target(TargetLabelWithModifiers),
+    #[derivative(Debug = "transparent")]
+    BxlFunction(BxlFunctionLabel),
 }
 
 #[derive(Debug, Serialize)]
@@ -289,24 +292,17 @@ impl<'a> BuildReportCollector<'a> {
     // Main conversion functions for build reports
     // ============================================================================
 
-    /// Converts build results and errors into a BuildReport for regular builds.
-    /// This processes both configured build targets and associated errors.
-    pub(crate) fn convert(
-        trace_id: &TraceId,
+    /// Creates a new BuildReportCollector with the given configuration
+    fn new(
         artifact_fs: &'a ArtifactFs,
         cell_resolver: &'a CellResolver,
-        project_root: &ProjectRoot,
         include_unconfigured_section: bool,
         include_failures: bool,
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
-        configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-        configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
-        other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
-        detailed_metrics: Option<DetailedAggregatedMetrics>,
         graph_properties_opts: GraphPropertiesOptions,
-    ) -> buck2_error::Result<BuildReport> {
-        let mut this: BuildReportCollector<'_> = Self {
+    ) -> Self {
+        Self {
             artifact_fs,
             cell_resolver,
             overall_success: true,
@@ -337,7 +333,35 @@ impl<'a> BuildReportCollector<'a> {
             } else {
                 None
             },
-        };
+        }
+    }
+
+    /// Converts build results and errors into a BuildReport for regular builds.
+    /// This processes both configured build targets and associated errors.
+    pub(crate) fn convert(
+        trace_id: &TraceId,
+        artifact_fs: &'a ArtifactFs,
+        cell_resolver: &'a CellResolver,
+        project_root: &ProjectRoot,
+        include_unconfigured_section: bool,
+        include_failures: bool,
+        include_package_project_relative_paths: bool,
+        include_artifact_hash_information: bool,
+        configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+        configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
+        other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+        detailed_metrics: Option<DetailedAggregatedMetrics>,
+        graph_properties_opts: GraphPropertiesOptions,
+    ) -> buck2_error::Result<BuildReport> {
+        let mut this = Self::new(
+            artifact_fs,
+            cell_resolver,
+            include_unconfigured_section,
+            include_failures,
+            include_package_project_relative_paths,
+            include_artifact_hash_information,
+            graph_properties_opts,
+        );
         let mut entries = HashMap::new();
 
         if other_errors.values().flatten().next().is_some() {
@@ -435,6 +459,60 @@ impl<'a> BuildReportCollector<'a> {
                 entries.insert(EntryLabel::Target(target_with_modifiers), entry);
             }
         }
+        this.assemble_build_report(
+            trace_id,
+            project_root,
+            entries,
+            all_error_reports,
+            detailed_metrics,
+        )
+    }
+
+    /// Converts BXL errors into a BuildReport for BXL's ensure artifacts errors.
+    /// This processes errors associated with a single BXL function execution.
+    pub(crate) fn convert_bxl(
+        trace_id: &TraceId,
+        artifact_fs: &'a ArtifactFs,
+        cell_resolver: &'a CellResolver,
+        project_root: &ProjectRoot,
+        include_unconfigured_section: bool,
+        include_failures: bool,
+        include_package_project_relative_paths: bool,
+        include_artifact_hash_information: bool,
+        bxl_label: &BxlFunctionLabel,
+        errors: &[buck2_error::Error],
+        detailed_metrics: Option<DetailedAggregatedMetrics>,
+        graph_properties_opts: GraphPropertiesOptions,
+    ) -> buck2_error::Result<BuildReport> {
+        let mut this = Self::new(
+            artifact_fs,
+            cell_resolver,
+            include_unconfigured_section,
+            include_failures,
+            include_package_project_relative_paths,
+            include_artifact_hash_information,
+            graph_properties_opts,
+        );
+        let mut entries = HashMap::new();
+        let all_error_reports: Vec<ErrorReport> = errors.iter().map(ErrorReport::from).collect();
+
+        if !errors.is_empty() {
+            this.overall_success = false;
+        }
+
+        // Create entry for the BXL function
+        let entry_label = EntryLabel::BxlFunction(bxl_label.clone());
+        let errors = this.convert_error_list(errors, entry_label.clone());
+
+        let entry = BuildReportEntry {
+            compatible: None,
+            configured: HashMap::new(),
+            errors,
+            package_project_relative_path: None, // Package doesn't apply to BXL
+        };
+
+        entries.insert(entry_label, entry);
+
         this.assemble_build_report(
             trace_id,
             project_root,
@@ -1037,6 +1115,40 @@ pub fn generate_build_report(
         configured,
         configured_to_pattern_modifiers,
         other_errors,
+        detailed_metrics,
+        opts.graph_properties_opts,
+    )?;
+
+    write_or_serialize_build_report(
+        &build_report,
+        &opts.unstable_build_report_filename,
+        project_root,
+        cwd,
+    )
+}
+
+pub fn generate_bxl_build_report(
+    opts: BuildReportOpts,
+    artifact_fs: &ArtifactFs,
+    cell_resolver: &CellResolver,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: &TraceId,
+    bxl_label: &BxlFunctionLabel,
+    errors: &[buck2_error::Error],
+    detailed_metrics: Option<DetailedAggregatedMetrics>,
+) -> Result<Option<String>, buck2_error::Error> {
+    let build_report = BuildReportCollector::convert_bxl(
+        trace_id,
+        artifact_fs,
+        cell_resolver,
+        project_root,
+        opts.print_unconfigured_section,
+        opts.unstable_include_failures_build_report,
+        opts.unstable_include_package_project_relative_paths,
+        opts.unstable_include_artifact_hash_information,
+        bxl_label,
+        errors,
         detailed_metrics,
         opts.graph_properties_opts,
     )?;
