@@ -28,8 +28,7 @@ import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.MoreSuppliers;
 import com.facebook.buck.util.Threads;
-import com.facebook.buck.util.concurrent.CommandThreadFactory;
-import com.facebook.buck.util.concurrent.CommonThreadFactoryState;
+import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -253,9 +252,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     executorService =
         listeningDecorator(
             Executors.newFixedThreadPool(
-                adbThreadCount,
-                new CommandThreadFactory(
-                    getClass().getSimpleName(), CommonThreadFactoryState.NOOP)));
+                adbThreadCount, new NamedThreadFactory(getClass().getSimpleName())));
     return executorService;
   }
 
