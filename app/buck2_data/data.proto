@@ -1496,6 +1496,10 @@ message CommandExecutionMetadata {
   /// The duration this command was suspended for. None if it was never
   /// suspended
   optional google.protobuf.Duration suspend_duration = 10;
+
+  /// The number of times this action was suspended. None indicates that
+  /// resource control was not enabled.
+  optional uint64 suspend_count = 11;
 }
 
 message CommandOutputsMissing {

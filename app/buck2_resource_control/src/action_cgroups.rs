@@ -106,6 +106,7 @@ pub struct ActionCgroupResult {
     pub swap_peak: Option<u64>,
     pub error: Option<buck2_error::Error>,
     pub suspend_duration: Option<Duration>,
+    pub suspend_count: u64,
 }
 
 impl ActionCgroupResult {
@@ -116,6 +117,7 @@ impl ActionCgroupResult {
             swap_peak: Some(cgroup_info.swap_peak),
             error: cgroup_info.error,
             suspend_duration: cgroup_info.suspend_duration,
+            suspend_count: cgroup_info.suspend_count,
         }
     }
 
@@ -125,6 +127,7 @@ impl ActionCgroupResult {
             swap_peak: None,
             error: Some(e),
             suspend_duration: None,
+            suspend_count: 0,
         }
     }
 }
@@ -163,6 +166,7 @@ struct ActionCgroup {
     swap_peak: u64,
     error: Option<buck2_error::Error>,
     suspend_duration: Option<Duration>,
+    suspend_count: u64,
     command_type: CommandType,
     // memory.current value when this cgroup was suspended. Used to calculate whether we can wake early
     memory_current_when_suspended: Option<u64>,
@@ -365,6 +369,7 @@ impl ActionCgroups {
                     swap_peak: 0,
                     error: None,
                     suspend_duration: None,
+                    suspend_count: 0,
                     command_type,
                     memory_current_when_suspended: None,
                     action_digest,
@@ -592,6 +597,7 @@ impl ActionCgroups {
                 Some(duration) => duration + suspend_elapsed,
                 None => suspend_elapsed,
             });
+        suspended_cgroup.cgroup.suspend_count += 1;
 
         let (running_cgroup, event_kind) = wake_cgroup(suspended_cgroup);
         self.last_wake_time = Some(Instant::now());

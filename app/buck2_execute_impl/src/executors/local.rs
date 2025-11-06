@@ -737,6 +737,7 @@ impl LocalExecutor {
             hashed_artifacts_count: 0,
             queue_duration: None,
             suspend_duration: None,
+            suspend_count: None,
         });
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
@@ -778,6 +779,7 @@ impl LocalExecutor {
                         let _unused = soft_error!("action_cgroup_error", e);
                     }
                     timing.suspend_duration = cgroup_result.suspend_duration;
+                    timing.suspend_count = Some(cgroup_result.suspend_count);
                 }
 
                 timing.hashing_duration = hashing_time.hashing_duration;

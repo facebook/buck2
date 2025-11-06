@@ -71,26 +71,31 @@ async def _check_suspends(
         command_meta = action["commands"][-1]["details"]["metadata"]
         if command_meta["was_suspended"] is True:
             num_suspended_actions += 1
-            # Json representation of a duration is number of us
-            duration = command_meta["suspend_duration"] / 1000
-            assert duration is not None
-            reported_suspends[ident] = duration
+            if kill_and_retry:
+                count = command_meta["suspend_count"]
+                assert count is not None
+                reported_suspends[ident] = count
+            else:
+                # Json representation of a duration is number of us
+                duration = command_meta["suspend_duration"] / 1000
+                assert duration is not None
+                reported_suspends[ident] = duration
         else:
             reported_suspends[ident] = None
 
     if kill_and_retry:
         total_detected_kills = 0
         expected_min_kills = 0
-        for ident, dur in reported_suspends.items():
+        for ident, count in reported_suspends.items():
             detected_starts = len((Path(temp.name) / ident).read_text().splitlines())
-            if dur is None:
+            if count is None:
                 assert detected_starts == 1
             else:
                 # FIXME(JakobDegen): Again, we'd like to assert here but can't because we have a
                 # tendency to kill actions immediately after starting them. Instead, just do the
                 # bare minimum check that we detected at least one kill
                 total_detected_kills += detected_starts - 1
-                expected_min_kills += 1
+                expected_min_kills += count
         if expected_min_kills > 0:
             assert total_detected_kills > 0
     else:

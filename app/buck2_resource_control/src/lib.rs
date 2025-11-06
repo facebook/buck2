@@ -120,5 +120,6 @@ pub mod action_cgroups {
         pub error: Option<buck2_error::Error>,
         pub was_suspended: bool,
         pub suspend_duration: Option<Duration>,
+        pub suspend_count: u64,
     }
 }

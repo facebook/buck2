@@ -164,6 +164,8 @@ pub struct CommandExecutionMetadata {
     pub queue_duration: Option<Duration>,
 
     pub suspend_duration: Option<Duration>,
+
+    pub suspend_count: Option<u64>,
 }
 
 impl CommandExecutionMetadata {
@@ -183,6 +185,7 @@ impl CommandExecutionMetadata {
             hashed_artifacts_count: metadata.hashed_artifacts_count.try_into().ok().unwrap_or(0),
             queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
             suspend_duration: metadata.suspend_duration.and_then(|d| d.try_into().ok()),
+            suspend_count: metadata.suspend_count,
         }
     }
 }
@@ -199,6 +202,7 @@ impl Default for CommandExecutionMetadata {
             hashed_artifacts_count: 0,
             queue_duration: None,
             suspend_duration: None,
+            suspend_count: None,
         }
     }
 }
@@ -471,6 +475,7 @@ mod tests {
             hashed_artifacts_count: 8,
             queue_duration: Some(Duration::from_secs(9)),
             suspend_duration: None,
+            suspend_count: None,
         };
         let std_streams = CommandStdStreams::Local {
             stdout: [65, 66, 67].to_vec(), // ABC
@@ -550,6 +555,7 @@ mod tests {
                 nanos: 0,
             }),
             suspend_duration: None,
+            suspend_count: None,
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),
