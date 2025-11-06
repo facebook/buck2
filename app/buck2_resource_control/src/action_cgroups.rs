@@ -513,22 +513,19 @@ impl ActionCgroups {
                 self.total_memory_during_last_suspend =
                     Some(memory_reading.buck2_slice_memory_current);
                 self.last_suspend_time = Some(suspended_cgroup.suspend_start);
+                let path = suspended_cgroup.cgroup.path.clone();
+                self.wake_order.push_back(path.clone());
+                self.suspended_cgroups
+                    .insert(path.clone(), suspended_cgroup);
 
-                emit_resource_control_event(
+                let suspended_cgroup = self.suspended_cgroups.get(&path).unwrap();
+
+                self.emit_resource_control_event(
                     &suspended_cgroup.cgroup.dispatcher,
                     memory_reading,
                     event_kind,
                     &suspended_cgroup.cgroup,
-                    self.suspended_cgroups.len() as u64 + 1,
-                    self.running_cgroups.len() as u64,
-                    &self.metadata,
-                    &self.ancestor_cgroup_constraints,
                 );
-
-                self.wake_order
-                    .push_back(suspended_cgroup.cgroup.path.clone());
-                self.suspended_cgroups
-                    .insert(suspended_cgroup.cgroup.path.clone(), suspended_cgroup);
             }
             Err((mut unsuspended_cgroup, e)) => {
                 unsuspended_cgroup.cgroup.error = Some(e);
@@ -602,18 +599,16 @@ impl ActionCgroups {
         let (running_cgroup, event_kind) = wake_cgroup(suspended_cgroup);
         self.last_wake_time = Some(Instant::now());
 
-        emit_resource_control_event(
+        self.running_cgroups
+            .insert(cgroup_path.clone(), running_cgroup);
+        let running_cgroup = self.running_cgroups.get(&cgroup_path).unwrap();
+
+        self.emit_resource_control_event(
             &running_cgroup.cgroup.dispatcher,
             memory_reading,
             event_kind,
             &running_cgroup.cgroup,
-            self.suspended_cgroups.len() as u64,
-            self.running_cgroups.len() as u64 + 1,
-            &self.metadata,
-            &self.ancestor_cgroup_constraints,
         );
-
-        self.running_cgroups.insert(cgroup_path, running_cgroup);
     }
 
     /// Removes the memory.high limit from the cgroup slice
@@ -642,55 +637,52 @@ impl ActionCgroups {
         }
         Ok(())
     }
-}
 
-fn emit_resource_control_event(
-    dispatcher: &EventDispatcher,
-    memory_reading: &MemoryReading,
-    kind: buck2_data::ResourceControlEventKind,
-    cgroup: &ActionCgroup,
-    suspended_action_count: u64,
-    running_action_count: u64,
-    metadata: &HashMap<String, String>,
-    ancestor_cgroup_constraints: &Option<AncestorCgroupConstraints>,
-) {
-    dispatcher.instant_event(buck2_data::ResourceControlEvents {
-        uuid: dispatcher.trace_id().to_string(),
+    fn emit_resource_control_event(
+        &self,
+        dispatcher: &EventDispatcher,
+        memory_reading: &MemoryReading,
+        kind: buck2_data::ResourceControlEventKind,
+        cgroup: &ActionCgroup,
+    ) {
+        dispatcher.instant_event(buck2_data::ResourceControlEvents {
+            uuid: dispatcher.trace_id().to_string(),
 
-        kind: kind.into(),
+            kind: kind.into(),
 
-        event_time: Some(SystemTime::now().into()),
+            event_time: Some(SystemTime::now().into()),
 
-        allprocs_memory_current: memory_reading.buck2_slice_memory_current,
-        allprocs_memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
-        allprocs_memory_pressure: memory_reading.buck2_slice_memory_pressure,
+            allprocs_memory_current: memory_reading.buck2_slice_memory_current,
+            allprocs_memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
+            allprocs_memory_pressure: memory_reading.buck2_slice_memory_pressure,
 
-        daemon_memory_current: memory_reading.daemon_memory_current,
-        daemon_swap_current: memory_reading.daemon_memory_swap_current,
+            daemon_memory_current: memory_reading.daemon_memory_current,
+            daemon_swap_current: memory_reading.daemon_memory_swap_current,
 
-        action_kind: cgroup.command_type.to_string(),
-        action_digest: cgroup.action_digest.clone().unwrap_or_default(),
+            action_kind: cgroup.command_type.to_string(),
+            action_digest: cgroup.action_digest.clone().unwrap_or_default(),
 
-        action_cgroup_memory_current: cgroup.memory_current,
-        action_cgroup_memory_peak: cgroup.memory_peak,
+            action_cgroup_memory_current: cgroup.memory_current,
+            action_cgroup_memory_peak: cgroup.memory_peak,
 
-        action_cgroup_swap_current: cgroup.swap_current,
-        action_cgroup_swap_peak: cgroup.swap_peak,
+            action_cgroup_swap_current: cgroup.swap_current,
+            action_cgroup_swap_peak: cgroup.swap_peak,
 
-        actions_suspended_count: suspended_action_count,
-        actions_running_count: running_action_count,
+            actions_suspended_count: self.suspended_cgroups.len() as u64,
+            actions_running_count: self.running_cgroups.len() as u64,
 
-        metadata: metadata.clone(),
+            metadata: self.metadata.clone(),
 
-        ancestor_cgroup_constraints: ancestor_cgroup_constraints.as_ref().map(|constraints| {
-            buck2_data::AncestorCgroupConstraints {
-                memory_max: constraints.memory_max,
-                memory_high: constraints.memory_high,
-                memory_swap_max: constraints.memory_swap_max,
-                memory_swap_high: constraints.memory_swap_high,
-            }
-        }),
-    });
+            ancestor_cgroup_constraints: self.ancestor_cgroup_constraints.as_ref().map(
+                |constraints| buck2_data::AncestorCgroupConstraints {
+                    memory_max: constraints.memory_max,
+                    memory_high: constraints.memory_high,
+                    memory_swap_max: constraints.memory_swap_max,
+                    memory_swap_high: constraints.memory_swap_high,
+                },
+            ),
+        });
+    }
 }
 
 #[allow(clippy::result_large_err)]
