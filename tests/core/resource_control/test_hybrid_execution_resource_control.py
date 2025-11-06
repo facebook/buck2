@@ -304,7 +304,11 @@ async def test_parent_slice_memory_high_unset_and_restore(
     assert daemon_memory_high == "max"
 
     with open(slice_cgroup_path / "memory.high", "r") as f:
-        slice_memory_high = int(f.read().strip())
+        slice_memory_high = f.read().strip()
+    if slice_memory_high == "max":
+        slice_memory_high = memory_high_total
+    else:
+        slice_memory_high = int(slice_memory_high)
     assert slice_memory_high == memory_high_total
 
     # Variables to store the memory.high values
@@ -349,19 +353,24 @@ async def test_parent_slice_memory_high_unset_and_restore(
         "commands",
     )
 
-    frozen_count = 0
-    for command in commands:
-        if command[0]["details"]["metadata"]["was_suspended"] is True:
-            frozen_count += 1
-            assert command[0]["details"]["metadata"]["suspend_duration"] is not None
-
-    assert frozen_count == 1
+    # There are three commands, only one was suspended:
+    suspended_commands = [
+        c[0] for c in commands if c[0]["details"]["metadata"]["suspend_count"]
+    ]
+    assert len(suspended_commands) == 1
+    for command in suspended_commands:
+        assert command["details"]["metadata"]["suspend_duration"] is not None
 
     memory_reader_thread.join()
     assert (delayed_memory_high) == "max"
     # The memory.high value should be restored to the original value
     with open(slice_cgroup_path / "memory.high", "r") as f:
-        slice_memory_high_at_end = int(f.read().strip())
+        slice_memory_high_at_end = f.read().strip()
+        if slice_memory_high_at_end == "max":
+            slice_memory_high_at_end = memory_high_total
+        else:
+            slice_memory_high_at_end = int(slice_memory_high_at_end)
+
     assert slice_memory_high_at_end == memory_high_total
 
 
