@@ -28,6 +28,7 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
         "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/third-party:jsr305",
     ],
 )
 
@@ -76,6 +77,7 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
         "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent_for_junit_runner",
         "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
+        "prelude//toolchains/android/third-party:jsr305",
         "prelude//toolchains/android/third-party:junit",
         "prelude//toolchains/android/third-party:junit-jupiter-engine",
         "prelude//toolchains/android/third-party:junit-platform-launcher",
