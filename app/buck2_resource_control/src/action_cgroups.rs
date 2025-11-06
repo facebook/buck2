@@ -657,9 +657,7 @@ fn emit_resource_control_event(
 ) {
     dispatcher.instant_event(buck2_data::ResourceControlEvents {
         uuid: dispatcher.trace_id().to_string(),
-        action_digest: cgroup.action_digest.clone().unwrap_or_default(),
 
-        command: cgroup.command_type.to_string(),
         kind: kind.into(),
 
         event_time: Some(SystemTime::now().into()),
@@ -670,6 +668,9 @@ fn emit_resource_control_event(
 
         daemon_memory_current: memory_reading.daemon_memory_current,
         daemon_swap_current: memory_reading.daemon_memory_swap_current,
+
+        action_kind: cgroup.command_type.to_string(),
+        action_digest: cgroup.action_digest.clone().unwrap_or_default(),
 
         action_cgroup_memory_current: cgroup.memory_current,
         action_cgroup_memory_peak: cgroup.memory_peak,

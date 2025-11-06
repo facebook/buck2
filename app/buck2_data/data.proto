@@ -731,12 +731,8 @@ message TestDiscovery {
 
 message ResourceControlEvents {
   string uuid = 1;
-  string command = 2;
   ResourceControlKind kind = 3;
   google.protobuf.Timestamp event_time = 4;
-
-  // Information related to what's suspended
-  string action_digest = 5;
 
   // Memory information regarding buck2.slice cgroup
   uint64 allprocs_memory_current = 6;
@@ -747,7 +743,9 @@ message ResourceControlEvents {
   uint64 daemon_memory_current = 17;
   uint64 daemon_swap_current = 18;
 
-  // Information related to the cgroup that's frozen
+  // Information related to the action in question
+  string action_kind = 2;
+  string action_digest = 5;
   uint64 action_cgroup_memory_current = 8;
   uint64 action_cgroup_memory_peak = 9;
   uint64 action_cgroup_swap_current = 15;
