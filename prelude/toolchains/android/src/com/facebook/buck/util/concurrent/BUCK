@@ -22,7 +22,7 @@ buck_java_library(
 
 buck_java_library(
     name = "concurrent_for_junit_runner",
-    srcs = ["MostExecutors.java"],
+    srcs = ["NamedThreadFactory.java"],
     # This target is pulled in by testrunner, which needs to compile against Java 8.
     source = "8",
     target = "8",

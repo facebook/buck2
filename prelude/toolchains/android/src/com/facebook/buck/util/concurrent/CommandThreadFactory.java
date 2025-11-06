@@ -27,11 +27,11 @@ public class CommandThreadFactory implements ThreadFactory {
 
   public CommandThreadFactory(
       String threadName, CommonThreadFactoryState state, int threadPriority) {
-    this(new MostExecutors.NamedThreadFactory(threadName), state, OptionalInt.of(threadPriority));
+    this(new NamedThreadFactory(threadName), state, OptionalInt.of(threadPriority));
   }
 
   public CommandThreadFactory(String threadName, CommonThreadFactoryState state) {
-    this(new MostExecutors.NamedThreadFactory(threadName), state, OptionalInt.empty());
+    this(new NamedThreadFactory(threadName), state, OptionalInt.empty());
   }
 
   public CommandThreadFactory(ThreadFactory threadFactory, CommonThreadFactoryState state) {

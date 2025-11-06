@@ -10,10 +10,11 @@
 
 package com.facebook.buck.testrunner;
 
-import com.facebook.buck.util.concurrent.MostExecutors;
+import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,7 +47,8 @@ public class BuckBlockJUnit4ClassRunner extends BlockJUnit4ClassRunner {
       new ThreadLocal<ExecutorService>() {
         @Override
         protected ExecutorService initialValue() {
-          return MostExecutors.newSingleThreadExecutor(getClass().getSimpleName());
+          return Executors.newSingleThreadExecutor(
+              new NamedThreadFactory(getClass().getSimpleName()));
         }
       };
 

@@ -33,7 +33,7 @@ import com.facebook.buck.jvm.java.plugin.api.BuckJavacTaskListener;
 import com.facebook.buck.jvm.java.plugin.api.BuckJavacTaskProxy;
 import com.facebook.buck.jvm.java.plugin.api.PluginClassLoader;
 import com.facebook.buck.jvm.java.plugin.api.PluginClassLoaderFactory;
-import com.facebook.buck.util.concurrent.MostExecutors.NamedThreadFactory;
+import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.zip.JarBuilder;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;

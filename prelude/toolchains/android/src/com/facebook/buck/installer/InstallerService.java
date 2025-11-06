@@ -20,7 +20,7 @@ import com.facebook.buck.install.model.InstallResponse;
 import com.facebook.buck.install.model.InstallerGrpc;
 import com.facebook.buck.install.model.ShutdownRequest;
 import com.facebook.buck.install.model.ShutdownResponse;
-import com.facebook.buck.util.concurrent.MostExecutors;
+import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.types.Unit;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +79,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
           1,
           TimeUnit.SECONDS,
           new SynchronousQueue<>(),
-          new MostExecutors.NamedThreadFactory("Installer"));
+          new NamedThreadFactory("Installer"));
 
   private static final ListeningExecutorService LISTENING_EXECUTOR_SERVICE =
       MoreExecutors.listeningDecorator(THREAD_POOL);

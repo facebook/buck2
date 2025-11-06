@@ -10,7 +10,6 @@
 
 package com.facebook.buck.android;
 
-import static com.facebook.buck.util.concurrent.MostExecutors.newMultiThreadExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import com.facebook.buck.android.device.TargetDeviceOptions;
@@ -58,6 +57,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -252,9 +252,10 @@ public class AdbHelper implements AndroidDevicesHelper {
     adbThreadCount = Math.min(deviceCount, adbThreadCount);
     executorService =
         listeningDecorator(
-            newMultiThreadExecutor(
-                new CommandThreadFactory(getClass().getSimpleName(), CommonThreadFactoryState.NOOP),
-                adbThreadCount));
+            Executors.newFixedThreadPool(
+                adbThreadCount,
+                new CommandThreadFactory(
+                    getClass().getSimpleName(), CommonThreadFactoryState.NOOP)));
     return executorService;
   }
 

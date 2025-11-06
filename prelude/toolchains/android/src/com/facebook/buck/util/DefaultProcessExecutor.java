@@ -15,7 +15,7 @@ import static com.google.common.base.Predicates.not;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.facebook.buck.core.util.log.Logger;
-import com.facebook.buck.util.concurrent.MostExecutors;
+import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.environment.Platform;
 import com.facebook.buck.util.types.Unit;
 import com.google.common.annotations.VisibleForTesting;
@@ -47,7 +47,7 @@ public class DefaultProcessExecutor implements ProcessExecutor {
           1,
           TimeUnit.SECONDS,
           new SynchronousQueue<>(),
-          new MostExecutors.NamedThreadFactory("ProcessExecutor"));
+          new NamedThreadFactory("ProcessExecutor"));
 
   private final PrintStream stdOutStream;
   private final PrintStream stdErrStream;
