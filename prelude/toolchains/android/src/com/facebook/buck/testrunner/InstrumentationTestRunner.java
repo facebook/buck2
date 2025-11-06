@@ -12,11 +12,9 @@ package com.facebook.buck.testrunner;
 
 import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.DdmPreferences;
-import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.MultiLineReceiver;
 import com.android.ddmlib.ShellCommandUnresponsiveException;
-import com.android.ddmlib.SyncService;
 import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
@@ -501,8 +499,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
     initializeAndroidDevice();
 
     if (this.instrumentationApkPath != null) {
-      DdmPreferences.setTimeOut(60000);
-
       if (this.apkUnderTestPath != null) {
         // Install both APKs in parallel to improve performance
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -975,45 +971,33 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   /**
-   * pull dir from device to local /** Pulls file directory from the device to local directory.
+   * Pulls file directory from the device to local directory.
    *
    * @param sourceDir the dir of the source
    * @param destinationDir the dir of the destination
    * @throws Exception exceptions may throw from file operations
    */
   public void pullDir(String sourceDir, String destinationDir) throws Exception {
-    FileListingService listingService = device.getFileListingService();
-    FileListingService.FileEntry dir = locateDir(device, listingService, sourceDir);
-    if (dir == null) {
+    if (!directoryExists(sourceDir)) {
       // source dir or one of its parents doesn't exist, nothing to pull.
       System.err.printf("Failed to locate source directory: %s\n", sourceDir);
       return;
     }
-    FileListingService.FileEntry[] filesToPull = listingService.getChildrenSync(dir);
     File destinationDirFile = new File(destinationDir);
     if (!destinationDirFile.exists()) {
       destinationDirFile.mkdirs();
     }
-    pullWithSyncService(device, filesToPull, destinationDir);
-  }
-
-  // the SyncService cannot be mocked. This function gives us something we can overwrite in tests
-  protected void pullWithSyncService(
-      IDevice device, FileListingService.FileEntry[] filesToPull, String destinationDir)
-      throws Exception {
-    device.getSyncService().pull(filesToPull, destinationDir, SyncService.getNullProgressMonitor());
+    transferFile("pull", sourceDir, destinationDir);
   }
 
   // push single file
-  public void pushFileWithSyncService(IDevice device, String local, String remote)
-      throws Exception {
-    device.getSyncService().pushFile(local, remote, SyncService.getNullProgressMonitor());
+  public void pushFileWithSyncService(String local, String remote) throws Exception {
+    pushFile(local, remote);
   }
 
   // pull single file
-  public void pullFileWithSyncService(IDevice device, String remote, String local)
-      throws Exception {
-    device.getSyncService().pullFile(remote, local, SyncService.getNullProgressMonitor());
+  public void pullFileWithSyncService(String remote, String local) throws Exception {
+    pullFile(remote, local);
   }
 
   // Java has no setenv(), so this is needed to be able to overwrite env vars in tests
@@ -1049,32 +1033,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
   private void pushFile(String localPath, String remotePath) throws Exception {
     transferFile("push", localPath, remotePath);
-  }
-
-  private FileListingService.FileEntry locateDir(
-      IDevice device, FileListingService listingService, String dirPath) throws Exception {
-    if (!directoryExists(dirPath)) {
-      return null;
-    }
-
-    // Construct the file entry to the path manually as we can't dig through the FileListingService
-    // as some intermediate directories may be permissioned to disallow listing children.
-    FileListingService.FileEntry dir = listingService.getRoot();
-    if (dir == null) {
-      throw new RuntimeException("Couldn't retrieve root directory from file listing service.");
-    }
-    for (final String pathSegment : dirPath.split(FileListingService.FILE_SEPARATOR)) {
-      if (pathSegment.isEmpty()) {
-        // Ignore empty segments.
-        continue;
-      }
-
-      dir =
-          new FileListingService.FileEntry(
-              dir, pathSegment, FileListingService.TYPE_DIRECTORY, false);
-    }
-
-    return dir;
   }
 
   @FunctionalInterface

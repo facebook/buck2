@@ -409,7 +409,7 @@ public class InstrumentationTestRunnerTest {
     HashMap<String, String> zipenv = new HashMap<>();
     zipenv.put("create", "false");
     try (FileSystem zipfs = FileSystems.newFileSystem(uri, zipenv)) {
-      Path tombstone = zipfs.getPath("tombstone");
+      Path tombstone = zipfs.getPath("subdir/tombstone");
       Assert.assertEquals("tombstone", Files.readString(tombstone));
     }
   }
@@ -684,26 +684,28 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected void pullWithSyncService(
-              IDevice device, FileListingService.FileEntry[] filesToPull, String destinationDir)
-              throws Exception {
-            for (FileListingService.FileEntry file : filesToPull) {
-              Path path = Paths.get(file.getFullPath());
-              for (Map.Entry<Path, byte[]> entry : filesOnDevice.entrySet()) {
-                if (entry.getKey().equals(path)) {
-                  Path target = Paths.get(destinationDir).resolve(entry.getKey().getFileName());
-                  Files.write(target, entry.getValue());
-                } else if (entry.getKey().startsWith(path)) {
-                  Path target = Paths.get(destinationDir).resolve(path.relativize(entry.getKey()));
-                  Files.write(target, entry.getValue());
+          public void pullDir(String sourceDir, String destinationDir) throws Exception {
+            // Mock implementation that reads from the filesOnDevice map
+            Path sourcePath = Paths.get(sourceDir);
+            File destinationDirFile = new File(destinationDir);
+            if (!destinationDirFile.exists()) {
+              destinationDirFile.mkdirs();
+            }
+            for (Map.Entry<Path, byte[]> entry : filesOnDevice.entrySet()) {
+              if (entry.getKey().startsWith(sourcePath)) {
+                Path relativePath = sourcePath.relativize(entry.getKey());
+                Path target = Paths.get(destinationDir).resolve(relativePath);
+                File parent = target.getParent().toFile();
+                if (!parent.exists()) {
+                  parent.mkdirs();
                 }
+                Files.write(target, entry.getValue());
               }
             }
           }
 
           @Override
-          public void pullFileWithSyncService(IDevice device, String remote, String local)
-              throws Exception {
+          public void pullFileWithSyncService(String remote, String local) throws Exception {
             for (Map.Entry<Path, byte[]> entry : filesOnDevice.entrySet()) {
               Path remote_path = Paths.get(remote);
               System.out.printf("remote: %s -> local: %s", remote, local);
@@ -716,8 +718,7 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          public void pushFileWithSyncService(IDevice device, String local, String remote)
-              throws Exception {
+          public void pushFileWithSyncService(String local, String remote) throws Exception {
             System.out.printf("mock: push file, local: %s -> remote: %s", local, remote);
           }
 
