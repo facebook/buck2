@@ -397,7 +397,7 @@ impl ActionCgroups {
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
             // In this case we need to wake the cgroup for the next command.
-            let unsuspended = wake_cgroup(cgroup);
+            let (unsuspended, _) = wake_cgroup(cgroup);
             ActionCgroupResult::from_info(unsuspended)
         } else {
             ActionCgroupResult::from_error(internal_error!(
@@ -501,7 +501,7 @@ impl ActionCgroups {
         let cgroup = self.running_cgroups.remove(&largest_cgroup).unwrap();
 
         match suspend_cgroup(cgroup) {
-            Ok(mut suspended_cgroup) => {
+            Ok((mut suspended_cgroup, event_kind)) => {
                 tracing::debug!(
                     "Froze action: {:?} (type: {:?})",
                     suspended_cgroup.cgroup.path,
@@ -517,7 +517,7 @@ impl ActionCgroups {
                 emit_resource_control_event(
                     &suspended_cgroup.cgroup.dispatcher,
                     memory_reading,
-                    buck2_data::ResourceControlKind::Freeze,
+                    event_kind,
                     &suspended_cgroup.cgroup,
                     self.suspended_cgroups.len() as u64 + 1,
                     self.running_cgroups.len() as u64,
@@ -600,13 +600,13 @@ impl ActionCgroups {
                 None => suspend_elapsed,
             });
 
-        let running_cgroup = wake_cgroup(suspended_cgroup);
+        let (running_cgroup, event_kind) = wake_cgroup(suspended_cgroup);
         self.last_wake_time = Some(Instant::now());
 
         emit_resource_control_event(
             &running_cgroup.cgroup.dispatcher,
             memory_reading,
-            buck2_data::ResourceControlKind::Unfreeze,
+            event_kind,
             &running_cgroup.cgroup,
             self.suspended_cgroups.len() as u64,
             self.running_cgroups.len() as u64 + 1,
@@ -648,7 +648,7 @@ impl ActionCgroups {
 fn emit_resource_control_event(
     dispatcher: &EventDispatcher,
     memory_reading: &MemoryReading,
-    kind: buck2_data::ResourceControlKind,
+    kind: buck2_data::ResourceControlEventKind,
     cgroup: &ActionCgroup,
     suspended_action_count: u64,
     running_action_count: u64,
@@ -697,7 +697,10 @@ fn emit_resource_control_event(
 #[allow(clippy::result_large_err)]
 fn suspend_cgroup(
     cgroup: RunningActionCgroup,
-) -> Result<SuspendedActionCgroup, (RunningActionCgroup, buck2_error::Error)> {
+) -> Result<
+    (SuspendedActionCgroup, buck2_data::ResourceControlEventKind),
+    (RunningActionCgroup, buck2_error::Error),
+> {
     // Using nix APIs in case more precise control is needed for control file IO.
     fn cgroup_freeze_impl(cgroup: &ActionCgroup) -> buck2_error::Result<OwnedFd> {
         let dir: Dir = Dir::open(cgroup.path.as_path(), OFlag::O_CLOEXEC, Mode::empty())
@@ -719,26 +722,34 @@ fn suspend_cgroup(
     let suspend_start = Instant::now();
     match cgroup.suspend_implementation {
         SuspendImplementation::CgroupFreeze => match cgroup_freeze_impl(&cgroup.cgroup) {
-            Ok(freeze_file) => Ok(SuspendedActionCgroup {
-                cgroup: cgroup.cgroup,
-                wake_implementation: WakeImplementation::CgroupUnfreeze { freeze_file },
-                suspend_start,
-            }),
+            Ok(freeze_file) => Ok((
+                SuspendedActionCgroup {
+                    cgroup: cgroup.cgroup,
+                    wake_implementation: WakeImplementation::CgroupUnfreeze { freeze_file },
+                    suspend_start,
+                },
+                buck2_data::ResourceControlEventKind::SuspendFreeze,
+            )),
             Err(e) => Err((cgroup, e)),
         },
         SuspendImplementation::KillAndRetry(kill_sender) => {
             let (retry_tx, retry_rx) = oneshot::channel();
             drop(kill_sender.send(RetryFuture(retry_rx)));
-            Ok(SuspendedActionCgroup {
-                cgroup: cgroup.cgroup,
-                wake_implementation: WakeImplementation::KillAndRetry(retry_tx),
-                suspend_start,
-            })
+            Ok((
+                SuspendedActionCgroup {
+                    cgroup: cgroup.cgroup,
+                    wake_implementation: WakeImplementation::KillAndRetry(retry_tx),
+                    suspend_start,
+                },
+                buck2_data::ResourceControlEventKind::SuspendKill,
+            ))
         }
     }
 }
 
-fn wake_cgroup(cgroup: SuspendedActionCgroup) -> RunningActionCgroup {
+fn wake_cgroup(
+    cgroup: SuspendedActionCgroup,
+) -> (RunningActionCgroup, buck2_data::ResourceControlEventKind) {
     fn cgroup_unfreeze(freeze_file: OwnedFd) -> buck2_error::Result<()> {
         let bytes_written = unistd::write(freeze_file.as_fd(), b"0")?;
         if bytes_written != 1 {
@@ -753,18 +764,24 @@ fn wake_cgroup(cgroup: SuspendedActionCgroup) -> RunningActionCgroup {
                 let _unused: Result<buck2_error::Error, buck2_error::Error> =
                     soft_error!("cgroup_unfreeze_failed", e);
             }
-            RunningActionCgroup {
-                cgroup: cgroup.cgroup,
-                suspend_implementation: SuspendImplementation::CgroupFreeze,
-            }
+            (
+                RunningActionCgroup {
+                    cgroup: cgroup.cgroup,
+                    suspend_implementation: SuspendImplementation::CgroupFreeze,
+                },
+                buck2_data::ResourceControlEventKind::WakeUnfreeze,
+            )
         }
         WakeImplementation::KillAndRetry(retry_tx) => {
             let (kill_tx, kill_rx) = oneshot::channel();
             drop(retry_tx.send(KillFuture(kill_rx)));
-            RunningActionCgroup {
-                cgroup: cgroup.cgroup,
-                suspend_implementation: SuspendImplementation::KillAndRetry(kill_tx),
-            }
+            (
+                RunningActionCgroup {
+                    cgroup: cgroup.cgroup,
+                    suspend_implementation: SuspendImplementation::KillAndRetry(kill_tx),
+                },
+                buck2_data::ResourceControlEventKind::WakeRetry,
+            )
         }
     }
 }

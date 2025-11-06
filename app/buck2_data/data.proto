@@ -731,7 +731,7 @@ message TestDiscovery {
 
 message ResourceControlEvents {
   string uuid = 1;
-  ResourceControlKind kind = 3;
+  ResourceControlEventKind kind = 3;
   google.protobuf.Timestamp event_time = 4;
 
   // Memory information regarding buck2.slice cgroup
@@ -772,9 +772,13 @@ message AncestorCgroupConstraints {
   optional uint64 memory_swap_high = 4;
 }
 
-enum ResourceControlKind {
-  FREEZE = 0;
-  UNFREEZE = 1;
+enum ResourceControlEventKind {
+  reserved 1;
+  RESOURCE_CONTROL_EVENT_KIND_UNKNOWN = 0;
+  SUSPEND_FREEZE = 2;
+  SUSPEND_KILL = 3;
+  WAKE_UNFREEZE = 4;
+  WAKE_RETRY = 5;
 }
 
 // Result of invoking buck2 rage
