@@ -110,8 +110,9 @@ def _gen_project_configuration_platforms(target_node, vs_settings, explicit_targ
             ))
     return "\n".join(configs)
 
-def _set_startup_target(targets, vs_settings_list, startup_target_label):
+def _set_startup_target(targets, vs_settings_list, startup_target: bxl.ConfiguredTargetNode):
     targets_labels = [target.label.raw_target() for target in targets]
+    startup_target_label = startup_target.label.raw_target()
     if startup_target_label in targets_labels:
         startup_target_index = targets_labels.index(startup_target_label)
         targets[0], targets[startup_target_index] = targets[startup_target_index], targets[0]
