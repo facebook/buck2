@@ -17,25 +17,12 @@ def inspect_java_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.Co
         ctx.output.ensure(debuginfo)
 
     program = None
+    env = {}
     if ExternalRunnerTestInfo in providers:
-        cmd = cmd_args()
+        env = providers[ExternalRunnerTestInfo].env
+        program = cmd_args(providers[ExternalRunnerTestInfo].command)
 
-        for key, value in providers[ExternalRunnerTestInfo].env.items():
-            cmd.add(cmd_args([key, "=", cmd_args(value, quote = "shell")], delimiter = ""))
-
-        cmd.add(providers[ExternalRunnerTestInfo].command)
-
-        # TODO: Maybe figure out how to make this a runnable thing
-        program_lines = actions.write(
-            "run_runner.argsfile",
-            cmd,
-            allow_args = True,
-            with_inputs = True,
-        )
-
-        ctx.output.ensure(program_lines[0])
-        ctx.output.ensure_multiple(program_lines[1])
-        program = get_path_without_materialization(program_lines[0], ctx, abs = True)
+        ctx.output.ensure_multiple(program)
 
     return ExecInfo(
         target_name = target_name(settings.target),
@@ -46,6 +33,7 @@ def inspect_java_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.Co
             java = JavaInfo(
                 classmap_file = debuginfo,
             ),
+            env = env,
             program = program,
         ),
     )
