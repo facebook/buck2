@@ -15,7 +15,13 @@ import re
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import (
+    golden,
+    sanitize_build_report,
+    sanitize_hashes,
+)
 
 
 def _replace_hash(s: str) -> str:
@@ -206,3 +212,27 @@ def _test_bxl_artifact_path_cmd_args_helper(
     else:
         assert str(buck.cwd) not in full_path
         assert os.path.exists((buck.cwd / Path(full_path))) is False
+
+
+@buck_test(allow_soft_errors=True, skip_for_os=["darwin", "windows"])
+async def test_bxl_ensure_failures(buck: Buck, tmp_path: Path) -> None:
+    """Test that BXL fails when trying to ensure a failed build artifact."""
+    report = tmp_path / "build-report.json"
+
+    await expect_failure(
+        buck.bxl(
+            "//ensure.bxl:ensure_failures",
+            "--build-report",
+            str(report),
+        ),
+    )
+
+    with open(report) as f:
+        build_report = json.loads(f.read())
+
+    sanitize_build_report(build_report)
+
+    golden(
+        output=sanitize_hashes(json.dumps(build_report, indent=2, sort_keys=True)),
+        rel_path="fixtures/test_bxl_ensure_failures.golden.json",
+    )
