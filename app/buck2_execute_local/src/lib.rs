@@ -276,26 +276,7 @@ where
 
     let cancellation = select(timeout.boxed(), cancellation).map(|r| r.factor_first().0);
 
-    stream_command_events(
-        process_details,
-        cancellation,
-        decoder,
-        kill_process,
-        std_redirects.is_none(),
-    )
-}
-
-fn stream_command_events<T>(
-    process_group: buck2_error::Result<ProcessGroup>,
-    cancellation: T,
-    decoder: impl StatusDecoder,
-    kill_process: impl KillProcess,
-    stream_stdio: bool,
-) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
-where
-    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
-{
-    let mut process_group = match process_group {
+    let mut process_group = match process_details {
         Ok(process_group) => process_group,
         Err(e) => {
             let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
@@ -305,7 +286,7 @@ where
         }
     };
 
-    let stdio = if stream_stdio {
+    let stdio = if std_redirects.is_none() {
         let stdout = process_group
             .take_stdout()
             .buck_error_context("Child stdout is not piped")?;
@@ -735,17 +716,16 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
-        let mut cmd = ProcessCommand::new(cmd);
-        let process = cmd.spawn().map_err(buck2_error::Error::from);
-        let mut events = stream_command_events(
-            process,
+        let mut events = spawn_command_and_stream_events(
+            cmd,
+            None,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
+            None,
             true,
-        )?
+        )
+        .await?
         .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
@@ -817,14 +797,10 @@ mod tests {
         };
         cmd.args(["-c", "sleep 10000"]);
 
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
-        let mut cmd = ProcessCommand::new(cmd);
-        let process = cmd.spawn().map_err(buck2_error::Error::from);
-
-        let stream = stream_command_events(
-            process,
-            timeout_into_cancellation(Some(Duration::from_secs(1))),
+        let stream = spawn_command_and_stream_events(
+            cmd,
+            Some(Duration::from_secs(1)),
+            futures::future::pending(),
             Decoder {
                 killed: killed.dupe(),
                 cancelled: cancelled.dupe(),
@@ -832,8 +808,10 @@ mod tests {
             Kill {
                 killed: killed.dupe(),
             },
+            None,
             true,
-        )?;
+        )
+        .await?;
 
         let CommandResult { status, .. } = decode_command_event_stream(stream).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
@@ -851,19 +829,22 @@ mod tests {
         cmd.args(["-c", "echo hello"]);
 
         let tempdir = tempfile::tempdir()?;
-        let stdout = tempdir.path().join("stdout");
-        let mut cmd = ProcessCommand::new(cmd);
-        cmd.stdout(std::fs::File::create(stdout.clone())?);
-        cmd.stderr(std::process::Stdio::piped());
+        let stdout = AbsNormPathBuf::new(tempdir.path().join("stdout")).unwrap();
+        let stderr = AbsNormPathBuf::new(tempdir.path().join("stderr")).unwrap();
 
-        let process_group = cmd.spawn().map_err(buck2_error::Error::from);
-        let mut events = stream_command_events(
-            process_group,
+        let mut events = spawn_command_and_stream_events(
+            cmd,
+            None,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
+            Some(StdRedirectPaths {
+                stdout: stdout.clone(),
+                stderr: stderr.clone(),
+            }),
             false,
-        )?
+        )
+        .await?
         .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
