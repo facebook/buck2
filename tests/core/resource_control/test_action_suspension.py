@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -34,17 +35,24 @@ def _configure(buck: Buck, kill_and_retry: bool, pressure_limit: int) -> None:
             f.write("preferred_freeze_strategy = kill_and_retry\n")
 
 
-def _use_some_memory_args(buck: Buck) -> list[str]:
+def _use_some_memory_args(buck: Buck, temp: TemporaryDirectory[str]) -> list[str]:
     return [
         "--show-full-simple-output",
         "-c",
         f"use_some_memory.path={os.environ["USE_SOME_MEMORY_BIN"]}",
+        "-c",
+        f"start_marker_files.path={temp.name}",
         "--no-remote-cache",
         "--local-only",
     ]
 
 
-async def _check_suspends(buck: Buck, kill_and_retry: bool, res: BuckResult) -> int:
+async def _check_suspends(
+    buck: Buck,
+    kill_and_retry: bool,
+    temp: TemporaryDirectory[str],
+    res: BuckResult,
+) -> int:
     # First check the reported suspensions
     actions = await filter_events(
         buck,
@@ -70,11 +78,26 @@ async def _check_suspends(buck: Buck, kill_and_retry: bool, res: BuckResult) -> 
         else:
             reported_suspends[ident] = None
 
-    paths = Path(res.stdout.strip()).read_text().splitlines()
-    paths = [buck.cwd / p for p in paths]
-    assert len(paths) == len(reported_suspends)
+    if kill_and_retry:
+        total_detected_kills = 0
+        expected_min_kills = 0
+        for ident, dur in reported_suspends.items():
+            detected_starts = len((Path(temp.name) / ident).read_text().splitlines())
+            if dur is None:
+                assert detected_starts == 1
+            else:
+                # FIXME(JakobDegen): Again, we'd like to assert here but can't because we have a
+                # tendency to kill actions immediately after starting them. Instead, just do the
+                # bare minimum check that we detected at least one kill
+                total_detected_kills += detected_starts - 1
+                expected_min_kills += 1
+        if expected_min_kills > 0:
+            assert total_detected_kills > 0
+    else:
+        paths = Path(res.stdout.strip()).read_text().splitlines()
+        paths = [buck.cwd / p for p in paths]
+        assert len(paths) == len(reported_suspends)
 
-    if not kill_and_retry:
         # Then compare them to the detected suspensions
         for p in paths:
             contents = p.read_text()
@@ -92,9 +115,6 @@ async def _check_suspends(buck: Buck, kill_and_retry: bool, res: BuckResult) -> 
                 # it.
                 # assert (reported_suspends[ident] or 0) < 500
                 pass
-    else:
-        # TODO(JakobDegen): Detect kill and retry
-        pass
 
     return num_suspended_actions
 
@@ -106,13 +126,14 @@ async def test_action_suspend(
     buck: Buck,
     kill_and_retry: bool,
 ) -> None:
+    temp = TemporaryDirectory()
     _configure(buck, kill_and_retry, 0)
     res = await buck.build_without_report(
         ":sleep_10",
-        *_use_some_memory_args(buck),
+        *_use_some_memory_args(buck, temp),
     )
 
-    num_suspends = await _check_suspends(buck, kill_and_retry, res)
+    num_suspends = await _check_suspends(buck, kill_and_retry, temp, res)
     assert num_suspends > 0
 
     pressure_starts = await filter_events(
@@ -142,19 +163,20 @@ async def test_action_suspend_stress_test(
     buck: Buck,
     kill_and_retry: bool,
 ) -> None:
+    temp = TemporaryDirectory()
     _configure(buck, kill_and_retry, 0)
 
     # Stress test that nothing breaks with fast running actions (faster than memory tracker ticks)
     await buck.build(
         ":very_fast_100",
-        *_use_some_memory_args(buck),
+        *_use_some_memory_args(buck, temp),
     )
 
     _configure(buck, kill_and_retry, 1)
     # And check again without memory pressure
     await buck.build(
         ":very_fast_100",
-        *_use_some_memory_args(buck),
+        *_use_some_memory_args(buck, temp),
     )
 
 
@@ -164,12 +186,13 @@ async def test_suspend_one_of_two(
     buck: Buck,
     kill_and_retry: bool,
 ) -> None:
+    temp = TemporaryDirectory()
     _configure(buck, kill_and_retry, 1)
 
     res = await buck.build_without_report(
         ":two_mutually_incompatible",
-        *_use_some_memory_args(buck),
+        *_use_some_memory_args(buck, temp),
     )
 
-    num_suspends = await _check_suspends(buck, kill_and_retry, res)
+    num_suspends = await _check_suspends(buck, kill_and_retry, temp, res)
     assert num_suspends == 1

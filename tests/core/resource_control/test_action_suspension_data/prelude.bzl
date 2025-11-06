@@ -8,13 +8,24 @@
 
 _use_some_memory = read_root_config("use_some_memory", "path")
 
+_start_marker_files = read_root_config("start_marker_files", "path")
+
 def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
     all_outputs = []
     for i in range(ctx.attrs.width):
         last_output = cmd_args()
         for j in range(ctx.attrs.depth):
-            output = ctx.actions.declare_output("action_{}_{}".format(i, j))
+            ident = "action_{}_{}".format(i, j)
+            output = ctx.actions.declare_output(ident)
             all_outputs.append(output)
+
+            if _start_marker_files:
+                start_marker_args = cmd_args(
+                    "--start-marker",
+                    _start_marker_files + "/" + ident,
+                )
+            else:
+                start_marker_args = cmd_args()
             cmd = cmd_args(
                 _use_some_memory,
                 "--allocate-count",
@@ -27,9 +38,10 @@ def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
                 str(ctx.attrs.sleep_ms / 1000.0),
                 "--output",
                 output.as_output(),
+                start_marker_args,
                 hidden = last_output,
             )
-            ctx.actions.run(cmd, category = "memory_allocating_actions", identifier = "action_{}_{}".format(i, j))
+            ctx.actions.run(cmd, category = "memory_allocating_actions", identifier = ident)
             last_output = output
 
     # Have to do this because we don't show more than one default output for `--show-output`

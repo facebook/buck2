@@ -118,6 +118,9 @@ struct Args {
     #[arg(long, help = "Output log file path")]
     output: Option<String>,
 
+    #[arg(long, help = "A file that we append a 1 to after being started")]
+    start_marker: Option<String>,
+
     #[arg(
         long,
         default_value = "5.0",
@@ -128,6 +131,16 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    if let Some(start_marker) = args.start_marker.as_ref() {
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(start_marker)
+            .unwrap()
+            .write_all(b"1\n")
+            .unwrap();
+    }
 
     let output = if let Some(path) = args.output {
         OpenOptions::new()
