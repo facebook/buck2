@@ -27,7 +27,7 @@ async def test_cancel_test_if_re_queue_longer_than_threshold(buck: Buck) -> None
         env={"BUCK2_TEST_RE_QUEUE_ESTIMATE_S": "100"},
     )
     assert (
-        "Omitted: buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue - main"
+        "Omitted: fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue - main"
         in result.stderr
     )
     assert (
