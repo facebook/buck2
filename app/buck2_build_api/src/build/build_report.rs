@@ -285,6 +285,12 @@ pub struct BuildReportCollector<'a> {
 }
 
 impl<'a> BuildReportCollector<'a> {
+    // ============================================================================
+    // Main conversion functions for build reports
+    // ============================================================================
+
+    /// Converts build results and errors into a BuildReport for regular builds.
+    /// This processes both configured build targets and associated errors.
     pub(crate) fn convert(
         trace_id: &TraceId,
         artifact_fs: &'a ArtifactFs,
@@ -429,18 +435,36 @@ impl<'a> BuildReportCollector<'a> {
                 entries.insert(EntryLabel::Target(target_with_modifiers), entry);
             }
         }
-        let per_configuration_data = this.collect_per_configuration_data()?;
-        let total_configured_graph_sketch = this
+        this.assemble_build_report(
+            trace_id,
+            project_root,
+            entries,
+            all_error_reports,
+            detailed_metrics,
+        )
+    }
+
+    /// Assembles the BuildReport from collected data
+    fn assemble_build_report(
+        mut self,
+        trace_id: &TraceId,
+        project_root: &ProjectRoot,
+        entries: HashMap<EntryLabel, BuildReportEntry>,
+        all_error_reports: Vec<ErrorReport>,
+        detailed_metrics: Option<DetailedAggregatedMetrics>,
+    ) -> buck2_error::Result<BuildReport> {
+        let per_configuration_data = self.collect_per_configuration_data()?;
+        let total_configured_graph_sketch = self
             .total_configured_graph_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
-        let total_configured_graph_unconfigured_sketch = this
+        let total_configured_graph_unconfigured_sketch = self
             .total_configured_graph_unconfigured_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
 
         // Determine error category using existing Buck2 error classification
         let error_category = if let Some(best_error_report) = best_error(&all_error_reports) {
             Some(best_error_report.category().to_string())
-        } else if this.overall_success {
+        } else if self.overall_success {
             None // No errors = no error category
         } else {
             Some(Tier::Tier0.to_string()) // Default when build failed but no specific error tracked
@@ -448,14 +472,14 @@ impl<'a> BuildReportCollector<'a> {
 
         Ok(BuildReport {
             trace_id: trace_id.dupe(),
-            success: this.overall_success,
+            success: self.overall_success,
             results: entries,
-            failures: this.failures,
+            failures: self.failures,
             project_root: project_root.root().to_owned(),
             // In buck1 we may truncate build report for a large number of targets.
             // Setting this to false since we don't currently truncate buck2's build report.
             truncated: false,
-            strings: this.strings,
+            strings: self.strings,
             build_metrics: detailed_metrics
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
             total_configured_graph_sketch,
@@ -464,6 +488,10 @@ impl<'a> BuildReportCollector<'a> {
             error_category,
         })
     }
+
+    // ============================================================================
+    // Metrics conversion helpers
+    // ============================================================================
 
     fn convert_all_target_build_metrics(
         all_target_metrics: &AllTargetsAggregatedData,
@@ -500,6 +528,10 @@ impl<'a> BuildReportCollector<'a> {
             declared_actions: metrics.declared_actions,
         }
     }
+
+    // ============================================================================
+    // Result collection and processing
+    // ============================================================================
 
     pub(crate) fn update_string_cache(&mut self, string: String) -> String {
         let mut hasher = DefaultHasher::new();
@@ -582,7 +614,7 @@ impl<'a> BuildReportCollector<'a> {
             configured_reports.insert(label.cfg().dupe(), configured_report);
         }
 
-        let errors = self.convert_error_list(errors, target_with_modifiers);
+        let errors = self.convert_error_list(errors, EntryLabel::Target(target_with_modifiers));
         if !errors.is_empty() {
             if let Some(report) = unconfigured_report.as_mut() {
                 report.success = BuildOutcome::FAIL;
@@ -711,12 +743,17 @@ impl<'a> BuildReportCollector<'a> {
 
             configured_report.build_metrics = metrics.get(label).duped();
         }
-        configured_report.errors = self.convert_error_list(&errors, target_with_modifiers);
+        configured_report.errors =
+            self.convert_error_list(&errors, EntryLabel::Target(target_with_modifiers));
         if !configured_report.errors.is_empty() {
             configured_report.inner.success = BuildOutcome::FAIL;
         }
         Ok(configured_report)
     }
+
+    // ============================================================================
+    // Error processing and conversion
+    // ============================================================================
 
     /// Note: In order for production of the build report to be deterministic, the order in
     /// which this function is called, and which errors it is called with, must be
@@ -724,7 +761,7 @@ impl<'a> BuildReportCollector<'a> {
     fn convert_error_list(
         &mut self,
         errors: &[buck2_error::Error],
-        target_with_modifiers: TargetLabelWithModifiers,
+        entry_label: EntryLabel,
     ) -> Vec<BuildReportError> {
         if errors.is_empty() {
             return Vec::new();
@@ -822,7 +859,7 @@ impl<'a> BuildReportCollector<'a> {
             // This both omits errors and overwrites previous ones. That's the price you pay for
             // using buck1
             self.failures.insert(
-                EntryLabel::Target(target_with_modifiers),
+                entry_label,
                 self.strings
                     .get(&out.last().unwrap().message_content)
                     .unwrap()
@@ -952,6 +989,30 @@ pub async fn build_report_opts<'a>(
     Ok(build_report_opts)
 }
 
+fn write_or_serialize_build_report(
+    build_report: &BuildReport,
+    filename: &str,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+) -> Result<Option<String>, buck2_error::Error> {
+    let mut serialized_build_report = None;
+
+    if !filename.is_empty() {
+        let path = project_root.resolve(cwd).as_abs_path().join(filename);
+        if let Some(parent) = path.parent() {
+            fs_util::create_dir_all(parent)?;
+        }
+        let file =
+            fs_util::create_file(path.clone()).buck_error_context("Error writing build report")?;
+        let mut file = BufWriter::new(file);
+        serde_json::to_writer_pretty(&mut file, build_report)?
+    } else {
+        serialized_build_report = Some(serde_json::to_string(build_report)?);
+    };
+
+    Ok(serialized_build_report)
+}
+
 pub fn generate_build_report(
     opts: BuildReportOpts,
     artifact_fs: &ArtifactFs,
@@ -980,25 +1041,12 @@ pub fn generate_build_report(
         opts.graph_properties_opts,
     )?;
 
-    let mut serialized_build_report = None;
-
-    if !opts.unstable_build_report_filename.is_empty() {
-        let path = project_root
-            .resolve(cwd)
-            .as_abs_path()
-            .join(opts.unstable_build_report_filename);
-        if let Some(parent) = path.parent() {
-            fs_util::create_dir_all(parent)?;
-        }
-        let file =
-            fs_util::create_file(path.clone()).buck_error_context("Error writing build report")?;
-        let mut file = BufWriter::new(file);
-        serde_json::to_writer_pretty(&mut file, &build_report)?
-    } else {
-        serialized_build_report = Some(serde_json::to_string(&build_report)?);
-    };
-
-    Ok(serialized_build_report)
+    write_or_serialize_build_report(
+        &build_report,
+        &opts.unstable_build_report_filename,
+        project_root,
+        cwd,
+    )
 }
 
 pub fn stream_build_report(
