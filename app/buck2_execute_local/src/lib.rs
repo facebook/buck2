@@ -239,7 +239,6 @@ pub async fn spawn_command_and_stream_events<T>(
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
     std_redirects: Option<StdRedirectPaths>,
-    stream_stdio: bool,
     retry_on_txt_busy: bool,
 ) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
@@ -282,11 +281,11 @@ where
         cancellation,
         decoder,
         kill_process,
-        stream_stdio,
+        std_redirects.is_none(),
     )
 }
 
-pub fn stream_command_events<T>(
+fn stream_command_events<T>(
     process_group: buck2_error::Result<ProcessGroup>,
     cancellation: T,
     decoder: impl StatusDecoder,
@@ -539,7 +538,6 @@ mod tests {
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
             None,
-            true,
             true,
         )
         .await?;

@@ -286,7 +286,6 @@ impl LocalExecutor {
                         DefaultKillProcess::default(),
                         None,
                         true,
-                        true,
                     )
                     .await?;
                     decode_command_event_stream(stream).await

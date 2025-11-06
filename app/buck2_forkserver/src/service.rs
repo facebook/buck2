@@ -230,7 +230,6 @@ impl UnixForkserverService {
         miniperf_output: Option<AbsNormPathBuf>,
         graceful_shutdown_timeout_s: Option<u32>,
         std_redirects: Option<StdRedirectPaths>,
-        stream_stdio: bool,
     ) -> buck2_error::Result<RunStream> {
         let stream = match miniperf_output {
             Some(out) => spawn_command_and_stream_events(
@@ -242,7 +241,6 @@ impl UnixForkserverService {
                     graceful_shutdown_timeout_s,
                 },
                 std_redirects,
-                stream_stdio,
                 false,
             )
             .await?
@@ -256,7 +254,6 @@ impl UnixForkserverService {
                     graceful_shutdown_timeout_s,
                 },
                 std_redirects,
-                stream_stdio,
                 false,
             )
             .await?
@@ -297,8 +294,6 @@ impl Forkserver for UnixForkserverService {
 
             let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
 
-            let stream_stdio = validated_cmd.std_redirects.is_none();
-
             let stream = Self::create_command_stream(
                 cmd,
                 validated_cmd.timeout,
@@ -306,7 +301,6 @@ impl Forkserver for UnixForkserverService {
                 miniperf_output,
                 validated_cmd.graceful_shutdown_timeout_s,
                 validated_cmd.std_redirects,
-                stream_stdio,
             )
             .await?;
 
