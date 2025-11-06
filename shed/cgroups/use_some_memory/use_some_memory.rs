@@ -132,8 +132,8 @@ fn main() {
     let output = if let Some(path) = args.output {
         OpenOptions::new()
             .write(true)
-            .create(true)
-            .truncate(true)
+            // Used to verify that in the kill and retry case, we properly clean up outputs
+            .create_new(true)
             .open(path)
             .unwrap()
     } else {
