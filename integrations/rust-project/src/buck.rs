@@ -741,11 +741,7 @@ impl Buck {
             "--",
         ]);
 
-        info!(
-            kind = "progress",
-            ?input,
-            "querying buck to determine owning buildfile and its targets"
-        );
+        info!(kind = "progress", ?input, "finding relevant BUCK file");
 
         match input {
             Input::Targets(targets) => {
