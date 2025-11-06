@@ -258,18 +258,18 @@ pub struct ResourceControlConfig {
     /// If provided and above the threshold, the cgroups will enforce this memory pressure and will freeze/kill actions
     /// to stay under this pressure limit. (Currently only used for logging purposes and doesn't actually do the above)
     pub memory_pressure_threshold_percent: Option<u64>,
-    /// Enable action freezing when memory pressure is high.
-    pub enable_action_freezing: Option<bool>,
-    pub preferred_freeze_strategy: Option<FreezeStrategy>,
+    /// Enable suspension when memory pressure is high.
+    pub enable_suspension: Option<bool>,
+    pub preferred_action_suspend_strategy: Option<ActionSuspendStrategy>,
 }
 
 #[derive(Allocative, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum FreezeStrategy {
+pub enum ActionSuspendStrategy {
     CgroupFreeze,
     KillAndRetry,
 }
 
-impl FromStr for FreezeStrategy {
+impl FromStr for ActionSuspendStrategy {
     type Err = buck2_error::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -277,7 +277,7 @@ impl FromStr for FreezeStrategy {
             "cgroup_freeze" => Ok(Self::CgroupFreeze),
             _ => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
-                "Invalid freeze strategy: `{}`",
+                "Invalid suspend strategy: `{}`",
                 s
             )),
         }
@@ -368,13 +368,13 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_pressure_threshold_percent",
             })?;
-            let enable_action_freezing = config.parse(BuckconfigKeyRef {
+            let enable_suspension = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
-                property: "enable_action_freezing",
+                property: "enable_suspension",
             })?;
-            let preferred_freeze_strategy = config.parse(BuckconfigKeyRef {
+            let preferred_action_suspend_strategy = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
-                property: "preferred_freeze_strategy",
+                property: "preferred_action_suspend_strategy",
             })?;
             Ok(Self {
                 status,
@@ -386,8 +386,8 @@ impl ResourceControlConfig {
                 memory_high_action_cgroup_pool,
                 cgroup_pool_size,
                 memory_pressure_threshold_percent,
-                enable_action_freezing,
-                preferred_freeze_strategy,
+                enable_suspension,
+                preferred_action_suspend_strategy,
             })
         }
     }

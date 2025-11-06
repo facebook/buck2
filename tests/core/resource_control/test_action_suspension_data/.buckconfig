@@ -7,7 +7,7 @@
 
 [buck2_resource_control]
     status = required
-    enable_action_freezing = true
+    enable_suspension = true
     memory_high_action_cgroup_pool = 200000000
 
 [build]

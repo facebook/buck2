@@ -103,7 +103,7 @@ pub mod action_cgroups {
             _dispatcher: EventDispatcher,
             _command_type: CommandType,
             _action_digest: Option<String>,
-            _disable_kill_and_retry_freeze: bool,
+            _disable_kill_and_retry_suspend: bool,
         ) -> buck2_error::Result<Option<(Self, Option<KillFuture>)>> {
             Ok(None)
         }
@@ -118,7 +118,7 @@ pub mod action_cgroups {
     pub struct ActionCgroupResult {
         pub memory_peak: Option<u64>,
         pub error: Option<buck2_error::Error>,
-        pub was_frozen: bool,
-        pub freeze_duration: Option<Duration>,
+        pub was_suspended: bool,
+        pub suspend_duration: Option<Duration>,
     }
 }

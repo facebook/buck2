@@ -452,13 +452,13 @@ impl LocalExecutor {
             } else {
                 CommandType::Build
             };
-            let disable_kill_and_retry_freeze = !request.outputs_cleanup;
+            let disable_kill_and_retry_suspend = !request.outputs_cleanup;
             match ActionCgroupSession::maybe_create(
                 &self.memory_tracker,
                 dispatcher,
                 command_type,
                 Some(action_digest.to_string()),
-                disable_kill_and_retry_freeze,
+                disable_kill_and_retry_suspend,
             )
             .await
             {
@@ -779,8 +779,8 @@ impl LocalExecutor {
                     if let Some(e) = cgroup_result.error {
                         let _unused = soft_error!("action_cgroup_error", e);
                     }
-                    timing.was_frozen = cgroup_result.was_frozen;
-                    timing.freeze_duration = cgroup_result.freeze_duration;
+                    timing.was_frozen = cgroup_result.was_suspended;
+                    timing.freeze_duration = cgroup_result.suspend_duration;
                 }
 
                 timing.hashing_duration = hashing_time.hashing_duration;

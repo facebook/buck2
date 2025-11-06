@@ -631,7 +631,7 @@ impl DaemonState {
             let action_freezing_enabled = init_ctx
                 .daemon_startup_config
                 .resource_control
-                .enable_action_freezing
+                .enable_suspension
                 .unwrap_or(false);
 
             let tags = vec![

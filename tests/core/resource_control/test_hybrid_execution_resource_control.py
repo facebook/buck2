@@ -40,10 +40,10 @@ def configure_memory_limit(buck: Buck) -> None:
 def configure_freezing_with_pressure(buck: Buck, kill_and_retry: bool) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
-        f.write("enable_action_freezing = true\n")
+        f.write("enable_suspension = true\n")
         f.write("memory_pressure_threshold_percent = 0\n")
         if kill_and_retry:
-            f.write("preferred_freeze_strategy = kill_and_retry\n")
+            f.write("preferred_action_suspend_strategy = kill_and_retry\n")
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
@@ -209,7 +209,7 @@ async def test_resource_control_events_created(
         f.write("status = required\n")
         f.write("enable_action_cgroup_pool_v2 = true\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
-        f.write("enable_action_freezing = true\n")
+        f.write("enable_suspension = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
 
     await buck.build(
@@ -286,7 +286,7 @@ async def test_parent_slice_memory_high_unset_and_restore(
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
         f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
-        f.write("enable_action_freezing = true\n")
+        f.write("enable_suspension = true\n")
         f.write("memory_pressure_threshold_percent = 1\n")
         f.write(f"memory_high = {memory_high_total}\n")
 
@@ -407,7 +407,7 @@ async def test_reading_ancestor_cgroup_constraints(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_resource_control]\n")
         f.write("status = required\n")
-        f.write("enable_action_freezing = true\n")
+        f.write("enable_suspension = true\n")
 
     # start buck2 daemon
     await buck.server()
