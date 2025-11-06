@@ -36,8 +36,6 @@ buck_java_library(
     name = "junit",
     srcs = [
         "BuckBlockJUnit4ClassRunner.java",
-        "DelegateRunNotifier.java",
-        "DelegateRunnerWithTimeout.java",
         "JUnitMain.java",
         "JUnitOptions.java",
         "JUnitRunner.java",

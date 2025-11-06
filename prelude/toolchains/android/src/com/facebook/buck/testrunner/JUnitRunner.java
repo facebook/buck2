@@ -34,7 +34,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.internal.builders.AllDefaultPossibilitiesBuilder;
-import org.junit.internal.builders.AnnotatedBuilder;
 import org.junit.internal.builders.JUnit4Builder;
 import org.junit.runner.Computer;
 import org.junit.runner.Description;
@@ -314,29 +313,6 @@ public final class JUnitRunner extends BaseRunner {
       @Override
       protected JUnit4Builder junit4Builder() {
         return jUnit4RunnerBuilder;
-      }
-
-      @Override
-      protected AnnotatedBuilder annotatedBuilder() {
-        // If there is no default timeout specified in .buckconfig, then use
-        // the original behavior of AllDefaultPossibilitiesBuilder.
-        //
-        // Additionally, if we are using test selectors or doing a dry-run then
-        // we should use the original behavior to use our
-        // BuckBlockJUnit4ClassRunner, which provides the Descriptions needed
-        // to do test selecting properly.
-        if (defaultTestTimeoutMillis <= 0 || isDryRun || !testSelectorList.isEmpty()) {
-          return super.annotatedBuilder();
-        }
-
-        return new AnnotatedBuilder(this) {
-          @Override
-          public Runner buildRunner(Class<? extends Runner> runnerClass, Class<?> testClass)
-              throws Exception {
-            Runner originalRunner = super.buildRunner(runnerClass, testClass);
-            return new DelegateRunnerWithTimeout(originalRunner, defaultTestTimeoutMillis);
-          }
-        };
       }
     };
   }
