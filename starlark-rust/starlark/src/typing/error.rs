@@ -78,8 +78,9 @@ impl TypingError {
     // TODO(nga): some errors we create, we ignore later. For example, when typechecking a union,
     //   if either variant is good, we ignore the other variant errors.
     //   So we pay for expensive error creation we ignore. Make this function cheap.
+    /// New with a message
     #[cold]
-    pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> TypingError {
+    pub fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> TypingError {
         TypingError(EvalException::new_anyhow(
             anyhow::Error::msg(message.to_string()),
             span,
@@ -120,7 +121,9 @@ pub struct TypingNoContextError;
 /// * Typing error means, types are not compatible.
 /// * Internal error means, bug in the typechecker.
 pub enum TypingOrInternalError {
+    /// Types are not compatible
     Typing(TypingError),
+    /// Bug in the type checker
     Internal(InternalError),
 }
 

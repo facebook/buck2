@@ -63,7 +63,8 @@ impl TyCallable {
         &self.inner.params
     }
 
-    pub(crate) fn result(&self) -> &Ty {
+    /// The return type of the callable
+    pub fn result(&self) -> &Ty {
         &self.inner.result
     }
 

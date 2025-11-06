@@ -52,9 +52,13 @@ pub mod macro_support;
 mod tests;
 
 pub use basic::TyBasic;
+pub use call_args::TyCallArgs;
 pub use callable::TyCallable;
 pub use callable_param::ParamIsRequired;
 pub use callable_param::ParamSpec;
+pub use error::TypingError;
+pub use error::TypingOrInternalError;
+pub use function::TyCustomFunctionImpl;
 pub use function::TyFunction;
 pub use interface::Interface;
 pub use oracle::ctx::TypingOracleCtx;

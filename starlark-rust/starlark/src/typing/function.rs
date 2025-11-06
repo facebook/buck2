@@ -36,13 +36,20 @@ use crate::typing::error::TypingOrInternalError;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 
 /// Custom function typechecker.
+///
+/// Can be used to implement generics, where e.g. the return type depends on the arguments,
+/// or where arguments are checked to be all the same type, etc.
 pub trait TyCustomFunctionImpl:
     Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
 {
+    /// Whether this function is also a type. For example, `list` is a function and also a type.
+    ///
+    /// Default is false.
     fn is_type(&self) -> bool {
         false
     }
 
+    /// Type-check a function call. Returns the return type of the function.
     fn validate_call(
         &self,
         span: Span,
@@ -50,8 +57,11 @@ pub trait TyCustomFunctionImpl:
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
 
+    /// Represent this as a [`TyCallable`], for display purposes.
     fn as_callable(&self) -> TyCallable;
 
+    /// Only for `TyFunction`'s implementation.
+    #[doc(hidden)]
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }

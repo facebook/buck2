@@ -87,7 +87,8 @@ pub struct TypingOracleCtx<'a> {
 }
 
 impl<'a> TypingOracleCtx<'a> {
-    pub(crate) fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
+    /// Make an error
+    pub fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
         TypingError::new_anyhow(err.into(), span, self.codemap)
     }
 

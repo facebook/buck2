@@ -292,7 +292,7 @@ impl ParamSpec {
     }
 
     /// `*args`.
-    pub(crate) fn args(ty: Ty) -> ParamSpec {
+    pub fn args(ty: Ty) -> ParamSpec {
         ParamSpec::new_parts([], [], Some(ty), [], None).expect("Cannot fail")
     }
 
@@ -302,7 +302,7 @@ impl ParamSpec {
     }
 
     /// `arg=, arg=, ..., arg, arg, ..., /`.
-    pub(crate) fn pos_only(
+    pub fn pos_only(
         required: impl IntoIterator<Item = Ty>,
         optional: impl IntoIterator<Item = Ty>,
     ) -> ParamSpec {
