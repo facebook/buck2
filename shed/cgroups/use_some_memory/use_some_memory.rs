@@ -11,156 +11,87 @@
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
 use clap::Parser;
 
-const MB_TO_BYTES: usize = 1024 * 1024;
-const PRESSURE_THRESHOLD_MULTIPLIER: f64 = 100.0;
-
-struct MemoryBuffer {
-    ptr: *mut u8,
-    size: usize,
+fn touch_pages(d: &mut [u8]) {
+    for b in d.iter_mut().step_by(4096) {
+        *b = (*b).wrapping_add(1);
+    }
 }
 
-impl Drop for MemoryBuffer {
-    fn drop(&mut self) {
-        unsafe {
-            libc::munlock(self.ptr as *const libc::c_void, self.size);
-            libc::free(self.ptr as *mut libc::c_void);
+/// A routine that is run in a thread of its own which prevents memory from being paged out by
+/// writing to it
+fn run_busy_loop(rx: Receiver<&'static mut [u8]>) -> ! {
+    let mut allocations: Vec<&'static mut [u8]> = Vec::new();
+    loop {
+        for a in allocations.iter_mut() {
+            touch_pages(a)
+        }
+
+        while let Ok(a) = rx.try_recv() {
+            touch_pages(a);
+            allocations.push(a);
         }
     }
 }
 
-fn mlock_memory(size_mb: f64) -> Result<MemoryBuffer, String> {
-    let memory_size = (size_mb * MB_TO_BYTES as f64) as usize;
+/// A routine that is run in a thread of its own which detects cgroup freezes and logs them
+fn run_freeze_checker(logger: &Logger) -> ! {
+    let mut last_inst = Instant::now();
 
-    unsafe {
-        let ptr = libc::malloc(memory_size) as *mut u8;
-        if ptr.is_null() {
-            return Err("Failed to allocate memory".to_owned());
+    loop {
+        std::thread::sleep(Duration::from_millis(10));
+        let new_inst = Instant::now();
+        let diff = new_inst.duration_since(last_inst);
+        // 50ms is a safe threshold above the expected 10ms sleep to account for the possibility of
+        // CPU pressure or some other reason that the thread might not have been scheduled
+        // immediately
+        if diff > Duration::from_millis(50) {
+            logger.log(&format!("freeze_detected_ms {}", diff.as_millis()));
         }
-
-        std::ptr::write_bytes(ptr, 0, memory_size);
-
-        let result = libc::mlock(ptr as *const libc::c_void, memory_size);
-        if result != 0 {
-            libc::free(ptr as *mut libc::c_void);
-            return Err(format!(
-                "Failed to lock memory: {}",
-                std::io::Error::last_os_error()
-            ));
-        }
-
-        Ok(MemoryBuffer {
-            ptr,
-            size: memory_size,
-        })
+        last_inst = new_inst;
     }
 }
 
-fn compute_median(values: &[f64]) -> Option<f64> {
-    if values.is_empty() {
-        return None;
-    }
-
-    let mut sorted_values = values.to_vec();
-    sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-    let n = sorted_values.len();
-    if n.is_multiple_of(2) {
-        Some((sorted_values[n / 2 - 1] + sorted_values[n / 2]) / 2.0)
-    } else {
-        Some(sorted_values[n / 2])
-    }
+struct Logger {
+    output: Mutex<File>,
 }
 
-fn is_memory_pressure_detected(current_time: f64, all_times: &[f64]) -> bool {
-    if let Some(median_time) = compute_median(all_times) {
-        current_time > PRESSURE_THRESHOLD_MULTIPLIER * median_time
-    } else {
-        false
-    }
-}
-
-struct MemoryPressure {
-    output_file: File,
-    total_allocated: f64,
-}
-
-impl MemoryPressure {
-    fn new(output_file: Option<String>) -> Result<Self, std::io::Error> {
-        let file = if let Some(path) = output_file {
-            OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(path)?
-        } else {
-            OpenOptions::new().write(true).open("/dev/null")?
-        };
-
-        Ok(MemoryPressure {
-            output_file: file,
-            total_allocated: 0.0,
-        })
-    }
-
-    fn log(&mut self, message: &str) {
-        writeln!(self.output_file, "{}", message).ok();
-        self.output_file.flush().ok();
+impl Logger {
+    fn log(&self, message: &str) {
+        let mut output = self.output.lock().unwrap();
+        writeln!(output, "{}", message).unwrap();
+        output.flush().unwrap();
         println!("{}", message);
     }
+}
 
-    fn run_allocations(
-        &mut self,
-        allocate_count: usize,
-        tick_duration: f64,
-        memory_per_tick: f64,
-        sleep_duration_before_exit: f64,
-        buffers: &mut Vec<MemoryBuffer>,
-    ) {
-        let mut allocation_times = Vec::new();
-        let run_start = Instant::now();
+fn run_main_loop(
+    logger: &Logger,
+    allocate_count: usize,
+    tick_duration: Duration,
+    memory_per_tick: usize,
+    sleep_duration_before_exit: Duration,
+    alloc_tn: Sender<&'static mut [u8]>,
+) {
+    for tick in 0..allocate_count {
+        logger.log(&format!("Tick {}", tick));
+        logger.log(&format!("Allocating {} MB", memory_per_tick));
 
-        for tick in 0..allocate_count {
-            self.log(&format!("Tick {}", tick));
-            self.log(&format!("Allocating {} MB", memory_per_tick));
+        alloc_tn.send(vec![0; memory_per_tick].leak()).unwrap();
 
-            let start_time = Instant::now();
-            match mlock_memory(memory_per_tick) {
-                Ok(buffer) => {
-                    let allocation_time = start_time.elapsed().as_secs_f64();
-                    self.total_allocated += memory_per_tick;
-
-                    let elapsed = run_start.elapsed().as_secs_f64();
-                    self.log(&format!(
-                        "[{:.2}] Allocated {} MB in {:.5} seconds | Total: {} MB",
-                        elapsed, memory_per_tick, allocation_time, self.total_allocated
-                    ));
-
-                    buffers.push(buffer);
-
-                    if is_memory_pressure_detected(allocation_time, &allocation_times) {
-                        self.log("Memory pressure detected");
-                        break;
-                    }
-
-                    allocation_times.push(allocation_time);
-                }
-                Err(e) => {
-                    self.log(&format!("Failed to allocate memory: {}", e));
-                    break;
-                }
-            }
-
-            thread::sleep(Duration::from_secs_f64(tick_duration));
-        }
-
-        thread::sleep(Duration::from_secs_f64(sleep_duration_before_exit));
+        thread::sleep(tick_duration);
     }
+
+    thread::sleep(sleep_duration_before_exit);
 }
 
 #[derive(Parser, Debug)]
@@ -198,25 +129,34 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let mut buffers: Vec<MemoryBuffer> = Vec::new();
+    let output = if let Some(path) = args.output {
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .unwrap()
+    } else {
+        OpenOptions::new().write(true).open("/dev/null").unwrap()
+    };
 
-    let result = (|| {
-        let mut runner = MemoryPressure::new(args.output)?;
-        runner.run_allocations(
-            args.allocate_count,
-            args.tick_duration,
-            args.each_tick_allocate_memory,
-            args.pre_exit_sleep_duration,
-            &mut buffers,
-        );
-        Ok::<(), std::io::Error>(())
-    })();
+    let logger = Arc::new(Logger {
+        output: Mutex::new(output),
+    });
+    let logger2 = logger.clone();
 
-    if let Err(e) = result {
-        eprintln!("Error: {}", e);
-    }
+    std::thread::spawn(move || run_freeze_checker(&logger2));
 
-    println!("Clearing {} buffers...", buffers.len());
-    drop(buffers);
-    println!("Clearing completed");
+    let (alloc_tn, alloc_rx) = std::sync::mpsc::channel();
+
+    std::thread::spawn(move || run_busy_loop(alloc_rx));
+
+    run_main_loop(
+        &logger,
+        args.allocate_count,
+        Duration::from_secs_f64(args.tick_duration),
+        (args.each_tick_allocate_memory * 1_000_000f64) as usize,
+        Duration::from_secs_f64(args.pre_exit_sleep_duration),
+        alloc_tn,
+    );
 }
