@@ -146,7 +146,7 @@ fn main() -> io::Result<()> {
             "#[serde(default, with = \"crate::serialize_timestamp\")]",
         )
         .field_attribute(
-            "freeze_duration",
+            "suspend_duration",
             "#[serde(default, with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(

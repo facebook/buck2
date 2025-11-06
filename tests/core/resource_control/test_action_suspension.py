@@ -69,10 +69,10 @@ async def _check_suspends(
             continue
         ident = action["name"]["identifier"]
         command_meta = action["commands"][-1]["details"]["metadata"]
-        if command_meta["was_frozen"] is True:
+        if command_meta["was_suspended"] is True:
             num_suspended_actions += 1
             # Json representation of a duration is number of us
-            duration = command_meta["freeze_duration"] / 1000
+            duration = command_meta["suspend_duration"] / 1000
             assert duration is not None
             reported_suspends[ident] = duration
         else:

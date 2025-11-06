@@ -664,21 +664,21 @@ fn emit_resource_control_event(
 
         event_time: Some(SystemTime::now().into()),
 
-        memory_current: memory_reading.buck2_slice_memory_current,
-        memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
-        memory_pressure: memory_reading.buck2_slice_memory_pressure,
+        allprocs_memory_current: memory_reading.buck2_slice_memory_current,
+        allprocs_memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
+        allprocs_memory_pressure: memory_reading.buck2_slice_memory_pressure,
 
         daemon_memory_current: memory_reading.daemon_memory_current,
         daemon_swap_current: memory_reading.daemon_memory_swap_current,
 
-        cgroup_memory_current: cgroup.memory_current,
-        cgroup_memory_peak: cgroup.memory_peak,
+        action_cgroup_memory_current: cgroup.memory_current,
+        action_cgroup_memory_peak: cgroup.memory_peak,
 
-        cgroup_swap_current: cgroup.swap_current,
-        cgroup_swap_peak: cgroup.swap_peak,
+        action_cgroup_swap_current: cgroup.swap_current,
+        action_cgroup_swap_peak: cgroup.swap_peak,
 
-        frozen_cgroup_count: suspended_action_count,
-        active_cgroup_count: running_action_count,
+        actions_suspended_count: suspended_action_count,
+        actions_running_count: running_action_count,
 
         metadata: metadata.clone(),
 

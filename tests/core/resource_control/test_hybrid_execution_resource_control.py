@@ -351,9 +351,9 @@ async def test_parent_slice_memory_high_unset_and_restore(
 
     frozen_count = 0
     for command in commands:
-        if command[0]["details"]["metadata"]["was_frozen"] is True:
+        if command[0]["details"]["metadata"]["was_suspended"] is True:
             frozen_count += 1
-            assert command[0]["details"]["metadata"]["freeze_duration"] is not None
+            assert command[0]["details"]["metadata"]["suspend_duration"] is not None
 
     assert frozen_count == 1
 

@@ -737,8 +737,8 @@ impl LocalExecutor {
             hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
             hashed_artifacts_count: 0,
             queue_duration: None,
-            was_frozen: false, // Will fill in later if avalable
-            freeze_duration: None,
+            was_suspended: false, // Will fill in later if avalable
+            suspend_duration: None,
         });
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
@@ -779,8 +779,8 @@ impl LocalExecutor {
                     if let Some(e) = cgroup_result.error {
                         let _unused = soft_error!("action_cgroup_error", e);
                     }
-                    timing.was_frozen = cgroup_result.was_suspended;
-                    timing.freeze_duration = cgroup_result.suspend_duration;
+                    timing.was_suspended = cgroup_result.was_suspended;
+                    timing.suspend_duration = cgroup_result.suspend_duration;
                 }
 
                 timing.hashing_duration = hashing_time.hashing_duration;

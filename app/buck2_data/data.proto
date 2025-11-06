@@ -735,25 +735,26 @@ message ResourceControlEvents {
   ResourceControlKind kind = 3;
   google.protobuf.Timestamp event_time = 4;
 
-  // Information related to what's frozen
+  // Information related to what's suspended
   string action_digest = 5;
 
   // Memory information regarding buck2.slice cgroup
-  uint64 memory_current = 6;
-  uint64 memory_pressure = 7;
-  uint64 memory_swap_current = 12;
+  uint64 allprocs_memory_current = 6;
+  uint64 allprocs_memory_pressure = 7;
+  uint64 allprocs_memory_swap_current = 12;
 
   // Memory information regarding the buck2 daemon cgroup
   uint64 daemon_memory_current = 17;
   uint64 daemon_swap_current = 18;
 
   // Information related to the cgroup that's frozen
-  uint64 cgroup_memory_current = 8;
-  uint64 cgroup_memory_peak = 9;
-  uint64 cgroup_swap_current = 15;
-  uint64 cgroup_swap_peak = 16;
-  uint64 frozen_cgroup_count = 10;
-  uint64 active_cgroup_count = 11;
+  uint64 action_cgroup_memory_current = 8;
+  uint64 action_cgroup_memory_peak = 9;
+  uint64 action_cgroup_swap_current = 15;
+  uint64 action_cgroup_swap_peak = 16;
+
+  uint64 actions_suspended_count = 10;
+  uint64 actions_running_count = 11;
 
   // Metadata associated with this build. ResourceControlEvents only cares
   // about CI information for now, but I don't see any benefits in parsing them
@@ -1488,11 +1489,11 @@ message CommandExecutionMetadata {
   /// How long this command spent waiting to run
   optional google.protobuf.Duration queue_duration = 8;
 
-  /// Whether this command was frozen due to memory pressure
-  optional bool was_frozen = 9;
+  /// Whether this command was suspended due to memory pressure
+  optional bool was_suspended = 9;
 
-  /// The duration this command was frozen for
-  google.protobuf.Duration freeze_duration = 10;
+  /// The duration this command was suspended for
+  google.protobuf.Duration suspend_duration = 10;
 }
 
 message CommandOutputsMissing {
