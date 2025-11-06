@@ -30,7 +30,6 @@ import com.facebook.buck.util.MoreSuppliers;
 import com.facebook.buck.util.Threads;
 import com.facebook.buck.util.concurrent.CommandThreadFactory;
 import com.facebook.buck.util.concurrent.CommonThreadFactoryState;
-import com.facebook.buck.util.concurrent.MostExecutors;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -42,6 +41,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -730,11 +730,9 @@ public class AdbHelper implements AndroidDevicesHelper {
     // getExecutorService() requires the context for lazy initialization, so explicitly check if it
     // has been initialized.
     if (executorService != null) {
-      MostExecutors.shutdownOrThrow(
-          executorService,
-          10,
-          TimeUnit.MINUTES,
-          new RuntimeException("Failed to shutdown ExecutorService."));
+      if (!MoreExecutors.shutdownAndAwaitTermination(executorService, 10, TimeUnit.MINUTES)) {
+        throw new RuntimeException("Failed to shutdown ExecutorService.");
+      }
       executorService = null;
     }
   }
