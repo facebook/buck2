@@ -79,7 +79,6 @@ Options:
                      starlark - targets are printed like starlark code that would produce them.
                      html - html file containing interactive target graph.
 
-
           [possible values: dot, json, dot_compact, starlark, html]
 
   -h, --help
