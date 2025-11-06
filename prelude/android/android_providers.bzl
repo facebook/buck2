@@ -253,6 +253,14 @@ AndroidLibraryIntellijInfo = provider(
     },
 )
 
+AndroidPrebuiltAarIntellijInfo = provider(
+    # @unsorted-dict-items
+    doc = "Information about android prebuilt aar that is required for Intellij project generation",
+    fields = {
+        "dummy_r_dot_java": provider_field(typing.Any, default = None),  # ["artifact", None]
+    },
+)
+
 def merge_android_packageable_info(
         label: Label,
         actions: AnalysisActions,

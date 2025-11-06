@@ -226,6 +226,7 @@ extra_attributes = {
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_resource": {
