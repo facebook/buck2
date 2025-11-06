@@ -48,7 +48,7 @@ public class BuckBlockJUnit4ClassRunner extends BlockJUnit4ClassRunner {
         @Override
         protected ExecutorService initialValue() {
           return Executors.newSingleThreadExecutor(
-              new NamedThreadFactory(getClass().getSimpleName()));
+              new NamedThreadFactory(BuckBlockJUnit4ClassRunner.class.getSimpleName()));
         }
       };
 
