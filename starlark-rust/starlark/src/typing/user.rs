@@ -253,11 +253,10 @@ impl TyCustomImpl for TyUser {
     }
 
     fn as_callable(&self) -> Option<TyCallable> {
-        if self.base.is_callable() {
-            Some(TyCallable::any())
-        } else {
-            None
-        }
+        self.callable
+            .as_ref()
+            .filter(|_| self.base.is_callable())
+            .cloned()
     }
 
     fn validate_call(
