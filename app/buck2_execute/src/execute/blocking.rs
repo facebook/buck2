@@ -161,6 +161,54 @@ impl BlockingExecutor for BuckBlockingExecutor {
     }
 }
 
+/// Executor that bypasses the queue and executes IO directly using Tokio's
+/// blocking thread pool.
+
+#[derive(Allocative)]
+pub struct DirectIoExecutor {
+    #[allocative(skip)]
+    project_fs: ProjectRoot,
+}
+
+impl DirectIoExecutor {
+    pub fn new(project_fs: ProjectRoot) -> buck2_error::Result<Self> {
+        Ok(Self { project_fs })
+    }
+}
+
+#[async_trait]
+impl BlockingExecutor for DirectIoExecutor {
+    async fn execute_dyn_io_inline<'a>(
+        &self,
+        f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
+    ) -> anyhow::Result<()> {
+        tokio::task::block_in_place(f)
+    }
+
+    fn execute_io<'a>(
+        &self,
+        io: Box<dyn IoRequest>,
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, buck2_error::Result<()>> {
+        let project_fs = self.project_fs.dupe();
+
+        cancellations
+            .critical_section(|| async move {
+                // Execute IO operation in Tokio's blocking thread pool
+                tokio::task::spawn_blocking(move || io.execute(&project_fs))
+                    .await
+                    .buck_error_context("Direct IO spawn_blocking failed")?
+            })
+            .boxed()
+    }
+
+    fn queue_size(&self) -> usize {
+        // This executor does not maintain its own queue. We are logging Tokio
+        // IO thread metrics separately.
+        0
+    }
+}
+
 pub trait SetBlockingExecutor {
     fn set_blocking_executor(&mut self, exec: Arc<dyn BlockingExecutor>);
 }

@@ -51,6 +51,7 @@ use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BuckBlockingExecutor;
+use buck2_execute::execute::blocking::DirectIoExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -403,7 +404,21 @@ impl DaemonState {
             }
 
             let disk_state_options = DiskStateOptions::new(root_config, materializations.dupe())?;
-            let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
+
+            let use_direct_io_executor = cfg!(any(target_os = "macos", target_os = "windows"))
+                && root_config
+                    .parse(BuckconfigKeyRef {
+                        section: "experiments",
+                        property: "direct_io_executor",
+                    })?
+                    .unwrap_or(false);
+
+            let blocking_executor: Arc<dyn BlockingExecutor> = if !use_direct_io_executor {
+                Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?)
+            } else {
+                Arc::new(DirectIoExecutor::new(fs.dupe())?)
+            };
+
             let cache_dir_path = paths.cache_dir_path();
             let valid_cache_dirs = paths.valid_cache_dirs();
 
@@ -667,6 +682,8 @@ impl DaemonState {
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
                 format!("has-cgroup:{}", cgroup_tree.is_some()),
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
+                format!("direct-io-executor:{}", use_direct_io_executor),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
