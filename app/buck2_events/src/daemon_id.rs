@@ -8,22 +8,26 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use uuid::Uuid;
 
-#[derive(derive_more::Display)]
+#[derive(derive_more::Display, Clone, Dupe)]
 #[display("{}", uuid.hyphenated())]
 pub struct DaemonId {
-    uuid: Uuid,
+    uuid: Arc<Uuid>,
 }
 
 pub static DAEMON_UUID: Lazy<DaemonId> = Lazy::new(|| DaemonId {
-    uuid: Uuid::new_v4(),
+    uuid: Arc::new(Uuid::new_v4()),
 });
 
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use std::sync::Arc;
 
     use uuid::Uuid;
 
@@ -34,7 +38,7 @@ mod tests {
         assert_eq!(
             "5621e477-ca64-4c68-888c-c47bdba0ff77",
             DaemonId {
-                uuid: Uuid::from_str("5621e477-ca64-4c68-888c-c47bdba0ff77").unwrap()
+                uuid: Arc::new(Uuid::from_str("5621e477-ca64-4c68-888c-c47bdba0ff77").unwrap()),
             }
             .to_string()
         );
