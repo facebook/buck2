@@ -9,5 +9,4 @@
 ## ActionSubError.error\_type
 ## ActionSubError.file
 ## ActionSubError.lnum
-## ActionSubError.locations
 ## ActionSubError.message
