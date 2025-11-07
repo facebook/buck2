@@ -26,6 +26,7 @@ load(
     "@prelude//cxx:runtime_dependency_handling.bzl",
     "cxx_attr_runtime_dependency_handling",
 )
+# @oss-disable[end= ]: load("@prelude//cxx/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -246,6 +247,8 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
+        # @oss-disable[end= ]: extra_linker_outputs_factory = get_extra_linker_outputs,
+        # @oss-disable[end= ]: extra_linker_outputs_flags_factory = get_extra_linker_output_flags,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers

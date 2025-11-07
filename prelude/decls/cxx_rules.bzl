@@ -1075,6 +1075,7 @@ cxx_toolchain = prelude_rule(
                 Linker flags that only apply when linking an executable.
                 """,
             ),
+            "extra_linker_outputs": attrs.set(attrs.string(), default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "hip_compiler": attrs.option(attrs.source(), default = None),
             "hip_compiler_flags": attrs.list(attrs.arg(), default = []),

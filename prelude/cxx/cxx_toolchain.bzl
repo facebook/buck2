@@ -136,6 +136,7 @@ def cxx_toolchain_impl(ctx):
         archive_objects_locally = False,
         archive_symbol_table = ctx.attrs.archive_symbol_table,
         binary_extension = value_or(ctx.attrs.binary_extension, ""),
+        extra_outputs = ctx.attrs.extra_linker_outputs,
         generate_linker_maps = ctx.attrs.generate_linker_maps,
         is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.linker_flags),
         link_binaries_locally = not value_or(ctx.attrs.cache_links, True),

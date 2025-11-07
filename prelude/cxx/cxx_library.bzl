@@ -1497,6 +1497,7 @@ def _form_library_outputs(
         solib = NamedLinkedObject(
             soname = result.soname,
             linked_object = shlib,
+            extra_outputs = extra_outputs,
         )
 
         return (output, result, solib)

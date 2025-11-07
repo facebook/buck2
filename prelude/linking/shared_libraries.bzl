@@ -105,7 +105,8 @@ def get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
 def create_shlib_from_ctx(
         ctx: AnalysisContext,
         soname: str | Artifact | Soname,
-        lib: LinkedObject) -> SharedLibrary:
+        lib: LinkedObject,
+        extra_outputs: dict[str, list[DefaultInfo]] = {}) -> SharedLibrary:
     cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
     return create_shlib(
         lib = lib,
@@ -121,11 +122,13 @@ def create_shlib_from_ctx(
         for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
         label = ctx.label,
         soname = soname,
+        extra_outputs = extra_outputs,
     )
 
 NamedLinkedObject = record(
     soname = field(str),
     linked_object = field(LinkedObject),
+    extra_outputs = field(dict[str, list[DefaultInfo]], {}),
 )
 
 def create_flavored_shared_libraries(
@@ -139,6 +142,7 @@ def create_flavored_shared_libraries(
             ctx = ctx,
             soname = solib.soname,
             lib = solib.linked_object,
+            extra_outputs = solib.extra_outputs,
         )
         flavored_libraries[flavor] = shlib
         if flavor == LinkableFlavor("default"):
@@ -152,7 +156,8 @@ def create_flavored_shared_libraries(
 
 def create_shared_libraries(
         ctx: AnalysisContext,
-        libraries: dict[str, LinkedObject]) -> SharedLibraries:
+        libraries: dict[str, LinkedObject],
+        extra_outputs: dict[str, dict[str, list[DefaultInfo]]] = {}) -> SharedLibraries:
     """
     Take a mapping of dest -> src and turn it into a mapping that will be
     passed around in providers. Used for both srcs, and resources.
@@ -160,7 +165,12 @@ def create_shared_libraries(
     return SharedLibraries(
         label = ctx.label,
         libraries = [
-            create_shlib_from_ctx(ctx = ctx, soname = name, lib = shlib)
+            create_shlib_from_ctx(
+                ctx = ctx,
+                soname = name,
+                lib = shlib,
+                extra_outputs = extra_outputs.get(name, {}),
+            )
             for (name, shlib) in libraries.items()
         ],
     )

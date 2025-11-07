@@ -38,6 +38,7 @@ LinkerInfo = provider(
         # "" on Unix, "exe" on Windows
         "binary_extension": provider_field(typing.Any, default = None),  # str
         "dist_thin_lto_codegen_flags": provider_field([cmd_args, None], default = None),
+        "extra_outputs": provider_field(list[str], default = []),
         "generate_linker_maps": provider_field(typing.Any, default = None),  # bool
         # Whether to run native links locally.  We support this for fbcode platforms
         # to avoid issues with C++ static links (see comment in
