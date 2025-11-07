@@ -302,6 +302,12 @@ impl<'a> BuckdLifecycle<'a> {
     async fn start_server(&self) -> buck2_error::Result<()> {
         let mut args = vec!["--isolation-dir", self.paths.isolation.as_str(), "daemon"];
 
+        let daemon_id = DaemonId::new();
+        let daemon_id_s = daemon_id.to_string();
+
+        args.push("--daemon-id");
+        args.push(&daemon_id_s);
+
         if self.constraints.is_trace_io_requested() {
             args.push("--enable-trace-io");
         }
@@ -343,6 +349,7 @@ impl<'a> BuckdLifecycle<'a> {
                 args,
                 &daemon_env_vars,
                 &self.constraints.daemon_startup_config,
+                &daemon_id,
             )
             .await
         } else {
@@ -376,6 +383,7 @@ impl<'a> BuckdLifecycle<'a> {
         args: Vec<&str>,
         daemon_env_vars: &[(&OsStr, &OsStr)],
         daemon_startup_config: &DaemonStartupConfig,
+        daemon_id: &DaemonId,
     ) -> buck2_error::Result<()> {
         let project_dir = self.paths.project_root();
         let timeout_secs = buckd_startup_timeout()?;
@@ -401,12 +409,9 @@ impl<'a> BuckdLifecycle<'a> {
             .collect::<Vec<_>>()
             .join("_");
 
-        // FIXME(JakobDegen): Should be the actual daemon id
-        let daemon_uuid = DaemonId::new().to_string();
-
         let slice_name = format!(
             "buck2-daemon.{}.{}.{}",
-            replace_unit_delimiter(daemon_uuid.as_str()),
+            replace_unit_delimiter(&daemon_id.to_string()),
             replace_unit_delimiter(project_dir_underscore_string.as_str()),
             replace_unit_delimiter(self.paths.isolation.as_str())
         );

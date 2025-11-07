@@ -34,6 +34,12 @@ impl DaemonId {
             uuid: Arc::new(Uuid::nil()),
         }
     }
+
+    pub fn parse_from_str(s: &str) -> buck2_error::Result<DaemonId> {
+        Ok(Self {
+            uuid: Arc::new(Uuid::try_parse(s)?),
+        })
+    }
 }
 
 static DAEMON_UUID_FOR_PANICS: OnceLock<DaemonId> = OnceLock::new();

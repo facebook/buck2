@@ -513,5 +513,4 @@ async def test_daemon_id_in_cgroup_path(buck: Buck) -> None:
 
     daemon_cgroup_path = get_daemon_cgroup_path(status["process_info"]["pid"])
 
-    # FIXME(JakobDegen): Bug
-    assert daemon_id.replace("-", "_") not in str(daemon_cgroup_path)
+    assert daemon_id.replace("-", "_") in str(daemon_cgroup_path)
