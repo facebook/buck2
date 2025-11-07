@@ -501,3 +501,17 @@ async def test_reading_ancestor_cgroup_constraints(buck: Buck) -> None:
         set_buck_slice_cgroup_memory("memory.max", "max")
         set_buck_slice_cgroup_memory("memory.swap.max", "max")
         set_buck_slice_cgroup_memory("memory.swap.high", "max")
+
+
+@buck_test(skip_for_os=["darwin", "windows"])
+async def test_daemon_id_in_cgroup_path(buck: Buck) -> None:
+    await buck.server()
+
+    result = await buck.status()
+    status = json.loads(result.stdout)
+    daemon_id = status["daemon_constraints"]["daemon_id"]
+
+    daemon_cgroup_path = get_daemon_cgroup_path(status["process_info"]["pid"])
+
+    # FIXME(JakobDegen): Bug
+    assert daemon_id.replace("-", "_") not in str(daemon_cgroup_path)
