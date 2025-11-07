@@ -33,6 +33,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_events::daemon_id::DaemonId;
 use buck2_resource_control::systemd::ParentSlice;
 use buck2_resource_control::systemd::ResourceControlRunner;
 use buck2_resource_control::systemd::replace_unit_delimiter;
@@ -400,7 +401,8 @@ impl<'a> BuckdLifecycle<'a> {
             .collect::<Vec<_>>()
             .join("_");
 
-        let daemon_uuid = buck2_events::daemon_id::DAEMON_UUID.to_string();
+        // FIXME(JakobDegen): Should be the actual daemon id
+        let daemon_uuid = DaemonId::new().to_string();
 
         let slice_name = format!(
             "buck2-daemon.{}.{}.{}",

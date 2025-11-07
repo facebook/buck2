@@ -26,7 +26,7 @@ use buck2_data::instant_event::Data;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_events::BuckEvent;
-use buck2_events::daemon_id::DAEMON_UUID;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::sink::remote::RemoteEventSink;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
@@ -97,7 +97,7 @@ impl PersistEventLogsCommand {
                 remote_error_messages,
                 remote_error_category,
                 remote_success,
-                metadata: buck2_events::metadata::collect(&DAEMON_UUID),
+                metadata: buck2_events::metadata::collect(&DaemonId::null()),
             };
             dispatch_event_to_scribe(sink.as_ref(), &trace_id, event_to_send).await;
         });

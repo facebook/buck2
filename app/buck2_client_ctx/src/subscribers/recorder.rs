@@ -57,7 +57,7 @@ use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_event_observer::last_command_execution_kind::get_last_command_execution_time;
 use buck2_events::BuckEvent;
-use buck2_events::daemon_id::DAEMON_UUID;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
@@ -379,7 +379,9 @@ impl InvocationRecorder {
             sink_max_buffer_depth: 0,
             soft_error_categories: HashSet::new(),
             concurrent_command_blocking_duration: None,
-            metadata: buck2_events::metadata::collect(&DAEMON_UUID),
+            // Use a null daemon_id here initially - if we later get metadata back from the daemon,
+            // we'll overwrite this then
+            metadata: buck2_events::metadata::collect(&DaemonId::null()),
             analysis_count: 0,
             load_count: 0,
             daemon_in_memory_state_is_corrupted: false,
