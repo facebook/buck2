@@ -20,6 +20,10 @@ def _main(ctx: bxl.Context):
     sub_target_keys = set(default.sub_targets.keys())
     _assert_eq(sub_target_keys, set(["linux", "macos", "windows"]))
 
+    cnode = ctx.configured_targets("//:foo_target")
+    os = cnode.get_attr("os")
+    _assert_eq(os, "linux")
+
 main = bxl_main(
     impl = _main,
     cli_args = {},
