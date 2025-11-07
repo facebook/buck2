@@ -105,6 +105,7 @@ mod state_machine {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_error::BuckErrorContext;
     use buck2_error::buck2_error;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::ActionDirectoryEntry;
     use buck2_execute::directory::ActionSharedDirectory;
@@ -444,7 +445,8 @@ mod state_machine {
 
         let (daemon_dispatcher_events, daemon_dispatcher_sink) =
             buck2_events::create_source_sink_pair();
-        let daemon_dispatcher = EventDispatcher::new(TraceId::null(), daemon_dispatcher_sink);
+        let daemon_dispatcher =
+            EventDispatcher::new(TraceId::null(), DaemonId::new(), daemon_dispatcher_sink);
 
         let (command_sender, command_receiver) = channel();
         (

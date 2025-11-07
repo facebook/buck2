@@ -30,6 +30,7 @@ use buck2_data::CleanStaleStats;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
@@ -121,6 +122,7 @@ impl From<CleanResult> for buck2_cli_proto::CleanStaleResponse {
 fn create_result(
     result: Result<CleanResult, buck2_error::Error>,
     trace_id: Option<TraceId>,
+    daemon_id: &DaemonId,
     total_duration_s: u64,
 ) -> buck2_data::CleanStaleResult {
     let (kind, mut stats, error) = match result {
@@ -135,7 +137,7 @@ fn create_result(
     buck2_data::CleanStaleResult {
         kind: kind.into(),
         stats: Some(stats),
-        metadata: metadata::collect(),
+        metadata: metadata::collect(daemon_id),
         error,
         command_uuid: trace_id.map(|id| id.to_string()),
     }
@@ -144,7 +146,10 @@ fn create_result(
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let trace_id = self.cmd.dispatcher.trace_id().clone();
-        let fut = self.cmd.create_clean_fut(processor, Some(trace_id));
+        let daemon_id = self.cmd.dispatcher.daemon_id().clone();
+        let fut = self
+            .cmd
+            .create_clean_fut(processor, Some(trace_id), daemon_id);
         let _ignored = self.sender.send(fut);
     }
 }
@@ -154,6 +159,7 @@ impl CleanStaleArtifactsCommand {
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
         trace_id: Option<TraceId>,
+        daemon_id: DaemonId,
     ) -> BoxFuture<'static, buck2_error::Result<CleanResult>> {
         let start_time = Instant::now();
         let pending_result = self.create_pending_clean_result(processor);
@@ -170,6 +176,7 @@ impl CleanStaleArtifactsCommand {
             let result_event: buck2_data::CleanStaleResult = create_result(
                 result.clone(),
                 trace_id,
+                &daemon_id,
                 (Instant::now() - start_time).as_secs(),
             );
             dispatcher_dup.instant_event(result_event);

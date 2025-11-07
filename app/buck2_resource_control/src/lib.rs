@@ -44,6 +44,7 @@ pub mod memory_tracker {
 
     use allocative::Allocative;
     use buck2_common::init::ResourceControlConfig;
+    use buck2_events::daemon_id::DaemonId;
 
     use crate::buck_cgroup_tree::BuckCgroupTree;
 
@@ -55,6 +56,7 @@ pub mod memory_tracker {
     pub async fn create_memory_tracker(
         _cgroup_tree: Option<&BuckCgroupTree>,
         _resource_control_config: &ResourceControlConfig,
+        _daemon_id: &DaemonId,
     ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
         Ok(None)
     }

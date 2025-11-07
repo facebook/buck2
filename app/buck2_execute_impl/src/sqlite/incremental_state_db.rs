@@ -259,6 +259,7 @@ pub(crate) fn testing_incremental_state_sqlite_db(
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_events::daemon_id::DaemonId;
     use starlark_map::small_map::SmallMap;
 
     use super::*;
@@ -267,7 +268,7 @@ mod tests {
     #[test]
     fn test_initialize_incremental_sqlite_db() -> buck2_error::Result<()> {
         fn testing_metadatas() -> Vec<HashMap<String, String>> {
-            let metadata = buck2_events::metadata::collect();
+            let metadata = buck2_events::metadata::collect(&DaemonId::new());
             let mut metadatas = vec![metadata; 5];
             for (i, metadata) in metadatas.iter_mut().enumerate() {
                 metadata.insert("version".to_owned(), i.to_string());

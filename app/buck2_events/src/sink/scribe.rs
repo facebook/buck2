@@ -29,6 +29,7 @@ use crate::EventSink;
 use crate::EventSinkStats;
 use crate::EventSinkWithStats;
 use crate::TraceId;
+use crate::daemon_id::DAEMON_UUID;
 use crate::metadata;
 use crate::schedule_type::SandcastleScheduleType;
 use crate::sink::smart_truncate_event::smart_truncate_event;
@@ -123,7 +124,7 @@ impl RemoteEventSink {
                                 }),
                                 payload: format!("Soft Error: oversized_scribe: Message is oversized. Event data: {}. Original message size: {}", truncate(&json, TRUNCATED_SCRIBE_MESSAGE_SIZE),
                                 buf.len()),
-                                metadata: metadata::collect(),
+                                metadata: metadata::collect(&DAEMON_UUID),
                                 backtrace: Vec::new(),
                                 quiet: false,
                                 task: Some(true),

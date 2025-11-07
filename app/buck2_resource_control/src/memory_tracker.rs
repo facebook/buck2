@@ -17,6 +17,7 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::Span;
 use buck2_util::threads::thread_spawn;
@@ -287,6 +288,7 @@ impl Drop for MemoryReporter {
 pub async fn create_memory_tracker(
     cgroup_tree: Option<&BuckCgroupTree>,
     resource_control_config: &ResourceControlConfig,
+    daemon_id: &DaemonId,
 ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
     let Some(cgroup_tree) = cgroup_tree else {
         return Ok(None);
@@ -297,7 +299,7 @@ pub async fn create_memory_tracker(
         &resource_control_config,
         &cgroup_tree.enabled_controllers,
     )?;
-    let action_cgroups = ActionCgroups::init(resource_control_config).await?;
+    let action_cgroups = ActionCgroups::init(resource_control_config, daemon_id).await?;
     let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);
     const MAX_RETRIES: u32 = 5;
     let memory_limit_bytes = resource_control_config

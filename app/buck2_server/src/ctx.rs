@@ -74,7 +74,6 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
-use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
@@ -839,6 +838,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,
             output_trees_download_config.dupe(),
+            self.cmd_ctx.base_context.daemon.daemon_id.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
@@ -1022,7 +1022,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         let (build_signals_installer, deferred_build_signals) = create_build_signals();
 
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
-            uuid == &daemon_id::DAEMON_UUID.to_string()
+            uuid == &self.base_context.daemon.daemon_id.to_string()
         } else {
             false
         };
@@ -1076,7 +1076,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
-        let mut metadata = metadata::collect();
+        let mut metadata = metadata::collect(&self.base_context.daemon.daemon_id);
 
         metadata.insert(
             "io_provider".to_owned(),

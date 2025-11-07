@@ -43,6 +43,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::EventSinkWithStats;
+use buck2_events::daemon_id::DAEMON_UUID;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
@@ -201,6 +203,9 @@ pub struct DaemonStateData {
     /// State of the Incremental Action DB for content-based hash paths
     #[allocative(skip)]
     pub incremental_db_state: Arc<IncrementalDbState>,
+
+    /// A unique identifier for this instance of the daemon
+    pub daemon_id: DaemonId,
 }
 
 impl DaemonStateData {
@@ -510,11 +515,13 @@ impl DaemonState {
                         &deferred_materializer_configs,
                         digest_config,
                         &init_ctx,
+                        &DAEMON_UUID,
                     ),
                     maybe_initialize_incremental_sqlite_db(
                         paths.clone(),
                         blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
                         root_config,
+                        &DAEMON_UUID,
                     ),
                 )
                 .await?;
@@ -540,7 +547,11 @@ impl DaemonState {
             ));
             // Used only to dispatch events to scribe that are not associated with a specific command (ex. materializer clean up events)
             let daemon_dispatcher = if let Some(sink) = scribe_sink.dupe() {
-                EventDispatcher::new(TraceId::null(), sink.to_event_sync())
+                EventDispatcher::new(
+                    TraceId::null(),
+                    DAEMON_UUID.to_owned(),
+                    sink.to_event_sync(),
+                )
             } else {
                 // If needed this could log to a sink that redirects to a daemon event log (maybe `~/.buck/buckd/repo-path/event-log`)
                 // but for now seems fine to drop events if scribe isn't enabled.
@@ -563,6 +574,7 @@ impl DaemonState {
             let memory_tracker = memory_tracker::create_memory_tracker(
                 cgroup_tree.as_ref(),
                 &init_ctx.daemon_startup_config.resource_control,
+                &DAEMON_UUID,
             )
             .await?;
 
@@ -688,6 +700,7 @@ impl DaemonState {
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
+                daemon_id: DAEMON_UUID.to_owned(),
             }))
         })
         .await?
@@ -744,9 +757,13 @@ impl DaemonState {
         let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data();
         let dispatcher = if let Some(scribe_sink) = data.scribe_sink.dupe() {
-            EventDispatcher::new(trace_id, TeeSink::new(scribe_sink.to_event_sync(), sink))
+            EventDispatcher::new(
+                trace_id,
+                self.data.daemon_id.dupe(),
+                TeeSink::new(scribe_sink.to_event_sync(), sink),
+            )
         } else {
-            EventDispatcher::new(trace_id, sink)
+            EventDispatcher::new(trace_id, self.data.daemon_id.dupe(), sink)
         };
         Ok((events, dispatcher))
     }

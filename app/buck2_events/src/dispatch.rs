@@ -39,6 +39,8 @@ use smallvec::SmallVec;
 use crate::BuckEvent;
 use crate::Event;
 use crate::EventSink;
+use crate::daemon_id::DAEMON_UUID;
+use crate::daemon_id::DaemonId;
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;
 
@@ -48,6 +50,7 @@ use crate::span::SpanId;
 pub struct EventDispatcher {
     /// The Trace ID of the current trace.
     trace_id: TraceId,
+    daemon_id: DaemonId,
     /// The sink to log events to.
     #[allocative(skip)] // TODO(nga): do not skip.
     sink: Arc<dyn EventSink>,
@@ -55,9 +58,14 @@ pub struct EventDispatcher {
 
 impl EventDispatcher {
     /// Creates a new Event Dispatcher using the given TraceId and logging events to the given sink.
-    pub fn new<T: EventSink + 'static>(trace_id: TraceId, sink: T) -> EventDispatcher {
+    pub fn new<T: EventSink + 'static>(
+        trace_id: TraceId,
+        daemon_id: DaemonId,
+        sink: T,
+    ) -> EventDispatcher {
         EventDispatcher {
             trace_id,
+            daemon_id,
             sink: Arc::new(sink),
         }
     }
@@ -70,6 +78,7 @@ impl EventDispatcher {
     pub fn null() -> EventDispatcher {
         EventDispatcher {
             trace_id: TraceId::null(),
+            daemon_id: DaemonId::null(),
             sink: Arc::new(NullEventSink::new()),
         }
     }
@@ -78,6 +87,7 @@ impl EventDispatcher {
     pub fn null_sink_with_trace(trace_id: TraceId) -> EventDispatcher {
         EventDispatcher {
             trace_id,
+            daemon_id: DAEMON_UUID.to_owned(),
             sink: Arc::new(NullEventSink::new()),
         }
     }
@@ -171,6 +181,10 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
+    }
+
+    pub fn daemon_id(&self) -> &DaemonId {
+        &self.daemon_id
     }
 }
 
@@ -624,7 +638,7 @@ mod tests {
 
         let sink = ChannelEventSink::new(send);
         let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
+        let dispatcher = EventDispatcher::new(trace_id.dupe(), DaemonId::new(), sink);
 
         (dispatcher, source, trace_id)
     }

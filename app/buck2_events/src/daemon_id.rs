@@ -14,15 +14,28 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 use uuid::Uuid;
 
-#[derive(derive_more::Display, Clone, Dupe)]
+#[derive(derive_more::Display, Clone, Dupe, allocative::Allocative)]
 #[display("{}", uuid.hyphenated())]
 pub struct DaemonId {
+    #[allocative(skip)]
     uuid: Arc<Uuid>,
 }
 
-pub static DAEMON_UUID: Lazy<DaemonId> = Lazy::new(|| DaemonId {
-    uuid: Arc::new(Uuid::new_v4()),
-});
+impl DaemonId {
+    pub fn new() -> Self {
+        Self {
+            uuid: Arc::new(Uuid::new_v4()),
+        }
+    }
+
+    pub fn null() -> DaemonId {
+        DaemonId {
+            uuid: Arc::new(Uuid::nil()),
+        }
+    }
+}
+
+pub static DAEMON_UUID: Lazy<DaemonId> = Lazy::new(DaemonId::new);
 
 #[cfg(test)]
 mod tests {

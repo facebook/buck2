@@ -22,6 +22,7 @@ use buck2_common::init::ResourceControlConfig;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use dupe::Dupe;
 use nix::dir::Dir;
@@ -280,6 +281,7 @@ impl ActionCgroupSession {
 impl ActionCgroups {
     pub async fn init(
         resource_control_config: &ResourceControlConfig,
+        daemon_id: &DaemonId,
     ) -> buck2_error::Result<Self> {
         let enable_suspension = resource_control_config.enable_suspension.unwrap_or(false);
 
@@ -289,6 +291,7 @@ impl ActionCgroups {
             enable_suspension,
             resource_control_config.preferred_action_suspend_strategy,
             ancestor_cgroup_constraints,
+            daemon_id,
         ))
     }
 
@@ -296,6 +299,7 @@ impl ActionCgroups {
         enable_suspension: bool,
         suspend_strategy: Option<ActionSuspendStrategy>,
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+        daemon_id: &DaemonId,
     ) -> Self {
         Self {
             enable_suspension,
@@ -308,14 +312,14 @@ impl ActionCgroups {
             last_suspend_time: None,
             last_wake_time: None,
             total_memory_during_last_suspend: None,
-            metadata: buck2_events::metadata::collect(),
+            metadata: buck2_events::metadata::collect(daemon_id),
             ancestor_cgroup_constraints,
         }
     }
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Self {
-        Self::new(false, None, None)
+        Self::new(false, None, None, &DaemonId::new())
     }
 
     pub async fn command_started(
@@ -799,7 +803,7 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
 
-        let mut action_cgroups = ActionCgroups::new(false, None, None);
+        let mut action_cgroups = ActionCgroups::new(false, None, None, &DaemonId::new());
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
@@ -861,7 +865,7 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
 
-        let mut action_cgroups = ActionCgroups::new(true, None, None);
+        let mut action_cgroups = ActionCgroups::new(true, None, None, &DaemonId::new());
         action_cgroups
             .command_started(
                 cgroup_1.clone(),

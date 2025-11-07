@@ -40,6 +40,7 @@ use buck2_core::tag_error;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
@@ -191,6 +192,7 @@ pub struct LocalExecutor {
     worker_pool: Option<Arc<WorkerPool>>,
     memory_tracker: Option<MemoryTrackerHandle>,
     local_action_counter: Option<Arc<LocalActionCounter>>,
+    daemon_id: DaemonId,
 }
 
 impl LocalExecutor {
@@ -206,6 +208,7 @@ impl LocalExecutor {
         worker_pool: Option<Arc<WorkerPool>>,
         memory_tracker: Option<MemoryTrackerHandle>,
         local_action_counter: Option<Arc<LocalActionCounter>>,
+        daemon_id: DaemonId,
     ) -> Self {
         Self {
             artifact_fs,
@@ -219,6 +222,7 @@ impl LocalExecutor {
             worker_pool,
             memory_tracker,
             local_action_counter,
+            daemon_id,
         }
     }
 
@@ -621,7 +625,6 @@ impl LocalExecutor {
             args.join(" "),
         );
 
-        let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
         let dispatcher = match get_dispatcher_opt() {
             Some(dispatcher) => dispatcher,
             None => {
@@ -677,7 +680,8 @@ impl LocalExecutor {
                 )
             })
         }));
-        env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(daemon_uuid)));
+        let daemon_id = self.daemon_id.to_string();
+        env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(&*daemon_id)));
         env.push(("BUCK_BUILD_ID", StrOrOsStr::from(build_id)));
 
         let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
@@ -1798,6 +1802,7 @@ mod tests {
             None,
             None,
             None,
+            DaemonId::new(),
         );
 
         Ok((executor, temp.path().root().to_buf(), temp))

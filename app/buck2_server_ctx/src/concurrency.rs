@@ -809,6 +809,7 @@ mod tests {
     use buck2_core::is_open_source;
     use buck2_events::BuckEvent;
     use buck2_events::create_source_sink_pair;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_events::source::ChannelEventSource;
     use buck2_events::span::SpanId;
     use derivative::Derivative;
@@ -1661,7 +1662,7 @@ mod tests {
         let dice = make_default_dice().await;
         let concurrency = ConcurrencyHandler::new(dice.dupe());
         let (mut source, sink) = create_source_sink_pair();
-        let dispatcher = EventDispatcher::new(TraceId::new(), sink);
+        let dispatcher = EventDispatcher::new(TraceId::new(), DaemonId::new(), sink);
 
         let mutex = Arc::new(Mutex::new(()));
         let command = |exclusive_cmd: Option<&str>, barriers: Option<&Arc<(Barrier, Barrier)>>| {

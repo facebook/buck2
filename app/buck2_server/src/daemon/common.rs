@@ -33,6 +33,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
+use buck2_events::daemon_id::DaemonId;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
@@ -99,6 +100,7 @@ pub struct CommandExecutorFactory {
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
     output_trees_download_config: OutputTreesDownloadConfig,
+    daemon_id: DaemonId,
 }
 
 impl CommandExecutorFactory {
@@ -124,6 +126,7 @@ impl CommandExecutorFactory {
         incremental_db_state: Arc<IncrementalDbState>,
         deduplicate_get_digests_ttl_calls: bool,
         output_trees_download_config: OutputTreesDownloadConfig,
+        daemon_id: DaemonId,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle = LocalActionsThrottle::new(memory_tracker.dupe());
@@ -157,6 +160,7 @@ impl CommandExecutorFactory {
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
             output_trees_download_config,
+            daemon_id,
         }
     }
 
@@ -196,6 +200,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 worker_pool,
                 self.memory_tracker.dupe(),
                 self.local_action_counter.dupe(),
+                self.daemon_id.dupe(),
             )
         };
 

@@ -279,6 +279,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_events::Event;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_events::source::ChannelEventSource;
 
     use super::*;
@@ -418,7 +419,8 @@ mod tests {
         let (daemon_dispatcher_events, daemon_dispatcher_sink) =
             buck2_events::create_source_sink_pair();
         let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), daemon_dispatcher_sink);
+        let dispatcher =
+            EventDispatcher::new(trace_id.dupe(), DaemonId::new(), daemon_dispatcher_sink);
 
         (dispatcher, daemon_dispatcher_events, trace_id)
     }

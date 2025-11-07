@@ -544,13 +544,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             config.artifact_ttl,
                         );
 
+                        let daemon_id = dispatcher.daemon_id().dupe();
                         let cmd = CleanStaleArtifactsCommand {
                             keep_since_time: chrono::Utc::now() - artifact_ttl,
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
                         };
-                        stream.clean_stale_fut = Some(cmd.create_clean_fut(&mut self, None));
+                        stream.clean_stale_fut =
+                            Some(cmd.create_clean_fut(&mut self, None, daemon_id));
                     } else {
                         // This should never happen
                         soft_error!(

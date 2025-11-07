@@ -198,6 +198,7 @@ mod tests {
     use buck2_directory::directory::builder::DirectoryBuilder;
     use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
     use buck2_directory::directory::entry::DirectoryEntry;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::directory::new_symlink;
     use chrono::TimeZone;
@@ -395,7 +396,7 @@ mod tests {
     #[test]
     fn test_initialize_sqlite_db() -> buck2_error::Result<()> {
         fn testing_metadatas() -> Vec<HashMap<String, String>> {
-            let metadata = buck2_events::metadata::collect();
+            let metadata = buck2_events::metadata::collect(&DaemonId::new());
             let mut metadatas = vec![metadata; 5];
             for (i, metadata) in metadatas.iter_mut().enumerate() {
                 metadata.insert("version".to_owned(), i.to_string());
