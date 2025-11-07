@@ -37,6 +37,7 @@ use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
 use dice::DetectCycles;
+use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::channel::mpsc;
@@ -274,10 +275,12 @@ impl DaemonCommand {
             (listener, process_info, endpoint)
         };
 
+        let daemon_id = buck2_events::daemon_id::DAEMON_UUID.dupe();
+
         tracing::info!("Starting Buck2 daemon");
         tracing::info!("Version: {}", BuckVersion::get_version());
         tracing::info!("PID: {}", process::id());
-        tracing::info!("ID: {}", *buck2_events::daemon_id::DAEMON_UUID);
+        tracing::info!("ID: {}", daemon_id);
         tracing::info!("Endpoint: {}", endpoint);
 
         listener_created();
@@ -398,7 +401,7 @@ impl DaemonCommand {
             drop(span_guard);
 
             let daemon_constraints =
-                gen_daemon_constraints(&server_init_ctx.daemon_startup_config)?;
+                gen_daemon_constraints(&server_init_ctx.daemon_startup_config, &daemon_id)?;
 
             let buckd_server = BuckdServer::run(
                 fb,
@@ -411,6 +414,7 @@ impl DaemonCommand {
                 daemon_constraints,
                 Box::pin(listener),
                 handle,
+                daemon_id,
             )
             .fuse();
             let shutdown_future = async move { hard_shutdown_receiver.next().await }.fuse();
@@ -573,6 +577,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::logging::LogConfigurationReloadHandle;
     use buck2_error::BuckErrorContext;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
@@ -632,6 +637,8 @@ mod tests {
             auth_token: "abc".to_owned(),
         };
 
+        let daemon_id = DaemonId::new();
+
         let handle = tokio::spawn(BuckdServer::run(
             fbinit,
             <dyn LogConfigurationReloadHandle>::noop(),
@@ -645,9 +652,10 @@ mod tests {
             },
             process_info.clone(),
             None,
-            gen_daemon_constraints(&DaemonStartupConfig::testing_empty()).unwrap(),
+            gen_daemon_constraints(&DaemonStartupConfig::testing_empty(), &daemon_id).unwrap(),
             Box::pin(listener),
             Handle::current(),
+            daemon_id,
         ));
 
         let mut client = new_daemon_api_client(endpoint.clone(), process_info.auth_token)

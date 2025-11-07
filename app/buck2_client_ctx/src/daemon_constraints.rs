@@ -11,6 +11,7 @@
 use buck2_common::init::DaemonStartupConfig;
 use buck2_core::buck2_env;
 use buck2_core::ci::ci_identifiers;
+use buck2_events::daemon_id::DaemonId;
 
 use crate::version::BuckVersion;
 
@@ -30,11 +31,12 @@ pub fn get_possibly_nested_invocation_daemon_uuid() -> Option<String> {
 /// the constraints that the client would like the daemon to have are generated separately.
 pub fn gen_daemon_constraints(
     daemon_startup_config: &DaemonStartupConfig,
+    daemon_id: &DaemonId,
 ) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
     Ok(buck2_cli_proto::DaemonConstraints {
         version: version(),
         user_version: user_version()?,
-        daemon_id: buck2_events::daemon_id::DAEMON_UUID.to_string(),
+        daemon_id: daemon_id.to_string(),
         daemon_startup_config: Some(daemon_startup_config.serialize()?),
         extra: None,
     })

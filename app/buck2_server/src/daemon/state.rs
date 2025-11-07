@@ -43,7 +43,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::EventSinkWithStats;
-use buck2_events::daemon_id::DAEMON_UUID;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
@@ -239,6 +238,7 @@ impl DaemonState {
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
         cgroup_tree: Option<BuckCgroupTree>,
+        daemon_id: DaemonId,
     ) -> Result<Self, buck2_error::Error> {
         let data = Self::init_data(
             fb,
@@ -247,6 +247,7 @@ impl DaemonState {
             rt.clone(),
             materializations,
             cgroup_tree,
+            daemon_id,
         )
         .await
         .map_err(|e| {
@@ -277,6 +278,7 @@ impl DaemonState {
         rt: Handle,
         materializations: MaterializationMethod,
         cgroup_tree: Option<BuckCgroupTree>,
+        daemon_id: DaemonId,
     ) -> buck2_error::Result<Arc<DaemonStateData>> {
         if buck2_env!(
             "BUCK2_TEST_INIT_DAEMON_ERROR",
@@ -515,13 +517,13 @@ impl DaemonState {
                         &deferred_materializer_configs,
                         digest_config,
                         &init_ctx,
-                        &DAEMON_UUID,
+                        &daemon_id,
                     ),
                     maybe_initialize_incremental_sqlite_db(
                         paths.clone(),
                         blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
                         root_config,
-                        &DAEMON_UUID,
+                        &daemon_id,
                     ),
                 )
                 .await?;
@@ -547,11 +549,7 @@ impl DaemonState {
             ));
             // Used only to dispatch events to scribe that are not associated with a specific command (ex. materializer clean up events)
             let daemon_dispatcher = if let Some(sink) = scribe_sink.dupe() {
-                EventDispatcher::new(
-                    TraceId::null(),
-                    DAEMON_UUID.to_owned(),
-                    sink.to_event_sync(),
-                )
+                EventDispatcher::new(TraceId::null(), daemon_id.dupe(), sink.to_event_sync())
             } else {
                 // If needed this could log to a sink that redirects to a daemon event log (maybe `~/.buck/buckd/repo-path/event-log`)
                 // but for now seems fine to drop events if scribe isn't enabled.
@@ -574,7 +572,7 @@ impl DaemonState {
             let memory_tracker = memory_tracker::create_memory_tracker(
                 cgroup_tree.as_ref(),
                 &init_ctx.daemon_startup_config.resource_control,
-                &DAEMON_UUID,
+                &daemon_id,
             )
             .await?;
 
@@ -700,7 +698,7 @@ impl DaemonState {
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
-                daemon_id: DAEMON_UUID.to_owned(),
+                daemon_id: daemon_id.dupe(),
             }))
         })
         .await?
