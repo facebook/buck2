@@ -305,6 +305,21 @@ impl Ty {
         }
     }
 
+    /// Typecheck through a callable to its return type.
+    pub fn as_callable_return(&self) -> Option<Ty> {
+        self.typecheck_union_simple(|basic| match basic {
+            TyBasic::Callable(c) => Ok(c.result().dupe()),
+            TyBasic::Custom(custom) => custom
+                .0
+                .as_callable_dyn()
+                .map(|callable| callable.result().dupe())
+                .ok_or(TypingNoContextError),
+            TyBasic::Any => Ok(Ty::any()),
+            _ => Err(TypingNoContextError),
+        })
+        .ok()
+    }
+
     /// Create a unions type, which will be normalised before being created.
     pub fn unions(xs: Vec<Self>) -> Self {
         // Handle common cases first.

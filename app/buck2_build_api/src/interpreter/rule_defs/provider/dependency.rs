@@ -25,6 +25,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::FrozenValue;
@@ -222,6 +223,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     /// ....
     /// collection.get(FooInfo) # None if absent, a FooInfo instance if present
     /// ```
+    #[starlark(ty_custom_function = GetTyIdentity)]
     fn get<'v>(
         this: &Dependency<'v>,
         index: Value<'v>,
@@ -238,4 +240,31 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
 #[starlark_module]
 pub(crate) fn register_dependency(globals: &mut GlobalsBuilder) {
     const Dependency: StarlarkValueAsType<DependencyGen<FrozenValue>> = StarlarkValueAsType::new();
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Allocative)]
+struct GetTyIdentity;
+
+impl starlark::typing::TyCustomFunctionImpl for GetTyIdentity {
+    fn as_callable(&self) -> starlark::typing::TyCallable {
+        TyCallable::new(ParamSpec::pos_only([Ty::any()], []), Ty::any())
+    }
+
+    fn validate_call(
+        &self,
+        span: starlark::codemap::Span,
+        args: &TyCallArgs,
+        oracle: starlark::typing::TypingOracleCtx,
+    ) -> Result<Ty, TypingOrInternalError> {
+        let first_arg = args
+            .pos
+            .first()
+            .ok_or_else(|| oracle.mk_error(span, anyhow::anyhow!("No first argument")))?;
+        let Some(ret) = first_arg.node.as_callable_return() else {
+            return Err(oracle
+                .mk_error(span, anyhow::anyhow!("Not a provider callable"))
+                .into());
+        };
+        Ok(Ty::union2(Ty::none(), ret))
+    }
 }
