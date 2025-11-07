@@ -1943,6 +1943,8 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
                 symbols_to_keep.append(symbol)
 
         version_script = "{\n"
+        # @oss-disable[end= ]: if getattr(ctx.attrs, "enable_gatorade", False):
+            # @oss-disable[end= ]: symbols_to_keep.append("*_Gatorade_Thunk")
         if symbols_to_keep:
             version_script += "global:\n"
         for symbol in symbols_to_keep:
