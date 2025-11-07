@@ -29,6 +29,8 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_events::daemon_id::DaemonId;
+use buck2_events::daemon_id::set_daemon_id_for_panics;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
@@ -275,7 +277,8 @@ impl DaemonCommand {
             (listener, process_info, endpoint)
         };
 
-        let daemon_id = buck2_events::daemon_id::DAEMON_UUID.dupe();
+        let daemon_id = DaemonId::new();
+        set_daemon_id_for_panics(daemon_id.dupe());
 
         tracing::info!("Starting Buck2 daemon");
         tracing::info!("Version: {}", BuckVersion::get_version());
