@@ -168,11 +168,11 @@ mod tests {
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
                     ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                    ConstraintValue::testing_new("foo//bar:v", None),
                 ),
                 (
                     ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                    ConstraintValue::testing_new("foo//qux:vx", None),
                 ),
             ])),
         )
@@ -182,15 +182,15 @@ mod tests {
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
                     ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                    ConstraintValue::testing_new("foo//bar:v", None),
                 ),
                 (
                     ConstraintKey(TargetLabel::testing_parse("foo//baz:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//baz:vy")),
+                    ConstraintValue::testing_new("foo//baz:vy", None),
                 ),
                 (
                     ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//qux:vy")),
+                    ConstraintValue::testing_new("foo//qux:vy", None),
                 ),
             ])),
         )

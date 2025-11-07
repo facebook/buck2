@@ -89,7 +89,7 @@ mod tests {
         }
 
         fn constraint_value(t: &str) -> ConstraintValue {
-            ConstraintValue(TargetLabel::testing_parse(t))
+            ConstraintValue::testing_new(t, None)
         }
 
         let os = constraint_key("config//:os");

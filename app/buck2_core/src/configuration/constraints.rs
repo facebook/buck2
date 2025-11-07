@@ -21,6 +21,8 @@ use derive_more::Display;
 use dupe::Dupe;
 use strong_hash::StrongHash;
 
+use crate::provider::label::ProvidersLabel;
+use crate::provider::label::testing::ProvidersLabelTestExt;
 use crate::target::label::label::TargetLabel;
 
 /// A ConstraintKey is a label for a `constraint_setting()` target.
@@ -38,10 +40,14 @@ impl ConstraintKey {
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
 )]
-pub struct ConstraintValue(pub TargetLabel);
+pub struct ConstraintValue(pub ProvidersLabel);
 
 impl ConstraintValue {
-    pub fn testing_new(label: &str) -> ConstraintValue {
-        ConstraintValue(TargetLabel::testing_parse(label))
+    pub fn testing_new(label: &str, name: Option<&str>) -> ConstraintValue {
+        let name_array = name.map(|n| [n]);
+        ConstraintValue(ProvidersLabel::testing_new_with_target_label(
+            TargetLabel::testing_parse(label),
+            name_array.as_ref().map(|a| &a[..]),
+        ))
     }
 }

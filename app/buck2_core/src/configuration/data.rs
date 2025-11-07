@@ -465,21 +465,21 @@ mod tests {
                 constraints: BTreeMap::from_iter([
                     (
                         ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                        ConstraintValue::testing_new("foo//bar:v", None),
                     ),
                     (
                         ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                        ConstraintValue::testing_new("foo//qux:vx", None),
                     ),
                 ]),
             },
         )
         .unwrap();
 
-        assert_eq!(configuration.output_hash().as_str(), "aa02f1990fb35119");
+        assert_eq!(configuration.output_hash().as_str(), "9433cf3c11025388");
         assert_eq!(
             configuration.to_string(),
-            "cfg_for//:testing_exec#aa02f1990fb35119"
+            "cfg_for//:testing_exec#9433cf3c11025388"
         );
 
         Ok(())
@@ -493,18 +493,18 @@ mod tests {
                 constraints: BTreeMap::from_iter([
                     (
                         ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                        ConstraintValue::testing_new("foo//bar:v", None),
                     ),
                     (
                         ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                        ConstraintValue::testing_new("foo//qux:vx", None),
                     ),
                 ]),
             },
         )
         .unwrap();
 
-        let expected_cfg_str = "cfg_for//:testing_exec#aa02f1990fb35119";
+        let expected_cfg_str = "cfg_for//:testing_exec#9433cf3c11025388";
         assert_eq!(expected_cfg_str, configuration.to_string());
 
         let looked_up =

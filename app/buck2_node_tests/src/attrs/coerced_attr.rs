@@ -84,10 +84,10 @@ fn selector_equals_accounts_for_ordering() {
 #[test]
 fn select_the_most_specific() {
     let c_os = ConstraintKey::testing_new("config//c:os");
-    let c_linux = ConstraintValue::testing_new("config//c:linux");
+    let c_linux = ConstraintValue::testing_new("config//c:linux", None);
     let c_cpu = ConstraintKey::testing_new("config//c:cpu");
-    let c_arm64 = ConstraintValue::testing_new("config//c:arm64");
-    let c_x86_64 = ConstraintValue::testing_new("config//c:x86_64");
+    let c_arm64 = ConstraintValue::testing_new("config//c:arm64", None);
+    let c_x86_64 = ConstraintValue::testing_new("config//c:x86_64", None);
 
     let linux = ConfigurationSettingKey::testing_parse("config//:linux");
     let linux_arm64 = ConfigurationSettingKey::testing_parse("config//:linux-arm64");
@@ -155,11 +155,11 @@ fn select_the_most_specific() {
 fn test_select_refines_bug() {
     let c_windows = (
         ConstraintKey::testing_new("config//c:os"),
-        ConstraintValue::testing_new("config//c:windows"),
+        ConstraintValue::testing_new("config//c:windows", None),
     );
     let c_x86_64 = (
         ConstraintKey::testing_new("config//c:cpu"),
-        ConstraintValue::testing_new("config//c:x86_64"),
+        ConstraintValue::testing_new("config//c:x86_64", None),
     );
 
     let windows = ConfigurationSettingKey::testing_parse("config//:windows");

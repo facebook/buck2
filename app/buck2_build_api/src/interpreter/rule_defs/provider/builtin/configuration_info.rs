@@ -18,6 +18,7 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationDataData;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -106,7 +107,8 @@ impl<'v> ConfigurationInfo<'v> {
         for (k, v) in &conf.constraints {
             let constraint_setting_label =
                 heap.alloc_value_of(StarlarkTargetLabel::new(k.0.dupe()));
-            let constraint_value_label = heap.alloc_value_of(StarlarkTargetLabel::new(v.0.dupe()));
+            let constraint_value_label =
+                heap.alloc_value_of(StarlarkProvidersLabel::new(v.0.dupe()));
             let constraint_setting =
                 heap.alloc_value_of(ConstraintSettingInfo::new(constraint_setting_label));
             let constraint_value =

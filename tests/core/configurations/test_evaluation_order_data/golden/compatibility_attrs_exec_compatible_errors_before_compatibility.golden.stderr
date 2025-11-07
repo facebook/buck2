@@ -1,11 +1,11 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 Command failed: 
-Error looking up configured node root//:compatibility_attrs_exec_compatible_errors_before_compatibility (root//:p-cat#79093ed7ae0e9c0c)
+Error looking up configured node root//:compatibility_attrs_exec_compatible_errors_before_compatibility (root//:p-cat#5da5892801f3e2e4)
 
 Caused by:
-    0: Error resolving configuration deps of `root//:compatibility_attrs_exec_compatible_errors_before_compatibility (root//:p-cat#79093ed7ae0e9c0c)`
-    1: Error getting configuration node of `root//:doesnotexist` within the `root//:p-cat#79093ed7ae0e9c0c` configuration
+    0: Error resolving configuration deps of `root//:compatibility_attrs_exec_compatible_errors_before_compatibility (root//:p-cat#5da5892801f3e2e4)`
+    1: Error getting configuration node of `root//:doesnotexist` within the `root//:p-cat#5da5892801f3e2e4` configuration
     2: Error running analysis for `root//:doesnotexist (<unbound>)`
     3: Error looking up configured node root//:doesnotexist (<unbound>)
     4: looking up unconfigured target node `root//:doesnotexist`
