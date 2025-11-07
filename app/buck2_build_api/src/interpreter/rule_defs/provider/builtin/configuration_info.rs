@@ -39,6 +39,7 @@ use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
+use starlark::values::none::NoneOr;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
@@ -67,8 +68,22 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
                 .expect("type checked on construction");
             let value_target = ConstraintValueInfo::from_value(v.to_value())
                 .expect("type checked on construction");
+            let constraint_setting_info =
+                ConstraintSettingInfo::from_value(value_target.setting().to_value())
+                    .expect("type checked on construction");
+            let default_constraint_value = constraint_setting_info.default().map(|default| {
+                ConstraintValue(
+                    StarlarkProvidersLabel::from_value(default.to_value())
+                        .expect("type checked on construction")
+                        .label()
+                        .dupe(),
+                )
+            });
             converted_constraints.insert(
-                ConstraintKey(key_target.label().dupe()),
+                ConstraintKey {
+                    key: key_target.label().dupe(),
+                    default: default_constraint_value,
+                },
                 ConstraintValue(value_target.label().label().dupe()),
             );
         }
@@ -106,11 +121,17 @@ impl<'v> ConfigurationInfo<'v> {
         let mut constraints = SmallMap::new();
         for (k, v) in &conf.constraints {
             let constraint_setting_label =
-                heap.alloc_value_of(StarlarkTargetLabel::new(k.0.dupe()));
+                heap.alloc_value_of(StarlarkTargetLabel::new(k.key.dupe()));
+            let default_value = k
+                .default
+                .as_ref()
+                .map(|v| heap.alloc_value_of(StarlarkProvidersLabel::new(v.0.dupe())));
             let constraint_value_label =
                 heap.alloc_value_of(StarlarkProvidersLabel::new(v.0.dupe()));
-            let constraint_setting =
-                heap.alloc_value_of(ConstraintSettingInfo::new(constraint_setting_label));
+            let constraint_setting = heap.alloc_value_of(ConstraintSettingInfo::new(
+                constraint_setting_label,
+                NoneOr::from_option(default_value),
+            ));
             let constraint_value =
                 ConstraintValueInfo::new(constraint_setting, constraint_value_label);
             let prev = constraints.insert_hashed(

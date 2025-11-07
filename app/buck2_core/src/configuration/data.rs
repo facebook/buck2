@@ -452,7 +452,6 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
-    use crate::target::label::label::TargetLabel;
 
     /// We don't want the output hash to change by accident. This test is here to assert that it
     /// doesn't. If we have a legit reason to update the config hash, we can update the hash here,
@@ -464,11 +463,11 @@ mod tests {
             ConfigurationDataData {
                 constraints: BTreeMap::from_iter([
                     (
-                        ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                        ConstraintKey::testing_new("foo//bar:c"),
                         ConstraintValue::testing_new("foo//bar:v", None),
                     ),
                     (
-                        ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                        ConstraintKey::testing_new("foo//qux:c"),
                         ConstraintValue::testing_new("foo//qux:vx", None),
                     ),
                 ]),
@@ -476,10 +475,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(configuration.output_hash().as_str(), "9433cf3c11025388");
+        assert_eq!(configuration.output_hash().as_str(), "6770d7f2ebfc0845");
         assert_eq!(
             configuration.to_string(),
-            "cfg_for//:testing_exec#9433cf3c11025388"
+            "cfg_for//:testing_exec#6770d7f2ebfc0845"
         );
 
         Ok(())
@@ -492,11 +491,11 @@ mod tests {
             ConfigurationDataData {
                 constraints: BTreeMap::from_iter([
                     (
-                        ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                        ConstraintKey::testing_new("foo//bar:c"),
                         ConstraintValue::testing_new("foo//bar:v", None),
                     ),
                     (
-                        ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                        ConstraintKey::testing_new("foo//qux:c"),
                         ConstraintValue::testing_new("foo//qux:vx", None),
                     ),
                 ]),
@@ -504,7 +503,7 @@ mod tests {
         )
         .unwrap();
 
-        let expected_cfg_str = "cfg_for//:testing_exec#9433cf3c11025388";
+        let expected_cfg_str = "cfg_for//:testing_exec#6770d7f2ebfc0845";
         assert_eq!(expected_cfg_str, configuration.to_string());
 
         let looked_up =

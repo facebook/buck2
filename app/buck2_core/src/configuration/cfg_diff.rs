@@ -159,7 +159,6 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
-    use crate::target::label::label::TargetLabel;
 
     #[test]
     fn test_diff() {
@@ -167,11 +166,11 @@ mod tests {
             "xx".to_owned(),
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                    ConstraintKey::testing_new("foo//bar:c"),
                     ConstraintValue::testing_new("foo//bar:v", None),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                    ConstraintKey::testing_new("foo//qux:c"),
                     ConstraintValue::testing_new("foo//qux:vx", None),
                 ),
             ])),
@@ -181,15 +180,15 @@ mod tests {
             "yy".to_owned(),
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                    ConstraintKey::testing_new("foo//bar:c"),
                     ConstraintValue::testing_new("foo//bar:v", None),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//baz:c")),
+                    ConstraintKey::testing_new("foo//baz:c"),
                     ConstraintValue::testing_new("foo//baz:vy", None),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                    ConstraintKey::testing_new("foo//qux:c"),
                     ConstraintValue::testing_new("foo//qux:vy", None),
                 ),
             ])),
@@ -215,11 +214,11 @@ mod tests {
             "xx".to_owned(),
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//bar:os")),
+                    ConstraintKey::testing_new("foo//bar:os"),
                     ConstraintValue::testing_new("foo//bar:os", Some("linux")),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//qux:cpu")),
+                    ConstraintKey::testing_new("foo//qux:cpu"),
                     ConstraintValue::testing_new("foo//qux:cpu", Some("x86_64")),
                 ),
             ])),
@@ -229,15 +228,15 @@ mod tests {
             "yy".to_owned(),
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//bar:os")),
+                    ConstraintKey::testing_new("foo//bar:os"),
                     ConstraintValue::testing_new("foo//bar:os", Some("linux")),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//baz:sanitizer")),
+                    ConstraintKey::testing_new("foo//baz:sanitizer"),
                     ConstraintValue::testing_new("foo//baz:sanitizer", Some("asan")),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//qux:cpu")),
+                    ConstraintKey::testing_new("foo//qux:cpu"),
                     ConstraintValue::testing_new("foo//qux:cpu", Some("arm64")),
                 ),
             ])),

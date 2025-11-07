@@ -62,7 +62,6 @@ mod tests {
     use crate::configuration::config_setting::ConfigSettingData;
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
-    use crate::target::label::label::TargetLabel;
 
     #[test]
     fn is_subset() {
@@ -85,7 +84,7 @@ mod tests {
     #[test]
     fn refines() {
         fn constraint_key(t: &str) -> ConstraintKey {
-            ConstraintKey(TargetLabel::testing_parse(t))
+            ConstraintKey::testing_new(t)
         }
 
         fn constraint_value(t: &str) -> ConstraintValue {
@@ -156,7 +155,7 @@ mod tests {
     #[test]
     fn subtarget_values_distinct() {
         // Test that different subtarget values of the same constraint are distinct
-        let sanitizer_key = ConstraintKey(TargetLabel::testing_parse("config//:sanitizer"));
+        let sanitizer_key = ConstraintKey::testing_new("config//:sanitizer");
 
         let asan = ConstraintValue::testing_new("config//:sanitizer", Some("asan"));
         let tsan = ConstraintValue::testing_new("config//:sanitizer", Some("tsan"));
@@ -197,7 +196,7 @@ mod tests {
     fn refines_mixed_old_and_new_syntax() {
         // Test that old syntax (separate targets) and new syntax (subtargets) work together
         fn constraint_key(t: &str) -> ConstraintKey {
-            ConstraintKey(TargetLabel::testing_parse(t))
+            ConstraintKey::testing_new(t)
         }
 
         // Old syntax - separate target for value

@@ -29,11 +29,19 @@ use crate::target::label::label::TargetLabel;
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
 )]
-pub struct ConstraintKey(pub TargetLabel);
+#[display("{}", key)]
+pub struct ConstraintKey {
+    pub key: TargetLabel,
+    // TODO(nero): remove Option when when we migrated to unified constraint rule
+    pub default: Option<ConstraintValue>,
+}
 
 impl ConstraintKey {
     pub fn testing_new(label: &str) -> ConstraintKey {
-        ConstraintKey(TargetLabel::testing_parse(label))
+        ConstraintKey {
+            key: TargetLabel::testing_parse(label),
+            default: None,
+        }
     }
 }
 

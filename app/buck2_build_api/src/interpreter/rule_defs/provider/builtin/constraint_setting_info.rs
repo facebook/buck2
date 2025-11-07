@@ -18,17 +18,22 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
+use starlark::values::none::NoneOr;
 
 use crate as buck2_build_api;
 
@@ -36,21 +41,40 @@ use crate as buck2_build_api;
 /// returned by a `constraint_setting()` target.
 #[internal_provider(constraint_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
-#[repr(transparent)]
+#[repr(C)]
 pub(crate) struct ConstraintSettingInfoGen<V: ValueLifetimeless> {
     label: ValueOfUncheckedGeneric<V, StarlarkTargetLabel>,
+    // TODO(nero): Remove NoneOr when we migrate to unified constraint
+    default: ValueOfUncheckedGeneric<V, NoneOr<StarlarkProvidersLabel>>,
 }
 
 impl<'v, V: ValueLike<'v>> ConstraintSettingInfoGen<V> {
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkTargetLabel> {
         ValueTyped::new_err(self.label.get().to_value()).expect("validated at construction")
     }
+
+    pub(crate) fn default(&self) -> Option<ValueTyped<'v, StarlarkProvidersLabel>> {
+        let value = self.default.get().to_value();
+
+        NoneOr::<ValueTyped<StarlarkProvidersLabel>>::unpack_value_err(value)
+            .expect("validated at construction")
+            .into_option()
+    }
 }
 
 impl<'v> ConstraintSettingInfo<'v> {
-    pub(crate) fn new(label: ValueOf<'v, &'v StarlarkTargetLabel>) -> ConstraintSettingInfo<'v> {
+    pub(crate) fn new(
+        label: ValueOf<'v, &'v StarlarkTargetLabel>,
+        default: NoneOr<ValueOf<'v, &'v StarlarkProvidersLabel>>,
+    ) -> ConstraintSettingInfo<'v> {
+        let default_value = match default {
+            NoneOr::None => ValueOfUnchecked::new(Value::new_none()),
+            NoneOr::Other(d) => ValueOfUnchecked::new(d.to_value()),
+        };
+
         ConstraintSettingInfoGen {
             label: label.as_unchecked().cast(),
+            default: default_value,
         }
     }
 }
@@ -60,9 +84,10 @@ fn constraint_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConstraintSettingInfo)]
     fn ConstraintSettingInfo<'v>(
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
+        #[starlark(require = named, default = NoneOr::None)] default: NoneOr<
+            ValueOf<'v, &'v StarlarkProvidersLabel>,
+        >,
     ) -> starlark::Result<ConstraintSettingInfo<'v>> {
-        Ok(ConstraintSettingInfo {
-            label: label.as_unchecked().cast(),
-        })
+        Ok(ConstraintSettingInfo::new(label, default))
     }
 }
