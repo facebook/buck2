@@ -12,6 +12,7 @@ constraint(
         "macos",
         "windows",
     ],
+    default = "linux",
 )
 
 platform(
@@ -25,6 +26,7 @@ constraint(
         "x86_64",
         "arm64",
     ],
+    default = "x86_64",
 )
 
 unified_foo(

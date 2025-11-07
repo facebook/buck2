@@ -57,6 +57,7 @@ def constraint_value_impl(ctx):
 #
 # Attributes:
 #  values: list of value names (strings)
+#  default: default value (must be one of the values)
 def constraint_impl(ctx):
     # Validate values are unique and non-empty
     values = ctx.attrs.values
@@ -68,6 +69,11 @@ def constraint_impl(ctx):
         if v in seen:
             fail("Duplicate value '{}' in constraint()".format(v))
         seen.add(v)
+
+    # Validate default if provided
+    default = ctx.attrs.default
+    if default not in seen:
+        fail("default value '{}' must be one of the declared values: {}".format(default, values))
 
     # Main target provides the constraint setting
     main_label = ctx.label.raw_target()

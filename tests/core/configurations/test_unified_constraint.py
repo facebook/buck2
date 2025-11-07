@@ -10,9 +10,26 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(allow_soft_errors=True)
 async def test_unified_constraint_defination(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:main")
+
+
+@buck_test()
+async def test_unified_constraint_miss_default_fail(buck: Buck) -> None:
+    await expect_failure(
+        buck.targets("//miss_default:"),
+        stderr_regex=".*Missing named-only parameter `default` for call to `constraint`.*",
+    )
+
+
+@buck_test()
+async def test_unified_constraint_default_not_appear_in_value_fail(buck: Buck) -> None:
+    await expect_failure(
+        buck.audit("subtargets", "//default_value_not_appear:"),
+        stderr_regex=r""".*default value 'linux' must be one of the declared values: \["macos", "windows"\].*""",
+    )

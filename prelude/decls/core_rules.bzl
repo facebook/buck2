@@ -306,6 +306,7 @@ constraint = prelude_rule(
         constraint(
             name = "os",
             values = ["linux", "macos", "windows"],
+            default = "linux",
         )
     """,
     further = None,
@@ -313,6 +314,7 @@ constraint = prelude_rule(
         # @unsorted-dict-items
         {
             "values": attrs.list(attrs.string()),
+            "default": attrs.string(),
         }
     ),
 )
