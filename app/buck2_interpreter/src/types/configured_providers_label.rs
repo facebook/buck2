@@ -289,6 +289,14 @@ fn label_methods(builder: &mut MethodsBuilder) {
         Ok(cell)
     }
 
+    #[starlark(attribute)]
+    fn package<'v>(
+        this: &'v StarlarkProvidersLabel,
+        heap: &'v Heap,
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.label.target().pkg().cell_relative_path().as_str()))
+    }
+
     /// Returns the PackagePath for this providers label.
     #[starlark(attribute)]
     fn package_path<'v>(this: &StarlarkProvidersLabel) -> starlark::Result<StarlarkPackagePath> {
