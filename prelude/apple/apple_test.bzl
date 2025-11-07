@@ -11,7 +11,7 @@ load(
     "project_artifacts",
 )
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
-load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device", "tpx_label_for_test_device_type")
+load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device", "tpx_label_for_test_device_type", "tpx_needs_local_simulator")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
@@ -269,6 +269,9 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
 
     local_enabled = remote_execution_use_case == None
     remote_enabled = remote_execution_use_case != None
+
+    if local_enabled and tpx_needs_local_simulator(test_device_type):
+        labels.append("tpx:apple_test:local_simulator_required")
 
     return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
