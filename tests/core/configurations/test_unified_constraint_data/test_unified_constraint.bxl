@@ -23,6 +23,14 @@ def _main(ctx: bxl.Context):
     cnode = ctx.configured_targets("//:foo_target")
     os = cnode.get_attr("os")
     _assert_eq(os, "linux")
+    cpu = cnode.get_attr("cpu")
+    _assert_eq(cpu, "x86_64")
+
+    override_modifier_cnode = ctx.configured_targets("//:foo_target", modifiers = ["root//:cpu[arm64]"])
+    os = override_modifier_cnode.get_attr("os")
+    _assert_eq(os, "linux")
+    cpu = override_modifier_cnode.get_attr("cpu")
+    _assert_eq(cpu, "arm64")
 
 main = bxl_main(
     impl = _main,

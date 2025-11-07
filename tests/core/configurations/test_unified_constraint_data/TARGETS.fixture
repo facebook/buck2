@@ -19,11 +19,25 @@ platform(
     constraint_values = [":os[linux]"],
 )
 
+constraint(
+    name = "cpu",
+    values = [
+        "x86_64",
+        "arm64",
+    ],
+)
+
 unified_foo(
     name = "foo_target",
     os = select({
         ":os[linux]": "linux",
         ":os[macos]": "macos",
+        ":os[windows]": "windows",
+        "DEFAULT": "default",
+    }),
+    cpu = select({
+        ":cpu[arm64]": "arm64",
+        ":cpu[x86_64]": "x86_64",
         "DEFAULT": "default",
     }),
     default_target_platform = ":linux_platform",
