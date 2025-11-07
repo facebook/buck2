@@ -1,0 +1,14 @@
+# Basic unified constraint
+load("@prelude//:native.bzl", "native")
+
+constraint = native.constraint
+platform = native.platform
+
+constraint(
+    name = "os",
+    values = [
+        "linux",
+        "macos",
+        "windows",
+    ],
+)

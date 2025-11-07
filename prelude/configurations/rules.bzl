@@ -52,6 +52,56 @@ def constraint_value_impl(ctx):
         ),
     ]
 
+# constraint() is a unified constraint rule that declares both a constraint setting
+# and its possible values. Values are exposed as subtargets.
+#
+# Attributes:
+#  values: list of value names (strings)
+def constraint_impl(ctx):
+    # Validate values are unique and non-empty
+    values = ctx.attrs.values
+    if len(values) <= 1:
+        fail("constraint() rule must have at least two values: one for the default and at least one alternative to provide constraint choices. Example: values = ['disable', 'enable']")
+
+    seen = set()
+    for v in values:
+        if v in seen:
+            fail("Duplicate value '{}' in constraint()".format(v))
+        seen.add(v)
+
+    # Main target provides the constraint setting
+    main_label = ctx.label.raw_target()
+    constraint_setting = ConstraintSettingInfo(label = main_label)
+
+    # Create subtargets for each value
+    sub_targets = {}
+    for value_name in values:
+        # Create a constraint value for this subtarget
+        constraint_value = ConstraintValueInfo(
+            setting = constraint_setting,
+            label = main_label.with_sub_target(value_name),
+        )
+
+        sub_targets[value_name] = [
+            DefaultInfo(),
+            constraint_value,
+            ConfigurationInfo(
+                constraints = {
+                    main_label: constraint_value,
+                },
+                values = {},
+            ),
+            ConditionalModifierInfo(
+                inner = constraint_value,
+                key = main_label,
+            ),
+        ]
+
+    return [
+        DefaultInfo(sub_targets = sub_targets),
+        constraint_setting,
+    ]
+
 # platform() declares a platform, it is a list of constraint values.
 #
 # Attributes:
@@ -89,6 +139,7 @@ extra_attributes = {
 implemented_rules = {
     "config_setting": config_setting_impl,
     "configuration_alias": configuration_alias_impl,
+    "constraint": constraint_impl,
     "constraint_setting": constraint_setting_impl,
     "constraint_value": constraint_value_impl,
     "platform": platform_impl,

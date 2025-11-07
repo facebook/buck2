@@ -296,6 +296,27 @@ constraint_value = prelude_rule(
     ),
 )
 
+constraint = prelude_rule(
+    name = "constraint",
+    docs = """
+        Unified constraint rule that defines both a constraint setting and its possible values.
+        Values are exposed as subtargets, e.g., cfg//:os[linux].
+    """,
+    examples = """
+        constraint(
+            name = "os",
+            values = ["linux", "macos", "windows"],
+        )
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "values": attrs.list(attrs.string()),
+        }
+    ),
+)
+
 export_file = prelude_rule(
     name = "export_file",
     docs = """
@@ -1418,6 +1439,7 @@ core_rules = struct(
     configuration_alias = configuration_alias,
     configured_alias = configured_alias,
     constraint_setting = constraint_setting,
+    constraint = constraint,
     constraint_value = constraint_value,
     export_file = export_file,
     external_test_runner = external_test_runner,

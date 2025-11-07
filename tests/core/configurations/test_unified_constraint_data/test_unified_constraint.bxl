@@ -1,0 +1,26 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _main(ctx: bxl.Context):
+    contrait_setting_node = ctx.unconfigured_targets("root//:os")
+
+    _assert_eq(contrait_setting_node.rule_kind, "configuration")
+
+    analysis_res = ctx.analysis(contrait_setting_node)
+    default = analysis_res.providers()[DefaultInfo]
+    sub_target_keys = set(default.sub_targets.keys())
+    _assert_eq(sub_target_keys, set(["linux", "macos", "windows"]))
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {},
+)
