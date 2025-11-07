@@ -207,4 +207,52 @@ mod tests {
             diff
         );
     }
+
+    #[test]
+    fn test_diff_with_subtargets() {
+        // Test configuration diff with the new unified constraint syntax (subtargets)
+        let x = ConfigurationData::from_platform(
+            "xx".to_owned(),
+            ConfigurationDataData::new(BTreeMap::from_iter([
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//bar:os")),
+                    ConstraintValue::testing_new("foo//bar:os", Some("linux")),
+                ),
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//qux:cpu")),
+                    ConstraintValue::testing_new("foo//qux:cpu", Some("x86_64")),
+                ),
+            ])),
+        )
+        .unwrap();
+        let y = ConfigurationData::from_platform(
+            "yy".to_owned(),
+            ConfigurationDataData::new(BTreeMap::from_iter([
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//bar:os")),
+                    ConstraintValue::testing_new("foo//bar:os", Some("linux")),
+                ),
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//baz:sanitizer")),
+                    ConstraintValue::testing_new("foo//baz:sanitizer", Some("asan")),
+                ),
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//qux:cpu")),
+                    ConstraintValue::testing_new("foo//qux:cpu", Some("arm64")),
+                ),
+            ])),
+        )
+        .unwrap();
+        let diff = cfg_diff(&x, &y).unwrap_err();
+        assert_eq!(
+            "\
+            - label: xx\n\
+            + label: yy\n\
+            + constraint: foo//baz:sanitizer -> foo//baz:sanitizer[asan]\n\
+            - constraint: foo//qux:cpu -> foo//qux:cpu[x86_64]\n\
+            + constraint: foo//qux:cpu -> foo//qux:cpu[arm64]\n\
+            ",
+            diff
+        );
+    }
 }
