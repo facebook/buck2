@@ -39,7 +39,6 @@ use smallvec::SmallVec;
 use crate::BuckEvent;
 use crate::Event;
 use crate::EventSink;
-use crate::daemon_id::DAEMON_UUID;
 use crate::daemon_id::DaemonId;
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;
@@ -79,15 +78,6 @@ impl EventDispatcher {
         EventDispatcher {
             trace_id: TraceId::null(),
             daemon_id: DaemonId::null(),
-            sink: Arc::new(NullEventSink::new()),
-        }
-    }
-
-    /// Creates a new null Event Dispatcher with trace ID that accepts events but does not write them anywhere.
-    pub fn null_sink_with_trace(trace_id: TraceId) -> EventDispatcher {
-        EventDispatcher {
-            trace_id,
-            daemon_id: DAEMON_UUID.to_owned(),
             sink: Arc::new(NullEventSink::new()),
         }
     }

@@ -810,6 +810,7 @@ mod tests {
     use buck2_events::BuckEvent;
     use buck2_events::create_source_sink_pair;
     use buck2_events::daemon_id::DaemonId;
+    use buck2_events::sink::null::NullEventSink;
     use buck2_events::source::ChannelEventSource;
     use buck2_events::span::SpanId;
     use derivative::Derivative;
@@ -827,6 +828,11 @@ mod tests {
 
     use super::*;
     use crate::ctx::LockedPreviousCommandData;
+
+    /// Creates a new null Event Dispatcher with trace ID that accepts events but does not write them anywhere.
+    fn null_sink_with_trace(trace_id: TraceId) -> EventDispatcher {
+        EventDispatcher::new(trace_id, DaemonId::new(), NullEventSink::new())
+    }
 
     struct NoChanges;
 
@@ -891,7 +897,7 @@ mod tests {
         let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces1),
+            null_sink_with_trace(traces1),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -909,7 +915,7 @@ mod tests {
             ExitWhen::ExitNever,
         );
         let fut2 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces2),
+            null_sink_with_trace(traces2),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -927,7 +933,7 @@ mod tests {
             ExitWhen::ExitNever,
         );
         let fut3 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces3),
+            null_sink_with_trace(traces3),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -964,7 +970,7 @@ mod tests {
         let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces1),
+            null_sink_with_trace(traces1),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -983,7 +989,7 @@ mod tests {
         );
 
         let fut2 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces2),
+            null_sink_with_trace(traces2),
             &CtxDifferent,
             |_| {
                 let b = barrier.dupe();
@@ -1024,7 +1030,7 @@ mod tests {
         let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces1),
+            null_sink_with_trace(traces1),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -1042,7 +1048,7 @@ mod tests {
             ExitWhen::ExitNever,
         );
         let fut2 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces2),
+            null_sink_with_trace(traces2),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -1060,7 +1066,7 @@ mod tests {
             ExitWhen::ExitNever,
         );
         let fut3 = concurrency.enter(
-            EventDispatcher::null_sink_with_trace(traces3),
+            null_sink_with_trace(traces3),
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -1113,7 +1119,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1140,7 +1146,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1170,7 +1176,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces_different),
+                        null_sink_with_trace(traces_different),
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1239,7 +1245,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1266,7 +1272,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1296,7 +1302,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces_different),
+                        null_sink_with_trace(traces_different),
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1367,7 +1373,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1394,7 +1400,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1424,7 +1430,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces_different),
+                        null_sink_with_trace(traces_different),
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1904,7 +1910,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1932,7 +1938,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             // Should never reach here
@@ -1990,7 +1996,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -2018,7 +2024,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &CtxDifferent, // Different state
                         |_| async move {
                             // Should never reach here
@@ -2080,7 +2086,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -2107,7 +2113,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             panic!("Should not execute");
@@ -2130,7 +2136,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces3),
+                        null_sink_with_trace(traces3),
                         &NoChanges,
                         |_| async move {
                             panic!("Should not execute");
@@ -2194,7 +2200,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -2224,7 +2230,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             // Should never reach here
@@ -2291,7 +2297,7 @@ mod tests {
             async move {
                 let result = concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -2333,7 +2339,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &NoChanges,
                         |_| async move {
                             // Just a quick task
@@ -2392,7 +2398,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        null_sink_with_trace(traces1),
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -2419,7 +2425,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        null_sink_with_trace(traces2),
                         &CtxDifferent,
                         |_| async move {
                             // Just a quick task
@@ -2469,7 +2475,7 @@ mod tests {
         // First command runs to completion
         concurrency
             .enter(
-                EventDispatcher::null_sink_with_trace(traces1),
+                null_sink_with_trace(traces1),
                 &NoChanges,
                 |_| async move {
                     // Quick task that finishes
@@ -2493,7 +2499,7 @@ mod tests {
         // Second command with --exit-when=notidle and same state should succeed
         let result = concurrency
             .enter(
-                EventDispatcher::null_sink_with_trace(traces2),
+                null_sink_with_trace(traces2),
                 &NoChanges, // Same state as first command
                 |_| async move {
                     // Quick task
@@ -2533,7 +2539,7 @@ mod tests {
         // First command runs to completion with NoChanges state
         concurrency
             .enter(
-                EventDispatcher::null_sink_with_trace(traces1),
+                null_sink_with_trace(traces1),
                 &NoChanges,
                 |_| async move {
                     // Quick task that finishes
@@ -2557,7 +2563,7 @@ mod tests {
         // Second command with --exit-when=notidle and different state should succeed
         let result = concurrency
             .enter(
-                EventDispatcher::null_sink_with_trace(traces2),
+                null_sink_with_trace(traces2),
                 &CtxDifferent, // Different state than first command
                 |_| async move {
                     // Quick task
