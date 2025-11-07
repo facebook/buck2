@@ -10,7 +10,7 @@ load("@prelude//debugging:common.bzl", "create_target_info", "target_name")
 load("@prelude//debugging:types.bzl", "ExecInfo", "JavaInfo", "ScriptSettings", "TargetExtraInfo")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 
-def inspect_java_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings) -> ExecInfo:
+def inspect_java_rule(ctx: bxl.Context, _actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings) -> ExecInfo:
     providers = ctx.analysis(target).providers()
     debuginfo = providers[JavaClassToSourceMapInfo].debuginfo if JavaClassToSourceMapInfo in providers else None
     if debuginfo:
