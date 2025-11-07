@@ -94,7 +94,7 @@ def erlang_tests_macro(
         )
 
 def normalize_suite_name(suite_name: str) -> str:
-    return suite_name.replace(":", "_")
+    return suite_name.split(":")[-1]
 
 default_test_args = cmd_args(
     "-mode",
