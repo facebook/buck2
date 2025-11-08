@@ -77,7 +77,7 @@ def erlang_tests_macro(
         data_dir_name = "{}_data".format(suite_name)
         suite_resource = resources
         data_target = generate_file_map_target(suite, prefix, data_dir_name)
-        if data_target:
+        if data_target != None:
             suite_resource = list(suite_resource)  # copy
             suite_resource.append(data_target)
 
@@ -304,28 +304,33 @@ def link_output(
         link_spec[data_dir.basename] = data_dir
     return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
 
-def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str:
+def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str | None:
     suite_dir = paths.dirname(suite)
     suite_name = paths.basename(suite)
     suite_path = paths.join(suite_dir, dir_name)
+
     if is_target(suite):
         files = []
     else:
         files = glob([paths.join(suite_path, "**")])
-    if prefix != None:
-        target_suffix = "{}_{}".format(prefix, suite_name)
-    else:
-        target_suffix = suite_name
+
     if len(files):
+        if prefix != None:
+            target_suffix = "{}_{}".format(prefix, suite_name)
+        else:
+            target_suffix = suite_name
+
         # generate target for data dir
+        mapping_name = "{}-{}".format(dir_name, target_suffix)
         file_mapping(
-            name = "{}-{}".format(dir_name, target_suffix),
+            name = mapping_name,
             mapping = preserve_structure(
                 path = suite_path,
             ),
         )
-        return ":{}-{}".format(dir_name, suite_name)
-    return ""
+        return ":" + mapping_name
+
+    return None
 
 def is_target(suite: str) -> bool:
     if suite.startswith(":"):
