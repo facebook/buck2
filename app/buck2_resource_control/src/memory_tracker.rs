@@ -208,6 +208,11 @@ pub struct MemoryReporter {
     pub handle: tokio::task::JoinHandle<()>,
 }
 
+/// Used to ensure that the lock is not help for an extended amount of time
+async fn receive_and_clone<T: Clone>(r: &mut tokio::sync::watch::Receiver<T>) -> T {
+    r.borrow_and_update().clone()
+}
+
 // Per command task to listen to memory state changes and send events to the client.
 pub fn spawn_memory_reporter(
     dispatcher: EventDispatcher,
@@ -220,51 +225,35 @@ pub fn spawn_memory_reporter(
         let mut state_receiver = memory_tracker.state_sender.subscribe();
         let mut reading_receiver = memory_tracker.reading_sender.subscribe();
         loop {
-            if let TrackedMemoryState::Reading(state) = *state_receiver.borrow() {
-                let mut span = span.lock();
-                match (span.is_some(), state.memory_pressure_state) {
-                    (false, MemoryPressureState::AbovePressureLimit) => {
-                        let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
-                        *span = Some(new_span);
-                    }
-                    (true, MemoryPressureState::BelowPressureLimit) => {
-                        if let Some(span) = span.take() {
-                            span.end(buck2_data::MemoryPressureEnd {});
+            tokio::select! {
+                state = receive_and_clone(&mut state_receiver) => {
+                    if let TrackedMemoryState::Reading(state) = state {
+                        let mut span = span.lock();
+                        match (span.is_some(), state.memory_pressure_state) {
+                            (false, MemoryPressureState::AbovePressureLimit) => {
+                                let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
+                                *span = Some(new_span);
+                            }
+                            (true, MemoryPressureState::BelowPressureLimit) => {
+                                if let Some(span) = span.take() {
+                                    span.end(buck2_data::MemoryPressureEnd {});
+                                }
+                            }
+                            _ => {}
                         }
                     }
-                    _ => {}
-                }
-            }
-
-            if let Some(reading) = *reading_receiver.borrow() {
-                let mut peak_pressure = peak_memory_pressure.lock();
-                if reading.buck2_slice_memory_pressure > *peak_pressure {
-                    *peak_pressure = reading.buck2_slice_memory_pressure;
-                    // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
-                    // and can't be more than 100). We should always limit this as sending more can overload scribe
-                    dispatcher.instant_event(buck2_data::MemoryPressure {
-                        peak_pressure: *peak_pressure,
-                    });
-                }
-            }
-
-            tokio::select! {
-                state = state_receiver.changed() => {
-                    if let Err(e) = state {
-                        soft_error!(
-                            "memory_reporter_failed",
-                            internal_error!("Error receiving state from memory tracker: {}", e),
-                        ).unwrap();
-                        break;
-                    }
                 },
-                reading = reading_receiver.changed() => {
-                    if let Err(e) = reading {
-                        soft_error!(
-                            "memory_reporter_failed",
-                            internal_error!("Error receiving reading from memory tracker =: {}", e),
-                        ).unwrap();
-                        break;
+                reading = receive_and_clone(&mut reading_receiver) => {
+                    if let Some(reading) = reading {
+                        let mut peak_pressure = peak_memory_pressure.lock();
+                        if reading.buck2_slice_memory_pressure > *peak_pressure {
+                            *peak_pressure = reading.buck2_slice_memory_pressure;
+                            // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
+                            // and can't be more than 100). We should always limit this as sending more can overload scribe
+                            dispatcher.instant_event(buck2_data::MemoryPressure {
+                                peak_pressure: *peak_pressure,
+                            });
+                        }
                     }
                 }
             }
