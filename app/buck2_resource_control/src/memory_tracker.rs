@@ -19,10 +19,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::dispatch::Span;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
-use parking_lot::Mutex;
 use tokio::fs::File;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncReadExt;
@@ -30,6 +28,7 @@ use tokio::io::AsyncSeekExt;
 use tokio::io::BufReader;
 use tokio::sync::watch;
 use tokio::sync::watch::Sender;
+use tokio_util::sync::CancellationToken;
 
 use crate::action_cgroups::ActionCgroups;
 use crate::buck_cgroup_tree::BuckCgroupTree;
@@ -204,8 +203,7 @@ async fn open_buck2_cgroup_memory_file(file_name: &FileName) -> buck2_error::Res
 }
 
 pub struct MemoryReporter {
-    pressure_span: Arc<Mutex<Option<Span>>>,
-    pub handle: tokio::task::JoinHandle<()>,
+    cancel: CancellationToken,
 }
 
 /// Used to ensure that the lock is not help for an extended amount of time
@@ -218,21 +216,23 @@ pub fn spawn_memory_reporter(
     dispatcher: EventDispatcher,
     memory_tracker: MemoryTrackerHandle,
 ) -> MemoryReporter {
-    let peak_memory_pressure = Arc::new(Mutex::new(0));
-    let pressure_span = Arc::new(Mutex::new(None));
-    let span = pressure_span.dupe();
-    let handle = tokio::task::spawn(async move {
+    let cancel = CancellationToken::new();
+    let cancel2 = cancel.clone();
+    tokio::task::spawn(async move {
         let mut state_receiver = memory_tracker.state_sender.subscribe();
         let mut reading_receiver = memory_tracker.reading_sender.subscribe();
+
+        let mut span = None;
+        let mut peak_memory_pressure = 0;
+
         loop {
             tokio::select! {
                 state = receive_and_clone(&mut state_receiver) => {
                     if let TrackedMemoryState::Reading(state) = state {
-                        let mut span = span.lock();
                         match (span.is_some(), state.memory_pressure_state) {
                             (false, MemoryPressureState::AbovePressureLimit) => {
                                 let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
-                                *span = Some(new_span);
+                                span = Some(new_span);
                             }
                             (true, MemoryPressureState::BelowPressureLimit) => {
                                 if let Some(span) = span.take() {
@@ -245,32 +245,31 @@ pub fn spawn_memory_reporter(
                 },
                 reading = receive_and_clone(&mut reading_receiver) => {
                     if let Some(reading) = reading {
-                        let mut peak_pressure = peak_memory_pressure.lock();
-                        if reading.buck2_slice_memory_pressure > *peak_pressure {
-                            *peak_pressure = reading.buck2_slice_memory_pressure;
+                        if reading.buck2_slice_memory_pressure > peak_memory_pressure {
+                            peak_memory_pressure = reading.buck2_slice_memory_pressure;
                             // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
                             // and can't be more than 100). We should always limit this as sending more can overload scribe
                             dispatcher.instant_event(buck2_data::MemoryPressure {
-                                peak_pressure: *peak_pressure,
+                                peak_pressure: peak_memory_pressure,
                             });
                         }
                     }
                 }
+                _ = cancel2.cancelled() => {
+                    if let Some(span) = span.take() {
+                        span.end(buck2_data::MemoryPressureEnd {})
+                    }
+                    break;
+                }
             }
         }
     });
-    MemoryReporter {
-        pressure_span,
-        handle,
-    }
+    MemoryReporter { cancel }
 }
 
 impl Drop for MemoryReporter {
     fn drop(&mut self) {
-        if let Some(span) = self.pressure_span.lock().take() {
-            span.end(buck2_data::MemoryPressureEnd {})
-        }
-        self.handle.abort();
+        self.cancel.cancel();
     }
 }
 
