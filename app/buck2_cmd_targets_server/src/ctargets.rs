@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::io::Write;
 use std::iter;
 
 use async_trait::async_trait;
@@ -81,19 +82,59 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
 
         let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
 
-        let compatible_targets = load_compatible_patterns_with_modifiers(
+        let keep_going = self.req.keep_going;
+
+        let result = load_compatible_patterns_with_modifiers(
             &mut ctx,
             parsed_patterns_with_modifiers,
             &global_cfg_options,
             skip_missing_targets,
+            keep_going,
         )
         .await?;
 
         let mut serialized_targets_output = String::new();
+        let mut stderr_output = String::new();
         let mut needs_separator = false;
 
         formatter.begin(&mut serialized_targets_output);
-        for node in compatible_targets.into_iter() {
+
+        // Format errors
+        for error in result.errors {
+            if let Some(package_with_modifiers) = error.package {
+                // Package-level error
+                if needs_separator {
+                    formatter.separator(&mut serialized_targets_output);
+                }
+                needs_separator = true;
+
+                let mut stderr_buf = String::new();
+                formatter.package_error(
+                    package_with_modifiers.package,
+                    &error.error,
+                    &mut serialized_targets_output,
+                    &mut stderr_buf,
+                );
+                stderr_output.push_str(&stderr_buf);
+            } else {
+                // Target-level error
+                if needs_separator {
+                    formatter.separator(&mut serialized_targets_output);
+                }
+                needs_separator = true;
+
+                let mut stderr_buf = String::new();
+                formatter.target_error(
+                    &error.error,
+                    &mut serialized_targets_output,
+                    &mut stderr_buf,
+                );
+                stderr_output.push_str(&stderr_buf);
+            }
+        }
+
+        // Format compatible targets
+        for node in result.compatible_targets.into_iter() {
             // TODO(nga): we should probably get rid of forward nodes.
             let nodes = iter::once(&node).chain(node.forward_target());
 
@@ -105,7 +146,13 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
                 formatter.target(node, &mut serialized_targets_output)?;
             }
         }
+
         formatter.end(&mut serialized_targets_output);
+
+        // Print errors to stderr if exists
+        if !stderr_output.is_empty() {
+            server_ctx.stderr()?.write_all(stderr_output.as_bytes())?;
+        }
 
         Ok(ConfiguredTargetsResponse {
             serialized_targets_output,

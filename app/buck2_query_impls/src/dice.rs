@@ -358,13 +358,15 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         let parsed_patterns =
             literals.try_map(|p| self.literal_parser.parse_target_pattern_with_modifiers(p))?;
 
-        Ok(load_compatible_patterns_with_modifiers(
+        let result = load_compatible_patterns_with_modifiers(
             ctx,
             parsed_patterns,
             &self.global_cfg_options,
             MissingTargetBehavior::Fail,
+            false,
         )
-        .await?)
+        .await?;
+        Ok(result.compatible_targets)
     }
 }
 

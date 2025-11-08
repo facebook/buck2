@@ -1,0 +1,2 @@
+# Package b: Parse error - this will fail during TARGETS file evaluation
+fail("test_parse_error")

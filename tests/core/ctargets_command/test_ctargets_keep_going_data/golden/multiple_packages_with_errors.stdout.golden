@@ -1,0 +1,30 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[
+  {
+    "buck.package":"root//b",
+    "buck.error":"Error evaluating build file: `root//b:TARGETS.fixture`\n\nCaused by:\n    Traceback (most recent call last):\n      * b/TARGETS.fixture:2, in <module>\n          fail(\"test_parse_error\")\n    error: fail: test_parse_error\n     --> b/TARGETS.fixture:2:1\n      |\n    2 | fail(\"test_parse_error\")\n      | ^^^^^^^^^^^^^^^^^^^^^^^^\n      |\n    "
+  },
+  {
+    "buck.package":"root//nonexistent_package",
+    "buck.error":"package `root//nonexistent_package:` does not exist\n         ^-----------------------^\n    dir `root//nonexistent_package` does not exist. "
+  },
+  {
+    "buck.type":"nano_prelude//stub_rules.bzl:stub",
+    "buck.deps":[],
+    "buck.inputs":[],
+    "buck.package":"root//a",
+    "name":"target1",
+    "visibility":[],
+    "within_view":["PUBLIC"]
+  },
+  {
+    "buck.type":"nano_prelude//stub_rules.bzl:stub",
+    "buck.deps":[],
+    "buck.inputs":[],
+    "buck.package":"root//d",
+    "name":"exists",
+    "visibility":[],
+    "within_view":["PUBLIC"]
+  }
+]

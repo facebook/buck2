@@ -218,7 +218,10 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
         )>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> buck2_error::Result<TargetSet<Self>> {
-        Ok(get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await?)
+        let result =
+            get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options, false)
+                .await?;
+        Ok(result.compatible_targets)
     }
 }
 

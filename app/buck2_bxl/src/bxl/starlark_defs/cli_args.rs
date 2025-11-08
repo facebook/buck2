@@ -753,15 +753,17 @@ impl CliArgType {
                             &ctx.cell_resolver,
                             &ctx.cell_alias_resolver,
                         )?;
-                    let loaded = load_compatible_patterns_with_modifiers(
+                    let result = load_compatible_patterns_with_modifiers(
                         &mut ctx.dice.clone(),
                         vec![pattern_with_modifiers],
                         &ctx.global_cfg_options,
                         MissingTargetBehavior::Fail,
+                        false,
                     )
                     .await?;
                     Some(CliArgValue::List(
-                        loaded
+                        result
+                            .compatible_targets
                             .iter()
                             .map(|t| CliArgValue::ConfiguredTargetLabel(t.label().dupe()))
                             .collect(),

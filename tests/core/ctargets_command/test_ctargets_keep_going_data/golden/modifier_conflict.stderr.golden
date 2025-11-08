@@ -1,0 +1,7 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Starting new buck2 daemon...
+[<TIMESTAMP>] Connected to new buck2 daemon.
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+[<TIMESTAMP>] Error parsing root//a
+[<TIMESTAMP>] Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag

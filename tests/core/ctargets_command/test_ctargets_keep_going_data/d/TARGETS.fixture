@@ -1,0 +1,4 @@
+# Package d: Simple package for testing missing targets
+stub(
+    name = "exists",
+)

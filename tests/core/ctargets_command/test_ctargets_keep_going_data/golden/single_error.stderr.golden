@@ -1,0 +1,19 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Starting new buck2 daemon...
+[<TIMESTAMP>] Connected to new buck2 daemon.
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+[<TIMESTAMP>] Error parsing root//b
+[<TIMESTAMP>] Error evaluating build file: `root//b:TARGETS.fixture`
+[<TIMESTAMP>]
+[<TIMESTAMP>] Caused by:
+[<TIMESTAMP>]     Traceback (most recent call last):
+[<TIMESTAMP>]       * b/TARGETS.fixture:2, in <module>
+[<TIMESTAMP>]           fail("test_parse_error")
+[<TIMESTAMP>]     error: fail: test_parse_error
+[<TIMESTAMP>]      --> b/TARGETS.fixture:2:1
+[<TIMESTAMP>]       |
+[<TIMESTAMP>]     2 | fail("test_parse_error")
+[<TIMESTAMP>]       | ^^^^^^^^^^^^^^^^^^^^^^^^
+[<TIMESTAMP>]       |
+[<TIMESTAMP>]     

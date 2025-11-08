@@ -280,6 +280,7 @@ message ConfiguredTargetsRequest {
   bool skip_missing_targets = 11;
   OutputFormat output_format = 13;
   repeated string output_attributes = 14;
+  bool keep_going = 15;
 }
 
 message ConfiguredTargetsResponse {

@@ -1,0 +1,24 @@
+# Package c: Targets for testing transitive incompatibility with keep-going
+
+# Simple good targets
+stub(
+    name = "good1",
+)
+
+stub(
+    name = "good2",
+)
+
+# A target that is incompatible with linux platform
+stub(
+    name = "macos_only_target",
+    compatible_with = ["root//:macos"],
+)
+
+# A compatible target that depends on an incompatible target
+# This should FAIL during configuration (not be skipped)
+stub(
+    name = "depends_on_incompatible",
+    compatible_with = ["root//:linux"],
+    deps = [":macos_only_target"],
+)

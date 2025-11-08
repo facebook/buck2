@@ -408,7 +408,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let loaded_patterns =
                     load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
 
-                let maybe_compatible = get_maybe_compatible_targets(
+                // TODO: Both package errors (_package_errors) and target errors (from the iterator)
+                // are currently discarded when even when keep_going = true. BXL should report these errors like
+                // ctargets does.
+                let (maybe_compatible_iter, _package_errors) = get_maybe_compatible_targets(
                     dice,
                     loaded_patterns.iter_loaded_targets_by_package(),
                     global_cfg_options,
@@ -417,9 +420,9 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 .await?;
 
                 let maybe_compatible: Vec<_> = if keep_going {
-                    maybe_compatible.filter_map(|r| r.ok()).collect()
+                    maybe_compatible_iter.filter_map(|r| r.ok()).collect()
                 } else {
-                    maybe_compatible.collect::<buck2_error::Result<_>>()?
+                    maybe_compatible_iter.collect::<buck2_error::Result<_>>()?
                 };
 
                 let result = filter_incompatible(maybe_compatible, ctx)?;
@@ -632,7 +635,7 @@ async fn unpack_string_literal(
             let loaded_patterns =
                 load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
 
-            let maybe_compatible = get_maybe_compatible_targets(
+            let (maybe_compatible_iter, _package_errors) = get_maybe_compatible_targets(
                 dice,
                 loaded_patterns.iter_loaded_targets_by_package(),
                 global_cfg_options,
@@ -640,7 +643,7 @@ async fn unpack_string_literal(
             )
             .await?;
 
-            let maybe_compatible = maybe_compatible.collect::<buck2_error::Result<_>>()?;
+            let maybe_compatible = maybe_compatible_iter.collect::<buck2_error::Result<_>>()?;
             Ok(SingleOrCompatibleConfiguredTargets::Compatibles(
                 maybe_compatible,
             ))

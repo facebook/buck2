@@ -16,6 +16,9 @@ Options:
           Skip missing targets from `BUCK` files when non-glob pattern is specified. This option
           does not skip missing packages and does not ignore errors of `BUCK` file evaluation
 
+      --keep-going
+          On errors, put buck.error in the output stream and continue
+
   -A, --output-all-attributes
           Output all attributes, equivalent of --output-attribute ''.
 
