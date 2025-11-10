@@ -27,7 +27,6 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::BufReader;
 use tokio::sync::watch;
-use tokio::sync::watch::Sender;
 use tokio_util::sync::CancellationToken;
 
 use crate::action_cgroups::ActionCgroups;
@@ -118,22 +117,27 @@ impl BackoffData {
 pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
 
 #[derive(Allocative)]
+#[allocative(skip)]
 pub struct MemoryTrackerHandleInner {
     // Written to by tracker, read by reporter, executors
-    #[allocative(skip)]
-    pub state_sender: Sender<TrackedMemoryState>,
+    pub state_sender: watch::Sender<TrackedMemoryState>,
     // Written to by tracker, TODO read from snapshot collector
-    #[allocative(skip)]
-    pub reading_sender: Sender<Option<MemoryReading>>,
+    pub reading_sender: watch::Sender<Option<MemoryReading>>,
+    resource_control_scheduled_event_reporter:
+        watch::Sender<Option<buck2_data::ResourceControlEvents>>,
     // Written to by executors and tracker, read by executors
-    #[allocative(skip)]
     pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
-    #[allocative(skip)]
     pub(crate) cgroup_pool: CgroupPool,
 }
 
 impl MemoryTrackerHandleInner {
-    fn new(cgroup_pool: CgroupPool, action_cgroups: ActionCgroups) -> Self {
+    fn new(
+        cgroup_pool: CgroupPool,
+        action_cgroups: ActionCgroups,
+        resource_control_scheduled_event_reporter: watch::Sender<
+            Option<buck2_data::ResourceControlEvents>,
+        >,
+    ) -> Self {
         let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
         let (reading_sender, _rx) = watch::channel(None);
         Self {
@@ -141,6 +145,7 @@ impl MemoryTrackerHandleInner {
             reading_sender,
             action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
             cgroup_pool,
+            resource_control_scheduled_event_reporter,
         }
     }
 }
@@ -221,6 +226,9 @@ pub fn spawn_memory_reporter(
     tokio::task::spawn(async move {
         let mut state_receiver = memory_tracker.state_sender.subscribe();
         let mut reading_receiver = memory_tracker.reading_sender.subscribe();
+        let mut resource_control_event_receiver = memory_tracker
+            .resource_control_scheduled_event_reporter
+            .subscribe();
 
         let mut span = None;
         let mut peak_memory_pressure = 0;
@@ -255,6 +263,12 @@ pub fn spawn_memory_reporter(
                         }
                     }
                 }
+                resource_control_event_receiver = receive_and_clone(&mut resource_control_event_receiver) => {
+                    if let Some(mut resource_control_event) = resource_control_event_receiver {
+                        resource_control_event.uuid = dispatcher.trace_id().to_string();
+                        dispatcher.instant_event(resource_control_event);
+                    }
+                }
                 _ = cancel2.cancelled() => {
                     if let Some(span) = span.take() {
                         span.end(buck2_data::MemoryPressureEnd {})
@@ -287,8 +301,18 @@ pub async fn create_memory_tracker(
         &resource_control_config,
         &cgroup_tree.enabled_controllers,
     )?;
-    let action_cgroups = ActionCgroups::init(resource_control_config, daemon_id).await?;
-    let handle = MemoryTrackerHandleInner::new(cgroup_pool, action_cgroups);
+    let resource_control_scheduled_event_reporter = watch::channel(None).0;
+    let action_cgroups = ActionCgroups::init(
+        resource_control_config,
+        daemon_id,
+        resource_control_scheduled_event_reporter.clone(),
+    )
+    .await?;
+    let handle = MemoryTrackerHandleInner::new(
+        cgroup_pool,
+        action_cgroups,
+        resource_control_scheduled_event_reporter,
+    );
     const MAX_RETRIES: u32 = 5;
     let memory_limit_bytes = resource_control_config
         .hybrid_execution_memory_limit_gibibytes
@@ -568,7 +592,11 @@ mod tests {
         let Some(testing_pool) = CgroupPool::testing_new() else {
             return Ok(());
         };
-        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
+        let handle = MemoryTrackerHandleInner::new(
+            testing_pool,
+            ActionCgroups::testing_new(),
+            watch::channel(None).0,
+        );
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -676,7 +704,11 @@ mod tests {
         let Some(testing_pool) = CgroupPool::testing_new() else {
             return Ok(());
         };
-        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
+        let handle = MemoryTrackerHandleInner::new(
+            testing_pool,
+            ActionCgroups::testing_new(),
+            watch::channel(None).0,
+        );
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -772,7 +804,11 @@ mod tests {
         let Some(testing_pool) = CgroupPool::testing_new() else {
             return Ok(());
         };
-        let handle = MemoryTrackerHandleInner::new(testing_pool, ActionCgroups::testing_new());
+        let handle = MemoryTrackerHandleInner::new(
+            testing_pool,
+            ActionCgroups::testing_new(),
+            watch::channel(None).0,
+        );
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,

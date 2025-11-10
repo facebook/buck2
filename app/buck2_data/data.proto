@@ -744,12 +744,12 @@ message ResourceControlEvents {
   uint64 daemon_swap_current = 18;
 
   // Information related to the action in question
-  string action_kind = 2;
-  string action_digest = 5;
-  uint64 action_cgroup_memory_current = 8;
-  uint64 action_cgroup_memory_peak = 9;
-  uint64 action_cgroup_swap_current = 15;
-  uint64 action_cgroup_swap_peak = 16;
+  optional string action_kind = 2;
+  optional string action_digest = 5;
+  optional uint64 action_cgroup_memory_current = 8;
+  optional uint64 action_cgroup_memory_peak = 9;
+  optional uint64 action_cgroup_swap_current = 15;
+  optional uint64 action_cgroup_swap_peak = 16;
 
   uint64 actions_suspended_count = 10;
   uint64 actions_running_count = 11;
@@ -779,6 +779,7 @@ enum ResourceControlEventKind {
   SUSPEND_KILL = 3;
   WAKE_UNFREEZE = 4;
   WAKE_RETRY = 5;
+  SCHEDULED = 10;
 }
 
 // Result of invoking buck2 rage

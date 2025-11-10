@@ -33,6 +33,7 @@ use nix::unistd;
 use tokio::fs::File;
 use tokio::sync::Mutex;
 use tokio::sync::oneshot;
+use tokio::sync::watch;
 
 use crate::CommandType;
 use crate::cgroup_info::CGroupInfo;
@@ -204,7 +205,9 @@ pub(crate) struct ActionCgroups {
     total_memory_during_last_suspend: Option<u64>,
     // Buck2 metadata for telemetry logging purposes
     metadata: HashMap<String, String>,
-    #[allow(dead_code)]
+    resource_control_scheduled_event_reporter:
+        watch::Sender<Option<buck2_data::ResourceControlEvents>>,
+    last_scheduled_event_time: Option<Instant>,
     // Constraints for the cgroup hierarchy
     ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
 }
@@ -279,9 +282,12 @@ impl ActionCgroupSession {
 }
 
 impl ActionCgroups {
-    pub async fn init(
+    pub(crate) async fn init(
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
+        resource_control_scheduled_event_reporter: watch::Sender<
+            Option<buck2_data::ResourceControlEvents>,
+        >,
     ) -> buck2_error::Result<Self> {
         let enable_suspension = resource_control_config.enable_suspension.unwrap_or(false);
 
@@ -292,14 +298,18 @@ impl ActionCgroups {
             resource_control_config.preferred_action_suspend_strategy,
             ancestor_cgroup_constraints,
             daemon_id,
+            resource_control_scheduled_event_reporter,
         ))
     }
 
-    pub fn new(
+    pub(crate) fn new(
         enable_suspension: bool,
         suspend_strategy: Option<ActionSuspendStrategy>,
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
         daemon_id: &DaemonId,
+        resource_control_scheduled_event_reporter: watch::Sender<
+            Option<buck2_data::ResourceControlEvents>,
+        >,
     ) -> Self {
         Self {
             enable_suspension,
@@ -314,12 +324,14 @@ impl ActionCgroups {
             total_memory_during_last_suspend: None,
             metadata: buck2_events::metadata::collect(daemon_id),
             ancestor_cgroup_constraints,
+            resource_control_scheduled_event_reporter,
+            last_scheduled_event_time: None,
         }
     }
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Self {
-        Self::new(false, None, None, &DaemonId::new())
+        Self::new(false, None, None, &DaemonId::new(), watch::channel(None).0)
     }
 
     pub async fn command_started(
@@ -468,6 +480,28 @@ impl ActionCgroups {
             if let Err(e) = self.restore_memory_high() {
                 let _unused = soft_error!("restore_memory_high_error", e);
             }
+        }
+
+        // Report resource control events every 10 seconds normally, but every second during times
+        // of pressure
+        let scheduled_event_freq = if pressure_state == MemoryPressureState::AbovePressureLimit {
+            Duration::from_secs(1)
+        } else {
+            Duration::from_secs(10)
+        };
+        let now = Instant::now();
+        if self
+            .last_scheduled_event_time
+            .is_some_and(|last| now.duration_since(last) > scheduled_event_freq)
+        {
+            let e = self.make_resource_control_event(
+                memory_reading,
+                buck2_data::ResourceControlEventKind::Scheduled,
+                None,
+            );
+            self.resource_control_scheduled_event_reporter
+                .send_replace(Some(e));
+            self.last_scheduled_event_time = Some(now);
         }
     }
 
@@ -642,15 +676,15 @@ impl ActionCgroups {
         Ok(())
     }
 
-    fn emit_resource_control_event(
+    fn make_resource_control_event(
         &self,
-        dispatcher: &EventDispatcher,
         memory_reading: &MemoryReading,
         kind: buck2_data::ResourceControlEventKind,
-        cgroup: &ActionCgroup,
-    ) {
-        dispatcher.instant_event(buck2_data::ResourceControlEvents {
-            uuid: dispatcher.trace_id().to_string(),
+        cgroup: Option<&ActionCgroup>,
+    ) -> buck2_data::ResourceControlEvents {
+        buck2_data::ResourceControlEvents {
+            // To be replaced later
+            uuid: String::new(),
 
             kind: kind.into(),
 
@@ -663,14 +697,14 @@ impl ActionCgroups {
             daemon_memory_current: memory_reading.daemon_memory_current,
             daemon_swap_current: memory_reading.daemon_memory_swap_current,
 
-            action_kind: cgroup.command_type.to_string(),
-            action_digest: cgroup.action_digest.clone().unwrap_or_default(),
+            action_kind: cgroup.map(|cgroup| cgroup.command_type.to_string()),
+            action_digest: cgroup.map(|cgroup| cgroup.action_digest.clone().unwrap_or_default()),
 
-            action_cgroup_memory_current: cgroup.memory_current,
-            action_cgroup_memory_peak: cgroup.memory_peak,
+            action_cgroup_memory_current: cgroup.map(|cgroup| cgroup.memory_current),
+            action_cgroup_memory_peak: cgroup.map(|cgroup| cgroup.memory_peak),
 
-            action_cgroup_swap_current: cgroup.swap_current,
-            action_cgroup_swap_peak: cgroup.swap_peak,
+            action_cgroup_swap_current: cgroup.map(|cgroup| cgroup.swap_current),
+            action_cgroup_swap_peak: cgroup.map(|cgroup| cgroup.swap_peak),
 
             actions_suspended_count: self.suspended_cgroups.len() as u64,
             actions_running_count: self.running_cgroups.len() as u64,
@@ -685,7 +719,19 @@ impl ActionCgroups {
                     memory_swap_high: constraints.memory_swap_high,
                 },
             ),
-        });
+        }
+    }
+
+    fn emit_resource_control_event(
+        &self,
+        dispatcher: &EventDispatcher,
+        memory_reading: &MemoryReading,
+        kind: buck2_data::ResourceControlEventKind,
+        cgroup: &ActionCgroup,
+    ) {
+        let mut event = self.make_resource_control_event(memory_reading, kind, Some(cgroup));
+        event.uuid = dispatcher.trace_id().to_string();
+        dispatcher.instant_event(event);
     }
 }
 
@@ -803,7 +849,8 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
 
-        let mut action_cgroups = ActionCgroups::new(false, None, None, &DaemonId::new());
+        let mut action_cgroups =
+            ActionCgroups::new(false, None, None, &DaemonId::new(), watch::channel(None).0);
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
@@ -865,7 +912,8 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
 
-        let mut action_cgroups = ActionCgroups::new(true, None, None, &DaemonId::new());
+        let mut action_cgroups =
+            ActionCgroups::new(true, None, None, &DaemonId::new(), watch::channel(None).0);
         action_cgroups
             .command_started(
                 cgroup_1.clone(),

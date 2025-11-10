@@ -232,7 +232,8 @@ async def test_resource_control_events_created(
         "ResourceControlEvents",
     )
 
-    assert len(event) > 0
+    assert len(list(filter(lambda e: e["kind"] == "Scheduled", event))) > 0
+    assert len(list(filter(lambda e: e["kind"] != "Scheduled", event))) > 0
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
