@@ -238,11 +238,15 @@ def _main(bxl_ctx):
     for (idx, dep) in enumerate(deps):
         if dep.label.raw_target() in deps_with_vcxproj:
             deps_with_vcxproj_indices[idx] = True
+    if explicit_targets:
+        startup_target_fallback = explicit_targets.keys()[0]
+    else:
+        startup_target_fallback = targets[0].label.raw_target()
     sln_content = gen_sln(
         [dep for (idx, dep) in enumerate(deps) if idx in deps_with_vcxproj_indices],
         [s for (idx, s) in enumerate(basic_vs_settings_list) if idx in deps_with_vcxproj_indices],
         explicit_targets,
-        bxl_ctx.cli_args.startup_target or targets[0],
+        bxl_ctx.cli_args.startup_target or startup_target_fallback,
         bxl_ctx,
     )
     sln_artifact = actions.declare_output(sln_path)
