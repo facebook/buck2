@@ -305,9 +305,440 @@ impl_eden_data_into_result!(
 );
 
 impl_eden_data_into_result!(SizeOrError, i64, size);
+    SortedVectorMap<PathString, FileAttributeDataOrErrorV2>,
+    dirListAttributeData
+);
 
-impl_eden_data_into_result!(Sha1OrError, BinaryHash, sha1);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    // Helper function to create a basic EdenError for testing
+    fn create_eden_error(error_type: EdenErrorType, error_code: Option<i32>) -> edenfs::EdenError {
+        edenfs::EdenError {
+            message: "Test error message".to_string(),
+            errorType: error_type,
+            errorCode: error_code,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_curl_timeout() {
+        const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+        let tag = eden_network_error_tag(Some(CURLE_OPERATION_TIMEDOUT));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkCurlTimedout);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_curl_recv_error() {
+        const CURLE_RECV_ERROR: i32 = curl_sys::CURLE_RECV_ERROR as i32;
+        let tag = eden_network_error_tag(Some(CURLE_RECV_ERROR));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkTls);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_curl_ssl_cert_problem() {
+        const CURLE_SSL_CERTPROBLEM: i32 = curl_sys::CURLE_SSL_CERTPROBLEM as i32;
+        let tag = eden_network_error_tag(Some(CURLE_SSL_CERTPROBLEM));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkTls);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_http_401() {
+        let tag = eden_network_error_tag(Some(401));
+        assert_eq!(tag, ErrorTag::HttpUnauthorized);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_http_403() {
+        let tag = eden_network_error_tag(Some(403));
+        assert_eq!(tag, ErrorTag::HttpForbidden);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_http_503() {
+        let tag = eden_network_error_tag(Some(503));
+        assert_eq!(tag, ErrorTag::HttpServiceUnavailable);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_unknown_code() {
+        let tag = eden_network_error_tag(Some(999));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkUncategorized);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_none() {
+        // This is the key test for the new functionality - handling None case
+        let tag = eden_network_error_tag(None);
+        assert_eq!(tag, ErrorTag::IoEdenNetworkUncategorized);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_zero_code() {
+        let tag = eden_network_error_tag(Some(0));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkUncategorized);
+    }
+
+    #[test]
+    fn test_eden_network_error_tag_with_negative_code() {
+        let tag = eden_network_error_tag(Some(-1));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkUncategorized);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_enoent() {
+        let tag = eden_posix_error_tag(libc::ENOENT);
+        assert_eq!(tag, ErrorTag::IoEdenFileNotFound);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_eacces() {
+        let tag = eden_posix_error_tag(libc::EACCES);
+        assert_eq!(tag, ErrorTag::IoPermissionDenied);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_eperm() {
+        let tag = eden_posix_error_tag(libc::EPERM);
+        assert_eq!(tag, ErrorTag::IoPermissionDenied);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_etimedout() {
+        let tag = eden_posix_error_tag(libc::ETIMEDOUT);
+        assert_eq!(tag, ErrorTag::IoTimeout);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_ebusy() {
+        let tag = eden_posix_error_tag(libc::EBUSY);
+        assert_eq!(tag, ErrorTag::IoExecutableFileBusy);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_epipe() {
+        let tag = eden_posix_error_tag(libc::EPIPE);
+        assert_eq!(tag, ErrorTag::IoBrokenPipe);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_enospc() {
+        let tag = eden_posix_error_tag(libc::ENOSPC);
+        assert_eq!(tag, ErrorTag::IoStorageFull);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_econnaborted() {
+        let tag = eden_posix_error_tag(libc::ECONNABORTED);
+        assert_eq!(tag, ErrorTag::IoConnectionAborted);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_enotconn() {
+        let tag = eden_posix_error_tag(libc::ENOTCONN);
+        assert_eq!(tag, ErrorTag::IoNotConnected);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_ebadmsg() {
+        let tag = eden_posix_error_tag(libc::EBADMSG);
+        assert_eq!(tag, ErrorTag::IoEdenDataCorruption);
+    }
+
+    #[test]
+    fn test_eden_posix_error_tag_unknown() {
+        let tag = eden_posix_error_tag(9999);
+        assert_eq!(tag, ErrorTag::IoEdenUncategorized);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_win32_error() {
+        let error = create_eden_error(EdenErrorType::WIN32_ERROR, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenWin32Error);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_hresult_error() {
+        let error = create_eden_error(EdenErrorType::HRESULT_ERROR, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenHresultError);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_argument_error() {
+        let error = create_eden_error(EdenErrorType::ARGUMENT_ERROR, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenArgumentError);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_generic_error() {
+        let error = create_eden_error(EdenErrorType::GENERIC_ERROR, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenGenericError);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_mount_generation_changed() {
+        let error = create_eden_error(EdenErrorType::MOUNT_GENERATION_CHANGED, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenMountGenerationChanged);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_journal_truncated() {
+        let error = create_eden_error(EdenErrorType::JOURNAL_TRUNCATED, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenJournalTruncated);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_checkout_in_progress() {
+        let error = create_eden_error(EdenErrorType::CHECKOUT_IN_PROGRESS, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenCheckoutInProgress);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_out_of_date_parent() {
+        let error = create_eden_error(EdenErrorType::OUT_OF_DATE_PARENT, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenOutOfDateParent);
+    }
+
+    #[test]
+    fn test_eden_service_error_tag_attribute_unavailable() {
+        let error = create_eden_error(EdenErrorType::ATTRIBUTE_UNAVAILABLE, None);
+        let tag = eden_service_error_tag(&error);
+        assert_eq!(tag, ErrorTag::IoEdenAttributeUnavailable);
+    }
+
+    #[test]
+    fn test_eden_error_from_posix_error_with_code() {
+        let eden_err = create_eden_error(EdenErrorType::POSIX_ERROR, Some(libc::ENOENT));
+        let error: EdenError = eden_err.into();
+        
+        match error {
+            EdenError::PosixError { code, .. } => {
+                assert_eq!(code, libc::ENOENT);
+            }
+            _ => panic!("Expected PosixError variant"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_from_posix_error_without_code() {
+        let eden_err = create_eden_error(EdenErrorType::POSIX_ERROR, None);
+        let error: EdenError = eden_err.into();
+        
+        // Without error code, should fall through to ServiceError
+        match error {
+            EdenError::ServiceError { .. } => {
+                // Expected behavior
+            }
+            _ => panic!("Expected ServiceError variant when POSIX_ERROR has no code"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_from_network_error_with_code() {
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, Some(401));
+        let error: EdenError = eden_err.into();
+        
+        match error {
+            EdenError::NetworkError { code, .. } => {
+                assert_eq!(code, Some(401));
+            }
+            _ => panic!("Expected NetworkError variant"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_from_network_error_without_code() {
+        // This is the key test for the new functionality
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, None);
+        let error: EdenError = eden_err.into();
+        
+        match error {
+            EdenError::NetworkError { code, .. } => {
+                assert_eq!(code, None);
+            }
+            _ => panic!("Expected NetworkError variant"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_from_network_error_with_timeout_code() {
+        const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, Some(CURLE_OPERATION_TIMEDOUT));
+        let error: EdenError = eden_err.into();
+        
+        match error {
+            EdenError::NetworkError { code, .. } => {
+                assert_eq!(code, Some(CURLE_OPERATION_TIMEDOUT));
+            }
+            _ => panic!("Expected NetworkError variant"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_from_network_error_with_zero_code() {
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, Some(0));
+        let error: EdenError = eden_err.into();
+        
+        match error {
+            EdenError::NetworkError { code, .. } => {
+                assert_eq!(code, Some(0));
+            }
+            _ => panic!("Expected NetworkError variant"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_display_network_error_with_code() {
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, Some(401));
+        let error: EdenError = eden_err.into();
+        let display_str = format!("{}", error);
+        
+        // Should include "code = Some(401)" in the display output
+        assert!(display_str.contains("401"));
+        assert!(display_str.contains("Test error message"));
+    }
+
+    #[test]
+    fn test_eden_error_display_network_error_without_code() {
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, None);
+        let error: EdenError = eden_err.into();
+        let display_str = format!("{}", error);
+        
+        // Should include "code = None" in the display output
+        assert!(display_str.contains("None"));
+        assert!(display_str.contains("Test error message"));
+    }
+
+    #[test]
+    fn test_eden_error_from_generic_error() {
+        let eden_err = create_eden_error(EdenErrorType::GENERIC_ERROR, None);
+        let error: EdenError = eden_err.into();
+        
+        match error {
+            EdenError::ServiceError { .. } => {
+                // Expected behavior
+            }
+            _ => panic!("Expected ServiceError variant for GENERIC_ERROR"),
+        }
+    }
+
+    #[test]
+    fn test_eden_error_debug_format() {
+        let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, Some(503));
+        let error: EdenError = eden_err.into();
+        let debug_str = format!("{:?}", error);
+        
+        // Debug format should contain the variant name
+        assert!(debug_str.contains("NetworkError"));
+    }
+
+    #[test]
+    fn test_network_error_with_various_http_codes() {
+        let test_cases = vec![
+            (Some(200), ErrorTag::IoEdenNetworkUncategorized),
+            (Some(401), ErrorTag::HttpUnauthorized),
+            (Some(403), ErrorTag::HttpForbidden),
+            (Some(404), ErrorTag::IoEdenNetworkUncategorized),
+            (Some(500), ErrorTag::IoEdenNetworkUncategorized),
+            (Some(503), ErrorTag::HttpServiceUnavailable),
+        ];
+
+        for (code_opt, expected_tag) in test_cases {
+            let tag = eden_network_error_tag(code_opt);
+            assert_eq!(
+                tag, expected_tag,
+                "Failed for code {:?}: expected {:?}, got {:?}",
+                code_opt, expected_tag, tag
+            );
+        }
+    }
+
+    #[test]
+    fn test_network_error_roundtrip_with_all_curl_codes() {
+        const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+        const CURLE_RECV_ERROR: i32 = curl_sys::CURLE_RECV_ERROR as i32;
+        const CURLE_SSL_CERTPROBLEM: i32 = curl_sys::CURLE_SSL_CERTPROBLEM as i32;
+
+        let test_codes = vec![
+            CURLE_OPERATION_TIMEDOUT,
+            CURLE_RECV_ERROR,
+            CURLE_SSL_CERTPROBLEM,
+        ];
+
+        for code in test_codes {
+            let eden_err = create_eden_error(EdenErrorType::NETWORK_ERROR, Some(code));
+            let error: EdenError = eden_err.into();
+            
+            match error {
+                EdenError::NetworkError { code: result_code, .. } => {
+                    assert_eq!(result_code, Some(code));
+                }
+                _ => panic!("Expected NetworkError variant for curl code {}", code),
+            }
+        }
+    }
+
+    #[test]
+    fn test_eden_error_boundary_conditions() {
+        // Test with i32::MAX
+        let tag = eden_network_error_tag(Some(i32::MAX));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkUncategorized);
+
+        // Test with i32::MIN
+        let tag = eden_network_error_tag(Some(i32::MIN));
+        assert_eq!(tag, ErrorTag::IoEdenNetworkUncategorized);
+    }
+
+    #[test]
+    fn test_multiple_error_type_conversions() {
+        // Test that different error types are correctly converted
+        let error_types = vec![
+            (EdenErrorType::POSIX_ERROR, Some(libc::ENOENT)),
+            (EdenErrorType::NETWORK_ERROR, Some(401)),
+            (EdenErrorType::NETWORK_ERROR, None),
+            (EdenErrorType::GENERIC_ERROR, None),
+        ];
+
+        for (error_type, error_code) in error_types {
+            let eden_err = create_eden_error(error_type, error_code);
+            let _error: EdenError = eden_err.into();
+            // Just ensure conversion doesn't panic
+        }
+    }
+
+    #[test]
+    fn test_posix_error_preserves_code() {
+        let test_codes = vec![
+            libc::ENOENT,
+            libc::EACCES,
+            libc::EPERM,
+            libc::ETIMEDOUT,
+            libc::EBUSY,
+        ];
+
+        for code in test_codes {
+            let eden_err = create_eden_error(EdenErrorType::POSIX_ERROR, Some(code));
+            let error: EdenError = eden_err.into();
+            
+            match error {
+                EdenError::PosixError { code: result_code, .. } => {
+                    assert_eq!(result_code, code, "Code should be preserved for {}", code);
+                }
+                _ => panic!("Expected PosixError variant"),
+            }
+        }
+    }
+}
 impl_eden_data_into_result!(Blake3OrError, BinaryHash, blake3);
 
 impl_eden_data_into_result!(
