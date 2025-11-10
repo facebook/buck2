@@ -19,18 +19,3 @@ buck_java_library(
         "prelude//toolchains/android/third-party:jsr305",
     ],
 )
-
-buck_java_library(
-    name = "concurrent_for_junit_runner",
-    srcs = ["NamedThreadFactory.java"],
-    # This target is pulled in by testrunner, which needs to compile against Java 8.
-    source = "8",
-    target = "8",
-    visibility = [
-        "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
-        "prelude//toolchains/android/test/...",
-    ],
-    deps = [
-        # IMPORTANT! This list is to remain empty. See src/com/facebook/buck/testrunner/BUCK.
-    ],
-)
