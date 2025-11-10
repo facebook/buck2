@@ -1112,6 +1112,7 @@ apple_toolchain = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "developer_path": attrs.option(attrs.source(), default = None),
             "dsymutil": attrs.exec_dep(providers = [RunInfo]),
+            "dsymutil_flags": attrs.list(attrs.string(), default = []),
             "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "extra_linker_outputs": attrs.set(attrs.string(), default = []),
             "ibtool": attrs.exec_dep(providers = [RunInfo]),

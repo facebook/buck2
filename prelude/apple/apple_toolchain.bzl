@@ -13,6 +13,9 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path
     platform_path = ctx.attrs._internal_platform_path or ctx.attrs.platform_path
+    dsymutil_cmd = cmd_args(ctx.attrs.dsymutil[RunInfo].args)
+    dsymutil_cmd.add(ctx.attrs.dsymutil_flags)
+
     providers = [
         DefaultInfo(),
         AppleToolchainInfo(
@@ -27,7 +30,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             copy_scene_kit_assets = ctx.attrs.copy_scene_kit_assets[RunInfo],
             cxx_platform_info = ctx.attrs.cxx_toolchain[CxxPlatformInfo],
             cxx_toolchain_info = ctx.attrs.cxx_toolchain[CxxToolchainInfo],
-            dsymutil = ctx.attrs.dsymutil[RunInfo],
+            dsymutil = RunInfo(args = dsymutil_cmd),
             dwarfdump = ctx.attrs.dwarfdump[RunInfo] if ctx.attrs.dwarfdump else None,
             extra_linker_outputs = ctx.attrs.extra_linker_outputs,
             ibtool = ctx.attrs.ibtool[RunInfo],
