@@ -57,6 +57,7 @@ message KotlinExtraParams {
   repeated string extraClassPathSnapshots = 24;
   bool shouldKsp2RunIncrementally = 26;
   bool shouldKosabiJvmAbiGenUseK2 = 27;
+  string kotlinClassesDir = 28;
 }
 
 message PluginParams {

@@ -94,6 +94,10 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     RelPath outputDirectory = compilerOutputPaths.getClassesDir();
     RelPath kotlinOutputDirectory = kotlinClassesDir != null ? kotlinClassesDir : outputDirectory;
     steps.add(new MkdirIsolatedStep(kotlinOutputDirectory));
+    // TODO(ijurcikova): Remove
+    Optional<RelPath> kotlincClassesDir =
+        extraParams.getKotlinClassesDir().map(buildCellRootPath::relativize);
+    kotlincClassesDir.ifPresent(path -> steps.add(new MkdirIsolatedStep(path)));
     RelPath annotationGenFolder = compilerOutputPaths.getAnnotationPath();
     Path pathToSrcsList = compilerOutputPaths.getPathToSourcesList().getPath();
 

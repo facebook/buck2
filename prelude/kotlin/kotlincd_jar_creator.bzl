@@ -101,6 +101,7 @@ def create_jar_artifact_kotlincd(
     uses_experimental_content_based_path_hashing = uses_content_based_paths or kotlin_toolchain.allow_experimental_content_based_path_hashing
 
     output_paths = define_output_paths(actions, actions_identifier, label, uses_experimental_content_based_path_hashing)
+    kotlin_classes = declare_prefixed_output(actions, actions_identifier, "__kotlin_classes__", uses_experimental_content_based_path_hashing, dir = True)
 
     should_create_class_abi = \
         not is_creating_subtarget and \
@@ -182,6 +183,7 @@ def create_jar_artifact_kotlincd(
         should_ksp2_run_incrementally = should_ksp2_run_incrementally,
         incremental_state_dir = incremental_state_dir,
         language_version = language_version,
+        kotlin_classes = kotlin_classes,
     )
 
     library_command_builder = command_builder(
@@ -239,6 +241,7 @@ def create_jar_artifact_kotlincd(
             incremental_state_dir = None,
             language_version = language_version,
             should_kosabi_jvm_abi_gen_use_k2 = should_kosabi_jvm_abi_gen_use_k2,
+            kotlin_classes = None,
         )
         abi_command_builder = command_builder(
             kotlin_extra_params = kotlin_extra_params,
@@ -303,6 +306,7 @@ def _encode_kotlin_extra_params(
         should_ksp2_run_incrementally: bool,
         incremental_state_dir: Artifact | None,
         language_version: str,
+        kotlin_classes: Artifact | None,
         should_kosabi_jvm_abi_gen_use_k2: bool | None = False):
     kosabiPluginOptionsMap = {}
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
@@ -348,6 +352,7 @@ def _encode_kotlin_extra_params(
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
         shouldKosabiJvmAbiGenUseK2 = should_kosabi_jvm_abi_gen_use_k2 == True,
+        kotlinClassesDir = kotlin_classes.as_output() if kotlin_classes else None,
     )
 
 def _command_builder(
