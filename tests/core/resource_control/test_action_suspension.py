@@ -69,7 +69,7 @@ async def _check_suspends(
             continue
         ident = action["name"]["identifier"]
         command_meta = action["commands"][-1]["details"]["metadata"]
-        if command_meta["was_suspended"] is True:
+        if command_meta["suspend_duration"] is not None:
             num_suspended_actions += 1
             if kill_and_retry:
                 count = command_meta["suspend_count"]

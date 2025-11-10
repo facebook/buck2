@@ -120,7 +120,6 @@ pub mod action_cgroups {
     pub struct ActionCgroupResult {
         pub memory_peak: Option<u64>,
         pub error: Option<buck2_error::Error>,
-        pub was_suspended: bool,
         pub suspend_duration: Option<Duration>,
         pub suspend_count: u64,
     }
