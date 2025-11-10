@@ -18,7 +18,6 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
-        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
     ],
 )

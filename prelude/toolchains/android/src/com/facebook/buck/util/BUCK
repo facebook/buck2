@@ -40,7 +40,6 @@ buck_kotlin_library(
     visibility = ["PUBLIC"],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
-        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/src/com/facebook/buck/util/types:types",

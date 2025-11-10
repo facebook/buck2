@@ -105,7 +105,6 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
-        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
         "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
         "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
         "prelude//toolchains/android/src/com/facebook/buck/util/string:string",

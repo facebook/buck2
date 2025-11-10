@@ -44,7 +44,6 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
-        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
