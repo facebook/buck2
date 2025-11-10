@@ -27,7 +27,6 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
     cmd = cmd_args(
         [
             dsymutil,
-            "--verify-dwarf={}".format(ctx.attrs._dsymutil_verify_dwarf),
             # Reproducers are not useful, we can reproduce from the action digest.
             "--reproducer=Off",
         ],

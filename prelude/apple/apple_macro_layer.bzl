@@ -9,7 +9,6 @@
 load("@prelude//apple/user:apple_ipa_package.bzl", "make_apple_ipa_package_target")
 load("@prelude//utils:selects.bzl", "selects")
 load(":apple_bundle_config.bzl", "apple_bundle_config")
-load(":apple_dsym_config.bzl", "apple_dsym_config")
 load(":apple_info_plist_substitutions_parsing.bzl", "parse_codesign_entitlements")
 load(":apple_package_config.bzl", "apple_package_config")
 load(":apple_resource_bundle.bzl", "make_resource_bundle_rule")
@@ -93,7 +92,6 @@ def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleB
 def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs):
     _transform_apple_minimum_os_version_to_propagated_target_sdk_version(kwargs)
     kwargs.update(apple_bundle_config())
-    kwargs.update(apple_dsym_config())
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_TEST_LOCAL_EXECUTION_OVERRIDES))
 
     # `extension` is used both by `apple_test` and `apple_resource_bundle`, so provide default here
@@ -114,7 +112,6 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
     _transform_apple_minimum_os_version_to_propagated_target_sdk_version(kwargs)
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
-    kwargs.update(apple_dsym_config())
     codesign_entitlements = selects.apply(info_plist_substitutions, parse_codesign_entitlements)
 
     apple_bundle_rule(
@@ -124,7 +121,6 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
     )
 
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
-    kwargs.update(apple_dsym_config())
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     apple_library_rule(**kwargs)
@@ -151,8 +147,6 @@ def prebuilt_apple_framework_macro_impl(prebuilt_apple_framework_rule = None, **
 
 def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable = None, **kwargs):
     _transform_apple_minimum_os_version_to_propagated_target_sdk_version(kwargs)
-    dsym_args = apple_dsym_config()
-    kwargs.update(dsym_args)
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
 
@@ -167,7 +161,6 @@ def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable
             labels = kwargs.get("labels"),
             visibility = kwargs.get("visibility"),
             default_target_platform = kwargs.get("default_target_platform"),
-            **dsym_args
         )
     else:
         binary_name = original_binary_name
@@ -182,7 +175,6 @@ def apple_package_macro_impl(apple_package_rule = None, apple_ipa_package_rule =
     )
 
 def apple_universal_executable_macro_impl(apple_universal_executable_rule = None, **kwargs):
-    kwargs.update(apple_dsym_config())
     apple_universal_executable_rule(
         **kwargs
     )
