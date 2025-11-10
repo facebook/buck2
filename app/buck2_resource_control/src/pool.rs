@@ -12,9 +12,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
-use std::process::Command;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::file_name::FileName;
@@ -52,7 +49,7 @@ impl fmt::Display for CgroupID {
     }
 }
 
-struct PoolState {
+pub(crate) struct CgroupPool {
     pool_cgroup: Cgroup,
     per_cgroup_memory_high: Option<String>,
     cgroups: HashMap<CgroupID, Cgroup>,
@@ -61,11 +58,8 @@ struct PoolState {
     next_id: usize,
 }
 
-impl PoolState {
-    fn release(&mut self, cgroup_id: CgroupID) {
-        self.in_use.remove(&cgroup_id);
-        self.available.push_back(cgroup_id);
-    }
+impl CgroupPool {
+    const POOL_NAME: &'static FileName = FileName::unchecked_new("actions_cgroup_pool");
 
     fn worker_name(id: CgroupID) -> FileNameBuf {
         let i = id.0;
@@ -97,18 +91,9 @@ impl PoolState {
 
         Ok(cgroup_id)
     }
-}
-
-#[derive(Clone, Dupe)]
-pub struct CgroupPool {
-    state: Arc<Mutex<PoolState>>,
-}
-
-impl CgroupPool {
-    const POOL_NAME: &'static FileName = FileName::unchecked_new("actions_cgroup_pool");
 
     /// Create a cgroup pool in the provided parent cgroup.
-    pub fn create_in_parent_cgroup(
+    pub(crate) fn create_in_parent_cgroup(
         parent: &CgroupPath,
         config: &ResourceControlConfig,
         enabled_controllers: &[String],
@@ -120,77 +105,50 @@ impl CgroupPool {
             pool_cgroup.set_memory_high(pool_memory_high)?;
         }
 
-        let state = PoolState {
+        Ok(CgroupPool {
             cgroups: HashMap::new(),
             available: VecDeque::new(),
             in_use: HashSet::new(),
             next_id: 0,
             per_cgroup_memory_high: config.memory_high_per_action.clone(),
             pool_cgroup,
-        };
-
-        let pool = Self {
-            state: Arc::new(Mutex::new(state)),
-        };
-
-        Ok(pool)
+        })
     }
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Option<Self> {
         let pool_cgroup = Cgroup::create_for_test()?;
 
-        let state = PoolState {
+        Some(CgroupPool {
             cgroups: HashMap::new(),
             available: VecDeque::new(),
             in_use: HashSet::new(),
             next_id: 0,
             per_cgroup_memory_high: None,
             pool_cgroup,
-        };
-
-        Some(Self {
-            state: Arc::new(Mutex::new(state)),
         })
-    }
-
-    pub fn setup_command(
-        &self,
-        cgroup_id: CgroupID,
-        command: &mut Command,
-    ) -> buck2_error::Result<CgroupPathBuf> {
-        let mut state = self.state.lock().expect("Mutex poisoned");
-        let cgroup = state
-            .cgroups
-            .get_mut(&cgroup_id)
-            .ok_or(CgroupPoolError::CgroupIDNotFound { id: cgroup_id })?;
-
-        cgroup.setup_command(command)?;
-        Ok(cgroup.path().to_buf())
     }
 
     /// Acquire a worker cgroup from the pool. If no available worker cgroup, create a new one.
     /// Return a CgroupGuard which will release the cgroup back to the pool when dropped.
-    pub fn acquire(&self) -> buck2_error::Result<(CgroupID, CgroupPathBuf)> {
-        let mut state = self.state.lock().expect("Mutex poisoned");
-
-        let cgroup_id = if let Some(cgroup_id) = state.available.pop_front() {
-            state.in_use.insert(cgroup_id.dupe());
+    pub(crate) fn acquire(&mut self) -> buck2_error::Result<(CgroupID, CgroupPathBuf)> {
+        let cgroup_id = if let Some(cgroup_id) = self.available.pop_front() {
+            self.in_use.insert(cgroup_id.dupe());
             cgroup_id
         } else {
-            state.reserve_additional_cgroup()?
+            self.reserve_additional_cgroup()?
         };
 
-        Ok((cgroup_id, state.cgroups[&cgroup_id].path().to_buf()))
+        Ok((cgroup_id, self.cgroups[&cgroup_id].path().to_buf()))
     }
 
-    pub fn release(&self, cgroup_id: CgroupID) {
+    pub(crate) fn release(&mut self, cgroup_id: CgroupID) {
         // TODO(nero): Reset memory peak
         // reset memory peak is available for linux kernel 6.12 and above, do this when we upgrade the kernel
         // TODO(nero): Kill all processes in the cgroup
         // As Jakob said: it's possible for someone to spawn a persistent daemon from a test.
         // We needs a broader announcement/rollout for this change.
-        let mut state = self.state.lock().expect("Mutex poisoned");
-        state.release(cgroup_id);
+        self.in_use.remove(&cgroup_id);
+        self.available.push_back(cgroup_id);
     }
 }
