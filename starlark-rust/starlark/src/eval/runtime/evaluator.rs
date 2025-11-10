@@ -783,8 +783,35 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             self.time_flame_profile
                 .record_call_enter(const_frozen_string!("GC").to_value());
 
-            self.heap().garbage_collect(|tracer| self.trace(tracer));
+            // Garbage collection does two time-consuming tasks:
+            // 1. It calls the closure we provide here to trace the existing
+            //    heap, moving objects to the new heap.
+            // 2. It returns, implicitly dropping the old arena and any objects
+            //    it may still contain.
+            //
+            // The best way to measure the former and the latter are to record
+            // enter/exits around our call to self.trace, and then an enter at
+            // the end of the closure. Once we regain control we record the
+            // matching exit, which covers the time it took to drop the old
+            // heap.
+            self.heap().garbage_collect(|tracer| {
+                self.time_flame_profile
+                    .record_call_enter(const_frozen_string!("trace/walk").to_value());
 
+                self.trace(tracer);
+                self.time_flame_profile.record_call_exit();
+
+                // See above, this enter begins right as our closure ends, and
+                // will catch the implicit drop of the old arena as the
+                // self.heap() lets it auto-drop on return from the
+                // .garbage_collect()
+                self.time_flame_profile
+                    .record_call_enter(const_frozen_string!("cleanup").to_value());
+            });
+            // This exists the "cleanup" in the closure above
+            self.time_flame_profile.record_call_exit();
+
+            // For the "GC" above
             self.time_flame_profile.record_call_exit();
 
             if self.verbose_gc {
