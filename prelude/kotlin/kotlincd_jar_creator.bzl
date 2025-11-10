@@ -280,6 +280,7 @@ def create_jar_artifact_kotlincd(
             incremental_state_dir = incremental_state_dir,
             abi_jar_snapshot = abi_jar_snapshot,
             used_jars_json = used_jars_json,
+            kotlin_classes = kotlin_classes,
         ), proto
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier, uses_content_based_path_for_jar_snapshot)

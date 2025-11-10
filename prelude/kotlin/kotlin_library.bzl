@@ -547,6 +547,11 @@ def build_kotlin_library(
                     DefaultInfo(default_output = outputs.incremental_state_dir),
                 ]}
 
+            if outputs and outputs.kotlin_classes:
+                extra_sub_targets = extra_sub_targets | {"kotlin_classes": [
+                    DefaultInfo(default_output = outputs.kotlin_classes),
+                ]}
+
             if outputs and outputs.annotation_processor_output:
                 generated_sources = [outputs.annotation_processor_output]
                 extra_sub_targets = extra_sub_targets | {"generated_sources": [
