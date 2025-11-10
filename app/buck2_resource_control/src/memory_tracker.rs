@@ -213,6 +213,7 @@ pub struct MemoryReporter {
 
 /// Used to ensure that the lock is not help for an extended amount of time
 async fn receive_and_clone<T: Clone>(r: &mut tokio::sync::watch::Receiver<T>) -> T {
+    drop(r.changed().await);
     r.borrow_and_update().clone()
 }
 
