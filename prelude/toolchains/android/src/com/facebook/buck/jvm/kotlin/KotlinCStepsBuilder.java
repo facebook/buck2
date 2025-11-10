@@ -41,7 +41,7 @@ public class KotlinCStepsBuilder {
       ImmutableList.Builder<IsolatedStep> steps,
       ActionMetadata actionMetadata,
       KotlinExtraParams extraParams,
-      RelPath kotlinClassesDir,
+      AbsPath kotlinClassesDir,
       String friendPathsArg,
       String kotlinPluginGeneratedFullPath,
       String moduleName,
