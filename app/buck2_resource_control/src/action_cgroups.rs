@@ -45,6 +45,7 @@ use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupID;
+use crate::pool::CgroupPool;
 use crate::systemd::CgroupMemoryFile;
 
 /// Memory constraints inherited from ancestor cgroups in the hierarchy.
@@ -210,6 +211,7 @@ pub(crate) struct ActionCgroups {
     last_scheduled_event_time: Option<Instant>,
     // Constraints for the cgroup hierarchy
     ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+    cgroup_pool: CgroupPool,
 }
 
 // Interface between forkserver/executors and ActionCgroups used to report when commands
@@ -220,7 +222,6 @@ pub struct ActionCgroupSession {
     action_cgroups: Arc<Mutex<ActionCgroups>>,
     cgroup_id: CgroupID,
     pub path: CgroupPathBuf,
-    tracker: MemoryTrackerHandle,
 }
 
 impl ActionCgroupSession {
@@ -235,9 +236,9 @@ impl ActionCgroupSession {
             return Ok(None);
         };
 
-        let (cgroup_id, path) = tracker.cgroup_pool.acquire()?;
-
         let mut action_cgroups = tracker.action_cgroups.lock().await;
+
+        let (cgroup_id, path) = action_cgroups.cgroup_pool.acquire()?;
 
         let kill_future = match action_cgroups
             .command_started(
@@ -252,7 +253,7 @@ impl ActionCgroupSession {
             Ok(x) => x,
             Err(e) => {
                 // FIXME(JakobDegen): A proper drop impl on the id would be better than this
-                tracker.cgroup_pool.release(cgroup_id);
+                action_cgroups.cgroup_pool.release(cgroup_id);
                 return Err(e);
             }
         };
@@ -262,20 +263,16 @@ impl ActionCgroupSession {
                 action_cgroups: tracker.action_cgroups.dupe(),
                 cgroup_id,
                 path,
-                tracker: tracker.dupe(),
             },
             kill_future,
         )))
     }
 
     pub async fn command_finished(&mut self) -> ActionCgroupResult {
-        let res = self
-            .action_cgroups
-            .lock()
-            .await
-            .command_finished(&self.path);
+        let mut action_cgroups = self.action_cgroups.lock().await;
+        let res = action_cgroups.command_finished(&self.path);
 
-        self.tracker.cgroup_pool.release(self.cgroup_id);
+        action_cgroups.cgroup_pool.release(self.cgroup_id);
 
         res
     }
@@ -288,6 +285,7 @@ impl ActionCgroups {
         resource_control_scheduled_event_reporter: watch::Sender<
             Option<buck2_data::ResourceControlEvents>,
         >,
+        cgroup_pool: CgroupPool,
     ) -> buck2_error::Result<Self> {
         let enable_suspension = resource_control_config.enable_suspension.unwrap_or(false);
 
@@ -299,6 +297,7 @@ impl ActionCgroups {
             ancestor_cgroup_constraints,
             daemon_id,
             resource_control_scheduled_event_reporter,
+            cgroup_pool,
         ))
     }
 
@@ -310,6 +309,7 @@ impl ActionCgroups {
         resource_control_scheduled_event_reporter: watch::Sender<
             Option<buck2_data::ResourceControlEvents>,
         >,
+        cgroup_pool: CgroupPool,
     ) -> Self {
         Self {
             enable_suspension,
@@ -326,12 +326,20 @@ impl ActionCgroups {
             ancestor_cgroup_constraints,
             resource_control_scheduled_event_reporter,
             last_scheduled_event_time: None,
+            cgroup_pool,
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new() -> Self {
-        Self::new(false, None, None, &DaemonId::new(), watch::channel(None).0)
+    pub(crate) fn testing_new() -> Option<Self> {
+        Some(Self::new(
+            true,
+            None,
+            None,
+            &DaemonId::new(),
+            watch::channel(None).0,
+            CgroupPool::testing_new()?,
+        ))
     }
 
     pub async fn command_started(
@@ -849,8 +857,9 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
 
-        let mut action_cgroups =
-            ActionCgroups::new(false, None, None, &DaemonId::new(), watch::channel(None).0);
+        let Some(mut action_cgroups) = ActionCgroups::testing_new() else {
+            return Ok(());
+        };
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
@@ -912,8 +921,9 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
 
-        let mut action_cgroups =
-            ActionCgroups::new(true, None, None, &DaemonId::new(), watch::channel(None).0);
+        let Some(mut action_cgroups) = ActionCgroups::testing_new() else {
+            return Ok(());
+        };
         action_cgroups
             .command_started(
                 cgroup_1.clone(),
