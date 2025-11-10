@@ -9,7 +9,6 @@
  */
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
 
@@ -54,7 +53,6 @@ pub(crate) struct CgroupPool {
     per_cgroup_memory_high: Option<String>,
     cgroups: HashMap<CgroupID, Cgroup>,
     available: VecDeque<CgroupID>,
-    in_use: HashSet<CgroupID>,
     next_id: usize,
 }
 
@@ -108,7 +106,6 @@ impl CgroupPool {
         Ok(CgroupPool {
             cgroups: HashMap::new(),
             available: VecDeque::new(),
-            in_use: HashSet::new(),
             next_id: 0,
             per_cgroup_memory_high: config.memory_high_per_action.clone(),
             pool_cgroup,
@@ -122,7 +119,6 @@ impl CgroupPool {
         Some(CgroupPool {
             cgroups: HashMap::new(),
             available: VecDeque::new(),
-            in_use: HashSet::new(),
             next_id: 0,
             per_cgroup_memory_high: None,
             pool_cgroup,
@@ -133,7 +129,6 @@ impl CgroupPool {
     /// Return a CgroupGuard which will release the cgroup back to the pool when dropped.
     pub(crate) fn acquire(&mut self) -> buck2_error::Result<(CgroupID, CgroupPathBuf)> {
         let cgroup_id = if let Some(cgroup_id) = self.available.pop_front() {
-            self.in_use.insert(cgroup_id.dupe());
             cgroup_id
         } else {
             self.reserve_additional_cgroup()?
@@ -148,7 +143,6 @@ impl CgroupPool {
         // TODO(nero): Kill all processes in the cgroup
         // As Jakob said: it's possible for someone to spawn a persistent daemon from a test.
         // We needs a broader announcement/rollout for this change.
-        self.in_use.remove(&cgroup_id);
         self.available.push_back(cgroup_id);
     }
 }
