@@ -39,7 +39,6 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
     if ctx.attrs.dsym_uses_parallel_linker:
         cmd.add("--linker=parallel")
 
-    cmd.add(ctx.attrs._dsymutil_extra_flags)
     cmd.add(
         [
             "-o",

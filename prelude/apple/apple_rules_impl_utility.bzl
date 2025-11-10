@@ -90,7 +90,6 @@ APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default 
 def apple_dsymutil_attrs():
     return {
         "dsym_uses_parallel_linker": _get_enable_dsym_uses_parallel_linker(),
-        "_dsymutil_extra_flags": attrs.list(attrs.string()),
         "_dsymutil_verify_dwarf": attrs.string(),
     }
 
@@ -221,7 +220,6 @@ def apple_xcuitest_extra_attrs():
     }
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
-    attribs.pop("_dsymutil_extra_flags", None)
     attribs.pop("_dsymutil_verify_dwarf", None)
 
     return attribs
