@@ -15,12 +15,12 @@ import static com.google.common.base.Predicates.not;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.facebook.buck.core.util.log.Logger;
-import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.environment.Platform;
 import com.facebook.buck.util.types.Unit;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -47,7 +47,7 @@ public class DefaultProcessExecutor implements ProcessExecutor {
           1,
           TimeUnit.SECONDS,
           new SynchronousQueue<>(),
-          new NamedThreadFactory("ProcessExecutor"));
+          new ThreadFactoryBuilder().setNameFormat("ProcessExecutor").build());
 
   private final PrintStream stdOutStream;
   private final PrintStream stdErrStream;

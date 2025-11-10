@@ -20,7 +20,6 @@ import com.facebook.buck.install.model.InstallResponse;
 import com.facebook.buck.install.model.InstallerGrpc;
 import com.facebook.buck.install.model.ShutdownRequest;
 import com.facebook.buck.install.model.ShutdownResponse;
-import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.types.Unit;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.stub.StreamObserver;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -79,7 +79,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
           1,
           TimeUnit.SECONDS,
           new SynchronousQueue<>(),
-          new NamedThreadFactory("Installer"));
+          new ThreadFactoryBuilder().setNameFormat("Installer").build());
 
   private static final ListeningExecutorService LISTENING_EXECUTOR_SERVICE =
       MoreExecutors.listeningDecorator(THREAD_POOL);

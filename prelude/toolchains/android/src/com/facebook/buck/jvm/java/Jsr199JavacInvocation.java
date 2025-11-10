@@ -33,7 +33,6 @@ import com.facebook.buck.jvm.java.plugin.api.BuckJavacTaskListener;
 import com.facebook.buck.jvm.java.plugin.api.BuckJavacTaskProxy;
 import com.facebook.buck.jvm.java.plugin.api.PluginClassLoader;
 import com.facebook.buck.jvm.java.plugin.api.PluginClassLoaderFactory;
-import com.facebook.buck.util.concurrent.NamedThreadFactory;
 import com.facebook.buck.util.zip.JarBuilder;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +44,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
@@ -75,7 +75,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
 
   private static final ListeningExecutorService THREAD_POOL =
       MoreExecutors.listeningDecorator(
-          Executors.newCachedThreadPool(new NamedThreadFactory("javac")));
+          Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("javac").build()));
 
   private static final int SUCCESS_EXIT_CODE = 0;
   private static final int ERROR_EXIT_CODE = 1;
