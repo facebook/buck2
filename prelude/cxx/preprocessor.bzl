@@ -217,15 +217,18 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
     else:
         return [cmd_args("-isystem"), path]
 
-def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout, extra_preprocessors: list[CPreprocessor] = []) -> CPreprocessor:
+def cxx_exported_preprocessor_info(
+        ctx: AnalysisContext,
+        headers_layout: CxxHeadersLayout,
+        extra_preprocessors: list[CPreprocessor] = [],
+        skip_exported_headers: bool = False) -> CPreprocessor:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
     """
-
-    # Modular libraries will provide their exported headers via a symlink tree
-    # using extra_preprocessors, so should not be put into a header map.
-    if getattr(ctx.attrs, "modular", False):
+    if skip_exported_headers:
+        # Modular libraries will provide their exported headers via a symlink tree
+        # using extra_preprocessors, so should not be put into a header map.
         exported_headers = []
     else:
         exported_headers = cxx_attr_exported_headers(ctx, headers_layout)
