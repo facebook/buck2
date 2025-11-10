@@ -974,14 +974,18 @@ fn lines_for_command_details(
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(Lines::from_colored_multiline_string(&command_failed.stdout));
+    lines.extend(Lines::from_colored_multiline_string(
+        &command_failed.cmd_stdout,
+    ));
     lines.push(Line::from_iter([Span::new_styled_lossy(
         "stderr:"
             .to_owned()
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(Lines::from_colored_multiline_string(&command_failed.stderr));
+    lines.extend(Lines::from_colored_multiline_string(
+        &command_failed.cmd_stderr,
+    ));
 
     if let Some(additional_message) = &command_failed.additional_message {
         if !additional_message.is_empty() {

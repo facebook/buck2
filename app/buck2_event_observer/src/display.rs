@@ -729,8 +729,8 @@ impl ActionErrorDisplay<'_> {
             }
         };
 
-        append_stream("Stdout", &command_failed.stdout);
-        append_stream("Stderr", &command_failed.stderr);
+        append_stream("Stdout", &command_failed.cmd_stdout);
+        append_stream("Stderr", &command_failed.cmd_stderr);
 
         if let Some(additional_info) = &command_failed.additional_message {
             if !additional_info.is_empty() {
@@ -906,7 +906,7 @@ pub fn success_stderr(
                 .details
                 .as_ref()
                 .buck_error_context("CommandExecution did not include a `command`")?
-                .stderr
+                .cmd_stderr
         }
         None => return Ok(None),
     };

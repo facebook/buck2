@@ -69,12 +69,12 @@ impl<'v> StarlarkActionErrorContext<'v> {
     ) -> Self {
         let stderr = command.map_or(String::default(), |c| {
             c.details.as_ref().map_or(String::default(), |c| {
-                strip_ansi_codes(&c.stderr).to_string()
+                strip_ansi_codes(&c.cmd_stderr).to_string()
             })
         });
         let stdout = command.map_or(String::default(), |c| {
             c.details.as_ref().map_or(String::default(), |c| {
-                strip_ansi_codes(&c.stdout).to_string()
+                strip_ansi_codes(&c.cmd_stdout).to_string()
             })
         });
 

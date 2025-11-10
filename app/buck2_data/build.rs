@@ -91,6 +91,14 @@ fn main() -> io::Result<()> {
             "buck.data.ActionError.error",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
+        .field_attribute(
+            "buck.data.CommandExecutionDetails.cmd_stderr",
+            "#[serde(rename = \"stderr\")]",
+        )
+        .field_attribute(
+            "buck.data.CommandExecutionDetails.cmd_stdout",
+            "#[serde(rename = \"stdout\")]",
+        )
         .type_attribute(
             "buck.data.CommandExecutionDetails.command",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",

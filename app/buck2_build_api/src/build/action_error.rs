@@ -129,9 +129,9 @@ impl BuildReportActionError {
         });
 
         let stderr = command_details.map_or(String::default(), |c| {
-            console::strip_ansi_codes(&c.stderr).to_string()
+            console::strip_ansi_codes(&c.cmd_stderr).to_string()
         });
-        let stdout = command_details.map_or(String::default(), |c| c.stdout.clone());
+        let stdout = command_details.map_or(String::default(), |c| c.cmd_stdout.clone());
 
         let error_content = collector.update_string_cache(reason);
         let stderr_content = collector.update_string_cache(stderr);

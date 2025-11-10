@@ -573,14 +573,14 @@ async fn test_command_details_omission() {
     let proto = command_details(&report, false).await;
     let command_kind = proto.command_kind.unwrap();
     assert_matches!(command_kind.command, Some(Command::LocalCommand(..)));
-    assert_eq!(&proto.stdout, "stdout");
-    assert_eq!(&proto.stderr, "stderr");
+    assert_eq!(&proto.cmd_stdout, "stdout");
+    assert_eq!(&proto.cmd_stderr, "stderr");
 
     let proto = command_details(&report, true).await;
     let command_kind = proto.command_kind.unwrap();
     assert_matches!(command_kind.command, Some(Command::OmittedLocalCommand(..)));
-    assert_eq!(&proto.stdout, "");
-    assert_eq!(&proto.stderr, "stderr");
+    assert_eq!(&proto.cmd_stdout, "");
+    assert_eq!(&proto.cmd_stderr, "stderr");
 
     report.status = CommandExecutionStatus::Failure {
         execution_kind: CommandExecutionKind::Local {
@@ -592,6 +592,6 @@ async fn test_command_details_omission() {
     let proto = command_details(&report, true).await;
     let command_kind = proto.command_kind.unwrap();
     assert_matches!(command_kind.command, Some(Command::LocalCommand(..)));
-    assert_eq!(&proto.stdout, "stdout");
-    assert_eq!(&proto.stderr, "stderr");
+    assert_eq!(&proto.cmd_stdout, "stdout");
+    assert_eq!(&proto.cmd_stderr, "stderr");
 }

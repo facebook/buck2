@@ -728,8 +728,8 @@ pub async fn command_details(
         .map(|k| k.to_proto(omit_details));
 
     buck2_data::CommandExecutionDetails {
-        stdout,
-        stderr,
+        cmd_stdout: stdout,
+        cmd_stderr: stderr,
         command_kind,
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),

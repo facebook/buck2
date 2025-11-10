@@ -1439,9 +1439,9 @@ message CommandExecutionDetails {
   // Same as exit_code but allowing negative values
   optional sint32 signed_exit_code = 4;
   // The stdout of the command. This may be omitted for successful commands.
-  string stdout = 2;
+  string cmd_stdout = 2;
   // The stderr of the command.
-  string stderr = 3;
+  string cmd_stderr = 3;
 
   CommandExecutionKind command_kind = 5;
   CommandExecutionMetadata metadata = 13;

@@ -411,8 +411,8 @@ impl CommandExecutionReport {
             .map(|k| k.to_proto(omit_command_details));
 
         buck2_data::CommandExecutionDetails {
-            stdout,
-            stderr,
+            cmd_stdout: stdout,
+            cmd_stderr: stderr,
             command_kind,
             signed_exit_code,
             metadata: Some(self.timing.to_proto()),
@@ -559,8 +559,8 @@ mod tests {
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),
-            stdout: "ABC".to_owned(),
-            stderr: "DEF".to_owned(),
+            cmd_stdout: "ABC".to_owned(),
+            cmd_stderr: "DEF".to_owned(),
             command_kind: Some(command_execution_kind),
             metadata: Some(command_execution_metadata),
             additional_message: None,
@@ -594,7 +594,7 @@ mod tests {
         let proto = report.to_command_execution_proto(true, false, false).await;
         let mut expected_proto = make_simple_proto();
 
-        expected_proto.details.as_mut().unwrap().stdout = "".to_owned();
+        expected_proto.details.as_mut().unwrap().cmd_stdout = "".to_owned();
 
         assert_eq!(proto, expected_proto);
     }
@@ -605,7 +605,7 @@ mod tests {
         let proto = report.to_command_execution_proto(false, true, false).await;
         let mut expected_proto = make_simple_proto();
 
-        expected_proto.details.as_mut().unwrap().stderr = "".to_owned();
+        expected_proto.details.as_mut().unwrap().cmd_stderr = "".to_owned();
 
         assert_eq!(proto, expected_proto);
     }

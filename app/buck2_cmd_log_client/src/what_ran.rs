@@ -298,7 +298,7 @@ impl WhatRanCommandState {
                                     action_exec,
                                 )) => (
                                     action_exec.commands.iter().last().and_then(|cmd| {
-                                        cmd.details.as_ref().map(|d| d.stderr.as_ref())
+                                        cmd.details.as_ref().map(|d| d.cmd_stderr.as_ref())
                                     }),
                                     action_exec.wall_time.as_ref().map(
                                         |prost_types::Duration { seconds, nanos }| {
