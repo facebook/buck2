@@ -82,6 +82,7 @@ impl PoolState {
         CgroupID::new(id)
     }
 
+    /// The new cgroup is assumed to be in use
     fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
         let cgroup_id = self.allocate_id();
         let worker_name = Self::worker_name(cgroup_id);
@@ -92,7 +93,6 @@ impl PoolState {
             cgroup.set_memory_high(per_cgroup_memory_high)?;
         }
 
-        self.available.push_back(cgroup_id);
         self.cgroups.insert(cgroup_id, cgroup);
 
         Ok(cgroup_id)
@@ -120,7 +120,7 @@ impl CgroupPool {
             pool_cgroup.set_memory_high(pool_memory_high)?;
         }
 
-        let mut state = PoolState {
+        let state = PoolState {
             cgroups: HashMap::new(),
             available: VecDeque::new(),
             in_use: HashSet::new(),
@@ -128,15 +128,6 @@ impl CgroupPool {
             per_cgroup_memory_high: config.memory_high_per_action.clone(),
             pool_cgroup,
         };
-
-        let capacity = config
-            .cgroup_pool_size
-            .map(|x| x as usize)
-            .unwrap_or(buck2_util::threads::available_parallelism_fresh());
-
-        for _ in 0..capacity {
-            state.reserve_additional_cgroup()?;
-        }
 
         let pool = Self {
             state: Arc::new(Mutex::new(state)),
