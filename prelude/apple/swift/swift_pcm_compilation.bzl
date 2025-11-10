@@ -96,7 +96,11 @@ def _compiled_module_info(
 
     clang_importer_args = cmd_args(
         cmd_args(pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
-        hidden = pcm_info.exported_preprocessor.modular_args,
+        # When using header maps for non-modular libraries, the symlink tree
+        # preprocessor will only be included in modular_args. This will add
+        # redundant -fmodule-map-file flags too while we work towards dropping
+        # header includes from Swift compilation entirely.
+        cmd_args(pcm_info.exported_preprocessor.modular_args, prepend = "-Xcc"),
     )
 
     return SwiftCompiledModuleInfo(
@@ -323,9 +327,14 @@ def _get_base_pcm_flags(
         # To correctly resolve modulemap's headers,
         # a search path to the root of modulemap should be passed.
         cmd_args(uncompiled_pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
-        # Modular deps like `-Swift.h` have to be materialized.
-        hidden = uncompiled_pcm_info.exported_preprocessor.modular_args,
     )
+
+    # When using header maps for non-modular libraries, the symlink tree
+    # preprocessor will only be included in modular_args. This will add
+    # redundant -fmodule-map-file flags too while we work towards dropping
+    # header includes from Swift compilation entirely.
+    for modular_args in uncompiled_pcm_info.exported_preprocessor.modular_args:
+        cmd.add(cmd_args(modular_args, prepend = "-Xcc"))
 
     cmd.add(swift_cxx_args)
 
