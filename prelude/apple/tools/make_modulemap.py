@@ -10,11 +10,11 @@
 import argparse
 import os
 import re
+from collections.abc import Iterable
 from io import TextIOWrapper
-from typing import Dict, FrozenSet, Iterable, List
 
 
-_RESERVED_KEYWORDS: FrozenSet[str] = frozenset(
+_RESERVED_KEYWORDS: frozenset[str] = frozenset(
     [
         "config_macros",
         "conflict",
@@ -39,8 +39,8 @@ _RESERVED_KEYWORDS: FrozenSet[str] = frozenset(
 class Module:
     def __init__(self, name: str, is_framework: bool) -> None:
         self.name: str = name
-        self.headers: List[str] = []
-        self.submodules: Dict[str, Module] = {}
+        self.headers: list[str] = []
+        self.submodules: dict[str, Module] = {}
         self.is_framework: bool = is_framework
 
     def add_header(self, src: str) -> None:

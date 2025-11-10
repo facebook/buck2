@@ -18,13 +18,14 @@ import optparse
 import pathlib
 import subprocess as proc
 import sys
+from collections.abc import Iterable
 
 from contextlib import contextmanager
-from typing import Iterable, List, Optional
+from typing import Optional
 
 
 @dataclasses.dataclass
-class SwiftIDETestArguments(object):
+class SwiftIDETestArguments:
     sdk: Optional[str]
     target: Optional[str]
     xcc: Iterable[str]
@@ -38,7 +39,7 @@ class SwiftIDETestArguments(object):
     explicit_swift_module_map: Optional[str]
     swift_version: Optional[str]
 
-    def to_args(self) -> List[str]:
+    def to_args(self) -> list[str]:
         args = []
         if self.target:
             args.append("--target")
@@ -146,7 +147,7 @@ class IgnoreUnknownLongSingleDashOptParser(optparse.OptionParser):
                 continue
 
 
-def parse_swiftc_args(arguments: List[str]) -> SwiftIDETestArguments:  # noqa: C901
+def parse_swiftc_args(arguments: list[str]) -> SwiftIDETestArguments:  # noqa: C901
     """
     We can't use argparse to do our parsing because arguments like -Xcc
     need to accept arguments that are prefixed with `-`.

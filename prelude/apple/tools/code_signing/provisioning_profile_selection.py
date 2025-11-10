@@ -13,7 +13,7 @@ import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, cast, Dict, List, Optional, Tuple
+from typing import Any, cast, Optional
 
 from .app_id import AppId
 from .apple_platform import ApplePlatform
@@ -38,7 +38,7 @@ class CodeSignProvisioningError(Exception):
 
 
 def _parse_team_id_from_entitlements(
-    entitlements: Optional[Dict[str, Any]],
+    entitlements: Optional[dict[str, Any]],
 ) -> Optional[str]:
     if not entitlements:
         return None
@@ -96,11 +96,11 @@ _IGNORE_MISMATCH_ENTITLEMENTS_KEYS = {
 
 
 def _check_entitlements_match(
-    expected_entitlements: Optional[Dict[str, Any]],
+    expected_entitlements: Optional[dict[str, Any]],
     profile: ProvisioningProfileMetadata,
     platform: ApplePlatform,
     bundle_id_match_length: int,
-) -> Tuple[bool, Optional[EntitlementsMismatch]]:
+) -> tuple[bool, Optional[EntitlementsMismatch]]:
     if expected_entitlements is None:
         return (True, None)
     for key, value in expected_entitlements.items():
@@ -124,9 +124,9 @@ def _check_entitlements_match(
 
 def _check_developer_certificates_match(
     profile: ProvisioningProfileMetadata,
-    identities: List[CodeSigningIdentity],
+    identities: list[CodeSigningIdentity],
     bundle_id_match_length: int,
-) -> Tuple[Optional[CodeSigningIdentity], Optional[DeveloperCertificateMismatch]]:
+) -> tuple[Optional[CodeSigningIdentity], Optional[DeveloperCertificateMismatch]]:
     for identity in identities:
         if identity.fingerprint in profile.developer_certificate_fingerprints:
             return (identity, None)
@@ -189,15 +189,15 @@ def _filter_matching_selected_provisioning_profile_infos(
 # See `ProvisioningProfileStore::getBestProvisioningProfile` in `ProvisioningProfileStore.java` for Buck v1 equivalent
 def select_best_provisioning_profile(
     info_plist_metadata: InfoPlistMetadata,
-    code_signing_identities: List[CodeSigningIdentity],
-    provisioning_profiles: List[ProvisioningProfileMetadata],
-    entitlements: Optional[Dict[str, Any]],
+    code_signing_identities: list[CodeSigningIdentity],
+    provisioning_profiles: list[ProvisioningProfileMetadata],
+    entitlements: Optional[dict[str, Any]],
     platform: ApplePlatform,
     strict_search: bool,
     provisioning_profile_filter: Optional[str],
     no_check_certificates: bool = False,
-) -> Tuple[
-    Optional[SelectedProvisioningProfileInfo], List[IProvisioningProfileDiagnostics]
+) -> tuple[
+    Optional[SelectedProvisioningProfileInfo], list[IProvisioningProfileDiagnostics]
 ]:
     """Selects the best provisioning profile and certificate to use when code signing the bundle.
        Such profile could be successfully used to sign the bundle taking into account
@@ -219,7 +219,7 @@ def select_best_provisioning_profile(
     best_match_length = -1
 
     # Used for error messages
-    diagnostics: List[IProvisioningProfileDiagnostics] = []
+    diagnostics: list[IProvisioningProfileDiagnostics] = []
 
     def log_mismatched_profile(mismatch: IProvisioningProfileDiagnostics) -> None:
         diagnostics.append(mismatch)
@@ -349,17 +349,15 @@ def select_best_provisioning_profile(
 
     if result:
         _LOGGER.info(
-            (
-                f"Found matching provisioning profile and identity\n"
-                f"  Selected Identity: {result.identity}\n"
-                f"  Provisioning Profile: `{result.profile.file_path.name}`\n"
-                f"    UUID: {result.profile.uuid}\n"
-                f"    File: {result.profile.file_path}\n"
-                f"    Expiration: {result.profile.expiration_date}\n"
-                f"    Platforms: {result.profile.platforms}\n"
-                f"    Fingerprints: {result.profile.developer_certificate_fingerprints}\n"
-                f"    Entitlements: {result.profile.entitlements}"
-            )
+            f"Found matching provisioning profile and identity\n"
+            f"  Selected Identity: {result.identity}\n"
+            f"  Provisioning Profile: `{result.profile.file_path.name}`\n"
+            f"    UUID: {result.profile.uuid}\n"
+            f"    File: {result.profile.file_path}\n"
+            f"    Expiration: {result.profile.expiration_date}\n"
+            f"    Platforms: {result.profile.platforms}\n"
+            f"    Fingerprints: {result.profile.developer_certificate_fingerprints}\n"
+            f"    Entitlements: {result.profile.entitlements}"
         )
 
     return result, diagnostics

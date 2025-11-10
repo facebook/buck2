@@ -9,7 +9,7 @@
 import pathlib
 import unittest
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Tuple
+from typing import Optional
 from unittest.mock import call, patch
 
 import importlib_resources as resources
@@ -244,7 +244,7 @@ def _get_focused_and_scrubbed_paths(
     targets_json_file_path: Optional[str] = None,
     spec_json_file_path: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
-) -> (List[str], List[str]):
+) -> (list[str], list[str]):
     results, _ = _get_scrubber_results(
         targets_json_file_path=targets_json_file_path,
         spec_json_file_path=spec_json_file_path,
@@ -276,7 +276,7 @@ def _get_scrubber_results(
     targets_json_file_path: Optional[str] = None,
     spec_json_file_path: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
-) -> Tuple[List[Tuple[str, str]], str]:
+) -> tuple[list[tuple[str, str]], str]:
     with resources.as_file(_get_test_resource_file("HelloWorld")) as test_binary_file:
         with NamedTemporaryFile() as out_file:
             if targets_json_file_path:

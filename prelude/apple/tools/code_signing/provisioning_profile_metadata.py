@@ -14,7 +14,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, FrozenSet
+from typing import Any
 
 from apple.tools.plistlib_utils import detect_format_and_loads
 
@@ -28,12 +28,12 @@ class ProvisioningProfileMetadata:
     uuid: str
     # Naïve object with ignored timezone, see https://bugs.python.org/msg110249
     expiration_date: datetime
-    platforms: FrozenSet[str]
+    platforms: frozenset[str]
     # Let's agree they are uppercased
-    developer_certificate_fingerprints: FrozenSet[str]
-    entitlements: Dict[str, Any]
+    developer_certificate_fingerprints: frozenset[str]
+    entitlements: dict[str, Any]
 
-    _mergeable_entitlements_keys: FrozenSet[str] = frozenset(
+    _mergeable_entitlements_keys: frozenset[str] = frozenset(
         [
             "application-identifier",
             "beta-reports-active",
@@ -50,12 +50,12 @@ class ProvisioningProfileMetadata:
         ) or self.entitlements.get("com.apple.application-identifier")
         if not maybe_app_id:
             raise RuntimeError(
-                "Entitlements do not contain app ID: {}".format(self.entitlements)
+                f"Entitlements do not contain app ID: {self.entitlements}"
             )
         return AppId.from_string(maybe_app_id)
 
     # See `ProvisioningProfileMetadata::getMergeableEntitlements` from `ProvisioningProfileMetadata.java` in Buck v1
-    def get_mergeable_entitlements(self) -> Dict[str, Any]:
+    def get_mergeable_entitlements(self) -> dict[str, Any]:
         return {
             k: v
             for k, v in self.entitlements.items()

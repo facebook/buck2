@@ -9,7 +9,7 @@
 # pyre-strict
 
 import sys
-from typing import BinaryIO, List, Optional, Tuple
+from typing import BinaryIO, Optional
 
 from .macho import (
     LC_CODE_SIGNATURE,
@@ -28,7 +28,7 @@ def _read_bytes(f: BinaryIO, n_bytes: int) -> int:
     return int.from_bytes(b, "little")
 
 
-def load_header(f: BinaryIO, offset: int) -> Tuple[MachOHeader, int]:
+def load_header(f: BinaryIO, offset: int) -> tuple[MachOHeader, int]:
     f.seek(offset)
     magic = _read_bytes(f, 4)
     cpu_type = _read_bytes(f, 4)
@@ -46,7 +46,7 @@ def load_header(f: BinaryIO, offset: int) -> Tuple[MachOHeader, int]:
 
 def load_commands(
     f: BinaryIO, offset: int, n_cmds: int
-) -> Tuple[Optional[LinkEditCommand], Optional[SymtabCommand]]:
+) -> tuple[Optional[LinkEditCommand], Optional[SymtabCommand]]:
     """
     The OSO entries are identified in segments named __LINKEDIT.
     If no segment is found with that name, there is nothing to scrub.
@@ -100,7 +100,7 @@ def load_commands(
     return lc_linkedit, lc_symtab
 
 
-def load_debug_symbols(f: BinaryIO, offset: int, n_symbol: int) -> List[Symbol]:
+def load_debug_symbols(f: BinaryIO, offset: int, n_symbol: int) -> list[Symbol]:
     """
     // Each LC_SYMTAB entry consists of the following fields:
     // - String Index: 4 bytes (offset into the string table)

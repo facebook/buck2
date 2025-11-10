@@ -12,7 +12,7 @@ import json
 import re
 import sys
 from enum import Enum
-from typing import Dict, Optional, TextIO
+from typing import Optional, TextIO
 
 
 class _ReGroupName(str, Enum):
@@ -35,7 +35,7 @@ _re_string: str = "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::
 
 def _make_substitution_dict(
     substitutions_json_file: TextIO, product_name: str
-) -> Dict[str, str]:
+) -> dict[str, str]:
     result = {
         "EXECUTABLE_NAME": product_name,
         "PRODUCT_NAME": product_name,
@@ -49,7 +49,7 @@ def _make_substitution_dict(
 def _process_line(
     line: str,
     pattern: re.Pattern[str],
-    substitutions: Dict[str, str],
+    substitutions: dict[str, str],
     minimum_os_version_key: Optional[str],
 ) -> str:
     if (
@@ -68,7 +68,7 @@ def _process_line(
             break
         key = match.group(_ReGroupName.variable)
         if key in substituted_keys:
-            raise RuntimeError("Recursive plist variable: ... -> {} -> ...".format(key))
+            raise RuntimeError(f"Recursive plist variable: ... -> {key} -> ...")
         if key in substitutions:
             result = (
                 result[: match.start()] + substitutions[key] + result[match.end() :]

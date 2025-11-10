@@ -10,7 +10,7 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from dataclasses_json import config, dataclass_json
 
@@ -30,7 +30,7 @@ class XCSimDevice:
 class XCSimRuntime:
     name: str
     version: str
-    supported_device_types: List[XCSimDevice] = field(
+    supported_device_types: list[XCSimDevice] = field(
         metadata=config(field_name="supportedDeviceTypes")
     )
 
@@ -38,10 +38,10 @@ class XCSimRuntime:
 @dataclass_json
 @dataclass
 class _XCSimRuntimes:
-    runtimes: List[XCSimRuntime]
+    runtimes: list[XCSimRuntime]
 
 
-def _list_runtimes_command() -> List[str]:
+def _list_runtimes_command() -> list[str]:
     return [
         "xcrun",
         "simctl",
@@ -52,7 +52,7 @@ def _list_runtimes_command() -> List[str]:
     ]
 
 
-def _simctl_runtimes_from_stdout(stdout: Optional[str]) -> List[XCSimRuntime]:
+def _simctl_runtimes_from_stdout(stdout: Optional[str]) -> list[XCSimRuntime]:
     if not stdout:
         return []
     data = json.loads(stdout)
@@ -60,7 +60,7 @@ def _simctl_runtimes_from_stdout(stdout: Optional[str]) -> List[XCSimRuntime]:
     return _XCSimRuntimes.from_dict(data).runtimes
 
 
-async def list_runtimes() -> List[XCSimRuntime]:
+async def list_runtimes() -> list[XCSimRuntime]:
     stdout = await execute_generic_text_producing_command(
         name="list runtimes", cmd=_list_runtimes_command()
     )

@@ -24,12 +24,11 @@ import argparse
 import pathlib
 import shutil
 import sys
-from typing import List
 
 EXIT_SUCCESS = 0
 
 
-def main(argv: List[str]) -> int:
+def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--objects_dir")
     parser.add_argument("--object_to_map", nargs=2, action="append")

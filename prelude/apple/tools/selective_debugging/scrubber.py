@@ -13,7 +13,8 @@ import json
 import os
 import shutil
 import subprocess
-from typing import BinaryIO, Callable, List, Optional, Set, Tuple
+from collections.abc import Callable
+from typing import BinaryIO, Optional
 
 from apple.tools.re_compatibility_utils.writable import make_path_user_writable
 
@@ -34,10 +35,10 @@ def _always_scrub(_: str) -> bool:
 
 
 # Visible for testing
-def load_focused_targets_output_paths(json_file_path: str) -> Set[str]:
+def load_focused_targets_output_paths(json_file_path: str) -> set[str]:
     if json_file_path is None or not os.path.exists(json_file_path):
         return set()
-    with open(json_file_path, "r") as f:
+    with open(json_file_path) as f:
         content = f.read()
         if not content:
             return set()
@@ -90,7 +91,7 @@ def _get_target_output_path_from_debug_file_path(
 
 # Visible for testing
 def should_scrub_with_focused_targets_output_paths(
-    focused_targets_output_paths: Set[str], debug_file_path: str
+    focused_targets_output_paths: set[str], debug_file_path: str
 ) -> bool:
     # All paths to be scrubbed when no focused target is specified
     if len(focused_targets_output_paths) == 0:
@@ -119,7 +120,7 @@ def should_scrub_with_focused_targets_output_paths(
 
 
 def _should_scrub_with_targets_file(
-    json_file_path: str, additional_labels: Set[str]
+    json_file_path: str, additional_labels: set[str]
 ) -> Callable[[str], bool]:
     focused_targets_output_paths = load_focused_targets_output_paths(json_file_path)
     return lambda debug_file_path: should_scrub_with_focused_targets_output_paths(
@@ -128,7 +129,7 @@ def _should_scrub_with_targets_file(
 
 
 def _should_scrub_with_spec_file(
-    json_file_path: str, additional_labels: Set[str]
+    json_file_path: str, additional_labels: set[str]
 ) -> Callable[[str], bool]:
     spec = Spec(json_file_path)
     return lambda debug_file_path: should_scrub_with_focused_targets_output_paths(
@@ -139,9 +140,9 @@ def _should_scrub_with_spec_file(
 def _scrub(
     f: BinaryIO,
     strtab_offset: int,
-    symbols: List[Symbol],
+    symbols: list[Symbol],
     scrub_handler: Callable[[str], bool],
-) -> List[Tuple[str, str]]:
+) -> list[tuple[str, str]]:
     """
     Return a list of tuples.
     Each tuple contains a pair of the original path and the rewritten path
@@ -181,7 +182,7 @@ def scrub(
     targets_file: Optional[str] = None,
     spec_file: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
-) -> List[Tuple[str, str]]:
+) -> list[tuple[str, str]]:
     additional_labels = load_focused_targets_output_paths(persisted_targets_file)
     if targets_file and spec_file:
         raise Exception(

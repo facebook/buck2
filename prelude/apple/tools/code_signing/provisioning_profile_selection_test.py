@@ -10,7 +10,6 @@ import copy
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
 
 from .apple_platform import ApplePlatform
 from .identity import CodeSigningIdentity
@@ -26,7 +25,7 @@ from .provisioning_profile_selection import (
 class TestSelection(unittest.TestCase):
     def verify_diagnostic_info_candidate_profile(
         self,
-        diagnostic_info: List[IProvisioningProfileDiagnostics],
+        diagnostic_info: list[IProvisioningProfileDiagnostics],
         reason: str,
     ):
         self.assertEqual(len(diagnostic_info), 1)

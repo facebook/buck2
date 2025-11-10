@@ -10,12 +10,12 @@
 
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 
 class IReadProvisioningProfileCommandFactory(metaclass=ABCMeta):
     @abstractmethod
-    def read_provisioning_profile_command(self, path: Path) -> List[Union[str, Path]]:
+    def read_provisioning_profile_command(self, path: Path) -> list[Union[str, Path]]:
         raise NotImplementedError
 
 
@@ -34,5 +34,5 @@ class DefaultReadProvisioningProfileCommandFactory(
         "-in",
     ]
 
-    def read_provisioning_profile_command(self, path: Path) -> List[Union[str, Path]]:
+    def read_provisioning_profile_command(self, path: Path) -> list[Union[str, Path]]:
         return DefaultReadProvisioningProfileCommandFactory._command + [path]
