@@ -43,12 +43,6 @@ def get_enable_library_evolution():
         "config//features/apple:swift_library_evolution_enabled": True,
     }))
 
-def _get_enable_dsym_uses_parallel_linker():
-    return attrs.bool(default = select({
-        "DEFAULT": False,
-        "config//features/apple:dsym_uses_parallel_linker_enabled": True,
-    }))
-
 def _strict_provisioning_profile_search_default_attr():
     default_value = (read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true")
     return attrs.bool(default = select({
@@ -86,11 +80,6 @@ APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "embed_prov
 
 APPLE_VALIDATION_DEPS_ATTR_NAME = "validation_deps"
 APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default = [])
-
-def apple_dsymutil_attrs():
-    return {
-        "dsym_uses_parallel_linker": _get_enable_dsym_uses_parallel_linker(),
-    }
 
 def get_apple_info_plist_build_system_identification_attrs():
     return {
@@ -152,7 +141,6 @@ def _apple_bundle_like_common_attrs():
         XCODE_SCHEME_SETTINGS_ATTR_NAME: XCODE_SCHEME_SETTINGS_ATTR_TYPE,
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
-    attribs.update(apple_dsymutil_attrs())
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_common.enforce_minimum_os_plist_key())
     return attribs

@@ -18,7 +18,7 @@ load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMerge
 load("@prelude//apple:apple_metal_library.bzl", "apple_metal_library_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
@@ -392,7 +392,6 @@ apple_binary = prelude_rule(
         buck.allow_cache_upload_arg() |
         validation_common.attrs_validators_arg() |
         constraint_overrides.attributes |
-        apple_dsymutil_attrs() |
         get_skip_swift_incremental_outputs_attrs()
     ),
     impl = apple_binary_impl,
@@ -718,7 +717,6 @@ apple_library = prelude_rule(
             VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
         buck.allow_cache_upload_arg() |
-        apple_dsymutil_attrs() |
         get_swift_incremental_file_hashing_attrs() |
         get_swift_incremental_remote_outputs_attrs() |
         get_skip_swift_incremental_outputs_attrs()
@@ -1377,8 +1375,7 @@ apple_universal_executable = prelude_rule(
         } |
         apple_common.executable_name_for_universal_arg() |
         apple_common.apple_toolchain_arg() |
-        apple_common.apple_tools_arg() |
-        apple_dsymutil_attrs()
+        apple_common.apple_tools_arg()
     ),
 )
 

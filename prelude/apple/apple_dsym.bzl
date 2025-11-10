@@ -35,15 +35,10 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
         # So, those object files are needed for dsymutil to be to create the dSYM bundle.
         hidden = debug_info,
     )
-    if ctx.attrs.dsym_uses_parallel_linker:
-        cmd.add("--linker=parallel")
-
     cmd.add(
-        [
-            "-o",
-            output.as_output(),
-            executable,
-        ],
+        "-o",
+        output.as_output(),
+        executable,
     )
     ctx.actions.run(cmd, category = "apple_dsym", identifier = action_identifier)
     return output
