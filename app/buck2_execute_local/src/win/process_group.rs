@@ -44,16 +44,6 @@ impl ProcessCommandImpl {
     pub(crate) fn spawn(&mut self) -> io::Result<Child> {
         self.inner.spawn()
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn stdout(&mut self, stdout: Stdio) {
-        self.inner.stdout(stdout);
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn stderr(&mut self, stdout: Stdio) {
-        self.inner.stderr(stdout);
-    }
 }
 
 /// Keeps track of the exit status of a child process without worrying about

@@ -11,7 +11,6 @@
 use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
-use std::process::Stdio;
 use std::time::Duration;
 
 use buck2_common::kill_util::try_terminate_process_gracefully;
@@ -37,14 +36,6 @@ impl ProcessCommandImpl {
 
     pub(crate) fn spawn(&mut self) -> io::Result<Child> {
         self.inner.spawn()
-    }
-
-    pub(crate) fn stdout(&mut self, stdout: Stdio) {
-        self.inner.stdout(stdout);
-    }
-
-    pub(crate) fn stderr(&mut self, stdout: Stdio) {
-        self.inner.stderr(stdout);
     }
 }
 

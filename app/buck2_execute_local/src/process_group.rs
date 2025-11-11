@@ -10,7 +10,6 @@
 
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
-use std::process::Stdio;
 
 use tokio::io;
 use tokio::process::ChildStderr;
@@ -44,35 +43,25 @@ impl From<io::Error> for SpawnError {
     }
 }
 
-pub struct ProcessCommand {
+pub(crate) struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
 }
 
 impl ProcessCommand {
-    pub fn new(cmd: StdCommand) -> Self {
+    pub(crate) fn new(cmd: StdCommand) -> Self {
         Self {
             inner: imp::ProcessCommandImpl::new(cmd),
         }
     }
 
-    pub fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
+    pub(crate) fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
         let child = self.inner.spawn()?;
         let inner = imp::ProcessGroupImpl::new(child)?;
         Ok(ProcessGroup { inner })
     }
-
-    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
-        self.inner.stdout(cfg.into());
-        self
-    }
-
-    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
-        self.inner.stderr(cfg.into());
-        self
-    }
 }
 
-pub struct ProcessGroup {
+pub(crate) struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
 }
 

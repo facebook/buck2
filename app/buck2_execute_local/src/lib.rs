@@ -233,6 +233,7 @@ async fn run_in_spawn_thread<T: Send + 'static>(
     Ok(rx.await.expect("spawn thread to not have panicked"))
 }
 
+#[expect(private_bounds)]
 pub async fn spawn_command_and_stream_events<T>(
     mut cmd: Command,
     timeout: Option<Duration>,
@@ -412,7 +413,7 @@ where
 
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
-pub trait KillProcess {
+pub(crate) trait KillProcess {
     async fn kill(self, process: &mut ProcessGroup) -> buck2_error::Result<()>;
 }
 
