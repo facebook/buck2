@@ -779,6 +779,7 @@ enum ResourceControlEventKind {
   SUSPEND_KILL = 3;
   WAKE_UNFREEZE = 4;
   WAKE_RETRY = 5;
+  WAKE_DELAYED_START = 6;
   SCHEDULED = 10;
 }
 

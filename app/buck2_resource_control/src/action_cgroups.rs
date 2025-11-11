@@ -153,6 +153,9 @@ enum WakeImplementation {
         kill_sender: KillSender,
     },
     KillAndRetry(oneshot::Sender<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>),
+    /// Semantically essentially the same as `KillAndRetry`, but indicates that instead of this
+    /// being a retry after a kill, it's starting an action that had never been started yet
+    UnblockStart(oneshot::Sender<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>),
 }
 
 #[derive(Debug)]
@@ -169,7 +172,6 @@ struct ActionCgroup {
     error: Option<buck2_error::Error>,
     suspend_duration: Option<Duration>,
     suspend_count: u64,
-    #[expect(dead_code)]
     suspend_strategy: ActionSuspendStrategy,
     command_type: CommandType,
     action_digest: Option<String>,
@@ -386,31 +388,18 @@ impl ActionCgroups {
             dispatcher,
         };
 
-        let (freeze_tx, freeze_rx) = mpsc::unbounded_channel();
-        let (kill_tx, kill_rx) = oneshot::channel();
         let (start_tx, start_rx) = oneshot::channel();
+        let start_future = RetryFuture(start_rx);
+        let start_wake_implemenation = WakeImplementation::UnblockStart(start_tx);
         // Start the command immediately
         //
         // FIXME(JakobDegen): If there is memory pressure we should block new commands from
         // spawning
-        start_tx.send((KillFuture(kill_rx), freeze_rx)).unwrap();
+        let running_action_cgroup = wake_cgroup(action_cgroup, start_wake_implemenation).0;
 
-        let start_future = RetryFuture(start_rx);
-
-        let suspend_implementation = match suspend_strategy {
-            ActionSuspendStrategy::CgroupFreeze => {
-                SuspendImplementation::CgroupFreeze(kill_tx, freeze_tx)
-            }
-            ActionSuspendStrategy::KillAndRetry => SuspendImplementation::KillAndRetry(kill_tx),
-        };
-
-        let existing = self.running_cgroups.insert(
-            cgroup_path.clone(),
-            RunningActionCgroup {
-                cgroup: action_cgroup,
-                suspend_implementation,
-            },
-        );
+        let existing = self
+            .running_cgroups
+            .insert(cgroup_path.clone(), running_action_cgroup);
         if let Some(existing) = existing {
             return Err(internal_error!(
                 "cgroup already exists, reused cgroup pool worker? {:?}",
@@ -635,7 +624,10 @@ impl ActionCgroups {
             });
         suspended_cgroup.cgroup.suspend_count += 1;
 
-        let (running_cgroup, event_kind) = wake_cgroup(suspended_cgroup);
+        let (running_cgroup, event_kind) = wake_cgroup(
+            suspended_cgroup.cgroup,
+            suspended_cgroup.wake_implementation,
+        );
         self.last_wake_time = Some(Instant::now());
 
         self.running_cgroups
@@ -773,38 +765,50 @@ fn suspend_cgroup(
 }
 
 fn wake_cgroup(
-    cgroup: SuspendedActionCgroup,
+    cgroup: ActionCgroup,
+    wake_implementation: WakeImplementation,
 ) -> (RunningActionCgroup, buck2_data::ResourceControlEventKind) {
-    match cgroup.wake_implementation {
+    let (retry_tx, event_kind) = match wake_implementation {
         WakeImplementation::CgroupUnfreeze {
             unfreeze_sender,
             kill_sender,
         } => {
             drop(unfreeze_sender.send(ActionFreezeEvent::Unfreeze));
-            (
+            return (
                 RunningActionCgroup {
-                    cgroup: cgroup.cgroup,
+                    cgroup,
                     suspend_implementation: SuspendImplementation::CgroupFreeze(
                         kill_sender,
                         unfreeze_sender,
                     ),
                 },
                 buck2_data::ResourceControlEventKind::WakeUnfreeze,
-            )
+            );
         }
         WakeImplementation::KillAndRetry(retry_tx) => {
-            let (_freeze_tx, freeze_rx) = mpsc::unbounded_channel();
-            let (kill_tx, kill_rx) = oneshot::channel();
-            drop(retry_tx.send((KillFuture(kill_rx), freeze_rx)));
-            (
-                RunningActionCgroup {
-                    cgroup: cgroup.cgroup,
-                    suspend_implementation: SuspendImplementation::KillAndRetry(kill_tx),
-                },
-                buck2_data::ResourceControlEventKind::WakeRetry,
-            )
+            (retry_tx, buck2_data::ResourceControlEventKind::WakeRetry)
         }
-    }
+        WakeImplementation::UnblockStart(retry_tx) => (
+            retry_tx,
+            buck2_data::ResourceControlEventKind::WakeDelayedStart,
+        ),
+    };
+    let (freeze_tx, freeze_rx) = mpsc::unbounded_channel();
+    let (kill_tx, kill_rx) = oneshot::channel();
+    drop(retry_tx.send((KillFuture(kill_rx), freeze_rx)));
+    let suspend_implementation = match cgroup.suspend_strategy {
+        ActionSuspendStrategy::CgroupFreeze => {
+            SuspendImplementation::CgroupFreeze(kill_tx, freeze_tx)
+        }
+        ActionSuspendStrategy::KillAndRetry => SuspendImplementation::KillAndRetry(kill_tx),
+    };
+    (
+        RunningActionCgroup {
+            cgroup,
+            suspend_implementation,
+        },
+        event_kind,
+    )
 }
 
 #[cfg(test)]
