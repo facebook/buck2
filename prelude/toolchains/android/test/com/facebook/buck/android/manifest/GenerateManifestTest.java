@@ -12,7 +12,6 @@ package com.facebook.buck.android.manifest;
 
 import static org.junit.Assert.assertEquals;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import org.junit.Test;
@@ -187,7 +186,7 @@ public class GenerateManifestTest {
     assertEquals(expected, replaced);
   }
 
-  @Test(expected = HumanReadableException.class)
+  @Test(expected = RuntimeException.class)
   public void shouldThrowExceptionWhenThereArePlaceholdersNotReplacedWhenVerificationEnabled()
       throws IOException {
     String manifestWithUnreplacedPlaceholders =

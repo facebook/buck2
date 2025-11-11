@@ -19,7 +19,6 @@ import com.android.manifmerger.MergingReport;
 import com.android.manifmerger.PlaceholderHandler;
 import com.facebook.buck.android.DefaultAndroidManifestReader;
 import com.facebook.buck.android.apkmodule.APKModule;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.util.environment.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -57,11 +56,11 @@ public class GenerateManifest {
       ILogger logger)
       throws IOException {
     if (skeletonManifestPath.getNameCount() == 0) {
-      throw new HumanReadableException("Skeleton manifest filepath is missing");
+      throw new RuntimeException("Skeleton manifest filepath is missing");
     }
 
     if (outManifestPath.getNameCount() == 0) {
-      throw new HumanReadableException("Output Manifest filepath is missing");
+      throw new RuntimeException("Output Manifest filepath is missing");
     }
 
     Files.createParentDirs(outManifestPath.toFile());
@@ -138,13 +137,13 @@ public class GenerateManifest {
         for (MergingReport.Record record : mergingReport.getLoggingRecords()) {
           logger.error(null, record.toString());
         }
-        throw new HumanReadableException("Error generating manifest file");
+        throw new RuntimeException("Error generating manifest file");
       }
 
       return mergingReport;
     } catch (ManifestMerger2.MergeFailureException e) {
-      throw new HumanReadableException(
-          e.getCause(), "Error generating manifest file: %s", e.getMessage());
+      throw new RuntimeException(
+          String.format("Error generating manifest file: %s", e.getMessage()), e.getCause());
     }
   }
 
@@ -183,8 +182,9 @@ public class GenerateManifest {
     }
 
     if (!nonHandledPlaceholders.isEmpty()) {
-      throw new HumanReadableException(
-          "Not handled placeholders (%s) in manifest: %s", nonHandledPlaceholders, content);
+      throw new RuntimeException(
+          String.format(
+              "Not handled placeholders (%s) in manifest: %s", nonHandledPlaceholders, content));
     }
   }
 

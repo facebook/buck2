@@ -11,7 +11,6 @@
 package com.facebook.buck.android.resources.strings;
 
 import com.facebook.buck.android.resources.strings.StringResources.Gender;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.io.pathformat.PathFormatter;
@@ -210,9 +209,11 @@ public class CompileStrings {
             continue;
           }
 
-          throw new HumanReadableException(
-              "Invalid path passed to compile strings. Expected path to end with %s, got path %s.",
-              ENGLISH_STRING_PATH_SUFFIX, path);
+          throw new RuntimeException(
+              String.format(
+                  "Invalid path passed to compile strings. Expected path to end with %s, got path"
+                      + " %s.",
+                  ENGLISH_STRING_PATH_SUFFIX, path));
         }
 
         localeToFiles.put(ENGLISH_LOCALE, filepath);

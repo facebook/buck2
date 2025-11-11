@@ -10,7 +10,6 @@
 
 package com.facebook.buck.util.relativepathmap;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.google.common.collect.ImmutableSet;
@@ -53,9 +52,10 @@ public class RelativePathMapUtils {
         pathRelativeToBaseDir,
         (ignored, current) -> {
           if (current != null) {
-            throw new HumanReadableException(
-                "The file '%s' appears twice in the hierarchy",
-                pathRelativeToBaseDir.getFileName());
+            throw new RuntimeException(
+                String.format(
+                    "The file '%s' appears twice in the hierarchy",
+                    pathRelativeToBaseDir.getFileName()));
           }
           return absoluteFilePath;
         });

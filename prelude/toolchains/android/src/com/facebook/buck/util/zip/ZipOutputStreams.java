@@ -10,7 +10,6 @@
 
 package com.facebook.buck.util.zip;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.util.io.IoUtil;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -118,8 +117,8 @@ public class ZipOutputStreams {
         impl = new OverwritingZipOutputStreamImpl(out);
         break;
       default:
-        throw new HumanReadableException(
-            "Unable to determine which zip output mode to use: %s", mode);
+        throw new RuntimeException(
+            String.format("Unable to determine which zip output mode to use: %s", mode));
     }
 
     return impl;

@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.google.common.base.Throwables;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,7 +88,7 @@ class TracingProcessorWrapper implements Processor {
     }
   }
 
-  private HumanReadableException wrapAnnotationProcessorCrashException(Throwable e) {
+  private RuntimeException wrapAnnotationProcessorCrashException(Throwable e) {
     List<String> filteredStackTraceLines = getStackTraceEndingAtAnnotationProcessor(e);
 
     int maxLineLength = filteredStackTraceLines.stream().mapToInt(String::length).max().orElse(75);
@@ -109,7 +108,7 @@ class TracingProcessorWrapper implements Processor {
       messageBuilder.append(line).append("\n");
     }
 
-    return new HumanReadableException(e, "\n" + messageBuilder);
+    return new RuntimeException("\n" + messageBuilder, e);
   }
 
   private List<String> getStackTraceEndingAtAnnotationProcessor(Throwable e) {

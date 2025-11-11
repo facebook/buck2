@@ -13,7 +13,6 @@ package com.facebook.buck.android.exopackage;
 import com.facebook.buck.android.AdbHelper;
 import com.facebook.buck.android.AndroidInstallPrinter;
 import com.facebook.buck.android.IsolatedApkInfo;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
@@ -158,7 +157,7 @@ public class ExopackageInstaller {
                 try {
                   return device.getDeviceAbis();
                 } catch (Exception e) {
-                  throw new HumanReadableException("Unable to communicate with device", e);
+                  throw new RuntimeException("Unable to communicate with device", e);
                 }
               },
               rootPath,
@@ -197,7 +196,7 @@ public class ExopackageInstaller {
                 try {
                   return device.getDeviceAbis();
                 } catch (Exception e) {
-                  throw new HumanReadableException("Unable to communicate with device", e);
+                  throw new RuntimeException("Unable to communicate with device", e);
                 }
               },
               rootPath,

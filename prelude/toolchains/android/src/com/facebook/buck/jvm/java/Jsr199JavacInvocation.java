@@ -15,7 +15,6 @@ import static com.facebook.buck.jvm.java.abi.AbiGenerationModeUtils.getDiagnosti
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -165,7 +164,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
                   .iterator(),
           pathToSrcsList.getPath());
     } catch (IOException e) {
-      throw new HumanReadableException(e, "Error writing list of .java files to compile.");
+      throw new RuntimeException("Error writing list of .java files to compile.", e);
     }
 
     return getWorker().buildClasses();
@@ -316,7 +315,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
         return abiResult.get();
       } catch (ExecutionException e) {
         Throwables.throwIfUnchecked(e.getCause());
-        throw new HumanReadableException("Failed to generate abi: %s", e.getCause().getMessage());
+        throw new RuntimeException("Failed to generate abi: %s", e.getCause());
       }
     }
 
@@ -337,7 +336,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
         return compilerResult.get();
       } catch (ExecutionException e) {
         Throwables.throwIfUnchecked(e.getCause());
-        throw new HumanReadableException("Failed to compile: %s", e.getCause().getMessage());
+        throw new RuntimeException("Failed to compile", e.getCause());
       }
     }
 
@@ -473,14 +472,13 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
         if (e.getCause() instanceof StopCompilation) {
           return SUCCESS_EXIT_CODE;
         } else if (javacTask instanceof FrontendOnlyJavacTaskProxy) {
-          throw new HumanReadableException(
-              e,
-              "The compiler crashed attempting to generate a source-only ABI: %s.\n"
-                  + "Try building %s instead and fixing any errors that are emitted.\n"
-                  + "If there are none, file an issue, with the crash trace from the log.\n"
-                  + "Exception: %s\n",
-              fullyQualifiedName,
-              compilerOutputPathsValue.getLibraryTargetFullyQualifiedName(),
+          throw new RuntimeException(
+              String.format(
+                  "The compiler crashed attempting to generate a source-only ABI: %s.\n"
+                      + "Try building %s instead and fixing any errors that are emitted.\n"
+                      + "If there are none, file an issue, with the crash trace from the log.\n",
+                  fullyQualifiedName,
+                  compilerOutputPathsValue.getLibraryTargetFullyQualifiedName()),
               e);
         } else {
           throw new RuntimeException(e.getCause() != null ? e.getCause() : e);
@@ -610,7 +608,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
           lazyJavacTask = javacTask;
         } catch (IOException e) {
           LOG.error(e);
-          throw new HumanReadableException("IOException during compilation: ", e.getMessage());
+          throw new RuntimeException("IOException during compilation", e);
         }
       }
 
@@ -681,7 +679,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
       // annotations to process. Since this process is automated, it doesn't make sense to raise
       // a human-facing error message in that case.
       if (!seenZipOrJarSources && !javaSourceFilePaths.isEmpty() && compilationUnits.isEmpty()) {
-        throw new HumanReadableException(NO_JAVA_FILES_ERROR_MESSAGE);
+        throw new RuntimeException(NO_JAVA_FILES_ERROR_MESSAGE);
       }
       return compilationUnits;
     }

@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.google.common.annotations.VisibleForTesting;
@@ -57,8 +56,9 @@ class AnnotationProcessorFactory implements AutoCloseable {
       return new TracingProcessorWrapper(buildTargetName, aClass.newInstance());
     } catch (ReflectiveOperationException e) {
       // If this happens, then the build is really in trouble. Better warn the user.
-      throw new HumanReadableException(
-          e, "%s: javac unable to load annotation processor: %s", buildTargetName, name);
+      throw new RuntimeException(
+          String.format("%s: javac unable to load annotation processor: %s", buildTargetName, name),
+          e);
     }
   }
 

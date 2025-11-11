@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.kotlin;
 
 import static com.facebook.buck.jvm.java.JavaPaths.SRC_ZIP;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
@@ -66,7 +65,7 @@ public class KosabiStubgenStepsBuilder {
     if (invokingRule.isSourceOnlyAbi()) {
 
       if (allKosabiPluginOptionPath.isEmpty()) {
-        throw new HumanReadableException(
+        throw new RuntimeException(
             "Building Kotlin SourceOnlyAbi without Kosabi plugins setup, please check if Kosabi is"
                 + " turn off (kotlin.enable_source_only_abi == false), or remove"
                 + " abi_generation_mode=\"source_only\" from the target.");

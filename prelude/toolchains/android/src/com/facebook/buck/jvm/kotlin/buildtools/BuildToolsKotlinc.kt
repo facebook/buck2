@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin.buildtools
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext
-import com.facebook.buck.core.exceptions.HumanReadableException
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.core.util.log.Logger
@@ -157,7 +156,7 @@ class BuildToolsKotlinc : Kotlinc {
         getExpandedSourcePaths(ruleCellRoot, kotlinSourceFilePaths, workingDirectory)
       } catch (exception: IOException) {
         LOG.error(exception)
-        throw HumanReadableException(
+        throw RuntimeException(
             "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
         )
       }
@@ -181,9 +180,7 @@ class BuildToolsKotlinc : Kotlinc {
                           allSources.firstOrNull { it.endsWith(fragmentPath) }
 
                       if (fragmentSourceAbsPath == null) {
-                        throw HumanReadableException(
-                            "Invalid fragment source path: $fragmentSourcePath"
-                        )
+                        throw RuntimeException("Invalid fragment source path: $fragmentSourcePath")
                       }
                       "$fragmentName:$fragmentSourceAbsPath"
                     }

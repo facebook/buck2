@@ -10,7 +10,6 @@
 
 package com.facebook.buck.util.zip.collect;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.io.pathformat.PathFormatter;
 import com.facebook.buck.util.PatternsMatcher;
 import com.facebook.buck.util.types.Unit;
@@ -101,11 +100,12 @@ public class ZipEntrySourceCollectionBuilder {
       case FAIL:
         return (entry) -> {
           Collection<ZipEntrySource> oldEntries = entryNameToEntry.get(entry.getEntryName());
-          throw new HumanReadableException(
-              "Duplicate entry \"%s\" is coming from %s and %s",
-              entry.getEntryName(),
-              Iterables.getOnlyElement(oldEntries).getSourceFilePath(),
-              entry.getSourceFilePath());
+          throw new RuntimeException(
+              String.format(
+                  "Duplicate entry \"%s\" is coming from %s and %s",
+                  entry.getEntryName(),
+                  Iterables.getOnlyElement(oldEntries).getSourceFilePath(),
+                  entry.getSourceFilePath()));
         };
       case APPEND:
         return (entry) -> {

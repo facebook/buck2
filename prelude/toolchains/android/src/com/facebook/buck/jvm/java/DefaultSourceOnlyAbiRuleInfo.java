@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.jvm.java.abi.source.api.SourceOnlyAbiRuleInfoFactory.SourceOnlyAbiRuleInfo;
 import com.facebook.buck.jvm.java.lang.model.MoreElements;
 import java.io.IOException;
@@ -93,7 +92,7 @@ class DefaultSourceOnlyAbiRuleInfo implements SourceOnlyAbiRuleInfo {
               fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, javaFileObject));
         }
       } catch (IOException e) {
-        throw new HumanReadableException(e, "Failed to list boot classpath contents.");
+        throw new RuntimeException("Failed to list boot classpath contents.", e);
         // Do nothing
       }
       packagesContents.put(packageName, packageContents);

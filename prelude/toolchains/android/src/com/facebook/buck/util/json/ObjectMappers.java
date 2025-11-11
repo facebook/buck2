@@ -10,7 +10,6 @@
 
 package com.facebook.buck.util.json;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -120,7 +119,7 @@ public class ObjectMappers {
       try {
         return WRITER.writeValueAsString(input);
       } catch (JsonProcessingException e) {
-        throw new HumanReadableException(e, "Failed to serialize to json: " + input);
+        throw new RuntimeException("Failed to serialize to json: " + input, e);
       }
     };
   }
@@ -130,7 +129,7 @@ public class ObjectMappers {
       try {
         return readValue(input, type);
       } catch (IOException e) {
-        throw new HumanReadableException(e, "Failed to read from json: " + input);
+        throw new RuntimeException("Failed to read from json: " + input, e);
       }
     };
   }

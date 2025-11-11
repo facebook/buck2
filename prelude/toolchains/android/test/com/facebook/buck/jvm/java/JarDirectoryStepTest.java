@@ -19,7 +19,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.step.TestExecutionContext;
@@ -98,7 +97,7 @@ public class JarDirectoryStepTest {
     assertZipContains(zip, "example.txt");
   }
 
-  @Test(expected = HumanReadableException.class)
+  @Test(expected = RuntimeException.class)
   public void shouldFailIfMainClassMissing() throws IOException {
     AbsPath zipup = folder.newFolder("zipup");
 
@@ -119,10 +118,8 @@ public class JarDirectoryStepTest {
 
     try {
       executeStep(step, zipup);
-    } catch (HumanReadableException e) {
-      assertEquals(
-          "ERROR: Main class com.example.MissingMain does not exist.",
-          e.getHumanReadableErrorMessage());
+    } catch (RuntimeException e) {
+      assertEquals("ERROR: Main class com.example.MissingMain does not exist.", e.getMessage());
       throw e;
     }
   }

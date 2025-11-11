@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
@@ -144,8 +143,10 @@ public class ExternalJavac {
                 pathToSrcsList.getPath());
             command.add("@" + pathToSrcsList);
           } catch (IOException e) {
-            throw new HumanReadableException(
-                e, "Unable to write list of args/sources to compile to %s file!", pathToSrcsList);
+            throw new RuntimeException(
+                String.format(
+                    "Unable to write list of args/sources to compile to %s file!", pathToSrcsList),
+                e);
           }
 
           return runCommand(command.build());
@@ -156,9 +157,10 @@ public class ExternalJavac {
             return JavaPaths.extractArchivesAndGetPaths(
                 context.getRuleCellRoot(), javaSourceFilePaths, workingDirectory.getPath());
           } catch (IOException e) {
-            throw new HumanReadableException(
-                "Unable to expand sources for %s into %s",
-                invokingRule.getFullyQualifiedName(), workingDirectory);
+            throw new RuntimeException(
+                String.format(
+                    "Unable to expand sources for %s into %s",
+                    invokingRule.getFullyQualifiedName(), workingDirectory));
           }
         }
 

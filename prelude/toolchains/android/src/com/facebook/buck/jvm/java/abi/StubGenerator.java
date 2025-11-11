@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.java.abi;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.java.lang.model.ElementsExtended;
 import com.facebook.buck.util.zip.JarBuilder;
@@ -75,7 +74,7 @@ public class StubGenerator {
         stubJar.writeTo(jarBuilder);
       }
     } catch (IOException e) {
-      throw new HumanReadableException("Failed to generate abi: %s", e.getMessage());
+      throw new RuntimeException(String.format("Failed to generate abi: %s", e.getMessage()));
     }
   }
 }

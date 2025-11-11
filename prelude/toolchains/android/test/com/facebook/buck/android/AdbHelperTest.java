@@ -23,7 +23,6 @@ import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
 import com.facebook.buck.testutil.MoreAsserts;
 import com.facebook.buck.testutil.TestConsole;
@@ -362,7 +361,7 @@ public class AdbHelperTest {
   public void testAdbCallShouldFailWhenNoDevices() throws Exception {
     AdbHelper adbHelper = createAdbHelper(ImmutableList.of());
 
-    exceptionRule.expect(HumanReadableException.class);
+    exceptionRule.expect(RuntimeException.class);
     exceptionRule.expectMessage("Didn't find any attached Android devices/emulators.");
     adbHelper.adbCall("dummy", d -> true, true);
   }
@@ -379,7 +378,7 @@ public class AdbHelperTest {
 
   @Test
   public void testAdbCallShouldFailForMultipleDevices() throws Exception {
-    exceptionRule.expect(HumanReadableException.class);
+    exceptionRule.expect(RuntimeException.class);
     exceptionRule.expectMessage("2 devices match specified device filter");
 
     List<AndroidDevice> devices =
@@ -391,7 +390,7 @@ public class AdbHelperTest {
 
   @Test
   public void testAdbCallShouldFailForNoDevices() throws Exception {
-    exceptionRule.expect(HumanReadableException.class);
+    exceptionRule.expect(RuntimeException.class);
     exceptionRule.expectMessage("Didn't find any attached Android devices/emulators.");
 
     when(adbUtils.getDevices()).thenReturn(Collections.emptyList());

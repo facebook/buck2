@@ -11,7 +11,6 @@
 package com.facebook.buck.android.build_config;
 
 import com.facebook.buck.android.build_config.BuildConfigFields.Field;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
@@ -110,8 +109,8 @@ public class BuildConfigFields implements Iterable<Field> {
         if (matcher.matches()) {
           return Field.of(matcher.group("type"), matcher.group("name"), matcher.group("value"));
         } else {
-          throw new HumanReadableException(
-              "Not a valid BuildConfig variable declaration: %s", input);
+          throw new RuntimeException(
+              String.format("Not a valid BuildConfig variable declaration: %s", input));
         }
       };
 
@@ -193,8 +192,8 @@ public class BuildConfigFields implements Iterable<Field> {
         // type is a non-numeric primitive.
         boolean isTrue = "true".equals(field.getValue());
         if (!(isTrue || "false".equals(field.getValue()))) {
-          throw new HumanReadableException(
-              "expected boolean literal but was: %s", field.getValue());
+          throw new RuntimeException(
+              String.format("expected boolean literal but was: %s", field.getValue()));
         }
         String value;
         if (useConstantExpressions) {

@@ -10,7 +10,6 @@
 
 package com.facebook.buck.step.isolatedsteps;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.step.StepExecutionResult;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
@@ -49,23 +48,20 @@ public class StepFailedException extends Exception {
       errorMessage.append(System.lineSeparator()).append(error);
     }
     return new StepFailedException(
-        getHumanReadableException(executionResult, errorMessage.toString()),
+        getException(executionResult, errorMessage.toString()),
         step,
         descriptionForStep,
         OptionalInt.of(executionResult.getExitCode()));
   }
 
-  private static HumanReadableException getHumanReadableException(
+  private static RuntimeException getException(
       StepExecutionResult executionResult, String errorMessage) {
     Optional<Exception> executionResultCause = executionResult.getCause();
     if (executionResultCause.isPresent()) {
       Exception cause = executionResultCause.get();
-      if (cause instanceof HumanReadableException) {
-        return (HumanReadableException) cause;
-      }
-      return new HumanReadableException(cause, errorMessage);
+      return new RuntimeException(errorMessage, cause);
     }
-    return new HumanReadableException(errorMessage);
+    return new RuntimeException(errorMessage);
   }
 
   public static StepFailedException createForFailingStepWithException(

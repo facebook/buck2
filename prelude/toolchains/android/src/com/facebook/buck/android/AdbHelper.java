@@ -21,7 +21,6 @@ import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.util.Console;
@@ -174,7 +173,7 @@ public class AdbHelper implements AndroidDevicesHelper {
         androidPrinter.printMessage("Found " + result.devices.size() + " matching devices.\n");
       }
       if (result.errorMessage.isPresent()) {
-        throw new HumanReadableException(result.errorMessage.get());
+        throw new RuntimeException(result.errorMessage.get());
       } else if (result.devices.isEmpty()) {
         if (options.getIgnoreMissingDevice()) {
           androidPrinter.printMessage(
@@ -182,11 +181,9 @@ public class AdbHelper implements AndroidDevicesHelper {
                   + " devices/emulators.\n");
           return;
         }
-        throw new HumanReadableException("Didn't find any attached Android devices/emulators.");
+        throw new RuntimeException("Didn't find any attached Android devices/emulators.");
       }
       devices = result.devices;
-    } catch (HumanReadableException e) {
-      throw e;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage());
     }
@@ -233,7 +230,8 @@ public class AdbHelper implements AndroidDevicesHelper {
     }
 
     if (failureCount != 0) {
-      throw new HumanReadableException("Failed to %s on %d device(s).", description, failureCount);
+      throw new RuntimeException(
+          String.format("Failed to %s on %d device(s).", description, failureCount));
     }
   }
 
@@ -499,9 +497,9 @@ public class AdbHelper implements AndroidDevicesHelper {
 
         // Sanity check.
         if (launcherActivities.isEmpty()) {
-          throw new HumanReadableException("No launchable activities found.");
+          throw new RuntimeException("No launchable activities found.");
         } else if (launcherActivities.size() > 1) {
-          throw new HumanReadableException("Default activity is ambiguous.");
+          throw new RuntimeException("Default activity is ambiguous.");
         }
 
         // Construct a component for the '-n' argument of 'adb shell am start'.
@@ -569,14 +567,17 @@ public class AdbHelper implements AndroidDevicesHelper {
     // Note that the file may not exist if AndroidManifest.xml is a generated file
     // and the rule has not been built yet.
     if (!Files.isRegularFile(pathToManifest)) {
-      throw new HumanReadableException(
-          "Manifest file %s does not exist, so could not extract package name.", pathToManifest);
+      throw new RuntimeException(
+          String.format(
+              "Manifest file %s does not exist, so could not extract package name.",
+              pathToManifest));
     }
 
     try {
       return DefaultAndroidManifestReader.forPath(pathToManifest).getPackage();
     } catch (IOException e) {
-      throw new HumanReadableException("Could not extract package name from %s", pathToManifest);
+      throw new RuntimeException(
+          String.format("Could not extract package name from %s", pathToManifest));
     }
   }
 
