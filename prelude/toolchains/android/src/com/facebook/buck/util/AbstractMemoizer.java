@@ -11,7 +11,6 @@
 package com.facebook.buck.util;
 
 import com.facebook.buck.util.function.ThrowingSupplier;
-import com.facebook.buck.util.types.Either;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import javax.annotation.Nullable;
@@ -19,7 +18,8 @@ import javax.annotation.Nullable;
 /** A Generic memoizer capable of memoizing Exceptions */
 class AbstractMemoizer<T, E extends Exception> {
 
-  @Nullable private volatile Either<T, E> value = null;
+  @Nullable private volatile T value = null;
+  @Nullable private volatile E exception = null;
 
   /**
    * Get the value and memoize the result. Constructs the value if it hasn't been memoized before,
@@ -29,16 +29,16 @@ class AbstractMemoizer<T, E extends Exception> {
    * @return the value
    */
   public T get(ThrowingSupplier<T, E> delegate, Class<E> exceptionClass) throws E {
-    if (value == null) {
+    if (value == null && exception == null) {
       synchronized (this) {
         if (value == null) {
           try {
             T t = Preconditions.checkNotNull(delegate.get());
-            value = Either.ofLeft(t);
+            value = t;
             return t;
           } catch (Exception e) {
             if (exceptionClass.isInstance(e)) {
-              value = Either.ofRight(exceptionClass.cast(e));
+              exception = exceptionClass.cast(e);
               Throwables.throwIfInstanceOf(e, exceptionClass);
             }
             Throwables.throwIfUnchecked(e);
@@ -47,9 +47,9 @@ class AbstractMemoizer<T, E extends Exception> {
         }
       }
     }
-    if (value.isLeft()) {
-      return value.getLeft();
+    if (value != null) {
+      return value;
     }
-    throw value.getRight();
+    throw exception;
   }
 }
