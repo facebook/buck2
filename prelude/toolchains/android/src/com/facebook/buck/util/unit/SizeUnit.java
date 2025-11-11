@@ -10,9 +10,7 @@
 
 package com.facebook.buck.util.unit;
 
-import com.facebook.buck.util.types.Pair;
 import java.math.BigDecimal;
-import java.util.Locale;
 
 public enum SizeUnit {
   BYTES(0, "bytes"),
@@ -67,35 +65,5 @@ public enum SizeUnit {
 
   public long toTerabytes(double size) {
     return multiplyByByteOrderOfMagnitude(size, getOrdinal() - TERABYTES.getOrdinal());
-  }
-
-  public static Pair<Double, SizeUnit> getHumanReadableSize(double size, SizeUnit unit) {
-    if (size == 0) {
-      return new Pair<>(0.0, unit);
-    }
-    int ordinal = unit.getOrdinal();
-    double resultSize = size;
-    if (size > 1) {
-      while (size > 1 && ordinal < 4) {
-        size = size / 1024;
-        if (size > 1) {
-          ordinal++;
-          resultSize = size;
-        }
-      }
-    } else {
-      while (size < 1024 && ordinal > 0) {
-        size = size * 1024;
-        if (size < 1024) {
-          ordinal--;
-          resultSize = size;
-        }
-      }
-    }
-    return new Pair<>(resultSize, SizeUnit.values()[ordinal]);
-  }
-
-  public static String toHumanReadableString(Pair<Double, SizeUnit> size, Locale locale) {
-    return String.format(locale, "%.2f %s", size.getFirst(), size.getSecond().getAbbreviation());
   }
 }

@@ -11,7 +11,6 @@ standard_java_test(
         "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/graph:graph",
         "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
-        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:junit",
     ],

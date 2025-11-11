@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.java;
 
 import com.facebook.buck.core.exceptions.HumanReadableException;
-import com.facebook.buck.util.string.AsciiBoxStringBuilder;
 import com.google.common.base.Throwables;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,16 +94,20 @@ class TracingProcessorWrapper implements Processor {
 
     int maxLineLength = filteredStackTraceLines.stream().mapToInt(String::length).max().orElse(75);
 
-    AsciiBoxStringBuilder messageBuilder =
-        new AsciiBoxStringBuilder(maxLineLength)
-            .writeLine("The annotation processor %s has crashed.\n", annotationProcessorName)
-            .writeLine(
+    StringBuilder messageBuilder =
+        new StringBuilder(maxLineLength)
+            .append(
+                String.format(
+                    "The annotation processor %s has crashed.\n\n", annotationProcessorName))
+            .append(
                 "This is likely a bug in the annotation processor itself, though there may be"
                     + " changes you can make to your code to work around it. Examine the exception"
                     + " stack trace below and consult the annotation processor's troubleshooting"
-                    + " guide.\n");
+                    + " guide.\n\n");
 
-    filteredStackTraceLines.forEach(messageBuilder::writeLine);
+    for (String line : filteredStackTraceLines) {
+      messageBuilder.append(line).append("\n");
+    }
 
     return new HumanReadableException(e, "\n" + messageBuilder);
   }

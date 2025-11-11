@@ -34,7 +34,6 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
-        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
         "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
         "prelude//toolchains/android/test/com/facebook/buck/util:testutil",

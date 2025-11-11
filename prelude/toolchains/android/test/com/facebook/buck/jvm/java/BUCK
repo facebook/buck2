@@ -93,7 +93,6 @@ buck_java_test(
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
         "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
-        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
         "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
         "prelude//toolchains/android/test/com/facebook/buck/android:testutil",

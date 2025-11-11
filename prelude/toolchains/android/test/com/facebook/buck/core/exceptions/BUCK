@@ -9,7 +9,6 @@ standard_java_test(
     name = "exceptions",
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
-        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:junit",
     ],
