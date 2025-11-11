@@ -8,59 +8,37 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::fmt;
 
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
+use index_vec::IndexVec;
 
 use crate::cgroup::Cgroup;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Environment)]
-pub enum CgroupPoolError {
-    #[error("{msg} IO error: {io_err}")]
-    Io { msg: String, io_err: std::io::Error },
-    #[error("Failed to find cgroup with id {id} in cgroup pool")]
-    CgroupIDNotFound { id: CgroupID },
-    #[error("Process cgroup is not an absolute path: {path}")]
-    ProcessCgroupNotAbsolutePath { path: String },
+index_vec::define_index_type! {
+    /// A unique identifier for a cgroup
+    pub struct CgroupID = usize;
 }
 
-/// A unique identifier for a cgroup
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Dupe)]
-pub struct CgroupID(usize);
-
-impl CgroupID {
-    fn new(id: usize) -> Self {
-        Self(id)
-    }
-}
-
-impl fmt::Display for CgroupID {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "CgroupID {}", self.0)
-    }
-}
+impl Dupe for CgroupID {}
 
 pub(crate) struct CgroupPool {
     pool_cgroup: Cgroup,
     per_cgroup_memory_high: Option<String>,
-    cgroups: HashMap<CgroupID, Cgroup>,
+    cgroups: IndexVec<CgroupID, Cgroup>,
     available: VecDeque<CgroupID>,
-    next_id: usize,
 }
 
 impl CgroupPool {
     const POOL_NAME: &'static FileName = FileName::unchecked_new("actions_cgroup_pool");
 
     fn worker_name(id: CgroupID) -> FileNameBuf {
-        let i = id.0;
+        let i = id.index();
         if i < 1000 {
             FileNameBuf::unchecked_new(format!("worker_{i:03}"))
         } else {
@@ -68,15 +46,9 @@ impl CgroupPool {
         }
     }
 
-    fn allocate_id(&mut self) -> CgroupID {
-        let id = self.next_id;
-        self.next_id += 1;
-        CgroupID::new(id)
-    }
-
     /// The new cgroup is assumed to be in use
     fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
-        let cgroup_id = self.allocate_id();
+        let cgroup_id = self.cgroups.next_idx();
         let worker_name = Self::worker_name(cgroup_id);
         let cgroup = Cgroup::new(self.pool_cgroup.path(), &worker_name)?;
 
@@ -85,7 +57,7 @@ impl CgroupPool {
             cgroup.set_memory_high(per_cgroup_memory_high)?;
         }
 
-        self.cgroups.insert(cgroup_id, cgroup);
+        self.cgroups.push(cgroup);
 
         Ok(cgroup_id)
     }
@@ -104,9 +76,8 @@ impl CgroupPool {
         }
 
         Ok(CgroupPool {
-            cgroups: HashMap::new(),
+            cgroups: IndexVec::new(),
             available: VecDeque::new(),
-            next_id: 0,
             per_cgroup_memory_high: config.memory_high_per_action.clone(),
             pool_cgroup,
         })
@@ -117,9 +88,8 @@ impl CgroupPool {
         let pool_cgroup = Cgroup::create_for_test()?;
 
         Some(CgroupPool {
-            cgroups: HashMap::new(),
+            cgroups: IndexVec::new(),
             available: VecDeque::new(),
-            next_id: 0,
             per_cgroup_memory_high: None,
             pool_cgroup,
         })
@@ -134,7 +104,7 @@ impl CgroupPool {
             self.reserve_additional_cgroup()?
         };
 
-        Ok((cgroup_id, self.cgroups[&cgroup_id].path().to_buf()))
+        Ok((cgroup_id, self.cgroups[cgroup_id].path().to_buf()))
     }
 
     pub(crate) fn release(&mut self, cgroup_id: CgroupID) {

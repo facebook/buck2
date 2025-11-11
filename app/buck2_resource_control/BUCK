@@ -29,6 +29,7 @@ rust_library(
     },
     deps = [
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:index_vec",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-util",
