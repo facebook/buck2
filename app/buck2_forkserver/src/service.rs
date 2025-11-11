@@ -182,9 +182,7 @@ impl UnixForkserverService {
         &self,
         validated_cmd: &ValidatedCommand,
     ) -> buck2_error::Result<(Command, Option<AbsNormPathBuf>)> {
-        let enable_miniperf =
-            validated_cmd.enable_miniperf || validated_cmd.command_cgroup.is_some();
-        let (mut cmd, miniperf_output) = match (enable_miniperf, &self.miniperf) {
+        let (mut cmd, miniperf_output) = match (validated_cmd.enable_miniperf, &self.miniperf) {
             // Wraps the user command with miniperf for performance monitoring
             (true, Some(miniperf)) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
