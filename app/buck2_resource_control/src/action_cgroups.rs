@@ -524,7 +524,7 @@ impl ActionCgroups {
         let now = Instant::now();
         if self
             .last_scheduled_event_time
-            .is_some_and(|last| now.duration_since(last) > scheduled_event_freq)
+            .is_none_or(|last| now.duration_since(last) > scheduled_event_freq)
         {
             let e = self.make_resource_control_event(
                 memory_reading,
