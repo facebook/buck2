@@ -10,7 +10,6 @@
 
 package com.facebook.buck.step.isolatedsteps;
 
-import com.facebook.buck.core.exceptions.ExceptionWithContext;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.exceptions.WrapsException;
 import com.facebook.buck.step.StepExecutionResult;
@@ -18,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-public class StepFailedException extends Exception implements WrapsException, ExceptionWithContext {
+public class StepFailedException extends Exception implements WrapsException {
 
   @VisibleForTesting static final int KEEP_FIRST_CHARS = 4 * 80;
 
@@ -37,7 +36,7 @@ public class StepFailedException extends Exception implements WrapsException, Ex
 
   @Override
   public String getMessage() {
-    return getCause().getMessage() + System.lineSeparator() + "  " + getContext().get();
+    return getCause().getMessage() + System.lineSeparator() + "  " + getContext();
   }
 
   /** Creates a StepFailedException based on a StepExecutionResult. */
@@ -83,8 +82,7 @@ public class StepFailedException extends Exception implements WrapsException, Ex
     return exitCode;
   }
 
-  @Override
-  public Optional<String> getContext() {
-    return Optional.of(String.format("When running <%s>.", description));
+  private String getContext() {
+    return String.format("When running <%s>.", description);
   }
 }

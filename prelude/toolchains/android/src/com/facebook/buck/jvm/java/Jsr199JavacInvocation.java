@@ -484,8 +484,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
               compilerOutputPathsValue.getLibraryTargetFullyQualifiedName(),
               e);
         } else {
-          throw new BuckUncheckedExecutionException(
-              e.getCause() != null ? e.getCause() : e, "When running javac");
+          throw new BuckUncheckedExecutionException(e.getCause() != null ? e.getCause() : e);
         }
       } finally {
         for (AutoCloseable closeable : Lists.reverse(closeables)) {
