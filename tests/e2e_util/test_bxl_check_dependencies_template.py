@@ -58,6 +58,8 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
             os.environ["VERIFICATION_MODE"],
             *allowlist_args,
             *blocklist_args,
+            "--target_deps",
+            os.environ["TARGET_DEPS"],
             env={
                 "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
                 "BUCK2_RUNTIME_THREADS": "8",

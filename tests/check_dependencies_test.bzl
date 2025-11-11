@@ -53,6 +53,7 @@ def check_dependencies_test(
         deps = None,
         extra_buck_args = [],
         labels = [],
+        target_deps = True,
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -101,6 +102,11 @@ def check_dependencies_test(
     if mode not in ("allowlist", "blocklist"):
         fail("mode must be one of: allowlist, blocklist")
 
+    modifiers = kwargs.pop("modifiers", None)
+    if modifiers:
+        for m in modifiers:
+            extra_buck_args = extra_buck_args + ["--modifier", m]
+
     extra_buck_args_target = "%s_extra_buck_args" % (name)
     buck_args_str = "\n".join(extra_buck_args)
     buck_genrule(
@@ -124,6 +130,7 @@ def check_dependencies_test(
             "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),
             "FLAVOR": "check_dependencies_test",
             "TARGET": target,
+            "TARGET_DEPS": str(target_deps).lower(),
             "VERIFICATION_MODE": mode,
         } | (env or {}),
         labels = ["check_dependencies_test"] + labels,

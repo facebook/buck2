@@ -33,10 +33,14 @@ def _impl_check_dependencies_test(
         fail("Self-check and self-documentation: must provide allow or block list")
 
     cquery = ctx.cquery()
+    cquery_kwargs = {}
+    if ctx.cli_args.target_deps:
+        cquery_kwargs["filter"] = "target_deps()"
+
     transitive_deps = cquery.deps(
         ctx.target_universe(target, modifiers = ctx.modifiers).target_set(),
         _MAX_DEPTH,
-        filter = "target_deps()",
+        **cquery_kwargs
     )
 
     allowlist_regex = rule_list_regex(allowlist_patterns)
@@ -76,6 +80,7 @@ test = bxl_main(
         "allowlist_patterns": cli_args.option(cli_args.list(cli_args.string())),
         "blocklist_patterns": cli_args.option(cli_args.list(cli_args.string())),
         "target": cli_args.target_label(),
+        "target_deps": cli_args.bool(default = True),
         "verification_mode": cli_args.string(),
     },
     impl = _impl,
