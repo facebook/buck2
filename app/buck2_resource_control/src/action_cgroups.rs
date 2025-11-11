@@ -187,7 +187,8 @@ struct RunningActionCgroup {
 #[derive(Debug)]
 struct SuspendedActionCgroup {
     cgroup: ActionCgroup,
-    suspend_start: Instant,
+    // None indicates that this action was never started
+    suspend_start: Option<Instant>,
     memory_current_when_suspended: u64,
     wake_implementation: WakeImplementation,
 }
@@ -203,6 +204,7 @@ pub(crate) struct ActionCgroups {
     original_memory_high: Option<String>,
     last_suspend_time: Option<Instant>,
     last_wake_time: Option<Instant>,
+    last_memory_pressure_state: MemoryPressureState,
     // Total memory of buck2.slice (Which contains daemon, forkserver and workers cgroups) when the last suspend happened.
     // Used to calculate when we should wake cgroups.
     total_memory_during_last_suspend: Option<u64>,
@@ -323,6 +325,7 @@ impl ActionCgroups {
             original_memory_high: None,
             last_suspend_time: None,
             last_wake_time: None,
+            last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
             total_memory_during_last_suspend: None,
             metadata: buck2_events::metadata::collect(daemon_id),
             ancestor_cgroup_constraints,
@@ -391,20 +394,41 @@ impl ActionCgroups {
         let (start_tx, start_rx) = oneshot::channel();
         let start_future = RetryFuture(start_rx);
         let start_wake_implemenation = WakeImplementation::UnblockStart(start_tx);
-        // Start the command immediately
-        //
-        // FIXME(JakobDegen): If there is memory pressure we should block new commands from
-        // spawning
-        let running_action_cgroup = wake_cgroup(action_cgroup, start_wake_implemenation).0;
 
-        let existing = self
-            .running_cgroups
-            .insert(cgroup_path.clone(), running_action_cgroup);
-        if let Some(existing) = existing {
-            return Err(internal_error!(
-                "cgroup already exists, reused cgroup pool worker? {:?}",
-                existing.cgroup.path,
-            ));
+        if self.last_memory_pressure_state == MemoryPressureState::BelowPressureLimit {
+            // Start the command immediately
+            //
+            // FIXME(JakobDegen): If there is memory pressure we should block new commands from
+            // spawning
+            let running_action_cgroup = wake_cgroup(action_cgroup, start_wake_implemenation).0;
+
+            let existing = self
+                .running_cgroups
+                .insert(cgroup_path.clone(), running_action_cgroup);
+            if let Some(existing) = existing {
+                return Err(internal_error!(
+                    "cgroup already exists, reused cgroup pool worker? {:?}",
+                    existing.cgroup.path,
+                ));
+            }
+        } else {
+            // If we have any suspended actions, don't also start new ones
+            let suspended_action_cgroup = SuspendedActionCgroup {
+                cgroup: action_cgroup,
+                suspend_start: None,
+                memory_current_when_suspended: 0,
+                wake_implementation: start_wake_implemenation,
+            };
+            let existing = self
+                .suspended_cgroups
+                .insert(cgroup_path.clone(), suspended_action_cgroup);
+            if let Some(existing) = existing {
+                return Err(internal_error!(
+                    "cgroup already exists, reused cgroup pool worker? {:?}",
+                    existing.cgroup.path,
+                ));
+            }
+            self.wake_order.push_back(cgroup_path);
         }
 
         Ok(start_future)
@@ -461,6 +485,8 @@ impl ActionCgroups {
                 }
             }
         }
+
+        self.last_memory_pressure_state = pressure_state;
 
         if pressure_state == MemoryPressureState::AbovePressureLimit {
             self.maybe_suspend(memory_reading);
@@ -550,7 +576,7 @@ impl ActionCgroups {
         );
 
         self.total_memory_during_last_suspend = Some(memory_reading.buck2_slice_memory_current);
-        self.last_suspend_time = Some(suspended_cgroup.suspend_start);
+        self.last_suspend_time = suspended_cgroup.suspend_start;
         let path = suspended_cgroup.cgroup.path.clone();
         self.wake_order.push_back(path.clone());
         self.suspended_cgroups
@@ -615,14 +641,16 @@ impl ActionCgroups {
             suspended_cgroup.cgroup.command_type
         );
 
-        let suspend_elapsed = suspended_cgroup.suspend_start.elapsed();
+        if let Some(suspend_start) = suspended_cgroup.suspend_start {
+            let suspend_elapsed = suspend_start.elapsed();
 
-        suspended_cgroup.cgroup.suspend_duration =
-            Some(match suspended_cgroup.cgroup.suspend_duration {
-                Some(duration) => duration + suspend_elapsed,
-                None => suspend_elapsed,
-            });
-        suspended_cgroup.cgroup.suspend_count += 1;
+            suspended_cgroup.cgroup.suspend_duration =
+                Some(match suspended_cgroup.cgroup.suspend_duration {
+                    Some(duration) => duration + suspend_elapsed,
+                    None => suspend_elapsed,
+                });
+            suspended_cgroup.cgroup.suspend_count += 1;
+        }
 
         let (running_cgroup, event_kind) = wake_cgroup(
             suspended_cgroup.cgroup,
@@ -728,7 +756,6 @@ impl ActionCgroups {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn suspend_cgroup(
     cgroup: RunningActionCgroup,
 ) -> (SuspendedActionCgroup, buck2_data::ResourceControlEventKind) {
@@ -758,7 +785,7 @@ fn suspend_cgroup(
             memory_current_when_suspended: cgroup.cgroup.memory_current,
             cgroup: cgroup.cgroup,
             wake_implementation,
-            suspend_start,
+            suspend_start: Some(suspend_start),
         },
         event_kind,
     )

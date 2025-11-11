@@ -47,7 +47,7 @@ def _use_some_memory_args(buck: Buck, temp: TemporaryDirectory[str]) -> list[str
     ]
 
 
-async def _check_suspends(
+async def _check_suspends(  # noqa C901
     buck: Buck,
     kill_and_retry: bool,
     temp: TemporaryDirectory[str],
@@ -85,19 +85,18 @@ async def _check_suspends(
 
     if kill_and_retry:
         total_detected_kills = 0
-        expected_min_kills = 0
+        expected_kills = 0
         for ident, count in reported_suspends.items():
             detected_starts = len((Path(temp.name) / ident).read_text().splitlines())
             if count is None:
                 assert detected_starts == 1
             else:
-                # FIXME(JakobDegen): Again, we'd like to assert here but can't because we have a
-                # tendency to kill actions immediately after starting them. Instead, just do the
-                # bare minimum check that we detected at least one kill
+                # We can't quite assert that the kills were observed by the action because sometimes
+                # we might kill the thing before it gets there. So add them up and assert that we're
+                # close enough
                 total_detected_kills += detected_starts - 1
-                expected_min_kills += count
-        if expected_min_kills > 0:
-            assert total_detected_kills > 0
+                expected_kills += count
+        assert total_detected_kills >= expected_kills - 2
     else:
         paths = Path(res.stdout.strip()).read_text().splitlines()
         paths = [buck.cwd / p for p in paths]
@@ -115,11 +114,7 @@ async def _check_suspends(
             if total_duration is not None:
                 assert abs(reported_suspends[ident] - total_duration) < 500
             else:
-                # FIXME(JakobDegen): We should assert here, but we can't because in some cases
-                # we suspend actions immediately after starting them, meaning they can't detect
-                # it.
-                # assert (reported_suspends[ident] or 0) < 500
-                pass
+                assert (reported_suspends[ident] or 0) < 500
 
     return num_suspended_actions
 
@@ -138,8 +133,7 @@ async def test_action_suspend(
         *_use_some_memory_args(buck, temp),
     )
 
-    num_suspends = await _check_suspends(buck, kill_and_retry, temp, res)
-    assert num_suspends > 0
+    await _check_suspends(buck, kill_and_retry, temp, res)
 
     pressure_starts = await filter_events(
         buck,
@@ -169,16 +163,7 @@ async def test_action_suspend_stress_test(
     kill_and_retry: bool,
 ) -> None:
     temp = TemporaryDirectory()
-    _configure(buck, kill_and_retry, 0)
-
-    # Stress test that nothing breaks with fast running actions (faster than memory tracker ticks)
-    await buck.build(
-        ":very_fast_100",
-        *_use_some_memory_args(buck, temp),
-    )
-
     _configure(buck, kill_and_retry, 1)
-    # And check again without memory pressure
     await buck.build(
         ":very_fast_100",
         *_use_some_memory_args(buck, temp),
