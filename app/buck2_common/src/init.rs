@@ -252,7 +252,7 @@ pub struct ResourceControlConfig {
     /// to stay under this pressure limit. (Currently only used for logging purposes and doesn't actually do the above)
     pub memory_pressure_threshold_percent: Option<u64>,
     /// Enable suspension when memory pressure is high.
-    pub enable_suspension: Option<bool>,
+    pub enable_suspension: bool,
     pub preferred_action_suspend_strategy: Option<ActionSuspendStrategy>,
 }
 
@@ -314,6 +314,12 @@ impl FromStr for ResourceControlStatus {
     }
 }
 
+/// The current version of the resource control algorithm. Say you have some important change to the
+/// algo that fixes a bug. Incrementing this to `N + 1` and setting the
+/// `buck2_resource_control.enable_suspension_if_min_algo_version` buckconfig to `N + 1` enables
+/// suspension only if your bug fix is actually included in the version of buck in use
+const RESOURCE_CONTROL_ALGO_VERSION: u32 = 1;
+
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         if let Some(env_conf) = buck2_env!(
@@ -357,6 +363,14 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "enable_suspension",
             })?;
+            let enable_suspension_if_min_algo_version: Option<u32> =
+                config.parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "enable_suspension_if_min_algo_version",
+                })?;
+            let enable_suspension = enable_suspension.unwrap_or(false)
+                || enable_suspension_if_min_algo_version
+                    .is_some_and(|min_version| RESOURCE_CONTROL_ALGO_VERSION >= min_version);
             let preferred_action_suspend_strategy = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "preferred_action_suspend_strategy",

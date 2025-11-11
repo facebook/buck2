@@ -656,8 +656,7 @@ impl DaemonState {
             let action_freezing_enabled = init_ctx
                 .daemon_startup_config
                 .resource_control
-                .enable_suspension
-                .unwrap_or(false);
+                .enable_suspension;
 
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),

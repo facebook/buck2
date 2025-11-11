@@ -291,7 +291,7 @@ impl ActionCgroups {
         >,
         cgroup_pool: CgroupPool,
     ) -> buck2_error::Result<Self> {
-        let enable_suspension = resource_control_config.enable_suspension.unwrap_or(false);
+        let enable_suspension = resource_control_config.enable_suspension;
 
         let ancestor_cgroup_constraints = AncestorCgroupConstraints::new().await?;
 
