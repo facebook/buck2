@@ -43,13 +43,6 @@ pub enum TrackedMemoryState {
 }
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
-pub enum MemoryCurrentState {
-    NoLimitSet,
-    BelowLimit,
-    AboveLimit,
-}
-
-#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum MemoryPressureState {
     BelowPressureLimit,
     AbovePressureLimit,
@@ -57,7 +50,6 @@ pub enum MemoryPressureState {
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub struct MemoryStates {
-    pub memory_current_state: MemoryCurrentState,
     pub memory_pressure_state: MemoryPressureState,
 }
 
@@ -169,7 +161,6 @@ pub struct MemoryTracker {
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
     max_retries: u32,
-    memory_limit_bytes: Option<u64>,
     memory_pressure_threshold: u64,
 }
 
@@ -309,9 +300,6 @@ pub async fn create_memory_tracker(
     let handle =
         MemoryTrackerHandleInner::new(action_cgroups, resource_control_scheduled_event_reporter);
     const MAX_RETRIES: u32 = 5;
-    let memory_limit_bytes = resource_control_config
-        .hybrid_execution_memory_limit_gibibytes
-        .map(|memory_limit_gibibytes| memory_limit_gibibytes * 1024 * 1024 * 1024);
     let memory_tracker = MemoryTracker::new(
         handle,
         open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
@@ -320,7 +308,6 @@ pub async fn create_memory_tracker(
         open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
         open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
         MAX_RETRIES,
-        memory_limit_bytes,
         resource_control_config
             .memory_pressure_threshold_percent
             .unwrap_or(10),
@@ -339,7 +326,6 @@ impl MemoryTracker {
         daemon_memory_current: File,
         daemon_memory_swap_current: File,
         max_retries: u32,
-        memory_limit_bytes: Option<u64>,
         memory_pressure_threshold: u64,
     ) -> Self {
         Self {
@@ -350,7 +336,6 @@ impl MemoryTracker {
             daemon_memory_current,
             daemon_memory_swap_current,
             max_retries,
-            memory_limit_bytes,
             memory_pressure_threshold,
         }
     }
@@ -409,17 +394,6 @@ impl MemoryTracker {
                     daemon_memory_current,
                     daemon_memory_swap_current,
                 )) => {
-                    let memory_current_state =
-                        if let Some(memory_limit_bytes) = self.memory_limit_bytes {
-                            if buck2_slice_memory_current < memory_limit_bytes {
-                                MemoryCurrentState::BelowLimit
-                            } else {
-                                MemoryCurrentState::AboveLimit
-                            }
-                        } else {
-                            MemoryCurrentState::NoLimitSet
-                        };
-
                     let pressure_percent = buck2_slice_avg_mem_pressure.round() as u64;
                     let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
                         MemoryPressureState::BelowPressureLimit
@@ -442,7 +416,6 @@ impl MemoryTracker {
 
                     (
                         TrackedMemoryState::Reading(MemoryStates {
-                            memory_current_state,
                             memory_pressure_state,
                         }),
                         Some(memory_reading),
@@ -596,7 +569,6 @@ mod tests {
             daemon_memory_current,
             daemon_memory_swap,
             0,
-            Some(7),
             10,
         );
         let mut state_rx = tracker.handle.state_sender.subscribe();
@@ -614,7 +586,6 @@ mod tests {
         assert_eq!(
             *state_rx.borrow_and_update(),
             TrackedMemoryState::Reading(MemoryStates {
-                memory_current_state: MemoryCurrentState::BelowLimit,
                 memory_pressure_state: MemoryPressureState::BelowPressureLimit
             })
         );
@@ -634,7 +605,6 @@ mod tests {
         assert_eq!(
             *state_rx.borrow_and_update(),
             TrackedMemoryState::Reading(MemoryStates {
-                memory_current_state: MemoryCurrentState::AboveLimit,
                 memory_pressure_state: MemoryPressureState::BelowPressureLimit
             })
         );
@@ -704,7 +674,6 @@ mod tests {
             daemon_memory_current,
             daemon_memory_swap_current,
             0,
-            Some(7),
             10,
         );
         let mut state_rx = tracker.handle.state_sender.subscribe();
@@ -722,7 +691,6 @@ mod tests {
         assert_eq!(
             *state_rx.borrow_and_update(),
             TrackedMemoryState::Reading(MemoryStates {
-                memory_current_state: MemoryCurrentState::BelowLimit,
                 memory_pressure_state: MemoryPressureState::BelowPressureLimit
             })
         );
@@ -742,7 +710,6 @@ mod tests {
         assert_eq!(
             *state_rx.borrow_and_update(),
             TrackedMemoryState::Reading(MemoryStates {
-                memory_current_state: MemoryCurrentState::BelowLimit,
                 memory_pressure_state: MemoryPressureState::AbovePressureLimit
             })
         );
@@ -800,7 +767,6 @@ mod tests {
             daemon_memory_current,
             daemon_memory_swap_current,
             3,
-            Some(0),
             0,
         );
         let handle = tracker.handle.dupe();

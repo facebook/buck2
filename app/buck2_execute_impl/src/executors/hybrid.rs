@@ -41,10 +41,8 @@ use futures::future::BoxFuture;
 use futures::future::Either;
 use futures::future::Future;
 use host_sharing::HostSharingRequirements;
-use tokio::sync::MutexGuard;
 
 use crate::executors::local::LocalExecutor;
-use crate::executors::local_actions_throttle::LocalActionsThrottle;
 use crate::low_pass_filter::LowPassFilter;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
@@ -61,7 +59,6 @@ pub struct HybridExecutor<R> {
     pub low_pass_filter: Arc<LowPassFilter>,
     pub re_max_input_files_bytes: u64,
     pub fallback_tracker: Arc<FallbackTracker>,
-    pub local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
 }
 
 impl<R> HybridExecutor<R>
@@ -105,20 +102,6 @@ where
     /// Indicate whether an action is too big to run on RE.
     fn is_action_too_large_for_remote(&self, paths: &CommandExecutionPaths) -> bool {
         paths.input_files_bytes() > self.re_max_input_files_bytes
-    }
-
-    async fn ensure_low_memory_pressure(&self) {
-        if let Some(ref t) = self.local_actions_throttle {
-            t.ensure_low_memory_pressure().await
-        }
-    }
-
-    async fn throttle_when_memory_pressure(&self) -> Option<MutexGuard<'_, ()>> {
-        if let Some(ref t) = self.local_actions_throttle {
-            t.throttle().await
-        } else {
-            None
-        }
     }
 }
 
@@ -205,11 +188,7 @@ where
 
         let action_too_large = self.is_action_too_large_for_remote(command.request.paths());
         if executor_preference.requires_local() || action_too_large {
-            let mut res = async move {
-                let _guard = self.throttle_when_memory_pressure().await;
-                local_result.await
-            }
-            .await;
+            let mut res = local_result.await;
             if action_too_large {
                 res.scheduling_mode = Some(SchedulingMode::LocalActionTooLarge);
             } else {
@@ -231,13 +210,6 @@ where
         };
 
         if is_limited {
-            let jobs = jobs.map_local(|local| {
-                async move {
-                    let _guard = self.throttle_when_memory_pressure().await;
-                    local.await
-                }
-                .boxed()
-            });
             let mut res = jobs.into_primary().await.0;
             res.scheduling_mode = Some(SchedulingMode::NoFallback);
             return res;
@@ -290,13 +262,6 @@ where
             if executor_preference.prefers_local() || executor_preference.prefers_remote() {
                 // Don't race in this scenario, since this is typically used for
                 // actions that are too expensive to run on RE.
-                let jobs = jobs.map_local(|local| {
-                    async move {
-                        let _guard = self.throttle_when_memory_pressure().await;
-                        local.await
-                    }
-                    .boxed()
-                });
                 if executor_preference.prefers_local() {
                     scheduling_mode = SchedulingMode::PreferLocal;
                 } else {
@@ -314,7 +279,6 @@ where
                             // The claim actually comes back to us via the execution report so there's no race condition
                             // where local unblocks just when RE finishes
                             remote_execution_liveliness_observer.while_alive().await;
-                            let _guard = self.throttle_when_memory_pressure().await;
                             let (mut res, priority) = local.await;
                             if was_result_delayed.load(std::sync::atomic::Ordering::Relaxed) {
                                 // RE queuing but not cancelled, will race with local.
@@ -331,13 +295,7 @@ where
                             // Block local until either condition is met:
                             // - we only have a few actions (that's low_pass_filter)
                             // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                            let access = async move {
-                                let guard = self.low_pass_filter.access(weight).await;
-                                // we can keep the low pass filter guard since other actions
-                                // are blocked by same memory issue
-                                self.ensure_low_memory_pressure().await;
-                                guard
-                            };
+                            let access = self.low_pass_filter.access(weight);
                             let alive = remote_execution_liveliness_observer.while_alive();
                             futures::pin_mut!(access);
                             futures::pin_mut!(alive);
@@ -348,13 +306,7 @@ where
                     })
                 } else {
                     scheduling_mode = SchedulingMode::FullHybrid;
-                    jobs.map_local(|local| {
-                        async move {
-                            self.ensure_low_memory_pressure().await;
-                            local.await
-                        }
-                        .boxed()
-                    })
+                    jobs.map_local(|local| local.boxed())
                 };
                 jobs.execute_concurrent().await
             };

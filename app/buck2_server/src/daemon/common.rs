@@ -55,7 +55,6 @@ use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::executors::local::LocalActionCounter;
 use buck2_execute_impl::executors::local::LocalExecutor;
-use buck2_execute_impl::executors::local_actions_throttle::LocalActionsThrottle;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
 use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
@@ -94,7 +93,6 @@ pub struct CommandExecutorFactory {
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
-    local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
     memory_tracker: Option<MemoryTrackerHandle>,
     local_action_counter: Option<Arc<LocalActionCounter>>,
     incremental_db_state: Arc<IncrementalDbState>,
@@ -129,10 +127,7 @@ impl CommandExecutorFactory {
         daemon_id: DaemonId,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
-        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker.dupe());
-        let local_action_counter = local_actions_throttle
-            .as_ref()
-            .map(|_| LocalActionCounter::new());
+        let local_action_counter = memory_tracker.as_ref().map(|_| LocalActionCounter::new());
 
         Self {
             re_connection,
@@ -154,7 +149,6 @@ impl CommandExecutorFactory {
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
-            local_actions_throttle,
             memory_tracker,
             local_action_counter,
             incremental_db_state,
@@ -370,7 +364,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
                             let fallback_tracker = self.fallback_tracker.dupe();
-                            let local_actions_throttle = self.local_actions_throttle.dupe();
 
                             if self.paranoid.is_some() {
                                 let executor_preference = executor_preference
@@ -393,7 +386,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                     re_max_input_files_bytes,
                                     low_pass_filter,
                                     fallback_tracker,
-                                    local_actions_throttle,
                                 }))
                             } else {
                                 Some(Arc::new(HybridExecutor {
@@ -404,7 +396,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                     re_max_input_files_bytes,
                                     low_pass_filter,
                                     fallback_tracker,
-                                    local_actions_throttle,
                                 }))
                             }
                         }
