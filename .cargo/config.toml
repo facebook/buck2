@@ -1,6 +1,7 @@
 [build]
 rustflags = [
-    "--cfg=tokio_unstable",
+    "--cfg",
+    "tokio_unstable",
 ]
 
 # @oss-disable: [source.crates-io]
