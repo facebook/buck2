@@ -14,7 +14,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_error::BuckErrorContext;
-use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
+use buck2_interpreter::coerce::COERCE_PROVIDERS_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
@@ -113,9 +113,9 @@ pub(crate) fn attr_coercion_context_for_bzl<'v>(
     ))
 }
 
-pub(crate) fn init_coerce_target_label_for_bzl() {
-    COERCE_TARGET_LABEL_FOR_BZL
-        .init(|eval, value| attr_coercion_context_for_bzl(eval)?.coerce_target_label(value))
+pub(crate) fn init_coerce_providers_label_for_bzl() {
+    COERCE_PROVIDERS_LABEL_FOR_BZL
+        .init(|eval, value| attr_coercion_context_for_bzl(eval)?.coerce_providers_label(value))
 }
 
 /// Common code to handle `providers` argument of dep-like attrs.

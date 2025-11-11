@@ -16,7 +16,6 @@ use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TransitionAttrProvider;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,7 +35,7 @@ pub(crate) enum TransitionData {
 impl TransitionData {
     pub(crate) fn refs(
         &self,
-    ) -> impl Iterator<Item = (&FrozenStringValue, &TargetLabel)> + Send + Sync {
+    ) -> impl Iterator<Item = (&FrozenStringValue, &ProvidersLabel)> + Send + Sync {
         match self {
             TransitionData::MagicObject(v) => Either::Left(v.refs.iter()),
             TransitionData::Target(_) => Either::Right([].into_iter()),

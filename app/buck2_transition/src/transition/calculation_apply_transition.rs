@@ -133,12 +133,7 @@ async fn do_apply_transition(
     let mut refs = Vec::new();
     let mut refs_refs = Vec::new();
     for (s, t) in transition.refs() {
-        let provider_collection_value = ctx
-            .fetch_transition_function_reference(
-                // TODO(T198210718)
-                &ProvidersLabel::default_for(t.dupe()),
-            )
-            .await?;
+        let provider_collection_value = ctx.fetch_transition_function_reference(&t).await?;
         refs.push((
             *s,
             // This is safe because we store a reference to provider collection in `refs_refs`.
