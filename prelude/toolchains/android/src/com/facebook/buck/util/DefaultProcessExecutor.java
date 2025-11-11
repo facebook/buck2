@@ -15,7 +15,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.types.Unit;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -137,8 +136,8 @@ public class DefaultProcessExecutor implements ProcessExecutor {
                 /* flagOutputWrittenToStream */ true, stdErrToWriteTo, ansi));
 
     // Consume the streams so they do not deadlock.
-    Future<Unit> stdOutTerminationFuture = PROCESS_EXECUTOR_THREAD_POOL.submit(stdOut);
-    Future<Unit> stdErrTerminationFuture = PROCESS_EXECUTOR_THREAD_POOL.submit(stdErr);
+    Future<Void> stdOutTerminationFuture = PROCESS_EXECUTOR_THREAD_POOL.submit(stdOut);
+    Future<Void> stdErrTerminationFuture = PROCESS_EXECUTOR_THREAD_POOL.submit(stdErr);
 
     boolean timedOut;
 

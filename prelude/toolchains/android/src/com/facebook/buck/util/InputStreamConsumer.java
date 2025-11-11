@@ -10,7 +10,6 @@
 
 package com.facebook.buck.util;
 
-import com.facebook.buck.util.types.Unit;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -21,7 +20,7 @@ import java.io.Reader;
 import java.util.concurrent.Callable;
 
 /** An utility to process input stream with a list of line-by-line consumers */
-public final class InputStreamConsumer implements Callable<Unit> {
+public final class InputStreamConsumer implements Callable<Void> {
 
   /** Interface to handle a line of input from the stream. */
   public interface Handler {
@@ -41,14 +40,14 @@ public final class InputStreamConsumer implements Callable<Unit> {
   }
 
   @Override
-  public Unit call() throws IOException {
+  public Void call() throws IOException {
     String line;
     while ((line = inputReader.readLine()) != null) {
       for (Handler handler : handlers) {
         handler.handleLine(line);
       }
     }
-    return Unit.UNIT;
+    return null;
   }
 
   public static Handler createAnsiHighlightingHandler(

@@ -20,7 +20,6 @@ import com.facebook.buck.install.model.InstallResponse;
 import com.facebook.buck.install.model.InstallerGrpc;
 import com.facebook.buck.install.model.ShutdownRequest;
 import com.facebook.buck.install.model.ShutdownResponse;
-import com.facebook.buck.util.types.Unit;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
@@ -86,10 +85,10 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
 
   private static final Logger LOG = Logger.getLogger(InstallerService.class.getName());
   private final InstallCommand installer;
-  private final SettableFuture<Unit> installFinished;
+  private final SettableFuture<Void> installFinished;
   private final Map<InstallId, Map<String, Optional<Path>>> installIdToFilesMap = new HashMap<>();
 
-  public InstallerService(InstallCommand installer, SettableFuture<Unit> installFinished) {
+  public InstallerService(InstallCommand installer, SettableFuture<Void> installFinished) {
     this.installer = installer;
     this.installFinished = installFinished;
   }
@@ -314,7 +313,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
     LOG.info("Received shutting down request");
     responseObserver.onNext(ShutdownResponse.getDefaultInstance());
     responseObserver.onCompleted();
-    installFinished.set(Unit.UNIT);
+    installFinished.set(null);
   }
 
   private void handleException(StreamObserver<?> responseObserver, Exception e) {
