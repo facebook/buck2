@@ -13,7 +13,6 @@ buck_java_library(
     ],
     visibility = ["PUBLIC"],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
         "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",

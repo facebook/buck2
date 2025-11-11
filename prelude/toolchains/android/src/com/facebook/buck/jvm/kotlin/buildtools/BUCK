@@ -20,7 +20,6 @@ buck_kotlin_library(
         # @oss-disable[end= ]: "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat",
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
         "prelude//toolchains/android/src/com/facebook/buck/core/build/execution/context:context",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",

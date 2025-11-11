@@ -13,7 +13,6 @@ buck_java_library(
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
         "prelude//toolchains/android/third-party:guava",
     ],

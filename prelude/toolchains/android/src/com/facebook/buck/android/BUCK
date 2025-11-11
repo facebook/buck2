@@ -37,7 +37,6 @@ buck_kotlin_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android/device:device",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/installer/android:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
@@ -104,7 +103,6 @@ buck_kotlin_library(
         "PUBLIC",
     ],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",

@@ -87,7 +87,6 @@ buck_kotlin_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
@@ -162,7 +161,6 @@ buck_kotlin_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",

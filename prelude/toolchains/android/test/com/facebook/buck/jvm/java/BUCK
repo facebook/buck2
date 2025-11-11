@@ -71,7 +71,6 @@ buck_java_test(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
         "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",

@@ -14,7 +14,6 @@ buck_java_library(
         "prelude//toolchains/android/test/com/facebook/buck/jvm/...",
     ],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
         "prelude//toolchains/android/src/com/facebook/buck/util/perf:perf",

@@ -10,7 +10,6 @@ buck_java_test(
     srcs = glob(["*Test.java"]),
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android/manifest:manifest",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:junit",
     ],

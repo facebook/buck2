@@ -30,7 +30,6 @@ buck_java_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
         "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/kotlin:kotlin",

@@ -9,7 +9,6 @@ standard_java_test(
     name = "collect",
     with_test_data = True,
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/util/zip/collect:collect",
         "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",

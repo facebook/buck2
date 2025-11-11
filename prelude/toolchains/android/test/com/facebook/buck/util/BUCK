@@ -44,7 +44,6 @@ buck_java_test(
     srcs = glob(["*Test.java"]),
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",

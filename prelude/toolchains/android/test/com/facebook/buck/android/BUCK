@@ -75,7 +75,6 @@ buck_java_test(
         "prelude//toolchains/android/src/com/facebook/buck/android:utils_api",
         "prelude//toolchains/android/src/com/facebook/buck/android/device:device",
         "prelude//toolchains/android/src/com/facebook/buck/core/build/execution/context:context",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/installer/android:installer_android_lib",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
         "prelude//toolchains/android/src/com/facebook/buck/step:step",
