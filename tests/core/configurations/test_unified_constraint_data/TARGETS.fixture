@@ -1,6 +1,6 @@
 # Basic unified constraint
 load("@prelude//:native.bzl", "native")
-load(":defs.bzl", "unified_foo")
+load(":defs.bzl", "unified_build_mode", "unified_foo", "unified_with_transition")
 
 constraint = native.constraint
 platform = native.platform
@@ -17,7 +17,7 @@ constraint(
 
 platform(
     name = "linux_platform",
-    constraint_values = [":os[linux]"],
+    constraint_values = [":os[linux]", ":build_mode[dev]"],
 )
 
 constraint(
@@ -40,6 +40,15 @@ constraint(
     default = "none",
 )
 
+constraint(
+    name = "build_mode",
+    values = [
+        "opt",
+        "dev",
+    ],
+    default = "dev",
+)
+
 unified_foo(
     name = "foo_target",
     os = select({
@@ -59,5 +68,34 @@ unified_foo(
         ":sanitizer[none]": None,
         ":sanitizer[tsan]": "TSAN",
     }),
+    default_target_platform = ":linux_platform",
+)
+
+unified_build_mode(
+    name = "foo_with_build_mode",
+    build_mode = select({
+        ":build_mode[dev]": "dev",
+        ":build_mode[opt]": "opt",
+    }),
+    default_target_platform = ":linux_platform",
+)
+
+unified_build_mode(
+    name = "bar_with_build_mode",
+    build_mode = select({
+        ":build_mode[dev]": "dev",
+        ":build_mode[opt]": "opt",
+    }),
+    default_target_platform = ":linux_platform",
+)
+
+unified_with_transition(
+    name = "force_opt_dep",
+    build_mode = select({
+        ":build_mode[dev]": "dev",
+        ":build_mode[opt]": "opt",
+    }),
+    dep = ":foo_with_build_mode",
+    opt_dep = ":bar_with_build_mode",
     default_target_platform = ":linux_platform",
 )

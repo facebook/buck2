@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(":defs.bzl", "BuildModeInfo", "TransitionBuildModeInfo")
+
 def _assert_eq(a, b):
     if a != b:
         fail("Expected {} == {}".format(a, b))
@@ -36,5 +38,24 @@ def _main(ctx: bxl.Context):
 
 main = bxl_main(
     impl = _main,
+    cli_args = {},
+)
+
+def _test_cfg_transition(ctx: bxl.Context):
+    cnode = ctx.configured_targets("//:force_opt_dep")
+    analysis_res = ctx.analysis(cnode)
+    build_mode_info = analysis_res.providers()[TransitionBuildModeInfo]
+    _assert_eq(build_mode_info.dep, "dev")
+    _assert_eq(build_mode_info.mode, "dev")
+    _assert_eq(build_mode_info.opt_dep, "opt")
+
+    # target with no transition
+    cnode = ctx.configured_targets("//:bar_with_build_mode")
+    analysis_res = ctx.analysis(cnode)
+    build_mode_info = analysis_res.providers()[BuildModeInfo]
+    _assert_eq(build_mode_info.mode, "dev")
+
+test_cfg_transition = bxl_main(
+    impl = _test_cfg_transition,
     cli_args = {},
 )

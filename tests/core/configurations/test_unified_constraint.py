@@ -33,3 +33,8 @@ async def test_unified_constraint_default_not_appear_in_value_fail(buck: Buck) -
         buck.audit("subtargets", "//default_value_not_appear:"),
         stderr_regex=r""".*default value 'linux' must be one of the declared values: \["macos", "windows"\].*""",
     )
+
+
+@buck_test(allow_soft_errors=True)
+async def test_unified_constraint_cfg_transition(buck: Buck) -> None:
+    await buck.bxl("//test_unified_constraint.bxl:test_cfg_transition")
