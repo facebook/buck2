@@ -12,8 +12,8 @@ package com.facebook.buck.step;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.core.filesystems.AbsPath;
-import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.util.ClassLoaderCache;
+import com.facebook.buck.util.Console;
 import com.facebook.buck.util.FakeProcessExecutor;
 import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
@@ -36,7 +36,7 @@ public class TestExecutionContext {
       AbsPath rootPath, ProcessExecutor processExecutor) {
     return new IsolatedExecutionContext(
         testClassLoaderCache,
-        new TestConsole(),
+        Console.createNullConsole(),
         processExecutor,
         rootPath,
         EnvVariablesProvider.getSystemEnv());
