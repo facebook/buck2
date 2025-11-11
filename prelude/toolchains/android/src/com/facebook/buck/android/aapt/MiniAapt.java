@@ -17,7 +17,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.file.MorePaths;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
-import com.facebook.buck.util.xml.XmlDomParserWithLineNumbers;
+import com.facebook.buck.util.xml.XmlDomParser;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -479,7 +479,7 @@ public class MiniAapt {
   private static Document parseXml(Path filepath, InputStream inputStream)
       throws IOException, ResourceParseException {
     try {
-      return XmlDomParserWithLineNumbers.parse(inputStream);
+      return XmlDomParser.parse(inputStream);
     } catch (SAXException e) {
       throw new ResourceParseException(
           "Error parsing xml file '%s': %s.", filepath, e.getMessage());
