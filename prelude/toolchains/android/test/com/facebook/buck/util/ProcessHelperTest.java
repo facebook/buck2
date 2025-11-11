@@ -26,14 +26,6 @@ public class ProcessHelperTest {
   }
 
   @Test
-  public void testHasNuProcessFinished() {
-    FakeNuProcess nuProcess = new FakeNuProcess(1234);
-    assertFalse(processHelper.hasProcessFinished(nuProcess));
-    nuProcess.finish(0);
-    assertTrue(processHelper.hasProcessFinished(nuProcess));
-  }
-
-  @Test
   public void testHasJavaProcessFinished() throws Exception {
     Process process = new FakeProcess(42);
     assertFalse(processHelper.hasProcessFinished(process));

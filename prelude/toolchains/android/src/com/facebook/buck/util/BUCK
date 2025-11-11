@@ -41,7 +41,6 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:jsr305",
-        "prelude//toolchains/android/third-party:nuprocess",
         ":util",
     ],
 )

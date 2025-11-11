@@ -12,7 +12,6 @@ package com.facebook.buck.util;
 
 import com.facebook.buck.core.util.log.Logger;
 import com.google.common.annotations.VisibleForTesting;
-import com.zaxxer.nuprocess.NuProcess;
 import javax.lang.model.SourceVersion;
 
 /**
@@ -44,18 +43,12 @@ public class ProcessHelper {
   /**
    * @return whether the process has finished executing or not.
    */
-  public boolean hasProcessFinished(Object process) {
-    if (process instanceof NuProcess) {
-      return !((NuProcess) process).isRunning();
-    } else if (process instanceof Process) {
-      try {
-        ((Process) process).exitValue();
-        return true;
-      } catch (IllegalThreadStateException e) {
-        return false;
-      }
-    } else {
-      throw new IllegalArgumentException("Unknown process class: " + process.getClass());
+  public boolean hasProcessFinished(Process process) {
+    try {
+      process.exitValue();
+      return true;
+    } catch (IllegalThreadStateException e) {
+      return false;
     }
   }
 }

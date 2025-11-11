@@ -991,17 +991,6 @@ third_party_jar(
 )
 # ===   End: kxml2
 
-# === Begin: nuprocess
-
-third_party_jar(
-    name = "nuprocess",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/zaxxer/nuprocess:nuprocess__toolchain",
-    sha1 = "d98f476eb858a64d8bad10abfa320b5d04b4d707",
-    url = "mvn:com.zaxxer:nuprocess:jar:2.0.5",
-    visibility = ["PUBLIC"],
-)
-# ===   End: nuprocess
-
 # === Begin: okhttp
 
 third_party_jar(
