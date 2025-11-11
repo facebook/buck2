@@ -220,8 +220,7 @@ pub fn spawn_memory_reporter(
     memory_tracker: MemoryTrackerHandle,
 ) -> MemoryReporter {
     let cancel = CancellationToken::new();
-    let cancel2 = cancel.clone();
-    tokio::task::spawn(async move {
+    tokio::task::spawn(buck2_util::async_move_clone!(cancel, {
         let mut state_receiver = memory_tracker.state_sender.subscribe();
         let mut reading_receiver = memory_tracker.reading_sender.subscribe();
         let mut resource_control_event_receiver = memory_tracker
@@ -267,7 +266,7 @@ pub fn spawn_memory_reporter(
                         dispatcher.instant_event(resource_control_event);
                     }
                 }
-                _ = cancel2.cancelled() => {
+                _ = cancel.cancelled() => {
                     if let Some(span) = span.take() {
                         span.end(buck2_data::MemoryPressureEnd {})
                     }
@@ -275,7 +274,7 @@ pub fn spawn_memory_reporter(
                 }
             }
         }
-    });
+    }));
     MemoryReporter { cancel }
 }
 

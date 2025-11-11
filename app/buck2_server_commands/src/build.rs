@@ -643,8 +643,7 @@ async fn build_targets_in_universe(
     provider_labels
         .into_iter()
         .map(|p| {
-            let providers_to_build = providers_to_build.clone();
-            async move {
+            buck2_util::async_move_clone!(providers_to_build, {
                 build::build_configured_label(
                     event_consumer,
                     ctx,
@@ -658,7 +657,7 @@ async fn build_targets_in_universe(
                     timeout_observer,
                 )
                 .await
-            }
+            })
         })
         .collect::<FuturesUnordered<_>>()
         .collect()
@@ -816,8 +815,7 @@ async fn build_targets_for_spec(
     todo_targets
         .into_iter()
         .map(|build_spec| {
-            let providers_to_build = providers_to_build.clone();
-            async move {
+            buck2_util::async_move_clone!(providers_to_build, {
                 build_target(
                     event_consumer,
                     ctx,
@@ -827,7 +825,7 @@ async fn build_targets_for_spec(
                     timeout_observer,
                 )
                 .await
-            }
+            })
         })
         .collect::<FuturesUnordered<_>>()
         .collect()

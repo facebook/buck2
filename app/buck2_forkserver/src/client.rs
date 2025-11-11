@@ -64,19 +64,15 @@ impl ForkserverClient {
 
         let error = Arc::new(ArcSwapOption::empty());
 
-        tokio::task::spawn({
-            let error = error.clone();
+        tokio::task::spawn(buck2_util::async_move_clone!(error, {
+            let err = match child.wait().await {
+                Ok(status) => ForkserverError::Exited(status),
+                Err(e) => ForkserverError::WaitError(e),
+            };
 
-            async move {
-                let err = match child.wait().await {
-                    Ok(status) => ForkserverError::Exited(status),
-                    Err(e) => ForkserverError::WaitError(e),
-                };
-
-                let err = buck2_error::Error::from(err).context("Forkserver is unavailable");
-                error.swap(Some(Arc::new(err)));
-            }
-        });
+            let err = buck2_error::Error::from(err).context("Forkserver is unavailable");
+            error.swap(Some(Arc::new(err)));
+        }));
 
         Ok(Self {
             inner: Arc::new(ForkserverClientInner { error, pid, rpc }),

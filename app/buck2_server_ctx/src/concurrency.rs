@@ -1932,30 +1932,26 @@ mod tests {
         barrier.wait().await;
 
         // Start second command with --exit-when=notidle (same state, should fail)
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces2),
-                        &NoChanges,
-                        |_| async move {
-                            // Should never reach here
-                            panic!("Command should have failed before execution");
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNotIdle,
-                    )
-                    .await
-            }
-        });
+        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces2),
+                    &NoChanges,
+                    |_| async move {
+                        // Should never reach here
+                        panic!("Command should have failed before execution");
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNotIdle,
+                )
+                .await
+        }));
 
         // Second command should fail immediately
         let fut2_result = fut2.await?;
@@ -2018,30 +2014,26 @@ mod tests {
         barrier.wait().await;
 
         // Start second command with --exit-when=notidle (different state, should fail)
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces2),
-                        &CtxDifferent, // Different state
-                        |_| async move {
-                            // Should never reach here
-                            panic!("Command should have failed before execution");
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNotIdle,
-                    )
-                    .await
-            }
-        });
+        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces2),
+                    &CtxDifferent, // Different state
+                    |_| async move {
+                        // Should never reach here
+                        panic!("Command should have failed before execution");
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNotIdle,
+                )
+                .await
+        }));
 
         // Second command should fail immediately
         let fut2_result = fut2.await?;
@@ -2108,51 +2100,45 @@ mod tests {
         barrier.wait().await;
 
         // Start second and third commands with --exit-when=notidle (should both fail)
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces2),
-                        &NoChanges,
-                        |_| async move {
-                            panic!("Should not execute");
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNotIdle,
-                    )
-                    .await
-            }
-        });
+        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces2),
+                    &NoChanges,
+                    |_| async move {
+                        panic!("Should not execute");
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNotIdle,
+                )
+                .await
+        }));
 
-        let fut3 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces3),
-                        &NoChanges,
-                        |_| async move {
-                            panic!("Should not execute");
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNotIdle,
-                    )
-                    .await
-            }
-        });
+        let fut3 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces3),
+                    &NoChanges,
+                    |_| async move {
+                        panic!("Should not execute");
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNotIdle,
+                )
+                .await
+        }));
 
         // Both second and third commands should fail
         let fut2_result = fut2.await?;
@@ -2224,30 +2210,26 @@ mod tests {
         // Start second command with --exit-when=notidle (should fail)
         // Even though the first command is preemptible, this should still fail
         // because --exit-when=notidle means "only run if daemon is completely idle"
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces2),
-                        &NoChanges,
-                        |_| async move {
-                            // Should never reach here
-                            panic!("Command should have failed before execution");
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNotIdle,
-                    )
-                    .await
-            }
-        });
+        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces2),
+                    &NoChanges,
+                    |_| async move {
+                        // Should never reach here
+                        panic!("Command should have failed before execution");
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNotIdle,
+                )
+                .await
+        }));
 
         // Second command should fail immediately, even though first is preemptible
         let fut2_result = fut2.await?;
@@ -2333,30 +2315,26 @@ mod tests {
 
         // Start second command (without any preemptible flag)
         // This should preempt the first command
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces2),
-                        &NoChanges,
-                        |_| async move {
-                            // Just a quick task
-                            tokio::task::yield_now().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never, // Not preemptible
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNever,
-                    )
-                    .await
-            }
-        });
+        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces2),
+                    &NoChanges,
+                    |_| async move {
+                        // Just a quick task
+                        tokio::task::yield_now().await;
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never, // Not preemptible
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNever,
+                )
+                .await
+        }));
 
         // Second command should succeed
         fut2.await??;
@@ -2420,29 +2398,26 @@ mod tests {
         barrier.wait().await;
 
         // Start second and third commands with --exit-when=notidle (should both fail)
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            async move {
-                concurrency
-                    .enter(
-                        null_sink_with_trace(traces2),
-                        &CtxDifferent,
-                        |_| async move {
-                            // Just a quick task
-                            tokio::task::yield_now().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
-                        ExitWhen::ExitNotIdle,
-                    )
-                    .await
-            }
-        });
+        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
+            concurrency
+                .enter(
+                    null_sink_with_trace(traces2),
+                    &CtxDifferent,
+                    |_| async move {
+                        // Just a quick task
+                        tokio::task::yield_now().await;
+                    },
+                    false,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
+                    ExitWhen::ExitNotIdle,
+                )
+                .await
+        }));
 
         // Both second and third commands should fail
         let fut2_result = fut2.await?;
