@@ -17,5 +17,6 @@ unified_foo = rule(
     attrs = {
         "cpu": attrs.string(),
         "os": attrs.string(),
+        "sanitizer_name": attrs.option(attrs.string()),
     },
 )

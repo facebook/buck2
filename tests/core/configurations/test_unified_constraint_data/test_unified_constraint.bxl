@@ -32,6 +32,8 @@ def _main(ctx: bxl.Context):
     cpu = override_modifier_cnode.get_attr("cpu")
     _assert_eq(cpu, "arm64")
 
+    _assert_eq(override_modifier_cnode.get_attr("sanitizer_name"), None)
+
 main = bxl_main(
     impl = _main,
     cli_args = {},

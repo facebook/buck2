@@ -77,7 +77,10 @@ def constraint_impl(ctx):
 
     # Main target provides the constraint setting
     main_label = ctx.label.raw_target()
-    constraint_setting = ConstraintSettingInfo(label = main_label)
+    constraint_setting = ConstraintSettingInfo(
+        label = main_label,
+        default = main_label.with_sub_target(default),
+    )
 
     # Create subtargets for each value
     sub_targets = {}

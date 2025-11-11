@@ -29,6 +29,17 @@ constraint(
     default = "x86_64",
 )
 
+constraint(
+    name = "sanitizer",
+    values = [
+        "asan",
+        "tsan",
+        "msan",
+        "none",
+    ],
+    default = "none",
+)
+
 unified_foo(
     name = "foo_target",
     os = select({
@@ -41,6 +52,12 @@ unified_foo(
         ":cpu[arm64]": "arm64",
         ":cpu[x86_64]": "x86_64",
         "DEFAULT": "default",
+    }),
+    sanitizer_name = select({
+        ":sanitizer[asan]": "ASAN",
+        ":sanitizer[msan]": "MSAN",
+        ":sanitizer[none]": None,
+        ":sanitizer[tsan]": "TSAN",
     }),
     default_target_platform = ":linux_platform",
 )
