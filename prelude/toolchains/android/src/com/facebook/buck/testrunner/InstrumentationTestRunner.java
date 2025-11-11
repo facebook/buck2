@@ -975,7 +975,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (!destinationDirFile.exists()) {
       destinationDirFile.mkdirs();
     }
-    transferFile("pull", sourceDir, destinationDir);
+    String sourceDirWithContents = sourceDir.endsWith("/") ? sourceDir + "." : sourceDir + "/.";
+    transferFile("pull", sourceDirWithContents, destinationDir);
   }
 
   // push single file
