@@ -122,6 +122,10 @@ android_aar = prelude_rule(
             "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
             # @oss-disable[end= ]: "gatorade_extra_args": attrs.list(attrs.arg(), default = [], doc = "Extra Gatorade cross-library step arguments"),
+            "hardcode_permissions_for_deterministic_output": attrs.option(attrs.bool(), default = None, doc = """
+                If set to true, Buck hardcodes the permissions in order to ensures that all files have the same
+                permissions regardless of the platform on which the zip was generated.
+            """),
             "java_version": attrs.option(attrs.string(), default = None),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "manifest": attrs.option(attrs.source(), default = None),

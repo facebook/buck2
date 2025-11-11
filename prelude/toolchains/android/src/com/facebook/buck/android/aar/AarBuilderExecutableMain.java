@@ -39,6 +39,9 @@ public class AarBuilderExecutableMain {
   @Option(name = "--entries_file", required = true)
   private Path entriesFile;
 
+  @Option(name = "--hardcode_permissions_for_deterministic_output")
+  private boolean hardcodePermissionsForDeterministicOutput;
+
   @Option(name = "--native_libs_file", required = true)
   private Path nativeLibsFile;
 
@@ -127,7 +130,7 @@ public class AarBuilderExecutableMain {
       builder.addFile("proguard.txt", proguardConfigFile);
     }
 
-    new ZipEntrySourceCollectionWriter(CURRENT_DIRECTORY, /* hardcodePermissions */ false)
+    new ZipEntrySourceCollectionWriter(CURRENT_DIRECTORY, hardcodePermissionsForDeterministicOutput)
         .copyToZip(builder.build(), outputPath);
   }
 }

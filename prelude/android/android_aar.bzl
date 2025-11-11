@@ -152,6 +152,11 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs.proguard_config,
         ])
 
+    if ctx.attrs.hardcode_permissions_for_deterministic_output == True:
+        create_aar_cmd.add([
+            "--hardcode_permissions_for_deterministic_output",
+        ])
+
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 
     return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets() | sub_targets)]
