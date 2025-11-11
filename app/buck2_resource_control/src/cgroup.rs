@@ -9,7 +9,6 @@
  */
 
 use std::fs;
-use std::io::Write;
 use std::ops::Deref;
 use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
@@ -161,18 +160,8 @@ impl CgroupMinimal {
         // `Arc`
         let procs = self.procs.dupe();
 
-        let pre_exec = move || {
-            let pid = std::process::id();
-
-            // Write PID to stack-allocated buffer instead of heap allocating by `pid.to_string().as_bytes()`
-            let mut buf = [0u8; 16]; // u32::MAX is 10 digits, so 16 bytes is plenty
-            let mut cursor = std::io::Cursor::new(&mut buf[..]);
-            write!(cursor, "{pid}").map_err(std::io::Error::from)?;
-            let pos = cursor.position() as usize;
-            let pid_bytes = &buf[..pos];
-
-            procs.write(&pid_bytes)
-        };
+        // 0 means current process
+        let pre_exec = move || procs.write(b"0");
         // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
         // However, it's safe here because:
         // 1. We only call async-signal-safe functions (write to file)
