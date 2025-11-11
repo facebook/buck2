@@ -483,11 +483,15 @@ impl LocalExecutor {
             let retry_future = Arc::new(std::sync::Mutex::new(None));
 
             let kill_observer = if let Some(kill_future) = kill_future {
-                let retry_future_dup = retry_future.dupe();
-                let kill_awaiter = async move {
-                    let retry_future = kill_future.0.await;
-                    *retry_future_dup.lock().unwrap() = Some(retry_future);
-                };
+                let kill_awaiter = buck2_util::async_move_clone!(retry_future, {
+                    if let Ok(r) = kill_future.0.await {
+                        *retry_future.lock().unwrap() = Some(r);
+                    } else {
+                        // If the other end hung up for some reason, we definitely do not want to
+                        // treat that as indicating a kill, so never return from this future
+                        std::future::pending().await
+                    }
+                });
 
                 struct FutureLivelinessObserver<F: Future<Output = ()> + Send + Sync>(Shared<F>);
 
@@ -523,9 +527,8 @@ impl LocalExecutor {
             let res = match res {
                 Ok((duration, start_time, status, res_manager)) => {
                     if matches!(status.status, GatherOutputStatus::Cancelled) {
-                        // Err case shouldn't really happen but also seems fine to ignore
                         let f = retry_future.lock().unwrap().take();
-                        if let Some(Ok(retry_future)) = f {
+                        if let Some(retry_future) = f {
                             start_future = Some(retry_future);
                             manager = res_manager;
                             continue;
