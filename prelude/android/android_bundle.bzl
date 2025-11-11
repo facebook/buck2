@@ -17,13 +17,13 @@ load("@prelude//utils:argfile.bzl", "argfile")
 
 def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = True)
-
+    native_library_info = android_binary_info.native_library_info
     output_bundle = build_bundle(
         label = ctx.label,
         actions = ctx.actions,
         android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
         dex_files_info = android_binary_info.dex_files_info,
-        native_library_info = android_binary_info.native_library_info,
+        native_library_info = native_library_info,
         resources_info = android_binary_info.resources_info,
         bundle_config = ctx.attrs.bundle_config_file,
         validation_deps_outputs = get_validation_deps_outputs(ctx),
@@ -49,7 +49,12 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     java_packaging_deps = android_binary_info.java_packaging_deps
     return [
         DefaultInfo(default_output = default_output, other_outputs = android_binary_info.materialized_artifacts, sub_targets = sub_targets),
-        AndroidAabInfo(aab = output_bundle, manifest = android_binary_info.resources_info.manifest, materialized_artifacts = android_binary_info.materialized_artifacts),
+        AndroidAabInfo(
+            aab = output_bundle,
+            manifest = android_binary_info.resources_info.manifest,
+            materialized_artifacts = android_binary_info.materialized_artifacts,
+            unstripped_shared_libraries = native_library_info.unstripped_shared_libraries,
+        ),
         AndroidBinaryPrimaryPlatformInfo(
             primary_platform = android_binary_info.primary_platform,
         ),

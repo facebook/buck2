@@ -125,6 +125,7 @@ AndroidAabInfo = provider(
         "aab": provider_field(typing.Any, default = None),
         "manifest": provider_field(typing.Any, default = None),
         "materialized_artifacts": provider_field(typing.Any, default = None),
+        "unstripped_shared_libraries": provider_field(Artifact | None, default = None),
     },
 )
 
