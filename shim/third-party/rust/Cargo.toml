@@ -118,6 +118,7 @@ hyper-timeout-0-5 = { package = "hyper-timeout", version = "0.5" }
 hyper-util = "0.1.10"
 indent_write = "2.2.0"
 indenter = "0.3.3"
+index_vec = "0.1.4"
 indexmap = { version = "2.9.0", features = ["arbitrary", "rayon", "serde"] }
 indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
