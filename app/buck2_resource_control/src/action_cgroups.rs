@@ -196,6 +196,19 @@ struct SuspendedActionCgroup {
 pub(crate) struct ActionCgroups {
     enable_suspension: bool,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
+    /// Currently running and suspended actions
+    ///
+    /// Actions in both of these lists are sorted in start order; in other words, excepting for
+    /// actions that have already completed, actions that started first are at the beginning of the
+    /// `running` list, then actions at the end of the `running` list, then actions at the beginning
+    /// of the `suspended` list, etc.
+    ///
+    /// When suspending/waking actions, we move them between the end of the running list and the
+    /// beginning of the suspended list. The restriction this places on the choice of which actions
+    /// we suspend/wake is important, as it guarantees forward progress; specifically, the very
+    /// first action in the running list is guaranteed to never be suspended before it finishes.
+    /// Without this kind of a guarantee, we risk creating a deadlock where no action ever finishes
+    /// before it's killed and retried.
     running_cgroups: Vec<RunningActionCgroup>,
     suspended_cgroups: VecDeque<SuspendedActionCgroup>,
     /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
@@ -546,17 +559,8 @@ impl ActionCgroups {
             return;
         }
 
-        let largest_cgroup = self
-            .running_cgroups
-            .iter_mut()
-            .enumerate()
-            .max_by_key(|(_, x)| x.cgroup.memory_current)
-            // Length checked above
-            .unwrap()
-            .0
-            .to_owned();
-
-        let cgroup = self.running_cgroups.remove(largest_cgroup);
+        // Length checked above
+        let cgroup = self.running_cgroups.pop().unwrap();
 
         let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup);
         tracing::debug!(
@@ -569,8 +573,8 @@ impl ActionCgroups {
         self.last_suspend_time = suspended_cgroup.suspend_start;
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
-        self.suspended_cgroups.push_back(suspended_cgroup);
-        let suspended_cgroup = self.suspended_cgroups.back().unwrap();
+        self.suspended_cgroups.push_front(suspended_cgroup);
+        let suspended_cgroup = self.suspended_cgroups.front().unwrap();
 
         self.emit_resource_control_event(
             &suspended_cgroup.cgroup.dispatcher,
