@@ -106,8 +106,8 @@ AndroidBuildConfigInfo = provider(
 # Information about an `android_manifest`
 AndroidManifestInfo = provider(
     fields = {
-        "manifest": provider_field(typing.Any, default = None),  # artifact
-        "merge_report": provider_field(typing.Any, default = None),  # artifact
+        "manifest": provider_field(Artifact),
+        "merge_report": provider_field(Artifact),
     },
 )
 
@@ -116,7 +116,7 @@ AndroidApkInfo = provider(
         "apk": provider_field(typing.Any, default = None),
         "manifest": provider_field(typing.Any, default = None),
         "materialized_artifacts": provider_field(typing.Any, default = None),
-        "unstripped_shared_libraries": provider_field(typing.Any, default = None),  # artifact
+        "unstripped_shared_libraries": provider_field(Artifact | None, default = None),
     },
 )
 
@@ -199,25 +199,25 @@ AndroidResourceInfo = provider(
         # Target that produced this provider
         "raw_target": provider_field(typing.Any, default = None),  # TargetLabel
         # output of running `aapt2_compile` on the resources, if resources are present
-        "aapt2_compile_output": provider_field(typing.Any, default = None),  # Artifact | None
+        "aapt2_compile_output": provider_field(Artifact | None, default = None),
         # locales that should always be included in the APK for this resource
         "allowlisted_locales": provider_field(typing.Any, default = []),  # List
         #  if False, then the "res" are not affected by the strings-as-assets resource filter
         "allow_strings_as_assets_resource_filtering": provider_field(typing.Any, default = None),  # bool
         # assets defined by this rule. May be empty
-        "assets": provider_field(typing.Any, default = None),  # Artifact | None
+        "assets": provider_field(Artifact | None, default = None),
         # manifest file used by the resources, if resources are present
-        "manifest_file": provider_field(typing.Any, default = None),  # Artifact | None
+        "manifest_file": provider_field(Artifact | None, default = None),
         # the package specified by the android_resource rule itself
         "specified_r_dot_java_package": provider_field(typing.Any, default = None),  # str | None
         # package used for R.java, if resources are present
-        "r_dot_java_package": provider_field(typing.Any, default = None),  # Artifact | None
+        "r_dot_java_package": provider_field(Artifact | None, default = None),
         # resources defined by this rule. May be empty
-        "res": provider_field(typing.Any, default = None),  # Artifact | None
+        "res": provider_field(Artifact | None, default = None),
         # priority of the resources, may be 'low' or 'normal'
         "res_priority": provider_field(typing.Any, default = None),  # str
         # symbols defined by the resources, if resources are present
-        "text_symbols": provider_field(typing.Any, default = None),  # Artifact | None
+        "text_symbols": provider_field(Artifact | None, default = None),
     },
 )
 

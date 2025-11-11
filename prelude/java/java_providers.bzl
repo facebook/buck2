@@ -258,8 +258,8 @@ JavaPackagingInfo = provider(
 KeystoreInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "store": provider_field(typing.Any, default = None),  # artifact
-        "properties": provider_field(typing.Any, default = None),  # artifact
+        "store": provider_field(Artifact),
+        "properties": provider_field(Artifact),
     },
 )
 
