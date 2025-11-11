@@ -12,7 +12,6 @@ buck_java_library(
         exclude = ["*Test.java"],
     ),
     visibility = [
-        "fbsource//xplat/buck2/platform/apple/installer/test/...",
         "prelude//toolchains/android/test/...",
     ],
     deps = [

@@ -712,7 +712,6 @@ third_party_jar(
     sha1 = "8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12",
     url = "mvn:junit:junit:jar:4.13.2",
     visibility = [
-        "fbsource//xplat/buck2/platform/apple/installer/test/...",
         "prelude//toolchains/android/src/com/facebook/buck/...",
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
         "prelude//toolchains/android/test/com/facebook/buck/...",

@@ -13,7 +13,6 @@ buck_java_library(
     visibility = [
         "prelude//toolchains/android/test/...",
         "prelude//toolchains/android/tools/...",
-        "//xplat/buck2/platform/apple/installer/test/...",
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
