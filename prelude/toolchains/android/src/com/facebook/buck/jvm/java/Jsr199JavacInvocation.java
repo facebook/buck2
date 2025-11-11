@@ -15,7 +15,6 @@ import static com.facebook.buck.jvm.java.abi.AbiGenerationModeUtils.getDiagnosti
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
-import com.facebook.buck.core.exceptions.BuckUncheckedExecutionException;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
@@ -484,7 +483,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
               compilerOutputPathsValue.getLibraryTargetFullyQualifiedName(),
               e);
         } else {
-          throw new BuckUncheckedExecutionException(e.getCause() != null ? e.getCause() : e);
+          throw new RuntimeException(e.getCause() != null ? e.getCause() : e);
         }
       } finally {
         for (AutoCloseable closeable : Lists.reverse(closeables)) {

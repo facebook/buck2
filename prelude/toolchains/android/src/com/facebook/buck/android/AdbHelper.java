@@ -21,7 +21,6 @@ import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
-import com.facebook.buck.core.exceptions.BuckUncheckedExecutionException;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -208,7 +207,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     try {
       results = Futures.allAsList(futures).get();
     } catch (ExecutionException ex) {
-      throw new BuckUncheckedExecutionException(ex.getCause());
+      throw new RuntimeException(ex.getCause());
     } catch (InterruptedException e) {
       try {
         Futures.allAsList(futures).cancel(true);
