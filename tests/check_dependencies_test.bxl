@@ -12,12 +12,17 @@ load(":dependencies_test_util.bzl", "rule_list_regex")
 
 _MAX_DEPTH = 2147483647
 
+def _fail_with_message(msg: str, targets: bxl.ConfiguredTargetSet) -> None:
+    targets_str = "  \n".join([str(t.label.raw_target()) for t in targets])
+    fail(msg + "\n" + targets_str)
+
 def _impl_check_dependencies_test(
         ctx: bxl.Context,
         verification_mode: str,
         allowlist_patterns: list[str] | None,
         blocklist_patterns: list[str] | None,
-        target: TargetLabel):
+        target: TargetLabel,
+        target_deps: bool):
     """Test the dependencies of a given rule.
 
     The behavior is determined by the verification_mode string value:
@@ -34,7 +39,7 @@ def _impl_check_dependencies_test(
 
     cquery = ctx.cquery()
     cquery_kwargs = {}
-    if ctx.cli_args.target_deps:
+    if target_deps:
         cquery_kwargs["filter"] = "target_deps()"
 
     transitive_deps = cquery.deps(
@@ -58,11 +63,11 @@ def _impl_check_dependencies_test(
 
         # TODO(ezgi): Add shortest path from target to the banned/blocklisted targets
         if len(res) > 0:
-            fail("Found banned targets: {}! ".format(res))
+            _fail_with_message("Found banned targets:", res)
     elif verification_mode == "blocklist":
         res = blocklisted_deps & (transitive_deps - allowlisted_deps)
         if len(res) > 0:
-            fail("Found blocklisted targets: {}!".format(res))
+            _fail_with_message("Found blocklisted targets:", res)
     else:
         fail("Invalid verification mode: " + verification_mode)
 
@@ -73,6 +78,7 @@ def _impl(ctx: bxl.Context):
         ctx.cli_args.allowlist_patterns,
         ctx.cli_args.blocklist_patterns,
         ctx.cli_args.target,
+        ctx.cli_args.target_deps,
     )
 
 test = bxl_main(
