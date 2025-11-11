@@ -22,7 +22,6 @@ PROCESS_EXECUTOR_SRCS = [
     "Console.java",
     "ConsoleLock.java",
     "DefaultProcessExecutor.java",
-    "DelegateLaunchedProcess.java",
     "DirtyPrintStreamDecorator.java",
     "InputStreamConsumer.java",
     "LineFetcher.java",
