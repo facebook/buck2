@@ -44,7 +44,7 @@ public class JavacStepsBuilder {
       ResolvedJavacOptions resolvedJavacOptions,
       ImmutableList<RelPath> declaredClasspathEntries,
       ImmutableList<AbsPath> extraClassPaths,
-      RelPath outputDirectory,
+      ImmutableList<RelPath> outputDirectories,
       ImmutableSortedSet.Builder<RelPath> sourceBuilder,
       JarParameters abiJarParameter) {
 
@@ -62,12 +62,8 @@ public class JavacStepsBuilder {
     CompilerParameters javacParameters =
         new CompilerParameters(
             javaSourceFiles,
-            ImmutableSortedSet.orderedBy(RelPath.comparator())
-                .add(outputDirectory)
-                .addAll(extraClassPaths.stream().map(buildCellRootPath::relativize).iterator())
-                .addAll(declaredClasspathEntries)
-                .build()
-                .asList(),
+            buildClasspathEntries(
+                buildCellRootPath, outputDirectories, extraClassPaths, declaredClasspathEntries),
             parameters.getClasspathSnapshots(),
             parameters.getOutputPaths(),
             parameters.getAbiGenerationMode(),
@@ -92,5 +88,23 @@ public class JavacStepsBuilder {
         null,
         abiJarParameter,
         true);
+  }
+
+  private static ImmutableList<RelPath> buildClasspathEntries(
+      AbsPath buildCellRootPath,
+      ImmutableList<RelPath> outputDirectories,
+      ImmutableList<AbsPath> extraClassPaths,
+      ImmutableList<RelPath> declaredClasspathEntries) {
+    // Build classpath with outputDirectories first (preserving order), then other entries sorted
+    ImmutableList.Builder<RelPath> classpathBuilder = ImmutableList.builder();
+
+    classpathBuilder.addAll(outputDirectories);
+    classpathBuilder.addAll(
+        ImmutableSortedSet.orderedBy(RelPath.comparator())
+            .addAll(extraClassPaths.stream().map(buildCellRootPath::relativize).iterator())
+            .addAll(declaredClasspathEntries)
+            .build());
+
+    return classpathBuilder.build();
   }
 }

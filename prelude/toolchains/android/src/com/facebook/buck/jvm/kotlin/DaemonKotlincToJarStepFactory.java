@@ -44,6 +44,7 @@ import com.facebook.buck.step.isolatedsteps.common.MkdirIsolatedStep;
 import com.facebook.buck.step.isolatedsteps.java.JarDirectoryStep;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -289,7 +290,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
             resolvedJavacOptions,
             parameters.getClasspathEntries(),
             extraParams.getExtraClassPaths(),
-            outputDirectory,
+            ImmutableList.of(kotlinOutputDirectory, outputDirectory),
             javacSourceBuilder,
             abiJarParameters);
 
@@ -346,7 +347,9 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         resolvedJavacOptions,
         parameters.getClasspathEntries(),
         extraParams.getExtraClassPaths(),
-        outputDirectory,
+        hasKotlinSources
+            ? ImmutableList.of(kotlinOutputDirectory, outputDirectory)
+            : ImmutableList.of(outputDirectory),
         javacSourceBuilder,
         abiJarParameters);
   }
@@ -380,7 +383,11 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         abiJarParameters,
         true);
     steps.add(
-        new JarDirectoryStep(abiJarParameters == null ? libraryJarParameters : abiJarParameters));
+        new JarDirectoryStep(
+            abiJarParameters == null ? libraryJarParameters : abiJarParameters,
+            extraParams.getKotlinClassesDir().isPresent()
+                ? ImmutableSet.of(extraParams.getKotlinClassesDir().get())
+                : ImmutableSet.of()));
   }
 
   /**
