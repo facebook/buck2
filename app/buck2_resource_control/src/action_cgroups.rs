@@ -172,8 +172,6 @@ struct ActionCgroup {
     #[expect(dead_code)]
     suspend_strategy: ActionSuspendStrategy,
     command_type: CommandType,
-    // memory.current value when this cgroup was suspended. Used to calculate whether we can wake early
-    memory_current_when_suspended: Option<u64>,
     action_digest: Option<String>,
     dispatcher: EventDispatcher,
 }
@@ -188,6 +186,7 @@ struct RunningActionCgroup {
 struct SuspendedActionCgroup {
     cgroup: ActionCgroup,
     suspend_start: Instant,
+    memory_current_when_suspended: u64,
     wake_implementation: WakeImplementation,
 }
 
@@ -383,7 +382,6 @@ impl ActionCgroups {
             suspend_count: 0,
             suspend_strategy,
             command_type,
-            memory_current_when_suspended: None,
             action_digest,
             dispatcher,
         };
@@ -555,15 +553,13 @@ impl ActionCgroups {
 
         let cgroup = self.running_cgroups.remove(&largest_cgroup).unwrap();
 
-        let (mut suspended_cgroup, event_kind) = suspend_cgroup(cgroup);
+        let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup);
         tracing::debug!(
             "Froze action: {:?} (type: {:?})",
             suspended_cgroup.cgroup.path,
             suspended_cgroup.cgroup.command_type
         );
 
-        suspended_cgroup.cgroup.memory_current_when_suspended =
-            Some(suspended_cgroup.cgroup.memory_current);
         self.total_memory_during_last_suspend = Some(memory_reading.buck2_slice_memory_current);
         self.last_suspend_time = Some(suspended_cgroup.suspend_start);
         let path = suspended_cgroup.cgroup.path.clone();
@@ -600,11 +596,7 @@ impl ActionCgroups {
             unreachable!("Suspended cgroup should be present in dict")
         };
 
-        let memory_when_suspended = suspended_cgroup_entry
-            .get()
-            .cgroup
-            .memory_current_when_suspended
-            .expect("suspended cgroups should have memory current set");
+        let memory_when_suspended = suspended_cgroup_entry.get().memory_current_when_suspended;
         let total_memory_during_last_suspend = self
             .total_memory_during_last_suspend
             .expect("total memory during last suspend should be set");
@@ -748,17 +740,13 @@ fn suspend_cgroup(
     cgroup: RunningActionCgroup,
 ) -> (SuspendedActionCgroup, buck2_data::ResourceControlEventKind) {
     let suspend_start = Instant::now();
-    match cgroup.suspend_implementation {
+    let (wake_implementation, event_kind) = match cgroup.suspend_implementation {
         SuspendImplementation::CgroupFreeze(kill_sender, freeze_sender) => {
             drop(freeze_sender.send(ActionFreezeEvent::Freeze));
             (
-                SuspendedActionCgroup {
-                    cgroup: cgroup.cgroup,
-                    wake_implementation: WakeImplementation::CgroupUnfreeze {
-                        unfreeze_sender: freeze_sender,
-                        kill_sender,
-                    },
-                    suspend_start,
+                WakeImplementation::CgroupUnfreeze {
+                    unfreeze_sender: freeze_sender,
+                    kill_sender,
                 },
                 buck2_data::ResourceControlEventKind::SuspendFreeze,
             )
@@ -767,15 +755,20 @@ fn suspend_cgroup(
             let (retry_tx, retry_rx) = oneshot::channel();
             drop(kill_sender.send(RetryFuture(retry_rx)));
             (
-                SuspendedActionCgroup {
-                    cgroup: cgroup.cgroup,
-                    wake_implementation: WakeImplementation::KillAndRetry(retry_tx),
-                    suspend_start,
-                },
+                WakeImplementation::KillAndRetry(retry_tx),
                 buck2_data::ResourceControlEventKind::SuspendKill,
             )
         }
-    }
+    };
+    (
+        SuspendedActionCgroup {
+            memory_current_when_suspended: cgroup.cgroup.memory_current,
+            cgroup: cgroup.cgroup,
+            wake_implementation,
+            suspend_start,
+        },
+        event_kind,
+    )
 }
 
 fn wake_cgroup(
