@@ -597,9 +597,10 @@ impl ActionCgroups {
         };
 
         let memory_when_suspended = suspended_cgroup_entry.get().memory_current_when_suspended;
-        let total_memory_during_last_suspend = self
-            .total_memory_during_last_suspend
-            .expect("total memory during last suspend should be set");
+        let total_memory_during_last_suspend =
+            // We probably don't expect to end up here, but it does mean that we never suspened and
+            // so allowing early wakeups is fine
+            self.total_memory_during_last_suspend.unwrap_or(u64::MAX);
 
         // If the current memory use is less than the sum of memory of cgroup at the time it was suspended +
         // total memory when we last suspended an action, we can start wakeing earlier
