@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.cd;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.jvm.cd.workertool.MainUtils;
-import com.facebook.buck.jvm.cd.workertool.StepExecutionUtils;
 import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.facebook.buck.step.isolatedsteps.IsolatedStepsRunner;
@@ -70,10 +69,10 @@ public class CompilerDaemonRunner implements Closeable {
 
     public CommandExecutionContext(JvmCDCommand command) {
       this.executionContext =
-          StepExecutionUtils.createExecutionContext(
+          IsolatedExecutionContext.of(
               classLoaderCache,
-              processExecutor,
               console,
+              processExecutor,
               command.getBuildCommand().getRuleCellRoot());
     }
 
