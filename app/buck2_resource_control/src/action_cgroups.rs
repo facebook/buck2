@@ -196,9 +196,8 @@ struct SuspendedActionCgroup {
 pub(crate) struct ActionCgroups {
     enable_suspension: bool,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
-    running_cgroups: HashMap<CgroupPathBuf, RunningActionCgroup>,
-    suspended_cgroups: HashMap<CgroupPathBuf, SuspendedActionCgroup>,
-    wake_order: VecDeque<CgroupPathBuf>,
+    running_cgroups: Vec<RunningActionCgroup>,
+    suspended_cgroups: VecDeque<SuspendedActionCgroup>,
     /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
     /// memory pressure. Used to restore the limit when all cgroups are awoken.
     original_memory_high: Option<String>,
@@ -319,9 +318,8 @@ impl ActionCgroups {
             enable_suspension,
             preferred_action_suspend_strategy: suspend_strategy
                 .unwrap_or(ActionSuspendStrategy::CgroupFreeze),
-            running_cgroups: HashMap::new(),
-            suspended_cgroups: HashMap::new(),
-            wake_order: VecDeque::new(),
+            running_cgroups: Vec::new(),
+            suspended_cgroups: VecDeque::new(),
             original_memory_high: None,
             last_suspend_time: None,
             last_wake_time: None,
@@ -402,15 +400,7 @@ impl ActionCgroups {
             // spawning
             let running_action_cgroup = wake_cgroup(action_cgroup, start_wake_implemenation).0;
 
-            let existing = self
-                .running_cgroups
-                .insert(cgroup_path.clone(), running_action_cgroup);
-            if let Some(existing) = existing {
-                return Err(internal_error!(
-                    "cgroup already exists, reused cgroup pool worker? {:?}",
-                    existing.cgroup.path,
-                ));
-            }
+            self.running_cgroups.push(running_action_cgroup);
         } else {
             // If we have any suspended actions, don't also start new ones
             let suspended_action_cgroup = SuspendedActionCgroup {
@@ -419,27 +409,26 @@ impl ActionCgroups {
                 memory_current_when_suspended: 0,
                 wake_implementation: start_wake_implemenation,
             };
-            let existing = self
-                .suspended_cgroups
-                .insert(cgroup_path.clone(), suspended_action_cgroup);
-            if let Some(existing) = existing {
-                return Err(internal_error!(
-                    "cgroup already exists, reused cgroup pool worker? {:?}",
-                    existing.cgroup.path,
-                ));
-            }
-            self.wake_order.push_back(cgroup_path);
+            self.suspended_cgroups.push_back(suspended_action_cgroup);
         }
 
         Ok(start_future)
     }
 
     pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
-        if let Some(cgroup) = self.running_cgroups.remove(cgroup_path) {
+        if let Some(i) = self
+            .running_cgroups
+            .iter()
+            .position(|cg| &*cg.cgroup.path == cgroup_path)
+        {
+            let cgroup = self.running_cgroups.remove(i);
             ActionCgroupResult::from_info(cgroup.cgroup)
-        } else if let Some(cgroup) = self.suspended_cgroups.remove(cgroup_path) {
-            self.wake_order
-                .retain(|suspended_cgroup_path| *cgroup_path != **suspended_cgroup_path);
+        } else if let Some(i) = self
+            .suspended_cgroups
+            .iter()
+            .position(|cg| &*cg.cgroup.path == cgroup_path)
+        {
+            let cgroup = self.suspended_cgroups.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
             ActionCgroupResult::from_info(cgroup.cgroup)
@@ -458,9 +447,9 @@ impl ActionCgroups {
     ) {
         for cgroup in self
             .running_cgroups
-            .values_mut()
+            .iter_mut()
             .map(|c| &mut c.cgroup)
-            .chain(self.suspended_cgroups.values_mut().map(|c| &mut c.cgroup))
+            .chain(self.suspended_cgroups.iter_mut().map(|c| &mut c.cgroup))
         {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
             // in kernels older than 6.12.
@@ -560,13 +549,14 @@ impl ActionCgroups {
         let largest_cgroup = self
             .running_cgroups
             .iter_mut()
-            .max_by_key(|x| x.1.cgroup.memory_current)
+            .enumerate()
+            .max_by_key(|(_, x)| x.cgroup.memory_current)
             // Length checked above
             .unwrap()
             .0
             .to_owned();
 
-        let cgroup = self.running_cgroups.remove(&largest_cgroup).unwrap();
+        let cgroup = self.running_cgroups.remove(largest_cgroup);
 
         let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup);
         tracing::debug!(
@@ -577,12 +567,10 @@ impl ActionCgroups {
 
         self.total_memory_during_last_suspend = Some(memory_reading.buck2_slice_memory_current);
         self.last_suspend_time = suspended_cgroup.suspend_start;
-        let path = suspended_cgroup.cgroup.path.clone();
-        self.wake_order.push_back(path.clone());
-        self.suspended_cgroups
-            .insert(path.clone(), suspended_cgroup);
-
-        let suspended_cgroup = self.suspended_cgroups.get(&path).unwrap();
+        // Push it onto the list before emitting the event so that the action count in the event is
+        // correct
+        self.suspended_cgroups.push_back(suspended_cgroup);
+        let suspended_cgroup = self.suspended_cgroups.back().unwrap();
 
         self.emit_resource_control_event(
             &suspended_cgroup.cgroup.dispatcher,
@@ -602,16 +590,11 @@ impl ActionCgroups {
             return;
         }
 
-        let Some(cgroup_path) = self.wake_order.front() else {
+        let Some(suspended_cgroup) = self.suspended_cgroups.front() else {
             return;
         };
-        let std::collections::hash_map::Entry::Occupied(suspended_cgroup_entry) =
-            self.suspended_cgroups.entry(cgroup_path.to_buf())
-        else {
-            unreachable!("Suspended cgroup should be present in dict")
-        };
 
-        let memory_when_suspended = suspended_cgroup_entry.get().memory_current_when_suspended;
+        let memory_when_suspended = suspended_cgroup.memory_current_when_suspended;
         let total_memory_during_last_suspend =
             // We probably don't expect to end up here, but it does mean that we never suspened and
             // so allowing early wakeups is fine
@@ -632,8 +615,7 @@ impl ActionCgroups {
             return;
         }
 
-        self.wake_order.pop_front();
-        let (cgroup_path, mut suspended_cgroup) = suspended_cgroup_entry.remove_entry();
+        let mut suspended_cgroup = self.suspended_cgroups.pop_front().unwrap();
 
         tracing::debug!(
             "Awaking action: {:?} (type: {:?})",
@@ -658,9 +640,10 @@ impl ActionCgroups {
         );
         self.last_wake_time = Some(Instant::now());
 
-        self.running_cgroups
-            .insert(cgroup_path.clone(), running_cgroup);
-        let running_cgroup = self.running_cgroups.get(&cgroup_path).unwrap();
+        // Push it onto the list before emitting the event so that the action count in the event is
+        // correct
+        self.running_cgroups.push(running_cgroup);
+        let running_cgroup = self.running_cgroups.last().unwrap();
 
         self.emit_resource_control_event(
             &running_cgroup.cgroup.dispatcher,
