@@ -144,15 +144,25 @@ pub struct KillFuture(pub oneshot::Receiver<RetryFuture>);
 #[derive(Debug)]
 pub struct RetryFuture(pub oneshot::Receiver<KillFuture>);
 
+type KillSender = oneshot::Sender<RetryFuture>;
+
 #[derive(Debug)]
 enum SuspendImplementation {
-    CgroupFreeze,
-    KillAndRetry(oneshot::Sender<RetryFuture>),
+    // We store the kill sender here not with the expectation that we'll use it, but so that we hold
+    // it open and don't surprise the other side.
+    //
+    // Nonetheless, there are a variety of reasonable policies in which we might actually want to
+    // make use of this
+    CgroupFreeze(KillSender),
+    KillAndRetry(KillSender),
 }
 
 #[derive(Debug)]
 enum WakeImplementation {
-    CgroupUnfreeze { freeze_file: OwnedFd },
+    CgroupUnfreeze {
+        freeze_file: OwnedFd,
+        kill_sender: KillSender,
+    },
     KillAndRetry(oneshot::Sender<KillFuture>),
 }
 
@@ -231,7 +241,7 @@ impl ActionCgroupSession {
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<Option<(Self, Option<RetryFuture>)>> {
+    ) -> buck2_error::Result<Option<(Self, RetryFuture)>> {
         let Some(tracker) = tracker else {
             return Ok(None);
         };
@@ -349,7 +359,7 @@ impl ActionCgroups {
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<Option<RetryFuture>> {
+    ) -> buck2_error::Result<RetryFuture> {
         let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
@@ -367,21 +377,19 @@ impl ActionCgroups {
             self.preferred_action_suspend_strategy
         };
 
-        let (suspend_implementation, start_future) = match suspend_strategy {
-            ActionSuspendStrategy::CgroupFreeze => (SuspendImplementation::CgroupFreeze, None),
-            ActionSuspendStrategy::KillAndRetry => {
-                let (kill_tx, kill_rx) = oneshot::channel();
-                let (start_tx, start_rx) = oneshot::channel();
-                // Start the command immediately
-                //
-                // FIXME(JakobDegen): If there is memory pressure we should block new commands from
-                // spawning
-                start_tx.send(KillFuture(kill_rx)).unwrap();
-                (
-                    SuspendImplementation::KillAndRetry(kill_tx),
-                    Some(RetryFuture(start_rx)),
-                )
-            }
+        let (kill_tx, kill_rx) = oneshot::channel();
+        let (start_tx, start_rx) = oneshot::channel();
+        // Start the command immediately
+        //
+        // FIXME(JakobDegen): If there is memory pressure we should block new commands from
+        // spawning
+        start_tx.send(KillFuture(kill_rx)).unwrap();
+
+        let start_future = RetryFuture(start_rx);
+
+        let suspend_implementation = match suspend_strategy {
+            ActionSuspendStrategy::CgroupFreeze => SuspendImplementation::CgroupFreeze(kill_tx),
+            ActionSuspendStrategy::KillAndRetry => SuspendImplementation::KillAndRetry(kill_tx),
         };
 
         let existing = self.running_cgroups.insert(
@@ -776,17 +784,28 @@ fn suspend_cgroup(
 
     let suspend_start = Instant::now();
     match cgroup.suspend_implementation {
-        SuspendImplementation::CgroupFreeze => match cgroup_freeze_impl(&cgroup.cgroup) {
-            Ok(freeze_file) => Ok((
-                SuspendedActionCgroup {
-                    cgroup: cgroup.cgroup,
-                    wake_implementation: WakeImplementation::CgroupUnfreeze { freeze_file },
-                    suspend_start,
-                },
-                buck2_data::ResourceControlEventKind::SuspendFreeze,
-            )),
-            Err(e) => Err((cgroup, e)),
-        },
+        SuspendImplementation::CgroupFreeze(kill_sender) => {
+            match cgroup_freeze_impl(&cgroup.cgroup) {
+                Ok(freeze_file) => Ok((
+                    SuspendedActionCgroup {
+                        cgroup: cgroup.cgroup,
+                        wake_implementation: WakeImplementation::CgroupUnfreeze {
+                            freeze_file,
+                            kill_sender,
+                        },
+                        suspend_start,
+                    },
+                    buck2_data::ResourceControlEventKind::SuspendFreeze,
+                )),
+                Err(e) => Err((
+                    RunningActionCgroup {
+                        cgroup: cgroup.cgroup,
+                        suspend_implementation: SuspendImplementation::CgroupFreeze(kill_sender),
+                    },
+                    e,
+                )),
+            }
+        }
         SuspendImplementation::KillAndRetry(kill_sender) => {
             let (retry_tx, retry_rx) = oneshot::channel();
             drop(kill_sender.send(RetryFuture(retry_rx)));
@@ -814,7 +833,10 @@ fn wake_cgroup(
     }
 
     match cgroup.wake_implementation {
-        WakeImplementation::CgroupUnfreeze { freeze_file } => {
+        WakeImplementation::CgroupUnfreeze {
+            freeze_file,
+            kill_sender,
+        } => {
             if let Err(e) = cgroup_unfreeze(freeze_file) {
                 let _unused: Result<buck2_error::Error, buck2_error::Error> =
                     soft_error!("cgroup_unfreeze_failed", e);
@@ -822,7 +844,7 @@ fn wake_cgroup(
             (
                 RunningActionCgroup {
                     cgroup: cgroup.cgroup,
-                    suspend_implementation: SuspendImplementation::CgroupFreeze,
+                    suspend_implementation: SuspendImplementation::CgroupFreeze(kill_sender),
                 },
                 buck2_data::ResourceControlEventKind::WakeUnfreeze,
             )

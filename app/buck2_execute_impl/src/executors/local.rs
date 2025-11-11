@@ -465,7 +465,7 @@ impl LocalExecutor {
             )
             .await
             {
-                Ok(Some((session, start_future))) => (Some(session), start_future),
+                Ok(Some((session, start_future))) => (Some(session), Some(start_future)),
                 Ok(None) => (None, None),
                 Err(e) => return Err(manager.error("initializing_resource_control", e)),
             }
