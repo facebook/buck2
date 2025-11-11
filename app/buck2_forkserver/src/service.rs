@@ -40,12 +40,19 @@ use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
+use futures::FutureExt;
+use futures::pin_mut;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use rand::distributions::Alphanumeric;
 use rand::distributions::DistString;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
@@ -219,6 +226,7 @@ impl UnixForkserverService {
         + Unpin
         + 'static,
         miniperf_output: Option<AbsNormPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> buck2_error::Result<RunStream> {
         let timeout = validated_cmd.timeout;
         let graceful_shutdown_timeout_s = validated_cmd.graceful_shutdown_timeout_s;
@@ -236,6 +244,7 @@ impl UnixForkserverService {
                 std_redirects,
                 false,
                 cgroup,
+                freeze_rx,
             )
             .await?
             .left_stream(),
@@ -250,6 +259,7 @@ impl UnixForkserverService {
                 std_redirects,
                 false,
                 cgroup,
+                freeze_rx,
             )
             .await?
             .right_stream(),
@@ -274,23 +284,56 @@ impl Forkserver for UnixForkserverService {
             let cmd_request = Self::parse_command_request(&mut stream).await?;
             let validated_cmd = ValidatedCommand::try_from(cmd_request)?;
 
-            let cancel = async move {
-                stream
-                    .message()
-                    .await?
-                    .and_then(|m| m.data)
-                    .and_then(|m| m.into_cancel_request())
-                    .buck_error_context("RequestEvent was not a CancelRequest!")?;
+            let (cancel_tx, cancel_rx) = oneshot::channel();
+            let (freeze_tx, freeze_rx) = mpsc::unbounded_channel();
 
-                Ok(GatherOutputStatus::Cancelled)
-            };
+            // A task that splits the incoming events up into the freeze requests and cancel request
+            tokio::spawn(async move {
+                pin_mut!(stream);
+                while let Some(m) = stream.next().await {
+                    let err = match m {
+                        Ok(m) => match m.data {
+                            Some(d) => match d {
+                                buck2_forkserver_proto::request_event::Data::CommandRequest(_) => {
+                                    buck2_error::internal_error!("Non-leading command request")
+                                }
+                                buck2_forkserver_proto::request_event::Data::CancelRequest(_) => {
+                                    drop(cancel_tx.send(Ok(GatherOutputStatus::Cancelled)));
+                                    break;
+                                }
+                                buck2_forkserver_proto::request_event::Data::FreezeRequest(_) => {
+                                    drop(freeze_tx.send(ActionFreezeEvent::Freeze));
+                                    continue;
+                                }
+                                buck2_forkserver_proto::request_event::Data::UnfreezeRequest(_) => {
+                                    drop(freeze_tx.send(ActionFreezeEvent::Unfreeze));
+                                    continue;
+                                }
+                            },
+                            None => continue,
+                        },
+                        Err(e) => e.into(),
+                    };
+                    drop(cancel_tx.send(Err(err)));
+                    break;
+                }
+            });
 
-            let cancel = Box::pin(cancel);
+            let cancel = cancel_rx.map(|r| match r {
+                Ok(res) => res,
+                Err(_) => Ok(GatherOutputStatus::Cancelled),
+            });
 
             let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
 
-            let stream =
-                Self::create_command_stream(cmd, validated_cmd, cancel, miniperf_output).await?;
+            let stream = Self::create_command_stream(
+                cmd,
+                validated_cmd,
+                cancel,
+                miniperf_output,
+                UnboundedReceiverStream::new(freeze_rx),
+            )
+            .await?;
 
             Ok(stream)
         })

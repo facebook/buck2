@@ -18,6 +18,8 @@ use buck2_core::tag_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::decode_command_event_stream;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -87,6 +89,7 @@ impl ForkserverClient {
         &self,
         req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
@@ -102,14 +105,21 @@ impl ForkserverClient {
             .into());
         }
 
+        let cancel_stream = stream::once(cancel.map(|()| buck2_forkserver_proto::RequestEvent {
+            data: Some(buck2_forkserver_proto::CancelRequest {}.into()),
+        }));
+        let freeze_stream = freeze_rx.map(|e| {
+            let data = match e {
+                ActionFreezeEvent::Freeze => buck2_forkserver_proto::FreezeRequest {}.into(),
+                ActionFreezeEvent::Unfreeze => buck2_forkserver_proto::UnfreezeRequest {}.into(),
+            };
+            buck2_forkserver_proto::RequestEvent { data: Some(data) }
+        });
+
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
             data: Some(req.into()),
         }))
-        .chain(stream::once(cancel.map(|()| {
-            buck2_forkserver_proto::RequestEvent {
-                data: Some(buck2_forkserver_proto::CancelRequest {}.into()),
-            }
-        })));
+        .chain(futures::stream::select(cancel_stream, freeze_stream));
 
         let stream = self
             .inner

@@ -11,6 +11,7 @@
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
@@ -77,8 +78,11 @@ impl ProcessGroup {
         self.inner.take_stderr()
     }
 
-    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.inner.wait().await
+    pub(crate) async fn wait(
+        &mut self,
+        freeze_rx: impl ActionFreezeEventReceiver,
+    ) -> io::Result<ExitStatus> {
+        self.inner.wait(freeze_rx).await
     }
 
     pub(crate) fn id(&self) -> Option<u32> {
@@ -119,11 +123,11 @@ mod tests {
         let id = child.id().expect("missing id");
         assert!(id > 0);
 
-        let status = child.wait().await?;
+        let status = child.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(2));
 
         // test that the `.wait()` method is fused like tokio
-        let status = child.wait().await?;
+        let status = child.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(2));
 
         // Can't get id after process has exited

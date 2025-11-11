@@ -18,6 +18,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
@@ -118,7 +119,10 @@ impl ProcessGroupImpl {
             .and_then(|s| ChildStderr::from_std(s).ok())
     }
 
-    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
+    pub(crate) async fn wait(
+        &mut self,
+        _freeze_rx: impl ActionFreezeEventReceiver,
+    ) -> io::Result<ExitStatus> {
         match &mut self.child {
             FusedChild::Done(exit) => Ok(*exit),
             FusedChild::Child(child) => {

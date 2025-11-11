@@ -82,6 +82,8 @@ use buck2_execute_local::decode_command_event_stream;
 use buck2_execute_local::maybe_absolutize_exe;
 use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::CommandType;
 use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
@@ -92,6 +94,7 @@ use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::future;
+use futures::future::Either;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::future::join_all;
@@ -101,6 +104,7 @@ use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
 use indexmap::IndexMap;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::info;
 
 use crate::executors::worker::WorkerHandle;
@@ -239,6 +243,7 @@ impl LocalExecutor {
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
         cgroup: Option<CgroupPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             if let Some(counter) = self.local_action_counter.as_ref() {
@@ -261,6 +266,7 @@ impl LocalExecutor {
                         liveliness_observer,
                         self.knobs.enable_miniperf && !disable_miniperf,
                         cgroup,
+                        freeze_rx,
                     )
                     .await
                 }
@@ -290,6 +296,7 @@ impl LocalExecutor {
                         None,
                         true,
                         cgroup,
+                        freeze_rx,
                     )
                     .await?;
                     decode_command_event_stream(stream).await
@@ -317,6 +324,7 @@ impl LocalExecutor {
         worker: Option<&WorkerHandle>,
         env: &[(&str, StrOrOsStr<'_>)],
         cgroup: Option<CgroupPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> Result<
         (
             Duration,
@@ -408,6 +416,7 @@ impl LocalExecutor {
                         liveliness_observer,
                         request.disable_miniperf(),
                         cgroup,
+                        freeze_rx,
                     )
                     .await
                 };
@@ -474,10 +483,14 @@ impl LocalExecutor {
         let liveliness_observer: Arc<dyn LivelinessObserver> = Arc::new(liveliness_observer);
 
         let mut res = loop {
-            let kill_future = if let Some(start_future) = start_future {
-                start_future.0.await.ok()
+            let (kill_future, freeze_rx) = if let Some(start_future) = start_future {
+                start_future.0.await.ok().unzip()
             } else {
-                None
+                (None, None)
+            };
+            let freeze_rx = match freeze_rx {
+                Some(x) => Either::Left(UnboundedReceiverStream::new(x)),
+                None => Either::Right(futures::stream::pending::<ActionFreezeEvent>()),
             };
 
             let retry_future = Arc::new(std::sync::Mutex::new(None));
@@ -521,6 +534,7 @@ impl LocalExecutor {
                     worker,
                     env,
                     cgroup_session.as_ref().map(|s| s.path.clone()),
+                    freeze_rx,
                 )
                 .await;
 
@@ -1690,6 +1704,7 @@ mod unix {
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
         cgroup_path: Option<CgroupPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1711,7 +1726,11 @@ mod unix {
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
-            .execute(req, async move { liveliness_observer.while_alive().await })
+            .execute(
+                req,
+                async move { liveliness_observer.while_alive().await },
+                freeze_rx,
+            )
             .await
     }
 
@@ -1833,6 +1852,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 None,
+                futures::stream::pending(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1869,6 +1889,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 None,
+                futures::stream::pending(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1894,6 +1915,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 None,
+                futures::stream::pending(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);

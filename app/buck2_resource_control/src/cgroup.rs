@@ -246,6 +246,24 @@ impl Deref for Cgroup {
     }
 }
 
+pub struct CgroupFreezeGuard {
+    file: CgroupFile,
+}
+
+impl Drop for CgroupFreezeGuard {
+    fn drop(&mut self) {
+        drop(self.file.write(b"0"));
+    }
+}
+
+impl CgroupMinimal {
+    pub fn freeze(&self) -> buck2_error::Result<CgroupFreezeGuard> {
+        let f = CgroupFile::open(&self.dir, FileName::unchecked_new("cgroup.freeze"), true)?;
+        f.write(b"1")?;
+        Ok(CgroupFreezeGuard { file: f })
+    }
+}
+
 #[cfg(test)]
 impl Cgroup {
     pub(crate) fn create_for_test() -> Option<Self> {

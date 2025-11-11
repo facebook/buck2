@@ -27,6 +27,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
 use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
@@ -243,6 +244,7 @@ pub async fn spawn_command_and_stream_events<T>(
     std_redirects: Option<StdRedirectPaths>,
     retry_on_txt_busy: bool,
     cgroup_path: Option<CgroupPathBuf>,
+    freeze_rx: impl ActionFreezeEventReceiver,
 ) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
     T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
@@ -327,7 +329,7 @@ where
         // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
         // `wait()` by the time we call kill_process a few lines down.
         let execute = async {
-            let status = process_group.wait();
+            let status = process_group.wait(freeze_rx);
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
@@ -353,7 +355,7 @@ where
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
                 process_group
-                    .wait()
+                    .wait(futures::stream::pending())
                     .await
                     .buck_error_context("Failed to await child after kill")?;
 
@@ -530,6 +532,7 @@ mod tests {
             None,
             true,
             None,
+            futures::stream::pending(),
         )
         .await?;
         decode_command_event_stream(stream).await
@@ -652,7 +655,7 @@ mod tests {
             }
         })?;
 
-        let status = process_group.wait().await?;
+        let status = process_group.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())
@@ -735,6 +738,7 @@ mod tests {
             None,
             true,
             None,
+            futures::stream::pending(),
         )
         .await?
         .boxed();
@@ -822,6 +826,7 @@ mod tests {
             None,
             true,
             None,
+            futures::stream::pending(),
         )
         .await?;
 
@@ -856,6 +861,7 @@ mod tests {
             }),
             false,
             None,
+            futures::stream::pending(),
         )
         .await?
         .boxed();

@@ -176,7 +176,11 @@ fn spawn_via_forkserver(
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver
-            .execute(req, async move { liveliness_observer.while_alive().await })
+            .execute(
+                req,
+                async move { liveliness_observer.while_alive().await },
+                futures::stream::pending(),
+            )
             .await
             .map(|CommandResult { status, .. }| status);
 

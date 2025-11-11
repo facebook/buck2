@@ -8,6 +8,12 @@
  * above-listed licenses.
  */
 
+#![feature(trait_alias)]
+
+use futures::Stream;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+
 #[cfg(unix)]
 pub mod action_cgroups;
 #[cfg(unix)]
@@ -80,6 +86,24 @@ impl std::fmt::Display for CommandType {
     }
 }
 
+pub enum ActionFreezeEvent {
+    Freeze,
+    Unfreeze,
+}
+
+pub trait ActionFreezeEventReceiver = Stream<Item = ActionFreezeEvent> + Send + 'static;
+
+/// A channel associated with a running action that resolves when the action is killed for
+/// resource control
+#[derive(Debug)]
+pub struct KillFuture(pub oneshot::Receiver<RetryFuture>);
+
+/// A channel associated with a killed action that resolves when the action should be restarted
+#[derive(Debug)]
+pub struct RetryFuture(
+    pub oneshot::Receiver<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>,
+);
+
 #[cfg(not(unix))]
 pub mod action_cgroups {
     use std::time::Duration;
@@ -87,14 +111,9 @@ pub mod action_cgroups {
     use buck2_events::dispatch::EventDispatcher;
 
     use crate::CommandType;
+    use crate::RetryFuture;
     use crate::memory_tracker::MemoryTrackerHandle;
     use crate::path::CgroupPathBuf;
-
-    #[derive(Debug)]
-    pub struct KillFuture(pub std::future::Pending<Result<RetryFuture, ()>>);
-
-    #[derive(Debug)]
-    pub struct RetryFuture(pub std::future::Pending<Result<KillFuture, ()>>);
 
     pub struct ActionCgroupSession {
         pub path: CgroupPathBuf,

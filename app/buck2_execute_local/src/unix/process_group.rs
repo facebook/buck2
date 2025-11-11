@@ -15,12 +15,17 @@ use std::time::Duration;
 
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::cgroup::CgroupMinimal;
 use buck2_resource_control::path::CgroupPathBuf;
+use futures::StreamExt;
+use futures::pin_mut;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
 use tokio::io;
+use tokio::pin;
 use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
@@ -68,7 +73,6 @@ impl ProcessCommandImpl {
 
 pub(crate) struct ProcessGroupImpl {
     inner: Child,
-    #[expect(dead_code)]
     cgroup: Option<CgroupMinimal>,
 }
 
@@ -81,8 +85,40 @@ impl ProcessGroupImpl {
         self.inner.stderr.take()
     }
 
-    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.inner.wait().await
+    /// It might seem surprising that we associate the freezing/unfreezing with the lifetime of a
+    /// `wait` future instead of with the lifetime of some higher level thing such as the process,
+    /// the command, the action, etc.
+    ///
+    /// But this is intentional and important; it ensures that we only freeze cgroups while we know
+    /// exactly what's going on in them. Any other choice risks leaving behind frozen cgroups or
+    /// freezing cgroups during critical times like when we're spawning into them or killing them.
+    pub(crate) async fn wait(
+        &mut self,
+        freeze_rx: impl ActionFreezeEventReceiver,
+    ) -> io::Result<ExitStatus> {
+        let child = self.inner.wait();
+        pin!(child);
+        pin_mut!(freeze_rx);
+        let mut freeze_guard = None;
+        loop {
+            tokio::select! {
+                res = &mut child => {
+                    break res;
+                },
+                Some(freeze_op) = freeze_rx.next() => {
+                    match freeze_op {
+                        ActionFreezeEvent::Unfreeze => {
+                            drop(freeze_guard.take());
+                        }
+                        ActionFreezeEvent::Freeze => {
+                            if let Some(cgroup) = self.cgroup.as_ref() {
+                                freeze_guard = cgroup.freeze().ok();
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub(crate) fn id(&self) -> Option<u32> {
