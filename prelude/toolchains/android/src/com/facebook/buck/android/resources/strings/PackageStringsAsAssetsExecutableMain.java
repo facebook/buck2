@@ -14,8 +14,7 @@ import static com.facebook.buck.util.zip.ZipOutputStreams.HandleDuplicates.THROW
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
-import com.facebook.buck.util.types.Pair;
-import com.facebook.buck.util.zip.CustomZipEntry;
+import com.facebook.buck.util.zip.CustomZipEntryWithPath;
 import com.facebook.buck.util.zip.CustomZipOutputStream;
 import com.facebook.buck.util.zip.Zip;
 import com.facebook.buck.util.zip.ZipCompressionLevel;
@@ -28,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Function;
 import org.kohsuke.args4j.CmdLineException;
@@ -110,7 +108,7 @@ public class PackageStringsAsAssetsExecutableMain {
   private void zipEntries(
       AbsPath root, Path pathToZipFile, Path assetsDir, ImmutableSet<Path> pathsToInclude)
       throws IOException {
-    Map<String, Pair<CustomZipEntry, Optional<Path>>> entries = new TreeMap<>();
+    Map<String, CustomZipEntryWithPath> entries = new TreeMap<>();
 
     try (BufferedOutputStream baseOut =
             new BufferedOutputStream(

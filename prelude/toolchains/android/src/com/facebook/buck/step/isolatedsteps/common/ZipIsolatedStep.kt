@@ -17,8 +17,7 @@ import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils
 import com.facebook.buck.step.StepExecutionResult
 import com.facebook.buck.step.StepExecutionResults
 import com.facebook.buck.step.isolatedsteps.IsolatedStep
-import com.facebook.buck.util.types.Pair
-import com.facebook.buck.util.zip.CustomZipEntry
+import com.facebook.buck.util.zip.CustomZipEntryWithPath
 import com.facebook.buck.util.zip.Zip
 import com.facebook.buck.util.zip.ZipCompressionLevel
 import com.facebook.buck.util.zip.ZipOutputStreams
@@ -27,7 +26,6 @@ import com.google.common.collect.ImmutableSet
 import java.io.BufferedOutputStream
 import java.io.IOException
 import java.nio.file.Path
-import java.util.Optional
 import java.util.TreeMap
 
 /**
@@ -55,7 +53,7 @@ data class ZipIsolatedStep(
       )
     }
 
-    val entries: Map<String, Pair<CustomZipEntry, Optional<Path>>> = TreeMap()
+    val entries: Map<String, CustomZipEntryWithPath> = TreeMap()
 
     BufferedOutputStream(ProjectFilesystemUtils.newFileOutputStream(rootPath, pathToZipFile)).use {
         baseOut ->
