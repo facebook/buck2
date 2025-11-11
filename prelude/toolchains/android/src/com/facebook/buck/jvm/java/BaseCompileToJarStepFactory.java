@@ -43,8 +43,7 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
       ImmutableMap<RelPath, RelPath> resourcesMap,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      T extraParams,
-      @Nullable RelPath kotlinClassesDir) {
+      T extraParams) {
     Preconditions.checkArgument(libraryJarParameters != null || abiJarParameters == null);
 
     steps.addAll(
@@ -75,8 +74,7 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
           steps,
           resolvedJavac,
           actionMetadata,
-          extraParams,
-          kotlinClassesDir);
+          extraParams);
     }
 
     if (jarParameters != null) {
@@ -133,8 +131,7 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
       Builder<IsolatedStep> steps,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      T extraParams,
-      @Nullable RelPath kotlinClassesDir) {
+      T extraParams) {
     Preconditions.checkArgument(abiJarParameters == null);
     Preconditions.checkArgument(
         libraryJarParameters != null
@@ -152,7 +149,6 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
         resolvedJavac,
         actionMetadata,
         extraParams,
-        kotlinClassesDir,
         null,
         false);
 
@@ -178,7 +174,6 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       T extraParams,
-      @Nullable RelPath kotlinClassesDir,
       JarParameters abiJarParameters,
       boolean mixedCompilationMode);
 

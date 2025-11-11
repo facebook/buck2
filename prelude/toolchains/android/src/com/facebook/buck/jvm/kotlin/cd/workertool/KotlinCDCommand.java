@@ -62,7 +62,6 @@ import org.kohsuke.args4j.Option;
 public class KotlinCDCommand implements JvmCDCommand {
 
   private static final String ACTION_META_DATA_FILE = "action_metadata.json";
-  private static final String KOTLIN_CLASSES_DIR = "__classes__";
   private static final PathMatcher KT_PATH_MATCHER = FileExtensionMatcher.of("kt");
   private static final PathMatcher JAVA_PATH_MATCHER = FileExtensionMatcher.of("java");
 
@@ -117,12 +116,7 @@ public class KotlinCDCommand implements JvmCDCommand {
 
     this.stepsBuilder =
         new KotlinStepsBuilder(
-            this.buildKotlinCommand,
-            generateActionMetadata(),
-            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally()
-                ? RelPath.of(postBuildParams.getIncrementalStateDir().resolve(KOTLIN_CLASSES_DIR))
-                : null,
-            kotlinCDAnalytics);
+            this.buildKotlinCommand, generateActionMetadata(), kotlinCDAnalytics);
   }
 
   private Optional<Path> initCurrentActionMetadataPath(ImmutableMap<String, String> env) {

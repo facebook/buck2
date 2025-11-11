@@ -79,7 +79,6 @@ class DefaultAbiStepsBuilder<T extends CompileToJarStepFactory.ExtraParams>
         resourcesMap,
         resolvedJavac,
         null,
-        configuredCompiler.castExtraParams(extraParams),
-        null);
+        configuredCompiler.castExtraParams(extraParams));
   }
 }

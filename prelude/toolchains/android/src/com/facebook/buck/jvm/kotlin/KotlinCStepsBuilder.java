@@ -39,7 +39,6 @@ public class KotlinCStepsBuilder {
       ImmutableList.Builder<IsolatedStep> steps,
       ActionMetadata actionMetadata,
       KotlinExtraParams extraParams,
-      AbsPath kotlinClassesDir,
       String friendPathsArg,
       String kotlinPluginGeneratedFullPath,
       String moduleName,
@@ -53,7 +52,6 @@ public class KotlinCStepsBuilder {
       KspStepsBuilder.KSPInvocationStatus kspInvocationStatus,
       ImmutableList<AbsPath> sourceOnlyAbiClasspath,
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
-      RelPath outputDirectory,
       ImmutableList<AbsPath> classpathSnapshots,
       KotlinCDAnalytics kotlinCDAnalytics) {
     ImmutableList.Builder<String> extraArguments =

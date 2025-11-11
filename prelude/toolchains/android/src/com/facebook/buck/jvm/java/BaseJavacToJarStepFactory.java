@@ -41,7 +41,6 @@ public class BaseJavacToJarStepFactory extends BaseCompileToJarStepFactory<JavaE
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       JavaExtraParams extraParams,
-      RelPath kotlinClassesDir,
       JarParameters abiJarParameters,
       boolean mixedCompilation) {
 

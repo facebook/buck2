@@ -45,6 +45,5 @@ public interface LibraryStepsBuilder extends CompileStepsBuilder {
       AbsPath buildCellRootPath,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      CompileToJarStepFactory.ExtraParams extraParams,
-      @Nullable RelPath kotlinClassesDir);
+      CompileToJarStepFactory.ExtraParams extraParams);
 }

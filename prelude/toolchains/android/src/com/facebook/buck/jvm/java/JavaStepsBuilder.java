@@ -77,8 +77,7 @@ public class JavaStepsBuilder implements BuildCommandStepsBuilder {
         baseJarCommand.getBuildCellRootPath(),
         baseJarCommand.getResolvedJavac(),
         null,
-        JavaExtraParams.of(baseJarCommand.getResolvedJavacOptions()),
-        null);
+        JavaExtraParams.of(baseJarCommand.getResolvedJavacOptions()));
 
     maybeAddMakeMissingOutputStep(baseJarCommand, libraryJarBuilder);
   }

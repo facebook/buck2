@@ -85,7 +85,6 @@ public class JavacStepsBuilder {
         resolvedJavac,
         null,
         JavaExtraParams.of(resolvedJavacOptions, /* addAnnotationPath */ false),
-        null,
         abiJarParameter,
         true);
   }
