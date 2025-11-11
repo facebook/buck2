@@ -10,14 +10,12 @@
 
 package com.facebook.buck.util;
 
-import com.facebook.buck.util.function.ThrowingSupplier;
 import com.google.common.base.Preconditions;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /** Fake implementation of {@link java.lang.Process}. */
@@ -27,7 +25,6 @@ public class FakeProcess extends Process {
   private final OutputStream outputStream;
   private final InputStream inputStream;
   private final InputStream errorStream;
-  private final Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waiter;
   private boolean isDestroyed;
   private boolean isWaitedFor;
 
@@ -36,51 +33,21 @@ public class FakeProcess extends Process {
   }
 
   public FakeProcess(int exitValue, String stdout, String stderr) {
-    this(exitValue, stdout, stderr, Optional.empty());
-  }
-
-  public FakeProcess(
-      Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waiter) {
-    this(0, waiter);
-  }
-
-  public FakeProcess(
-      int exitValue,
-      Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waiter) {
-    this(exitValue, "", "", waiter);
-  }
-
-  public FakeProcess(
-      int exitValue, OutputStream outputStream, InputStream inputStream, InputStream errorStream) {
-    this(exitValue, outputStream, inputStream, errorStream, Optional.empty());
-  }
-
-  public FakeProcess(
-      int exitValue,
-      String stdout,
-      String stderr,
-      Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waiter) {
     this(
         exitValue,
         new ByteArrayOutputStream(),
         new ByteArrayInputStream(
             Preconditions.checkNotNull(stdout).getBytes(StandardCharsets.UTF_8)),
         new ByteArrayInputStream(
-            Preconditions.checkNotNull(stderr).getBytes(StandardCharsets.UTF_8)),
-        waiter);
+            Preconditions.checkNotNull(stderr).getBytes(StandardCharsets.UTF_8)));
   }
 
   public FakeProcess(
-      int exitValue,
-      OutputStream outputStream,
-      InputStream inputStream,
-      InputStream errorStream,
-      Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waitSupplier) {
+      int exitValue, OutputStream outputStream, InputStream inputStream, InputStream errorStream) {
     this.exitValue = exitValue;
     this.outputStream = Preconditions.checkNotNull(outputStream);
     this.inputStream = Preconditions.checkNotNull(inputStream);
     this.errorStream = Preconditions.checkNotNull(errorStream);
-    this.waiter = waitSupplier;
   }
 
   @Override
@@ -115,13 +82,6 @@ public class FakeProcess extends Process {
   public int waitFor() throws InterruptedException {
     if (!isWaitedFor) {
       isWaitedFor = true;
-      if (waiter.isPresent()) {
-        ThrowingSupplier<Optional<InterruptedException>, RuntimeException> supplier = waiter.get();
-        Optional<InterruptedException> interruptedExceptionOptional = supplier.get();
-        if (interruptedExceptionOptional.isPresent()) {
-          throw interruptedExceptionOptional.get();
-        }
-      }
     }
     return exitValue;
   }
