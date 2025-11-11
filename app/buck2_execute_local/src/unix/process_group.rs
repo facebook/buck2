@@ -15,6 +15,8 @@ use std::time::Duration;
 
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::cgroup::CgroupMinimal;
+use buck2_resource_control::path::CgroupPathBuf;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
@@ -24,30 +26,53 @@ use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 use tokio::process::Command;
 
+use crate::process_group::SpawnError;
+
 pub(crate) struct ProcessCommandImpl {
     inner: Command,
+    cgroup: Option<CgroupMinimal>,
 }
 
 impl ProcessCommandImpl {
-    pub(crate) fn new(mut cmd: StdCommand) -> Self {
+    pub(crate) fn new(
+        mut cmd: StdCommand,
+        cgroup: Option<CgroupPathBuf>,
+    ) -> buck2_error::Result<Self> {
         cmd.process_group(0);
-        Self { inner: cmd.into() }
+
+        let cgroup = if let Some(cgroup) = cgroup {
+            let cgroup = CgroupMinimal::try_from_path(cgroup.clone())?;
+            cgroup.setup_command(&mut cmd)?;
+            Some(cgroup)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            inner: cmd.into(),
+            cgroup,
+        })
     }
 
-    pub(crate) fn spawn(&mut self) -> io::Result<Child> {
-        self.inner.spawn()
+    #[allow(clippy::result_large_err)]
+    pub(crate) fn spawn(mut self) -> Result<ProcessGroupImpl, (SpawnError, Self)> {
+        match self.inner.spawn() {
+            Ok(inner) => Ok(ProcessGroupImpl {
+                inner,
+                cgroup: self.cgroup,
+            }),
+            Err(e) => Err((e.into(), self)),
+        }
     }
 }
 
 pub(crate) struct ProcessGroupImpl {
     inner: Child,
+    #[expect(dead_code)]
+    cgroup: Option<CgroupMinimal>,
 }
 
 impl ProcessGroupImpl {
-    pub(crate) fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
-        Ok(ProcessGroupImpl { inner: child })
-    }
-
     pub(crate) fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.inner.stdout.take()
     }

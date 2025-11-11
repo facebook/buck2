@@ -18,11 +18,13 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 use winapi::um::processthreadsapi;
 
+use crate::process_group::SpawnError;
 use crate::win::child_process::ChildProcess;
 use crate::win::job_object::JobObject;
 use crate::win::utils::result_dword;
@@ -32,17 +34,27 @@ pub(crate) struct ProcessCommandImpl {
 }
 
 impl ProcessCommandImpl {
-    pub(crate) fn new(mut cmd: Command) -> Self {
+    pub(crate) fn new(
+        mut cmd: Command,
+        _cgroup: Option<CgroupPathBuf>,
+    ) -> buck2_error::Result<Self> {
         // On windows we create suspended process to assign it to a job (group) and then resume.
         // This is necessary because the process might finish before we add it to a job
         cmd.creation_flags(
             winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED,
         );
-        Self { inner: cmd }
+        Ok(Self { inner: cmd })
     }
 
-    pub(crate) fn spawn(&mut self) -> io::Result<Child> {
-        self.inner.spawn()
+    #[allow(clippy::result_large_err)]
+    pub(crate) fn spawn(mut self) -> Result<ProcessGroupImpl, (SpawnError, Self)> {
+        match self.inner.spawn() {
+            Ok(inner) => match ProcessGroupImpl::new(inner) {
+                Ok(inner) => Ok(inner),
+                Err(e) => Err((e.into(), self)),
+            },
+            Err(e) => Err((e.into(), self)),
+        }
     }
 }
 
@@ -75,7 +87,7 @@ pub(crate) struct ProcessGroupImpl {
 }
 
 impl ProcessGroupImpl {
-    pub(crate) fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
+    fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
         let job = JobObject::new()?;
         job.assign_process(child.as_raw_handle())?;
         let process = ProcessGroupImpl {

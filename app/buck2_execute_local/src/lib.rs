@@ -256,21 +256,13 @@ where
         cmd.stderr(Stdio::piped());
     }
 
-    #[cfg(unix)]
-    if let Some(cgroup_path) = cgroup_path {
-        use buck2_resource_control::cgroup::CgroupMinimal;
-
-        let cgroup = CgroupMinimal::try_from_path(cgroup_path.clone())?;
-        cgroup.setup_command(&mut cmd)?;
-    }
-
-    let mut cmd = ProcessCommand::new(cmd);
+    let cmd = ProcessCommand::new(cmd, cgroup_path)?;
 
     let do_spawn = move || {
         if retry_on_txt_busy {
             spawn_retry_txt_busy(cmd, || std::thread::sleep(Duration::from_millis(50)))
         } else {
-            cmd.spawn().map_err(buck2_error::Error::from)
+            cmd.spawn().map_err(|x| buck2_error::Error::from(x.0))
         }
     };
     // We could imagine any of a number of reasons that this `spawn` might block. A concrete
@@ -485,16 +477,21 @@ where
     let mut attempts = 10;
 
     loop {
-        let res = cmd.spawn();
+        let err = match cmd.spawn() {
+            Ok(pg) => return Ok(pg),
+            Err((e, cmd_back)) => {
+                cmd = cmd_back;
+                e
+            }
+        };
 
-        let res_errno = res.as_ref().map_err(|e| match e {
-            SpawnError::IoError(e) => e.raw_os_error(),
-            SpawnError::GenericError(_) => None,
-        });
-        let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
+        let is_txt_busy = match &err {
+            SpawnError::IoError(e) => matches!(e.raw_os_error(), Some(libc::ETXTBSY)),
+            SpawnError::GenericError(_) => false,
+        };
 
         if attempts == 0 || !is_txt_busy {
-            return res.map_err(buck2_error::Error::from);
+            return Err(err.into());
         }
 
         delay();
@@ -647,7 +644,7 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd);
+        let cmd = ProcessCommand::new(cmd, None)?;
         let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
@@ -667,7 +664,7 @@ mod tests {
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd);
+        let cmd = ProcessCommand::new(cmd, None)?;
         let res = spawn_retry_txt_busy(cmd, || panic!("Should not be called!"));
         assert!(res.is_err());
 
