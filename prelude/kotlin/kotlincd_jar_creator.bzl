@@ -562,8 +562,8 @@ def _define_kotlincd_action(
 
     if should_action_run_incrementally:
         args.add(
-            "--incremental-metadata-file",
-            _create_incremental_proto(actions, actions_identifier, kotlin_build_command, kotlin_toolchain.kotlin_version, uses_experimental_content_based_path_hashing),
+            "--incremental-config-file",
+            _create_incremental_config(actions, actions_identifier, kotlin_build_command, kotlin_toolchain.kotlin_version, uses_experimental_content_based_path_hashing),
         )
 
     incremental_run_params = {
@@ -592,8 +592,8 @@ def _define_kotlincd_action(
     )
     return proto, used_jars_json_output
 
-def _create_incremental_proto(actions: AnalysisActions, actions_identifier: [str, None], kotlin_build_command: struct, kotlin_version: str, uses_experimental_content_based_path_hashing: bool):
-    incremental_meta_data_output = declare_prefixed_output(actions, actions_identifier, "incremental_metadata.proto.json", uses_experimental_content_based_path_hashing)
+def _create_incremental_config(actions: AnalysisActions, actions_identifier: [str, None], kotlin_build_command: struct, kotlin_version: str, uses_experimental_content_based_path_hashing: bool):
+    incremental_meta_data_output = declare_prefixed_output(actions, actions_identifier, "incremental_config.json", uses_experimental_content_based_path_hashing)
     incremental_meta_data = struct(
         version = 2,
         track_class_usage = kotlin_build_command.buildCommand.baseJarCommand.trackClassUsage,

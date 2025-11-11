@@ -27,13 +27,13 @@ public class IncrementalCompilationValidator {
       @Nullable AbsPath depFile,
       @Nullable AbsPath usedJars,
       @Nullable AbsPath jvmAbiGenWorkingDir) {
-    if (actionMetadata.getPreviousIncrementalMetadataDigest() == null) {
+    if (actionMetadata.getPreviousIncrementalConfigDigest() == null) {
       return RebuildReason.NO_LAST_BUILD_CONFIGURATION;
     }
 
     if (!actionMetadata
-        .getPreviousIncrementalMetadataDigest()
-        .equals(actionMetadata.getCurrentIncrementalMetadataDigest())) {
+        .getPreviousIncrementalConfigDigest()
+        .equals(actionMetadata.getCurrentIncrementalConfigDigest())) {
       return RebuildReason.BUILD_CONFIGURATION_CHANGED;
     }
 

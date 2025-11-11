@@ -40,7 +40,7 @@ public class IncrementalCompilationValidatorTest {
   public void
       when_previousMetadataDigestIsNull_then_returnPreviousBuildConfigurationFileNotFoundReason() {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
-    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn(null);
+    when(actionMetadata.getPreviousIncrementalConfigDigest()).thenReturn(null);
 
     RebuildReason result =
         incrementalCompilationValidator.validate(
@@ -52,8 +52,8 @@ public class IncrementalCompilationValidatorTest {
   @Test
   public void when_buildConfigurationChanged_then_returnBuildConfigurationChangedReason() {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
-    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest1");
-    when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest2");
+    when(actionMetadata.getPreviousIncrementalConfigDigest()).thenReturn("digest1");
+    when(actionMetadata.getCurrentIncrementalConfigDigest()).thenReturn("digest2");
 
     RebuildReason result =
         incrementalCompilationValidator.validate(
@@ -65,8 +65,8 @@ public class IncrementalCompilationValidatorTest {
   @Test
   public void when_depFileNotExists_then_returnPreviousKotlinUsedClassesFileNotFoundReason() {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
-    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
-    when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
+    when(actionMetadata.getPreviousIncrementalConfigDigest()).thenReturn("digest");
+    when(actionMetadata.getCurrentIncrementalConfigDigest()).thenReturn("digest");
     AbsPath depFile = mock(AbsPath.class);
     File mockFile = mock(File.class);
     when(depFile.toFile()).thenReturn(mockFile);
@@ -82,8 +82,8 @@ public class IncrementalCompilationValidatorTest {
   @Test
   public void when_usedJarsNotExists_then_returnNoLastUsedJarsReason() {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
-    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
-    when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
+    when(actionMetadata.getPreviousIncrementalConfigDigest()).thenReturn("digest");
+    when(actionMetadata.getCurrentIncrementalConfigDigest()).thenReturn("digest");
     AbsPath usedJars = mock(AbsPath.class);
     File mockFile = mock(File.class);
     when(usedJars.toFile()).thenReturn(mockFile);
@@ -99,8 +99,8 @@ public class IncrementalCompilationValidatorTest {
   @Test
   public void when_jvmAbiGenWorkingDirNotExists_then_returnJvmAbiGenWorkingDirNotFoundReason() {
     ActionMetadata actionMetadata = mock(ActionMetadata.class);
-    when(actionMetadata.getPreviousIncrementalMetadataDigest()).thenReturn("digest");
-    when(actionMetadata.getCurrentIncrementalMetadataDigest()).thenReturn("digest");
+    when(actionMetadata.getPreviousIncrementalConfigDigest()).thenReturn("digest");
+    when(actionMetadata.getCurrentIncrementalConfigDigest()).thenReturn("digest");
     AbsPath jvmAbiGenWorkingDir = mock(AbsPath.class);
     File mockFile = mock(File.class);
     when(jvmAbiGenWorkingDir.toFile()).thenReturn(mockFile);

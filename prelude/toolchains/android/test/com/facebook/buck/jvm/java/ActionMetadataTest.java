@@ -23,30 +23,30 @@ public class ActionMetadataTest {
 
   @Test
   public void
-      when_currentDigestContainsMetadataFile_then_getCurrentIncrementalMetadataDigestReturnsCorrectValue() {
-    Path metadataFile = Paths.get("metadata.json");
+      when_currentDigestContainsConfigFile_then_getCurrentIncrementalConfigDigestReturnsCorrectValue() {
+    Path configFile = Paths.get("config.json");
     Map<Path, String> previousDigest = new HashMap<>();
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(metadataFile, "metadata-digest");
+    currentDigest.put(configFile, "metadata-digest");
     currentDigest.put(Paths.get("other.file"), "other-digest");
-    ActionMetadata metadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
+    ActionMetadata metadata = new ActionMetadata(configFile, previousDigest, currentDigest);
 
-    String currentIncrementalMetadataDigest = metadata.getCurrentIncrementalMetadataDigest();
+    String currentIncrementalConfigDigest = metadata.getCurrentIncrementalConfigDigest();
 
-    assertEquals("metadata-digest", currentIncrementalMetadataDigest);
+    assertEquals("metadata-digest", currentIncrementalConfigDigest);
   }
 
   @Test
-  public void when_digestsDoNotContainMetadataFile_then_incrementalMetadataDigestReturnsNull() {
-    Path metadataFile = Paths.get("metadata.json");
+  public void when_digestsDoNotContainMetadataFile_then_incrementalConfigDigestReturnsNull() {
+    Path configFile = Paths.get("config.json");
     Map<Path, String> previousDigest = new HashMap<>();
     Map<Path, String> currentDigest = new HashMap<>();
-    ActionMetadata metadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
+    ActionMetadata metadata = new ActionMetadata(configFile, previousDigest, currentDigest);
 
-    String previousIncrementalMetadataDigest = metadata.getPreviousIncrementalMetadataDigest();
-    String currentIncrementalMetadataDigest = metadata.getCurrentIncrementalMetadataDigest();
+    String previousIncrementalConfigDigest = metadata.getPreviousIncrementalConfigDigest();
+    String currentIncrementalConfigDigest = metadata.getCurrentIncrementalConfigDigest();
 
-    assertNull(previousIncrementalMetadataDigest);
-    assertNull(currentIncrementalMetadataDigest);
+    assertNull(previousIncrementalConfigDigest);
+    assertNull(currentIncrementalConfigDigest);
   }
 }

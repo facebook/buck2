@@ -71,8 +71,8 @@ public class KotlinCDCommand implements JvmCDCommand {
   @Option(name = "--command-file", required = true)
   protected Path commandFile;
 
-  @Option(name = "--incremental-metadata-file")
-  protected Path incrementalMetadataFile;
+  @Option(name = "--incremental-config-file")
+  protected Path incrementalConfigFile;
 
   @Option(name = "--logging-level")
   private int loggingLevel = 0;
@@ -145,8 +145,8 @@ public class KotlinCDCommand implements JvmCDCommand {
           parseMetadata(previousActionMetadataPath.map(Path::toFile).get()));
     }
 
-    Preconditions.checkNotNull(incrementalMetadataFile);
-    return ActionMetadataSerializer.deserialize(incrementalMetadataFile, builder.build());
+    Preconditions.checkNotNull(incrementalConfigFile);
+    return ActionMetadataSerializer.deserialize(incrementalConfigFile, builder.build());
   }
 
   private Optional<Path> getPreviousActionMetadataPath() {
