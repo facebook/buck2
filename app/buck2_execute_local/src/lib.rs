@@ -28,6 +28,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
+use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
 use dupe::Dupe;
 use futures::future::Future;
@@ -240,6 +241,7 @@ pub async fn spawn_command_and_stream_events<T>(
     kill_process: impl KillProcess,
     std_redirects: Option<StdRedirectPaths>,
     retry_on_txt_busy: bool,
+    cgroup_path: Option<CgroupPathBuf>,
 ) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
     T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
@@ -252,6 +254,15 @@ where
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
     }
+
+    #[cfg(unix)]
+    if let Some(cgroup_path) = cgroup_path {
+        use buck2_resource_control::cgroup::CgroupMinimal;
+
+        let cgroup = CgroupMinimal::try_from_path(cgroup_path.clone())?;
+        cgroup.setup_command(&mut cmd)?;
+    }
+
     let mut cmd = ProcessCommand::new(cmd);
 
     let do_spawn = move || {
@@ -520,6 +531,7 @@ mod tests {
             DefaultKillProcess::default(),
             None,
             true,
+            None,
         )
         .await?;
         decode_command_event_stream(stream).await
@@ -724,6 +736,7 @@ mod tests {
             DefaultKillProcess::default(),
             None,
             true,
+            None,
         )
         .await?
         .boxed();
@@ -810,6 +823,7 @@ mod tests {
             },
             None,
             true,
+            None,
         )
         .await?;
 
@@ -843,6 +857,7 @@ mod tests {
                 stderr: stderr.clone(),
             }),
             false,
+            None,
         )
         .await?
         .boxed();

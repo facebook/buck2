@@ -266,7 +266,6 @@ impl LocalExecutor {
                 }
                 ForkserverAccess::None => {
                     let _disable_miniperf = disable_miniperf;
-                    let _cgroup = cgroup;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
@@ -290,6 +289,7 @@ impl LocalExecutor {
                         DefaultKillProcess::default(),
                         None,
                         true,
+                        cgroup,
                     )
                     .await?;
                     decode_command_event_stream(stream).await

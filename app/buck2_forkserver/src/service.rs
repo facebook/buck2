@@ -18,7 +18,6 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Command;
 use std::sync::Arc;
-use std::time::Duration;
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
@@ -41,7 +40,6 @@ use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
-use buck2_resource_control::cgroup::CgroupMinimal;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
 use futures::stream::Stream;
@@ -195,11 +193,6 @@ impl UnixForkserverService {
             _ => (background_command(&validated_cmd.exe), None),
         };
 
-        if let Some(cgroup_path) = validated_cmd.command_cgroup.clone() {
-            let cgroup = CgroupMinimal::try_from_path(cgroup_path.clone())?;
-            cgroup.setup_command(&mut cmd)?;
-        }
-
         cmd.current_dir(&validated_cmd.cwd);
         cmd.args(validated_cmd.argv.iter().map(|a| OsStr::from_bytes(a)));
 
@@ -220,15 +213,17 @@ impl UnixForkserverService {
 
     async fn create_command_stream(
         cmd: Command,
-        timeout: Option<Duration>,
+        validated_cmd: ValidatedCommand,
         cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
         + Send
         + Unpin
         + 'static,
         miniperf_output: Option<AbsNormPathBuf>,
-        graceful_shutdown_timeout_s: Option<u32>,
-        std_redirects: Option<StdRedirectPaths>,
     ) -> buck2_error::Result<RunStream> {
+        let timeout = validated_cmd.timeout;
+        let graceful_shutdown_timeout_s = validated_cmd.graceful_shutdown_timeout_s;
+        let std_redirects = validated_cmd.std_redirects;
+        let cgroup = validated_cmd.command_cgroup.clone();
         let stream = match miniperf_output {
             Some(out) => spawn_command_and_stream_events(
                 cmd,
@@ -240,6 +235,7 @@ impl UnixForkserverService {
                 },
                 std_redirects,
                 false,
+                cgroup,
             )
             .await?
             .left_stream(),
@@ -253,6 +249,7 @@ impl UnixForkserverService {
                 },
                 std_redirects,
                 false,
+                cgroup,
             )
             .await?
             .right_stream(),
@@ -292,15 +289,8 @@ impl Forkserver for UnixForkserverService {
 
             let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
 
-            let stream = Self::create_command_stream(
-                cmd,
-                validated_cmd.timeout,
-                cancel,
-                miniperf_output,
-                validated_cmd.graceful_shutdown_timeout_s,
-                validated_cmd.std_redirects,
-            )
-            .await?;
+            let stream =
+                Self::create_command_stream(cmd, validated_cmd, cancel, miniperf_output).await?;
 
             Ok(stream)
         })
