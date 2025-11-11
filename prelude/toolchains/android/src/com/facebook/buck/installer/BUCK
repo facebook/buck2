@@ -16,7 +16,6 @@ buck_kotlin_library(
     ],
     exported_deps = [
         "prelude//toolchains/android/src/com/facebook/buck/installer/proto:installer-model",
-        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
         "prelude//toolchains/android/third-party:grpc-netty-shaded",
     ],
 )

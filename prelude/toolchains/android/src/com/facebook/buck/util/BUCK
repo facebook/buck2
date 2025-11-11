@@ -38,7 +38,6 @@ buck_kotlin_library(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
-        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:jsr305",
         ":util",
@@ -66,7 +65,6 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/util/escaper:quoter",
         "prelude//toolchains/android/src/com/facebook/buck/util/escaper:utils",
         "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
-        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:jackson-annotations",
         "prelude//toolchains/android/third-party:jackson-databind",
