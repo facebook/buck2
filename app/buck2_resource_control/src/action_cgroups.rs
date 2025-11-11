@@ -169,6 +169,8 @@ struct ActionCgroup {
     error: Option<buck2_error::Error>,
     suspend_duration: Option<Duration>,
     suspend_count: u64,
+    #[expect(dead_code)]
+    suspend_strategy: ActionSuspendStrategy,
     command_type: CommandType,
     // memory.current value when this cgroup was suspended. Used to calculate whether we can wake early
     memory_current_when_suspended: Option<u64>,
@@ -366,6 +368,26 @@ impl ActionCgroups {
             self.preferred_action_suspend_strategy
         };
 
+        let action_cgroup = ActionCgroup {
+            path: cgroup_path.clone(),
+            memory_current_file,
+            memory_swap_current_file,
+            memory_initial,
+            memory_current: memory_initial,
+            memory_peak: 0,
+            swap_initial,
+            swap_current: swap_initial,
+            swap_peak: 0,
+            error: None,
+            suspend_duration: None,
+            suspend_count: 0,
+            suspend_strategy,
+            command_type,
+            memory_current_when_suspended: None,
+            action_digest,
+            dispatcher,
+        };
+
         let (freeze_tx, freeze_rx) = mpsc::unbounded_channel();
         let (kill_tx, kill_rx) = oneshot::channel();
         let (start_tx, start_rx) = oneshot::channel();
@@ -387,24 +409,7 @@ impl ActionCgroups {
         let existing = self.running_cgroups.insert(
             cgroup_path.clone(),
             RunningActionCgroup {
-                cgroup: ActionCgroup {
-                    path: cgroup_path,
-                    memory_current_file,
-                    memory_swap_current_file,
-                    memory_initial,
-                    memory_current: memory_initial,
-                    memory_peak: 0,
-                    swap_initial,
-                    swap_current: swap_initial,
-                    swap_peak: 0,
-                    error: None,
-                    suspend_duration: None,
-                    suspend_count: 0,
-                    command_type,
-                    memory_current_when_suspended: None,
-                    action_digest,
-                    dispatcher,
-                },
+                cgroup: action_cgroup,
                 suspend_implementation,
             },
         );
