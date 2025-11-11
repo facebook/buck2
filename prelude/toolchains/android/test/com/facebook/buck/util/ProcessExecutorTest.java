@@ -11,10 +11,11 @@
 package com.facebook.buck.util;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.facebook.buck.util.environment.Platform;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.StringTokenizer;
 import org.junit.Test;
 
@@ -38,15 +39,15 @@ public class ProcessExecutorTest {
   @Test
   public void testProcessFailureDoesNotWriteEmptyString() throws IOException, InterruptedException {
     String cmd = Platform.detect() == Platform.WINDOWS ? "cmd /C (exit 1)" : "false";
-    DirtyPrintStreamDecorator stdOut = new DirtyPrintStreamDecorator(new CapturingPrintStream());
-    DirtyPrintStreamDecorator stdErr = new DirtyPrintStreamDecorator(new CapturingPrintStream());
+    CapturingPrintStream stdOut = new CapturingPrintStream();
+    CapturingPrintStream stdErr = new CapturingPrintStream();
     Ansi ansi = Ansi.forceTty();
     Console console = new Console(Verbosity.ALL, stdOut, stdErr, ansi);
     ProcessExecutor executor = new DefaultProcessExecutor(console);
     ProcessExecutorParams params = ProcessExecutorParams.ofCommand(makeCommandArray(cmd));
     executor.launchAndExecute(params);
-    assertFalse(stdOut.isDirty());
-    assertFalse(stdErr.isDirty());
+    assertTrue(stdOut.getContentsAsString(StandardCharsets.UTF_8).isEmpty());
+    assertTrue(stdErr.getContentsAsString(StandardCharsets.UTF_8).isEmpty());
   }
 
   private static String[] makeCommandArray(String command) {

@@ -36,12 +36,12 @@ public class TestConsole extends Console {
   }
 
   public String getTextWrittenToStdOut() {
-    CapturingPrintStream stream = (CapturingPrintStream) getStdOut().getRawStream();
+    CapturingPrintStream stream = (CapturingPrintStream) getStdOut();
     return stream.getContentsAsString(StandardCharsets.UTF_8);
   }
 
   public String getTextWrittenToStdErr() {
-    CapturingPrintStream stream = (CapturingPrintStream) getStdErr().getRawStream();
+    CapturingPrintStream stream = (CapturingPrintStream) getStdErr();
     return stream.getContentsAsString(StandardCharsets.UTF_8);
   }
 }

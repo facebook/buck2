@@ -20,8 +20,8 @@ public class Console {
   private static final Logger LOG = Logger.get(Console.class);
 
   private final Verbosity verbosity;
-  private final DirtyPrintStreamDecorator stdOut;
-  private final DirtyPrintStreamDecorator stdErr;
+  private final PrintStream stdOut;
+  private final PrintStream stdErr;
   private final Ansi ansi;
 
   private static final PrintStream NULL_PRINT_STREAM =
@@ -36,14 +36,8 @@ public class Console {
 
   public Console(Verbosity verbosity, PrintStream stdOut, PrintStream stdErr, Ansi ansi) {
     this.verbosity = verbosity;
-    this.stdOut =
-        stdOut instanceof DirtyPrintStreamDecorator
-            ? (DirtyPrintStreamDecorator) stdOut
-            : new DirtyPrintStreamDecorator(stdOut);
-    this.stdErr =
-        stdErr instanceof DirtyPrintStreamDecorator
-            ? (DirtyPrintStreamDecorator) stdErr
-            : new DirtyPrintStreamDecorator(stdErr);
+    this.stdOut = stdOut;
+    this.stdErr = stdErr;
     this.ansi = ansi;
   }
 
@@ -55,11 +49,11 @@ public class Console {
     return ansi;
   }
 
-  public DirtyPrintStreamDecorator getStdOut() {
+  public PrintStream getStdOut() {
     return stdOut;
   }
 
-  public DirtyPrintStreamDecorator getStdErr() {
+  public PrintStream getStdErr() {
     return stdErr;
   }
 
