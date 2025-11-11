@@ -110,8 +110,7 @@ pub struct ActionCgroupResult {
 }
 
 impl ActionCgroupResult {
-    fn from_info(cgroup_info: RunningActionCgroup) -> Self {
-        let cgroup_info = cgroup_info.cgroup;
+    fn from_info(cgroup_info: ActionCgroup) -> Self {
         Self {
             memory_peak: Some(cgroup_info.memory_peak),
             swap_peak: Some(cgroup_info.swap_peak),
@@ -421,15 +420,13 @@ impl ActionCgroups {
 
     pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
         if let Some(cgroup) = self.running_cgroups.remove(cgroup_path) {
-            ActionCgroupResult::from_info(cgroup)
+            ActionCgroupResult::from_info(cgroup.cgroup)
         } else if let Some(cgroup) = self.suspended_cgroups.remove(cgroup_path) {
             self.wake_order
                 .retain(|suspended_cgroup_path| *cgroup_path != **suspended_cgroup_path);
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
-            // In this case we need to wake the cgroup for the next command.
-            let (unsuspended, _) = wake_cgroup(cgroup);
-            ActionCgroupResult::from_info(unsuspended)
+            ActionCgroupResult::from_info(cgroup.cgroup)
         } else {
             ActionCgroupResult::from_error(internal_error!(
                 "cgroup not found for {:?}",
