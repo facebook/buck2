@@ -308,9 +308,7 @@ pub async fn create_memory_tracker(
         open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
         open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
         MAX_RETRIES,
-        resource_control_config
-            .memory_pressure_threshold_percent
-            .unwrap_or(10),
+        resource_control_config.memory_pressure_threshold_percent,
     );
     let tracker_handle = memory_tracker.handle.dupe();
     const TICK_DURATION: Duration = Duration::from_millis(300);

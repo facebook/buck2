@@ -213,16 +213,7 @@ impl SystemWarningConfig {
     }
 }
 
-#[derive(
-    Allocative,
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq
-)]
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResourceControlConfig {
     /// A config to determine if the resource control should be activated or not.
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
@@ -250,10 +241,10 @@ pub struct ResourceControlConfig {
     pub memory_high_action_cgroup_pool: Option<String>,
     /// If provided and above the threshold, the cgroups will enforce this memory pressure and will freeze/kill actions
     /// to stay under this pressure limit. (Currently only used for logging purposes and doesn't actually do the above)
-    pub memory_pressure_threshold_percent: Option<u64>,
+    pub memory_pressure_threshold_percent: u64,
     /// Enable suspension when memory pressure is high.
     pub enable_suspension: bool,
-    pub preferred_action_suspend_strategy: Option<ActionSuspendStrategy>,
+    pub preferred_action_suspend_strategy: ActionSuspendStrategy,
 }
 
 #[derive(Allocative, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -355,10 +346,12 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_high_action_cgroup_pool",
             })?;
-            let memory_pressure_threshold_percent = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "memory_pressure_threshold_percent",
-            })?;
+            let memory_pressure_threshold_percent = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "memory_pressure_threshold_percent",
+                })?
+                .unwrap_or(10);
             let enable_suspension = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "enable_suspension",
@@ -371,10 +364,12 @@ impl ResourceControlConfig {
             let enable_suspension = enable_suspension.unwrap_or(false)
                 || enable_suspension_if_min_algo_version
                     .is_some_and(|min_version| RESOURCE_CONTROL_ALGO_VERSION >= min_version);
-            let preferred_action_suspend_strategy = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "preferred_action_suspend_strategy",
-            })?;
+            let preferred_action_suspend_strategy = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "preferred_action_suspend_strategy",
+                })?
+                .unwrap_or(ActionSuspendStrategy::CgroupFreeze);
             Ok(Self {
                 status,
                 memory_max,
@@ -556,7 +551,8 @@ impl DaemonStartupConfig {
             paranoid: false,
             materializations: None,
             http: HttpConfig::default(),
-            resource_control: ResourceControlConfig::default(),
+            resource_control: ResourceControlConfig::from_config(&LegacyBuckConfig::empty())
+                .unwrap(),
             log_download_method: if cfg!(fbcode_build) {
                 LogDownloadMethod::Manifold
             } else {

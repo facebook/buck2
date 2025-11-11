@@ -319,7 +319,7 @@ impl ActionCgroups {
 
     pub(crate) fn new(
         enable_suspension: bool,
-        suspend_strategy: Option<ActionSuspendStrategy>,
+        preferred_action_suspend_strategy: ActionSuspendStrategy,
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
         daemon_id: &DaemonId,
         resource_control_scheduled_event_reporter: watch::Sender<
@@ -329,8 +329,7 @@ impl ActionCgroups {
     ) -> Self {
         Self {
             enable_suspension,
-            preferred_action_suspend_strategy: suspend_strategy
-                .unwrap_or(ActionSuspendStrategy::CgroupFreeze),
+            preferred_action_suspend_strategy,
             running_cgroups: Vec::new(),
             suspended_cgroups: VecDeque::new(),
             original_memory_high: None,
@@ -350,7 +349,7 @@ impl ActionCgroups {
     pub(crate) fn testing_new() -> Option<Self> {
         Some(Self::new(
             true,
-            None,
+            ActionSuspendStrategy::KillAndRetry,
             None,
             &DaemonId::new(),
             watch::channel(None).0,
