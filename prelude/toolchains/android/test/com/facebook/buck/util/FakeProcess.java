@@ -25,7 +25,6 @@ public class FakeProcess extends Process {
 
   private final int exitValue;
   private final OutputStream outputStream;
-  private final ByteArrayOutputStream outputMirror;
   private final InputStream inputStream;
   private final InputStream errorStream;
   private final Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waiter;
@@ -79,7 +78,6 @@ public class FakeProcess extends Process {
       Optional<ThrowingSupplier<Optional<InterruptedException>, RuntimeException>> waitSupplier) {
     this.exitValue = exitValue;
     this.outputStream = Preconditions.checkNotNull(outputStream);
-    this.outputMirror = new ByteArrayOutputStream();
     this.inputStream = Preconditions.checkNotNull(inputStream);
     this.errorStream = Preconditions.checkNotNull(errorStream);
     this.waiter = waitSupplier;
@@ -100,7 +98,7 @@ public class FakeProcess extends Process {
 
   @Override
   public OutputStream getOutputStream() {
-    return new TeeOutputStream(outputStream, outputMirror);
+    return outputStream;
   }
 
   @Override
@@ -137,10 +135,5 @@ public class FakeProcess extends Process {
   /** Returns true if {@link #destroy()} was called on this object, false otherwise. */
   public boolean isDestroyed() {
     return isDestroyed;
-  }
-
-  /** Returns what has been written to {@link #getOutputStream()} so far. */
-  public String getOutput() {
-    return outputMirror.toString();
   }
 }
