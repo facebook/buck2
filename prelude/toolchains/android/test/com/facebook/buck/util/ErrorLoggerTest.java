@@ -10,7 +10,6 @@
 
 package com.facebook.buck.util;
 
-import static com.facebook.buck.util.string.MoreStrings.linesToText;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -62,7 +61,7 @@ public class ErrorLoggerTest {
     LoggedErrors errors =
         logException(new HumanReadableException(DependencyStack.top("//foo:bar"), "message"));
     assertNull(errors.userVisibleInternal);
-    assertEquals(linesToText("message", "    At //foo:bar"), errors.userVisible);
+    assertEquals(String.join("\n", "message", "    At //foo:bar"), errors.userVisible);
   }
 
   @Test
@@ -73,7 +72,7 @@ public class ErrorLoggerTest {
                 DependencyStack.top("//foo:bin").child("//bar:lib"), "message"));
     assertNull(errors.userVisibleInternal);
     assertEquals(
-        linesToText("message", "    At //bar:lib", "    At //foo:bin"), errors.userVisible);
+        String.join("\n", "message", "    At //bar:lib", "    At //foo:bin"), errors.userVisible);
   }
 
   private static class InternalExceptionWithDepStack extends RuntimeException
@@ -162,7 +161,7 @@ public class ErrorLoggerTest {
     LoggedErrors errors =
         logException(new TestException(new HumanReadableException("message"), "context"));
     assertNull(errors.userVisibleInternal);
-    assertEquals(linesToText("message", "    context"), errors.userVisible);
+    assertEquals(String.join("\n", "message", "    context"), errors.userVisible);
   }
 
   @Test

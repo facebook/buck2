@@ -10,13 +10,9 @@
 
 package com.facebook.buck.util.unit;
 
-import com.facebook.buck.util.string.MoreStrings;
 import com.facebook.buck.util.types.Pair;
-import com.google.common.collect.ImmutableMap;
 import java.math.BigDecimal;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public enum SizeUnit {
   BYTES(0, "bytes"),
@@ -51,43 +47,6 @@ public enum SizeUnit {
           .divide(BigDecimal.valueOf(1024).pow(-1 * magnitude))
           .longValue();
     }
-  }
-
-  private static final ImmutableMap<String, SizeUnit> SHORT_TO_CODE =
-      ImmutableMap.<String, SizeUnit>builder()
-          .put("b", BYTES)
-          .put("kb", KILOBYTES)
-          .put("kilobytes", KILOBYTES)
-          .put("mb", MEGABYTES)
-          .put("megabytes", MEGABYTES)
-          .put("gb", GIGABYTES)
-          .put("gigabytes", GIGABYTES)
-          .put("tb", TERABYTES)
-          .put("terabytes", TERABYTES)
-          .build();
-
-  private static final Pattern SIZE_PATTERN =
-      Pattern.compile(
-          "([\\d]+(?:\\.[\\d]+)?)\\s*" + MoreStrings.regexPatternForAny(SHORT_TO_CODE.keySet()),
-          Pattern.CASE_INSENSITIVE);
-
-  /** Parses a string that represents a size into the number of bytes represented by that string. */
-  public static long parseBytes(String input) throws NumberFormatException {
-    Matcher matcher = SIZE_PATTERN.matcher(input);
-    if (matcher.find()) {
-      String number = matcher.group(1);
-      SizeUnit sizeUnit = SHORT_TO_CODE.get(matcher.group(2).toLowerCase());
-      if (sizeUnit != null) {
-        try {
-          double value = Double.parseDouble(number);
-          return sizeUnit.toBytes(value);
-        } catch (NumberFormatException e) {
-          // If the number was so large as to overflow Long.MAX_VALUE, return LONG.MAX_VALUE.
-          return Long.MAX_VALUE;
-        }
-      }
-    }
-    throw new NumberFormatException(String.format("%s is not a valid file size", input));
   }
 
   public long toBytes(double size) {

@@ -18,32 +18,6 @@ import org.junit.Test;
 public class SizeUnitTest {
   private static final double delta = 0.0001;
 
-  @Test(expected = NumberFormatException.class)
-  public void testInvalidParseBytes() {
-    SizeUnit.parseBytes("foobar");
-  }
-
-  @Test
-  public void testParseBytes() {
-    assertEquals(Long.MAX_VALUE, SizeUnit.parseBytes(Long.MAX_VALUE + "00 B"));
-    assertEquals(0L, SizeUnit.parseBytes("0GB"));
-    assertEquals(123L, SizeUnit.parseBytes("123 B"));
-    assertEquals(123L, SizeUnit.parseBytes("123 Bytes"));
-
-    assertEquals(1024L, SizeUnit.parseBytes("1 kb"));
-    assertEquals(1536L, SizeUnit.parseBytes("1.5 kb"));
-    assertEquals(1024L, SizeUnit.parseBytes("1 kilobytes"));
-
-    assertEquals(10L * 1024L * 1024L, SizeUnit.parseBytes("10 mb"));
-    assertEquals(2L * 1024L * 1024L, SizeUnit.parseBytes("2 megabytes"));
-
-    assertEquals(10L * 1024L * 1024L * 1024L, SizeUnit.parseBytes("10 gb"));
-    assertEquals(2L * 1024L * 1024L * 1024L, SizeUnit.parseBytes("2 gigabytes"));
-
-    assertEquals(10L * 1024L * 1024L * 1024L * 1024L, SizeUnit.parseBytes("10 tb"));
-    assertEquals(42L * 1024L * 1024L * 1024L * 1024L, SizeUnit.parseBytes("42 terabytes"));
-  }
-
   @Test
   public void testBytes() {
     assertEquals(4L, SizeUnit.BYTES.toBytes(4L));

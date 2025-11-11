@@ -17,7 +17,6 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.file.MorePaths;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
-import com.facebook.buck.util.string.MoreStrings;
 import com.facebook.buck.util.xml.XmlDomParserWithLineNumbers;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -61,7 +60,8 @@ public class MiniAapt {
   private static final String GRAYSCALE_SUFFIX = "_g.png";
 
   // Ignore .orig files that Mercurial creates
-  public static final ImmutableList<String> IGNORED_FILE_EXTENSIONS = ImmutableList.of("orig");
+  public static final ImmutableList<String> IGNORED_FILE_EXTENSIONS =
+      ImmutableList.of("orig", "scc");
 
   private static final String ID_DEFINITION_PREFIX = "@+id/";
   private static final String ITEM_TAG = "item";
@@ -111,7 +111,6 @@ public class MiniAapt {
         || ".svn".equalsIgnoreCase(fileName)
         || ".git".equalsIgnoreCase(fileName)
         || ".ds_store".equalsIgnoreCase(fileName)
-        || MoreStrings.endsWithIgnoreCase(fileName, ".scc")
         || "cvs".equalsIgnoreCase(fileName)
         || "thumbs.db".equalsIgnoreCase(fileName)
         || "picasa.ini".equalsIgnoreCase(fileName)

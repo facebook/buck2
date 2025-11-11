@@ -14,7 +14,6 @@ import com.facebook.buck.core.exceptions.ExceptionWithContext;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.exceptions.WrapsException;
 import com.facebook.buck.step.StepExecutionResult;
-import com.facebook.buck.util.string.MoreStrings;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -69,15 +68,6 @@ public class StepFailedException extends Exception implements WrapsException, Ex
       return new HumanReadableException(cause, errorMessage);
     }
     return new HumanReadableException(errorMessage);
-  }
-
-  private static void appendToErrorMessage(
-      StringBuilder sb, String name, String value, boolean truncate) {
-    sb.append(System.lineSeparator())
-        .append(System.lineSeparator())
-        .append(name)
-        .append(": ")
-        .append(truncate ? MoreStrings.truncateTail(value, KEEP_FIRST_CHARS) : value);
   }
 
   public static StepFailedException createForFailingStepWithException(
