@@ -895,6 +895,21 @@ impl ChromeTraceWriter {
                         "blocking_executor_io_queue_size",
                         snapshot.blocking_executor_io_queue_size,
                     )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "tokio_blocking_queue_depth",
+                        snapshot.tokio_blocking_queue_depth,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "tokio_num_blocking_threads",
+                        snapshot.tokio_num_blocking_threads,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "tokio_num_idle_blocking_threads",
+                        snapshot.tokio_num_idle_blocking_threads,
+                    )?;
                     for (nic, stats) in &snapshot.network_interface_stats {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(

@@ -846,6 +846,12 @@ message Snapshot {
   uint64 buck2_system_cpu_us = 3;
   // Queue size of the blocking executor.
   uint64 blocking_executor_io_queue_size = 4;
+  // Tokio blocking queue depth.
+  uint64 tokio_blocking_queue_depth = 14;
+  // Tokio num idle blocking threads.
+  uint64 tokio_num_idle_blocking_threads = 15;
+  // Tokio total number of blocking threads.
+  uint64 tokio_num_blocking_threads = 16;
 
   uint64 re_download_bytes = 5;
   uint64 re_upload_bytes = 6;

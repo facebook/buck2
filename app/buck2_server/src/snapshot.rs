@@ -70,6 +70,11 @@ impl SnapshotCollector {
     }
 
     fn add_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let metrics = tokio::runtime::Handle::current().metrics();
+        snapshot.tokio_blocking_queue_depth = metrics.blocking_queue_depth() as u64;
+        snapshot.tokio_num_idle_blocking_threads = metrics.num_idle_blocking_threads() as u64;
+        snapshot.tokio_num_blocking_threads = metrics.num_blocking_threads() as u64;
+
         // Using loop here to make sure no key is forgotten.
         for key in IoCounterKey::ALL {
             let pointer = match key {
