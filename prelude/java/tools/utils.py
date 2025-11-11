@@ -236,7 +236,15 @@ def _hyperlink(file: str, line: int, text: str) -> str:
     OSC = "\033]"
     ST = "\033\\"
 
-    if "ANDROID_EDITOR" in os.environ:
+    is_jetbrains = (
+        os.environ.get("TERMINAL_EMULATOR") == "JetBrains-JediTerm"
+        or "ANDROID_EDITOR" in os.environ
+        or pathlib.Path("~/.jetbrains-fb/.buck_path_hyperlink_uses_jetbrains")
+        .expanduser()
+        .is_file()
+    )
+
+    if is_jetbrains:
         params = {
             "ide": "intellij",
             "filepath": f"/fbsource/{file}",
