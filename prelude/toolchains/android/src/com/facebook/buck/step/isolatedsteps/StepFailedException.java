@@ -11,13 +11,12 @@
 package com.facebook.buck.step.isolatedsteps;
 
 import com.facebook.buck.core.exceptions.HumanReadableException;
-import com.facebook.buck.core.exceptions.WrapsException;
 import com.facebook.buck.step.StepExecutionResult;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-public class StepFailedException extends Exception implements WrapsException {
+public class StepFailedException extends Exception {
 
   @VisibleForTesting static final int KEEP_FIRST_CHARS = 4 * 80;
 
