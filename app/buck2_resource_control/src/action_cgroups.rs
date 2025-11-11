@@ -231,7 +231,7 @@ impl ActionCgroupSession {
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<Option<(Self, Option<KillFuture>)>> {
+    ) -> buck2_error::Result<Option<(Self, Option<RetryFuture>)>> {
         let Some(tracker) = tracker else {
             return Ok(None);
         };
@@ -240,7 +240,7 @@ impl ActionCgroupSession {
 
         let (cgroup_id, path) = action_cgroups.cgroup_pool.acquire()?;
 
-        let kill_future = match action_cgroups
+        let start_future = match action_cgroups
             .command_started(
                 path.clone(),
                 dispatcher.dupe(),
@@ -264,7 +264,7 @@ impl ActionCgroupSession {
                 cgroup_id,
                 path,
             },
-            kill_future,
+            start_future,
         )))
     }
 
@@ -349,7 +349,7 @@ impl ActionCgroups {
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<Option<KillFuture>> {
+    ) -> buck2_error::Result<Option<RetryFuture>> {
         let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
@@ -367,13 +367,19 @@ impl ActionCgroups {
             self.preferred_action_suspend_strategy
         };
 
-        let (suspend_implementation, kill_future) = match suspend_strategy {
+        let (suspend_implementation, start_future) = match suspend_strategy {
             ActionSuspendStrategy::CgroupFreeze => (SuspendImplementation::CgroupFreeze, None),
             ActionSuspendStrategy::KillAndRetry => {
-                let (tx, rx) = oneshot::channel();
+                let (kill_tx, kill_rx) = oneshot::channel();
+                let (start_tx, start_rx) = oneshot::channel();
+                // Start the command immediately
+                //
+                // FIXME(JakobDegen): If there is memory pressure we should block new commands from
+                // spawning
+                start_tx.send(KillFuture(kill_rx)).unwrap();
                 (
-                    SuspendImplementation::KillAndRetry(tx),
-                    Some(KillFuture(rx)),
+                    SuspendImplementation::KillAndRetry(kill_tx),
+                    Some(RetryFuture(start_rx)),
                 )
             }
         };
@@ -409,7 +415,7 @@ impl ActionCgroups {
             ));
         }
 
-        Ok(kill_future)
+        Ok(start_future)
     }
 
     pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {

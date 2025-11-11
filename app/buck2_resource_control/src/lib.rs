@@ -106,7 +106,7 @@ pub mod action_cgroups {
             _command_type: CommandType,
             _action_digest: Option<String>,
             _disable_kill_and_retry_suspend: bool,
-        ) -> buck2_error::Result<Option<(Self, Option<KillFuture>)>> {
+        ) -> buck2_error::Result<Option<(Self, Option<RetryFuture>)>> {
             Ok(None)
         }
 

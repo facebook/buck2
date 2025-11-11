@@ -447,7 +447,7 @@ impl LocalExecutor {
         ),
         CommandExecutionResult,
     > {
-        let (cgroup_session, mut kill_future) = if worker.is_some() {
+        let (cgroup_session, mut start_future) = if worker.is_some() {
             (None, None)
         } else {
             let command_type = if request.is_test() {
@@ -465,7 +465,7 @@ impl LocalExecutor {
             )
             .await
             {
-                Ok(Some((session, kill_future))) => (Some(session), kill_future),
+                Ok(Some((session, start_future))) => (Some(session), start_future),
                 Ok(None) => (None, None),
                 Err(e) => return Err(manager.error("initializing_resource_control", e)),
             }
@@ -474,6 +474,12 @@ impl LocalExecutor {
         let liveliness_observer: Arc<dyn LivelinessObserver> = Arc::new(liveliness_observer);
 
         let mut res = loop {
+            let kill_future = if let Some(start_future) = start_future {
+                start_future.0.await.ok()
+            } else {
+                None
+            };
+
             let retry_future = Arc::new(std::sync::Mutex::new(None));
 
             let kill_observer = if let Some(kill_future) = kill_future {
@@ -520,7 +526,7 @@ impl LocalExecutor {
                         // Err case shouldn't really happen but also seems fine to ignore
                         let f = retry_future.lock().unwrap().take();
                         if let Some(Ok(retry_future)) = f {
-                            kill_future = retry_future.0.await.ok();
+                            start_future = Some(retry_future);
                             manager = res_manager;
                             continue;
                         }
