@@ -452,6 +452,7 @@ def _convert_python_library_to_executable(
                 "python_toolchain": ctx.attrs._python_toolchain,
                 "rpath": ctx.attrs.name,
                 "static_extension_utils": ctx.attrs.static_extension_utils,
+                "transformation_spec": ctx.attrs.transformation_spec,
                 "_cxx_toolchain": ctx.attrs._cxx_toolchain,
                 "_python_internal_tools": ctx.attrs._python_internal_tools,
             }

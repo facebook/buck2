@@ -228,6 +228,7 @@ cxx_python_extension = prelude_rule(
         cxx_common.local_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
         cxx_common.supports_stripping() |
+        native_common.transformation_spec_arg() |
         third_party_common.create_third_party_build_root_attrs() |
         {
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),

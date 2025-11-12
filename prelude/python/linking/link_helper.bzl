@@ -10,6 +10,7 @@ load(
     "@prelude//cxx:link_groups_types.bzl",
     "LINK_GROUP_MAP_ATTR",
 )
+load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
@@ -95,6 +96,10 @@ process_native_linking_rule = rule(
         "python_toolchain": attrs.dep(),
         "rpath": attrs.string(),
         "static_extension_utils": attrs.source(),
+        "transformation_spec": attrs.option(
+            attrs.dep(providers = [TransformationResultProvider]),
+            default = None,
+        ),
         "use_anon_target_for_analysis": attrs.bool(default = True),
         "_cxx_toolchain": attrs.dep(),
         "_python_internal_tools": attrs.dep(),
