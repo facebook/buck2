@@ -226,7 +226,8 @@ def create_jar_artifact_kotlincd(
     )
 
     if not is_creating_subtarget:
-        kotlin_extra_params = _encode_kotlin_extra_params(
+        kotlin_extra_params_builder = partial(
+            _encode_kotlin_extra_params,
             kotlin_toolchain = kotlin_toolchain,
             kotlin_compiler_plugins = kotlin_compiler_plugins,
             extra_kotlinc_arguments = extra_kotlinc_arguments,
@@ -241,11 +242,6 @@ def create_jar_artifact_kotlincd(
             incremental_state_dir = None,
             language_version = language_version,
             should_kosabi_jvm_abi_gen_use_k2 = should_kosabi_jvm_abi_gen_use_k2,
-            kotlin_classes = None,
-        )
-        abi_command_builder = command_builder(
-            kotlin_extra_params = kotlin_extra_params,
-            provide_classpath_snapshot = False,
         )
 
         # kotlincd does not support source abi
@@ -263,9 +259,10 @@ def create_jar_artifact_kotlincd(
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
             track_class_usage = True,
-            encode_abi_command = abi_command_builder,
+            encode_abi_command = command_builder,
             define_action = define_kotlincd_action,
             uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+            kotlin_extra_params_builder = kotlin_extra_params_builder,
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier, uses_content_based_path_for_jar_snapshot)
         return make_compile_outputs(
@@ -307,7 +304,7 @@ def _encode_kotlin_extra_params(
         should_ksp2_run_incrementally: bool,
         incremental_state_dir: Artifact | None,
         language_version: str,
-        kotlin_classes: Artifact | None,
+        kotlin_classes: Artifact,
         should_kosabi_jvm_abi_gen_use_k2: bool | None = False):
     kosabiPluginOptionsMap = {}
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
@@ -353,7 +350,7 @@ def _encode_kotlin_extra_params(
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
         shouldKosabiJvmAbiGenUseK2 = should_kosabi_jvm_abi_gen_use_k2 == True,
-        kotlinClassesDir = kotlin_classes.as_output() if kotlin_classes else None,
+        kotlinClassesDir = kotlin_classes.as_output(),
     )
 
 def _command_builder(

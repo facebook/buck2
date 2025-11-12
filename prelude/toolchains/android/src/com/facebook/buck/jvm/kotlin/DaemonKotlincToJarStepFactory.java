@@ -92,10 +92,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
     ImmutableSortedSet<RelPath> sourceFilePaths = parameters.getSourceFilePaths();
     RelPath outputDirectory = compilerOutputPaths.getClassesDir();
-    RelPath kotlinOutputDirectory =
-        extraParams.getKotlinClassesDir().isPresent()
-            ? extraParams.getKotlinClassesDir().map(buildCellRootPath::relativize).get()
-            : outputDirectory;
+    RelPath kotlinOutputDirectory = buildCellRootPath.relativize(extraParams.getKotlinClassesDir());
     steps.add(new MkdirIsolatedStep(kotlinOutputDirectory));
     RelPath annotationGenFolder = compilerOutputPaths.getAnnotationPath();
     Path pathToSrcsList = compilerOutputPaths.getPathToSourcesList().getPath();
@@ -380,9 +377,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     steps.add(
         new JarDirectoryStep(
             abiJarParameters == null ? libraryJarParameters : abiJarParameters,
-            extraParams.getKotlinClassesDir().isPresent()
-                ? ImmutableSet.of(extraParams.getKotlinClassesDir().get())
-                : ImmutableSet.of()));
+            ImmutableSet.of(extraParams.getKotlinClassesDir())));
   }
 
   /**

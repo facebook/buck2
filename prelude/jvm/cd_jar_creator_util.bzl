@@ -569,7 +569,8 @@ def generate_abi_jars(
         track_class_usage: bool,
         encode_abi_command: typing.Callable,
         define_action: typing.Callable,
-        uses_experimental_content_based_path_hashing: bool) -> tuple:
+        uses_experimental_content_based_path_hashing: bool,
+        kotlin_extra_params_builder: typing.Callable | None = None) -> tuple:
     class_abi = None
     source_abi = None
     source_only_abi = None
@@ -587,7 +588,21 @@ def generate_abi_jars(
             source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label, uses_experimental_content_based_path_hashing)
             source_abi_classpath_jars_tag = actions.artifact_tag()
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", uses_experimental_content_based_path_hashing, dir = True)
-            source_abi_command = encode_abi_command(
+
+            if kotlin_extra_params_builder:
+                source_abi_kotlin_classes = declare_prefixed_output(
+                    actions,
+                    source_abi_identifier,
+                    "__kotlin_classes__",
+                    uses_experimental_content_based_path_hashing,
+                    dir = True,
+                )
+                source_abi_kotlin_extra_params = kotlin_extra_params_builder(kotlin_classes = source_abi_kotlin_classes)
+                source_abi_encode_abi_command = encode_abi_command(kotlin_extra_params = source_abi_kotlin_extra_params, provide_classpath_snapshot = False)
+            else:
+                source_abi_encode_abi_command = encode_abi_command
+
+            source_abi_command = source_abi_encode_abi_command(
                 build_mode = BuildMode("ABI"),
                 target_type = source_abi_target_type,
                 output_paths = source_abi_output_paths,
@@ -619,7 +634,21 @@ def generate_abi_jars(
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_experimental_content_based_path_hashing, dir = True)
             source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
-            source_only_abi_command = encode_abi_command(
+
+            if kotlin_extra_params_builder:
+                source_only_abi_kotlin_classes = declare_prefixed_output(
+                    actions,
+                    source_only_abi_identifier,
+                    "__kotlin_classes__",
+                    uses_experimental_content_based_path_hashing,
+                    dir = True,
+                )
+                source_only_abi_kotlin_extra_params = kotlin_extra_params_builder(kotlin_classes = source_only_abi_kotlin_classes)
+                source_only_abi_encode_abi_command = encode_abi_command(kotlin_extra_params = source_only_abi_kotlin_extra_params, provide_classpath_snapshot = False)
+            else:
+                source_only_abi_encode_abi_command = encode_abi_command
+
+            source_only_abi_command = source_only_abi_encode_abi_command(
                 build_mode = BuildMode("ABI"),
                 target_type = source_only_abi_target_type,
                 output_paths = source_only_abi_output_paths,

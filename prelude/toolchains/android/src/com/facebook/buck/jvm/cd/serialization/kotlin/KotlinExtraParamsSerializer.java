@@ -86,8 +86,6 @@ public class KotlinExtraParamsSerializer {
         kotlinExtraParams.getShouldKsp2RunIncrementally(),
         kotlinExtraParams.getLanguageVersion(),
         kotlinExtraParams.getShouldKosabiJvmAbiGenUseK2(),
-        Optional.of(kotlinExtraParams.getKotlinClassesDir())
-            .filter(s -> !s.isEmpty())
-            .map(AbsPathSerializer::deserialize));
+        AbsPathSerializer.deserialize(kotlinExtraParams.getKotlinClassesDir()));
   }
 }

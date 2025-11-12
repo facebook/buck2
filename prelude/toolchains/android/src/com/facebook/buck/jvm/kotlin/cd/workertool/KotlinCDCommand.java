@@ -237,7 +237,7 @@ public class KotlinCDCommand implements JvmCDCommand {
     ClassAbiWriter classAbiWriter =
         ClassAbiWriterFactory.create(
             buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally(),
-            buildKotlinCommand.getKotlinExtraParams().getKotlinClassesDir().orElse(null),
+            buildKotlinCommand.getKotlinExtraParams().getKotlinClassesDir(),
             buildKotlinCommand.getKotlinExtraParams().getJvmAbiGenWorkingDir().orElse(null),
             postBuildParams.getJvmAbiGen(),
             postBuildParams.getLibraryJar(),

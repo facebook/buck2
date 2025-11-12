@@ -82,7 +82,7 @@ internal data class IncrementalAbiWriter(
 @JvmName("create")
 fun ClassAbiWriter(
     shouldKotlincRunIncrementally: Boolean,
-    kotlincOutputDir: AbsPath?,
+    kotlincOutputDir: AbsPath,
     jvmAbiGenWorkingDir: AbsPath?,
     jvmAbiGenJar: Path?,
     libraryJar: Path?,
@@ -93,7 +93,7 @@ fun ClassAbiWriter(
 
   return if (shouldKotlincRunIncrementally) {
     IncrementalAbiWriter(
-        kotlincOutputDir = requireNotNull(kotlincOutputDir),
+        kotlincOutputDir = kotlincOutputDir,
         jvmAbiGenWorkingDir = requireNotNull(jvmAbiGenWorkingDir),
         jvmAbiGenJar = root.resolve(requireNotNull(jvmAbiGenJar)),
         libraryJar = root.resolve(requireNotNull(libraryJar)),
