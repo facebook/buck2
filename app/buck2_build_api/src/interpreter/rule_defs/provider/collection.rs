@@ -37,6 +37,10 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
+use starlark::typing::TyCustomIndex;
+use starlark::typing::TyStarlarkValue;
+use starlark::typing::TyUser;
+use starlark::typing::TyUserParams;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
@@ -64,6 +68,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::TypeInstanceId;
 
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
@@ -372,6 +377,7 @@ impl FrozenProviderCollection {
 /// ```
 #[starlark_module]
 fn provider_collection_methods(builder: &mut MethodsBuilder) {
+    #[starlark(ty_custom_function = super::dependency::GetTyIdentity)]
     fn get<'v>(
         this: &ProviderCollection<'v>,
         index: Value<'v>,
@@ -380,11 +386,38 @@ fn provider_collection_methods(builder: &mut MethodsBuilder) {
     }
 }
 
+static PROVIDER_COLLECTION_TYPE: std::sync::LazyLock<Ty> = std::sync::LazyLock::new(|| {
+    Ty::custom(
+        TyUser::new(
+            "ProviderCollection".to_owned(),
+            TyStarlarkValue::new::<ProviderCollection>(),
+            TypeInstanceId::r#gen(),
+            TyUserParams {
+                index_custom: Some(TyCustomIndex::new(super::dependency::GetTyIdentity)),
+                ..TyUserParams::default()
+            },
+        )
+        .unwrap(),
+    )
+});
+
 #[starlark_value(type = "ProviderCollection")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
+    fn get_type_starlark_repr() -> Ty {
+        PROVIDER_COLLECTION_TYPE.dupe()
+    }
+
+    fn eval_type(&self) -> Option<Ty> {
+        Some(PROVIDER_COLLECTION_TYPE.dupe())
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(PROVIDER_COLLECTION_TYPE.dupe())
+    }
+
     fn at(&self, index: Value<'v>, _heap: &'v Heap) -> starlark::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),

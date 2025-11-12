@@ -278,7 +278,7 @@ pub(crate) fn register_dependency(globals: &mut GlobalsBuilder) {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Allocative)]
-struct GetTyIdentity;
+pub(super) struct GetTyIdentity;
 
 impl starlark::typing::TyCustomFunctionImpl for GetTyIdentity {
     fn as_callable(&self) -> starlark::typing::TyCallable {
