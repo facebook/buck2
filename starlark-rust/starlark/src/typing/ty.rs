@@ -148,7 +148,8 @@ impl Ty {
         }
     }
 
-    pub(crate) const fn basic(basic: TyBasic) -> Self {
+    /// Create a type that is not a union
+    pub const fn basic(basic: TyBasic) -> Self {
         Ty {
             alternatives: SmallArcVec1::one(basic),
         }

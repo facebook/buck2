@@ -26,6 +26,7 @@ use starlark_syntax::codemap::Span;
 
 use crate::typing::Ty;
 use crate::typing::TyBasic;
+use crate::typing::TyCustomIndex;
 use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
@@ -107,6 +108,8 @@ pub struct TyUserParams {
     pub fields: TyUserFields,
     /// Set if more precise callable signature is known than `base` provides.
     pub callable: Option<TyCallable>,
+    /// Set for a custom typing function for the index
+    pub index_custom: Option<TyCustomIndex>,
     /// Set if more precise index signature is known than `base` provides.
     pub index: Option<TyUserIndex>,
     /// Set if more precise iter item is known than `base` provides.
@@ -130,6 +133,7 @@ pub struct TyUser {
     /// Set if more precise callable signature is known than `base` provides.
     callable: Option<TyCallable>,
     /// Set if more precise index signature is known than `base` provides.
+    index_custom: Option<TyCustomIndex>,
     index: Option<TyUserIndex>,
     /// Set if more precise iter item is known than `base` provides.
     iter_item: Option<Ty>,
@@ -148,6 +152,7 @@ impl TyUser {
             matcher,
             fields,
             callable,
+            index_custom,
             index,
             iter_item,
             _non_exhaustive: (),
@@ -157,7 +162,7 @@ impl TyUser {
                 name,
             )));
         }
-        if index.is_some() && !base.is_indexable() {
+        if (index_custom.is_some() || index.is_some()) && !base.is_indexable() {
             return Err(crate::Error::new_native(
                 TyUserError::IndexableNotIndexable(name),
             ));
@@ -175,6 +180,7 @@ impl TyUser {
             id,
             fields,
             callable,
+            index_custom,
             index,
             iter_item,
         })
@@ -234,7 +240,9 @@ impl TyCustomImpl for TyUser {
         item: &TyBasic,
         ctx: &TypingOracleCtx,
     ) -> Result<Ty, TypingNoContextOrInternalError> {
-        if let Some(index) = &self.index {
+        if let Some(index_custom) = &self.index_custom {
+            return index_custom.0.index(item, ctx);
+        } else if let Some(index) = &self.index {
             if !ctx.intersects(&Ty::basic(item.dupe()), &index.index)? {
                 return Err(TypingNoContextOrInternalError::Typing);
             }

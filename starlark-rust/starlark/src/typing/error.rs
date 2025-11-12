@@ -139,8 +139,12 @@ impl From<InternalError> for TypingOrInternalError {
     }
 }
 
+/// Either an acontextual typing error (without a message/span),
+/// or an internal error with details.
 pub enum TypingNoContextOrInternalError {
+    /// Types are not compatible
     Typing,
+    /// Bug in the type checker
     Internal(InternalError),
 }
 
