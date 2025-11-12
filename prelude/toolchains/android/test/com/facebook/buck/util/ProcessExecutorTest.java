@@ -25,14 +25,12 @@ public class ProcessExecutorTest {
   public void testDontExpectStdout() throws IOException, InterruptedException {
     CapturingPrintStream stdOut = new CapturingPrintStream();
     CapturingPrintStream stdErr = new CapturingPrintStream();
-    Ansi ansi = Ansi.forceTty();
-    Console console = new Console(Verbosity.ALL, stdOut, stdErr, ansi);
+    Console console = new Console(Verbosity.ALL, stdOut, stdErr);
     ProcessExecutor executor = new DefaultProcessExecutor(console);
     String cmd = Platform.detect() == Platform.WINDOWS ? "cmd /C echo Hello" : "echo Hello";
     ProcessExecutorParams params = ProcessExecutorParams.ofCommand(makeCommandArray(cmd));
     ProcessExecutor.Result result = executor.launchAndExecute(params);
-    assertEquals(
-        ansi.asHighlightedFailureText("Hello" + System.lineSeparator()), result.getStdout().get());
+    assertEquals("Hello" + System.lineSeparator(), result.getStdout().get());
     assertEquals("", result.getStderr().get());
   }
 
@@ -41,8 +39,7 @@ public class ProcessExecutorTest {
     String cmd = Platform.detect() == Platform.WINDOWS ? "cmd /C (exit 1)" : "false";
     CapturingPrintStream stdOut = new CapturingPrintStream();
     CapturingPrintStream stdErr = new CapturingPrintStream();
-    Ansi ansi = Ansi.forceTty();
-    Console console = new Console(Verbosity.ALL, stdOut, stdErr, ansi);
+    Console console = new Console(Verbosity.ALL, stdOut, stdErr);
     ProcessExecutor executor = new DefaultProcessExecutor(console);
     ProcessExecutorParams params = ProcessExecutorParams.ofCommand(makeCommandArray(cmd));
     executor.launchAndExecute(params);

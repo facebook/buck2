@@ -15,7 +15,6 @@ import com.facebook.buck.jvm.cd.workertool.MainUtils;
 import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.facebook.buck.step.isolatedsteps.IsolatedStepsRunner;
-import com.facebook.buck.util.Ansi;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.DefaultProcessExecutor;
@@ -94,7 +93,7 @@ public class CompilerDaemonRunner implements Closeable {
   /** Create a new runner, execute a single build command, close it and return */
   public static void run(JvmCDCommand command) throws IOException {
     Verbosity verbosity = getVerbosityForLevel(command.getLoggingLevel());
-    Console console = new Console(verbosity, System.out, System.err, Ansi.withoutTty());
+    Console console = new Console(verbosity, System.out, System.err);
 
     Thread.setDefaultUncaughtExceptionHandler(
         (t, e) -> MainUtils.handleExceptionAndTerminate(t, console, e));

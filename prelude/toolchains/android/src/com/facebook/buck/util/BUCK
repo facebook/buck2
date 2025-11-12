@@ -17,7 +17,6 @@ buck_java_library(
 
 PROCESS_EXECUTOR_SRCS = [
     "ProcessExecutorParams.kt",
-    "Ansi.java",
     "CapturingPrintStream.java",
     "Console.java",
     "DefaultProcessExecutor.java",

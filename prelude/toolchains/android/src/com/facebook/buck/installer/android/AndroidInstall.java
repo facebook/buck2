@@ -24,7 +24,6 @@ import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
-import com.facebook.buck.util.Ansi;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.Verbosity;
 import com.google.common.io.ByteStreams;
@@ -94,8 +93,7 @@ class AndroidInstall {
         new Console(
             Verbosity.STANDARD_INFORMATION,
             new PrintStream(ByteStreams.nullOutputStream()),
-            new PrintStream(stderr),
-            Ansi.withoutTty());
+            new PrintStream(stderr));
     SetDebugAppMode setDebugAppMode = SetDebugAppMode.SET;
     if (cliOptions.skipSetDebugApp) {
       setDebugAppMode = SetDebugAppMode.SKIP;

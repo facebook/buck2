@@ -27,26 +27,20 @@ public class FakeProcessExecutor extends DefaultProcessExecutor {
         params -> {
           throw new IllegalArgumentException();
         },
-        new Console(Verbosity.ALL, System.out, System.err, Ansi.withoutTty()));
+        new Console(Verbosity.ALL, System.out, System.err));
   }
 
   public FakeProcessExecutor(
       Function<? super ProcessExecutorParams, FakeProcess> processFunction, Console console) {
-    this(
-        processFunction,
-        console.getStdOut(),
-        console.getStdErr(),
-        console.getAnsi(),
-        console.getVerbosity());
+    this(processFunction, console.getStdOut(), console.getStdErr(), console.getVerbosity());
   }
 
   public FakeProcessExecutor(
       Function<? super ProcessExecutorParams, FakeProcess> processFunction,
       PrintStream stdOutStream,
       PrintStream stdErrStream,
-      Ansi ansi,
       Verbosity verbosity) {
-    super(stdOutStream, stdErrStream, ansi, verbosity, ProcessHelper.getInstance());
+    super(stdOutStream, stdErrStream, verbosity, ProcessHelper.getInstance());
     this.processFunction = processFunction;
     this.launchedProcesses = new HashSet<>();
   }
@@ -77,10 +71,6 @@ public class FakeProcessExecutor extends DefaultProcessExecutor {
   public ProcessExecutor cloneWithOutputStreams(
       PrintStream newStdOutStream, PrintStream newStdErrStream) {
     return new FakeProcessExecutor(
-        processFunction,
-        newStdOutStream,
-        newStdErrStream,
-        Ansi.withoutTty(),
-        Verbosity.STANDARD_INFORMATION);
+        processFunction, newStdOutStream, newStdErrStream, Verbosity.STANDARD_INFORMATION);
   }
 }

@@ -50,37 +50,28 @@ public final class InputStreamConsumer implements Callable<Void> {
     return null;
   }
 
-  public static Handler createAnsiHighlightingHandler(
-      boolean flagOutputWrittenToStream, PrintStream printStream, Ansi ansi) {
-    return new HighlightingOutput(flagOutputWrittenToStream, printStream, ansi);
+  public static Handler createAnsiHighlightingHandler(PrintStream printStream) {
+    return new HighlightingOutput(printStream);
   }
 
   private static class HighlightingOutput implements Handler {
 
     private static final String LINE_SEPARATOR = StandardSystemProperty.LINE_SEPARATOR.value();
-    private final boolean flagOutputWrittenToStream;
     private final PrintStream printStream;
-    private final Ansi ansi;
 
-    public HighlightingOutput(
-        boolean flagOutputWrittenToStream, PrintStream printStream, Ansi ansi) {
-      this.flagOutputWrittenToStream = flagOutputWrittenToStream;
+    public HighlightingOutput(PrintStream printStream) {
       this.printStream = printStream;
-      this.ansi = ansi;
     }
 
     @Override
     public void handleLine(String line) {
-      String highlightOn = flagOutputWrittenToStream ? ansi.getHighlightedWarningSequence() : "";
-      String highlightOff = flagOutputWrittenToStream ? ansi.getHighlightedResetSequence() : "";
-
       // We pass `line + LINE_SEPARATOR` to print() rather than invoke println() because
       // we want the line and the separator to be guaranteed to be printed together.
       // println() is implemented by calling print() then newLine(). Because those calls could be
       // interleaved when stdout and stderr are being consumed simultaneously (and I have seen
       // this happen), then you could end up with confusing output when stdout and stderr are
       // connected to the same terminal (which is often the case).
-      printStream.print(highlightOn + line + LINE_SEPARATOR + highlightOff);
+      printStream.print(line + LINE_SEPARATOR);
     }
   }
 }

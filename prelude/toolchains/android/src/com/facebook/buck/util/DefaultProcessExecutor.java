@@ -46,7 +46,6 @@ public class DefaultProcessExecutor implements ProcessExecutor {
 
   private final PrintStream stdOutStream;
   private final PrintStream stdErrStream;
-  private final Ansi ansi;
   private final Verbosity verbosity;
   private final ProcessHelper processHelper;
 
@@ -58,7 +57,6 @@ public class DefaultProcessExecutor implements ProcessExecutor {
     this(
         console.getStdOut(),
         console.getStdErr(),
-        console.getAnsi(),
         console.getVerbosity(),
         ProcessHelper.getInstance());
   }
@@ -67,12 +65,10 @@ public class DefaultProcessExecutor implements ProcessExecutor {
   protected DefaultProcessExecutor(
       PrintStream stdOutStream,
       PrintStream stdErrStream,
-      Ansi ansi,
       Verbosity verbosity,
       ProcessHelper processHelper) {
     this.stdOutStream = stdOutStream;
     this.stdErrStream = stdErrStream;
-    this.ansi = ansi;
     this.verbosity = verbosity;
     this.processHelper = processHelper;
   }
@@ -80,8 +76,7 @@ public class DefaultProcessExecutor implements ProcessExecutor {
   @Override
   public ProcessExecutor cloneWithOutputStreams(
       PrintStream newStdOutStream, PrintStream newStdErrStream) {
-    return new DefaultProcessExecutor(
-        newStdOutStream, newStdErrStream, ansi, verbosity, processHelper);
+    return new DefaultProcessExecutor(newStdOutStream, newStdErrStream, verbosity, processHelper);
   }
 
   private LaunchedProcess launchProcess(ProcessExecutorParams params) throws IOException {
@@ -125,15 +120,13 @@ public class DefaultProcessExecutor implements ProcessExecutor {
     InputStreamConsumer stdOut =
         new InputStreamConsumer(
             process.getInputStream(),
-            InputStreamConsumer.createAnsiHighlightingHandler(
-                /* flagOutputWrittenToStream */ true, stdOutToWriteTo, ansi));
+            InputStreamConsumer.createAnsiHighlightingHandler(stdOutToWriteTo));
 
     PrintStream stdErrToWriteTo = new CapturingPrintStream();
     InputStreamConsumer stdErr =
         new InputStreamConsumer(
             process.getErrorStream(),
-            InputStreamConsumer.createAnsiHighlightingHandler(
-                /* flagOutputWrittenToStream */ true, stdErrToWriteTo, ansi));
+            InputStreamConsumer.createAnsiHighlightingHandler(stdErrToWriteTo));
 
     // Consume the streams so they do not deadlock.
     Future<Void> stdOutTerminationFuture = PROCESS_EXECUTOR_THREAD_POOL.submit(stdOut);

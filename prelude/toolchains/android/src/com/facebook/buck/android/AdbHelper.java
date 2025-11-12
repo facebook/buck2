@@ -351,7 +351,7 @@ public class AdbHelper implements AndroidDevicesHelper {
               apk.getName(),
               String.format(" (CPU(s): %s)", String.join(", ", apkAbis)),
               String.join(", ", abis));
-      getConsole().printFailure(errorMsg);
+      getConsole().printErrorText(errorMsg);
       throw new IncompatibleAbiException(errorMsg);
     }
   }

@@ -11,7 +11,6 @@
 package com.facebook.buck.core.build.execution.context
 
 import com.facebook.buck.core.filesystems.AbsPath
-import com.facebook.buck.util.Ansi
 import com.facebook.buck.util.ClassLoaderCache
 import com.facebook.buck.util.Console
 import com.facebook.buck.util.ProcessExecutor
@@ -40,9 +39,6 @@ data class IsolatedExecutionContext(
   val stdOut: PrintStream
     get() = console.stdErr
 
-  val ansi: Ansi
-    get() = console.ansi
-
   @Throws(IOException::class)
   override fun close() {
     // Using a Closer makes it easy to ensure that exceptions from one of the closeables don't
@@ -61,8 +57,7 @@ data class IsolatedExecutionContext(
       verbosityOverride: Optional<Verbosity?>,
   ): IsolatedExecutionContext {
     val console = this.console
-    val newConsole =
-        Console(verbosityOverride.orElse(console.verbosity), newStdout, newStderr, console.ansi)
+    val newConsole = Console(verbosityOverride.orElse(console.verbosity), newStdout, newStderr)
 
     // This should replace (or otherwise retain) all of the closeable parts of the context.
     return IsolatedExecutionContext(
