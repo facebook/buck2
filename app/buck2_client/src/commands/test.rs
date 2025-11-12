@@ -262,6 +262,10 @@ impl StreamingCommand for TestCommand {
             .skipped
             .as_ref()
             .buck_error_context("Missing `skipped`")?;
+        let infra_failure = statuses
+            .infra_failure
+            .as_ref()
+            .buck_error_context("Missing `infra failure`")?;
 
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.errors)?;
@@ -281,6 +285,7 @@ impl StreamingCommand for TestCommand {
             TestCounterColumn::FAIL,
             TestCounterColumn::FATAL,
             TestCounterColumn::SKIP,
+            TestCounterColumn::INFRA_FAILURE,
         ];
         for column in columns {
             line.push(column.to_span_from_test_statuses(statuses)?);
@@ -292,7 +297,9 @@ impl StreamingCommand for TestCommand {
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
         print_error_counter(&console, failed, "TESTS FAILED", "✗")?;
         print_error_counter(&console, fatals, "TESTS FATALS", "⚠")?;
-        if passed.count + failed.count + fatals.count + skipped.count == 0 {
+        print_error_counter(&console, infra_failure, "TESTS Infra Failed", "🛠")?;
+
+        if passed.count + failed.count + fatals.count + skipped.count + infra_failure.count == 0 {
             console.print_warning("NO TESTS RAN")?;
         }
 

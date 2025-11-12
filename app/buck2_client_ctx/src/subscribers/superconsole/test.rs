@@ -77,11 +77,11 @@ impl TestCounterColumn {
         get_from_test_statues: |_test_statuses| &None,
     };
 
-    const INFRA_FAILURE: TestCounterColumn = TestCounterColumn {
+    pub const INFRA_FAILURE: TestCounterColumn = TestCounterColumn {
         label: "Infra Failure",
         color: Some(Color::Magenta),
         get_from_test_state: |test_state| test_state.infra_failure,
-        get_from_test_statues: |_test_statuses| &None,
+        get_from_test_statues: |test_statuses| &test_statuses.infra_failure,
     };
 
     fn to_span_from_test_state(&self, test_state: &TestState) -> Result<Span, SpanError> {

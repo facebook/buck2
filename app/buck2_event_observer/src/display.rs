@@ -600,7 +600,7 @@ pub fn format_test_result(
         TestStatus::OMITTED => Span::new_styled("\u{20E0} Omitted".to_owned().cyan()),
         TestStatus::FATAL => Span::new_styled("⚠ Fatal".to_owned().red()),
         TestStatus::TIMEOUT => Span::new_styled("✉ Timeout".to_owned().cyan()),
-        TestStatus::INFRA_FAILURE => Span::new_styled("⚠ Infra Failure".to_owned().red()),
+        TestStatus::INFRA_FAILURE => Span::new_styled("🛠 Infra Failure".to_owned().magenta()),
         TestStatus::PASS => Span::new_styled("✓ Pass".to_owned().green()),
         TestStatus::LISTING_SUCCESS => Span::new_styled("✓ Listing success".to_owned().green()),
         TestStatus::UNKNOWN => Span::new_styled("? Unknown".to_owned().cyan()),
