@@ -59,6 +59,7 @@ PythonToolchainInfo = provider(
         "native_link_strategy": provider_field(str | None, default = None),  # Should be `NativeLinkStrategy`.
         "linker_flags": provider_field(ArgLike, default = []),
         "binary_linker_flags": provider_field(ArgLike, default = []),
+        "supports_content_based_paths": provider_field(bool | None, default = None),
         "extension_linker_flags": provider_field(ArgLike, default = []),
         "wheel_extension_linker_flags": provider_field(ArgLike, default = []),
         "wheel_linker_flags": provider_field(ArgLike, default = []),
