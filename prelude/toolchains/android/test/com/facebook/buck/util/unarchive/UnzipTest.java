@@ -12,7 +12,6 @@ package com.facebook.buck.util.unarchive;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeThat;
 
@@ -21,7 +20,6 @@ import com.facebook.buck.io.file.MorePosixFilePermissions;
 import com.facebook.buck.io.file.MostFiles;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.facebook.buck.testutil.ZipArchive;
-import com.facebook.buck.util.PatternsMatcher;
 import com.facebook.buck.util.environment.Platform;
 import com.facebook.buck.util.zip.ZipConstants;
 import com.google.common.collect.ImmutableList;
@@ -31,10 +29,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
@@ -66,12 +62,8 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        new Unzip()
-            .extractArchive(
-                extractFolder,
-                zipFile.getPath(),
-                extractFolder.getPath(),
-                ExistingFileMode.OVERWRITE);
+        Unzip.extractArchive(
+            extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
     assertTrue(Files.exists(extractFolder.resolve("1.bin").getPath()));
     AbsPath bin2 = extractFolder.resolve("subdir/2.bin");
     assertTrue(Files.exists(bin2.getPath()));
@@ -115,12 +107,8 @@ public class UnzipTest {
     // Now run `Unzip.extractZipFile` on our test zip and verify that the file is executable.
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        new Unzip()
-            .extractArchive(
-                extractFolder,
-                zipFile.getPath(),
-                extractFolder.getPath(),
-                ExistingFileMode.OVERWRITE);
+        Unzip.extractArchive(
+            extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
     AbsPath exe = extractFolder.resolve("test.exe");
     assertTrue(Files.exists(exe.getPath()));
     assertThat(Files.getLastModifiedTime(exe.getPath()).toMillis(), Matchers.equalTo(time));
@@ -146,9 +134,8 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    new Unzip()
-        .extractArchive(
-            extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
+    Unzip.extractArchive(
+        extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
     AbsPath link = extractFolder.resolve("link.txt");
     assertTrue(Files.isSymbolicLink(link.getPath()));
     assertThat(Files.readSymbolicLink(link.getPath()).toString(), Matchers.equalTo("target.txt"));
@@ -180,9 +167,8 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    new Unzip()
-        .extractArchive(
-            extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
+    Unzip.extractArchive(
+        extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
     AbsPath link = extractFolder.resolve("link.txt");
     assertTrue(Files.isSymbolicLink(link.getPath()));
     assertThat(Files.readSymbolicLink(link.getPath()).toString(), Matchers.equalTo("target.txt"));
@@ -203,12 +189,11 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        new Unzip()
-            .extractArchive(
-                extractFolder,
-                zipFile.getPath(),
-                extractFolder.getPath(),
-                ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+        Unzip.extractArchive(
+            extractFolder,
+            zipFile.getPath(),
+            extractFolder.getPath(),
+            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
     assertTrue(Files.exists(extractFolder.resolve("foo").getPath()));
     assertTrue(Files.exists(extractFolder.resolve("foo/bar/baz").getPath()));
 
@@ -230,21 +215,19 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    new Unzip()
-        .extractArchive(
-            extractFolder,
-            zipFile.getPath(),
-            extractFolder.getPath(),
-            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(
+        extractFolder,
+        zipFile.getPath(),
+        extractFolder.getPath(),
+        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
     for (String name : names) {
       assertTrue(Files.exists(extractFolder.resolve(name).getPath()));
     }
-    new Unzip()
-        .extractArchive(
-            extractFolder,
-            zipFile.getPath(),
-            extractFolder.getPath(),
-            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(
+        extractFolder,
+        zipFile.getPath(),
+        extractFolder.getPath(),
+        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
     for (String name : names) {
       assertTrue(Files.exists(extractFolder.resolve(name).getPath()));
     }
@@ -263,12 +246,11 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    new Unzip()
-        .extractArchive(
-            extractFolder,
-            zipFile.getPath(),
-            extractFolder.getPath(),
-            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(
+        extractFolder,
+        zipFile.getPath(),
+        extractFolder.getPath(),
+        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
     assertTrue(Files.exists(extractFolder.resolve("foo").getPath()));
     assertTrue(Files.exists(extractFolder.resolve("foo/bar").getPath()));
   }
@@ -284,91 +266,12 @@ public class UnzipTest {
     AbsPath extractFolder = tmpFolder.newFolder();
     Files.write(extractFolder.resolve("foo").getPath(), ImmutableList.of("whatever"));
 
-    new Unzip()
-        .extractArchive(
-            extractFolder,
-            zipFile.getPath(),
-            extractFolder.getPath(),
-            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(
+        extractFolder,
+        zipFile.getPath(),
+        extractFolder.getPath(),
+        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
     assertTrue(Files.exists(extractFolder.resolve("foo").getPath()));
     assertTrue(Files.exists(extractFolder.resolve("foo/bar").getPath()));
-  }
-
-  @Test
-  public void testStripsPrefixAndIgnoresSiblings() throws IOException {
-    byte[] bazDotSh = "echo \"baz.sh\"\n".getBytes(StandardCharsets.UTF_8);
-    try (ZipArchiveOutputStream zip = new ZipArchiveOutputStream(zipFile.toFile())) {
-      zip.putArchiveEntry(new ZipArchiveEntry("foo"));
-      zip.closeArchiveEntry();
-      zip.putArchiveEntry(new ZipArchiveEntry("foo/bar/baz.txt"));
-      zip.write(DUMMY_FILE_CONTENTS, 0, DUMMY_FILE_CONTENTS.length);
-      zip.closeArchiveEntry();
-
-      ZipArchiveEntry exeEntry = new ZipArchiveEntry("foo/bar/baz.sh");
-      exeEntry.setUnixMode(
-          (int) MorePosixFilePermissions.toMode(PosixFilePermissions.fromString("r-x------")));
-      exeEntry.setMethod(ZipEntry.STORED);
-      exeEntry.setSize(bazDotSh.length);
-      zip.putArchiveEntry(exeEntry);
-      zip.write(bazDotSh);
-
-      zip.closeArchiveEntry();
-      zip.putArchiveEntry(new ZipArchiveEntry("sibling"));
-      zip.closeArchiveEntry();
-      zip.putArchiveEntry(new ZipArchiveEntry("sibling/some/dir/and/file.txt"));
-      zip.write(DUMMY_FILE_CONTENTS, 0, DUMMY_FILE_CONTENTS.length);
-      zip.closeArchiveEntry();
-    }
-
-    Path extractFolder = Paths.get("output_dir", "nested");
-
-    new Unzip()
-        .extractArchive(
-            zipFile.getPath(),
-            tmpFolder.getRoot(),
-            extractFolder,
-            Optional.of(Paths.get("foo")),
-            PatternsMatcher.NONE,
-            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
-
-    Path extractedPath = tmpFolder.getRoot().getPath().resolve(extractFolder);
-
-    assertFalse(Files.isDirectory(extractedPath.resolve("sibling")));
-    assertFalse(Files.isDirectory(extractedPath.resolve("foo")));
-    assertFalse(Files.isDirectory(extractedPath.resolve("some")));
-
-    Path extractedBarPath = extractedPath.resolve("bar");
-    Path bazDotTxtPath = extractedBarPath.resolve("baz.txt");
-    Path bazDotShPath = extractedBarPath.resolve("baz.sh");
-
-    assertTrue(Files.isDirectory(extractedBarPath));
-    assertTrue(Files.isRegularFile(bazDotTxtPath));
-    assertTrue(Files.isRegularFile(bazDotShPath));
-    assertTrue(Files.isExecutable(bazDotShPath));
-    assertEquals(new String(bazDotSh), Files.readString(bazDotShPath));
-    assertEquals(new String(DUMMY_FILE_CONTENTS), Files.readString(bazDotTxtPath));
-  }
-
-  @Test
-  public void testExcludedEntriesNotExtracted() throws IOException {
-    try (ZipArchive zipArchive = new ZipArchive(this.zipFile, true)) {
-      zipArchive.add("1.bin", DUMMY_FILE_CONTENTS);
-      zipArchive.add("subdir/2.bin", DUMMY_FILE_CONTENTS);
-      zipArchive.addDir("emptydir");
-    }
-
-    AbsPath extractFolder = tmpFolder.newFolder();
-    ImmutableSet<Path> result =
-        new Unzip()
-            .extractArchive(
-                zipFile.getPath(),
-                extractFolder,
-                extractFolder.getPath(),
-                Optional.empty(),
-                new PatternsMatcher(ImmutableSet.of("subdir/2.bin")),
-                ExistingFileMode.OVERWRITE);
-    assertTrue(Files.exists(extractFolder.resolve("1.bin").getPath()));
-    assertTrue(Files.isDirectory(extractFolder.resolve("emptydir").getPath()));
-    assertEquals(ImmutableSet.of(extractFolder.resolve("1.bin").getPath()), result);
   }
 }

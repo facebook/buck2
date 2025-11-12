@@ -37,13 +37,12 @@ fun getExpandedSourcePaths(
     } else if (pathString.endsWith(JavaPaths.SRC_ZIP) || pathString.endsWith(JavaPaths.SRC_JAR)) {
       // For a Zip of .java files, create a JavaFileObject for each .java entry.
       val zipPaths: ImmutableList<Path> =
-          Unzip()
-              .extractArchive(
-                  ruleCellRoot,
-                  ruleCellRoot.resolve(path).path,
-                  ruleCellRoot.resolve(workingDirectory.orElse(path.path)).path,
-                  ExistingFileMode.OVERWRITE,
-              )
+          Unzip.extractArchive(
+              ruleCellRoot,
+              ruleCellRoot.resolve(path).path,
+              ruleCellRoot.resolve(workingDirectory.orElse(path.path)).path,
+              ExistingFileMode.OVERWRITE,
+          )
       sources.addAll(
           zipPaths
               .stream()

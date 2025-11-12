@@ -14,7 +14,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.file.MorePosixFilePermissions;
 import com.facebook.buck.io.file.MostFiles;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
-import com.facebook.buck.util.PatternsMatcher;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
@@ -32,7 +32,6 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -42,10 +41,10 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 
 /** A simple utility class that extracts zip files */
-public class Unzip extends Unarchiver {
+public class Unzip {
 
-  private void writeZipContents(ZipFile zip, ZipArchiveEntry entry, AbsPath root, Path target)
-      throws IOException {
+  private static void writeZipContents(
+      ZipFile zip, ZipArchiveEntry entry, AbsPath root, Path target) throws IOException {
     // Write file
     try (InputStream is = zip.getInputStream(entry)) {
       if (entry.isUnixSymlink()) {
@@ -165,7 +164,7 @@ public class Unzip extends Unarchiver {
     }
   }
 
-  private void extractFile(
+  private static void extractFile(
       ImmutableSet.Builder<Path> filesWritten,
       ZipFile zip,
       DirectoryCreator creator,
@@ -184,7 +183,7 @@ public class Unzip extends Unarchiver {
     writeZipContents(zip, entry, root, target);
   }
 
-  private void extractDirectory(
+  private static void extractDirectory(
       ExistingFileMode existingFileMode,
       SortedMap<Path, ZipArchiveEntry> pathMap,
       DirectoryCreator creator,
@@ -210,61 +209,24 @@ public class Unzip extends Unarchiver {
   }
 
   /**
-   * Get a listing of all files in a zip file that start with a prefix, ignore others
-   *
-   * @param zip The zip file to scan
-   * @param relativePath The relative path where the extraction will be rooted
-   * @param prefix The prefix that will be stripped off.
-   * @return The list of paths in {@code zip} sorted by path so dirs come before contents. Prefixes
-   *     are stripped from paths in the zip file, such that foo/bar/baz.txt with a prefix of foo/
-   *     will be in the map at {@code relativePath}/bar/baz.txt
-   */
-  private static SortedMap<Path, ZipArchiveEntry> getZipFilePathsStrippingPrefix(
-      ZipFile zip, Path relativePath, Path prefix, PatternsMatcher entriesToExclude) {
-    SortedMap<Path, ZipArchiveEntry> pathMap = new TreeMap<>();
-    for (ZipArchiveEntry entry : Collections.list(zip.getEntries())) {
-      String entryName = entry.getName();
-      if (entriesToExclude.matches(entryName)) {
-        continue;
-      }
-      Path entryPath = Paths.get(entryName);
-      if (entryPath.startsWith(prefix)) {
-        Path target = relativePath.resolve(prefix.relativize(entryPath)).normalize();
-        pathMap.put(target, entry);
-      }
-    }
-    return pathMap;
-  }
-
-  /**
    * Get a listing of all files in a zip file
    *
    * @param zip The zip file to scan
    * @param relativePath The relative path where the extraction will be rooted
    * @return The list of paths in {@code zip} sorted by path so dirs come before contents.
    */
-  private static SortedMap<Path, ZipArchiveEntry> getZipFilePaths(
-      ZipFile zip, Path relativePath, PatternsMatcher entriesToExclude) {
+  private static SortedMap<Path, ZipArchiveEntry> getZipFilePaths(ZipFile zip, Path relativePath) {
     SortedMap<Path, ZipArchiveEntry> pathMap = new TreeMap<>();
     for (ZipArchiveEntry entry : Collections.list(zip.getEntries())) {
       String entryName = entry.getName();
-      if (entriesToExclude.matches(entryName)) {
-        continue;
-      }
       Path target = relativePath.resolve(entryName).normalize();
       pathMap.put(target, entry);
     }
     return pathMap;
   }
 
-  @Override
-  public ImmutableSet<Path> extractArchive(
-      Path archiveFile,
-      AbsPath extractedPath,
-      Path relativePath,
-      Optional<Path> stripPrefix,
-      PatternsMatcher entriesToExclude,
-      ExistingFileMode existingFileMode)
+  public static ImmutableList<Path> extractArchive(
+      AbsPath extractedPath, Path archiveFile, Path relativePath, ExistingFileMode existingFileMode)
       throws IOException {
 
     // We want to remove stale contents of directories listed in {@code archiveFile}, but avoid
@@ -277,11 +239,7 @@ public class Unzip extends Unarchiver {
     ImmutableSet.Builder<Path> filesWritten = ImmutableSet.builder();
     try (ZipFile zip = new ZipFile(archiveFile.toFile())) {
       SortedMap<Path, ZipArchiveEntry> pathMap;
-      pathMap =
-          stripPrefix
-              .map(
-                  path -> getZipFilePathsStrippingPrefix(zip, relativePath, path, entriesToExclude))
-              .orElseGet(() -> getZipFilePaths(zip, relativePath, entriesToExclude));
+      pathMap = getZipFilePaths(zip, relativePath);
       // A zip file isn't required to list intermediate paths (e.g., it can contain "foo/" and
       // "foo/bar/baz"), but we need to know not to delete those intermediates, so fill them in.
       for (SortedMap.Entry<Path, ZipArchiveEntry> p : new ArrayList<>(pathMap.entrySet())) {
@@ -302,7 +260,7 @@ public class Unzip extends Unarchiver {
         }
       }
     }
-    return filesWritten.build();
+    return filesWritten.build().asList();
   }
 
   /**

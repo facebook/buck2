@@ -46,12 +46,11 @@ public class JavaPaths {
       } else if (pathString.endsWith(SRC_ZIP) || pathString.endsWith(SRC_JAR)) {
         // For a Zip of .java files, create a JavaFileObject for each .java entry.
         ImmutableList<Path> zipPaths =
-            new Unzip()
-                .extractArchive(
-                    ruleCellPathRoot,
-                    ruleCellPathRoot.resolve(path).getPath(),
-                    ruleCellPathRoot.resolve(workingDirectory).getPath(),
-                    ExistingFileMode.OVERWRITE);
+            Unzip.extractArchive(
+                ruleCellPathRoot,
+                ruleCellPathRoot.resolve(path).getPath(),
+                ruleCellPathRoot.resolve(workingDirectory).getPath(),
+                ExistingFileMode.OVERWRITE);
         sources.addAll(
             zipPaths.stream()
                 .filter(input -> input.toString().endsWith(".java"))

@@ -6799,12 +6799,11 @@ public class StubJarTest {
 
     AbsPath classDir = AbsPath.of(temp.newFolder().toPath());
 
-    new Unzip()
-        .extractArchive(
-            AbsPath.of(temp.getRoot().toPath()),
-            fullJarPath.getPath(),
-            classDir.getPath(),
-            ExistingFileMode.OVERWRITE);
+    Unzip.extractArchive(
+        AbsPath.of(temp.getRoot().toPath()),
+        fullJarPath.getPath(),
+        classDir.getPath(),
+        ExistingFileMode.OVERWRITE);
 
     AbsPath stubJarPath = createStubJar(classDir);
     tester
