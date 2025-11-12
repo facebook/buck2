@@ -40,6 +40,15 @@ CACHE_UPLOAD_REASON_LOCAL_EXECUTION = 0
 CACHE_UPLOAD_REASON_DEP_FILE = 1
 
 
+async def expect_only_dep_file_hit(buck: Buck) -> None:
+    what_ran = await read_what_ran(buck)
+    assert (
+        len([x for x in what_ran if x["reproducer"]["executor"] == "LocalDepFileCache"])
+        == 1
+    )
+    assert len(what_ran) == 1
+
+
 async def check_execution_kind(
     buck: Buck,
     expecteds: list[int],
@@ -132,7 +141,7 @@ async def _test_dep_files_impl(buck: Buck, use_content_based_paths: bool) -> Non
     # using dep file this should build nothing.
     touch(buck, "app/other.h")
     await buck.build(*args)
-    await expect_exec_count(buck, 0)
+    await expect_only_dep_file_hit(buck)
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
@@ -230,7 +239,7 @@ async def _test_dep_files_in_same_package_impl(
             unused_input2_contents,
         )
     )
-    await expect_exec_count(buck, 0)
+    await expect_only_dep_file_hit(buck)
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
@@ -246,7 +255,7 @@ async def _test_dep_files_in_same_package_impl(
             unused_input2_contents,
         )
     )
-    await expect_exec_count(buck, 0)
+    await expect_only_dep_file_hit(buck)
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
@@ -311,8 +320,8 @@ async def _test_dep_files_in_same_dir_impl(
             unused_input_contents,
         )
     )
+    await expect_only_dep_file_hit(buck)
 
-    await expect_exec_count(buck, 0)
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
@@ -918,7 +927,7 @@ async def test_flush_dep_files(buck: Buck) -> None:
     # since we retained local dep files
     touch(buck, "app/other.h")
     await buck.build(*args)
-    await expect_exec_count(buck, 0)
+    await expect_only_dep_file_hit(buck)
 
     await buck.debug("flush-dep-files")
 
