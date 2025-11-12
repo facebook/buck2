@@ -8,12 +8,12 @@
 
 """Module containing java macros."""
 
-load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//:native.bzl", "native")
 # @oss-disable[end= ]: load("@prelude//android/meta_only:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
 load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels")
+load("@prelude//utils:selects.bzl", "selects")
 
 OPEN_JDK_COMPILER_ARGS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -69,9 +69,9 @@ def _set_versioned_java_srcs(**kwargs):
         return kwargs
     java_version = select({
         "DEFAULT": native.read_config("java", "buck2_java_version", "21"),
-        "fbsource//third-party/toolchains/jdk:constraint-value-version-11": "11",
-        "fbsource//third-party/toolchains/jdk:constraint-value-version-17": "17",
-        "fbsource//third-party/toolchains/jdk:constraint-value-version-21": "21",
+        # @oss-disable[end= ]: "fbsource//third-party/toolchains/jdk:constraint-value-version-11": "11",
+        # @oss-disable[end= ]: "fbsource//third-party/toolchains/jdk:constraint-value-version-17": "17",
+        # @oss-disable[end= ]: "fbsource//third-party/toolchains/jdk:constraint-value-version-21": "21",
     })
     versioned_srcs = selects.apply(
         java_version,
