@@ -240,7 +240,6 @@ def encode_plugin_properties(
     )
 
 def encode_base_jar_command(
-        javac_tool: [str, RunInfo, Artifact, None],
         target_type: TargetType,
         output_paths: OutputPaths,
         remove_classes: list[str],
@@ -279,15 +278,7 @@ def encode_base_jar_command(
         fullyQualifiedName = qualified_name,
         type = encode_target_type(target_type),
     )
-    if javac_tool:
-        resolved_javac = {
-            "externalJavac": {
-                "commandPrefix": [javac_tool],
-                "shortName": str(javac_tool),
-            },
-        }
-    else:
-        resolved_javac = {"jsr199Javac": {}}
+    resolved_javac = {"jsr199Javac": {}}
     resolved_java_options = struct(
         bootclasspathList = bootclasspath_entries,
         languageLevelOptions = struct(
@@ -493,7 +484,6 @@ def prepare_final_jar(
     return make_output(merged_jar)
 
 def encode_command(
-        javac_tool: [str, RunInfo, Artifact, None],
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],
@@ -517,7 +507,6 @@ def encode_command(
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
     base_jar_command = encode_base_jar_command(
-        javac_tool,
         target_type,
         output_paths,
         remove_classes,

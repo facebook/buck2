@@ -56,7 +56,6 @@ def create_jar_artifact_kotlincd(
         abi_generation_mode: [AbiGenerationMode, None],
         java_toolchain: JavaToolchainInfo,
         kotlin_toolchain: KotlinToolchainInfo,
-        javac_tool: [str, RunInfo, Artifact, None],
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],
@@ -125,8 +124,7 @@ def create_jar_artifact_kotlincd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
-    # external javac does not support used classes
-    track_class_usage = enable_used_classes and javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None
+    track_class_usage = enable_used_classes and kotlin_toolchain.track_class_usage_plugin != None
 
     define_kotlincd_action = partial(
         _define_kotlincd_action,
@@ -149,7 +147,6 @@ def create_jar_artifact_kotlincd(
 
     library_classpath_jars_tag = actions.artifact_tag()
     command_builder = _command_builder(
-        javac_tool = javac_tool,
         label = label,
         srcs = srcs,
         remove_classes = remove_classes,
@@ -354,7 +351,6 @@ def _encode_kotlin_extra_params(
     )
 
 def _command_builder(
-        javac_tool: [str, RunInfo, Artifact, None],
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],
@@ -371,7 +367,6 @@ def _command_builder(
         extra_arguments: cmd_args):
     return partial(
         _encode_kotlin_command,
-        javac_tool = javac_tool,
         label = label,
         srcs = srcs,
         remove_classes = remove_classes,
@@ -389,7 +384,6 @@ def _command_builder(
     )
 
 def _encode_kotlin_command(
-        javac_tool: [str, RunInfo, Artifact, None],
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],
@@ -408,7 +402,6 @@ def _encode_kotlin_command(
         provide_classpath_snapshot: bool):
     return partial(
         encode_command,
-        javac_tool = javac_tool,
         label = label,
         srcs = srcs,
         remove_classes = remove_classes,

@@ -419,8 +419,10 @@ def build_kotlin_library(
         bootclasspath_for_kotlinc = custom_jdk_info.bootclasspath if custom_jdk_info else []
         bootclasspath_jar_snapshots_for_kotlinc = custom_jdk_info.bootclasspath_jar_snapshots if custom_jdk_info and ctx.attrs.incremental else []
 
+        javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
+
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
-        if kotlin_toolchain.kotlinc_protocol == "classic":
+        if javac_tool or kotlin_toolchain.kotlinc_protocol == "classic":
             kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
                 ctx,
                 ctx.attrs.srcs,
@@ -512,7 +514,6 @@ def build_kotlin_library(
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
-                "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
                 "kotlin_compiler_plugins": ctx.attrs.kotlin_compiler_plugins,
                 "kotlin_toolchain": kotlin_toolchain,
                 "label": ctx.label,

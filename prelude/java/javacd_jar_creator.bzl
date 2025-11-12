@@ -81,7 +81,6 @@ def create_jar_artifact_javacd(
         is_creating_subtarget: bool = False,
         debug_port: [int, None] = None) -> JavaCompileOutputs:
     if javac_tool != None:
-        # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
 
     actions = ctx.actions
@@ -109,8 +108,7 @@ def create_jar_artifact_javacd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
-    # external javac does not support used classes
-    track_class_usage = javac_tool == None and java_toolchain.track_class_usage
+    track_class_usage = java_toolchain.track_class_usage
     define_javacd_action = partial(
         _define_javacd_action,
         actions,
@@ -126,7 +124,6 @@ def create_jar_artifact_javacd(
     )
     library_classpath_jars_tag = actions.artifact_tag()
     command_builder = _command_builder(
-        javac_tool = javac_tool,
         label = label,
         srcs = srcs,
         remove_classes = remove_classes,
@@ -223,7 +220,6 @@ def create_jar_artifact_javacd(
     return result
 
 def _command_builder(
-        javac_tool: [str, RunInfo, Artifact, None],
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],
@@ -240,7 +236,6 @@ def _command_builder(
         extra_arguments: cmd_args):
     return partial(
         encode_command,
-        javac_tool = javac_tool,
         label = label,
         srcs = srcs,
         remove_classes = remove_classes,
