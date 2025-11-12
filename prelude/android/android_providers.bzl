@@ -149,6 +149,16 @@ AndroidApkUnderTestInfo = provider(
         "resource_infos": provider_field(typing.Any, default = None),  # set(TargetLabel)
         "r_dot_java_packages": provider_field(typing.Any, default = None),  # set(str)
         "shared_libraries": provider_field(typing.Any, default = None),  # set(TargetLabel)
+
+        # Merge map delegate
+        "native_library_merge_code_generator": provider_field(typing.Any, default = None),
+        "native_library_merge_glue": provider_field(typing.Any, default = None),
+        "native_library_merge_linker_args_all": provider_field(typing.Any, default = None),
+        "native_library_merge_map": provider_field(typing.Any, default = None),
+        "native_library_merge_non_asset_libs": provider_field(typing.Any, default = False),
+        "native_library_merge_linker_args": provider_field(typing.Any, default = None),
+        "native_library_merge_sequence": provider_field(typing.Any, default = None),
+        "native_library_merge_sequence_blocklist": provider_field(typing.Any, default = None),
     },
 )
 

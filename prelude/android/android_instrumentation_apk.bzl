@@ -127,20 +127,20 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
                 ctx.attrs._android_toolchain[AndroidToolchainInfo],
                 jars_to_owners.keys(),
             )
-
     native_library_info = get_android_binary_native_library_info(
         enhance_ctx,
         android_packageable_info,
         filtered_deps_by_platform,
         prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs if not is_self_instrumenting else set(),
         shared_libraries_to_exclude = apk_under_test_info.shared_libraries if not is_self_instrumenting else set(),
-        native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None),
-        native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None),
-        native_library_merge_non_asset_libs = getattr(ctx.attrs, "native_library_merge_non_asset_libs", False),
-        native_library_merge_linker_args = getattr(ctx.attrs, "native_library_merge_linker_args", None),
-        native_library_merge_linker_args_all = getattr(ctx.attrs, "native_library_merge_linker_args_all", None),
-        native_library_merge_code_generator = getattr(ctx.attrs, "native_library_merge_code_generator", None),
-        native_library_merge_sequence_blocklist = getattr(ctx.attrs, "native_library_merge_sequence_blocklist", None),
+        native_library_merge_glue = apk_under_test_info.native_library_merge_glue,
+        native_library_merge_code_generator = apk_under_test_info.native_library_merge_code_generator,
+        native_library_merge_linker_args_all = apk_under_test_info.native_library_merge_linker_args_all,
+        native_library_merge_linker_args = apk_under_test_info.native_library_merge_linker_args,
+        native_library_merge_map = apk_under_test_info.native_library_merge_map,
+        native_library_merge_non_asset_libs = apk_under_test_info.native_library_merge_non_asset_libs,
+        native_library_merge_sequence = apk_under_test_info.native_library_merge_sequence,
+        native_library_merge_sequence_blocklist = apk_under_test_info.native_library_merge_sequence_blocklist,
     )
 
     output_apk = build_apk(

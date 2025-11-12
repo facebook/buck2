@@ -101,6 +101,16 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             resource_infos = set([info.raw_target for info in resources_info.unfiltered_resource_infos]),
             r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
             shared_libraries = set(native_library_info.shared_libraries),
+
+            # Merge map delegate
+            native_library_merge_sequence = ctx.attrs.native_library_merge_sequence,
+            native_library_merge_code_generator = ctx.attrs.native_library_merge_code_generator,
+            native_library_merge_glue = ctx.attrs.native_library_merge_glue,
+            native_library_merge_linker_args_all = ctx.attrs.native_library_merge_linker_args_all,
+            native_library_merge_linker_args = ctx.attrs.native_library_merge_linker_args,
+            native_library_merge_map = ctx.attrs.native_library_merge_map,
+            native_library_merge_non_asset_libs = ctx.attrs.native_library_merge_non_asset_libs,
+            native_library_merge_sequence_blocklist = ctx.attrs.native_library_merge_sequence_blocklist,
         ),
         DefaultInfo(default_output = default_output, other_outputs = install_info.files.values() + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         install_info,
