@@ -13,8 +13,8 @@ package com.facebook.buck.jvm.kotlin.util
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.jvm.java.JavaPaths
-import com.facebook.buck.util.unarchive.ArchiveFormat
 import com.facebook.buck.util.unarchive.ExistingFileMode
+import com.facebook.buck.util.unarchive.Unzip
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSet
 import java.io.IOException
@@ -37,12 +37,13 @@ fun getExpandedSourcePaths(
     } else if (pathString.endsWith(JavaPaths.SRC_ZIP) || pathString.endsWith(JavaPaths.SRC_JAR)) {
       // For a Zip of .java files, create a JavaFileObject for each .java entry.
       val zipPaths: ImmutableList<Path> =
-          ArchiveFormat.ZIP.unarchiver.extractArchive(
-              ruleCellRoot,
-              ruleCellRoot.resolve(path).path,
-              ruleCellRoot.resolve(workingDirectory.orElse(path.path)).path,
-              ExistingFileMode.OVERWRITE,
-          )
+          Unzip()
+              .extractArchive(
+                  ruleCellRoot,
+                  ruleCellRoot.resolve(path).path,
+                  ruleCellRoot.resolve(workingDirectory.orElse(path.path)).path,
+                  ExistingFileMode.OVERWRITE,
+              )
       sources.addAll(
           zipPaths
               .stream()

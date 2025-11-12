@@ -12,8 +12,8 @@ package com.facebook.buck.jvm.java;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
-import com.facebook.buck.util.unarchive.ArchiveFormat;
 import com.facebook.buck.util.unarchive.ExistingFileMode;
+import com.facebook.buck.util.unarchive.Unzip;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
@@ -46,8 +46,7 @@ public class JavaPaths {
       } else if (pathString.endsWith(SRC_ZIP) || pathString.endsWith(SRC_JAR)) {
         // For a Zip of .java files, create a JavaFileObject for each .java entry.
         ImmutableList<Path> zipPaths =
-            ArchiveFormat.ZIP
-                .getUnarchiver()
+            new Unzip()
                 .extractArchive(
                     ruleCellPathRoot,
                     ruleCellPathRoot.resolve(path).getPath(),

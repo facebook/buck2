@@ -66,8 +66,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        ArchiveFormat.ZIP
-            .getUnarchiver()
+        new Unzip()
             .extractArchive(
                 extractFolder,
                 zipFile.getPath(),
@@ -116,8 +115,7 @@ public class UnzipTest {
     // Now run `Unzip.extractZipFile` on our test zip and verify that the file is executable.
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        ArchiveFormat.ZIP
-            .getUnarchiver()
+        new Unzip()
             .extractArchive(
                 extractFolder,
                 zipFile.getPath(),
@@ -148,8 +146,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
     AbsPath link = extractFolder.resolve("link.txt");
@@ -183,8 +180,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
     AbsPath link = extractFolder.resolve("link.txt");
@@ -207,8 +203,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        ArchiveFormat.ZIP
-            .getUnarchiver()
+        new Unzip()
             .extractArchive(
                 extractFolder,
                 zipFile.getPath(),
@@ -235,8 +230,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             extractFolder,
             zipFile.getPath(),
@@ -245,8 +239,7 @@ public class UnzipTest {
     for (String name : names) {
       assertTrue(Files.exists(extractFolder.resolve(name).getPath()));
     }
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             extractFolder,
             zipFile.getPath(),
@@ -270,8 +263,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             extractFolder,
             zipFile.getPath(),
@@ -292,8 +284,7 @@ public class UnzipTest {
     AbsPath extractFolder = tmpFolder.newFolder();
     Files.write(extractFolder.resolve("foo").getPath(), ImmutableList.of("whatever"));
 
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             extractFolder,
             zipFile.getPath(),
@@ -331,8 +322,7 @@ public class UnzipTest {
 
     Path extractFolder = Paths.get("output_dir", "nested");
 
-    ArchiveFormat.ZIP
-        .getUnarchiver()
+    new Unzip()
         .extractArchive(
             zipFile.getPath(),
             tmpFolder.getRoot(),
@@ -369,8 +359,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableSet<Path> result =
-        ArchiveFormat.ZIP
-            .getUnarchiver()
+        new Unzip()
             .extractArchive(
                 zipFile.getPath(),
                 extractFolder,
