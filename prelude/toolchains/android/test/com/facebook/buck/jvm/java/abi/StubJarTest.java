@@ -25,7 +25,6 @@ import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import com.facebook.buck.jvm.kotlin.testutil.compiler.KotlinTestCompiler;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
 import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.unarchive.ExistingFileMode;
 import com.facebook.buck.util.unarchive.Unzip;
 import com.facebook.buck.util.zip.DeterministicManifest;
 import com.facebook.buck.util.zip.JarBuilder;
@@ -6800,10 +6799,7 @@ public class StubJarTest {
     AbsPath classDir = AbsPath.of(temp.newFolder().toPath());
 
     Unzip.extractArchive(
-        AbsPath.of(temp.getRoot().toPath()),
-        fullJarPath.getPath(),
-        classDir.getPath(),
-        ExistingFileMode.OVERWRITE);
+        AbsPath.of(temp.getRoot().toPath()), fullJarPath.getPath(), classDir.getPath());
 
     AbsPath stubJarPath = createStubJar(classDir);
     tester

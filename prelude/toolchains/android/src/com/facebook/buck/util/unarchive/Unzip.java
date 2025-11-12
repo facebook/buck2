@@ -183,23 +183,10 @@ public class Unzip {
     writeZipContents(zip, entry, root, target);
   }
 
-  private static void extractDirectory(
-      ExistingFileMode existingFileMode,
-      SortedMap<Path, ZipArchiveEntry> pathMap,
-      DirectoryCreator creator,
-      Path target)
-      throws IOException {
+  private static void extractDirectory(DirectoryCreator creator, Path target) throws IOException {
     AbsPath root = creator.getProjectRoot();
     if (ProjectFilesystemUtils.isDirectory(root, target, LinkOption.NOFOLLOW_LINKS)) {
-      // We have a pre-existing directory: delete its contents if they aren't in the zip.
-      if (existingFileMode == ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES) {
-        for (Path path :
-            ProjectFilesystemUtils.getDirectoryContents(root, ImmutableSet.of(), target)) {
-          if (!pathMap.containsKey(path)) {
-            ProjectFilesystemUtils.deleteRecursivelyIfExists(root, path);
-          }
-        }
-      }
+      // Directory already exists, no action needed
     } else if (ProjectFilesystemUtils.exists(root, target, LinkOption.NOFOLLOW_LINKS)) {
       ProjectFilesystemUtils.deleteFileAtPath(root, target);
       creator.mkdirs(target);
@@ -226,8 +213,7 @@ public class Unzip {
   }
 
   public static ImmutableList<Path> extractArchive(
-      AbsPath extractedPath, Path archiveFile, Path relativePath, ExistingFileMode existingFileMode)
-      throws IOException {
+      AbsPath extractedPath, Path archiveFile, Path relativePath) throws IOException {
 
     // We want to remove stale contents of directories listed in {@code archiveFile}, but avoid
     // deleting and
@@ -254,7 +240,7 @@ public class Unzip {
         Path target = p.getKey();
         ZipArchiveEntry entry = p.getValue();
         if (entry.isDirectory()) {
-          extractDirectory(existingFileMode, pathMap, creator, target);
+          extractDirectory(creator, target);
         } else {
           extractFile(filesWritten, zip, creator, target, entry);
         }

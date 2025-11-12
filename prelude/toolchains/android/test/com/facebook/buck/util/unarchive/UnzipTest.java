@@ -62,8 +62,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        Unzip.extractArchive(
-            extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
+        Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     assertTrue(Files.exists(extractFolder.resolve("1.bin").getPath()));
     AbsPath bin2 = extractFolder.resolve("subdir/2.bin");
     assertTrue(Files.exists(bin2.getPath()));
@@ -107,8 +106,7 @@ public class UnzipTest {
     // Now run `Unzip.extractZipFile` on our test zip and verify that the file is executable.
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        Unzip.extractArchive(
-            extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
+        Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     AbsPath exe = extractFolder.resolve("test.exe");
     assertTrue(Files.exists(exe.getPath()));
     assertThat(Files.getLastModifiedTime(exe.getPath()).toMillis(), Matchers.equalTo(time));
@@ -134,8 +132,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    Unzip.extractArchive(
-        extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
+    Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     AbsPath link = extractFolder.resolve("link.txt");
     assertTrue(Files.isSymbolicLink(link.getPath()));
     assertThat(Files.readSymbolicLink(link.getPath()).toString(), Matchers.equalTo("target.txt"));
@@ -167,8 +164,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    Unzip.extractArchive(
-        extractFolder, zipFile.getPath(), extractFolder.getPath(), ExistingFileMode.OVERWRITE);
+    Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     AbsPath link = extractFolder.resolve("link.txt");
     assertTrue(Files.isSymbolicLink(link.getPath()));
     assertThat(Files.readSymbolicLink(link.getPath()).toString(), Matchers.equalTo("target.txt"));
@@ -189,11 +185,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
     ImmutableList<Path> result =
-        Unzip.extractArchive(
-            extractFolder,
-            zipFile.getPath(),
-            extractFolder.getPath(),
-            ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+        Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     assertTrue(Files.exists(extractFolder.resolve("foo").getPath()));
     assertTrue(Files.exists(extractFolder.resolve("foo/bar/baz").getPath()));
 
@@ -215,19 +207,11 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    Unzip.extractArchive(
-        extractFolder,
-        zipFile.getPath(),
-        extractFolder.getPath(),
-        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     for (String name : names) {
       assertTrue(Files.exists(extractFolder.resolve(name).getPath()));
     }
-    Unzip.extractArchive(
-        extractFolder,
-        zipFile.getPath(),
-        extractFolder.getPath(),
-        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     for (String name : names) {
       assertTrue(Files.exists(extractFolder.resolve(name).getPath()));
     }
@@ -246,11 +230,7 @@ public class UnzipTest {
 
     AbsPath extractFolder = tmpFolder.newFolder();
 
-    Unzip.extractArchive(
-        extractFolder,
-        zipFile.getPath(),
-        extractFolder.getPath(),
-        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     assertTrue(Files.exists(extractFolder.resolve("foo").getPath()));
     assertTrue(Files.exists(extractFolder.resolve("foo/bar").getPath()));
   }
@@ -266,11 +246,7 @@ public class UnzipTest {
     AbsPath extractFolder = tmpFolder.newFolder();
     Files.write(extractFolder.resolve("foo").getPath(), ImmutableList.of("whatever"));
 
-    Unzip.extractArchive(
-        extractFolder,
-        zipFile.getPath(),
-        extractFolder.getPath(),
-        ExistingFileMode.OVERWRITE_AND_CLEAN_DIRECTORIES);
+    Unzip.extractArchive(extractFolder, zipFile.getPath(), extractFolder.getPath());
     assertTrue(Files.exists(extractFolder.resolve("foo").getPath()));
     assertTrue(Files.exists(extractFolder.resolve("foo/bar").getPath()));
   }

@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
-import com.facebook.buck.util.unarchive.ExistingFileMode;
 import com.facebook.buck.util.unarchive.Unzip;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -49,8 +48,7 @@ public class JavaPaths {
             Unzip.extractArchive(
                 ruleCellPathRoot,
                 ruleCellPathRoot.resolve(path).getPath(),
-                ruleCellPathRoot.resolve(workingDirectory).getPath(),
-                ExistingFileMode.OVERWRITE);
+                ruleCellPathRoot.resolve(workingDirectory).getPath());
         sources.addAll(
             zipPaths.stream()
                 .filter(input -> input.toString().endsWith(".java"))

@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.kotlin.util
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.jvm.java.JavaPaths
-import com.facebook.buck.util.unarchive.ExistingFileMode
 import com.facebook.buck.util.unarchive.Unzip
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSet
@@ -41,7 +40,6 @@ fun getExpandedSourcePaths(
               ruleCellRoot,
               ruleCellRoot.resolve(path).path,
               ruleCellRoot.resolve(workingDirectory.orElse(path.path)).path,
-              ExistingFileMode.OVERWRITE,
           )
       sources.addAll(
           zipPaths
