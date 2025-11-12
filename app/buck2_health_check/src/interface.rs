@@ -93,6 +93,7 @@ pub struct HealthCheckSnapshotData {
 }
 
 /// An event from the daemon event subscriber to the health check client.
+#[allow(clippy::large_enum_variant)]
 pub enum HealthCheckEvent {
     HealthCheckContextEvent(HealthCheckContextEvent),
     // This snapshot passes a subset of the buck2_data::Snapshot data to health checks.
