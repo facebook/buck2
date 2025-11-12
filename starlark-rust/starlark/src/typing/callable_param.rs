@@ -301,7 +301,7 @@ impl ParamSpec {
         ParamSpec::new_parts([], [], None, [], Some(ty)).expect("Cannot fail")
     }
 
-    /// `arg=, arg=, ..., arg, arg, ..., /`.
+    /// `arg, arg, ..., arg=, arg=, ..., /`.
     pub fn pos_only(
         required: impl IntoIterator<Item = Ty>,
         optional: impl IntoIterator<Item = Ty>,
