@@ -475,11 +475,13 @@ _python_extra_attributes = {
     "python_bootstrap_binary": {
         "copy_deps": attrs.bool(default = True),
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
+        "has_content_based_path": attrs.bool(default = False),
         "main": attrs.source(),
         "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
     },
     "python_bootstrap_library": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
+        "has_content_based_path": attrs.bool(default = False),
         "srcs": attrs.list(attrs.source()),
     },
     "python_needed_coverage_test": dict(

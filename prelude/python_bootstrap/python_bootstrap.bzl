@@ -13,8 +13,9 @@ PythonBootstrapSources = provider(fields = {"srcs": provider_field(typing.Any, d
 PythonBootstrapToolchainInfo = provider(fields = {"interpreter": provider_field(str | cmd_args)})
 
 def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    has_content_based_path = ctx.attrs.has_content_based_path
     tree = {src.short_path: src for src in ctx.attrs.srcs}
-    output = ctx.actions.symlinked_dir("__{}__".format(ctx.attrs.name), tree)
+    output = ctx.actions.symlinked_dir("__{}__".format(ctx.attrs.name), tree, has_content_based_path = has_content_based_path)
     return [
         DefaultInfo(default_output = output),
         PythonBootstrapSources(srcs = dedupe(flatten([ctx.attrs.srcs] + [dep[PythonBootstrapSources].srcs for dep in ctx.attrs.deps]))),
@@ -28,6 +29,7 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     they can and can't do. In particular, bootstrap binaries can only depend on
     bootstrap libraries and can only consist of a single file.
     """
+    has_content_based_path = ctx.attrs.has_content_based_path
     copy_deps = ctx.attrs.copy_deps
     run_tree_inputs = {}
     run_tree_recorded_deps = {}  # For a better error message when files collide
@@ -47,9 +49,9 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     run_tree_inputs[main.short_path] = main
     if copy_deps:
-        run_tree = ctx.actions.copied_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
+        run_tree = ctx.actions.copied_dir("__%s__" % ctx.attrs.name, run_tree_inputs, has_content_based_path = has_content_based_path)
     else:
-        run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
+        run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs, has_content_based_path = has_content_based_path)
 
     interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
     main_artifact = run_tree.project(main.short_path)
