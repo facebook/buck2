@@ -369,7 +369,7 @@ impl ResourceControlConfig {
                     section: "buck2_resource_control",
                     property: "preferred_action_suspend_strategy",
                 })?
-                .unwrap_or(ActionSuspendStrategy::CgroupFreeze);
+                .unwrap_or(ActionSuspendStrategy::KillAndRetry);
             Ok(Self {
                 status,
                 memory_max,

@@ -33,6 +33,8 @@ def _configure(buck: Buck, kill_and_retry: bool, pressure_limit: int) -> None:
         f.write(f"memory_pressure_threshold_percent = {pressure_limit}\n")
         if kill_and_retry:
             f.write("preferred_action_suspend_strategy = kill_and_retry\n")
+        else:
+            f.write("preferred_action_suspend_strategy = cgroup_freeze\n")
 
 
 def _use_some_memory_args(buck: Buck, temp: TemporaryDirectory[str]) -> list[str]:
