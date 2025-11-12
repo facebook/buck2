@@ -18,7 +18,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
-# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "gatorade_libraries")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "gatorade_libraries", "is_late_gatorade_enabled")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -385,7 +385,8 @@ def get_android_binary_native_library_info(
             "unstripped_native_libraries_json": outputs[unstripped_native_libraries_json],
         }
 
-        if getattr(ctx.attrs, "enable_gatorade", False):
+        if False: # @oss-enable
+        # @oss-disable[end= ]: if is_late_gatorade_enabled(ctx):
             # Prevent Buildifier from moving comments in a way that breaks things.
             args = [
                 ctx,
@@ -448,7 +449,8 @@ def get_android_binary_native_library_info(
     lib_subtargets = _create_library_subtargets(
         lib_outputs_by_platform,
         native_libs,
-        create_default_outputs = not getattr(ctx.attrs, "enable_gatorade", False),
+        # @oss-disable[end= ]: create_default_outputs = not is_late_gatorade_enabled(ctx),
+        create_default_outputs = True, # @oss-enable
     )
     enhance_ctx.debug_output("native_libs", all_native_libs, sub_targets = lib_subtargets)
     if native_merge_debug:
@@ -1943,7 +1945,7 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
                 symbols_to_keep.append(symbol)
 
         version_script = "{\n"
-        # @oss-disable[end= ]: if getattr(ctx.attrs, "enable_gatorade", False):
+        # @oss-disable[end= ]: if is_late_gatorade_enabled(ctx):
             # @oss-disable[end= ]: symbols_to_keep.append("*_Gatorade_Thunk")
         if symbols_to_keep:
             version_script += "global:\n"

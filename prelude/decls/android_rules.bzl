@@ -41,7 +41,7 @@ ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabl
 
 SdkProguardType = ["default", "optimized", "none"]
 
-# @oss-disable[end= ]: GatoradeMode = ["full"]
+# @oss-disable[end= ]: GatoradePhase = ["late"]
 
 android_aar = prelude_rule(
     name = "android_aar",
@@ -115,13 +115,13 @@ android_aar = prelude_rule(
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
             "excluded_java_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
             # @oss-disable[end= ]: "gatorade_extra_args": attrs.list(attrs.arg(), default = [], doc = "Extra Gatorade cross-library step arguments"),
+            # @oss-disable[end= ]: "gatorade_phases": attrs.set(attrs.enum(GatoradePhase), default = []),
             "hardcode_permissions_for_deterministic_output": attrs.option(attrs.bool(), default = None, doc = """
                 If set to true, Buck hardcodes the permissions in order to ensures that all files have the same
                 permissions regardless of the platform on which the zip was generated.
@@ -222,7 +222,6 @@ android_binary = prelude_rule(
             "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),
             "duplicate_resource_whitelist": attrs.option(attrs.source(), default = None),
             "enable_bootstrap_dexes": attrs.bool(default = False),
-            # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
             "exclude_duplicate_targets_do_not_use": attrs.list(attrs.dep(), default = []),
             "exopackage_modes": attrs.list(attrs.enum(ExopackageMode), default = []),
@@ -231,6 +230,7 @@ android_binary = prelude_rule(
             "extra_no_compress_asset_regex": attrs.option(attrs.string(), default = None),
             "field_ref_count_buffer_space": attrs.int(default = 0),
             # @oss-disable[end= ]: "gatorade_extra_args": attrs.list(attrs.arg(), default = [], doc = "Extra Gatorade cross-library step arguments"),
+            # @oss-disable[end= ]: "gatorade_phases": attrs.set(attrs.enum(GatoradePhase), default = []),
             "ignore_aapt_proguard_config": attrs.bool(default = False),
             "includes_vector_drawables": attrs.bool(default = False),
             "is_cacheable": attrs.bool(default = False),
@@ -466,7 +466,6 @@ android_bundle = prelude_rule(
             "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),
             "duplicate_resource_whitelist": attrs.option(attrs.source(), default = None),
             "enable_bootstrap_dexes": attrs.bool(default = False),
-            # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
             "exclude_duplicate_targets_do_not_use": attrs.list(attrs.dep(), default = []),
             "exopackage_modes": attrs.list(attrs.enum(ExopackageMode), default = []),
@@ -475,6 +474,7 @@ android_bundle = prelude_rule(
             "extra_no_compress_asset_regex": attrs.option(attrs.string(), default = None),
             "field_ref_count_buffer_space": attrs.int(default = 0),
             # @oss-disable[end= ]: "gatorade_extra_args": attrs.list(attrs.arg(), default = [], doc = "Extra Gatorade cross-library step arguments"),
+            # @oss-disable[end= ]: "gatorade_phases": attrs.set(attrs.enum(GatoradePhase), default = []),
             "ignore_aapt_proguard_config": attrs.bool(default = False),
             "includes_vector_drawables": attrs.bool(default = False),
             "is_cacheable": attrs.bool(default = False),
