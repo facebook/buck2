@@ -17,7 +17,7 @@ import shutil
 import subprocess
 import sys
 
-from apple.tools.re_compatibility_utils.writable import make_path_user_writable
+from writable import make_path_user_writable
 
 _RE_TMPDIR_ENV_VAR = "TMPDIR"
 _FILE_WRITE_FAILURE_MARKER = "could not write"
