@@ -41,7 +41,7 @@ ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabl
 
 SdkProguardType = ["default", "optimized", "none"]
 
-# @oss-disable[end= ]: GatoradePhase = ["late"]
+# @oss-disable[end= ]: GatoradePhase = ["early", "late"]
 
 android_aar = prelude_rule(
     name = "android_aar",

@@ -18,7 +18,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
-# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "gatorade_libraries", "is_late_gatorade_enabled")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "early_gatorade_libraries", "gatorade_libraries", "is_late_gatorade_enabled")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -218,6 +218,7 @@ def get_android_binary_native_library_info(
             "native_library_merge_sequence": ctx.attrs.native_library_merge_sequence,
             "native_library_merge_sequence_blocklist": ctx.attrs.native_library_merge_sequence_blocklist or [],
         })
+        # @oss-disable[end= ]: native_library_merge_input_file = early_gatorade_libraries(ctx, original_shared_libs_by_platform, linkable_nodes_by_platform, native_library_merge_input_file)
         mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
         mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
         if apk_module_graph_file:
