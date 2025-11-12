@@ -461,7 +461,7 @@ def _define_kotlincd_action(
         should_action_run_incrementally: bool = False):
     _unused = source_only_abi_compiling_deps
 
-    compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
+    compiler = kotlin_toolchain.kotlincd[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(
         qualified_name,
         java = java_toolchain.java[RunInfo],
