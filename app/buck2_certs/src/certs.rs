@@ -32,13 +32,18 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
     } else {
         let mut native_certs_results = rustls_native_certs::load_native_certs();
 
-        // rustls_native_certs now supports multiple errors
-        if native_certs_results.errors.is_empty() {
+        if !native_certs_results.certs.is_empty() {
             Ok(native_certs_results.certs)
         } else {
-            // Consider the first error to be indicative of the overall problem
-            let failed_certs = Err(native_certs_results.errors.remove(0));
-            let native_certs = failed_certs.tag(buck2_error::ErrorTag::Environment);
+            // Consider the last error to be indicative of the overall problem
+            let native_certs_error = native_certs_results
+                .errors
+                .pop()
+                .map(buck2_error::Error::from)
+                .unwrap_or(buck2_error!(
+                    buck2_error::ErrorTag::NoValidCerts,
+                    "No certs or cert errors"
+                ));
 
             // Annotate the error with our context, but note that we do not return
             // the error here because we may recover through find_root_ca_certs()/load_certs() below
@@ -54,10 +59,10 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
                     Please try `getchef -reason 'chef broken'`{windows_message}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
                     If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state."
                 );
-                native_certs.buck_error_context(context)
+                Err(native_certs_error.context(context))
             } else {
-                native_certs
-                    .buck_error_context("Error loading system root certificates native frameworks.")
+                Err(native_certs_error
+                    .context("Error loading system root certificates native frameworks."))
             }
         }
     }?;
