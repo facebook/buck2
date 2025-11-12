@@ -292,6 +292,15 @@ impl TyCustomImpl for TyUser {
         }
         self.supertypes.iter().any(|x| x == other)
     }
+
+    fn bin_op(
+        &self,
+        bin_op: super::TypingBinOp,
+        rhs: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
+        Ok(self.base.bin_op(bin_op, rhs)?)
+    }
 }
 
 #[cfg(test)]
