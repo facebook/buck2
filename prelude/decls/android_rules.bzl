@@ -41,7 +41,7 @@ ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabl
 
 SdkProguardType = ["default", "optimized", "none"]
 
-# @oss-disable[end= ]: GatoradeMode = ["full", "passthrough"]
+# @oss-disable[end= ]: GatoradeMode = ["full"]
 
 android_aar = prelude_rule(
     name = "android_aar",
