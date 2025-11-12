@@ -221,10 +221,11 @@ pub fn emit_what_ran_entry(
 }
 
 /// The reproduction details for this command.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum CommandReproducer {
     CacheQuery(buck2_data::CacheQuery),
     CacheHit(buck2_data::CacheHit),
+    LocalDepFileCacheHit,
     ReExecute(buck2_data::ReExecute),
     LocalExecute(buck2_data::LocalExecute),
     WorkerExecute(buck2_data::WorkerExecute),
@@ -244,6 +245,7 @@ impl CommandReproducer {
                     _ => "cache".to_owned(),
                 }
             }
+            Self::LocalDepFileCacheHit => "dep_file".to_owned(),
             Self::ReExecute(execute) => executor_with_platform(execute),
             Self::LocalExecute(..) => "local".to_owned(),
             Self::WorkerExecute(..) => "worker".to_owned(),
@@ -328,6 +330,7 @@ impl fmt::Display for CommandReproducer {
             CommandReproducer::CacheHit(cache_hit) => {
                 write!(formatter, "{}", cache_hit.action_digest)
             }
+            CommandReproducer::LocalDepFileCacheHit => Ok(()),
             CommandReproducer::ReExecute(re_execute) => {
                 write!(formatter, "{}", re_execute.action_digest)
             }

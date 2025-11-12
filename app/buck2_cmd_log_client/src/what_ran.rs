@@ -288,15 +288,18 @@ impl WhatRanCommandState {
             // Emit WhatRanRelevantAction when we see the corresponding SpanEnd
             match &data {
                 buck2_data::buck_event::Data::SpanEnd(span) => {
-                    if let Some(entry) =
+                    if let Some(mut entry) =
                         self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
                     {
                         if should_emit_finished_action(&span.data, options) {
                             // Get extra data out of SpanEnd event
-                            let (std_err, duration, scheduling_mode) = match &span.data {
+                            let (execution_kind, std_err, duration, scheduling_mode) = match &span
+                                .data
+                            {
                                 Some(buck2_data::span_end_event::Data::ActionExecution(
                                     action_exec,
                                 )) => (
+                                    Some(action_exec.execution_kind),
                                     action_exec.commands.iter().last().and_then(|cmd| {
                                         cmd.details.as_ref().map(|d| d.cmd_stderr.as_ref())
                                     }),
@@ -310,8 +313,16 @@ impl WhatRanCommandState {
                                         .as_ref()
                                         .and_then(|o| SchedulingMode::try_from(*o).ok()),
                                 ),
-                                _ => (None, None, None),
+                                _ => (None, None, None, None),
                             };
+
+                            if execution_kind
+                                == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32)
+                            {
+                                entry
+                                    .reproducers
+                                    .push(CommandReproducer::LocalDepFileCacheHit);
+                            }
 
                             entry.emit_what_ran_entry(
                                 output,
@@ -403,6 +414,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                             }
                         }
                     },
+                    CommandReproducer::LocalDepFileCacheHit => JsonReproducer::LocalDepFileCache,
                     CommandReproducer::ReExecute(re_execute) => {
                         if re_execute.persistent_worker {
                             JsonReproducer::ReWorker {
@@ -550,6 +562,7 @@ mod json_reproducer {
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
         },
+        LocalDepFileCache,
         Re {
             digest: &'a str,
             platform_properties: IndexMap<&'a str, &'a str>,
