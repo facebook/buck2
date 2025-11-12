@@ -19,6 +19,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -27,6 +28,16 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
+use starlark::typing::TyBasic;
+use starlark::typing::TyCallArgs;
+use starlark::typing::TyCallable;
+use starlark::typing::TyCustomIndex;
+use starlark::typing::TyStarlarkValue;
+use starlark::typing::TyUser;
+use starlark::typing::TyUserParams;
+use starlark::typing::TypingNoContextOrInternalError;
+use starlark::typing::TypingOrInternalError;
+use starlark::typing::TypingOracleCtx;
 use starlark::values::Freeze;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -42,6 +53,7 @@ use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::typing::TypeInstanceId;
 use starlark_map::StarlarkHasher;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
@@ -128,13 +140,36 @@ impl<'v> Dependency<'v> {
     }
 }
 
+static DEPENDENCY_TYPE: std::sync::LazyLock<Ty> = std::sync::LazyLock::new(|| {
+    Ty::custom(
+        TyUser::new(
+            "Dependency".to_owned(),
+            TyStarlarkValue::new::<Dependency>(),
+            TypeInstanceId::r#gen(),
+            TyUserParams {
+                index_custom: Some(TyCustomIndex::new(GetTyIdentity)),
+                ..TyUserParams::default()
+            },
+        )
+        .unwrap(),
+    )
+});
+
 #[starlark_value(type = "Dependency")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_type_starlark_repr() -> Ty {
-        Ty::starlark_value::<DependencyGen<Value<'v>>>()
+        DEPENDENCY_TYPE.dupe()
+    }
+
+    fn eval_type(&self) -> Option<Ty> {
+        Some(DEPENDENCY_TYPE.dupe())
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(DEPENDENCY_TYPE.dupe())
     }
 
     fn get_methods() -> Option<&'static Methods> {
@@ -266,5 +301,19 @@ impl starlark::typing::TyCustomFunctionImpl for GetTyIdentity {
                 .into());
         };
         Ok(Ty::union2(Ty::none(), ret))
+    }
+}
+
+impl starlark::typing::TyCustomIndexImpl for GetTyIdentity {
+    fn index(
+        &self,
+        item: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
+        let item_ty = Ty::basic(item.dupe());
+        let Some(ret) = item_ty.as_callable_return() else {
+            return Err(TypingNoContextOrInternalError::Typing);
+        };
+        Ok(ret)
     }
 }
