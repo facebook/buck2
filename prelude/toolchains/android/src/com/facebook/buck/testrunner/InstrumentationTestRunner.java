@@ -10,7 +10,6 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.DdmPreferences;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.MultiLineReceiver;
 import com.android.ddmlib.testrunner.ITestRunListener;
@@ -586,19 +585,23 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // that can be added in preTestSetupScript, e.g.
     // arvr/projects/codec_avatar/prod/pre_test_setup_script_with_apex.sh.
     if (this.apexesToInstall != null && !this.apexesToInstall.isEmpty()) {
-      // APEX install sometimes requires root.
-      if (!device.root()) {
-        throw new RuntimeException("Failed to root device.");
+      System.err.println(String.format("Installing %d APEX(es)...", this.apexesToInstall.size()));
+
+      // Prepare device for APEX installation once before the loop
+      final boolean softRebootAvailable = androidDevice.prepareForApexInstallation();
+
+      for (int i = 0; i < this.apexesToInstall.size(); i++) {
+        final String apexPath = this.apexesToInstall.get(i);
+        final boolean isLast = (i == this.apexesToInstall.size() - 1);
+
+        System.err.println(
+            String.format(
+                "Installing APEX %d/%d: %s...", i + 1, this.apexesToInstall.size(), apexPath));
+        androidDevice.installApexOnDevice(new File(apexPath), false, isLast, softRebootAvailable);
       }
 
-      for (final String apexPath : this.apexesToInstall) {
-        System.err.println(String.format("Installing APEX: %s...", apexPath));
-        DdmPreferences.setTimeOut(60000);
-        // If the APEX is not present, we will install it.
-        // If the APEX is already installed, we will update it.
-        device.installPackage(apexPath, false, "--apex");
-        System.err.println(String.format("APEX installed: %s.", apexPath));
-      }
+      System.err.println(
+          String.format("All %d APEX(es) installed successfully.", this.apexesToInstall.size()));
     }
 
     if (this.preTestSetupScript != null) {

@@ -19,6 +19,7 @@ import org.junit.Ignore
 import org.junit.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -120,20 +121,21 @@ class AndroidDeviceImplTest {
   }
 
   @Test
-  fun testInstallApexOnDevice() {
+  fun testInstallApexOnDeviceWithRestart() {
     val apexFile = mock<File>()
     whenever(apexFile.absolutePath).thenReturn("/path/to/test.apex")
     whenever(apexFile.name).thenReturn("test.apex")
     whenever(apexFile.length()).thenReturn(1024L)
 
-    whenever(mockAdbUtils.executeAdbCommand("root", serialNumber)).thenReturn("")
-    whenever(mockAdbUtils.executeAdbShellCommand("whoami", serialNumber)).thenReturn("root")
+    // Mock boot completion check
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop sys.boot_completed", serialNumber, true))
+        .thenReturn("1")
+    // Mock package manager ready check
     whenever(mockAdbUtils.executeAdbShellCommand("pm", serialNumber, true))
-        .thenReturn("force-non-staged")
+        .thenReturn("Package manager is ready")
 
-    val result = androidDevice.installApexOnDevice(apexFile, false)
+    val result = androidDevice.installApexOnDevice(apexFile, false, true, true)
 
-    verify(mockAdbUtils).executeAdbCommand("root", serialNumber)
     verify(mockAdbUtils)
         .executeAdbCommand(
             "install --apex --force-non-staged ${apexFile.absolutePath}",
@@ -141,6 +143,30 @@ class AndroidDeviceImplTest {
         )
     verify(mockAdbUtils).executeAdbShellCommand("stop", serialNumber)
     verify(mockAdbUtils).executeAdbShellCommand("start", serialNumber)
+    verify(mockAdbUtils).executeAdbShellCommand("getprop sys.boot_completed", serialNumber, true)
+    verify(mockAdbUtils).executeAdbShellCommand("pm", serialNumber, true)
+    assertTrue(result)
+  }
+
+  @Test
+  fun testInstallApexOnDeviceWithoutRestart() {
+    val apexFile = mock<File>()
+    whenever(apexFile.absolutePath).thenReturn("/path/to/test.apex")
+    whenever(apexFile.name).thenReturn("test.apex")
+    whenever(apexFile.length()).thenReturn(1024L)
+
+    val result = androidDevice.installApexOnDevice(apexFile, false, false, true)
+
+    verify(mockAdbUtils)
+        .executeAdbCommand(
+            "install --apex --force-non-staged ${apexFile.absolutePath}",
+            serialNumber,
+        )
+    // Verify that stop/start and boot checks are NOT called
+    verify(mockAdbUtils, never()).executeAdbShellCommand("stop", serialNumber)
+    verify(mockAdbUtils, never()).executeAdbShellCommand("start", serialNumber)
+    verify(mockAdbUtils, never())
+        .executeAdbShellCommand("getprop sys.boot_completed", serialNumber, true)
     assertTrue(result)
   }
 

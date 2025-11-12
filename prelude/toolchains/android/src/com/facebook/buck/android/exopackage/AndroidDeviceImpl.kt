@@ -81,22 +81,30 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     return sdkVersion >= MIN_SDK_VERSION_FOR_FASTDEPLOY
   }
 
-  override fun installApexOnDevice(apex: File, quiet: Boolean): Boolean {
-    var softRebootAvailable: Boolean
+  override fun prepareForApexInstallation(): Boolean {
+    executeAdbCommand("root")
+    // Root kills adbd, and sometimes, it takes a while for it to come back
+    for (i in 1..3) {
+      if (executeAdbShellCommand("whoami").equals("root")) {
+        break
+      }
+      sleep(1000)
+    }
+
+    val softRebootAvailable =
+        executeAdbShellCommand("pm", ignoreFailure = true).contains("force-non-staged")
+    LOG.info("Soft reboot available: $softRebootAvailable")
+    return softRebootAvailable
+  }
+
+  override fun installApexOnDevice(
+      apex: File,
+      quiet: Boolean,
+      restart: Boolean,
+      softRebootAvailable: Boolean,
+  ): Boolean {
     val elapsed = measureTimeMillis {
       try {
-        executeAdbCommand("root")
-        // Root kills adbd, and sometimes, it takes a while for it to come back
-        for (i in 1..3) {
-          if (executeAdbShellCommand("whoami").equals("root")) {
-            break
-          }
-          sleep(1000)
-        }
-
-        softRebootAvailable =
-            executeAdbShellCommand("pm", ignoreFailure = true).contains("force-non-staged")
-        LOG.info("Soft reboot available: $softRebootAvailable")
         val installArgs = "--apex ${if (softRebootAvailable) "--force-non-staged" else ""}".trim()
         executeAdbCommand("install $installArgs ${apex.absolutePath}")
       } catch (e: AdbCommandFailedException) {
@@ -141,18 +149,61 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         )
       }
 
-      try {
-        executeAdbShellCommand("stop")
-        executeAdbShellCommand("start")
-      } catch (e: AdbCommandFailedException) {
-        throw AndroidInstallException.rebootRequired(
-            "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
-        )
+      if (restart) {
+        try {
+          executeAdbShellCommand("stop")
+          executeAdbShellCommand("start")
+
+          // Wait for device to be fully ready after soft reboot
+          waitForBootComplete()
+          waitForPackageManagerReady()
+        } catch (e: AdbCommandFailedException) {
+          throw AndroidInstallException.rebootRequired(
+              "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
+          )
+        }
       }
     }
     val kbps = (apex.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info("Installed ${apex.name} (${apex.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
     return true
+  }
+
+  private fun waitForBootComplete() {
+    val timeout = 30000 // 30 seconds
+    val startTime = System.currentTimeMillis()
+
+    while (System.currentTimeMillis() - startTime < timeout) {
+      val bootStatus =
+          executeAdbShellCommand("getprop sys.boot_completed", ignoreFailure = true).trim()
+      if (bootStatus == "1") {
+        LOG.info("Boot completed after soft reboot")
+        return
+      }
+      sleep(100)
+    }
+
+    throw AndroidInstallException.rebootRequired(
+        "Device did not complete boot after soft reboot within timeout"
+    )
+  }
+
+  private fun waitForPackageManagerReady() {
+    val timeout = 10000 // 10 seconds
+    val startTime = System.currentTimeMillis()
+
+    while (System.currentTimeMillis() - startTime < timeout) {
+      val pmOutput = executeAdbShellCommand("pm", ignoreFailure = true)
+      if (pmOutput.isNotEmpty() && !pmOutput.contains("Can't find service")) {
+        LOG.info("Package manager service ready")
+        return
+      }
+      sleep(100)
+    }
+
+    throw AndroidInstallException.rebootRequired(
+        "Package manager service did not become ready within timeout"
+    )
   }
 
   override fun stopPackage(packageName: String) {
