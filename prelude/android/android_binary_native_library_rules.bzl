@@ -99,7 +99,15 @@ def get_android_binary_native_library_info(
         deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: Artifact | None = None,
         prebuilt_native_library_dirs_to_exclude: set[TargetLabel] = set(),
-        shared_libraries_to_exclude: set[TargetLabel] = set()) -> AndroidBinaryNativeLibsInfo:
+        shared_libraries_to_exclude: set[TargetLabel] = set(),
+        native_library_merge_sequence: list | None = None,
+        native_library_merge_glue: dict | None = None,
+        native_library_merge_map: dict | None = None,
+        native_library_merge_non_asset_libs: bool = False,
+        native_library_merge_linker_args: dict | None = None,
+        native_library_merge_linker_args_all: list | None = None,
+        native_library_merge_code_generator: Dependency | None = None,
+        native_library_merge_sequence_blocklist: list | None = None) -> AndroidBinaryNativeLibsInfo:
     ctx = enhance_ctx.ctx
 
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
@@ -180,9 +188,9 @@ def get_android_binary_native_library_info(
     generated_java_code = []
 
     glue_linkables = None
-    if getattr(ctx.attrs, "native_library_merge_glue", None):
+    if native_library_merge_glue:
         glue_linkables = {}
-        for platform, glue in ctx.attrs.native_library_merge_glue.items():
+        for platform, glue in native_library_merge_glue.items():
             glue_link_graph = glue.get(LinkableGraph)
             expect(glue_link_graph != None, "native_library_merge_glue (`{}`) should be a linkable target", glue.label)
             glue_linkable = glue_link_graph.nodes.value.linkable
@@ -191,9 +199,7 @@ def get_android_binary_native_library_info(
             glue_linkables[platform] = (glue.label, glue_linkable.link_infos[LibOutputStyle("pic_archive")].default)
 
     linkable_nodes_by_platform = {}
-    native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None)
-    native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None)
-    native_library_merge_non_asset_libs = getattr(ctx.attrs, "native_library_merge_non_asset_libs", False)
+
     has_native_merging = native_library_merge_sequence or native_library_merge_map
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
@@ -215,8 +221,8 @@ def get_android_binary_native_library_info(
     if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json("mergemap.input", {
             "linkable_graphs_by_platform": encode_linkable_graph_for_mergemap(linkable_nodes_by_platform),
-            "native_library_merge_sequence": ctx.attrs.native_library_merge_sequence,
-            "native_library_merge_sequence_blocklist": ctx.attrs.native_library_merge_sequence_blocklist or [],
+            "native_library_merge_sequence": native_library_merge_sequence,
+            "native_library_merge_sequence_blocklist": native_library_merge_sequence_blocklist or [],
         })
         # @oss-disable[end= ]: native_library_merge_input_file = early_gatorade_libraries(ctx, original_shared_libs_by_platform, linkable_nodes_by_platform, native_library_merge_input_file)
         mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
@@ -236,7 +242,8 @@ def get_android_binary_native_library_info(
         dynamic_inputs.append(split_groups_map)
 
     mergemap_gencode_jar = None
-    if has_native_merging and ctx.attrs.native_library_merge_code_generator:
+
+    if has_native_merging and native_library_merge_code_generator:
         mergemap_gencode_jar = ctx.actions.declare_output("MergedLibraryMapping.jar")
         dynamic_outputs.append(mergemap_gencode_jar)
         generated_java_code.append(mergemap_gencode_jar)
@@ -260,17 +267,17 @@ def get_android_binary_native_library_info(
 
             # When changing this dynamic_output, the workflow is a lot better if you compute the module graph once and
             # then set it as the binary's precomputed_apk_module_graph attr.
-            if ctx.attrs.native_library_merge_sequence:
+            if native_library_merge_sequence:
                 merge_map_by_platform = artifacts[native_library_merge_map].read_json()
                 split_groups = artifacts[split_groups_map].read_json()
                 native_library_merge_debug_outputs["merge_sequence_output"] = native_library_merge_dir
-            elif ctx.attrs.native_library_merge_map:
+            elif native_library_merge_map:
                 merge_map_by_platform = {}
                 for platform, linkable_nodes in linkable_nodes_by_platform.items():
                     merge_map = merge_map_by_platform.setdefault(platform, {})
                     merge_lib_to_fancy_regexes = {
                         merge_lib: [regex(pattern, fancy = True) for pattern in patterns]
-                        for merge_lib, patterns in ctx.attrs.native_library_merge_map.items()
+                        for merge_lib, patterns in native_library_merge_map.items()
                     }
                     for target, _node in linkable_nodes.items():
                         raw_target = str(target.raw_target())
@@ -294,14 +301,15 @@ def get_android_binary_native_library_info(
             merged_shared_libs_by_platform = {}  # dict[str, dict[str, MergedSharedLibrary]]
             for platform in original_shared_libs_by_platform:
                 merged_shared_libs, debug_info = _get_merged_linkables_for_platform(
-                    ctx,
-                    ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo],
-                    platform if len(original_shared_libs_by_platform) > 1 else None,
+                    ctx = ctx,
+                    cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo],
+                    platform = platform if len(original_shared_libs_by_platform) > 1 else None,
+                    native_library_merge_linker_args_all = native_library_merge_linker_args_all,
                     glue_linkable = glue_linkables[platform] if glue_linkables else None,
                     default_shared_libs = original_shared_libs_by_platform[platform],
                     linkable_nodes = linkable_nodes_by_platform[platform],
                     merge_map = merge_map_by_platform[platform],
-                    merge_linker_args = ctx.attrs.native_library_merge_linker_args or {},
+                    merge_linker_args = native_library_merge_linker_args or {},
                     apk_module_graph = get_module_from_target,
                 )
                 debug_info_by_platform[platform] = debug_info
@@ -325,7 +333,7 @@ def get_android_binary_native_library_info(
 
             if mergemap_gencode_jar:
                 merged_library_map = write_merged_library_map(ctx, merged_shared_libs_by_platform)
-                mergemap_gencode = run_mergemap_codegen(ctx, merged_library_map)
+                mergemap_gencode = run_mergemap_codegen(ctx, native_library_merge_code_generator, merged_library_map)
                 compile_to_jar(ctx, [mergemap_gencode], output = outputs[mergemap_gencode_jar])
                 native_library_merge_debug_outputs["NativeLibraryMergeGeneratedCode.java"] = mergemap_gencode
                 native_library_merge_debug_outputs["merged_library_map.txt"] = merged_library_map
@@ -1144,9 +1152,9 @@ def write_merged_library_map(ctx: AnalysisContext, shared_libs_by_platform: dict
     # we wanted it sorted by original_soname
     return ctx.actions.write("merged_library_map.txt", sorted(lines))
 
-def run_mergemap_codegen(ctx: AnalysisContext, merged_library_map: Artifact) -> Artifact:
+def run_mergemap_codegen(ctx: AnalysisContext, merge_generator: Dependency, merged_library_map: Artifact) -> Artifact:
     mapping_java = ctx.actions.declare_output("MergedLibraryMapping.java")
-    args = cmd_args(ctx.attrs.native_library_merge_code_generator[RunInfo])
+    args = cmd_args(merge_generator[RunInfo])
     args.add([merged_library_map, mapping_java.as_output()])
     ctx.actions.run(args, category = "mergemap_codegen", allow_cache_upload = True)
     return mapping_java
@@ -1238,6 +1246,7 @@ def _shared_lib_for_prebuilt_shared(
 def _get_merged_linkables_for_platform(
         ctx: AnalysisContext,
         cxx_toolchain: CxxToolchainInfo,
+        native_library_merge_linker_args_all: list,
         platform: str | None,
         glue_linkable: [(Label, LinkInfo), None],
         default_shared_libs: dict[str, SharedLibrary],
@@ -1482,8 +1491,8 @@ def _get_merged_linkables_for_platform(
             cxx_toolchain = cxx_toolchain,
         )
         link_args = [link_args]
-        if ctx.attrs.native_library_merge_linker_args_all:
-            link_args += [LinkArgs(flags = ctx.attrs.native_library_merge_linker_args_all)]
+        if native_library_merge_linker_args_all:
+            link_args += [LinkArgs(flags = native_library_merge_linker_args_all)]
         if soname in merge_linker_args:
             link_args += [LinkArgs(flags = merge_linker_args[soname])]
 

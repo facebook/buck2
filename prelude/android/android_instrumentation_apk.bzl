@@ -134,6 +134,13 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
         filtered_deps_by_platform,
         prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs if not is_self_instrumenting else set(),
         shared_libraries_to_exclude = apk_under_test_info.shared_libraries if not is_self_instrumenting else set(),
+        native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None),
+        native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None),
+        native_library_merge_non_asset_libs = getattr(ctx.attrs, "native_library_merge_non_asset_libs", False),
+        native_library_merge_linker_args = getattr(ctx.attrs, "native_library_merge_linker_args", None),
+        native_library_merge_linker_args_all = getattr(ctx.attrs, "native_library_merge_linker_args_all", None),
+        native_library_merge_code_generator = getattr(ctx.attrs, "native_library_merge_code_generator", None),
+        native_library_merge_sequence_blocklist = getattr(ctx.attrs, "native_library_merge_sequence_blocklist", None),
     )
 
     output_apk = build_apk(

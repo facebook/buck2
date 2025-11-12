@@ -77,7 +77,21 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         enhancement_ctx.debug_output("module.mapping", target_to_module_mapping_file)
 
     shared_libraries_to_exclude_set = set([label.raw_target() for label in ctx.attrs.shared_libraries_to_exclude])
-    native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file, shared_libraries_to_exclude = shared_libraries_to_exclude_set)
+    native_library_info = get_android_binary_native_library_info(
+        enhancement_ctx,
+        android_packageable_info,
+        deps_by_platform,
+        apk_module_graph_file = target_to_module_mapping_file,
+        shared_libraries_to_exclude = shared_libraries_to_exclude_set,
+        native_library_merge_glue = getattr(ctx.attrs, "native_library_merge_glue", None),
+        native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None),
+        native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None),
+        native_library_merge_non_asset_libs = getattr(ctx.attrs, "native_library_merge_non_asset_libs", False),
+        native_library_merge_linker_args = getattr(ctx.attrs, "native_library_merge_linker_args", None),
+        native_library_merge_linker_args_all = getattr(ctx.attrs, "native_library_merge_linker_args_all", None),
+        native_library_merge_code_generator = getattr(ctx.attrs, "native_library_merge_code_generator", None),
+        native_library_merge_sequence_blocklist = getattr(ctx.attrs, "native_library_merge_sequence_blocklist", None),
+    )
     java_packaging_deps.extend([create_java_packaging_dep(
         ctx,
         library_output,
