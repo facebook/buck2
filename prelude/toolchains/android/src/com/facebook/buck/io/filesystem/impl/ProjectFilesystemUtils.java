@@ -66,8 +66,6 @@ import javax.annotation.Nullable;
  */
 public class ProjectFilesystemUtils {
 
-  public static final String EDEN_MAGIC_PATH_ELEMENT = ".eden";
-
   private ProjectFilesystemUtils() {}
 
   /**
@@ -170,10 +168,6 @@ public class ProjectFilesystemUtils {
     mode |= MorePosixFilePermissions.toMode(getPosixFilePermissions(root, path));
 
     return mode;
-  }
-
-  public static Path getDefaultEdenMagicPathElement(AbsPath rootPath) {
-    return getPath(rootPath, EDEN_MAGIC_PATH_ELEMENT);
   }
 
   /**
@@ -441,20 +435,12 @@ public class ProjectFilesystemUtils {
       DirectoryStream.Filter<? super Path> ignoreFilter)
       throws IOException {
     Path rootPath = getPathForRelativePath(projectRoot, pathRelativeToProjectRoot);
-    Path edenMagicPathElement = getDefaultEdenMagicPathElement(projectRoot);
     Function<Path, Path> pathMapper = path -> relativize(projectRoot, path).getPath();
     FileVisitor<Path> pathMappingVisitor =
         new FileVisitor<Path>() {
           @Override
           public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
               throws IOException {
-            // TODO(mbolin): We should not have hardcoded logic for Eden here. Instead, we should
-            // properly handle cyclic symlinks in a general way.
-            // Failure to perform this check will result in a java.nio.file.FileSystemLoopException
-            // in Eden.
-            if (edenMagicPathElement.equals(dir.getFileName())) {
-              return FileVisitResult.SKIP_SUBTREE;
-            }
             return fileVisitor.preVisitDirectory(pathMapper.apply(dir), attrs);
           }
 
