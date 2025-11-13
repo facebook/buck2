@@ -14,7 +14,6 @@ import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.util.ClassLoaderCache
 import com.facebook.buck.util.Console
 import com.facebook.buck.util.Verbosity
-import com.google.common.collect.ImmutableMap
 import com.google.common.io.Closer
 import java.io.Closeable
 import java.io.IOException
@@ -26,7 +25,6 @@ data class IsolatedExecutionContext(
     val classLoaderCache: ClassLoaderCache,
     val console: Console,
     val ruleCellRoot: AbsPath,
-    val environment: ImmutableMap<String?, String?>,
 ) : Closeable {
   val verbosity: Verbosity
     get() = console.verbosity
@@ -62,7 +60,6 @@ data class IsolatedExecutionContext(
         classLoaderCache.addRef(),
         newConsole,
         ruleCellRoot,
-        environment,
     )
   }
 
@@ -78,7 +75,6 @@ data class IsolatedExecutionContext(
           classLoaderCache.addRef(),
           console,
           ruleCellRoot,
-          ImmutableMap.of(),
       )
     }
   }

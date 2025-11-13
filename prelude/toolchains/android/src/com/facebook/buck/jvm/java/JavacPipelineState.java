@@ -94,7 +94,6 @@ public class JavacPipelineState implements AutoCloseable {
               firstOrderContext.getClassLoaderCache(),
               verbosity,
               context.getRuleCellRoot(),
-              firstOrderContext.getEnvironment(),
               configuredBuckOut);
 
       CompilerOutputPaths outputPaths = compilerParameters.getOutputPaths();

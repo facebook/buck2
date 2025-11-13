@@ -14,7 +14,6 @@ import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
-import com.facebook.buck.util.environment.EnvVariablesProvider;
 
 public class TestExecutionContext {
 
@@ -28,9 +27,6 @@ public class TestExecutionContext {
 
   public static IsolatedExecutionContext newInstance(AbsPath rootPath) {
     return new IsolatedExecutionContext(
-        testClassLoaderCache,
-        Console.createNullConsole(),
-        rootPath,
-        EnvVariablesProvider.getSystemEnv());
+        testClassLoaderCache, Console.createNullConsole(), rootPath);
   }
 }
