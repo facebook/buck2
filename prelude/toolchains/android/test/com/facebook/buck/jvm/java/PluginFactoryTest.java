@@ -15,7 +15,6 @@ import static org.junit.Assert.assertTrue;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
-import com.facebook.buck.jvm.java.javax.SynchronizedToolProvider;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +41,7 @@ public class PluginFactoryTest {
     RelPath controlClasspath = RelPath.get("some/path/to.jar");
     RelPath variableClasspath = RelPath.get("some/path/to_other.jar");
 
-    ClassLoader baseClassLoader = SynchronizedToolProvider.getSystemToolClassLoader();
+    ClassLoader baseClassLoader = ClassLoader.getPlatformClassLoader();
     ClassLoaderCache classLoaderCache = new ClassLoaderCache();
 
     AbsPath rootPath = tmp.getRoot();

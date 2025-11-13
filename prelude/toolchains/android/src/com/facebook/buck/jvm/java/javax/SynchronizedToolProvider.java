@@ -10,9 +10,6 @@
 
 package com.facebook.buck.jvm.java.javax;
 
-import com.facebook.buck.jvm.java.version.utils.JavaVersionUtils;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
@@ -22,40 +19,11 @@ import javax.tools.ToolProvider;
  */
 public class SynchronizedToolProvider {
 
-  private static Method getPlatformClassLoaderMethod;
-
-  static {
-    if (JavaVersionUtils.getMajorVersion() >= 9) {
-      try {
-        getPlatformClassLoaderMethod = ClassLoader.class.getMethod("getPlatformClassLoader");
-      } catch (NoSuchMethodException e) {
-        throw new RuntimeException(e);
-      }
-    }
-  }
-
   public static JavaCompiler getSystemJavaCompiler() {
     JavaCompiler compiler;
     synchronized (ToolProvider.class) {
       compiler = ToolProvider.getSystemJavaCompiler();
     }
     return compiler;
-  }
-
-  public static ClassLoader getSystemToolClassLoader() {
-    if (JavaVersionUtils.getMajorVersion() >= 9) {
-      // The compiler classes are loaded using the platform class loader in Java 9+.
-      try {
-        return (ClassLoader) getPlatformClassLoaderMethod.invoke(null);
-      } catch (IllegalAccessException | InvocationTargetException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    ClassLoader classLoader;
-    synchronized (ToolProvider.class) {
-      classLoader = ToolProvider.getSystemToolClassLoader();
-    }
-    return classLoader;
   }
 }
