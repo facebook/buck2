@@ -15,7 +15,6 @@ import static org.junit.Assert.assertSame;
 
 import com.facebook.buck.jvm.java.plugin.adapter.BuckJavacTask;
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTest;
-import com.facebook.buck.jvm.java.version.utils.JavaVersionUtils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.sun.source.tree.CompilationUnitTree;
@@ -593,21 +592,12 @@ public class InterfaceScannerTest extends CompilerTreeApiTest {
   public void testStaticImportsOfMissingNestedTypesDoNotCompile() throws IOException {
     findTypeReferencesErrorsOK("import static java.text.DateFormat.Missing;", "class Foo { }");
 
-    if (JavaVersionUtils.getMajorVersion() <= 8) {
-      assertError(
-          "Foo.java:1: error: cannot find symbol\n"
-              + "import static java.text.DateFormat.Missing;\n"
-              + "^\n"
-              + "  symbol:   static Missing\n"
-              + "  location: class");
-    } else {
-      assertError(
-          "Foo.java:1: error: cannot find symbol\n"
-              + "import static java.text.DateFormat.Missing;\n"
-              + "^\n"
-              + "  symbol:   static Missing\n"
-              + "  location: class java.text.DateFormat");
-    }
+    assertError(
+        "Foo.java:1: error: cannot find symbol\n"
+            + "import static java.text.DateFormat.Missing;\n"
+            + "^\n"
+            + "  symbol:   static Missing\n"
+            + "  location: class java.text.DateFormat");
     assertThat(importedTypes, Matchers.empty());
   }
 
