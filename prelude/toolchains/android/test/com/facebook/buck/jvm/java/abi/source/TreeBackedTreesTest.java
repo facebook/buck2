@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java.abi.source;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.facebook.buck.jvm.java.version.utils.JavaVersionUtils;
 import com.google.common.base.Joiner;
 import com.sun.source.tree.Tree;
@@ -26,8 +25,9 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementFilter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedTreesTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testIdentifierTreeToName() throws IOException {

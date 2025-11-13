@@ -12,13 +12,13 @@ package com.facebook.buck.jvm.java.abi.source;
 
 import static org.junit.Assert.assertEquals;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import java.io.IOException;
 import javax.lang.model.type.WildcardType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class StandaloneWildcardTypeTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testUnboundedToString() throws IOException {

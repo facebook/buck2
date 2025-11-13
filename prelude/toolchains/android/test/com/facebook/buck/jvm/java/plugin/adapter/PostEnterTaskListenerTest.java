@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java.plugin.adapter;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -31,9 +30,7 @@ import javax.lang.model.element.TypeElement;
 import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class PostEnterTaskListenerTest {
   @Rule public TestCompiler compiler = new TestCompiler();
   private final List<String> callbacksIssued = new ArrayList<>();

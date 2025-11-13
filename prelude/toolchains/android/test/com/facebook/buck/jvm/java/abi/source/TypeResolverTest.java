@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java.abi.source;
 
 import static org.junit.Assert.assertNotSame;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import java.io.IOException;
 import javax.lang.model.element.TypeElement;
@@ -22,8 +21,9 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TypeResolverTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testParameterizedTypeResolves() throws IOException {

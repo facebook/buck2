@@ -15,7 +15,6 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -31,8 +30,9 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.ElementFilter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedTypesTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testGetDeclaredTypeTopLevelNoGenerics() throws IOException {

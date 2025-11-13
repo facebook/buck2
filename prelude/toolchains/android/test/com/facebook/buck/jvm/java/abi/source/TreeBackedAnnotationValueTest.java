@@ -15,7 +15,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import java.io.IOException;
 import java.util.List;
@@ -30,8 +29,9 @@ import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedAnnotationValueTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testBooleanValue() throws IOException {

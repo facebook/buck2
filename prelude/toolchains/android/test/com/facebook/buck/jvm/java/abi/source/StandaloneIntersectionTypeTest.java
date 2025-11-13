@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java.abi.source;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import java.io.IOException;
 import java.util.List;
 import javax.lang.model.type.IntersectionType;
@@ -21,8 +20,9 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class StandaloneIntersectionTypeTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testGetKind() throws IOException {

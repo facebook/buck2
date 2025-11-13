@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java.abi.source;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import java.io.IOException;
 import java.util.List;
@@ -25,8 +24,9 @@ import javax.lang.model.element.ExecutableElement;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedAnnotationMirrorTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testAnnotationMirrorValue() throws IOException {
