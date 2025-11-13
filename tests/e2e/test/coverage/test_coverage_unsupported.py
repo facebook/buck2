@@ -33,8 +33,8 @@ async def test_go_test_selective_coverage_doesnt_produce_coverage(buck: Buck) ->
             ]
         ),
         stderr_regex=r"""2 TESTS FATALS
-  ⚠ testing_frameworks/code_coverage/go:test - Test(Add|Sub)
-  ⚠ testing_frameworks/code_coverage/go:test - Test(Add|Sub)""",
+  ⚠ fbcode//testing_frameworks/code_coverage/go:test - Test(Add|Sub)
+  ⚠ fbcode//testing_frameworks/code_coverage/go:test - Test(Add|Sub)""",
     )
 
 
