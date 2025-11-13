@@ -17,8 +17,6 @@ import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.facebook.buck.step.isolatedsteps.IsolatedStepsRunner;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
-import com.facebook.buck.util.DefaultProcessExecutor;
-import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
 import com.google.common.collect.ImmutableList;
 import java.io.Closeable;
@@ -36,7 +34,6 @@ public class CompilerDaemonRunner implements Closeable {
   private final OutputStream eventsOutputStream;
   private final ClassLoaderCache classLoaderCache;
   private final Console console;
-  private final ProcessExecutor processExecutor;
 
   private static final List<String> COMPILER_ERRORS =
       List.of(
@@ -54,7 +51,6 @@ public class CompilerDaemonRunner implements Closeable {
     this.eventsOutputStream = eventsOutputStream;
     this.classLoaderCache = new ClassLoaderCache();
     this.console = console;
-    this.processExecutor = new DefaultProcessExecutor(console);
   }
 
   @Override
@@ -69,10 +65,7 @@ public class CompilerDaemonRunner implements Closeable {
     public CommandExecutionContext(JvmCDCommand command) {
       this.executionContext =
           IsolatedExecutionContext.of(
-              classLoaderCache,
-              console,
-              processExecutor,
-              command.getBuildCommand().getRuleCellRoot());
+              classLoaderCache, console, command.getBuildCommand().getRuleCellRoot());
     }
 
     @Override

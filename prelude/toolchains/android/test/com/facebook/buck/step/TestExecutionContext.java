@@ -14,8 +14,6 @@ import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
-import com.facebook.buck.util.FakeProcessExecutor;
-import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
 
 public class TestExecutionContext {
@@ -28,16 +26,10 @@ public class TestExecutionContext {
   // in each test case.
   private static final ClassLoaderCache testClassLoaderCache = new ClassLoaderCache();
 
-  public static IsolatedExecutionContext newInstance(AbsPath root) {
-    return newInstance(root, new FakeProcessExecutor());
-  }
-
-  public static IsolatedExecutionContext newInstance(
-      AbsPath rootPath, ProcessExecutor processExecutor) {
+  public static IsolatedExecutionContext newInstance(AbsPath rootPath) {
     return new IsolatedExecutionContext(
         testClassLoaderCache,
         Console.createNullConsole(),
-        processExecutor,
         rootPath,
         EnvVariablesProvider.getSystemEnv());
   }

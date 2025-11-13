@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.util.ClassLoaderCache
-import com.facebook.buck.util.ProcessExecutor
 import com.facebook.buck.util.Verbosity
 import com.google.common.collect.ImmutableMap
 import java.io.PrintStream
@@ -24,6 +23,5 @@ data class JavacExecutionContext(
     val verbosity: Verbosity,
     val ruleCellRoot: AbsPath,
     val environment: ImmutableMap<String, String>,
-    val processExecutor: ProcessExecutor,
     val configuredBuckOut: RelPath,
 )

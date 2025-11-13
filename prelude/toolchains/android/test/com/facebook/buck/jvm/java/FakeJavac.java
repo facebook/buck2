@@ -14,14 +14,19 @@ import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.abi.source.api.SourceOnlyAbiRuleInfoFactory;
-import com.facebook.buck.util.ProcessExecutorParams;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Fake implementation of {@link ResolvedJavac} for tests. */
 public class FakeJavac implements ResolvedJavac {
+  private final int exitCode;
+  private final String stdErr;
+
+  public FakeJavac(int exitCode, String stdErr) {
+    this.exitCode = exitCode;
+    this.stdErr = stdErr;
+  }
 
   @Override
   public ResolvedJavac.Invocation newBuildInvocation(
@@ -52,15 +57,11 @@ public class FakeJavac implements ResolvedJavac {
       }
 
       @Override
-      public int buildClasses() throws InterruptedException {
-        try {
-          return context
-              .getProcessExecutor()
-              .launchAndExecute(ProcessExecutorParams.ofCommand("javac"))
-              .getExitCode();
-        } catch (IOException e) {
-          return 1;
+      public int buildClasses() {
+        if (exitCode != 0) {
+          context.getStdErr().print(stdErr);
         }
+        return exitCode;
       }
 
       @Override
