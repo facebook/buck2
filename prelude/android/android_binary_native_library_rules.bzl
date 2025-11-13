@@ -1847,6 +1847,8 @@ def _bolt_libraries(
 #    used in (1) above from higher nodes).
 def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> dict[str, dict[str, SharedLibrary]]:
     relinker_extra_deps = getattr(ctx.attrs, "relinker_extra_deps", None)
+    relinker_extra_args = getattr(ctx.attrs, "relinker_extra_args", {})
+    relinker_extra_args_all = getattr(ctx.attrs, "relinker_extra_args_all", [])
     red_linkables = {}
     if relinker_extra_deps:
         for red_elem in relinker_extra_deps:
@@ -1898,8 +1900,10 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             )
             relinker_link_args = (
                 original_shared_library.link_args +
-                [LinkArgs(flags = ctx.attrs.relinker_extra_args)] +
+                [LinkArgs(flags = relinker_extra_args_all)] +
                 ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else []) +
+                # Add per-library linker args from relinker_extra_args attribute
+                ([LinkArgs(flags = relinker_extra_args[soname])] if soname in relinker_extra_args else []) +
                 # We add the version script last to allow easy post-processing if needed.
                 [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])]
             )
