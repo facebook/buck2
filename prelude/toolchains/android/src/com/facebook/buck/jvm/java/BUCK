@@ -49,7 +49,6 @@ buck_kotlin_library(
         "DiagnosticCleaner.java",
         "DiagnosticPrettyPrinter.java",
         "DowngradeMissingAnnotationErrorMessager.java",
-        "ExternalJavac.java",
         "FileManagerListener.java",
         "ForwardingStandardJavaFileManager.java",
         "JarDiffer.java",
