@@ -271,7 +271,8 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
     remote_enabled = remote_execution_use_case != None
 
     if local_enabled and tpx_needs_local_simulator(test_device_type):
-        labels.append("tpx:apple_test:local_simulator_required")
+        if (read_root_config("apple", "test_execution", "").lower() != "local_from_od"):
+            labels.append("tpx:apple_test:local_simulator_required")
 
     return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
