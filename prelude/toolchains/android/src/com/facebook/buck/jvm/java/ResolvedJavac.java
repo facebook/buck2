@@ -49,14 +49,6 @@ public interface ResolvedJavac {
   /** Returns a short name of the tool */
   String getShortName();
 
-  /** Enum that specify a type of java compiler. */
-  enum Source {
-    /** Shell out to the javac in the JDK */
-    EXTERNAL,
-    /** Run javac in-process, loading it from the JRE in which Buck is running. */
-    JDK,
-  }
-
   /** Interface that defines invocation object created during java compilation. */
   interface Invocation extends AutoCloseable {
 
