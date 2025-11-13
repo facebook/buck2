@@ -68,6 +68,22 @@ load(
     "get_flags_for_compiler_type",
 )
 
+def _project_clang_traces_as_args(traces: list[Artifact]):
+    return cmd_args(traces)
+
+ClangTracesTSet = transitive_set(
+    args_projections = {
+        "clang_traces": _project_clang_traces_as_args,
+    },
+)
+
+ClangTracesInfo = provider(fields = {
+    "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
+})
+PicClangTracesInfo = provider(fields = {
+    "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
+})
+
 def get_source_extension_for_header(header_extension: str, default: CxxExtension) -> CxxExtension:
     """
     Which source file extension to use to get compiler flags for the header.

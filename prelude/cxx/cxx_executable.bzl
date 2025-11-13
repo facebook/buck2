@@ -116,6 +116,9 @@ load(
 )
 load(
     ":compile.bzl",
+    "ClangTracesInfo",
+    "ClangTracesTSet",
+    "PicClangTracesInfo",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
@@ -282,6 +285,32 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
     sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
+
+    if impl_params.generate_sub_targets and impl_params.generate_sub_targets.clang_traces:
+        traces = [out.clang_trace for out in cxx_outs if out.clang_trace != None]
+        sub_targets["clang-trace"] = [DefaultInfo(
+            default_outputs = traces,
+        )]
+
+        clang_traces_tset = ctx.actions.tset(
+            ClangTracesTSet,
+            value = traces,
+            children = [info.clang_traces for info in filter(None, [
+                x.get(PicClangTracesInfo) if link_strategy != LinkStrategy("static") else x.get(ClangTracesInfo)
+                for x in cxx_deps
+            ])],
+        )
+
+        clang_traces_args = clang_traces_tset.project_as_args("clang_traces")
+        all_traces = ctx.actions.write(
+            ctx.actions.declare_output("recursive_clang_traces.txt"),
+            clang_traces_args,
+        )
+
+        sub_targets["clang-traces"] = [DefaultInfo(
+            default_output = all_traces,
+            other_outputs = [clang_traces_args],
+        )]
 
     diagnostics = {
         compile_cmd.src.short_path: out.diagnostics

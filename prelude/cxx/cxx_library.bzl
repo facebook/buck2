@@ -132,6 +132,9 @@ load(
 )
 load(
     ":compile.bzl",
+    "ClangTracesInfo",
+    "ClangTracesTSet",
+    "PicClangTracesInfo",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
@@ -540,15 +543,61 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             )]
 
     if impl_params.generate_sub_targets.clang_traces:
+        traces = []
         if compiled_srcs.non_pic and compiled_srcs.non_pic.clang_traces:
+            traces = compiled_srcs.non_pic.clang_traces
             sub_targets["clang-trace"] = [DefaultInfo(
-                default_outputs = compiled_srcs.non_pic.clang_traces,
+                default_outputs = traces,
             )]
 
+        clang_traces_tset = ctx.actions.tset(
+            ClangTracesTSet,
+            value = traces,
+            children = [info.clang_traces for info in filter(None, [
+                x.get(ClangTracesInfo)
+                for x in exported_deps + non_exported_deps
+            ])],
+        )
+        providers.append(ClangTracesInfo(clang_traces = clang_traces_tset))
+
+        clang_traces_args = clang_traces_tset.project_as_args("clang_traces")
+        all_traces = ctx.actions.write(
+            ctx.actions.declare_output("recursive_clang_traces.txt"),
+            clang_traces_args,
+        )
+
+        sub_targets["clang-traces"] = [DefaultInfo(
+            default_output = all_traces,
+            other_outputs = [clang_traces_args],
+        )]
+
+        pic_traces = []
         if compiled_srcs.pic.clang_traces:
+            pic_traces = compiled_srcs.pic.clang_traces
             sub_targets["pic-clang-trace"] = [DefaultInfo(
-                default_outputs = compiled_srcs.pic.clang_traces,
+                default_outputs = pic_traces,
             )]
+
+        pic_clang_traces_tset = ctx.actions.tset(
+            ClangTracesTSet,
+            value = pic_traces,
+            children = [info.clang_traces for info in filter(None, [
+                x.get(PicClangTracesInfo)
+                for x in exported_deps + non_exported_deps
+            ])],
+        )
+        providers.append(PicClangTracesInfo(clang_traces = pic_clang_traces_tset))
+
+        pic_clang_traces_args = pic_clang_traces_tset.project_as_args("clang_traces")
+        all_pic_traces = ctx.actions.write(
+            ctx.actions.declare_output("recursive_pic_clang_traces.txt"),
+            pic_clang_traces_args,
+        )
+
+        sub_targets["pic-clang-traces"] = [DefaultInfo(
+            default_output = all_pic_traces,
+            other_outputs = [pic_clang_traces_args],
+        )]
 
     all_diagnostics = None
     if impl_params.generate_sub_targets.objects:
