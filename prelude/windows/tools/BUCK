@@ -9,6 +9,7 @@ prelude = native
 prelude.export_file(
     name = "msvc_hermetic_exec.bat",
     src = "msvc_hermetic_exec.bat",
+    has_content_based_path = True,
 )
 
 prelude.command_alias(

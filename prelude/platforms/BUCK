@@ -74,6 +74,7 @@ prelude.constraint_value(
 export_file(
     name = "fat_platform_incompatible",
     src = "BUCK",
+    has_content_based_path = True,
     target_compatible_with = select({
         ":fat_platform_enabled": ["config//:none"],
         "DEFAULT": [],
