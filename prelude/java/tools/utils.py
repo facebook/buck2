@@ -220,7 +220,7 @@ def _hyperlink(file: str, line: int, text: str) -> str:
     Returns:
         A string containing the hyperlinked text with terminal escape sequences
     """
-
+    # Keep in sync with fbcode/buck2/prelude/toolchains/android/src/com/facebook/buck/jvm/cd/ErrorInterceptor.java
     isVsCode = (
         os.environ.get("FBVSCODE_REMOTE_ENV_NAME") == "od"
         or os.environ.get("TERM_PROGRAM") == "vscode"
@@ -237,8 +237,7 @@ def _hyperlink(file: str, line: int, text: str) -> str:
     ST = "\033\\"
 
     is_jetbrains = (
-        os.environ.get("TERMINAL_EMULATOR") == "JetBrains-JediTerm"
-        or "ANDROID_EDITOR" in os.environ
+        "ANDROID_EDITOR" in os.environ
         or pathlib.Path("~/.jetbrains-fb/.buck_path_hyperlink_uses_jetbrains")
         .expanduser()
         .is_file()

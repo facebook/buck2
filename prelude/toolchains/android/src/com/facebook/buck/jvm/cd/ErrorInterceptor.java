@@ -239,7 +239,7 @@ public class ErrorInterceptor extends PrintStream {
   // Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
   // Supports both VS Code and Android Studio links based on ANDROID_EDITOR environment variable.
   private static String createHyperlink(String file, int line, String text) {
-
+    // Keep in sync with fbcode/buck2/prelude/java/tools/utils.py
     boolean isVsCode =
         "vscode".equals(System.getenv("TERM_PROGRAM"))
             || "od".equals(System.getenv("FBVSCODE_REMOTE_ENV_NAME"));
@@ -255,7 +255,14 @@ public class ErrorInterceptor extends PrintStream {
     String ST = "\033\\";
     String uri;
 
-    if (System.getenv("ANDROID_EDITOR") != null) {
+    boolean isJetBrains =
+        System.getenv("ANDROID_EDITOR") != null
+            || new File(
+                    System.getProperty("user.home")
+                        + "/.jetbrains-fb/.buck_path_hyperlink_uses_jetbrains")
+                .isFile();
+
+    if (isJetBrains) {
       uri = "fb-ide-opener://open/?ide=intellij&filepath=/fbsource/" + file + "&line=" + line;
     } else {
       uri =
