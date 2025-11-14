@@ -677,7 +677,6 @@ apple_library = prelude_rule(
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
-            "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
             "public_framework_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             "sdk_modules": attrs.list(attrs.string(), default = []),
             # Mach-O file type for binary when the target is built as a shared library.
@@ -723,7 +722,6 @@ apple_library = prelude_rule(
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
-    cfg = target_sdk_version_transition,
 )
 
 apple_library_for_distribution = prelude_rule(
@@ -742,7 +740,6 @@ apple_library_for_distribution = prelude_rule(
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
-    cfg = target_sdk_version_transition,
 )
 
 apple_metal_library = prelude_rule(
