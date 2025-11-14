@@ -79,9 +79,13 @@ use lsp_types::Range;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
+use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocModule;
+use starlark::docs::DocString;
 use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::syntax::AstModule;
+use starlark::typing::Ty;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
 use starlark_lsp::server::LspUrl;
@@ -284,6 +288,23 @@ impl DocsCache {
                         // Only for buildfiles, as this is a prelude symbol
                         buildfile_docs.members.insert(sym.clone(), mem.clone());
                     }
+                    let native_member =
+                        DocItem::Member(DocMember::Property(starlark::docs::DocProperty {
+                            docs: Some(DocString {
+                                summary: format!("The prelude, defined in {l}"),
+                                details: None,
+                                examples: None,
+                            }),
+                            typ: Ty::any(),
+                        }));
+                    builtin_docs
+                        .members
+                        .insert("native".to_owned(), native_member.clone());
+                    // Also, overwrite the one in buildfile_docs. The documentation for native
+                    // is so big it crashes some editors.
+                    buildfile_docs
+                        .members
+                        .insert("native".to_owned(), native_member);
                 }
                 None => {
                     for (sym, mem) in &docs.members {
