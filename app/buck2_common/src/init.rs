@@ -22,6 +22,8 @@ use serde::Serialize;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 
+pub const DEFAULT_RETAINED_EVENT_LOGS: usize = 12;
+
 /// Helper enum to categorize the kind of timeout we get from the startup config.
 #[derive(Clone, Debug)]
 pub enum Timeout {
@@ -456,6 +458,7 @@ pub struct DaemonStartupConfig {
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
     pub health_check_config: HealthCheckConfig,
+    pub retained_event_logs: usize,
 }
 
 impl DaemonStartupConfig {
@@ -531,6 +534,13 @@ impl DaemonStartupConfig {
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
             health_check_config: HealthCheckConfig::from_config(config)?,
+            retained_event_logs: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "retained_event_logs",
+                })
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
         })
     }
 
@@ -559,6 +569,7 @@ impl DaemonStartupConfig {
                 LogDownloadMethod::None
             },
             health_check_config: HealthCheckConfig::default(),
+            retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
         }
     }
 }

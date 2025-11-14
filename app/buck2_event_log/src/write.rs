@@ -63,6 +63,7 @@ pub struct WriteEventLog {
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
+    retained_event_logs: usize,
 }
 
 impl WriteEventLog {
@@ -75,6 +76,7 @@ impl WriteEventLog {
         command_name: String,
         start_time: SystemTime,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        retained_event_logs: usize,
     ) -> Self {
         Self {
             state: LogWriterState::Unopened {
@@ -88,6 +90,7 @@ impl WriteEventLog {
             start_time,
             buf: Vec::new(),
             log_size_counter_bytes,
+            retained_event_logs,
         }
     }
 
@@ -165,7 +168,7 @@ impl WriteEventLog {
             .with_buck_error_context(|| {
                 format!("Error creating event log directory: `{logdir}`")
             })?;
-        remove_old_logs(logdir).await;
+        remove_old_logs(logdir, self.retained_event_logs).await;
 
         let encoding = Encoding::PROTO_ZSTD;
         let file_name = &get_logfile_name(event, encoding, &self.command_name)?;
@@ -479,6 +482,7 @@ mod tests {
                 buf: Vec::new(),
                 log_size_counter_bytes: None,
                 start_time: SystemTime::UNIX_EPOCH,
+                retained_event_logs: 5,
             })
         }
     }
