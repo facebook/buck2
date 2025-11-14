@@ -185,6 +185,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         // Http 4xx errors could be either systemic problems or caused by user input.
         // Treat them as environment errors for alerting and SLIs, but input errors so that they aren't ignored by CI.
         ErrorTag::HttpClient => rank!(environment).exit_code(ExitCode::UserError),
+        // Mostly caused by network related operation being too slow/timeout.
+        ErrorTag::IoEdenNetworkCurlTimedout => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -331,7 +333,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoEdenAttributeUnavailable => rank!(tier0),
         ErrorTag::IoEdenDataCorruption => rank!(tier0),
         ErrorTag::IoEdenNetworkTls => rank!(tier0),
-        ErrorTag::IoEdenNetworkCurlTimedout => rank!(tier0),
         ErrorTag::IoEdenNetworkUncategorized => rank!(tier0),
         ErrorTag::IoEdenUncategorized => rank!(tier0),
         ErrorTag::IoBlockingExecutor => rank!(tier0),
