@@ -43,6 +43,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::bindings::Bindings;
 use crate::typing::bindings::BindingsCollect;
+use crate::typing::ctx::BindingType;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
@@ -57,18 +58,19 @@ use crate::values::FrozenHeap;
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(
-    bindings: Bindings,
+    mut bindings: Bindings,
     oracle: TypingOracleCtx,
     module_var_types: &ModuleVarTypes,
 ) -> Result<(Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>), InternalError> {
     let mut types = bindings
         .expressions
         .keys()
-        .map(|x| (*x, Ty::never()))
+        .map(|x| (*x, BindingType::Solver(Ty::never())))
         .collect::<UnorderedMap<_, _>>();
     for (k, ty) in bindings.types {
-        types.insert(k, ty);
+        types.insert(k, BindingType::Annotated(ty));
     }
+
     // FIXME: Should be a fixed point, just do 10 iterations since that probably converges
     let mut changed = false;
     let mut ctx = TypingContext {
@@ -79,13 +81,22 @@ pub(crate) fn solve_bindings(
         module_var_types,
     };
     const ITERATIONS: usize = 100;
+
+    // No need to (expensively) solve over expressions whose type is already provided
+    // by user.
+    bindings
+        .expressions
+        .retain(|name, _| matches!(ctx.types.get(name), Some(BindingType::Solver(_))));
+
     for _iteration in 0..ITERATIONS {
         changed = false;
         ctx.errors.borrow_mut().clear();
         for (name, exprs) in &bindings.expressions {
             for expr in exprs {
                 let ty = ctx.expression_bind_type(expr)?;
-                let t = ctx.types.get_mut(name).unwrap();
+                let BindingType::Solver(t) = ctx.types.get_mut(name).unwrap() else {
+                    continue;
+                };
                 let new = Ty::union2(t.clone(), ty);
                 if &new != t {
                     changed = true;
@@ -122,7 +133,10 @@ pub(crate) fn solve_bindings(
     }
     Ok((
         ctx.errors.into_inner(),
-        ctx.types.into_hash_map(),
+        ctx.types
+            .into_entries_unordered()
+            .map(|(k, v)| (k, v.into_inner()))
+            .collect(),
         ctx.approximoations.into_inner(),
     ))
 }
