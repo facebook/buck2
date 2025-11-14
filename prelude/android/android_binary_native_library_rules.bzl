@@ -19,6 +19,7 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CP
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 # @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "early_gatorade_libraries", "gatorade_libraries", "is_late_gatorade_enabled")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:linker_outputs.bzl", "add_extra_linker_output_flags")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -127,10 +128,13 @@ def get_android_binary_native_library_info(
         included_shared_lib_targets.extend([lib.label.raw_target() for lib in shared_libs.values()])
         original_shared_libs_by_platform[platform] = shared_libs
 
+    enable_llvm_stats = getattr(ctx.attrs, "enable_llvm_stats", False)
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
         enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
         enhance_ctx.debug_output("linker_argsfiles", ctx.actions.symlinked_dir("linker_argsfiles", {}))
         enhance_ctx.debug_output("linker_commands", ctx.actions.write("linker_commands", []))
+        if enable_llvm_stats:
+            enhance_ctx.debug_output("llvm_stats", ctx.actions.write("llvm_stats", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         enhance_ctx.debug_output("unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}))
@@ -156,6 +160,7 @@ def get_android_binary_native_library_info(
 
     linker_argsfiles = ctx.actions.declare_output("linker_argsfiles", dir = True)
     linker_commands = ctx.actions.declare_output("linker_commands")
+    llvm_stats = ctx.actions.declare_output("llvm_stats") if enable_llvm_stats else None
     unstripped_native_libraries = ctx.actions.declare_output("unstripped_native_libraries")
     unstripped_native_libraries_json = ctx.actions.declare_output("unstripped_native_libraries_json")
     unstripped_native_libraries_files = ctx.actions.declare_output("unstripped_native_libraries.links", dir = True)
@@ -175,6 +180,8 @@ def get_android_binary_native_library_info(
         non_root_module_metadata_assets,
         non_root_module_lib_assets,
     ]
+    if llvm_stats:
+        dynamic_outputs.append(llvm_stats)
 
     fake_input = ctx.actions.write("dynamic.trigger", "")
 
@@ -381,6 +388,7 @@ def get_android_binary_native_library_info(
         native_lib_dynamic_outputs = {
             "linker_argsfiles": outputs[linker_argsfiles],
             "linker_commands": outputs[linker_commands],
+            "llvm_stats": outputs[llvm_stats] if llvm_stats else None,
             "native_lib_assets_for_primary_apk": outputs[native_lib_assets_for_primary_apk],
             "native_libs": outputs[native_libs],
             "native_libs_always_in_primary_apk": outputs[native_libs_always_in_primary_apk],
@@ -467,6 +475,8 @@ def get_android_binary_native_library_info(
 
     enhance_ctx.debug_output("linker_argsfiles", linker_argsfiles)
     enhance_ctx.debug_output("linker_commands", linker_commands)
+    if getattr(ctx.attrs, "enable_llvm_stats", False):
+        enhance_ctx.debug_output("llvm_stats", llvm_stats)
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
@@ -497,6 +507,7 @@ def _post_native_lib_graph_finalization_steps(
         get_module_from_target: typing.Callable,
         linker_argsfiles: Artifact,
         linker_commands: Artifact,
+        llvm_stats: Artifact | None,
         unstripped_native_libraries: Artifact,
         unstripped_native_libraries_json: Artifact,
         unstripped_native_libraries_files: Artifact,
@@ -516,6 +527,7 @@ def _post_native_lib_graph_finalization_steps(
     unstripped_libs = {}
     linker_argsfiles_list = []
     linker_commands_json = []
+    llvm_stats_files = {}
     for platform, libs in final_shared_libs_by_platform.items() + pre_bolt_libs_by_platform.items():
         for lib in libs.values():
             unstripped_libs[lib.lib.output] = platform
@@ -526,12 +538,24 @@ def _post_native_lib_graph_finalization_steps(
                 "command": lib.lib.linker_command,
                 "filename": lib.lib.output.short_path,
             })
+            if llvm_stats:
+                llvm_stats_output = lib.extra_outputs.get("llvm-stats-file")
+                if llvm_stats_output:
+                    output = llvm_stats_output[0].default_outputs[0]
+                    llvm_stats_files[output] = platform
 
     ctx.actions.symlinked_dir(linker_argsfiles, {
         "{}".format(lib.output.basename): lib.linker_argsfile
         for lib in linker_argsfiles_list
     })
     ctx.actions.write_json(linker_commands, linker_commands_json, with_inputs = False)
+
+    if llvm_stats:
+        ctx.actions.symlinked_dir(llvm_stats, {
+            "{}/{}".format(platform, llvm_stats_file.basename): llvm_stats_file
+            for llvm_stats_file, platform in llvm_stats_files.items()
+        })
+
     ctx.actions.write(unstripped_native_libraries, unstripped_libs.keys())
     ctx.actions.write_json(unstripped_native_libraries_json, unstripped_libs)
     ctx.actions.symlinked_dir(unstripped_native_libraries_files, {
@@ -1910,6 +1934,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
 
             extra_args = {} # @oss-enable
             # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path)
+            # @oss-disable[end= ]: extra_args |= add_extra_linker_output_flags(ctx, cxx_toolchain, output_path)
             shared_lib = create_shared_lib(
                 ctx,
                 output_path = output_path,
