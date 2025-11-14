@@ -47,6 +47,7 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
+use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
@@ -138,7 +139,7 @@ impl DocsCacheManager {
         let mut builtin_docs = Vec::new();
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        builtin_docs.push((None, get_builtin_globals_docs(dice_ctx).await?));
+        builtin_docs.push((None, get_builtin_globals_docs(dice_ctx).await?.clone()));
 
         let builtin_names = builtin_docs
             .iter()
@@ -196,6 +197,10 @@ struct DocsCache {
     global_urls: HashMap<String, LspUrl>,
     /// Mapping of starlark: urls to a synthesized starlark representation.
     native_starlark_files: HashMap<LspUrl, String>,
+    /// A DocModule for all the globals, without prelude symbols.
+    builtin_docs: DocModule,
+    /// A DocModule for build files specifically, with prelude symbols.
+    buildfile_docs: DocModule,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -258,12 +263,18 @@ impl DocsCache {
         };
 
         let mut native_starlark_files = HashMap::new();
+
+        let mut builtin_docs = DocModule::default();
+        let mut buildfile_docs = DocModule::default();
+
         for (import_path, docs) in builtin_symbols {
             match import_path {
                 Some(l) => {
                     let url = location_lookup(l).await?;
-                    for (sym, _) in &docs.members {
+                    for (sym, mem) in &docs.members {
                         insert_global(sym.clone(), url.clone())?;
+                        // Only for buildfiles, as this is a prelude symbol
+                        buildfile_docs.members.insert(sym.clone(), mem.clone());
                     }
                 }
                 None => {
@@ -285,6 +296,8 @@ impl DocsCache {
                         assert!(prev.is_none());
 
                         insert_global(sym.clone(), url)?;
+                        builtin_docs.members.insert(sym.clone(), mem.clone());
+                        buildfile_docs.members.insert(sym.clone(), mem.clone());
                     }
                 }
             };
@@ -292,6 +305,8 @@ impl DocsCache {
         Ok(Self {
             global_urls,
             native_starlark_files,
+            builtin_docs,
+            buildfile_docs,
         })
     }
 
@@ -757,8 +772,32 @@ impl LspContext for BuckLspContext<'_> {
         .into())
     }
 
-    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
-        DocModule::default()
+    fn get_environment(&self, url: &LspUrl) -> DocModule {
+        let dispatcher = self.server_ctx.events().dupe();
+        self.runtime
+            .block_on(with_dispatcher_async(dispatcher, async {
+                let Ok(import_path) = self.import_path_from_url(url).await else {
+                    return Ok(DocModule::default());
+                };
+
+                // TODO: investigate whether this performs badly when editing the prelude
+                // cell itself. We are recomputing the prelude cell docs whether they are
+                // needed or not. Right here, we know whether the current file is in the prelude
+                // and we can behave differently in that case.
+                let docs_cache = self
+                    .with_dice_ctx(|dice_ctx| async move {
+                        self.docs_cache_manager.get_cache(dice_ctx).await
+                    })
+                    .await?;
+
+                let docs = match import_path.borrow() {
+                    StarlarkPath::BuildFile(_) => docs_cache.buildfile_docs.clone(),
+                    _ => docs_cache.builtin_docs.clone(),
+                };
+
+                buck2_error::Ok(docs)
+            }))
+            .unwrap_or_default()
     }
 }
 
