@@ -61,8 +61,9 @@ def _archive(
         thin: bool,
         prefer_local: bool,
         allow_cache_upload: bool) -> Artifact:
-    archive_output = ctx.actions.declare_output(name)
     toolchain = get_cxx_toolchain_info(ctx)
+    has_content_based_path = (toolchain.cxx_compiler_info.supports_content_based_paths == True)
+    archive_output = ctx.actions.declare_output(name, has_content_based_path = has_content_based_path)
     command = cmd_args(toolchain.linker_info.archiver)
     archiver_type = toolchain.linker_info.archiver_type
     command.add(_archive_flags(
@@ -89,6 +90,7 @@ def _archive(
             name = name + ".cxx_archive_argsfile",
             args = shell_quoted_args,
             allow_args = True,
+            has_content_based_path = has_content_based_path,
         ))
     else:
         command.add(args)
