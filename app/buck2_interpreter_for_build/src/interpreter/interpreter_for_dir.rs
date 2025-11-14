@@ -205,7 +205,8 @@ impl LoadResolver for InterpreterLoadResolver {
                 StarlarkFileType::Bzl
                 | StarlarkFileType::Buck
                 | StarlarkFileType::Package
-                | StarlarkFileType::Json => {
+                | StarlarkFileType::Json
+                | StarlarkFileType::Toml => {
                     return Err(LoadResolutionError::BxlLoadNotAllowed(path).into());
                 }
                 StarlarkFileType::Bxl => {
@@ -257,15 +258,12 @@ impl LoadResolver for InterpreterLoadResolver {
                 }
             }
         }
-        if path.path().extension() == Some("json") {
-            Ok(OwnedStarlarkModulePath::JsonFile(
-                ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
-            ))
-        } else {
-            Ok(OwnedStarlarkModulePath::LoadFile(
-                ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
-            ))
-        }
+        let import_path = ImportPath::new_with_build_file_cells(path, self.build_file_cell)?;
+        Ok(match import_path.path().path().extension() {
+            Some("json") => OwnedStarlarkModulePath::JsonFile(import_path),
+            Some("toml") => OwnedStarlarkModulePath::TomlFile(import_path),
+            _ => OwnedStarlarkModulePath::LoadFile(import_path),
+        })
     }
 }
 
@@ -429,7 +427,7 @@ impl InterpreterForDir {
                         return Some(prelude_import);
                     }
                 }
-                StarlarkPath::JsonFile(_) => return None,
+                StarlarkPath::JsonFile(_) | StarlarkPath::TomlFile(_) => return None,
             }
         }
 
@@ -576,6 +574,7 @@ impl InterpreterForDir {
                 }),
                 StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
                 StarlarkModulePath::JsonFile(j) => PerFileTypeContext::Json(j.clone()),
+                StarlarkModulePath::TomlFile(t) => PerFileTypeContext::Toml(t.clone()),
             };
             let typecheck = self.global_state.unstable_typecheck
                 || matches!(starlark_path, StarlarkModulePath::BxlFile(..))

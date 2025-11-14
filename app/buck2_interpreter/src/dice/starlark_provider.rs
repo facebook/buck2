@@ -120,6 +120,9 @@ impl std::fmt::Display for StarlarkEvalKind {
                 OwnedStarlarkModulePath::JsonFile(import_path) => {
                     write!(f, "load_json/{}", import_path)
                 }
+                OwnedStarlarkModulePath::TomlFile(import_path) => {
+                    write!(f, "load_toml/{}", import_path)
+                }
             },
             StarlarkEvalKind::LoadPackageFile(package_label) => {
                 write!(f, "load_package/{}", package_label)

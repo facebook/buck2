@@ -55,6 +55,8 @@ your team.
   new languages.
 - [Build APIs](api/build) - documentation for the APIs available when writing
   rules.
+- [Loading Data](users/loading_data.md) - How to load static data from JSON and
+  TOML files in rules.
 - [Starlark Types](https://github.com/facebook/starlark-rust/blob/main/docs/types.md) -
   rules are written in Starlark (which is approximately Python), but our version
   adds types.
