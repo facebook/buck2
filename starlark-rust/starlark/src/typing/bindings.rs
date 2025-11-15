@@ -274,7 +274,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             let name = &p.node.ident;
             let ty = p.node.ty;
             let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
-            let name_ty = match &p.node.kind {
+            let ty = match &p.node.kind {
                 DefParamKind::Regular(mode, default_value) => {
                     let required = match default_value.is_some() {
                         true => ParamIsRequired::No,
@@ -299,25 +299,23 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                             ));
                         }
                     }
-                    Some((name, ty))
+                    ty
                 }
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
                     args = Some(ty.dupe());
-                    Some((name, Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))))
+                    Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))
                 }
                 DefParamKind::Kwargs => {
                     let var_ty = Ty::dict(Ty::string(), ty.clone());
                     kwargs = Some(ty.dupe());
-                    Some((name, var_ty))
+                    var_ty
                 }
             };
-            if let Some((name, ty)) = name_ty {
-                self.bindings
-                    .types
-                    .insert(name.resolved_binding_id(codemap)?, ty);
-            }
+            self.bindings
+                .types
+                .insert(name.resolved_binding_id(codemap)?, ty);
         }
         let params2 = ParamSpec::new_parts(pos_only, pos_or_named, args, named_only, kwargs)
             .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
