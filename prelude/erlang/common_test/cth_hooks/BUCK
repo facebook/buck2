@@ -14,6 +14,7 @@ erlang_application(
         "kernel",
         "stdlib",
         "common_test",
+        "prelude//erlang/common_test/common:common",
     ],
     erl_opts = [
         "+debug_info",
