@@ -34,6 +34,7 @@ def get_swift_interface_anon_targets(
             {
                 "dep": d,
                 "name": d.label,
+                "uses_experimental_content_based_path_hashing": True,
                 "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
             },
         )
@@ -160,6 +161,7 @@ _swift_interface_compilation = rule(
     impl = _swift_interface_compilation_impl,
     attrs = {
         "dep": attrs.dep(),
+        "uses_experimental_content_based_path_hashing": attrs.bool(),
         "_swift_toolchain": attrs.dep(),
     },
 )
