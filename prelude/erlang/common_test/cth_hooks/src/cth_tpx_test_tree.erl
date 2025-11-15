@@ -67,8 +67,8 @@
     startedTime => float(),
     endedTime => float(),
     outcome := outcome(),
-    details := string(),
-    std_out := string()
+    details := unicode:chardata(),
+    std_out := unicode:chardata()
 }.
 
 -type outcome() ::
@@ -210,20 +210,16 @@ report_end_failure(
     #{name := TestName, outcome := ResultOutcome, details := ResultDetails} = ResultAcc
 ) ->
     MergedOutcome = merge_outcome(EndOutcome, ResultOutcome),
-    EndFailedDetails =
-        unicode_characters_to_list([
-            io_lib:format("~tp ~tp because ~tp failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails
-        ]),
+    EndFailedDetails = io_lib:format(~"~tp ~tp because ~tp failed with~n~ts", [
+        TestName, MergedOutcome, EndName, EndDetails
+    ]),
+
     MergedDetails =
         case ResultOutcome of
             passed ->
                 EndFailedDetails;
             _ ->
-                unicode_characters_to_list(
-                    lists:flatten(
-                        io_lib:format("~ts~n~n~ts", [ResultDetails, EndFailedDetails])
-                    )
-                )
+                io_lib:format("~ts~n~n~ts", [ResultDetails, EndFailedDetails])
         end,
     report_end_failure(Rest, ResultAcc#{outcome => MergedOutcome, details => MergedDetails}).
 
@@ -334,7 +330,7 @@ adds_if_present(Optional, List) ->
     end.
 
 %% Merge the StdOut from the init_per_testcase, main_testcase, and end_per_testcase
--spec merge_std_out(test_leaf()) -> string().
+-spec merge_std_out(test_leaf()) -> unicode:chardata().
 merge_std_out(#{type := leaf} = TestLeaf) ->
     #{init_method := OptMethodInit, main_method := OptMainMethod, end_method := OptMethodEnd} = TestLeaf,
     InitStdOut =
@@ -354,7 +350,7 @@ merge_std_out(#{type := leaf} = TestLeaf) ->
             none -> "";
             _ -> maps:get(std_out, OptMethodEnd)
         end,
-    unicode_characters_to_list([InitStdOut, MainStdOut, EndStdOut]).
+    [InitStdOut, MainStdOut, EndStdOut].
 
 -doc """
 Creates a method_result for a requested method for which no result was registered.
@@ -368,7 +364,7 @@ get_missing_result(Inits, QualifiedName) ->
                 io_lib:format("~ts.[main_testcase]", [QualifiedName])
             ),
             outcome => failed,
-            details => "no results for this test were recorded",
+            details => ~"no results for this test were recorded",
             std_out => ""
         },
     handle_missing_results(Inits, MainResult).
@@ -380,41 +376,38 @@ Generates an user informative message in the case of the missing result by attem
 handle_missing_results([], MainResult) ->
     MainResult;
 handle_missing_results([Init | Inits], MainResult) ->
-    InitStdOut = unicode_characters_to_list([
-        name_to_string(maps:get(name, Init)), " stdout: ", maps:get(std_out, Init)
-    ]),
+    InitStdOut = io_lib:format(~"~ts stdout: ~ts", [maps:get(name, Init), maps:get(std_out, Init)]),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
                 details =>
-                    unicode_characters_to_list(
-                        io_lib:format(
-                            "no results for this test were recorded because init ~ts failed with error message : \n ~ts",
-                            [maps:get(name, Init), maps:get(details, Init)]
-                        )
+                    io_lib:format(
+                        ~"no results for this test were recorded because init ~ts failed with error message:\n ~ts",
+                        [maps:get(name, Init), maps:get(details, Init)]
                     ),
+
                 std_out => InitStdOut
             };
         timeout ->
             MainResult#{
-                details => unicode_characters_to_list(
+                details =>
                     io_lib:format(
-                        "no results for this test were recorded because init ~ts timed-out with error message : \n ~ts",
+                        ~"no results for this test were recorded because init ~ts timed-out with error message:\n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
-                    )
-                ),
+                    ),
+
                 std_out => InitStdOut
             };
         skipped ->
             handle_skipped_result([Init | Inits], MainResult);
         omitted ->
             MainResult#{
-                details => unicode_characters_to_list(
+                details =>
                     io_lib:format(
-                        "no results for this test were recorded because init ~ts was omitted with message : \n ~ts",
+                        ~"no results for this test were recorded because init ~ts was omitted with message:\n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
-                    )
-                ),
+                    ),
+
                 std_out => InitStdOut
             };
         passed ->
@@ -429,32 +422,28 @@ handle_missing_results([Init | Inits], MainResult) ->
 handle_skipped_result([], MainResult) ->
     MainResult;
 handle_skipped_result([Init | Inits], MainResult) ->
-    InitStdOut = unicode_characters_to_list([
-        name_to_string(maps:get(name, Init)), " stdout: ", maps:get(std_out, Init)
-    ]),
+    InitStdOut = io_lib:format(~"~ts stdout: ~ts", [maps:get(name, Init), maps:get(std_out, Init)]),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
                 outcome => failed,
                 details =>
-                    unicode_characters_to_list(
-                        io_lib:format(
-                            "Failed because init ~ts failed, with error message : \n ~ts",
-                            [maps:get(name, Init), maps:get(details, Init)]
-                        )
+                    io_lib:format(
+                        ~"Failed because init ~ts failed, with error message:\n ~ts",
+                        [maps:get(name, Init), maps:get(details, Init)]
                     ),
+
                 std_out => InitStdOut
             };
         timeout ->
             MainResult#{
                 outcome => timeout,
                 details =>
-                    unicode_characters_to_list(
-                        io_lib:format(
-                            "Timed-out because init ~ts timed-out, with error message : \n ~ts",
-                            [maps:get(name, Init), maps:get(details, Init)]
-                        )
+                    io_lib:format(
+                        ~"Timed-out because init ~ts timed-out, with error message:\n ~ts",
+                        [maps:get(name, Init), maps:get(details, Init)]
                     ),
+
                 std_out => InitStdOut
             };
         passed ->
@@ -465,19 +454,11 @@ handle_skipped_result([Init | Inits], MainResult) ->
             MainResult#{
                 outcome => failed,
                 details =>
-                    unicode_characters_to_list(
-                        io_lib:format(
-                            "Failed because init ~ts was omitted, with error message : \n ~ts",
-                            [maps:get(name, Init), maps:get(details, Init)]
-                        )
+                    io_lib:format(
+                        ~"Failed because init ~ts was omitted, with error message:\n ~ts",
+                        [maps:get(name, Init), maps:get(details, Init)]
                     ),
+
                 std_out => InitStdOut
             }
     end.
-
--spec name_to_string(Name) -> string() when
-    Name :: name().
-name_to_string(Name) when is_atom(Name) ->
-    atom_to_list(Name);
-name_to_string(Name) when is_list(Name) ->
-    Name.
