@@ -55,13 +55,6 @@ fn test_types_enable() {
 
 #[test]
 fn test_type_assign_annotation() {
-    assert::pass(
-        r#"
-x : str = "test"
-xs: typing.Any = [1,2]
-xs[0] : int = 4
-"#,
-    );
     assert::fail(
         "a, b : typing.Any = 1, 2",
         "not allowed on multiple assignments",
@@ -69,6 +62,22 @@ xs[0] : int = 4
     assert::fail(
         "a = 1\na : typing.Any += 1",
         "not allowed on augmented assignments",
+    );
+    assert::fail(
+        r#"
+def check():
+    x = struct(y = 5)
+    x.y: int = 10
+"#,
+        "not allowed on complex assignments",
+    );
+    assert::fail(
+        r#"
+def check():
+    x = list()
+    x[0]: int = 10
+"#,
+        "not allowed on complex assignments",
     );
     assert::fail("a : str = noop(1)", "does not match the type annotation");
 }

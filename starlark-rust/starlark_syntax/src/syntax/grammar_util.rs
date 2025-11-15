@@ -66,6 +66,8 @@ enum GrammarUtilError {
     TypeAnnotationOnAssignOp,
     #[error("type annotations not allowed on multiple assignments")]
     TypeAnnotationOnTupleAssign,
+    #[error("type annotations not allowed on complex assignments")]
+    TypeAnnotationOnComplexAssign,
     #[error("`load` statement requires at least two arguments")]
     LoadRequiresAtLeastTwoArguments,
 }
@@ -125,12 +127,13 @@ pub fn check_assignment(
     }
     let lhs = check_assign(codemap, lhs)?;
     if let Some(ty) = &ty {
-        let err = if op.is_some() {
-            Some(GrammarUtilError::TypeAnnotationOnAssignOp)
-        } else if matches!(lhs.node, AssignTargetP::Tuple(_)) {
-            Some(GrammarUtilError::TypeAnnotationOnTupleAssign)
-        } else {
-            None
+        let err = match lhs.node {
+            _ if op.is_some() => Some(GrammarUtilError::TypeAnnotationOnAssignOp),
+            AssignTargetP::Tuple(_) => Some(GrammarUtilError::TypeAnnotationOnTupleAssign),
+            AssignTargetP::Index(_) | AssignTargetP::Dot(..) => {
+                Some(GrammarUtilError::TypeAnnotationOnComplexAssign)
+            }
+            AssignTargetP::Identifier(_) => None,
         };
         if let Some(err) = err {
             return Err(EvalException::new_anyhow(err.into(), ty.span, codemap));
