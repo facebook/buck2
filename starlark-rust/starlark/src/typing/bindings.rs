@@ -357,6 +357,18 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                             .push((ty.span, Some(rhs), ty2.clone()));
                         if let AssignTargetP::Identifier(id) = &**lhs {
                             self.type_annotation(id, ty2, lhs.span.merge(ty.span), codemap)?;
+                        } else {
+                            // We should have caught this when parsing.
+                            return Err(InternalError::from_error(
+                                crate::Error::new_kind(starlark_syntax::ErrorKind::Other(
+                                    anyhow::anyhow!(
+                                        "Cannot annotate type of complex assign target",
+                                    ),
+                                )),
+                                lhs.span.merge(ty.span),
+                                codemap,
+                            )
+                            .into());
                         }
                     }
                     self.assign(lhs, BindExpr::Expr(rhs), codemap)?
