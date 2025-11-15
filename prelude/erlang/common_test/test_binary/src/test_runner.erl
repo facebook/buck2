@@ -242,19 +242,21 @@ decode_erlang_term(Bin) ->
 -spec trimmed_content_file(File) -> unicode:chardata() when
     File :: file:filename_all().
 trimmed_content_file(File) ->
-    case file:open(File, [read, binary]) of
+    case file:open(File, [read, raw, binary]) of
         {error, Reason} ->
-            io_lib:format("No ~tp file found, reason ~tp ", [filename:basename(File), Reason]);
-        {ok, IoDevice} ->
+            io_lib:format(~"No ~tp file found, reason ~tp ", [filename:basename(File), Reason]);
+        {ok, FD} ->
             try
-                case file:pread(IoDevice, {eof, -5000}, 5000) of
+                case file:position(FD, {eof, -5000}) of
                     {error, _} ->
-                        case file:pread(IoDevice, bof, 5000) of
+                        {ok, _} = file:position(FD, bof),
+                        case file:read(FD, 5000) of
                             {ok, Data} -> Data;
-                            eof -> io_lib:format("nothing to read from ~ts", [File])
+                            eof -> io_lib:format(~"nothing to read from ~ts", [File])
                         end;
-                    {ok, EndOfFile} ->
-                        io_lib:format("~ts~nFile truncated, see ~tp for full output", [
+                    {ok, _} ->
+                        {ok, EndOfFile} = file:read(FD, 5000),
+                        io_lib:format(~"~ts~nFile truncated, see ~tp for full output", [
                             EndOfFile,
                             filename:basename(File)
                         ])
@@ -262,7 +264,7 @@ trimmed_content_file(File) ->
             of
                 Content -> Content
             after
-                file:close(IoDevice)
+                file:close(FD)
             end
     end.
 
