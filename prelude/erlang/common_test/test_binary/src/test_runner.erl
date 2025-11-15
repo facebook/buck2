@@ -175,7 +175,10 @@ test_run_succeed(#test_env{} = TestEnv, Reason) ->
 -doc """
 Provides result as specified by the tpx protocol.
 """.
--spec provide_output_file(#test_env{}, unicode:chardata(), failed | passed | timeout) -> ok.
+-spec provide_output_file(TestEnv, ResultExec, Status) -> ok when
+    TestEnv :: #test_env{},
+    ResultExec :: unicode:chardata(),
+    Status :: failed | passed | timeout.
 provide_output_file(
     #test_env{
         output_dir = OutputDir,
@@ -187,19 +190,22 @@ provide_output_file(
     Status
 ) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_executor),
-    Log = trimmed_content_file(LogFile),
     StdOutFile = test_logger:get_std_out(OutputDir, ct_executor),
-    StdOut = trimmed_content_file(StdOutFile),
-    OutLog = io_lib:format("ct_executor_log: ~ts ~nct_executor_stdout: ~ts", [Log, StdOut]),
+    LogFilesForCrashes = #{
+        ct_executor_log => LogFile,
+        ct_executor_stdout => StdOutFile
+    },
+
     ResultsFile = filename:join(OutputDir, "result.json"),
     Results =
         case Status of
             failed ->
-                collect_results_broken_run(
-                    Tests, Suite, "internal crash", ResultExec, OutLog
-                );
+                collect_results_broken_run(Tests, Suite, ~"internal crash", ResultExec, LogFilesForCrashes);
             timeout ->
-                collect_results_broken_run(Tests, Suite, "", ResultExec, StdOut);
+                % Suite timeout: this is typically a user error, so we don't want to display the
+                % executor logs.
+                StdOutLogFile = #{ct_executor_stdout => StdOutFile},
+                collect_results_broken_run(Tests, Suite, ~"", ResultExec, StdOutLogFile);
             passed ->
                 % Here we either passed or timeout.
                 case file:read_file(ResultsFile, [raw]) of
@@ -209,21 +215,19 @@ provide_output_file(
                             undefined ->
                                 ErrorMsg =
                                     io_lib:format(
-                                        "ct failed to produced results valid file ~tp", [
+                                        ~"ct failed to produced results valid file ~tp", [
                                             ResultsFile
                                         ]
                                     ),
-                                collect_results_broken_run(
-                                    Tests, Suite, ErrorMsg, ResultExec, OutLog
-                                );
+                                collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes);
                             _ ->
                                 collect_results_fine_run(TreeResults, Tests)
                         end;
                     {error, _Reason} ->
-                        ErrorMsg = io_lib:format("ct failed to produced results file ~tp", [
+                        ErrorMsg = io_lib:format(~"ct failed to produced results file ~tp", [
                             ResultsFile
                         ]),
-                        collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
+                        collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes)
                 end
         end,
     {ok, _ResultOuptuFile} = json_interfacer:write_json_output(OutputDir, Results),
@@ -271,9 +275,29 @@ trimmed_content_file(File) ->
 -doc """
 Provide tpx with a result when CT failed to provide results for tests.
 """.
--spec collect_results_broken_run([#ct_test{}], atom(), unicode:chardata(), term(), unicode:chardata()) ->
-    [cth_tpx_test_tree:case_result()].
-collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
+-spec collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, RelevantLogFiles) ->
+    [cth_tpx_test_tree:case_result()]
+when
+    Tests :: [#ct_test{}],
+    Suite :: module(),
+    ErrorMsg :: unicode:chardata(),
+    ResultExec :: unicode:chardata(),
+    RelevantLogFiles :: #{
+        ct_executor_log => file:filename_all(),
+        ct_executor_stdout := file:filename_all()
+    }.
+collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles) ->
+    #{ct_executor_stdout := StdOutFile} = RelevantLogFiles,
+    TrimmedStdOut = trimmed_content_file(StdOutFile),
+    StdOut =
+        case RelevantLogFiles of
+            #{ct_executor_log := ExecutorLogFile} ->
+                TrimmedExecutorLog = trimmed_content_file(ExecutorLogFile),
+                io_lib:format("ct_executor_log: ~ts ~nct_executor_stdout: ~ts", [TrimmedExecutorLog, TrimmedStdOut]);
+            _ ->
+                TrimmedStdOut
+        end,
+
     FormattedErrorMsg = io_lib:format("~ts~n", [ErrorMsg]),
     [
         #{
