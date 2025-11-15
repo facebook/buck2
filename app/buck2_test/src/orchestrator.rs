@@ -187,6 +187,7 @@ pub struct BuckTestOrchestrator<'a: 'static> {
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
     cancellations: &'a CancellationContext,
+    re_client: Arc<remote_storage::ReClientWithCache>,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -198,6 +199,9 @@ impl<'a> BuckTestOrchestrator<'a> {
         cancellations: &'a CancellationContext,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
+        let re_client = Arc::new(remote_storage::ReClientWithCache::new(
+            dice.per_transaction_data().get_re_client(),
+        ));
         Ok(Self::from_parts(
             dice,
             session,
@@ -205,6 +209,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             results_channel,
             events,
             cancellations,
+            re_client,
         ))
     }
 
@@ -215,6 +220,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
         events: EventDispatcher,
         cancellations: &'a CancellationContext,
+        re_client: Arc<remote_storage::ReClientWithCache>,
     ) -> BuckTestOrchestrator<'a> {
         Self {
             dice,
@@ -223,6 +229,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             events,
             liveliness_observer,
             cancellations,
+            re_client,
         }
     }
 
@@ -317,13 +324,11 @@ impl<'a> BuckTestOrchestrator<'a> {
                 // RE? Alternatively, when we make buck upload local testing
                 // artifacts to CAS, we can remove this condition altogether.
                 (true, Some(CommandExecutionKind::Remote { .. }), Some(remote_object)) => {
+                    let re_client = self.re_client.clone();
                     let future = async move {
-                        let _unused = remote_storage::apply_config(
-                            self.dice.per_transaction_data().get_re_client(),
-                            &artifact,
-                            &remote_storage_config,
-                        )
-                        .await;
+                        let _unused = re_client
+                            .apply_config(&artifact, &remote_storage_config)
+                            .await;
                         (output_name, remote_object)
                     };
                     remote_storage_config_update_futures.push(future);
@@ -2289,6 +2294,7 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_test_api::data::TestStage;
     use buck2_test_api::data::TestStatus;
     use dice::UserComputationData;
@@ -2321,6 +2327,10 @@ mod tests {
 
         let (sender, receiver) = mpsc::unbounded();
 
+        let re_client = Arc::new(remote_storage::ReClientWithCache::new(
+            UnconfiguredRemoteExecutionClient::testing_new_dummy(),
+        ));
+
         Ok((
             BuckTestOrchestrator::from_parts(
                 dice,
@@ -2329,6 +2339,7 @@ mod tests {
                 sender,
                 EventDispatcher::null(),
                 CancellationContext::testing(),
+                re_client,
             ),
             receiver,
         ))
