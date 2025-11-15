@@ -44,18 +44,14 @@ use crate::provider::label::ProvidersName;
     PartialEq,
     strong_hash::StrongHash
 )]
+#[derive(Default)]
 pub enum BuckOutPathKind {
     /// A path that contains the configuration of the owning target.
+    #[default]
     Configuration,
 
     /// A path that contains the content hash of the artifact stored at the path.
     ContentHash,
-}
-
-impl Default for BuckOutPathKind {
-    fn default() -> Self {
-        Self::Configuration
-    }
 }
 
 #[derive(

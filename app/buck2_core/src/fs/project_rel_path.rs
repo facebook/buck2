@@ -374,7 +374,7 @@ impl ProjectRelativePath {
         self.0.ends_with(child.as_ref())
     }
 
-    /// Extracts the stem (non-extension) portion of [`self.file_name`].
+    /// Extracts the stem (non-extension) portion of `self.file_name`.
     ///
     /// The stem is:
     ///
@@ -397,7 +397,7 @@ impl ProjectRelativePath {
         self.0.file_stem()
     }
 
-    /// Extracts the extension of [`self.file_name`], if possible.
+    /// Extracts the extension of `self.file_name`, if possible.
     ///
     /// ```
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;

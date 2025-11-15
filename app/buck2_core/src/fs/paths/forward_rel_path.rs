@@ -555,7 +555,7 @@ impl ForwardRelativePath {
                     || self.0.as_bytes()[self.0.len() - child.0.len() - 1] == b'/'))
     }
 
-    /// Extracts the stem (non-extension) portion of [`self.file_name`].
+    /// Extracts the stem (non-extension) portion of `self.file_name`.
     ///
     /// The stem is:
     ///
@@ -592,7 +592,7 @@ impl ForwardRelativePath {
         })
     }
 
-    /// Extracts the extension of [`self.file_name`], if possible.
+    /// Extracts the extension of `self.file_name`, if possible.
     ///
     /// ```
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;

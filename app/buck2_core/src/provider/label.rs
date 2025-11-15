@@ -123,7 +123,9 @@ pub enum NonDefaultProvidersName {
     Allocative,
     strong_hash::StrongHash
 )]
+#[derive(Default)]
 pub enum ProvidersName {
+    #[default]
     Default,
     NonDefault(Arc<NonDefaultProvidersName>),
 }
@@ -131,12 +133,6 @@ pub enum ProvidersName {
 assert_eq_size!(ProvidersName, [usize; 1]);
 
 impl Dupe for ProvidersName {}
-
-impl Default for ProvidersName {
-    fn default() -> Self {
-        Self::Default
-    }
-}
 
 impl Display for ProvidersName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

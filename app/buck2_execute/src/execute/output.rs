@@ -174,18 +174,17 @@ impl fmt::Debug for ReStdStream {
 }
 
 #[derive(Debug, derive_more::From, Clone)]
+#[derive(Default)]
 pub enum CommandStdStreams {
-    Local { stdout: Vec<u8>, stderr: Vec<u8> },
+    Local {
+        stdout: Vec<u8>,
+        stderr: Vec<u8>,
+    },
 
     Remote(RemoteCommandStdStreams),
 
+    #[default]
     Empty,
-}
-
-impl Default for CommandStdStreams {
-    fn default() -> Self {
-        Self::Empty
-    }
 }
 
 impl CommandStdStreams {

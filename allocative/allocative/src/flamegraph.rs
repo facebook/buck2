@@ -86,7 +86,7 @@ impl FlameGraph {
 
     /// Write flamegraph in format suitable for [`flamegraph.pl`] or [inferno].
     ///
-    /// [flamegraph.pl]: https://github.com/brendangregg/FlameGraph
+    /// [`flamegraph.pl`]: https://github.com/brendangregg/FlameGraph
     /// [inferno]: https://github.com/jonhoo/inferno
     pub fn write(&self) -> String {
         let mut r = String::new();

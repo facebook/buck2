@@ -83,17 +83,13 @@ use crate::bxl::types::BxlFunctionLabel;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
+#[derive(Default)]
 enum BuildOutcome {
+    #[default]
     SUCCESS,
     FAIL,
     #[allow(dead_code)] // Part of the spec, but not yet used
     CANCELED,
-}
-
-impl Default for BuildOutcome {
-    fn default() -> Self {
-        Self::SUCCESS
-    }
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!

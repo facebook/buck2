@@ -303,17 +303,13 @@ impl Default for OutputPathsBehavior {
 }
 
 #[derive(Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Default)]
 pub enum CacheUploadBehavior {
     #[display("enabled")]
     Enabled { max_bytes: Option<u64> },
     #[display("disabled")]
+    #[default]
     Disabled,
-}
-
-impl Default for CacheUploadBehavior {
-    fn default() -> Self {
-        Self::Disabled
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]

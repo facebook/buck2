@@ -185,7 +185,7 @@ impl FileName {
         ForwardRelativePath::unchecked_new(&self.0)
     }
 
-    /// Extracts the stem (non-extension) portion of [`self.file_name`].
+    /// Extracts the stem (non-extension) portion of `self.file_name`.
     ///
     /// The stem is:
     ///
@@ -209,7 +209,7 @@ impl FileName {
         ForwardRelativePath::unchecked_new(&self.0).file_stem()
     }
 
-    /// Extracts the extension of [`self.file_name`], if possible.
+    /// Extracts the extension of `self.file_name`, if possible.
     ///
     /// ```
     /// use buck2_core::fs::paths::file_name::FileName;

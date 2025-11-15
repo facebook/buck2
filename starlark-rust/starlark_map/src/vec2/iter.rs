@@ -115,8 +115,14 @@ impl<A, B> Drop for IntoIter<A, B> {
     fn drop(&mut self) {
         unsafe {
             let rem = self.len();
-            ptr::drop_in_place(slice::from_raw_parts_mut(self.aaa_begin.as_ptr(), rem));
-            ptr::drop_in_place(slice::from_raw_parts_mut(self.bbb_begin.as_ptr(), rem));
+            ptr::drop_in_place(std::ptr::slice_from_raw_parts_mut(
+                self.aaa_begin.as_ptr(),
+                rem,
+            ));
+            ptr::drop_in_place(std::ptr::slice_from_raw_parts_mut(
+                self.bbb_begin.as_ptr(),
+                rem,
+            ));
             Vec2::<A, B>::dealloc_impl(self.bbb_ptr, self.cap);
         }
     }
