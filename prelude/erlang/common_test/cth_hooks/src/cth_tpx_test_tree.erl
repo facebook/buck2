@@ -367,57 +367,16 @@ get_missing_result(Inits, QualifiedName) ->
             details => ~"no results for this test were recorded",
             std_out => ""
         },
-    handle_missing_results(Inits, MainResult).
+    handle_skipped_result(Inits, MainResult).
 
 -doc """
 Generates an user informative message in the case of the missing result by attempting to find the right init to blame.
+
+Notice that an Erlang test-result can be `skipped` if it is either skipped by the user or was skipped because of an init failure.
+As `skipped` is an error state in tpx, if it was skipped by the user, the test is reported as omitted, which is not an error state.
+In the case where it is skipped because of init failure, it is reported as failed with appropriate user message reporting
+to the init to be blamed.
 """.
--spec handle_missing_results(Inits :: [method_result()], method_result()) -> method_result().
-handle_missing_results([], MainResult) ->
-    MainResult;
-handle_missing_results([Init | Inits], MainResult) ->
-    InitStdOut = io_lib:format(~"~ts stdout: ~ts", [maps:get(name, Init), maps:get(std_out, Init)]),
-    case maps:get(outcome, Init) of
-        failed ->
-            MainResult#{
-                details =>
-                    io_lib:format(
-                        ~"no results for this test were recorded because init ~ts failed with error message:\n ~ts",
-                        [maps:get(name, Init), maps:get(details, Init)]
-                    ),
-
-                std_out => InitStdOut
-            };
-        timeout ->
-            MainResult#{
-                details =>
-                    io_lib:format(
-                        ~"no results for this test were recorded because init ~ts timed-out with error message:\n ~ts",
-                        [maps:get(name, Init), maps:get(details, Init)]
-                    ),
-
-                std_out => InitStdOut
-            };
-        skipped ->
-            handle_skipped_result([Init | Inits], MainResult);
-        omitted ->
-            MainResult#{
-                details =>
-                    io_lib:format(
-                        ~"no results for this test were recorded because init ~ts was omitted with message:\n ~ts",
-                        [maps:get(name, Init), maps:get(details, Init)]
-                    ),
-
-                std_out => InitStdOut
-            };
-        passed ->
-            handle_skipped_result([Init | Inits], MainResult)
-    end.
-
-%% A result can be erlang skipped if it is either user skipped or skipped because of an init failure.
-%% Skip is an error state in tpx. If it is user skipped, the test is reported as omitted, which is not an error state.
-%% In the case where it is skipped because of init failure, it is reported as failed with appropriate user message reporting
-%% to the init to be blamed.
 -spec handle_skipped_result(Inits :: [method_result()], MainResult :: method_result()) -> method_result().
 handle_skipped_result([], MainResult) ->
     MainResult;
