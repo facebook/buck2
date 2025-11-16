@@ -17,6 +17,8 @@
 
 //! Compile and evaluate module top-level statements.
 
+use std::collections::HashMap;
+
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::syntax::ast::LoadP;
 use starlark_syntax::syntax::ast::StmtP;
@@ -36,11 +38,9 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
-use crate::typing::bindings::BindingsCollect;
-use crate::typing::error::InternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::mode::TypecheckMode;
-use crate::typing::typecheck::solve_bindings;
+use crate::typing::typecheck::TypeChecker;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -162,12 +162,12 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             }
         }
 
-        self.typecheck(&mut stmts)?;
+        self.typecheck(stmt)?;
 
         Ok(last)
     }
 
-    fn typecheck(&mut self, stmts: &mut [&mut CstStmt]) -> Result<(), EvalException> {
+    fn typecheck(&mut self, stmt: &CstStmt) -> Result<(), EvalException> {
         let typecheck = self.eval.static_typechecking || self.typecheck;
         if !typecheck {
             return Ok(());
@@ -177,27 +177,19 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             codemap: &self.codemap,
         };
         let module_var_types = self.mk_module_var_types();
-        for top in stmts.iter_mut() {
-            if let StmtP::Def(_) = &mut top.node {
-                let BindingsCollect { bindings, .. } = BindingsCollect::collect_one(
-                    top,
-                    TypecheckMode::Compiler,
-                    &self.codemap,
-                    &mut Vec::new(),
-                )
-                .map_err(InternalError::into_eval_exception)?;
-                let (errors, ..) = match solve_bindings(bindings, oracle, &module_var_types) {
-                    Ok(x) => x,
-                    Err(e) => return Err(e.into_eval_exception()),
-                };
-
-                if let Some(error) = errors.into_iter().next() {
-                    return Err(error.into_eval_exception());
-                }
-            }
-        }
-
-        Ok(())
+        let mut approximations = Vec::new();
+        let mut checker = TypeChecker {
+            oracle,
+            typecheck_mode: TypecheckMode::Compiler,
+            module_var_types: &module_var_types,
+            approximations: &mut approximations,
+            all_solved_types: HashMap::new(),
+        };
+        // Just immediately return on any type error
+        let mut error_handler = Err;
+        checker
+            .check_module_scope(stmt, &mut error_handler)
+            .map_err(|e| e.into_eval_exception())
     }
 
     fn mk_module_var_types(&self) -> ModuleVarTypes {
