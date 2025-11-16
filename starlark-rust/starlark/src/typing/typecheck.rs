@@ -47,6 +47,7 @@ use crate::typing::ctx::BindingType;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::fill_types_for_lint::fill_types_for_lint_typechecker;
 use crate::typing::interface::Interface;
@@ -55,6 +56,110 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
+
+/// Recursive function type-checker.
+///
+/// You can call `solve_bindings` on as big or as little input as you like, but it
+/// is O(n * m) where n is the number of expressions assigned to bindings, and m is
+/// a measure of complexity of the assignments (`a=1; b=a; b=""; c=b; a=c` is
+/// deliberately complex). If you lump all bindings in an entire module together and
+/// solve them all at once, `m` is set to the most complex function and `n` is large.
+///
+/// Fortunately, because of variable shadowing and no `global` keyword, we only ever
+/// need to look at a function body to determine the types of its local bindings from
+/// the assignments made to it.
+///
+/// ```python
+/// x = 5
+/// def child():
+///     x = "string"   # completely different binding, no relation to outer `x`
+/// ```
+///
+/// In some circumstances child scopes could influence parent scopes via mutation
+/// methods, but it's not a big loss if we don't infer in these cases.
+///
+/// ```python
+/// xs = list()
+/// def child():
+///     xs.push(5)  # could influence type of xs, but we will not support this
+/// ```
+///
+/// So we can solve bindings for every scope individually. That's what this does.
+/// As for ordering, a parent scope is finished and solved before we check any of
+/// its child scopes, so child scopes have access to parent binding solutions.
+///
+/// ```python
+/// x = 5
+/// def child():
+///     y = x    # y solves to `int | str`
+/// x = "string"
+/// ```
+///
+pub(crate) struct TypeChecker<'a> {
+    pub(crate) oracle: TypingOracleCtx<'a>,
+    pub(crate) typecheck_mode: TypecheckMode,
+    pub(crate) module_var_types: &'a ModuleVarTypes,
+    pub(crate) approximations: &'a mut Vec<Approximation>,
+    pub(crate) all_solved_types: HashMap<BindingId, Ty>,
+}
+
+impl<'a> TypeChecker<'a> {
+    fn codemap(&self) -> &'a CodeMap {
+        self.oracle.codemap
+    }
+
+    /// Typecheck an entire module.
+    ///
+    /// To just immediately return on encountering a type error, pass `&mut Err` as the error
+    /// handler. To collect errors and continue, be sure to return Ok from the error handler.
+    pub(crate) fn check_module_scope(
+        &mut self,
+        module: &CstStmt,
+        eh: &mut dyn FnMut(TypingError) -> Result<(), TypingError>,
+    ) -> Result<(), TypingOrInternalError> {
+        self.check_scope(module, &Ty::any(), &HashMap::default(), eh)
+    }
+
+    /// Recursive scope check. Checks the scope's bindings, and then all child defs.
+    pub(crate) fn check_scope(
+        &mut self,
+        body: &CstStmt,
+        return_type: &Ty,
+        visible: &HashMap<BindingId, Ty>,
+        eh: &mut dyn FnMut(TypingError) -> Result<(), TypingError>,
+    ) -> Result<(), TypingOrInternalError> {
+        let mut children = Vec::new();
+        let bindings = BindingsCollect::collect_scope(
+            body,
+            return_type,
+            visible,
+            self.typecheck_mode,
+            self.codemap(),
+            self.approximations,
+            &mut children,
+        )?;
+        let (errors, solved, mut approx) =
+            solve_bindings(bindings, self.oracle, self.module_var_types)?;
+
+        self.approximations.append(&mut approx);
+
+        for error in errors {
+            eh(error)?;
+        }
+
+        // Save all solved types to the output
+        let solved_copy = solved.iter().map(|(&b, ty)| (b, ty.dupe()));
+        self.all_solved_types.extend(solved_copy.clone());
+
+        for child in children {
+            let mut child_visible = visible.clone();
+            child_visible.extend(solved_copy.clone());
+            child_visible.extend(child.param_types);
+            self.check_scope(child.body, &child.return_type, &child_visible, eh)?;
+        }
+        Ok(())
+    }
+}
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(
