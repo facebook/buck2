@@ -106,12 +106,43 @@ pub(crate) struct Bindings<'a> {
     pub(crate) errors: Vec<TypingError>,
 }
 
+/// Basically a child `def`.
+pub(crate) struct ChildDef<'a> {
+    pub(crate) body: &'a CstStmt,
+    pub(crate) return_type: Ty,
+    pub(crate) param_types: HashMap<BindingId, Ty>,
+}
+
 pub(crate) struct BindingsCollect<'a, 'b> {
     pub(crate) bindings: Bindings<'a>,
     pub(crate) approximations: &'b mut Vec<Approximation>,
+    pub(crate) children_sink: Option<&'b mut Vec<ChildDef<'a>>>,
 }
 
 impl<'a, 'b> BindingsCollect<'a, 'b> {
+    /// Collect all the assignments to variables in a scope.
+    ///
+    /// This function only fails on internal errors.
+    pub(crate) fn collect_scope(
+        scope: &'a CstStmt,
+        return_type: &Ty,
+        visible: &HashMap<BindingId, Ty>,
+        typecheck_mode: TypecheckMode,
+        codemap: &CodeMap,
+        approximations: &'b mut Vec<Approximation>,
+        children_sink: &'b mut Vec<ChildDef<'a>>,
+    ) -> Result<Bindings<'a>, InternalError> {
+        let mut res = BindingsCollect {
+            bindings: Bindings::default(),
+            approximations,
+            children_sink: Some(children_sink),
+        };
+        res.bindings.types = visible.clone();
+
+        res.visit(Visit::Stmt(scope), return_type, typecheck_mode, codemap)?;
+        Ok(res.bindings)
+    }
+
     /// Collect all the assignments to variables.
     ///
     /// This function only fails on internal errors.
@@ -124,6 +155,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let mut res = BindingsCollect {
             bindings: Bindings::default(),
             approximations,
+            children_sink: None,
         };
 
         res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
@@ -269,6 +301,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let mut args = None;
         let mut named_only = Vec::new();
         let mut kwargs = None;
+        let mut param_types = HashMap::new();
 
         for p in params {
             let name = &p.node.ident;
@@ -313,9 +346,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     var_ty
                 }
             };
-            self.bindings
-                .types
-                .insert(name.resolved_binding_id(codemap)?, ty);
+            param_types.insert(name.resolved_binding_id(codemap)?, ty);
         }
         let params2 = ParamSpec::new_parts(pos_only, pos_or_named, args, named_only, kwargs)
             .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
@@ -334,7 +365,17 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             name.span,
             codemap,
         )?;
-        def.visit_children_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+
+        def.visit_header_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+
+        // Function body just gets added to the queue.
+        if let Some(sink) = &mut self.children_sink {
+            sink.push(ChildDef {
+                body: &def.body,
+                param_types,
+                return_type: ret_ty,
+            });
+        }
         Ok(())
     }
 
