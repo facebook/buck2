@@ -39,6 +39,7 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -206,6 +207,21 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         }
     }
 
+    /// Insert an explicit type for the binding.
+    fn type_annotation(
+        &mut self,
+        binding: &CstAssignIdent,
+        ty: Ty,
+        _error_span: Span,
+        codemap: &CodeMap,
+    ) -> Result<(), InternalError> {
+        let resolved_id = binding.resolved_binding_id(codemap)?;
+        // FIXME: This could be duplicated if you declare the type of a variable twice.
+        // We would only see the second one.
+        self.bindings.types.insert(resolved_id, ty);
+        Ok(())
+    }
+
     fn visit_def(
         &mut self,
         def: &'a DefP<CstPayload>,
@@ -277,10 +293,20 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let params2 = ParamSpec::new_parts(pos_only, pos_or_named, args, named_only, kwargs)
             .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
         let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
-        self.bindings.types.insert(
-            name.resolved_binding_id(codemap)?,
+
+        // Defining a function is like an annotated assignment
+        //
+        //     foo: Function[...] = lambda x, y: ...
+        //
+        // (even if there are no type annotations, because even just having parameters
+        // is a kind of type annotation).
+        //
+        self.type_annotation(
+            name,
             Ty::function(params2, ret_ty.clone()),
-        );
+            name.span,
+            codemap,
+        )?;
         def.visit_children_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
         Ok(())
     }
@@ -301,11 +327,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                             .check_type
                             .push((ty.span, Some(rhs), ty2.clone()));
                         if let AssignTargetP::Identifier(id) = &**lhs {
-                            // FIXME: This could be duplicated if you declare the type of a variable twice,
-                            // we would only see the second one.
-                            self.bindings
-                                .types
-                                .insert(id.resolved_binding_id(codemap)?, ty2);
+                            self.type_annotation(id, ty2, lhs.span.merge(ty.span), codemap)?;
                         }
                     }
                     self.assign(lhs, BindExpr::Expr(rhs), codemap)?
