@@ -107,6 +107,22 @@ def check():
 "#,
         "Expected type `float` but got `str`",
     );
+    assert::fail(
+        r#"
+def check():
+    x: float = 5.5
+    x = "hello"
+"#,
+        "Expected type `float` but got `str`",
+    );
+    assert::fail(
+        r#"
+def check():
+    x: float = 5.5
+    x, _ = ("", "")
+"#,
+        "Expected type `float` but got `str`",
+    );
 }
 
 #[test]
