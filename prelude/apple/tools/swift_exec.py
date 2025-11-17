@@ -273,14 +273,17 @@ def main():
     # We need to use the path where the action is run (both locally and on RE),
     # which is not known when we define the action.
     command += [
+        # Macro expansions get materialized in the temporary directory, which
+        # varies between local and remote actions. For local actions this will
+        # be a subdir of the CWD, so this needs to be the first map entry.
+        # We also need this prefix for the clang module cache path if we are
+        # not using explicit modules with remote actions.
+        "-file-prefix-map",
+        f"{env.get(_RE_TMPDIR_ENV_VAR, "/tmp").rstrip("/")}=/tmp",
         "-file-prefix-map",
         f"{os.getcwd()}/=",
         "-file-prefix-map",
         f"{os.getcwd()}=.",
-        # The module cache path ends up serialized in the DWARF, s we need to
-        # debug prefix it here for deterministic output.
-        "-file-prefix-map",
-        f"{env["CLANG_MODULE_CACHE_PATH"]}/=/tmp/buck-module-cache/",
     ]
 
     # Apply a coverage prefix map for the current directory
