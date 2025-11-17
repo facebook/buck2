@@ -166,14 +166,29 @@ pub(crate) fn solve_bindings(
     oracle: TypingOracleCtx,
     module_var_types: &ModuleVarTypes,
 ) -> Result<(Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>), InternalError> {
-    let mut types = bindings
-        .expressions
-        .keys()
-        .map(|x| (*x, BindingType::Solver(Ty::never())))
-        .collect::<UnorderedMap<_, _>>();
+    let mut types: UnorderedMap<BindingId, BindingType> = UnorderedMap::new();
+
+    // No need to (expensively) solve over bound expressions where the binding's type
+    // is already provided by user. Move these into check_type, to check all assignments
+    // match the type annotation.
     for (k, ty) in bindings.types {
-        types.insert(k, BindingType::Annotated(ty));
+        types.insert(k, BindingType::Annotated(ty.clone()));
+
+        if let Some(exprs) = bindings.expressions.get_mut(&k) {
+            for expr in std::mem::take(exprs) {
+                bindings
+                    .check_type
+                    .push((expr.span(), Some(expr), ty.dupe()));
+            }
+        }
     }
+    // So we don't have to shift_remove N times, just call retain at the end
+    bindings.expressions.retain(|_, exprs| !exprs.is_empty());
+
+    // Initialize unsolved types
+    bindings.expressions.keys().for_each(|x| {
+        types.insert(*x, BindingType::Solver(Ty::never()));
+    });
 
     // FIXME: Should be a fixed point, just do 10 iterations since that probably converges
     let mut changed = false;
@@ -186,12 +201,6 @@ pub(crate) fn solve_bindings(
     };
     const ITERATIONS: usize = 100;
 
-    // No need to (expensively) solve over expressions whose type is already provided
-    // by user.
-    bindings
-        .expressions
-        .retain(|name, _| matches!(ctx.types.get(name), Some(BindingType::Solver(_))));
-
     for _iteration in 0..ITERATIONS {
         changed = false;
         ctx.errors.borrow_mut().clear();
@@ -199,6 +208,7 @@ pub(crate) fn solve_bindings(
             for expr in exprs {
                 let ty = ctx.expression_bind_type(expr)?;
                 let BindingType::Solver(t) = ctx.types.get_mut(name).unwrap() else {
+                    // unreachable
                     continue;
                 };
                 let new = Ty::union2(t.clone(), ty);
@@ -225,7 +235,7 @@ pub(crate) fn solve_bindings(
     for (span, e, require) in &bindings.check_type {
         let ty = match e {
             None => Ty::none(),
-            Some(x) => ctx.expression_type(x)?,
+            Some(x) => ctx.expression_bind_type(x)?,
         };
         ctx.validate_type(
             Spanned {

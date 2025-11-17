@@ -99,7 +99,14 @@ pub(crate) struct Bindings<'a> {
     /// if expr: ...
     /// ```
     pub(crate) check: Vec<&'a CstExpr>,
-    pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
+    /// Bind expressions that need to be checked.
+    ///
+    /// While collecting, this is just `return` (None bindexpr),
+    /// `return bindexpr`, and `x: ty = bindexpr`.
+    ///
+    /// But once we know which bindings are annotated, we can
+    /// insert a check_type for any expression bound to an annotated binding.
+    pub(crate) check_type: Vec<(Span, Option<BindExpr<'a>>, Ty)>,
 
     /// Includes double-binding errors, like `x: str = ...; x: str = ...`.
     /// These break compiler typechecker, but LSP continues past them.
@@ -370,9 +377,11 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                 StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                     if let Some(ty) = ty {
                         let ty2 = Self::resolved_ty(ty, typecheck_mode, codemap)?;
-                        self.bindings
-                            .check_type
-                            .push((ty.span, Some(rhs), ty2.clone()));
+                        self.bindings.check_type.push((
+                            ty.span,
+                            Some(BindExpr::Expr(rhs)),
+                            ty2.clone(),
+                        ));
                         if let AssignTargetP::Identifier(id) = &**lhs {
                             self.type_annotation(id, ty2, lhs.span.merge(ty.span), codemap)?;
                         } else {
@@ -403,11 +412,11 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     return Ok(());
                 }
                 StmtP::Load(..) => {}
-                StmtP::Return(ret) => {
-                    self.bindings
-                        .check_type
-                        .push((x.span, ret.as_ref(), return_type.clone()))
-                }
+                StmtP::Return(ret) => self.bindings.check_type.push((
+                    x.span,
+                    ret.as_ref().map(BindExpr::Expr),
+                    return_type.clone(),
+                )),
                 StmtP::Expression(x) => {
                     // We want to find ident.append(), ident.extend(), ident.extend()
                     // to fake up a BindExpr::ListAppend/ListExtend
