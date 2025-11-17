@@ -31,12 +31,11 @@ def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     if min_version == None and target_version == None:
         return None
     elif min_version != None and target_version == None:
-        return min_version
+        fail("We expect `target_sdk_version` on `cxx_toolchain()` to be always set if `min_sdk_version` is set")
     elif min_version == None and target_version != None:
         fail("Cannot set target_sdk_version without min_sdk_version")
     elif version_is_greater(min_version, target_version):
-        warning("Target SDK version {} is less than minimum supported version {}".format(target_version, min_version))
-        return min_version
+        fail("`target_sdk_version` {} is less than `min_sdk_version` {}".format(target_version, min_version))
     else:
         return target_version
 
