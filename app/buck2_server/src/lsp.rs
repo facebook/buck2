@@ -100,9 +100,6 @@ enum ResolveLoadError {
 struct DocsCacheManager {
     docs_cache: Mutex<DocsCache>,
     fs: ProjectRoot,
-    /// Used for checking if the DocsCache need refreshing. We need to refresh the DocsCache
-    /// if the previous dice version does not match the current one.
-    valid_at: DiceEquality,
 }
 
 impl DocsCacheManager {
@@ -110,7 +107,6 @@ impl DocsCacheManager {
         Ok(Self {
             docs_cache: Mutex::new(Self::new_docs_cache(&fs, &mut dice_ctx).await?),
             fs,
-            valid_at: dice_ctx.equality_token(),
         })
     }
 
@@ -121,19 +117,12 @@ impl DocsCacheManager {
         let mut docs_cache = self.docs_cache.lock().await;
 
         let fs = &self.fs;
-        match self.is_reusable(&current_dice_ctx) {
-            true => (),
-            false => {
-                let new_docs_cache = Self::new_docs_cache(fs, &mut current_dice_ctx).await?;
-                *docs_cache = new_docs_cache
-            }
-        };
+        if !docs_cache.is_reusable(&current_dice_ctx) {
+            let new_docs_cache = Self::new_docs_cache(fs, &mut current_dice_ctx).await?;
+            *docs_cache = new_docs_cache;
+        }
 
         Ok(docs_cache)
-    }
-
-    fn is_reusable(&self, dice_ctx: &DiceTransaction) -> bool {
-        dice_ctx.equivalent(&self.valid_at)
     }
 
     async fn new_docs_cache(
@@ -152,7 +141,8 @@ impl DocsCacheManager {
         if let Some((import_path, docs)) = get_prelude_docs(dice_ctx, &builtin_names).await? {
             builtin_docs.push((Some(import_path), docs));
         }
-        DocsCache::new(&builtin_docs, fs, &cell_resolver).await
+        let equality_token = dice_ctx.equality_token();
+        DocsCache::new(equality_token, &builtin_docs, fs, &cell_resolver).await
     }
 }
 
@@ -205,6 +195,9 @@ struct DocsCache {
     builtin_docs: DocModule,
     /// A DocModule for build files specifically, with prelude symbols.
     buildfile_docs: DocModule,
+    /// Used for checking if the DocsCache need refreshing. We need to refresh the DocsCache
+    /// if the previous dice version does not match the current one.
+    valid_at: Option<DiceEquality>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -232,12 +225,19 @@ impl DocsCache {
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
     }
 
+    fn is_reusable(&self, dice_ctx: &DiceTransaction) -> bool {
+        self.valid_at
+            .as_ref()
+            .is_some_and(|valid_at| dice_ctx.equivalent(valid_at))
+    }
+
     async fn new(
+        equality_token: DiceEquality,
         builtin_symbols: &[(Option<ImportPath>, DocModule)],
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> buck2_error::Result<Self> {
-        Self::new_with_lookup(builtin_symbols, |location| async {
+        Self::new_with_lookup(Some(equality_token), builtin_symbols, |location| async {
             Self::get_prelude_uri(location, fs, cell_resolver).await
         })
         .await
@@ -248,6 +248,7 @@ impl DocsCache {
         F: Fn(&'a ImportPath) -> Fut + 'a,
         Fut: Future<Output = buck2_error::Result<LspUrl>>,
     >(
+        equality_token: Option<DiceEquality>,
         builtin_symbols: &'a [(Option<ImportPath>, DocModule)],
         location_lookup: F,
     ) -> buck2_error::Result<Self> {
@@ -328,6 +329,7 @@ impl DocsCache {
             native_starlark_files,
             builtin_docs,
             buildfile_docs,
+            valid_at: equality_token,
         })
     }
 
@@ -1050,8 +1052,8 @@ mod tests {
             }
         }
 
-        let cache =
-            runtime.block_on(async { DocsCache::new_with_lookup(&docs, lookup_function).await })?;
+        let cache = runtime
+            .block_on(async { DocsCache::new_with_lookup(None, &docs, lookup_function).await })?;
 
         assert_eq!(
             &LspUrl::try_from(
