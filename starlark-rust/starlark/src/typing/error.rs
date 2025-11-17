@@ -146,6 +146,14 @@ impl TypingOrInternalError {
             Self::Internal(e) => e.into_eval_exception(),
         }
     }
+
+    #[cold]
+    pub(crate) fn into_error(self) -> crate::Error {
+        match self {
+            Self::Typing(e) => e.into_error(),
+            Self::Internal(e) => e.into_error(),
+        }
+    }
 }
 
 /// Like [`TypingOrInternalError`], but without context on the typing variant.
