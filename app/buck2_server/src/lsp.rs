@@ -138,7 +138,9 @@ impl DocsCacheManager {
             .iter()
             .flat_map(|(_, d)| d.members.keys().map(|s| s.as_str()))
             .collect();
-        if let Some((import_path, docs)) = get_prelude_docs(dice_ctx, &builtin_names).await? {
+
+        // Do not ? the error here. It's prelude. It's allowed to have type errors.
+        if let Ok(Some((import_path, docs))) = get_prelude_docs(dice_ctx, &builtin_names).await {
             builtin_docs.push((Some(import_path), docs));
         }
         let equality_token = dice_ctx.equality_token();
