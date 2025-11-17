@@ -22,16 +22,10 @@ def _configuration_info_union(infos):
     )
 
 def _constraint_values_to_configuration(values):
-    constraints = {}
-    for info in values:
-        # Handle both ConstraintValueInfo and ConfigurationInfo
-        if ConstraintValueInfo in info:
-            constraints[info[ConstraintValueInfo].setting.label] = info[ConstraintValueInfo]
-        elif ConfigurationInfo in info:
-            # If it's already a ConfigurationInfo (e.g., from a config_setting),
-            # merge its constraints into our result
-            constraints.update(info[ConfigurationInfo].constraints)
-    return ConfigurationInfo(constraints = constraints, values = {})
+    return ConfigurationInfo(constraints = {
+        info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo]
+        for info in values
+    }, values = {})
 
 util = struct(
     configuration_info_union = _configuration_info_union,
