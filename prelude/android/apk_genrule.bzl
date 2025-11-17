@@ -8,7 +8,7 @@
 
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_apk.bzl", "get_install_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo")
+load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidDerivedApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
@@ -119,6 +119,9 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                     } if "native_merge_debug" in input_android_aab_subtargets else {}) | ({
                         "llvm_stats": [input_android_aab_subtargets["llvm_stats"][DefaultInfo]],
                     } if "llvm_stats" in input_android_aab_subtargets else {}),
+                ),
+                AndroidDerivedApkInfo(
+                    apk = output_apk,
                 ),
             ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
         else:

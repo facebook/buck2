@@ -8,7 +8,7 @@
 
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo")
+load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "AndroidDerivedApkInfo", "DexFilesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
@@ -30,6 +30,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         packaging_options = ctx.attrs.packaging_options,
     )
 
+    extra_providers = []
     sub_targets = {}
     sub_targets.update(android_binary_info.sub_targets)
     if ctx.attrs.use_derived_apk:
@@ -40,6 +41,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             app_bundle = output_bundle,
             keystore = keystore,
         )
+        extra_providers.append(AndroidDerivedApkInfo(apk = default_output))
         sub_targets["aab"] = [DefaultInfo(
             default_outputs = [output_bundle],
         )]
@@ -64,7 +66,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
                 "classpath_including_targets_with_no_output": cmd_args([dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator_for_exec_os(ctx)),
             },
         ),
-    ]
+    ] + extra_providers
 
 def build_bundle(
         label: Label,

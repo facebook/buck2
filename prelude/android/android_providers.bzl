@@ -129,6 +129,12 @@ AndroidAabInfo = provider(
     },
 )
 
+AndroidDerivedApkInfo = provider(
+    fields = {
+        "apk": provider_field(Artifact),
+    },
+)
+
 AndroidBinaryPrimaryPlatformInfo = provider(
     fields = {
         "primary_platform": provider_field(typing.Any, default = None),  # str
