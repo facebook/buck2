@@ -876,7 +876,7 @@ def _compile_with_argsfile(
 
     allow_cache_upload, action_execution_attributes = _get_action_properties(ctx, toolchain, cacheable, build_swift_incrementally, explicit_modules_enabled)
 
-    argsfile, output_file_map = compile_with_argsfile(
+    argsfile, output_file_map_artifact = compile_with_argsfile(
         ctx = ctx,
         category = category,
         shared_flags = shared_flags,
@@ -903,9 +903,9 @@ def _compile_with_argsfile(
 
     if extension:
         # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
-        return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile}), output_file_map
+        return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile}), output_file_map_artifact
     else:
-        return None, output_file_map
+        return None, output_file_map_artifact
 
 def _get_action_properties(
         ctx: AnalysisContext,
@@ -1154,10 +1154,10 @@ def _add_swift_module_map_args(
         cmd: cmd_args,
         is_macro: bool):
     module_name = get_module_name(ctx)
-    sdk_swiftmodule_deps_tset = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
+    sdk_swiftmodule_deps_tsets = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
     all_deps_tset = ctx.actions.tset(
         SwiftCompiledModuleTset,
-        children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset,
+        children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tsets,
     )
     swift_module_map_artifact = write_swift_module_map_with_deps(
         ctx,

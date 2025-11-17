@@ -119,7 +119,7 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
     )
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
-    paths = struct(
+    paths_value = struct(
         classesDir = paths.classes.as_output(),
         outputJarDirPath = cmd_args(paths.jar.as_output(), parent = 1),
         annotationPath = paths.annotations.as_output(),
@@ -127,9 +127,9 @@ def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetTyp
     )
 
     return struct(
-        libraryPaths = paths if target_type == TargetType("library") else None,
-        sourceAbiPaths = paths if target_type == TargetType("source_abi") else None,
-        sourceOnlyAbiPaths = paths if target_type == TargetType("source_only_abi") else None,
+        libraryPaths = paths_value if target_type == TargetType("library") else None,
+        sourceAbiPaths = paths_value if target_type == TargetType("source_abi") else None,
+        sourceOnlyAbiPaths = paths_value if target_type == TargetType("source_only_abi") else None,
         libraryTargetFullyQualifiedName = base_qualified_name(label),
     )
 

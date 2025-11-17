@@ -23,14 +23,14 @@ def _shared_library_interface(
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
     args.add(shared_lib)
-    output = ctx.actions.declare_output(output)
-    args.add(output.as_output())
+    output_artifact = ctx.actions.declare_output(output)
+    args.add(output_artifact.as_output())
     ctx.actions.run(
         args,
         category = "generate_shared_library_interface",
         identifier = identifier,
     )
-    return output
+    return output_artifact
 
 _InterfaceInfo = provider(fields = {
     "artifact": provider_field(typing.Any, default = None),  # "artifact"

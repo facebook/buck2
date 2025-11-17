@@ -296,7 +296,7 @@ def merge_android_packageable_info(
         AndroidBuildConfigInfoTSet,
     )
 
-    deps = _get_transitive_set(
+    deps_tset = _get_transitive_set(
         actions,
         filter(None, [dep.deps for dep in android_packageable_deps]),
         DepsInfo(
@@ -334,7 +334,7 @@ def merge_android_packageable_info(
     return AndroidPackageableInfo(
         target_label = label.raw_target(),
         build_config_infos = build_config_infos,
-        deps = deps,
+        deps = deps_tset,
         manifests = manifests,
         prebuilt_native_library_dirs = prebuilt_native_library_dirs,
         resource_infos = resource_infos,

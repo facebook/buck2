@@ -25,5 +25,5 @@ noop_test_toolchain = rule(
 def test_toolchain_labels(
         test_toolchain: Dependency) -> list[str]:
     asserts.true(TestToolchainInfo in test_toolchain, "Expected a TestToolchainInfo provider")
-    test_toolchain = test_toolchain[TestToolchainInfo]
-    return [test_toolchain.sanitizer] if test_toolchain.sanitizer else []
+    test_toolchain_info = test_toolchain[TestToolchainInfo]
+    return [test_toolchain_info.sanitizer] if test_toolchain_info.sanitizer else []

@@ -531,7 +531,10 @@ def _anon_cxx_link(
     if generates_split_debug(cxx_toolchain):
         split_debug_output = anon_link_target.artifact("split_debug_output")
 
-    output = ctx.actions.assert_short_path(anon_link_target.artifact("output"), short_path = output)
+    output_artifact = ctx.actions.assert_short_path(
+        anon_link_target.artifact("output"),
+        short_path = output,
+    )
 
     external_debug_info = link_external_debug_info(
         ctx = ctx,
@@ -541,12 +544,12 @@ def _anon_cxx_link(
 
     # The anon target API doesn't allow us to return the list of artifacts for
     # sanitizer runtime, so it has be computed here
-    sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain, output)
+    sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain, output_artifact)
 
     return CxxLinkResult(
         linked_object = LinkedObject(
-            output = output,
-            unstripped_output = output,
+            output = output_artifact,
+            unstripped_output = output_artifact,
             dwp = dwp,
             external_debug_info = external_debug_info,
         ),
