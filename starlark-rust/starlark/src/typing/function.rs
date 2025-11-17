@@ -55,6 +55,11 @@ pub trait TyCustomFunctionImpl:
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }
+
+    /// Type check an attribute of the callable value
+    fn attribute(&self, _attr: &str) -> Result<Ty, TypingNoContextError> {
+        Err(TypingNoContextError)
+    }
 }
 
 #[derive(
@@ -119,8 +124,8 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         Ok(Ty::any())
     }
 
-    fn attribute(&self, _attr: &str) -> Result<Ty, TypingNoContextError> {
-        Err(TypingNoContextError)
+    fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
+        self.0.attribute(attr)
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
@@ -180,5 +185,14 @@ impl TyCustomFunctionImpl for TyFunction {
 
     fn as_function(&self) -> Option<&TyFunction> {
         Some(self)
+    }
+
+    fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
+        if attr == "type"
+            && let Some(as_type) = self.type_attr.dupe()
+        {
+            return Ok(as_type);
+        }
+        Err(TypingNoContextError)
     }
 }
