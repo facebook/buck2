@@ -14,7 +14,6 @@ use std::os::windows::process::CommandExt;
 use std::process::Child;
 use std::process::Command;
 use std::process::ExitStatus;
-use std::process::Stdio;
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
