@@ -99,7 +99,7 @@ AndroidBuildConfigInfo = provider(
     fields = {
         "package": str,
         "build_config_fields": list[BuildConfigField],
-        "values_file": provider_field(typing.Any, default = None),
+        "values_file": provider_field(Artifact | None, default = None),
     },
 )
 
@@ -113,18 +113,18 @@ AndroidManifestInfo = provider(
 
 AndroidApkInfo = provider(
     fields = {
-        "apk": provider_field(typing.Any, default = None),
-        "manifest": provider_field(typing.Any, default = None),
-        "materialized_artifacts": provider_field(typing.Any, default = None),
+        "apk": provider_field(Artifact),
+        "manifest": provider_field(Artifact),
+        "materialized_artifacts": provider_field(list[Artifact]),
         "unstripped_shared_libraries": provider_field(Artifact | None, default = None),
     },
 )
 
 AndroidAabInfo = provider(
     fields = {
-        "aab": provider_field(typing.Any, default = None),
-        "manifest": provider_field(typing.Any, default = None),
-        "materialized_artifacts": provider_field(typing.Any, default = None),
+        "aab": provider_field(Artifact),
+        "manifest": provider_field(Artifact),
+        "materialized_artifacts": provider_field(list[Artifact]),
         "unstripped_shared_libraries": provider_field(Artifact | None, default = None),
     },
 )
@@ -260,7 +260,7 @@ AndroidLibraryIntellijInfo = provider(
     doc = "Information about android library that is required for Intellij project generation",
     fields = {
         "android_resource_deps": provider_field(typing.Any, default = None),  # ["AndroidResourceInfo"]
-        "dummy_r_dot_java": provider_field(typing.Any, default = None),  # ["artifact", None]
+        "dummy_r_dot_java": provider_field(Artifact | None, default = None),
     },
 )
 
@@ -268,7 +268,7 @@ AndroidPrebuiltAarIntellijInfo = provider(
     # @unsorted-dict-items
     doc = "Information about android prebuilt aar that is required for Intellij project generation",
     fields = {
-        "dummy_r_dot_java": provider_field(typing.Any, default = None),  # ["artifact", None]
+        "dummy_r_dot_java": provider_field(Artifact | None, default = None),
     },
 )
 
