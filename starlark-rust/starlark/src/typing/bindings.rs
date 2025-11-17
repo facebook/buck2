@@ -116,7 +116,7 @@ pub(crate) struct ChildDef<'a> {
 pub(crate) struct BindingsCollect<'a, 'b> {
     pub(crate) bindings: Bindings<'a>,
     pub(crate) approximations: &'b mut Vec<Approximation>,
-    pub(crate) children_sink: Option<&'b mut Vec<ChildDef<'a>>>,
+    pub(crate) children_sink: &'b mut Vec<ChildDef<'a>>,
 }
 
 impl<'a, 'b> BindingsCollect<'a, 'b> {
@@ -135,31 +135,12 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let mut res = BindingsCollect {
             bindings: Bindings::default(),
             approximations,
-            children_sink: Some(children_sink),
+            children_sink,
         };
         res.bindings.types = visible.clone();
 
         res.visit(Visit::Stmt(scope), return_type, typecheck_mode, codemap)?;
         Ok(res.bindings)
-    }
-
-    /// Collect all the assignments to variables.
-    ///
-    /// This function only fails on internal errors.
-    pub(crate) fn collect_one(
-        x: &'a mut CstStmt,
-        typecheck_mode: TypecheckMode,
-        codemap: &CodeMap,
-        approximations: &'b mut Vec<Approximation>,
-    ) -> Result<Self, InternalError> {
-        let mut res = BindingsCollect {
-            bindings: Bindings::default(),
-            approximations,
-            children_sink: None,
-        };
-
-        res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
-        Ok(res)
     }
 
     fn assign(
@@ -369,13 +350,11 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         def.visit_header_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
 
         // Function body just gets added to the queue.
-        if let Some(sink) = &mut self.children_sink {
-            sink.push(ChildDef {
-                body: &def.body,
-                param_types,
-                return_type: ret_ty,
-            });
-        }
+        self.children_sink.push(ChildDef {
+            body: &def.body,
+            param_types,
+            return_type: ret_ty,
+        });
         Ok(())
     }
 
