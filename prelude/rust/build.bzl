@@ -931,7 +931,7 @@ def _abbreviated_subdir(
         infallible_diagnostics: bool,
         incremental_enabled: bool,
         profile_mode: ProfileMode | None) -> str:
-    crate_type = {
+    crate_type_str = {
         CrateType("bin"): "X",  # mnemonic: "eXecutable"
         CrateType("rlib"): "L",  # "Library"
         CrateType("dylib"): "D",
@@ -940,7 +940,7 @@ def _abbreviated_subdir(
         CrateType("staticlib"): "S",
     }[crate_type]
 
-    reloc_model = {
+    reloc_model_str = {
         RelocModel("static"): "S",
         RelocModel("pic"): "P",
         RelocModel("pie"): "I",
@@ -951,13 +951,13 @@ def _abbreviated_subdir(
         RelocModel("default"): "D",
     }[reloc_model]
 
-    dep_link_strategy = {
+    dep_link_strategy_str = {
         LinkStrategy("static"): "T",
         LinkStrategy("static_pic"): "P",
         LinkStrategy("shared"): "H",
     }[dep_link_strategy]
 
-    emit = {
+    emit_str = {
         Emit("asm"): "s",
         Emit("llvm-bc"): "b",
         Emit("llvm-ir"): "i",
@@ -972,17 +972,17 @@ def _abbreviated_subdir(
         Emit("metadata-fast"): "M",  # "Metadata"
     }[emit]
 
-    profile_mode = {
+    profile_mode_str = {
         None: "",
         ProfileMode("llvm-time-trace"): "L",
         ProfileMode("self-profile"): "P",
     }[profile_mode]
 
-    return crate_type + reloc_model + dep_link_strategy + emit + \
+    return crate_type_str + reloc_model_str + dep_link_strategy_str + emit_str + \
            ("T" if is_rustdoc_test else "") + \
            ("D" if infallible_diagnostics else "") + \
            ("I" if incremental_enabled else "") + \
-           profile_mode
+           profile_mode_str
 
 # Compute which are common to both rustc and rustdoc
 def _compute_common_args(

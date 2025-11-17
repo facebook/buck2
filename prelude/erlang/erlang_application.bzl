@@ -317,8 +317,8 @@ def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifa
     if ctx.attrs.app_src:
         srcs[ctx.attrs.app_src.basename] = ctx.attrs.app_src
 
-    for extra_srcs in extra_srcs:
-        srcs[extra_srcs.basename] = extra_srcs
+    for extra_src in extra_srcs:
+        srcs[extra_src.basename] = extra_src
 
     return ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), srcs)
 

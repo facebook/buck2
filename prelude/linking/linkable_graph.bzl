@@ -190,15 +190,15 @@ def create_linkable_node(
         )
     if not linker_flags:
         linker_flags = LinkerFlags()
-    deps = linkable_deps(deps)
-    exported_deps = linkable_deps(exported_deps)
+    ldeps = linkable_deps(deps)
+    lexported_deps = linkable_deps(exported_deps)
     return LinkableNode(
         labels = ctx.attrs.labels,
         preferred_linkage = preferred_linkage,
         default_link_strategy = default_link_strategy,
-        deps = deps,
-        exported_deps = exported_deps,
-        all_deps = deps + exported_deps,
+        deps = ldeps,
+        exported_deps = lexported_deps,
+        all_deps = ldeps + lexported_deps,
         link_infos = link_infos,
         shared_libs = shared_libs,
         can_be_asset = can_be_asset,

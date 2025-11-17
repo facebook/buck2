@@ -60,7 +60,7 @@ def make_artifact_tset(
     )
 
     # As a convenience for our callers, filter our `None` children.
-    children = [c._tset for c in children if c._tset != None]
+    children_ = [c._tset for c in children if c._tset != None]
 
     # Build list of all non-child values.
     values = []
@@ -69,15 +69,15 @@ def make_artifact_tset(
     values.extend(infos)
 
     # If there's no children or artifacts, return `None`.
-    if not values and not children:
+    if not values and not children_:
         return ArtifactTSet()
 
     # We only build a `_ArtifactTSet` if there's something to package.
     kwargs = {}
     if values:
         kwargs["value"] = values
-    if children:
-        kwargs["children"] = children
+    if children_:
+        kwargs["children"] = children_
     return ArtifactTSet(
         _tset = actions.tset(_ArtifactTSet, **kwargs),
     )
