@@ -24,13 +24,14 @@ def thin_link(
         link_plan_out: Artifact,
         identifier: str | None,
         premerger_enabled: bool,
+        use_content_based_output_paths: bool,
         make_cat,
         make_id):
     # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
     index_meta_records = []
 
     index_cat = make_cat("thin_lto_index")
-    index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
+    index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index", has_content_based_path = use_content_based_output_paths)
     index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
 
     index_args = cmd_args(common_link_flags)
@@ -88,6 +89,7 @@ def thin_link(
         final_binary_out.basename + ".thinlto.meta.json",
         index_meta_records,
         with_inputs = True,
+        has_content_based_path = use_content_based_output_paths,
     )
 
     plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", link_plan_out.as_output()])
