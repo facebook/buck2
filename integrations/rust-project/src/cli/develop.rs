@@ -200,8 +200,33 @@ impl Develop {
 
         let targets = self.related_targets(input.clone(), cfg.max_extra_targets)?;
         if targets.is_empty() {
-            let err = anyhow::anyhow!("No owning target found")
-                .context(format!("Could not find owning target for {input:?}"));
+            let err = match input {
+                Input::Targets(targets) => {
+                    let pretty_targets = targets
+                        .iter()
+                        .map(|t| format!("{}", t))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    anyhow::anyhow!("Could not find targets {}", pretty_targets)
+                }
+                Input::Files(paths) => {
+                    let pretty_paths = paths
+                        .iter()
+                        .map(|p| format!("{}", p.display()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    anyhow::anyhow!("Could not find buck targets that own {}", pretty_paths)
+                }
+                Input::Buildfile(paths) => {
+                    let pretty_paths = paths
+                        .iter()
+                        .map(|p| format!("{}", p.display()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    anyhow::anyhow!("Could not find any Rust targets in {}", pretty_paths)
+                }
+            };
+
             return Err(err);
         }
 

@@ -741,7 +741,7 @@ impl Buck {
             "--",
         ]);
 
-        info!(kind = "progress", ?input, "finding relevant BUCK file");
+        info!(kind = "progress", ?input, "finding relevant buck targets");
 
         match input {
             Input::Targets(targets) => {

@@ -214,8 +214,11 @@ impl FromStr for SysrootMode {
 #[derive(PartialEq, Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum JsonArguments {
+    /// Path to a Rust source file.
     Path(PathBuf),
+    /// Path to BUCK file.
     Buildfile(PathBuf),
+    /// A named buck target.
     Label(String),
 }
 
