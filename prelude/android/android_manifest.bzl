@@ -49,7 +49,7 @@ def generate_android_manifest(
     if not manifests:
         manifests = []
     elif isinstance(manifests, TransitiveSet):
-        manifests = manifests.project_as_args("artifacts", ordering = "topological")
+        manifests = manifests.project_as_args("artifacts", ordering = "bfs")
 
     library_manifest_paths_file = argfile(actions = ctx.actions, name = "{}/library_manifest_paths_file".format(module_name), args = manifests)
 
