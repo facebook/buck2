@@ -271,8 +271,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "llvm_cgdata": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
-        # Darwin only: the minimum deployment target supported
-        "min_sdk_version": attrs.option(attrs.string(), default = None),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
         "objdump": attrs.option(dep_type(providers = [RunInfo]), default = None),
