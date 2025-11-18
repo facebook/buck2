@@ -9,6 +9,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![cfg(unix)]
 
 pub mod client;
 pub mod command;
