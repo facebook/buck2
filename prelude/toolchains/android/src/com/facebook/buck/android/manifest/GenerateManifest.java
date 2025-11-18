@@ -22,6 +22,7 @@ import com.facebook.buck.android.apkmodule.APKModule;
 import com.facebook.buck.util.environment.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
@@ -46,6 +48,28 @@ import org.xml.sax.InputSource;
 
 public class GenerateManifest {
 
+  public static final String ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android";
+
+  /** Holds SDK version information extracted from a manifest file. */
+  @VisibleForTesting
+  static class SdkVersions {
+    @Nullable private final String minSdkVersion;
+    @Nullable private final String targetSdkVersion;
+
+    SdkVersions(String minSdkVersion, String targetSdkVersion) {
+      this.minSdkVersion = minSdkVersion;
+      this.targetSdkVersion = targetSdkVersion;
+    }
+
+    String getMinSdkVersion() {
+      return minSdkVersion;
+    }
+
+    String getTargetSdkVersion() {
+      return targetSdkVersion;
+    }
+  }
+
   public static String generateXml(
       Path skeletonManifestPath,
       String moduleName,
@@ -53,6 +77,7 @@ public class GenerateManifest {
       ImmutableMap<String, String> placeholders,
       Path outManifestPath,
       Path mergeReportPath,
+      Path preprocessLogPath,
       ILogger logger)
       throws IOException {
     if (skeletonManifestPath.getNameCount() == 0) {
@@ -65,8 +90,26 @@ public class GenerateManifest {
 
     Files.createParentDirs(outManifestPath.toFile());
 
-    List<File> libraryManifestFiles =
-        libraryManifestPaths.stream().map(Path::toFile).collect(ImmutableList.toImmutableList());
+    // Create preprocess logger (always creates a log file, in /tmp if no path specified)
+    PreprocessLogger preprocessLogger = PreprocessLogger.create(preprocessLogPath, logger);
+    preprocessLogger.log("=== Manifest Preprocessing Log ===\n");
+    preprocessLogger.log("Skeleton manifest: %s\n", skeletonManifestPath.toAbsolutePath());
+    preprocessLogger.log("Module name: %s\n", moduleName);
+    preprocessLogger.log("Library manifests count: %d\n\n", libraryManifestPaths.size());
+
+    // Extract SDK versions from the skeleton manifest
+    SdkVersions sdkVersions = extractSdkVersions(skeletonManifestPath.toFile(), logger);
+
+    // Preprocess library manifests to inject targetSdkVersion and minSdkVersion if missing
+    Path tempDir = java.nio.file.Files.createTempDirectory("preprocessed_manifests");
+
+    List<File> libraryManifestFiles = new ArrayList<>();
+    for (Path libraryManifestPath : libraryManifestPaths) {
+      File processedFile =
+          preprocessLibraryManifest(
+              libraryManifestPath.toFile(), tempDir, sdkVersions, preprocessLogger, logger);
+      libraryManifestFiles.add(processedFile);
+    }
 
     MergingReport mergingReport =
         mergeManifests(
@@ -84,6 +127,10 @@ public class GenerateManifest {
       // Convert line endings to Lf on Windows.
       xmlText = xmlText.replace("\r\n", "\n");
     }
+
+    // Close preprocess logger
+    preprocessLogger.log("\n=== Preprocessing Complete ===\n");
+    preprocessLogger.close();
 
     return xmlText;
   }
@@ -254,7 +301,6 @@ public class GenerateManifest {
 
     // Iterate through children to find activities and early aliases
     NodeList children = application.getChildNodes();
-    String androidNamespace = "http://schemas.android.com/apk/res/android";
     for (int i = 0; i < children.getLength(); i++) {
       Node node = children.item(i);
       if (node.getNodeType() != Node.ELEMENT_NODE) {
@@ -265,17 +311,219 @@ public class GenerateManifest {
       String tagName = element.getTagName();
 
       if ("activity".equals(tagName)) {
-        String name = element.getAttributeNS(androidNamespace, "name");
+        String name = element.getAttributeNS(ANDROID_NAMESPACE, "name");
         if (name != null && !name.isEmpty()) {
           activityNames.add(name);
         }
       } else if ("activity-alias".equals(tagName)) {
-        String target = element.getAttributeNS(androidNamespace, "targetActivity");
+        String target = element.getAttributeNS(ANDROID_NAMESPACE, "targetActivity");
         if (target != null && !target.isEmpty() && !activityNames.contains(target)) {
           earlyAliases.add(element);
         }
       }
     }
     return earlyAliases;
+  }
+
+  /**
+   * Extracts both minSdkVersion and targetSdkVersion from the main/skeleton manifest in a single
+   * pass.
+   *
+   * @param skeletonManifest The main application manifest file
+   * @param logger Logger for debugging information
+   * @return SdkVersions object containing both SDK versions (may be null if not found)
+   */
+  @VisibleForTesting
+  static SdkVersions extractSdkVersions(File skeletonManifest, ILogger logger) {
+    String minSdkVersion = null;
+    String targetSdkVersion = null;
+
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setNamespaceAware(true);
+      DocumentBuilder builder = factory.newDocumentBuilder();
+      Document doc = builder.parse(skeletonManifest);
+
+      NodeList usesSdkNodes = doc.getElementsByTagName("uses-sdk");
+      if (usesSdkNodes.getLength() > 0) {
+        Element usesSdk = (Element) usesSdkNodes.item(0);
+
+        String docMinSdkVersion = usesSdk.getAttributeNS(ANDROID_NAMESPACE, "minSdkVersion");
+        String docTargetSdkVersion = usesSdk.getAttributeNS(ANDROID_NAMESPACE, "targetSdkVersion");
+
+        if (!Strings.isNullOrEmpty(docMinSdkVersion)) {
+          minSdkVersion = docMinSdkVersion;
+          logger.info(
+              "Extracted minSdkVersion=%s from skeleton manifest %s",
+              minSdkVersion, skeletonManifest.getPath());
+        } else {
+          logger.warning(
+              "No minSdkVersion found in skeleton manifest %s", skeletonManifest.getPath());
+        }
+
+        if (!Strings.isNullOrEmpty(docTargetSdkVersion)) {
+          targetSdkVersion = docTargetSdkVersion;
+          logger.info(
+              "Extracted targetSdkVersion=%s from skeleton manifest %s",
+              targetSdkVersion, skeletonManifest.getPath());
+        } else {
+          logger.warning(
+              "No targetSdkVersion found in skeleton manifest %s", skeletonManifest.getPath());
+        }
+      } else {
+        logger.warning(
+            "No <uses-sdk> element found in skeleton manifest %s", skeletonManifest.getPath());
+      }
+
+    } catch (Exception e) {
+      logger.warning(
+          "Failed to extract SDK versions from skeleton manifest %s: %s",
+          skeletonManifest.getPath(), e.getMessage());
+    }
+
+    return new SdkVersions(minSdkVersion, targetSdkVersion);
+  }
+
+  /**
+   * Preprocesses library manifests to inject targetSdkVersion and minSdkVersion when missing.
+   *
+   * <p>This prevents the manifest merger from assuming targetSdkVersion < 4 for library manifests
+   * that don't declare a <uses-sdk> element, which would cause Android to add implied permissions
+   * like READ_PHONE_STATE.
+   *
+   * <p>The targetSdkVersion and minSdkVersion are extracted from the main application manifest to
+   * ensure consistency across all merged manifests.
+   *
+   * @param originalFile Original library manifest file
+   * @param outputDir Directory to write preprocessed manifests
+   * @param sdkVersions SDK versions from the main manifest
+   * @param preprocessLogger Logger for logging preprocessing activities
+   * @param logger Logger for debugging information
+   * @return Preprocessed manifest file (or original if no processing needed)
+   * @throws IOException if logging fails
+   */
+  @VisibleForTesting
+  static File preprocessLibraryManifest(
+      File originalFile,
+      Path outputDir,
+      SdkVersions sdkVersions,
+      PreprocessLogger preprocessLogger,
+      ILogger logger)
+      throws IOException {
+    String targetSdkVersion = sdkVersions.getTargetSdkVersion();
+    String minSdkVersion = sdkVersions.getMinSdkVersion();
+
+    // Log the file being processed
+    preprocessLogger.log("Processing library manifest: %s\n", originalFile.getPath());
+
+    if (targetSdkVersion == null && minSdkVersion == null) {
+      preprocessLogger.log("  -> Skipped: No SDK versions to inject\n");
+      return originalFile;
+    }
+
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setNamespaceAware(true);
+      DocumentBuilder builder = factory.newDocumentBuilder();
+      Document doc = builder.parse(originalFile);
+
+      Element usesSdk = getOrCreateUsesSdk(doc);
+
+      String existingTargetSdk = usesSdk.getAttributeNS(ANDROID_NAMESPACE, "targetSdkVersion");
+      String existingMinSdk = usesSdk.getAttributeNS(ANDROID_NAMESPACE, "minSdkVersion");
+      boolean patched = false;
+
+      if (Strings.isNullOrEmpty(existingTargetSdk) && targetSdkVersion != null) {
+        usesSdk.setAttributeNS(ANDROID_NAMESPACE, "android:targetSdkVersion", targetSdkVersion);
+        patched = true;
+        preprocessLogger.log("  -> Injected targetSdkVersion=%s (was missing)\n", targetSdkVersion);
+      }
+      if (Strings.isNullOrEmpty(existingMinSdk) && minSdkVersion != null) {
+        usesSdk.setAttributeNS(ANDROID_NAMESPACE, "android:minSdkVersion", minSdkVersion);
+        patched = true;
+        preprocessLogger.log("  -> Injected minSdkVersion=%s (was missing)\n", minSdkVersion);
+      }
+
+      if (patched) {
+        ensureAndroidNamespace(doc);
+        File processedFile = writeProcessedManifest(originalFile, outputDir, doc);
+        logger.info("%s -- preprocessed --> %s", originalFile.getPath(), processedFile.getPath());
+        preprocessLogger.log("  -> Written to: %s\n", processedFile.getPath());
+        return processedFile;
+      } else {
+        preprocessLogger.log("  -> No preprocessing needed (SDK versions already present)\n");
+      }
+    } catch (IOException e) {
+      // Rethrow IOException (from logging) to fail the build
+      throw e;
+    } catch (Exception e) {
+      // Catch XML parsing exceptions, log them, and use original manifest
+      logger.warning(
+          "Failed to preprocess library manifest %s: %s. Using original.",
+          originalFile.getPath(), e.getMessage());
+      preprocessLogger.log("  -> ERROR: Failed to preprocess: %s\n", e.getMessage());
+      preprocessLogger.log("  -> Using original manifest\n");
+    }
+    return originalFile;
+  }
+
+  /**
+   * Ensures the android namespace is declared on the manifest element.
+   *
+   * @param doc The manifest document
+   */
+  @VisibleForTesting
+  static void ensureAndroidNamespace(Document doc) {
+    Element manifestElement = doc.getDocumentElement();
+    String androidNsAttr = manifestElement.getAttribute("xmlns:android");
+    if (Strings.isNullOrEmpty(androidNsAttr)) {
+      manifestElement.setAttribute("xmlns:android", ANDROID_NAMESPACE);
+    }
+  }
+
+  /**
+   * Gets the existing uses-sdk element from the document, or creates a new one if it doesn't exist.
+   *
+   * @param doc The manifest document
+   * @return The uses-sdk element (either existing or newly created)
+   */
+  @VisibleForTesting
+  static Element getOrCreateUsesSdk(Document doc) {
+    NodeList usesSdkNodes = doc.getElementsByTagName("uses-sdk");
+    if (usesSdkNodes.getLength() > 0) {
+      return (Element) usesSdkNodes.item(0);
+    }
+
+    Element usesSdk = doc.createElement("uses-sdk");
+    Element manifestElement = doc.getDocumentElement();
+
+    Node firstChild = manifestElement.getFirstChild();
+    if (firstChild != null) {
+      manifestElement.insertBefore(usesSdk, firstChild);
+    } else {
+      manifestElement.appendChild(usesSdk);
+    }
+
+    return usesSdk;
+  }
+
+  private static File writeProcessedManifest(File originalFile, Path outputDir, Document doc)
+      throws IOException {
+    // Write the modified manifest to a temporary file
+    File processedFile = outputDir.resolve(originalFile.getPath()).toFile();
+    processedFile.getParentFile().mkdirs();
+
+    XmlFormatPreferences prefs = XmlFormatPreferences.defaults();
+    prefs.removeEmptyLines = true;
+    String formattedXml =
+        XmlPrettyPrinter.prettyPrint(
+            doc,
+            prefs,
+            XmlFormatStyle.get(doc),
+            null, /* lineSeparator */
+            false /* endWithNewline */);
+
+    java.nio.file.Files.write(processedFile.toPath(), formattedXml.getBytes());
+    return processedFile;
   }
 }

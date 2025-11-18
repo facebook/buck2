@@ -64,11 +64,14 @@ def generate_android_manifest(
 
     output = ctx.actions.declare_output("{}/AndroidManifest.xml".format(module_name))
     merge_report = ctx.actions.declare_output("{}/merge-report.txt".format(module_name))
+    preprocess_log = ctx.actions.declare_output("{}/preprocess-log.txt".format(module_name))
     generate_manifest_cmd.add([
         "--output",
         output.as_output(),
         "--merge-report",
         merge_report.as_output(),
+        "--preprocess-log",
+        preprocess_log.as_output(),
     ])
 
     ctx.actions.run(generate_manifest_cmd, category = "generate_manifest", identifier = module_name)

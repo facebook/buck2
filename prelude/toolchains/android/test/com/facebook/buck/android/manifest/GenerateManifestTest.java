@@ -11,16 +11,43 @@
 package com.facebook.buck.android.manifest;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
+import com.android.common.utils.ILogger;
+import com.android.common.utils.NullLogger;
 import com.google.common.collect.ImmutableMap;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /** Test manifest placeholder replacement */
 public class GenerateManifestTest {
 
   private static final boolean SANITY_CHECK_ENABLED = true;
   private static final boolean SANITY_CHECK_DISABLED = false;
+
+  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+
+  private static final ILogger LOGGER = NullLogger.getLogger();
+  private static final PreprocessLogger PREPROCESS_LOGGER;
+
+  static {
+    try {
+      PREPROCESS_LOGGER = PreprocessLogger.create(null, LOGGER);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to create PreprocessLogger", e);
+    }
+  }
 
   @Test
   public void shouldReplaceManifestPlaceholders() {
@@ -448,5 +475,271 @@ public class GenerateManifestTest {
             + "    </application>\n"
             + "</manifest>";
     assertEquals(expected, sorted);
+  }
+
+  @Test
+  public void shouldExtractBothSdkVersionsFromManifest() throws Exception {
+    File manifest = tempFolder.newFile("AndroidManifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.app\">\n"
+            + "    <uses-sdk\n"
+            + "        android:minSdkVersion=\"21\"\n"
+            + "        android:targetSdkVersion=\"33\" />\n"
+            + "</manifest>";
+    Files.write(manifest.toPath(), manifestContent.getBytes());
+
+    GenerateManifest.SdkVersions versions = GenerateManifest.extractSdkVersions(manifest, LOGGER);
+
+    assertEquals("21", versions.getMinSdkVersion());
+    assertEquals("33", versions.getTargetSdkVersion());
+  }
+
+  @Test
+  public void shouldExtractOnlyMinSdkVersionWhenTargetSdkVersionIsMissing() throws Exception {
+    File manifest = tempFolder.newFile("AndroidManifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.app\">\n"
+            + "    <uses-sdk android:minSdkVersion=\"21\" />\n"
+            + "</manifest>";
+    Files.write(manifest.toPath(), manifestContent.getBytes());
+
+    GenerateManifest.SdkVersions versions = GenerateManifest.extractSdkVersions(manifest, LOGGER);
+
+    assertEquals("21", versions.getMinSdkVersion());
+    assertNull(versions.getTargetSdkVersion());
+  }
+
+  @Test
+  public void shouldExtractOnlyTargetSdkVersionWhenMinSdkVersionIsMissing() throws Exception {
+    File manifest = tempFolder.newFile("AndroidManifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.app\">\n"
+            + "    <uses-sdk android:targetSdkVersion=\"33\" />\n"
+            + "</manifest>";
+    Files.write(manifest.toPath(), manifestContent.getBytes());
+
+    GenerateManifest.SdkVersions versions = GenerateManifest.extractSdkVersions(manifest, LOGGER);
+
+    assertNull(versions.getMinSdkVersion());
+    assertEquals("33", versions.getTargetSdkVersion());
+  }
+
+  @Test
+  public void shouldReturnNullVersionsWhenUsesSdkElementIsMissing() throws Exception {
+    File manifest = tempFolder.newFile("AndroidManifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.app\">\n"
+            + "</manifest>";
+    Files.write(manifest.toPath(), manifestContent.getBytes());
+
+    GenerateManifest.SdkVersions versions = GenerateManifest.extractSdkVersions(manifest, LOGGER);
+
+    assertNull(versions.getMinSdkVersion());
+    assertNull(versions.getTargetSdkVersion());
+  }
+
+  @Test
+  public void shouldInjectBothSdkVersionsIntoLibraryManifestWhenMissing() throws Exception {
+    File libraryManifest = tempFolder.newFile("library_manifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.library\">\n"
+            + "</manifest>";
+    Files.write(libraryManifest.toPath(), manifestContent.getBytes());
+
+    Path outputDir = tempFolder.newFolder("output").toPath();
+    GenerateManifest.SdkVersions versions = new GenerateManifest.SdkVersions("21", "33");
+
+    File processed =
+        GenerateManifest.preprocessLibraryManifest(
+            libraryManifest, outputDir, versions, PREPROCESS_LOGGER, LOGGER);
+
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.parse(processed);
+
+    NodeList usesSdkNodes = doc.getElementsByTagName("uses-sdk");
+    assertEquals(1, usesSdkNodes.getLength());
+
+    Element usesSdk = (Element) usesSdkNodes.item(0);
+    assertEquals("21", usesSdk.getAttributeNS(GenerateManifest.ANDROID_NAMESPACE, "minSdkVersion"));
+    assertEquals(
+        "33", usesSdk.getAttributeNS(GenerateManifest.ANDROID_NAMESPACE, "targetSdkVersion"));
+  }
+
+  @Test
+  public void shouldInjectOnlyTargetSdkVersionWhenMinSdkVersionAlreadyExists() throws Exception {
+    File libraryManifest = tempFolder.newFile("library_manifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.library\">\n"
+            + "    <uses-sdk android:minSdkVersion=\"19\" />\n"
+            + "</manifest>";
+    Files.write(libraryManifest.toPath(), manifestContent.getBytes());
+
+    Path outputDir = tempFolder.newFolder("output").toPath();
+    GenerateManifest.SdkVersions versions = new GenerateManifest.SdkVersions("21", "33");
+
+    File processed =
+        GenerateManifest.preprocessLibraryManifest(
+            libraryManifest, outputDir, versions, PREPROCESS_LOGGER, LOGGER);
+
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.parse(processed);
+
+    NodeList usesSdkNodes = doc.getElementsByTagName("uses-sdk");
+    assertEquals(1, usesSdkNodes.getLength());
+
+    Element usesSdk = (Element) usesSdkNodes.item(0);
+    assertEquals("19", usesSdk.getAttributeNS(GenerateManifest.ANDROID_NAMESPACE, "minSdkVersion"));
+    assertEquals(
+        "33", usesSdk.getAttributeNS(GenerateManifest.ANDROID_NAMESPACE, "targetSdkVersion"));
+  }
+
+  @Test
+  public void shouldNotModifyLibraryManifestWhenBothSdkVersionsAlreadyExist() throws Exception {
+    File libraryManifest = tempFolder.newFile("library_manifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.library\">\n"
+            + "    <uses-sdk\n"
+            + "        android:minSdkVersion=\"19\"\n"
+            + "        android:targetSdkVersion=\"30\" />\n"
+            + "</manifest>";
+    Files.write(libraryManifest.toPath(), manifestContent.getBytes());
+
+    Path outputDir = tempFolder.newFolder("output").toPath();
+    GenerateManifest.SdkVersions versions = new GenerateManifest.SdkVersions("21", "33");
+
+    File processed =
+        GenerateManifest.preprocessLibraryManifest(
+            libraryManifest, outputDir, versions, PREPROCESS_LOGGER, LOGGER);
+
+    assertEquals(libraryManifest, processed);
+  }
+
+  @Test
+  public void shouldNotModifyLibraryManifestWhenSdkVersionsAreNull() throws Exception {
+    File libraryManifest = tempFolder.newFile("library_manifest.xml");
+    String manifestContent =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+            + "    package=\"com.example.library\">\n"
+            + "</manifest>";
+    Files.write(libraryManifest.toPath(), manifestContent.getBytes());
+
+    Path outputDir = tempFolder.newFolder("output").toPath();
+    GenerateManifest.SdkVersions versions = new GenerateManifest.SdkVersions(null, null);
+
+    File processed =
+        GenerateManifest.preprocessLibraryManifest(
+            libraryManifest, outputDir, versions, PREPROCESS_LOGGER, LOGGER);
+
+    assertEquals(libraryManifest, processed);
+  }
+
+  @Test
+  public void shouldEnsureAndroidNamespaceWhenMissing() throws Exception {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.newDocument();
+
+    Element manifest = doc.createElement("manifest");
+    doc.appendChild(manifest);
+
+    GenerateManifest.ensureAndroidNamespace(doc);
+
+    assertEquals(GenerateManifest.ANDROID_NAMESPACE, manifest.getAttribute("xmlns:android"));
+  }
+
+  @Test
+  public void shouldNotModifyAndroidNamespaceWhenAlreadyPresent() throws Exception {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.newDocument();
+
+    Element manifest = doc.createElement("manifest");
+    manifest.setAttribute("xmlns:android", GenerateManifest.ANDROID_NAMESPACE);
+    doc.appendChild(manifest);
+
+    GenerateManifest.ensureAndroidNamespace(doc);
+
+    assertEquals(GenerateManifest.ANDROID_NAMESPACE, manifest.getAttribute("xmlns:android"));
+  }
+
+  @Test
+  public void shouldReturnExistingUsesSdkElement() throws Exception {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.newDocument();
+
+    Element manifest = doc.createElement("manifest");
+    doc.appendChild(manifest);
+
+    Element existingUsesSdk = doc.createElement("uses-sdk");
+    existingUsesSdk.setAttributeNS(
+        GenerateManifest.ANDROID_NAMESPACE, "android:minSdkVersion", "21");
+    manifest.appendChild(existingUsesSdk);
+
+    Element result = GenerateManifest.getOrCreateUsesSdk(doc);
+
+    assertEquals(existingUsesSdk, result);
+    assertEquals("21", result.getAttributeNS(GenerateManifest.ANDROID_NAMESPACE, "minSdkVersion"));
+  }
+
+  @Test
+  public void shouldCreateNewUsesSdkElementWhenMissing() throws Exception {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.newDocument();
+
+    Element manifest = doc.createElement("manifest");
+    doc.appendChild(manifest);
+
+    Element result = GenerateManifest.getOrCreateUsesSdk(doc);
+
+    assertNotNull(result);
+    assertEquals("uses-sdk", result.getTagName());
+
+    NodeList usesSdkNodes = doc.getElementsByTagName("uses-sdk");
+    assertEquals(1, usesSdkNodes.getLength());
+  }
+
+  @Test
+  public void shouldInsertUsesSdkElementAsFirstChildWhenManifestHasChildren() throws Exception {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document doc = builder.newDocument();
+
+    Element manifest = doc.createElement("manifest");
+    doc.appendChild(manifest);
+
+    Element application = doc.createElement("application");
+    manifest.appendChild(application);
+
+    Element result = GenerateManifest.getOrCreateUsesSdk(doc);
+
+    assertNotNull(result);
+    assertEquals("uses-sdk", result.getTagName());
+    assertEquals(result, manifest.getFirstChild());
   }
 }

@@ -48,6 +48,9 @@ public class GenerateManifestExecutableMain {
   @Option(name = "--merge-report", required = true)
   private String mergeReport;
 
+  @Option(name = "--preprocess-log", required = false)
+  private String preprocessLog;
+
   public static void main(String[] args) throws IOException {
     GenerateManifestExecutableMain main = new GenerateManifestExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
@@ -74,6 +77,7 @@ public class GenerateManifestExecutableMain {
             .collect(ImmutableMap.toImmutableMap(arr -> arr[0], arr -> arr[1]));
 
     Path outputPath = Paths.get(output);
+    Path preprocessLogPath = preprocessLog != null ? Paths.get(preprocessLog) : null;
 
     String xmlText =
         GenerateManifest.generateXml(
@@ -83,6 +87,7 @@ public class GenerateManifestExecutableMain {
             placeholderEntries,
             outputPath,
             Paths.get(mergeReport),
+            preprocessLogPath,
             new StdLogger(StdLogger.Level.ERROR));
 
     try (ThrowingPrintWriter writer =
