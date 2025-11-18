@@ -398,33 +398,25 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         decreased_ttl_hours: Option<std::time::Duration>,
         default_ttl: std::time::Duration,
     ) -> std::time::Duration {
-        #[cfg(target_os = "windows")]
+        let (threshold, lower_ttl) = match (decreased_ttl_hours_disk_threshold, decreased_ttl_hours)
         {
-            return default_ttl;
-        }
+            (Some(t), Some(l)) => (t, l),
+            _ => return default_ttl,
+        };
 
-        #[cfg(not(target_os = "windows"))]
-        {
-            let (threshold, lower_ttl) =
-                match (decreased_ttl_hours_disk_threshold, decreased_ttl_hours) {
-                    (Some(t), Some(l)) => (t, l),
-                    _ => return default_ttl,
-                };
+        let root_path_str = "/";
 
-            let root_path_str = "/";
-
-            let disk_stats = match AbsPath::new(root_path_str).and_then(disk_space_stats) {
-                Ok(stats) => stats,
-                Err(e) => {
-                    let _unused = soft_error!("disk_space_stats", e);
-                    return default_ttl;
-                }
-            };
-            if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
-                lower_ttl
-            } else {
-                default_ttl
+        let disk_stats = match AbsPath::new(root_path_str).and_then(disk_space_stats) {
+            Ok(stats) => stats,
+            Err(e) => {
+                let _unused = soft_error!("disk_space_stats", e);
+                return default_ttl;
             }
+        };
+        if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
+            lower_ttl
+        } else {
+            default_ttl
         }
     }
 
