@@ -25,20 +25,6 @@ def version_is_greater(left: str, right: str) -> bool:
 
     return len(left_components) > len(right_components)
 
-def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
-    min_version = ctx.attrs.min_sdk_version
-    target_version = ctx.attrs.target_sdk_version
-    if min_version == None and target_version == None:
-        return None
-    elif min_version != None and target_version == None:
-        fail("We expect `target_sdk_version` on `cxx_toolchain()` to be always set if `min_sdk_version` is set")
-    elif min_version == None and target_version != None:
-        fail("Cannot set target_sdk_version without min_sdk_version")
-    elif version_is_greater(min_version, target_version):
-        fail("`target_sdk_version` {} is less than `min_sdk_version` {}".format(target_version, min_version))
-    else:
-        return target_version
-
 def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     if not (hasattr(ctx.attrs, "_cxx_toolchain") or hasattr(ctx.attrs, "_apple_toolchain")):
         return None

@@ -34,7 +34,6 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode", "RawHeadersAsHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
-load("@prelude//cxx:target_sdk_version.bzl", "get_toolchain_target_sdk_version")
 load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
@@ -231,7 +230,7 @@ def cxx_toolchain_impl(ctx):
         remap_cwd = ctx.attrs.remap_cwd,
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
-        target_sdk_version = get_toolchain_target_sdk_version(ctx),
+        target_sdk_version = ctx.attrs.target_sdk_version,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
     )
