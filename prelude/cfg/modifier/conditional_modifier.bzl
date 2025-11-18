@@ -62,9 +62,18 @@ def get_modifier_info(
         ),
     )
 
+# currently we don't have the method can directly convert the ConfiguredProvidersLabel to ProvidersLabel
+# TODO(nero): after we provide such api, clean this.
+def _configured_providers_label_to_providers_label(label: ConfiguredProvidersLabel) -> ProvidersLabel:
+    sub_target_name = label.sub_target
+    if sub_target_name == None:
+        sub_target_name = []
+    target_label = label.raw_target()
+    return target_label.with_sub_target(sub_target_name)
+
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    key_to_provider = {str(dep.label.raw_target()): dep.get(ConfigurationInfo) for dep in ctx.attrs._conditional_keys}
-    value_to_provider = {str(dep.label.raw_target()): dep.get(ConditionalModifierInfo) for dep in ctx.attrs._conditional_values}
+    key_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConfigurationInfo) for dep in ctx.attrs._conditional_keys}
+    value_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConditionalModifierInfo) for dep in ctx.attrs._conditional_values}
     conditional_modifier_info = get_modifier_info(ctx.attrs.modifier, key_to_provider, value_to_provider)
     return [DefaultInfo(), conditional_modifier_info]
 
