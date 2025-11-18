@@ -20,9 +20,10 @@ def http_file_shared(
         unzip_tool: [RunInfo, None],
         sha1: [None, str],
         sha256: [None, str],
-        size_bytes: [None, int]) -> list[Provider]:
-    output = actions.declare_output(name)
-    downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output
+        size_bytes: [None, int],
+        has_content_based_path: bool) -> list[Provider]:
+    output = actions.declare_output(name, has_content_based_path = has_content_based_path)
+    downloaded_output = actions.declare_output("exploded_zip", has_content_based_path = has_content_based_path) if is_exploded_zip else output
     actions.download_file(
         downloaded_output,
         url,
@@ -72,4 +73,5 @@ def http_file_impl(ctx: AnalysisContext) -> list[Provider]:
         is_exploded_zip = False,
         unzip_tool = None,
         size_bytes = ctx.attrs.size_bytes,
+        has_content_based_path = ctx.attrs.has_content_based_path,
     )

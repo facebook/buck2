@@ -756,6 +756,7 @@ http_archive = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
+            "has_content_based_path": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -849,6 +850,7 @@ http_file = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
+            "has_content_based_path": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -976,6 +978,7 @@ remote_file = prelude_rule(
             """),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha256": attrs.option(attrs.string(), default = None),
+            "has_content_based_path": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
