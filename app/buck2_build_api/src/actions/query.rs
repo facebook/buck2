@@ -251,6 +251,29 @@ impl ActionData {
             "executor_configuration".to_owned(),
             self.action.execution_config().executor.to_string(),
         );
+        attrs.insert(
+            "buck.all_outputs_are_content_based".to_owned(),
+            self.action
+                .action()
+                .all_outputs_are_content_based()
+                .to_string(),
+        );
+        attrs.insert(
+            "buck.all_inputs_are_eligible_for_dedupe".to_owned(),
+            self.action
+                .action()
+                .all_inputs_are_eligible_for_dedupe()
+                .to_string(),
+        );
+
+        let all_ineligible = self.action.action().all_ineligible_for_dedup_inputs();
+        if !all_ineligible.is_empty() {
+            attrs.insert(
+                "buck.all_ineligible_for_dedup_inputs".to_owned(),
+                all_ineligible.join(", "),
+            );
+        }
+
         attrs
     }
 }

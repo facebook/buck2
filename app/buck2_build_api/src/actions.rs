@@ -197,6 +197,28 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         true
     }
 
+    fn all_inputs_are_eligible_for_dedupe(&self) -> bool {
+        self.all_ineligible_for_dedup_inputs().is_empty()
+    }
+
+    fn all_ineligible_for_dedup_inputs(&self) -> Vec<String> {
+        let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
+            self.first_output().key().owner()
+        {
+            Some(configured_label.cfg())
+        } else {
+            None
+        };
+
+        let mut ineligible_inputs = Vec::new();
+        for ag in self.inputs().unwrap_or_default().iter() {
+            if !ag.is_eligible_for_dedupe(target_platform) {
+                ineligible_inputs.push(ag.to_string());
+            }
+        }
+        ineligible_inputs
+    }
+
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 
