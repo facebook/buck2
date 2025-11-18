@@ -8,13 +8,22 @@
 
 load(":apple_sdk_metadata.bzl", "MacOSXSdkMetadata", "WatchSimulatorSdkMetadata")
 
+apple_test_device_types = struct(
+    DEFAULT = "default",
+    CATALYST = "catalyst",
+    IPAD = "ipad",
+    IPHONE = "iphone",
+    MAC = "mac",
+    WATCH = "watch",
+)
+
 AppleTestDeviceType = enum(
-    "default",
-    "catalyst",
-    "ipad",
-    "iphone",
-    "mac",
-    "watch",
+    apple_test_device_types.DEFAULT,
+    apple_test_device_types.CATALYST,
+    apple_test_device_types.IPAD,
+    apple_test_device_types.IPHONE,
+    apple_test_device_types.MAC,
+    apple_test_device_types.WATCH,
 )
 
 def get_default_test_device(sdk: str, platform: str) -> AppleTestDeviceType:
