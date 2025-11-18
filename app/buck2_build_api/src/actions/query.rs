@@ -248,7 +248,7 @@ impl ActionData {
             },
         );
         attrs.insert(
-            "executor_configuration".to_owned(),
+            "buck.executor_configuration".to_owned(),
             self.action.execution_config().executor.to_string(),
         );
         attrs.insert(
