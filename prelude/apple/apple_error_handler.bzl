@@ -127,6 +127,17 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
     return errors
 
+def _get_error_type(severity: str) -> str | None:
+    error_type = None
+    if severity == "error":
+        error_type = "E"
+    elif severity == "warning":
+        error_type = "W"
+    elif severity == "note":
+        error_type = "N"
+
+    return error_type
+
 def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     errors = []
     for val in ctx.output_artifacts.values():
@@ -154,14 +165,6 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                     if custom_category.message:
                         postfix = ". " + custom_category.message
 
-            error_type = None
-            if severity == "error":
-                error_type = "E"
-            elif severity == "warning":
-                error_type = "W"
-            elif severity == "note":
-                error_type = "N"
-
             errors.append(
                 ctx.new_sub_error(
                     category = category,
@@ -169,7 +172,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                     file = error_json["path"],
                     lnum = error_json["line"],
                     col = error_json["col"],
-                    error_type = error_type,
+                    error_type = _get_error_type(severity),
                 ),
             )
 
