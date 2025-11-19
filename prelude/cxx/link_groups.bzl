@@ -893,6 +893,17 @@ def _create_link_group(
         # don't create empty shared libraries
         return None
 
+    # Determine link execution preference for this link group
+    # Default to "any" if not specified on the link group
+    link_exec_pref = spec.group.attrs.link_execution_preference
+    if link_exec_pref:
+        # If link_exec_pref is an Artifact (source file), extract the basename
+        # This happens when strings are specified in BUCK file attribute dictionaries
+        link_exec_pref = getattr(link_exec_pref, "basename", link_exec_pref)
+        link_execution_preference = LinkExecutionPreference(link_exec_pref)
+    else:
+        link_execution_preference = LinkExecutionPreference("any")
+
     # link the rule
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -904,7 +915,7 @@ def _create_link_group(
             identifier = spec.name,
             # TODO: anonymous targets cannot be used with dynamic output yet
             enable_distributed_thinlto = False if params.anonymous else spec.group.attrs.enable_distributed_thinlto,
-            link_execution_preference = LinkExecutionPreference("any"),
+            link_execution_preference = link_execution_preference,
             allow_cache_upload = params.allow_cache_upload,
             error_handler = params.error_handler,
         ),

@@ -67,6 +67,9 @@ GroupAttrs = record(
     # Adds additional linker flags to apply to dependents that link against the
     # link group's shared object.
     exported_linker_flags = field(list[typing.Any], []),
+    # Controls link execution location: "any" (default), "full_hybrid", "local",
+    # "local_only", or "remote".
+    link_execution_preference = field([str, None, typing.Any], None),
     # Wraps the link group shared library with `--no-as-needed/--as-needed`,
     # used for link groups that are required at runtime but not statically referenced.
     # Only applicable to gnu.
