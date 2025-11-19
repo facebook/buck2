@@ -11,10 +11,10 @@
 use std::env;
 use std::path::Path;
 
-use crate::fs::fs_util;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-use crate::fs::paths::abs_path::AbsPathBuf;
+use crate::fs_util;
+use crate::paths::abs_norm_path::AbsNormPath;
+use crate::paths::abs_norm_path::AbsNormPathBuf;
+use crate::paths::abs_path::AbsPathBuf;
 
 /// Client working directory.
 ///

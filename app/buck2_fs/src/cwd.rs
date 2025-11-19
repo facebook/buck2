@@ -14,10 +14,10 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 
-use crate::fs::fs_util;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-use crate::fs::paths::abs_path::AbsPathBuf;
+use crate::fs_util;
+use crate::paths::abs_norm_path::AbsNormPath;
+use crate::paths::abs_norm_path::AbsNormPathBuf;
+use crate::paths::abs_path::AbsPathBuf;
 
 #[derive(Allocative)]
 pub struct WorkingDirectoryGen<T: WorkingDirectoryImpl> {
@@ -62,7 +62,7 @@ mod unix_impl {
     use nix::sys::stat::Mode;
 
     use super::WorkingDirectoryImpl;
-    use crate::fs::paths::abs_norm_path::AbsNormPath;
+    use crate::paths::abs_norm_path::AbsNormPath;
 
     #[derive(Allocative)]
     pub struct UnixWorkingDirectoryImpl {

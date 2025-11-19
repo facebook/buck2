@@ -13,9 +13,9 @@ use std::io::Read;
 
 use buck2_error::BuckErrorContext;
 
-use crate::fs::fs_util;
-use crate::fs::paths::abs_path::AbsPath;
+use crate::fs_util;
 use crate::io_counters::IoCounterKey;
+use crate::paths::abs_path::AbsPath;
 
 pub async fn open<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<tokio::fs::File> {
     let _guard = IoCounterKey::Read.guard();

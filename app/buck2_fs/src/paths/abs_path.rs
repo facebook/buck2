@@ -20,7 +20,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use ref_cast::RefCast;
 
-use crate::fs::cwd;
+use crate::cwd;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]

@@ -22,19 +22,19 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
+pub use buck2_env::soft_error::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
-use crate::fs::cwd::assert_cwd_is_not_set;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-use crate::fs::paths::abs_path::AbsPath;
+use crate::cwd::assert_cwd_is_not_set;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
-use crate::soft_error;
+use crate::paths::abs_norm_path::AbsNormPath;
+use crate::paths::abs_norm_path::AbsNormPathBuf;
+use crate::paths::abs_path::AbsPath;
 
 impl IoError {
     pub fn new(op: String, e: io::Error) -> Self {
@@ -787,23 +787,23 @@ mod tests {
     use buck2_error::ErrorTag;
     use relative_path::RelativePath;
 
-    use crate::fs::fs_util;
-    use crate::fs::fs_util::IoError;
-    use crate::fs::fs_util::MAX_IO_ATTEMPTS;
-    use crate::fs::fs_util::create_dir_all;
-    use crate::fs::fs_util::metadata;
-    use crate::fs::fs_util::read_dir_if_exists;
-    use crate::fs::fs_util::read_to_string;
-    use crate::fs::fs_util::remove_all;
-    use crate::fs::fs_util::remove_dir_all;
-    use crate::fs::fs_util::remove_file;
-    use crate::fs::fs_util::symlink;
-    use crate::fs::fs_util::symlink_metadata;
-    use crate::fs::fs_util::with_retries;
-    use crate::fs::fs_util::write;
-    use crate::fs::paths::abs_norm_path::AbsNormPath;
-    use crate::fs::paths::abs_path::AbsPath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+    use crate::fs_util;
+    use crate::fs_util::IoError;
+    use crate::fs_util::MAX_IO_ATTEMPTS;
+    use crate::fs_util::create_dir_all;
+    use crate::fs_util::metadata;
+    use crate::fs_util::read_dir_if_exists;
+    use crate::fs_util::read_to_string;
+    use crate::fs_util::remove_all;
+    use crate::fs_util::remove_dir_all;
+    use crate::fs_util::remove_file;
+    use crate::fs_util::symlink;
+    use crate::fs_util::symlink_metadata;
+    use crate::fs_util::with_retries;
+    use crate::fs_util::write;
+    use crate::paths::abs_norm_path::AbsNormPath;
+    use crate::paths::abs_path::AbsPath;
+    use crate::paths::forward_rel_path::ForwardRelativePath;
 
     #[test]
     fn if_exists_read_dir() -> buck2_error::Result<()> {
@@ -977,7 +977,7 @@ mod tests {
 
     #[test]
     fn relative_symlink_from_symlinked_dir_windows() -> buck2_error::Result<()> {
-        use crate::fs::fs_util::read_link;
+        use crate::fs_util::read_link;
 
         if !cfg!(windows) {
             return Ok(());

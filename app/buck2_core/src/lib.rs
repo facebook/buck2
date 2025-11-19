@@ -41,7 +41,7 @@ pub mod execution_types;
 pub mod faster_directories;
 pub mod fs;
 pub mod global_cfg_options;
-pub mod io_counters;
+pub use buck2_fs::io_counters;
 pub mod logging;
 pub mod package;
 pub mod pattern;

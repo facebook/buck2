@@ -10,12 +10,10 @@
 
 use gazebo::prelude::IterOwned;
 
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use crate::fs::project_rel_path::ProjectRelativePath;
-use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::paths::file_name::FileName;
+use crate::paths::file_name::FileNameBuf;
+use crate::paths::forward_rel_path::ForwardRelativePath;
+use crate::paths::forward_rel_path::ForwardRelativePathBuf;
 
 /// Provide an iterator of FileNameBuf from inputs that can produce one. This is useful for methods
 /// that insert into directory mappings.
@@ -34,22 +32,6 @@ impl<'a> IntoFileNameBufIterator for &'a ForwardRelativePath {
 }
 
 impl<'a> IntoFileNameBufIterator for &'a ForwardRelativePathBuf {
-    type Iterator = impl Iterator<Item = FileNameBuf> + 'a;
-
-    fn into_iter(self) -> Self::Iterator {
-        self.iter().owned()
-    }
-}
-
-impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePath {
-    type Iterator = impl Iterator<Item = FileNameBuf> + 'a;
-
-    fn into_iter(self) -> Self::Iterator {
-        self.iter().owned()
-    }
-}
-
-impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePathBuf {
     type Iterator = impl Iterator<Item = FileNameBuf> + 'a;
 
     fn into_iter(self) -> Self::Iterator {

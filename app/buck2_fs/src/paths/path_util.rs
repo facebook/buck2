@@ -9,7 +9,7 @@
  */
 
 #[inline]
-pub(crate) fn path_remove_prefix<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
+pub fn path_remove_prefix<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
     if prefix.is_empty() {
         Some(path)
     } else if path.starts_with(prefix) {
@@ -27,7 +27,7 @@ pub(crate) fn path_remove_prefix<'a>(path: &'a str, prefix: &str) -> Option<&'a 
 
 #[cfg(test)]
 mod tests {
-    use crate::fs::paths::path_util::path_remove_prefix;
+    use crate::paths::path_util::path_remove_prefix;
 
     #[test]
     fn test_path_remove_prefix() {

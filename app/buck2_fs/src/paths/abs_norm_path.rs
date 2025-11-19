@@ -25,10 +25,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde::de::Error;
 
-use crate::fs::paths::abs_path::AbsPath;
-use crate::fs::paths::abs_path::AbsPathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
+use crate::paths::abs_path::AbsPath;
+use crate::paths::abs_path::AbsPathBuf;
+use crate::paths::forward_rel_path::ForwardRelativePath;
+use crate::paths::forward_rel_path::ForwardRelativePathNormalizer;
 
 /// An absolute path. This path is not platform agnostic.
 ///
@@ -106,7 +106,7 @@ impl AbsNormPath {
     /// otherwise error.
     ///
     /// ```
-    /// # use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// # use buck2_fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// assert!(AbsNormPath::new("foo/bar").is_err());
     /// if cfg!(windows) {
@@ -126,9 +126,9 @@ impl AbsNormPath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// if cfg!(not(windows)) {
     ///     let abs_path = AbsNormPath::new("/my")?;
@@ -172,7 +172,7 @@ impl AbsNormPath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// if cfg!(not(windows)) {
     ///     assert_eq!(
@@ -204,8 +204,8 @@ impl AbsNormPath {
     /// use std::borrow::Cow;
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// if cfg!(not(windows)) {
     ///     let path = AbsNormPath::new("/test/foo/bar.txt")?;
@@ -293,7 +293,7 @@ impl AbsNormPath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// if cfg!(not(windows)) {
     ///     let abs_path = AbsNormPath::new("/some/foo")?;
@@ -346,7 +346,7 @@ impl AbsNormPath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// if cfg!(not(windows)) {
     ///     let abs_path = AbsNormPath::new("/some/foo")?;
@@ -365,8 +365,8 @@ impl AbsNormPath {
     /// Build an owned `AbsPathBuf`, joined with the given path and normalized.
     ///
     /// ```
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     assert_eq!(
@@ -440,7 +440,7 @@ impl AbsNormPath {
     /// Get Windows path prefix which is either disk drive letter, device or UNC name.
     ///
     /// ```
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// assert_eq!("D", AbsNormPath::new("d:/foo/bar")?.windows_prefix()?);
     /// assert_eq!("D", AbsNormPath::new(r"D:\foo\bar")?.windows_prefix()?);
@@ -502,7 +502,7 @@ impl AbsNormPath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// assert_eq!(
     ///     Path::new(""),
@@ -621,8 +621,8 @@ impl AbsNormPathBuf {
     /// ```
     /// use std::path::PathBuf;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let prefix = if cfg!(windows) { "C:" } else { "" };
     ///
@@ -652,8 +652,8 @@ impl AbsNormPathBuf {
     /// Note that this does not visit the filesystem to resolve `..`s. Instead, it cancels out the
     /// components directly, similar to `join_normalized`.
     /// ```
-    /// use buck2_core::fs::paths::RelativePath;
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_fs::paths::RelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// let prefix = if cfg!(windows) { "C:" } else { "" };
     ///
@@ -734,7 +734,7 @@ impl TryFrom<String> for AbsNormPathBuf {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// assert!(AbsNormPathBuf::try_from("relative/bar".to_owned()).is_err());
     ///
@@ -773,7 +773,7 @@ impl TryFrom<PathBuf> for AbsNormPathBuf {
     /// use std::convert::TryFrom;
     /// use std::path::PathBuf;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// assert!(AbsNormPathBuf::try_from(PathBuf::from("relative/bar")).is_err());
     ///
@@ -932,10 +932,10 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 
-    use crate::fs::paths::abs_norm_path::AbsNormPath;
-    use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use crate::fs::paths::abs_norm_path::verify_abs_path_windows_part;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+    use crate::paths::abs_norm_path::AbsNormPath;
+    use crate::paths::abs_norm_path::AbsNormPathBuf;
+    use crate::paths::abs_norm_path::verify_abs_path_windows_part;
+    use crate::paths::forward_rel_path::ForwardRelativePath;
 
     #[cfg(not(windows))]
     fn make_absolute(s: &str) -> String {
@@ -1078,5 +1078,31 @@ mod tests {
                 "/foo/bar/baz"
             }
         );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn absolute_path_display_is_readable() -> buck2_error::Result<()> {
+        let buf = AbsNormPathBuf::from("/foo/bar".into())?;
+        assert_eq!("/foo/bar", format!("{buf}"));
+        assert_eq!("AbsNormPathBuf(\"/foo/bar\")", format!("{buf:?}"));
+        let refpath: &AbsNormPath = &buf;
+        assert_eq!("/foo/bar", format!("{refpath}"));
+        assert_eq!("AbsNormPath(\"/foo/bar\")", format!("{refpath:?}"));
+
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn absolute_path_display_is_readable() -> buck2_error::Result<()> {
+        let buf = AbsNormPathBuf::from("C:/foo/bar".into())?;
+        assert_eq!("C:/foo/bar", format!("{buf}"));
+        assert_eq!("AbsNormPathBuf(\"C:/foo/bar\")", format!("{buf:?}"));
+        let refpath: &AbsNormPath = &buf;
+        assert_eq!("C:/foo/bar", format!("{refpath}"));
+        assert_eq!("AbsNormPath(\"C:/foo/bar\")", format!("{refpath:?}"));
+
+        Ok(())
     }
 }

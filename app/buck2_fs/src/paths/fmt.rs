@@ -15,7 +15,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 /// formats the path as a quoted string
-pub(crate) fn quoted_display<D>(d: &D, f: &mut Formatter) -> fmt::Result
+pub fn quoted_display<D>(d: &D, f: &mut Formatter) -> fmt::Result
 where
     D: Display + ?Sized,
 {

@@ -77,13 +77,16 @@ use std::path::PathBuf;
 use allocative::Allocative;
 use buck2_util::arc_str::StringInside;
 use derivative::Derivative;
+use gazebo::prelude::IterOwned;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::fs::paths::IntoFileNameBufIterator;
 use crate::fs::paths::file_name::FileName;
+use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -713,8 +716,27 @@ impl Deref for ProjectRelativePathBuf {
     }
 }
 
+impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePath {
+    type Iterator = impl Iterator<Item = FileNameBuf> + 'a;
+
+    fn into_iter(self) -> Self::Iterator {
+        self.iter().owned()
+    }
+}
+
+impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePathBuf {
+    type Iterator = impl Iterator<Item = FileNameBuf> + 'a;
+
+    fn into_iter(self) -> Self::Iterator {
+        self.iter().owned()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::fs::project_rel_path::ProjectRelativePath;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
@@ -795,5 +817,19 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("expected a normalized path"), "{}", err);
+    }
+
+    #[test]
+    fn wrapped_paths_work_in_maps() -> buck2_error::Result<()> {
+        let mut map = HashMap::new();
+
+        let p1 = ForwardRelativePath::new("foo")?;
+        let p2 = ProjectRelativePath::new("bar")?;
+
+        map.insert(p1.to_buf(), p2.to_buf());
+
+        assert_eq!(Some(p2), map.get(p1).map(|p| p.as_ref()));
+
+        Ok(())
     }
 }

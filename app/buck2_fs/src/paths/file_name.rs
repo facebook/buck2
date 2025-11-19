@@ -23,9 +23,7 @@ use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 
-use crate::cells::paths::CellRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::package::package_relative_path::PackageRelativePath;
+use crate::paths::forward_rel_path::ForwardRelativePath;
 
 /// Errors from ForwardRelativePath creation
 #[derive(buck2_error::Error, Debug)]
@@ -124,26 +122,12 @@ impl AsRef<ForwardRelativePath> for FileName {
     }
 }
 
-impl AsRef<PackageRelativePath> for FileName {
-    #[inline]
-    fn as_ref(&self) -> &PackageRelativePath {
-        PackageRelativePath::unchecked_new(&self.0)
-    }
-}
-
-impl AsRef<CellRelativePath> for FileName {
-    #[inline]
-    fn as_ref(&self) -> &CellRelativePath {
-        CellRelativePath::unchecked_new(&self.0)
-    }
-}
-
 impl FileName {
     /// Creates an `FileName` if the given path represents a correct
     /// platform-independent file name, otherwise error.
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
+    /// use buck2_fs::paths::file_name::FileName;
     /// assert!(FileName::new("foo").is_ok());
     /// assert!(FileName::new("").is_err());
     /// assert!(FileName::new(".").is_err());
@@ -196,7 +180,7 @@ impl FileName {
     /// * Otherwise, the portion of the file name before the final `.`
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// let path = FileName::new("foo.rs")?;
     ///
@@ -212,7 +196,7 @@ impl FileName {
     /// Extracts the extension of `self.file_name`, if possible.
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// assert_eq!(Some("rs"), FileName::new("foo.rs")?.extension());
     ///
