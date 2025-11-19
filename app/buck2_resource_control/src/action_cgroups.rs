@@ -618,7 +618,14 @@ impl ActionCgroups {
             return;
         }
 
-        let mut suspended_cgroup = self.suspended_cgroups.pop_front().unwrap();
+        self.last_wake_time = Some(Instant::now());
+        self.wake(memory_reading)
+    }
+
+    fn wake(&mut self, memory_reading: &MemoryReading) {
+        let Some(mut suspended_cgroup) = self.suspended_cgroups.pop_front() else {
+            return;
+        };
 
         tracing::debug!(
             "Awaking action: {:?} (type: {:?})",
@@ -641,7 +648,6 @@ impl ActionCgroups {
             suspended_cgroup.cgroup,
             suspended_cgroup.wake_implementation,
         );
-        self.last_wake_time = Some(Instant::now());
 
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
