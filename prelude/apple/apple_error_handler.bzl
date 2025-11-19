@@ -64,8 +64,11 @@ def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: li
         if _match(error_category.matcher, lowercase_stderr):
             errors.append(ctx.new_sub_error(category = "apple_" + error_category.category, message = error_category.message))
 
-def _category_match(message: str, categories: list[AppleErrorCategory]) -> AppleErrorCategory | None:
+def _category_match(message: str, path: str, categories: list[AppleErrorCategory]) -> AppleErrorCategory | None:
     for error_category in categories:
+        if error_category.file_matcher and error_category.file_matcher not in path:
+            continue
+
         if _match(error_category.matcher, message):
             return error_category
 
@@ -159,7 +162,11 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 # With no category in the error itself we categorise based on
                 # the message content.
                 postfix = ""
-                custom_category = _category_match(error_json["message"], SWIFT_STDERR_CATEGORIES)
+                custom_category = _category_match(
+                    message = error_json["message"],
+                    path = error_json["path"],
+                    categories = SWIFT_STDERR_CATEGORIES,
+                )
                 if custom_category:
                     category += "_" + custom_category.category
                     if custom_category.message:

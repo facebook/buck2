@@ -7,9 +7,14 @@
 # above-listed licenses.
 
 AppleErrorCategory = record(
+    # The message matcher.
     # If you pass a string, it will use `matcher in stderr.lower()`.
     # If you pass a regex(), it will run `regex("exp").match(stderr.lower())`.
     matcher = str | BuckRegex,
+
+    # If specified, this will only run the `matcher` if the filepath matches here.
+    file_matcher = field([str, None], default = None),
+
     # List of category tags to be applied in the event of this error.
     # Categories are automatically prefixed with "apple_" for historical reasons.
     category = str,
