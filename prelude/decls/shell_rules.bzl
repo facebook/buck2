@@ -87,6 +87,7 @@ sh_binary = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "_target_os_type": buck.target_os_type_arg(),
+            "has_content_based_path": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
