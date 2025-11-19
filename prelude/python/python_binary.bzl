@@ -165,9 +165,9 @@ def python_executable(
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
 
-        # TODO(T230857912) enable pyc compilation for 3.14
+        # TODO(T245694881) let the toolchain decide whether pyc's should be precompiled
         py_version = ctx.attrs._python_toolchain[PythonToolchainInfo].version
-        if py_version == None or "3.14" not in py_version:
+        if py_version == None or "3.15" not in py_version:
             bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     all_default_resources = {}
