@@ -13,17 +13,12 @@ from __future__ import annotations
 import json
 import os
 import re
-import threading
-import time
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-import pytest
+from typing import Any, Dict
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import filter_events, timestamp_ms
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 # To not fail listing on Mac or Windows
@@ -153,105 +148,6 @@ async def get_daemon_pid(buck: Buck) -> int:
     status = json.loads(stdout)
     pid = status["process_info"]["pid"]
     return pid
-
-
-# This tests set the memory.high for the buck2 cgroup slice (contains daemon, forkserver and workers cgroups) to 5GB
-# The value here is only for testing the unset and restore functionality during freezing.
-# The freezing is coming from the memory pressure, limited by memory_high_action_cgroup_pool here
-@buck_test(skip_for_os=["darwin", "windows"])
-async def test_parent_slice_memory_high_unset_and_restore(
-    buck: Buck,
-) -> None:
-    memory_high_total = 5 * 1024 * 1024 * 1024  # 5 GB
-    with open(buck.cwd / ".buckconfig.local", "w") as f:
-        f.write("[buck2_resource_control]\n")
-        f.write(f"memory_high_action_cgroup_pool = {200 * 1024 * 1024}\n")  # 200 MiB
-        f.write("enable_suspension = true\n")
-        f.write("memory_pressure_threshold_percent = 1\n")
-        f.write(f"memory_high = {memory_high_total}\n")
-
-    # start buck2 daemon
-    await buck.server()
-
-    pid = await get_daemon_pid(buck)
-    daemon_cgroup_path = get_daemon_cgroup_path(pid)
-    # the cgroup that contains daemon, forkserver and workers cgroups
-    slice_cgroup_path = daemon_cgroup_path.parent
-
-    # We don't set memory.high for the daemon cgroup
-    with open(daemon_cgroup_path / "memory.high", "r") as f:
-        daemon_memory_high = f.read().strip()
-    assert daemon_memory_high == "max"
-
-    with open(slice_cgroup_path / "memory.high", "r") as f:
-        slice_memory_high = f.read().strip()
-    if slice_memory_high == "max":
-        slice_memory_high = memory_high_total
-    else:
-        slice_memory_high = int(slice_memory_high)
-    assert slice_memory_high == memory_high_total
-
-    # Variables to store the memory.high values
-    delayed_memory_high = None
-
-    def read_memory_high_after_delay(slice_cgroup_path: Path) -> None:
-        """Function to read memory.high after a 10-second delay"""
-        nonlocal delayed_memory_high
-        time.sleep(10)
-        try:
-            # One of the action is frozen at this point in the thread,
-            # so that the memory.high value should be set to max
-            with open(slice_cgroup_path / "memory.high", "r") as f:
-                delayed_memory_high = f.read().strip()
-        except Exception as e:
-            print(f"Error reading memory.high after delay: {e}")
-
-    # Start the thread to read memory.high after 10 seconds
-    memory_reader_thread = threading.Thread(
-        target=read_memory_high_after_delay, args=(slice_cgroup_path,)
-    )
-    memory_reader_thread.start()
-
-    await buck.build(
-        "prelude//:freeze_unfreeze_target",
-        "--no-remote-cache",
-        "-c",
-        "build.use_limited_hybrid=False",
-        "-c",
-        "build.execution_platforms=//:platforms",
-        "--local-only",
-        *_use_some_memory_args(buck),
-    )
-
-    commands = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "ActionExecution",
-        "commands",
-    )
-
-    # There are three commands, only one was suspended:
-    suspended_commands = [
-        c[0] for c in commands if c[0]["details"]["metadata"]["suspend_count"]
-    ]
-    assert len(suspended_commands) == 1
-    for command in suspended_commands:
-        assert command["details"]["metadata"]["suspend_duration"] is not None
-
-    memory_reader_thread.join()
-    assert (delayed_memory_high) == "max"
-    # The memory.high value should be restored to the original value
-    with open(slice_cgroup_path / "memory.high", "r") as f:
-        slice_memory_high_at_end = f.read().strip()
-        if slice_memory_high_at_end == "max":
-            slice_memory_high_at_end = memory_high_total
-        else:
-            slice_memory_high_at_end = int(slice_memory_high_at_end)
-
-    assert slice_memory_high_at_end == memory_high_total
 
 
 @buck_test(skip_for_os=["darwin", "windows"])

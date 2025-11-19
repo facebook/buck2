@@ -17,7 +17,6 @@ use std::time::SystemTime;
 
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
@@ -211,9 +210,6 @@ pub(crate) struct ActionCgroups {
     /// before it's killed and retried.
     running_cgroups: Vec<RunningActionCgroup>,
     suspended_cgroups: VecDeque<SuspendedActionCgroup>,
-    /// The original memory.high value from the cgroup slice of daemon, forkserver and workers cgroups, saved before unsetting it during
-    /// memory pressure. Used to restore the limit when all cgroups are awoken.
-    original_memory_high: Option<String>,
     last_suspend_time: Option<Instant>,
     last_wake_time: Option<Instant>,
     last_memory_pressure_state: MemoryPressureState,
@@ -332,7 +328,6 @@ impl ActionCgroups {
             preferred_action_suspend_strategy,
             running_cgroups: Vec::new(),
             suspended_cgroups: VecDeque::new(),
-            original_memory_high: None,
             last_suspend_time: None,
             last_wake_time: None,
             last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
@@ -491,27 +486,9 @@ impl ActionCgroups {
 
         if pressure_state == MemoryPressureState::AbovePressureLimit {
             self.maybe_suspend(memory_reading);
-
-            // When we are under memory pressure and began freezing actions, we need to reset memory.high to max to prevent throttling unnecessarily.
-            // original_memory_high is used to make sure we don't reset more than once
-            if self.original_memory_high.is_none() && !self.suspended_cgroups.is_empty() {
-                if let Err(e) = self.unset_memory_high() {
-                    let _unused = soft_error!("unset_memory_high_error", e);
-                }
-            }
         }
 
         self.maybe_wake(pressure_state, memory_reading);
-
-        // When we are not under memory pressure and have no suspended actions, lower memory.high so we can react to memory pressure earlier
-        if self.original_memory_high.is_some()
-            && self.suspended_cgroups.is_empty()
-            && pressure_state == MemoryPressureState::BelowPressureLimit
-        {
-            if let Err(e) = self.restore_memory_high() {
-                let _unused = soft_error!("restore_memory_high_error", e);
-            }
-        }
 
         // Report resource control events every 10 seconds normally, but every second during times
         // of pressure
@@ -660,33 +637,6 @@ impl ActionCgroups {
             event_kind,
             &running_cgroup.cgroup,
         );
-    }
-
-    /// Removes the memory.high limit from the cgroup slice
-    fn unset_memory_high(&mut self) -> buck2_error::Result<()> {
-        let cgroup_info = CGroupInfo::read()?;
-        let slice_path = cgroup_info.get_slice().ok_or(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Environment,
-            "The closest slice of the daemon cgroup does not exist"
-        ))?;
-        let memory_high = CgroupMemoryFile::MemoryHigh.read(slice_path.as_path())?;
-        self.original_memory_high = Some(memory_high);
-        CgroupMemoryFile::MemoryHigh.set(slice_path.as_path(), "max")?;
-
-        Ok(())
-    }
-
-    /// Restores the original memory.high limit to the cgroup slice
-    fn restore_memory_high(&mut self) -> buck2_error::Result<()> {
-        if let Some(original_memory_high) = self.original_memory_high.take() {
-            let cgroup_info = CGroupInfo::read()?;
-            let slice_path = cgroup_info.get_slice().ok_or(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Environment,
-                "The closest slice of the daemon cgroup does not exist"
-            ))?;
-            CgroupMemoryFile::MemoryHigh.set(slice_path.as_path(), &original_memory_high)?;
-        }
-        Ok(())
     }
 
     fn make_resource_control_event(
