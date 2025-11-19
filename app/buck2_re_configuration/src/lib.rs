@@ -181,33 +181,33 @@ mod fbcode {
                 })?,
                 shared_casd_mode_small_files: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_mode_small_files",
+                    property: "cas_shared_cache_mode_small_files_v2",
                 })?,
                 shared_casd_mode_large_files: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_mode_large_files",
+                    property: "cas_shared_cache_mode_large_files_v2",
                 })?,
                 shared_casd_cache_sync_wal_files_count: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_sync_wal_files_count",
+                    property: "cas_shared_cache_sync_wal_files_count_v2",
                 })?,
                 shared_casd_cache_sync_wal_file_max_size: legacy_config.parse(
                     BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
-                        property: "cas_shared_cache_sync_wal_file_max_size",
+                        property: "cas_shared_cache_sync_wal_file_max_size_v2",
                     },
                 )?,
                 shared_casd_cache_sync_max_batch_size: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_sync_max_batch_size",
+                    property: "cas_shared_cache_sync_max_batch_size_v2",
                 })?,
                 shared_casd_cache_sync_max_delay_ms: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_sync_max_delay_ms",
+                    property: "cas_shared_cache_sync_max_delay_ms_v2",
                 })?,
                 shared_casd_copy_policy: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_copy_policy",
+                    property: "cas_shared_cache_copy_policy_v2",
                 })?,
                 shared_casd_address: {
                     let port_result = legacy_config.parse(BuckconfigKeyRef {
@@ -218,7 +218,7 @@ mod fbcode {
                         Ok(Some(port)) => Some(port),
                         _ => legacy_config.parse(BuckconfigKeyRef {
                             section: BUCK2_RE_CLIENT_CFG_SECTION,
-                            property: "cas_shared_cache_address",
+                            property: "cas_shared_cache_address_v2",
                         })?,
                     }
                 },
@@ -228,7 +228,7 @@ mod fbcode {
                 })?,
                 cas_client_label: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_client_label",
+                    property: "cas_client_label_v2",
                 })?,
                 action_cache_address: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
