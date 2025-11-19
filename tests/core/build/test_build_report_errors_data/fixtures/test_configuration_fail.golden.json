@@ -3,7 +3,7 @@
 {
   "error_category": "USER",
   "failures": {
-    "root//fail_config:cat_only": "Error running analysis for `root//config:not_a_target_platform (<unbound>)`\nCaused by:\n    0: Error looking up configured node root//config:not_a_target_platform (<unbound>)\n    1: looking up unconfigured target node `root//config:not_a_target_platform`\n    2: Unknown target `not_a_target_platform` from package `root//config`.\n       Did you mean one of the 5 targets in root//config:TARGETS.fixture?"
+    "root//fail_config:cat_only": "Error running analysis for `root//config:not_a_target_platform (<unbound>)`\nCaused by:\n    0: Error looking up configured node root//config:not_a_target_platform (<unbound>)\n    1: looking up unconfigured target node `root//config:not_a_target_platform`\n    2: Unknown target `not_a_target_platform` from package `root//config`.\n       Did you mean one of the 5 targets in root//config:TARGETS.fixture?\n       \n       Available targets:\n         root//config:animal\n         root//config:cat\n         root//config:cat_platform\n         root//config:dog\n         root//config:dog_platform"
   },
   "results": {
     "root//fail_config:cat_only": {
@@ -26,7 +26,7 @@
     }
   },
   "strings": {
-    "<STRING_HASH>": "Error running analysis for `root//config:not_a_target_platform (<unbound>)`\nCaused by:\n    0: Error looking up configured node root//config:not_a_target_platform (<unbound>)\n    1: looking up unconfigured target node `root//config:not_a_target_platform`\n    2: Unknown target `not_a_target_platform` from package `root//config`.\n       Did you mean one of the 5 targets in root//config:TARGETS.fixture?"
+    "<STRING_HASH>": "Error running analysis for `root//config:not_a_target_platform (<unbound>)`\nCaused by:\n    0: Error looking up configured node root//config:not_a_target_platform (<unbound>)\n    1: looking up unconfigured target node `root//config:not_a_target_platform`\n    2: Unknown target `not_a_target_platform` from package `root//config`.\n       Did you mean one of the 5 targets in root//config:TARGETS.fixture?\n       \n       Available targets:\n         root//config:animal\n         root//config:cat\n         root//config:cat_platform\n         root//config:dog\n         root//config:dog_platform"
   },
   "success": false,
   "truncated": false

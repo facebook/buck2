@@ -9,3 +9,35 @@ Caused by:
     2: looking up unconfigured target node `root//:doesnotexist`
     3: Unknown target `doesnotexist` from package `root//`.
        Did you mean one of the 33 targets in root//:TARGETS.fixture?
+       
+       Available targets (showing 25 of 33):
+         root//:animal
+         root//:cat
+         root//:compatibility_attrs_error_in_dead_branch
+         root//:configured_dep_platform_error_after_compatibility
+         root//:configured_dep_platform_error_in_dead_branch
+         root//:dead
+         root//:dead_setting
+         root//:default_target_platform_no_error_in_dep
+         root//:dog
+         root//:exec_platforms
+         root//:fail_select_resolution
+         root//:fail_select_resolution_cat
+         root//:incoming_edge_transition_with_broken_configured_dep
+         root//:incompat
+         root//:incompat_cat
+         root//:incompat_toolchain_with_broken_configured_dep
+         root//:p-cat
+         root//:p-dog
+         root//:p-exec-cat
+         root//:p-exec-dog
+         root//:select_keys_error_before_compatibility
+         root//:select_keys_error_in_dead_branch
+         root//:select_resolution_error_after_compatibility
+         root//:target
+         root//:with_broken_dtp
+       
+       To see all 33 targets, run:
+         buck2 uquery --reuse-current-config root//:
+       
+       
