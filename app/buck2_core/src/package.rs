@@ -64,6 +64,7 @@ use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::pattern::pattern::Modifiers;
+use crate::soft_error;
 
 /// A 'Package' as defined above.
 ///
@@ -235,31 +236,22 @@ mod tests {
 
     #[test]
     fn test_fails_on_invalid_path() {
+        if !cfg!(fbcode_build) {
+            return;
+        }
         let invalid_forward_path = ForwardRelativePath::new("bar?baz").unwrap();
         let invalid_path = CellRelativePath::new(invalid_forward_path);
         let cell_name = CellName::testing_new("foo");
         let cell_path = CellPathRef::new(cell_name, &invalid_path);
 
-        assert!(
-            PackageLabel::new(cell_name, &invalid_path)
-                .unwrap_err()
-                .to_string()
-                .contains("Path: `foo//bar?baz` contains ? which is not allowed to better support the ?modifier syntax")
-        );
+        // FIXME(JakobDegen): These were previously checking the opposite, but just in the soft
+        // error case, which isn't very useful.
+        PackageLabel::new(cell_name, &invalid_path).unwrap();
 
-        assert!(
-            PackageLabel::from_cell_path(cell_path)
-                .unwrap_err()
-                .to_string()
-                .contains("Path: `foo//bar?baz` contains ? which is not allowed to better support the ?modifier syntax")
-        );
+        PackageLabel::from_cell_path(cell_path).unwrap();
 
-        assert!(
-            PackageLabel::testing_new("foo", "")
-                .join(invalid_forward_path)
-                .unwrap_err()
-                .to_string()
-                .contains("Path: `foo//bar?baz` contains ? which is not allowed to better support the ?modifier syntax")
-        );
+        PackageLabel::testing_new("foo", "")
+            .join(invalid_forward_path)
+            .unwrap();
     }
 }

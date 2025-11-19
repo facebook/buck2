@@ -20,8 +20,7 @@ use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
 use starlark_map::small_set::SmallSet;
 
-use crate::env::__macro_refs::buck2_env;
-use crate::is_open_source;
+use crate::env::buck2_env;
 
 type StructuredErrorHandler = Box<
     dyn for<'a> Fn(&'a str, &buck2_error::Error, (&'a str, u32, u32), StructuredErrorOptions)
@@ -65,61 +64,58 @@ static HARD_ERROR_PANIC_ALLOWLIST: Lazy<SmallSet<String>> =
 ///
 /// You'll get the error back as the Ok() value if it wasn't thrown, otherwise you get a Err() to
 /// propagate.
-#[macro_export]
-macro_rules! soft_error(
+pub macro soft_error {
     ($category:expr, $err:expr) => {
-        $crate::soft_error!($category, $err,)
-    };
+        $crate::soft_error::soft_error!($category, $err,)
+    },
     ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error!($category, $err, $($k: $v,)*)
-    };
+        $crate::soft_error::soft_error!($category, $err, $($k: $v,)*)
+    },
     ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
         static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         static ONCE: std::sync::Once = std::sync::Once::new();
-        $crate::error::handle_soft_error(
+        $crate::soft_error::handle_soft_error(
             $category,
             $err,
             &COUNT,
             &ONCE,
             (file!(), line!(), column!()),
-            $crate::error::StructuredErrorOptions {
+            $crate::soft_error::StructuredErrorOptions {
                 $($k: $v,)*
                 ..Default::default()
             }
         )
-    } };
-);
+    } },
+}
 
 /// Tag and report this error. Return said error.
-#[macro_export]
-macro_rules! tag_error(
+pub macro tag_error {
     ($category:expr, $err:expr) => {
-        $crate::tag_error!($category, $err,)
-    };
+        $crate::soft_error::tag_error!($category, $err,)
+    },
     ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::tag_error!($category, $err, $($k: $v,)*)
-    };
+        $crate::soft_error::tag_error!($category, $err, $($k: $v,)*)
+    },
     ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => {
-        match $crate::soft_error!($category, $err, $($k: $v,)*) {
+        match $crate::soft_error::soft_error!($category, $err, $($k: $v,)*) {
             Ok(err) => err,
             Err(err) => err,
         }
-    };
-);
+    },
+}
 
 /// If this result is an error, tag it, then return the result.
-#[macro_export]
-macro_rules! tag_result(
+pub macro tag_result {
     ($category:expr, $res:expr) => {
-        $crate::tag_result($category, $res,)
-    };
+        $crate::soft_error::tag_result($category, $res,)
+    },
     ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::tag_result!($category, $err, $($k: $v,)*)
-    };
+        $crate::soft_error::tag_result!($category, $err, $($k: $v,)*)
+    },
     ($category:expr, $res:expr, $($k:ident : $v:expr ,)*) => {
-        $res.map_err(|err| $crate::tag_error!($category, err, $($k: $v,)*))
-    };
-);
+        $res.map_err(|err| $crate::soft_error::tag_error!($category, err, $($k: $v,)*))
+    },
+}
 
 fn hard_error_config() -> buck2_error::Result<Arc<HardErrorConfig>> {
     // This function should return `Guard<Arc<HardErrorConfig>>` to make it a little bit faster,
@@ -185,11 +181,6 @@ pub fn handle_soft_error(
 ) -> Result<buck2_error::Error, buck2_error::Error> {
     validate_logview_category(category)?;
 
-    if cfg!(test) {
-        // When running unit tests of `buck2_core` crate, all errors are hard errors.
-        return Err(err);
-    }
-
     once.call_once(|| {
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
     });
@@ -213,7 +204,9 @@ pub fn handle_soft_error(
             .into());
     }
 
-    if is_open_source() {
+    // @oss-disable: let is_open_source = false;
+    let is_open_source = true; // @oss-enable
+    if is_open_source {
         // We don't log these, and we have no legacy users, and they might not upgrade that often,
         // so lets just break open source things immediately.
         return Err(err);

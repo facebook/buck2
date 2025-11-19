@@ -53,6 +53,7 @@ use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
+use crate::soft_error;
 use crate::target::label::label::TargetLabel;
 use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
@@ -2305,6 +2306,9 @@ mod tests {
 
     #[test]
     fn test_cross_cell_boundary() {
+        if !cfg!(fbcode_build) {
+            return;
+        }
         let cell_resolver = CellResolver::testing_with_names_and_paths(&[
             (
                 CellName::testing_new("root"),
@@ -2320,17 +2324,15 @@ mod tests {
             ),
         ]);
 
-        let err = ParsedPattern::<TargetPatternExtra>::parse_precise(
+        // FIXME(JakobDegen): These were previously checking the opposite, but just in the soft
+        // error case, which isn't very useful.
+        ParsedPattern::<TargetPatternExtra>::parse_precise(
             "root//cell1/xx/cell2/yy/...",
             CellName::testing_new("root"),
             &cell_resolver,
             &alias_resolver(),
         )
-        .unwrap_err();
-        let err = format!("{err:?}");
-        assert!(
-             err.contains("Pattern `root//cell1/xx/cell2/yy/...` is parsed as `root//cell1/xx/cell2/yy/...` which crosses cell boundaries. Try `cell2//yy/...`"),
-             "Error is: {err}");
+        .unwrap();
     }
 
     #[test]

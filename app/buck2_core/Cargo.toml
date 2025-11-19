@@ -6,7 +6,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-arc-swap = { workspace = true }
 blake3 = { workspace = true }
 compact_str = { workspace = true }
 derivative = { workspace = true }
@@ -47,6 +46,7 @@ lock_free_hashtable = { workspace = true }
 static_interner = { workspace = true }
 
 buck2_data = { workspace = true }
+buck2_env = { workspace = true }
 buck2_error = { workspace = true }
 buck2_util = { workspace = true }
 
