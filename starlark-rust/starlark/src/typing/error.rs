@@ -136,6 +136,16 @@ impl From<InternalError> for TypingOrInternalError {
     }
 }
 
+impl TypingOrInternalError {
+    #[cold]
+    pub(crate) fn into_eval_exception(self) -> EvalException {
+        match self {
+            Self::Typing(e) => e.into_eval_exception(),
+            Self::Internal(e) => e.into_eval_exception(),
+        }
+    }
+}
+
 pub enum TypingNoContextOrInternalError {
     Typing,
     Internal(InternalError),
