@@ -138,6 +138,16 @@ impl From<InternalError> for TypingOrInternalError {
     }
 }
 
+impl TypingOrInternalError {
+    #[cold]
+    pub(crate) fn into_eval_exception(self) -> EvalException {
+        match self {
+            Self::Typing(e) => e.into_eval_exception(),
+            Self::Internal(e) => e.into_eval_exception(),
+        }
+    }
+}
+
 /// Like [`TypingOrInternalError`], but without context on the typing variant.
 pub enum TypingNoContextOrInternalError {
     /// Types are not compatible.
