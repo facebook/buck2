@@ -314,7 +314,11 @@ def cxx_link_into(
     # using split debug with content-based paths.
     if (
         cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and
-        cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+        cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths and
+        # Darwin does not embed paths in object files themselves, but rather
+        # the linker writes those paths based on the location of object files passed
+        # to the link.
+        linker_info.type != LinkerType("darwin")
     ):
         links_to_rewrite = make_artifact_tset(
             ctx.actions,

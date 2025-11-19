@@ -31,6 +31,10 @@ load(
     "get_swiftmodule_linkable",
 )
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
+load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
@@ -568,6 +572,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         # When modular_libraries_use_header_maps is set we rely on the cxx
         # header map logic for exported_headers.
         skip_exported_headers = ctx.attrs.modular and not ctx.attrs._apple_toolchain[AppleToolchainInfo].modular_libraries_use_header_maps,
+        use_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx),
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:

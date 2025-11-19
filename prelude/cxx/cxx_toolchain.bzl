@@ -66,6 +66,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
     cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     cxx_info = CxxCompilerInfo(
@@ -85,18 +86,21 @@ def cxx_toolchain_impl(ctx):
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
     asm_info = AsmCompilerInfo(
         compiler = ctx.attrs.asm_compiler[RunInfo],
         compiler_type = ctx.attrs.asm_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.asm_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.asm_preprocessor_flags),
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     ) if ctx.attrs.asm_compiler else None
     as_info = AsCompilerInfo(
         compiler = ctx.attrs.assembler[RunInfo],
         compiler_type = ctx.attrs.assembler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.assembler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.assembler_preprocessor_flags),
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     ) if ctx.attrs.assembler else None
     cuda_info = CudaCompilerInfo(
         compiler = ctx.attrs.cuda_compiler[RunInfo],

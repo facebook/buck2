@@ -596,7 +596,11 @@ def rust_compile(
         # using split debug with content-based paths.
         if (
             dep_external_debug_infos and
-            compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+            compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths and
+            # Darwin does not embed paths in object files themselves, but rather
+            # the linker writes those paths based on the location of object files passed
+            # to the link.
+            compile_ctx.cxx_toolchain_info.linker_info.type != LinkerType("darwin")
         ):
             separate_debug_info_path_file, _ = ctx.actions.write(
                 "{}/__{}_dwo_paths.txt".format(subdir, tempfile),

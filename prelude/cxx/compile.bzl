@@ -493,7 +493,7 @@ def _compile_single_cxx(
     if serialized_diags_to_json and src_compile_cmd.error_handler and compiler_type == "clang" and src_compile_cmd.src.extension != ".cu":
         # We need to wrap the entire compile to provide serialized diagnostics
         # output and on error convert it to JSON.
-        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base)).as_output()
+        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base), uses_experimental_content_based_path_hashing = content_based).as_output()
         outputs_for_error_handler.append(json_error_output)
         cmd = cmd_args(
             toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,

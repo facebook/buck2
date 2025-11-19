@@ -21,6 +21,10 @@ load(
     "get_swiftmodule_linkable",
 )
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
+load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
     "@prelude//cxx:argsfiles.bzl",
@@ -197,6 +201,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
             precompiled_header = ctx.attrs.precompiled_header,
             prefix_header = ctx.attrs.prefix_header,
+            use_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx),
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
