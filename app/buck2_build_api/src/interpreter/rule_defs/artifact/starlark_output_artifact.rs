@@ -315,6 +315,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
     }
 }
 
+/// The result of calling [`Artifact.as_output()`](../Artifact/#artifactas_output).
 #[starlark_module]
 pub(crate) fn register_output_artifact(globals: &mut GlobalsBuilder) {
     const OutputArtifact: StarlarkValueAsType<StarlarkOutputArtifact> = StarlarkValueAsType::new();
