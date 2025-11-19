@@ -131,8 +131,11 @@ pub(crate) fn solve_bindings(
             require,
         )?;
     }
+    // Put binding errors first as the compiler fails with the first error and otherwise they
+    // never show up in tests.
+    bindings.errors.append(&mut ctx.errors.into_inner());
     Ok((
-        ctx.errors.into_inner(),
+        bindings.errors,
         ctx.types
             .into_entries_unordered()
             .map(|(k, v)| (k, v.into_inner()))

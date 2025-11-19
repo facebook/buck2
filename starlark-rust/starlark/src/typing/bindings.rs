@@ -50,6 +50,7 @@ use crate::typing::TyBasic;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::error::InternalError;
+use crate::typing::error::TypingError;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::Approximation;
@@ -98,6 +99,10 @@ pub(crate) struct Bindings<'a> {
     /// ```
     pub(crate) check: Vec<&'a CstExpr>,
     pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
+
+    /// Includes double-binding errors, like `x: str = ...; x: str = ...`.
+    /// These break compiler typechecker, but LSP continues past them.
+    pub(crate) errors: Vec<TypingError>,
 }
 
 pub(crate) struct BindingsCollect<'a, 'b> {
