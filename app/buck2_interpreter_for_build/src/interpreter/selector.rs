@@ -125,15 +125,20 @@ impl<'v> StarlarkSelector<'v> {
         Ok(heap.alloc(selector))
     }
 
-    fn select_map<'a>(
-        val: Value<'a>,
+    fn select_map<'a, const RECURSE: bool>(
         eval: &mut Evaluator<'a, '_, '_>,
+        val: Value<'a>,
         func: Value<'a>,
     ) -> starlark::Result<Value<'a>> {
+        // The recursion depth of this function is determined by the depth of
+        // the input `select()` objects, which could be unbounded. Detect such
+        // cases and return an error nicely rather than panic'ing.
+        buck2_util::threads::check_stack_overflow()?;
+
         fn invoke<'v>(
             eval: &mut Evaluator<'v, '_, '_>,
-            func: Value<'v>,
             val: Value<'v>,
+            func: Value<'v>,
         ) -> starlark::Result<Value<'v>> {
             eval.eval_function(func, &[val], &[])
         }
@@ -144,7 +149,14 @@ impl<'v> StarlarkSelector<'v> {
                     let selector = DictRef::from_value(selector.get()).unwrap();
                     let mut mapped = SmallMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
-                        mapped.insert_hashed(k, invoke(eval, func, v)?);
+                        mapped.insert_hashed(
+                            k,
+                            if RECURSE {
+                                Self::select_map::<RECURSE>(eval, v, func)
+                            } else {
+                                invoke(eval, v, func)
+                            }?,
+                        );
                     }
                     Ok(eval.heap().alloc(StarlarkSelector::new(
                         ValueOf::unpack_value_err(eval.heap().alloc(Dict::new(mapped)))
@@ -153,13 +165,13 @@ impl<'v> StarlarkSelector<'v> {
                 }
                 StarlarkSelectorGen::Sum(left, right) => {
                     Ok(eval.heap().alloc(StarlarkSelectorGen::Sum(
-                        Self::select_map(left, eval, func)?,
-                        Self::select_map(right, eval, func)?,
+                        Self::select_map::<RECURSE>(eval, left, func)?,
+                        Self::select_map::<RECURSE>(eval, right, func)?,
                     )))
                 }
             }
         } else {
-            invoke(eval, func, val)
+            invoke(eval, val, func)
         }
     }
 
@@ -297,22 +309,50 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
 
     /// Maps a selector.
     ///
-    /// Each value within a selector map and on each side of an addition will be passed to the
-    /// mapping function. The returned selector will have the same structure as this one.
+    /// For selector additions values:
+    ///
+    ///   Each value on each side of an addition is always passed to select_map
+    ///   recursively.
+    ///
+    /// For selector maps values, for each value within a selector:
+    ///
+    ///   If recurse is False, the value will be passed to the mapping function.
+    ///   This may be a selector, or not.
+    ///
+    ///   If recurse is True, the value will be passed to select_map()
+    ///   recursively
+    ///
+    /// For non-selector value, the value will be passed to the mapping
+    /// function.
+    ///
+    /// Generally the returned selector will have the same key/depth structure
+    /// as the input selector. In the recurse=False case a mapping function that
+    /// turns a selector into a non-selector may prune the structure. In the
+    /// recurse=True case, the mapping functino cannot change the existing
+    /// structure. In either case the mapping function can return a selector for
+    /// a non-selector input, causing the selector structure to get deeper.
     ///
     /// Ex:
     /// ```python
     /// def increment_items(a):
     ///     return [v + 1 for v in a]
     ///
-    /// select_map([1, 2] + select({"c": [2]}), increment_items) == [2, 3] + select({"c": [3]})
+    /// select_map([1, 2] + select({"c": [2]}), increment_items, False) == [2, 3] + select({"c": [3]})
+    ///
+    /// select_apply([1, 2] + select({"c": select({"d": [2]}}), increment_items, True) == [2, 3] + select({"c": select("d": [3]})})
     /// ```
     fn select_map<'v>(
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,
+        // TODO(T245559941): change the default to recurse=true
+        #[starlark(require = named, default = false)] recurse: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        StarlarkSelector::select_map(d, eval, func)
+        if recurse {
+            StarlarkSelector::select_map::<true>(eval, d, func)
+        } else {
+            StarlarkSelector::select_map::<false>(eval, d, func)
+        }
     }
 
     /// Test values in the select expression using the given function.
