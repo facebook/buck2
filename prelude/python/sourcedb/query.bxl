@@ -23,9 +23,10 @@ def _get_python_library_manifests_from_analysis_result(
 def _get_python_library_manifests_from_targets(
         ctx: bxl.Context,
         targets: bxl.UnconfiguredTargetSet) -> list[PythonLibraryManifestsTSet]:
+    configured_targets = ctx.configured_targets(targets, modifiers = ctx.modifiers)
     return filter(None, [
         _get_python_library_manifests_from_analysis_result(analysis_result)
-        for analysis_result in ctx.analysis(targets).values()
+        for analysis_result in ctx.analysis(configured_targets).values()
     ])
 
 def get_python_library_manifests_tset_from_targets(

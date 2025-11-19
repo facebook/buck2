@@ -44,7 +44,7 @@ def _filter_unconfigured_targets(targets: bxl.UnconfiguredTargetSet) -> list[bxl
 
 def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> list[Label]:
     unconfigured_targets = _filter_unconfigured_targets(targets)
-    configured_targets = ctx.configured_targets(unconfigured_targets)
+    configured_targets = ctx.configured_targets(unconfigured_targets, modifiers = ctx.modifiers)
     analysis_results = ctx.analysis(configured_targets)
 
     return [
@@ -59,7 +59,7 @@ def filter_and_get_typecheck_subtargets_keep_going(ctx: bxl.Context, targets: bx
     configured_targets = []
     errors = []  # TODO: collect the errors and print them at the end
     for t in unconfigured_targets:
-        result = ctx.lazy.configured_target_node(t).catch().resolve()
+        result = ctx.lazy.configured_target_node(t, modifiers = ctx.modifiers).catch().resolve()
         if result.is_ok():
             configured_targets.append(result.unwrap())
         else:
