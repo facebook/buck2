@@ -199,11 +199,17 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             suffix = base_module.replace("/", "$") + module_name
             static_output = libraries.outputs[LibOutputStyle("archive")][LinkableFlavor("default")]
             static_pic_output = libraries.outputs[LibOutputStyle("pic_archive")][LinkableFlavor("default")]
+
+            debuggable_static_pic_objects = []
+            if LinkableFlavor("debug") in libraries.outputs[LibOutputStyle("pic_archive")]:
+                debuggable_static_pic_objects = libraries.outputs[LibOutputStyle("pic_archive")][LinkableFlavor("debug")].object_files
+
             link_infos = rewrite_static_symbols(
                 ctx,
                 suffix,
                 pic_objects = static_pic_output.object_files,
                 non_pic_objects = static_output.object_files,
+                debuggable_pic_objects = debuggable_static_pic_objects,
                 libraries = link_infos,
                 cxx_toolchain = cxx_toolchain,
                 suffix_all = ctx.attrs.suffix_all,

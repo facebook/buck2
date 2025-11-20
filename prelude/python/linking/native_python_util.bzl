@@ -188,6 +188,8 @@ def rewrite_static_symbols(
         suffix: str,
         pic_objects: list[Artifact],
         non_pic_objects: list[Artifact],
+        # NOTE: at the moment, we only compile debuggable PIC objects.
+        debuggable_pic_objects: list[Artifact],
         libraries: dict[LibOutputStyle, LinkInfos],
         cxx_toolchain: CxxToolchainInfo,
         suffix_all: bool = False,
@@ -213,6 +215,8 @@ def rewrite_static_symbols(
         suffix_exclude_rtti = suffix_exclude_rtti,
     )
     static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file_pic, cxx_toolchain)
+
+    debuggable_static_pic_objects, _ = suffix_symbols(ctx, suffix, debuggable_pic_objects, symbols_file_pic, cxx_toolchain)
 
     static_info = libraries[LibOutputStyle("archive")].default
     updated_static_info = LinkInfo(
@@ -253,9 +257,35 @@ def rewrite_static_symbols(
             linkables = [stripped_static_pic_objects],
             metadata = static_pic_info.metadata,
         )
+    updated_debuggable_static_pic_info = None
+    debuggable_static_pic_info = libraries[LibOutputStyle("pic_archive")].debuggable
+    if debuggable_static_pic_info != None:
+        updated_debuggable_static_pic_info = LinkInfo(
+            name = debuggable_static_pic_info.name,
+            pre_flags = debuggable_static_pic_info.pre_flags,
+            post_flags = debuggable_static_pic_info.post_flags,
+            linkables = [debuggable_static_pic_objects],
+            external_debug_info = debuggable_static_pic_info.external_debug_info,
+            metadata = debuggable_static_pic_info.metadata,
+        )
+
     updated_libraries = {
-        LibOutputStyle("archive"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
-        LibOutputStyle("pic_archive"): LinkInfos(default = updated_static_pic_info, stripped = updated_stripped_static_pic_info),
+        LibOutputStyle("archive"): LinkInfos(
+            default = updated_static_info,
+            stripped = updated_stripped_static_info,
+        ),
+        LibOutputStyle("pic_archive"): LinkInfos(
+            default = updated_static_pic_info,
+            stripped = updated_stripped_static_pic_info,
+            # non-pic debuggable isn't being built for now, since debuggable is
+            # used for transformation_spec which is intended only for pic
+            # builds. Also, native python uses PIC by default.
+            debuggable = updated_debuggable_static_pic_info,
+            # We duplicate `optimized` as `stripped` for now because for focused
+            # debugging purposes, native Python stripped info uses `-O3` and
+            # strips, which is close enough to C++ focused debugging.
+            optimized = updated_stripped_static_pic_info,
+        ),
     }
     return updated_libraries
 
