@@ -47,6 +47,7 @@ use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
+use lsp_types::DidSaveTextDocumentParams;
 use lsp_types::Documentation;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
@@ -76,6 +77,7 @@ use lsp_types::WorkspaceFolder;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::LogMessage;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
@@ -298,6 +300,26 @@ pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult;
 
+    /// Evaluate a file with the given contents. Returned diagnostics
+    /// are merged with the output of `parse_file_with_contents`.
+    ///
+    /// Eval is generally called only on save. The default implementation
+    /// returns an empty Vec as this is a newly added trait method.
+    ///
+    /// Eval-on-save is more similar to "run program on save" than "type check on save"
+    /// so it is best paired with starlark in its core use case as configuration
+    /// language rather than as a driver of computation. Your evaluator should be
+    /// configured to suppress `print()` output, so as not to mess with LSP stdio.
+    ///
+    /// It can also be useful to enable static typechecking, especially if a single starlark
+    /// file evaluation generally just creates functions that are called elsewhere.
+    ///
+    fn eval_file_with_contents(&self, uri: &LspUrl, content: String) -> Vec<Diagnostic> {
+        _ = uri;
+        drop(content);
+        vec![]
+    }
+
     /// Resolve a path given in a `load()` statement.
     ///
     /// `path` is the string representation in the `load()` statement. Its meaning is
@@ -449,6 +471,28 @@ impl<T: LspContext> Backend<T> {
         Ok(())
     }
 
+    fn validate_eval(&self, uri: Url, version: Option<i64>) -> anyhow::Result<()> {
+        let lsp_url: LspUrl = uri.clone().try_into()?;
+        // textDocument/didSave does not seem to ever give you content, so let's just get it from disk.
+        let content = self.context.get_load_contents(&lsp_url)?;
+        if let Some(content) = content {
+            let mut parse = self
+                .context
+                .parse_file_with_contents(&lsp_url, content.clone());
+
+            // Evaluating a syntax error may duplicate parse errors. So check we got an AST.
+            if let Some(ast) = parse.ast {
+                let module = Arc::new(LspModule::new(ast));
+                let mut last_valid_parse = self.last_valid_parse.write().unwrap();
+                last_valid_parse.insert(lsp_url.clone(), module);
+                let mut eval_diagnostics = self.context.eval_file_with_contents(&lsp_url, content);
+                parse.diagnostics.append(&mut eval_diagnostics);
+            }
+            self.publish_diagnostics(uri, parse.diagnostics, version);
+        }
+        Ok(())
+    }
+
     fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
         self.validate(
             params.text_document.uri,
@@ -465,6 +509,10 @@ impl<T: LspContext> Backend<T> {
             Some(params.text_document.version as i64),
             change.text,
         )
+    }
+
+    fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
+        self.validate_eval(params.text_document.uri, None)
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
@@ -1240,6 +1288,8 @@ impl<T: LspContext> Backend<T> {
                         self.did_open(params)?;
                     } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
                         self.did_change(params)?;
+                    } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
+                        self.did_save(params)?;
                     } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
                         self.did_close(params)?;
                     }

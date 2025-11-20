@@ -224,6 +224,7 @@ impl Definition {
 /// lists of symbols, etc.
 pub(crate) struct LspModule {
     pub(crate) ast: AstModule,
+    // May want to store mappings of AST nodes to type information from last eval here.
 }
 
 impl LspModule {
