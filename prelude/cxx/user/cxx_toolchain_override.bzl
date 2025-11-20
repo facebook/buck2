@@ -207,7 +207,7 @@ def _cxx_toolchain_override(ctx):
         strip_flags_info = strip_flags_info,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior) if ctx.attrs.pic_behavior != None else base_toolchain.pic_behavior.value,
         split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
-        target_sdk_version = value_or(ctx.attrs.target_sdk_version, base_toolchain.target_sdk_version),
+        minimum_os_version = value_or(ctx.attrs.target_sdk_version, base_toolchain.minimum_os_version),
     )
 
 cxx_toolchain_override_registration_spec = RuleRegistrationSpec(

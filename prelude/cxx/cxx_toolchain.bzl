@@ -234,7 +234,7 @@ def cxx_toolchain_impl(ctx):
         remap_cwd = ctx.attrs.remap_cwd,
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
-        target_sdk_version = ctx.attrs.target_sdk_version,
+        minimum_os_version = ctx.attrs.target_sdk_version,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
     )

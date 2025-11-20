@@ -245,6 +245,7 @@ CxxToolchainInfo = provider(
         "lipo": provider_field([RunInfo, None], default = None),
         "llvm_cgdata": provider_field([RunInfo, None], default = None),
         "llvm_link": provider_field(typing.Any, default = None),
+        "minimum_os_version": provider_field([str, None], default = None),
         "objc_compiler_info": provider_field([ObjcCompilerInfo, None], default = None),
         "objcxx_compiler_info": provider_field([ObjcxxCompilerInfo, None], default = None),
         "object_format": provider_field(typing.Any, default = None),
@@ -255,7 +256,6 @@ CxxToolchainInfo = provider(
         "split_debug_mode": provider_field(typing.Any, default = None),
         "strip_flags_info": provider_field(typing.Any, default = None),
         "supported_compile_flavors": provider_field(typing.Any, default = []),
-        "target_sdk_version": provider_field([str, None], default = None),
         "use_dep_files": provider_field(typing.Any, default = None),
         "use_distributed_thinlto": provider_field(typing.Any, default = None),
     },
@@ -311,7 +311,7 @@ def cxx_toolchain_infos(
         platform_deps_aliases = [],
         pic_behavior = PicBehavior("supported"),
         dumpbin_toolchain_path = None,
-        target_sdk_version = None,
+        minimum_os_version = None,
         lipo = None,
         remap_cwd = False,
         compiler_flavor_flags = {},
@@ -396,7 +396,7 @@ def cxx_toolchain_infos(
         remap_cwd = remap_cwd,
         split_debug_mode = split_debug_mode,
         strip_flags_info = strip_flags_info,
-        target_sdk_version = target_sdk_version,
+        minimum_os_version = minimum_os_version,
         use_dep_files = use_dep_files,
         use_distributed_thinlto = use_distributed_thinlto,
         cxx_error_handler = cxx_combined_error_handler,
@@ -410,7 +410,7 @@ def cxx_toolchain_infos(
         #
         # Without target triple, the linker will use the host OS as the target
         # which is almost always incorrect.
-        apple_target_triple = apple_format_target_triple(platform_name, target_sdk_version or "")
+        apple_target_triple = apple_format_target_triple(platform_name, minimum_os_version or "")
         ldflags_shared_extra = apple_extra_darwin_linker_flags(apple_target_triple)
 
     # Provide placeholder mappings, used primarily by cxx_genrule.
