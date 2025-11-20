@@ -21,12 +21,12 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::RelativePath;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dice::DiceComputations;
 use dupe::Dupe;
 

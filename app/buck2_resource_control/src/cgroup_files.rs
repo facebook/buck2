@@ -11,8 +11,8 @@
 use std::fs::File;
 use std::os::fd::OwnedFd;
 
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::file_name::FileName;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 

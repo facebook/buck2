@@ -11,10 +11,10 @@
 use buck2_cli_proto::ConfigOverride;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigSectionAndKey;

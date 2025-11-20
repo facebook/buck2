@@ -96,6 +96,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::*;
@@ -110,8 +112,6 @@ use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
-use crate::fs::paths::abs_path::AbsPath;
-use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
@@ -482,10 +482,11 @@ impl CellResolver {
 
 #[cfg(test)]
 mod tests {
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+
     use super::*;
     use crate::cells::cell_root_path::CellRootPath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     #[test]
     fn test_of_names_and_paths() -> buck2_error::Result<()> {

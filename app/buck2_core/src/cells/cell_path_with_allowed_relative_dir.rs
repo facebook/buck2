@@ -9,13 +9,13 @@
  */
 
 use allocative::Allocative;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use relative_path::Component;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
@@ -131,6 +131,7 @@ impl CellPathWithAllowedRelativeDir {
 
 #[cfg(test)]
 mod tests {
+    use buck2_fs::paths::file_name::FileName;
     use relative_path::RelativePath;
 
     use crate::cells::cell_path::CellPath;
@@ -138,7 +139,6 @@ mod tests {
     use crate::cells::cell_path_with_allowed_relative_dir::RelativeImportParseError;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
-    use crate::fs::paths::file_name::FileName;
 
     fn path(cell: &str, dir: &str, filename: &str) -> CellPath {
         CellPath::new(

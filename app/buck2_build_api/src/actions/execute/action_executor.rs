@@ -816,7 +816,6 @@ mod tests {
     use buck2_core::execution_types::executor_config::PathSeparatorKind;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
-    use buck2_core::fs::fs_util;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -841,6 +840,7 @@ mod tests {
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
+    use buck2_fs::fs_util;
     use buck2_http::HttpClientBuilder;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;

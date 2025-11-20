@@ -14,6 +14,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::StringInside;
 use gazebo::transmute;
@@ -21,10 +25,6 @@ use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathIter;
 use crate::package::quoted_display;
 
 /// A 'PackageRelativePath' is a normalized, platform-agnostic path relative to
@@ -199,9 +199,9 @@ impl PackageRelativePath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = PackageRelativePath::new("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
@@ -241,8 +241,8 @@ impl PackageRelativePath {
     /// a directory, this is the directory name.
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// assert_eq!(
     ///     Some(FileName::unchecked_new("bin")),
@@ -261,8 +261,8 @@ impl PackageRelativePath {
     /// path is not a 'ForwardRelativePath'
     ///
     /// ```
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = PackageRelativePath::new("test/haha/foo.txt")?;
     ///
@@ -311,8 +311,8 @@ impl PackageRelativePath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = PackageRelativePath::new("some/foo")?;
     ///
@@ -369,8 +369,8 @@ impl PackageRelativePath {
     /// Iterator over the components of this path
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// let p = PackageRelativePath::new("foo/bar/baz")?;
     /// let mut it = p.iter();
@@ -408,8 +408,8 @@ impl<'a> From<&'a ForwardRelativePath> for &'a PackageRelativePath {
     /// ```
     /// use std::convert::From;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let f = ForwardRelativePath::new("foo")?;
     ///
@@ -517,8 +517,8 @@ impl<'a> TryFrom<&'a str> for &'a PackageRelativePath {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// assert!(<&PackageRelativePath>::try_from("foo/bar").is_ok());
     /// assert!(<&PackageRelativePath>::try_from("").is_ok());
@@ -540,8 +540,8 @@ impl<'a> TryFrom<&'a RelativePath> for &'a PackageRelativePath {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::RelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
+    /// use buck2_fs::paths::RelativePath;
     ///
     /// assert!(<&PackageRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
     /// assert!(<&PackageRelativePath>::try_from(RelativePath::new("")).is_ok());
@@ -590,9 +590,9 @@ impl TryFrom<RelativePathBuf> for PackageRelativePathBuf {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::RelativePathBuf;
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
     /// use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+    /// use buck2_fs::paths::RelativePathBuf;
     ///
     /// assert!(PackageRelativePathBuf::try_from(RelativePathBuf::from("foo/bar")).is_ok());
     /// assert!(PackageRelativePathBuf::try_from(RelativePathBuf::from("")).is_ok());

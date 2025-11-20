@@ -9,8 +9,8 @@
  */
 
 use buck2_certs::validate::validate_certs;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::ErrorTag;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;

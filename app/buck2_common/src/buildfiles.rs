@@ -12,7 +12,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;

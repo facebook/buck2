@@ -19,12 +19,12 @@ use buck2_common::argv::ArgFileKind;
 use buck2_common::argv::ArgFilePath;
 use buck2_common::argv::ExpandedArgv;
 use buck2_common::argv::ExpandedArgvBuilder;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::is_open_source;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_util::process::background_command;
 use termwiz::istty::IsTty;
 
@@ -317,9 +317,9 @@ fn resolve_flagfile(
 mod tests {
     use buck2_common::argv::ExpandedArgSource;
     use buck2_common::argv::FlagfileArgSource;
-    use buck2_core::fs::paths::abs_path::AbsPath;
-    use buck2_core::fs::paths::abs_path::AbsPathBuf;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_fs::paths::abs_path::AbsPath;
+    use buck2_fs::paths::abs_path::AbsPathBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use indoc::indoc;
 
     use super::*;

@@ -11,13 +11,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use buck2_core::fs::fs_util::DiskSpaceStats;
-use buck2_core::fs::fs_util::disk_space_stats;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_fs::fs_util::DiskSpaceStats;
+use buck2_fs::fs_util::disk_space_stats;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;

@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 
 use crate::file_ops::metadata::SimpleDirEntry;
 

@@ -8,13 +8,6 @@
  * above-listed licenses.
  */
 
-pub use buck2_fs::async_fs_util;
-pub use buck2_fs::cwd;
-pub use buck2_fs::fs_util;
-pub use buck2_fs::io_counters;
-pub use buck2_fs::paths;
-pub use buck2_fs::working_dir;
-
 pub mod artifact_path_resolver;
 pub mod buck_out_path;
 pub mod dynamic_actions_action_key;

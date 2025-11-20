@@ -10,6 +10,7 @@
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
 use relative_path::RelativePath;
 use strong_hash::StrongHash;
@@ -17,7 +18,6 @@ use strong_hash::StrongHash;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::paths::CellRelativePathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
 #[error("attempted to strip prefix of two CellPath with different cell names `{0}` and `{1}`")]
@@ -69,7 +69,7 @@ impl CellPath {
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellPath::new(
     ///     CellName::testing_new("cell"),
@@ -162,7 +162,7 @@ impl CellPath {
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     ///
     /// let path = CellPath::new(
     ///     CellName::testing_new("cell"),

@@ -9,13 +9,13 @@
  */
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::name::CellName;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
 use crate::package::PackageLabel;
 
 /// Path of a build file (e.g. `BUCK`) only. (`bzl` files are not included).

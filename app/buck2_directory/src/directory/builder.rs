@@ -13,11 +13,11 @@ use std::ops::ControlFlow;
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::fs::paths::IntoFileNameBufIterator;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::IntoFileNameBufIterator;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
@@ -729,9 +729,9 @@ mod tests {
     use std::cell::Cell;
 
     use assert_matches::assert_matches;
-    use buck2_core::fs::paths::file_name::FileName;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_fs::paths::file_name::FileName;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     use crate::directory::builder::DirectoryBuilder;
     use crate::directory::builder::DirectoryInsertError;

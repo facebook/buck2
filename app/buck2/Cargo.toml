@@ -47,6 +47,7 @@ buck2_cmd_targets_server = { workspace = true }
 buck2_common = { workspace = true }
 buck2_configured = { workspace = true }
 buck2_core = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_daemon = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }

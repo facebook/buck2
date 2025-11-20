@@ -15,7 +15,6 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
@@ -23,6 +22,7 @@ use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_fs::fs_util;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;

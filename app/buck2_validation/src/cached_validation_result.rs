@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use dupe::Dupe;
 
 use crate::validator_api::ValidationResult;

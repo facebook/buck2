@@ -9,8 +9,8 @@
  */
 
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_execute_impl::executors::local::ForkserverAccess;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 
 #[cfg(unix)]

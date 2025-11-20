@@ -11,9 +11,9 @@
 use std::borrow::Borrow;
 use std::ops::Deref;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use ref_cast::RefCast;
 
 /// A path identifying a cgroup.

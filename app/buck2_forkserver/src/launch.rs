@@ -14,9 +14,9 @@ use std::os::unix::io::AsRawFd;
 use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;

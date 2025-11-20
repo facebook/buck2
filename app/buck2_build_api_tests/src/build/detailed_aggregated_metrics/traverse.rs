@@ -36,9 +36,9 @@ mod tests {
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use dupe::Dupe;
     use dupe::IterDupedExt;
     use indexmap::indexset;

@@ -26,12 +26,12 @@
 //! use std::borrow::Cow;
 //! use std::convert::TryFrom;
 //!
-//! use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-//! use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-//! use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 //! use buck2_core::fs::project::ProjectRoot;
 //! use buck2_core::fs::project_rel_path::ProjectRelativePath;
 //! use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+//! use buck2_fs::paths::abs_norm_path::AbsNormPath;
+//! use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+//! use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 //! use relative_path::RelativePath;
 //!
 //! let root = if cfg!(not(windows)) {
@@ -75,6 +75,13 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use buck2_fs::paths::IntoFileNameBufIterator;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::fmt::quoted_display;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use buck2_util::arc_str::StringInside;
 use derivative::Derivative;
 use gazebo::prelude::IterOwned;
@@ -83,14 +90,6 @@ use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::fs::paths::IntoFileNameBufIterator;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::fmt::quoted_display;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathIter;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the
 /// project root.
@@ -235,9 +234,9 @@ impl ProjectRelativePath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = ProjectRelativePath::new("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
@@ -275,8 +274,8 @@ impl ProjectRelativePath {
     /// a directory, this is the directory name.
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// assert_eq!(
     ///     Some(FileName::unchecked_new("bin")),
@@ -296,8 +295,8 @@ impl ProjectRelativePath {
     /// path is not a 'ForwardRelativePath'
     ///
     /// ```
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = ProjectRelativePath::new("test/haha/foo.txt")?;
     ///
@@ -364,8 +363,8 @@ impl ProjectRelativePath {
     /// ```
     /// use std::path::Path;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = ProjectRelativePath::new("some/foo")?;
     ///
@@ -451,8 +450,8 @@ impl ProjectRelativePath {
     /// Iterator over the components of this path
     ///
     /// ```
-    /// use buck2_core::fs::paths::file_name::FileName;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// let p = ProjectRelativePath::new("foo/bar/baz")?;
     /// let mut it = p.iter();
@@ -478,8 +477,8 @@ impl<'a> From<&'a ForwardRelativePath> for &'a ProjectRelativePath {
     /// ```
     /// use std::convert::From;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let f = ForwardRelativePath::new("foo")?;
     ///
@@ -576,8 +575,8 @@ impl<'a> TryFrom<&'a str> for &'a ProjectRelativePath {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// assert!(<&ProjectRelativePath>::try_from("foo/bar").is_ok());
     /// assert!(<&ProjectRelativePath>::try_from("").is_ok());
@@ -598,8 +597,8 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ProjectRelativePath {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::RelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::RelativePath;
     ///
     /// assert!(<&ProjectRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
     /// assert!(<&ProjectRelativePath>::try_from(RelativePath::new("")).is_ok());
@@ -645,8 +644,8 @@ impl TryFrom<RelativePathBuf> for ProjectRelativePathBuf {
     /// ```
     /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::fs::paths::RelativePathBuf;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    /// use buck2_fs::paths::RelativePathBuf;
     ///
     /// assert!(ProjectRelativePathBuf::try_from(RelativePathBuf::from("foo/bar")).is_ok());
     /// assert!(ProjectRelativePathBuf::try_from(RelativePathBuf::from("")).is_ok());
@@ -736,7 +735,8 @@ impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePathBuf {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+
     use crate::fs::project_rel_path::ProjectRelativePath;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
 

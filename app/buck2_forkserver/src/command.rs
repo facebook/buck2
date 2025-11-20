@@ -13,11 +13,11 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_forkserver_proto::forkserver_server;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_grpc::DuplexChannel;
 use tokio::net::UnixListener;
 use tokio::net::UnixStream;

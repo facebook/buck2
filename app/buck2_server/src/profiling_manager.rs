@@ -11,9 +11,9 @@
 use std::sync::Arc;
 
 use buck2_cli_proto::client_context::ProfilePatternOptions;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::starlark_profiler::config::ProfileRegex;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;

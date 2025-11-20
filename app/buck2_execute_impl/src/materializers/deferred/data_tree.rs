@@ -315,8 +315,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use assert_matches::assert_matches;
-    use buck2_core::fs::paths::file_name::FileNameBuf;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_fs::paths::file_name::FileNameBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     use super::*;
 

@@ -11,7 +11,7 @@
 use std::fmt;
 
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::directory_iterator::DirectoryIterator;

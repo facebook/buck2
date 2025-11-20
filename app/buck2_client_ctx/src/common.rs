@@ -40,8 +40,8 @@ use buck2_common::argv::ArgFilePath;
 use buck2_common::argv::ExpandedArgSource;
 use buck2_common::argv::ExpandedArgv;
 use buck2_common::argv::FlagfileArgSource;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::working_dir::AbsWorkingDir;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -712,8 +712,8 @@ impl<'a> BuckArgMatches<'a> {
 mod tests {
     use buck2_common::argv::ExpandedArgvBuilder;
     use buck2_core::cells::cell_path::CellPath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     use super::*;
 

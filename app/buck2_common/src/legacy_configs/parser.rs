@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
-use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::RelativePath;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;

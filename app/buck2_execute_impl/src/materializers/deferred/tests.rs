@@ -11,13 +11,13 @@
 use std::collections::HashMap;
 
 use buck2_common::file_ops::metadata::FileMetadata;
-use buck2_core::fs::fs_util::IoError;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_fs::fs_util::IoError;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
 use super::*;
 
@@ -97,11 +97,6 @@ mod state_machine {
 
     use assert_matches::assert_matches;
     use buck2_common::file_ops::metadata::Symlink;
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::fs_util::ReadDir;
-    use buck2_core::fs::paths::RelativePathBuf;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_error::BuckErrorContext;
     use buck2_error::buck2_error;
@@ -111,6 +106,11 @@ mod state_machine {
     use buck2_execute::directory::ActionSharedDirectory;
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
+    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::ReadDir;
+    use buck2_fs::paths::RelativePathBuf;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use buck2_wrapper_common::invocation_id::TraceId;
     use futures::StreamExt;

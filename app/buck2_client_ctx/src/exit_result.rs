@@ -16,10 +16,6 @@ use std::io::Write;
 use std::ops::FromResidual;
 use std::process::Command;
 
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_data::ErrorReport;
 use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
@@ -27,6 +23,10 @@ use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ErrorTagExtra;
 use buck2_error::classify::best_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 #[derive(Debug)]

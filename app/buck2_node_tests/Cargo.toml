@@ -11,5 +11,6 @@ buck2_error = { workspace = true }
 dupe = { workspace = true }
 
 buck2_core = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_node = { workspace = true }
 buck2_util = { workspace = true }

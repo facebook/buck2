@@ -15,10 +15,10 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_fs::paths::file_name::FileNameBuf;
 use dice::UserComputationData;
 use dupe::Dupe;
 

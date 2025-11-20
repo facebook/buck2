@@ -9,12 +9,12 @@
  */
 
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Utc;
@@ -137,9 +137,9 @@ mod tests {
     use std::time::Duration;
     use std::time::SystemTime;
 
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    use buck2_core::fs::paths::abs_path::AbsPath;
+    use buck2_fs::fs_util;
+    use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    use buck2_fs::paths::abs_path::AbsPath;
 
     use super::*;
 

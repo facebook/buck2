@@ -12,7 +12,7 @@ use std::iter;
 use std::marker::PhantomData;
 use std::vec;
 
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileName;
 use either::Either;
 
 use crate::directory::directory_iterator::DirectoryIterator;

@@ -48,6 +48,8 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_error::buck2_error;
+pub(crate) use buck2_fs::paths::fmt::quoted_display;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -62,8 +64,6 @@ use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-pub(crate) use crate::fs::paths::fmt::quoted_display;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::pattern::pattern::Modifiers;
 use crate::soft_error;
 
@@ -221,10 +221,11 @@ impl PackageLabel {
 
 #[cfg(test)]
 mod tests {
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+
     use crate::cells::cell_path::CellPathRef;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::package::PackageLabel;
 
     #[test]

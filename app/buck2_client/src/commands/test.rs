@@ -33,12 +33,12 @@ use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_count;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
 use buck2_error::buck2_error;
+use buck2_fs::fs_util;
+use buck2_fs::working_dir::AbsWorkingDir;
 use superconsole::Line;
 use superconsole::Span;
 

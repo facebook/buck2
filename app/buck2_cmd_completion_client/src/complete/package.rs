@@ -13,7 +13,7 @@ use std::sync::Arc;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_fs::working_dir::AbsWorkingDir;
 
 use super::path_completer::PathCompleter;
 use super::path_sanitizer::PathSanitizer;
@@ -132,7 +132,7 @@ impl<'a> PackageCompleter<'a> {
 mod tests {
     use buck2_client_ctx::exit_result::ExitResult;
     use buck2_common::invocation_roots::find_invocation_roots;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
     use super::*;
 

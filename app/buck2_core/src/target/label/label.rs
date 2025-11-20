@@ -18,6 +18,7 @@ use std::str;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
@@ -35,7 +36,6 @@ use crate::cells::paths::CellRelativePath;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 use crate::pattern::pattern::ParsedPattern;
 use crate::pattern::pattern::lex_target_pattern;

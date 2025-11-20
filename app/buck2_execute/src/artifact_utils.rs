@@ -10,12 +10,12 @@
 
 use std::sync::Arc;
 
-use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
 use dupe::Dupe;
 
 use crate::artifact_value::ArtifactValue;

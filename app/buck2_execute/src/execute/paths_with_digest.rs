@@ -11,7 +11,7 @@
 use std::fmt::Display;
 
 use buck2_common::file_ops::metadata::FileDigest;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use serde::Serialize;
 use serde::Serializer;
 

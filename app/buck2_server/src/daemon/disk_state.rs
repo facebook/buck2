@@ -15,9 +15,6 @@ use allocative::Allocative;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_error::BuckErrorContext;
 use buck2_events::daemon_id::DaemonId;
@@ -31,6 +28,9 @@ use buck2_execute_impl::sqlite::incremental_state_db::IncrementalStateSqliteDb;
 use buck2_execute_impl::sqlite::materializer_db::MATERIALIZER_DB_SCHEMA_VERSION;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::daemon::server::BuckdServerInitPreferences;
 
@@ -238,9 +238,9 @@ pub(crate) fn delete_unknown_disk_state(
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
     use super::*;
 

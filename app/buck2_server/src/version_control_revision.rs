@@ -8,12 +8,12 @@
  * above-listed licenses.
  */
 
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::soft_error;
 use buck2_data::VersionControlRevision;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_fs::async_fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::properly_reaped_child::reap_on_drop_command;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;

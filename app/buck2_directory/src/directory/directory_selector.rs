@@ -11,9 +11,9 @@
 use std::iter;
 
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::fs::paths::IntoFileNameBufIterator;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::IntoFileNameBufIterator;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use either::Either;
 use starlark_map::small_map::SmallMap;
 

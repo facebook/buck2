@@ -16,8 +16,8 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::time::Duration;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::mpsc::UnboundedSender;

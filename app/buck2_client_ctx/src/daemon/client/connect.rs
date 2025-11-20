@@ -590,7 +590,7 @@ impl BootstrapBuckdClient {
     ) -> buck2_error::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
 
-        buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
+        buck2_fs::fs_util::create_dir_all(&daemon_dir.path)
             .with_buck_error_context(|| format!("Error creating daemon dir: {daemon_dir}"))?;
 
         let res = match constraints {

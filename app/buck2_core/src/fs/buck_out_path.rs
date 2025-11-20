@@ -14,6 +14,8 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -25,8 +27,6 @@ use crate::content_hash::ContentBasedPathHash;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::provider::label::ConfiguredProvidersLabel;
@@ -444,6 +444,8 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use dupe::Dupe;
     use regex::Regex;
 
@@ -463,8 +465,6 @@ mod tests {
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
     use crate::fs::buck_out_path::BuildArtifactPath;
-    use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project::ProjectRoot;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
     use crate::package::PackageLabel;

@@ -19,6 +19,12 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use buck2_fs::paths::RelativePathBuf;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::fmt::quoted_display;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::transmute;
@@ -26,13 +32,6 @@ use ref_cast::RefCast;
 use relative_path::RelativePath;
 use serde::Serialize;
 use strong_hash::StrongHash;
-
-use crate::fs::paths::RelativePathBuf;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::fmt::quoted_display;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathIter;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the cell
 #[derive(
@@ -152,7 +151,7 @@ impl CellRelativePath {
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellRelativePath::from_path("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
@@ -191,7 +190,7 @@ impl CellRelativePath {
     ///
     /// ```
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::file_name::FileName;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// assert_eq!(
     ///     Some(FileName::unchecked_new("bin")),
@@ -212,7 +211,7 @@ impl CellRelativePath {
     ///
     /// ```
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellRelativePath::from_path("test/haha/foo.txt")?;
     ///
@@ -257,7 +256,7 @@ impl CellRelativePath {
     /// use std::path::Path;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellRelativePath::from_path("some/foo")?;
     ///
@@ -344,7 +343,7 @@ impl CellRelativePath {
     ///
     /// ```
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::file_name::FileName;
+    /// use buck2_fs::paths::file_name::FileName;
     ///
     /// let p = CellRelativePath::from_path("foo/bar/baz")?;
     /// let mut it = p.iter();
@@ -375,7 +374,7 @@ impl<'a> From<&'a ForwardRelativePath> for &'a CellRelativePath {
     /// use std::convert::From;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let f = ForwardRelativePath::new("foo")?;
     ///
@@ -462,7 +461,7 @@ impl<'a> TryFrom<&'a str> for &'a CellRelativePath {
     /// use std::convert::TryFrom;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// assert!(<&CellRelativePath>::try_from("foo/bar").is_ok());
     /// assert!(<&CellRelativePath>::try_from("").is_ok());
@@ -484,7 +483,7 @@ impl<'a> TryFrom<&'a RelativePath> for &'a CellRelativePath {
     /// use std::convert::TryFrom;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::fs::paths::RelativePath;
+    /// use buck2_fs::paths::RelativePath;
     ///
     /// assert!(<&CellRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
     /// assert!(<&CellRelativePath>::try_from(RelativePath::new("")).is_ok());
@@ -531,7 +530,7 @@ impl TryFrom<RelativePathBuf> for CellRelativePathBuf {
     /// use std::convert::TryFrom;
     ///
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::fs::paths::RelativePathBuf;
+    /// use buck2_fs::paths::RelativePathBuf;
     ///
     /// assert!(CellRelativePathBuf::try_from(RelativePathBuf::from("foo/bar")).is_ok());
     /// assert!(CellRelativePathBuf::try_from(RelativePathBuf::from("")).is_ok());

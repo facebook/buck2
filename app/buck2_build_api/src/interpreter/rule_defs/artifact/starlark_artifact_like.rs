@@ -15,9 +15,9 @@ use std::hash::Hasher;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use either::Either;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;

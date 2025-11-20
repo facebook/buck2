@@ -13,12 +13,12 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_fs::paths::file_name::FileName;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 use tokio::fs::File;

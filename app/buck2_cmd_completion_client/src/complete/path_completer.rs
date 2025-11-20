@@ -9,10 +9,10 @@
  */
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::fs_util::IoError;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_fs::fs_util;
+use buck2_fs::fs_util::IoError;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::working_dir::AbsWorkingDir;
 
 use super::path_sanitizer::PathSanitizer;
 use super::path_sanitizer::SanitizedPath;

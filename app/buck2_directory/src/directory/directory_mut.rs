@@ -10,7 +10,7 @@
 
 use std::fmt;
 
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::directory::directory::Directory;
 use crate::directory::entry::DirectoryEntry;

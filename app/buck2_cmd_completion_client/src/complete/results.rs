@@ -17,9 +17,9 @@ use buck2_common::buildfiles::parse_buildfile_name;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::file_name::FileNameBuf;
 
 use super::path_sanitizer::SanitizedPath;
 

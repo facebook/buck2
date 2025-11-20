@@ -12,13 +12,13 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::fs::paths::file_name::FileName;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]

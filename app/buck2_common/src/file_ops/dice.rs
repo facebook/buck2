@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;

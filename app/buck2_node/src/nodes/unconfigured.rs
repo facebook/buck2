@@ -637,8 +637,8 @@ impl<'a> TargetNodeRef<'a> {
 }
 
 pub mod testing {
-    use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::PackageLabel;
+    use buck2_fs::paths::file_name::FileNameBuf;
     use serde_json::map::Map;
     use serde_json::value::Value;
 

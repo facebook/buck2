@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileName;
 use dupe::Dupe;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
@@ -267,7 +267,7 @@ impl CgroupMinimal {
 #[cfg(test)]
 impl Cgroup {
     pub(crate) fn create_for_test() -> Option<Self> {
-        use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+        use buck2_fs::paths::abs_norm_path::AbsNormPath;
         use buck2_util::process::background_command;
 
         if !cfg!(buck_build) || !cfg!(target_os = "linux") {
@@ -288,8 +288,8 @@ impl Cgroup {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::file_name::FileName;
+    use buck2_fs::fs_util;
+    use buck2_fs::paths::file_name::FileName;
     use buck2_util::process::background_command;
 
     use crate::cgroup::Cgroup;

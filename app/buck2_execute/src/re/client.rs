@@ -519,7 +519,7 @@ impl RemoteExecutionClientImpl {
             let mut persistent_cache_mode = None;
             #[cfg(fbcode_build)]
             let client = {
-                use buck2_core::fs::fs_util;
+                use buck2_fs::fs_util;
                 use remote_execution::CASDaemonClientCfg;
                 use remote_execution::CopyPolicy;
                 use remote_execution::CurlReactorConfig;

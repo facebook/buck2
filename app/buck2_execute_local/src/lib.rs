@@ -22,10 +22,10 @@ use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
 use buck2_resource_control::path::CgroupPathBuf;

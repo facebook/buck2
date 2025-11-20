@@ -13,7 +13,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use gazebo::prelude::VecExt;
 
 /// Argv contains the bare process argv and the "expanded" argv. The expanded argv is

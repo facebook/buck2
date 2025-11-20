@@ -11,9 +11,9 @@
 use std::process::ExitStatus;
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_miniperf_proto::MiniperfOutput;
 
 use crate::CollectedExecutionStats;

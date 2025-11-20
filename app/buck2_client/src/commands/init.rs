@@ -19,11 +19,11 @@ use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_util::process::background_command;
 
 /// Initializes a buck2 project at the provided path.
@@ -264,8 +264,8 @@ fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> buck2_error:
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_path::AbsPath;
+    use buck2_fs::fs_util;
+    use buck2_fs::paths::abs_path::AbsPath;
 
     use crate::commands::init::initialize_buckconfig;
     use crate::commands::init::initialize_root_buck;

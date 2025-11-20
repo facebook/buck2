@@ -8,9 +8,9 @@
  * above-listed licenses.
  */
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use futures::future::BoxFuture;

@@ -17,7 +17,7 @@ use std::sync::OnceLock;
 
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::init::ResourceControlStatus;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 
 const SYSTEMD_MIN_VERSION: u32 = 253;

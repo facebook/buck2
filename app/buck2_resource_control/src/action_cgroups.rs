@@ -726,7 +726,7 @@ fn wake_cgroup(
 mod tests {
     use std::fs;
 
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
     use super::*;
 

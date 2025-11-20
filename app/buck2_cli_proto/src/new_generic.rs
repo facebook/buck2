@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
