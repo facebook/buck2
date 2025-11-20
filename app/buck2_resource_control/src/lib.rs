@@ -131,9 +131,9 @@ pub mod action_cgroups {
             Ok(None)
         }
 
-        pub async fn command_started(&mut self, _cgroup_path: CgroupPathBuf) {}
+        pub async fn action_started(&mut self, _cgroup_path: CgroupPathBuf) {}
 
-        pub async fn command_finished(&mut self) -> ActionCgroupResult {
+        pub async fn action_finished(&mut self) -> ActionCgroupResult {
             unreachable!("not supported");
         }
     }

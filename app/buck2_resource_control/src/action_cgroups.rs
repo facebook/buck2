@@ -248,7 +248,7 @@ impl ActionCgroupSession {
         let (cgroup_id, path) = action_cgroups.cgroup_pool.acquire()?;
 
         let start_future = match action_cgroups
-            .command_started(
+            .action_started(
                 path.clone(),
                 dispatcher.dupe(),
                 command_type,
@@ -275,9 +275,9 @@ impl ActionCgroupSession {
         )))
     }
 
-    pub async fn command_finished(&mut self) -> ActionCgroupResult {
+    pub async fn action_finished(&mut self) -> ActionCgroupResult {
         let mut action_cgroups = self.action_cgroups.lock().await;
-        let res = action_cgroups.command_finished(&self.path);
+        let res = action_cgroups.action_finished(&self.path);
 
         action_cgroups.cgroup_pool.release(self.cgroup_id);
 
@@ -348,7 +348,7 @@ impl ActionCgroups {
         ))
     }
 
-    pub async fn command_started(
+    async fn action_started(
         &mut self,
         cgroup_path: CgroupPathBuf,
         dispatcher: EventDispatcher,
@@ -418,7 +418,7 @@ impl ActionCgroups {
         Ok(start_future)
     }
 
-    pub fn command_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
+    fn action_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
         if let Some(i) = self
             .running_cgroups
             .iter()
@@ -751,7 +751,7 @@ mod tests {
             return Ok(());
         };
         action_cgroups
-            .command_started(
+            .action_started(
                 cgroup_1.clone(),
                 EventDispatcher::null(),
                 CommandType::Build,
@@ -760,7 +760,7 @@ mod tests {
             )
             .await?;
         action_cgroups
-            .command_started(
+            .action_started(
                 cgroup_2.clone(),
                 EventDispatcher::null(),
                 CommandType::Build,
@@ -785,8 +785,8 @@ mod tests {
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
             .await;
 
-        let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
-        let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
+        let cgroup_1_res = action_cgroups.action_finished(&cgroup_1);
+        let cgroup_2_res = action_cgroups.action_finished(&cgroup_2);
         assert_eq!(cgroup_1_res.memory_peak, Some(10));
         assert_eq!(cgroup_2_res.memory_peak, Some(0));
         assert_eq!(cgroup_1_res.swap_peak, Some(3));
@@ -815,7 +815,7 @@ mod tests {
             return Ok(());
         };
         action_cgroups
-            .command_started(
+            .action_started(
                 cgroup_1.clone(),
                 EventDispatcher::null(),
                 CommandType::Build,
@@ -824,7 +824,7 @@ mod tests {
             )
             .await?;
         action_cgroups
-            .command_started(
+            .action_started(
                 cgroup_2.clone(),
                 EventDispatcher::null(),
                 CommandType::Build,
@@ -847,7 +847,7 @@ mod tests {
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
             .await;
 
-        let cgroup_1_res = action_cgroups.command_finished(&cgroup_1);
+        let cgroup_1_res = action_cgroups.action_finished(&cgroup_1);
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -861,7 +861,7 @@ mod tests {
             .update(MemoryPressureState::BelowPressureLimit, &memory_reading_2)
             .await;
 
-        let cgroup_2_res = action_cgroups.command_finished(&cgroup_2);
+        let cgroup_2_res = action_cgroups.action_finished(&cgroup_2);
         assert!(cgroup_2_res.suspend_duration.is_some());
 
         Ok(())
