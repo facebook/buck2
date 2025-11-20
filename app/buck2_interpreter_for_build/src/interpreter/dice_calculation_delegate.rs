@@ -704,7 +704,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     }
 }
 
-mod keys {
+pub(crate) mod keys {
     use allocative::Allocative;
     use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
     use derive_more::Display;

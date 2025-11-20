@@ -54,7 +54,7 @@ use starlark::environment::Globals;
 use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
+use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::package_file_calculation::EvalPackageFile;
 
