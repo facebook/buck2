@@ -80,6 +80,16 @@ def error_handler_errorformat_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
     res[0].category = "test_failure"
     _assert_eq(res[0].category, "test_failure")
+    _assert_eq(res[0].show_in_stderr, False)
+    res[0].show_in_stderr = True
+
+    new_sub_error = ctx.new_sub_error(
+        category = "test_failure",
+        message = "manually created sub error",
+        show_in_stderr = False,
+    )
+
+    res.append(new_sub_error)
     return res
 
 def _error_handler_with_errorformat(ctx: AnalysisContext):

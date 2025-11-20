@@ -36,6 +36,9 @@ async def test_error_handler_succeed_on_nonetype(buck: Buck) -> None:
 
 @buck_test()
 async def test_output_for_error_handler_with_errorformat(buck: Buck) -> None:
-    await expect_failure(
+    failure = await expect_failure(
         buck.build("//:error_handler_with_errorformat"),
     )
+
+    assert "- [test_failure] main.rs:10 expected `;`, found `}`" in failure.stderr
+    assert "manually created sub error" not in failure.stderr
