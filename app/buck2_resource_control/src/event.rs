@@ -15,7 +15,7 @@ use std::time::SystemTime;
 
 use buck2_events::daemon_id::DaemonId;
 use buck2_wrapper_common::invocation_id::TraceId;
-use tokio::sync::watch;
+use tokio::sync::mpsc;
 
 use crate::CommandType;
 use crate::action_cgroups::ActionCgroup;
@@ -26,22 +26,18 @@ pub(crate) struct EventSenderState {
     metadata: HashMap<String, String>,
     ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
     memory_reading: MemoryReading,
-    resource_control_scheduled_event_reporter: watch::Sender<Option<ResourceControlEventMostly>>,
     last_scheduled_event_time: Option<Instant>,
+    txs: Vec<mpsc::UnboundedSender<ResourceControlEventMostly>>,
 }
 
 impl EventSenderState {
     pub(crate) fn new(
         daemon_id: &DaemonId,
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
-        resource_control_scheduled_event_reporter: watch::Sender<
-            Option<ResourceControlEventMostly>,
-        >,
     ) -> Self {
         Self {
             metadata: buck2_events::metadata::collect(daemon_id),
             ancestor_cgroup_constraints,
-            resource_control_scheduled_event_reporter,
             last_scheduled_event_time: None,
             memory_reading: MemoryReading {
                 buck2_slice_memory_current: 0,
@@ -50,7 +46,15 @@ impl EventSenderState {
                 daemon_memory_current: 0,
                 daemon_memory_swap_current: 0,
             },
+            txs: Vec::new(),
         }
+    }
+
+    pub(crate) fn command_started(
+        &mut self,
+        event_tx: mpsc::UnboundedSender<ResourceControlEventMostly>,
+    ) {
+        self.txs.push(event_tx);
     }
 
     pub(crate) fn update_memory_reading(&mut self, memory_reading: MemoryReading) {
@@ -74,10 +78,13 @@ impl EventSenderState {
                 actions_running,
                 actions_suspended,
             );
-            self.resource_control_scheduled_event_reporter
-                .send_replace(Some(e));
             self.last_scheduled_event_time = Some(now);
+            self.send_event_impl(e);
         }
+    }
+
+    fn send_event_impl(&mut self, e: ResourceControlEventMostly) {
+        self.txs.retain_mut(|tx| tx.send(e.clone()).is_ok());
     }
 
     pub(crate) fn make_event(

@@ -24,7 +24,6 @@ use tokio::fs::File;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use tokio::sync::watch;
 
 use crate::ActionFreezeEvent;
 use crate::CommandType;
@@ -289,9 +288,6 @@ impl ActionCgroups {
     pub(crate) async fn init(
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
-        resource_control_scheduled_event_reporter: watch::Sender<
-            Option<ResourceControlEventMostly>,
-        >,
         cgroup_pool: CgroupPool,
     ) -> buck2_error::Result<Self> {
         let enable_suspension = resource_control_config.enable_suspension;
@@ -303,7 +299,6 @@ impl ActionCgroups {
             resource_control_config.preferred_action_suspend_strategy,
             ancestor_cgroup_constraints,
             daemon_id,
-            resource_control_scheduled_event_reporter,
             cgroup_pool,
         ))
     }
@@ -313,9 +308,6 @@ impl ActionCgroups {
         preferred_action_suspend_strategy: ActionSuspendStrategy,
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
         daemon_id: &DaemonId,
-        resource_control_scheduled_event_reporter: watch::Sender<
-            Option<ResourceControlEventMostly>,
-        >,
         cgroup_pool: CgroupPool,
     ) -> Self {
         Self {
@@ -327,11 +319,7 @@ impl ActionCgroups {
             last_wake_time: None,
             last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
             total_memory_during_last_suspend: None,
-            event_sender_state: EventSenderState::new(
-                daemon_id,
-                ancestor_cgroup_constraints,
-                resource_control_scheduled_event_reporter,
-            ),
+            event_sender_state: EventSenderState::new(daemon_id, ancestor_cgroup_constraints),
             cgroup_pool,
         }
     }
@@ -343,9 +331,18 @@ impl ActionCgroups {
             ActionSuspendStrategy::KillAndRetry,
             None,
             &DaemonId::new(),
-            watch::channel(None).0,
             CgroupPool::testing_new()?,
         ))
+    }
+
+    /// Register a command to start receiving events.
+    ///
+    /// There's no corresponding ended function. Just drop the channel.
+    pub(crate) fn command_started(
+        &mut self,
+        event_tx: mpsc::UnboundedSender<ResourceControlEventMostly>,
+    ) {
+        self.event_sender_state.command_started(event_tx);
     }
 
     async fn action_started(
