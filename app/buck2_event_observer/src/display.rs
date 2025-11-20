@@ -745,14 +745,11 @@ impl ActionErrorDisplay<'_> {
                     if !sub_errors.is_empty() {
                         let mut all_sub_errors = String::new();
                         for sub_error in sub_errors {
-                            // Display only sub-errors with messages but no location information.
-                            // Errors with location info are filtered out due to user feedback about console noise.
-                            if let Some(msg) = &sub_error.message
-                                && !msg.is_empty()
-                                && !sub_error.has_location_info()
-                            {
-                                writeln!(all_sub_errors, "- [{}] {}", sub_error.category, msg)
-                                    .unwrap();
+                            // Display errors based on show_in_stderr flag is true
+                            if sub_error.show_in_stderr {
+                                if let Some(display_msg) = sub_error.display() {
+                                    writeln!(all_sub_errors, "- {}", display_msg).unwrap();
+                                }
                             }
                         }
                         if !all_sub_errors.is_empty() {
