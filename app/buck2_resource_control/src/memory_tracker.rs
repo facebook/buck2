@@ -32,6 +32,7 @@ use tokio_util::sync::CancellationToken;
 use crate::action_cgroups::ActionCgroups;
 use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::cgroup_info::CGroupInfo;
+use crate::event::ResourceControlEventMostly;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupPool;
 
@@ -115,8 +116,7 @@ pub struct MemoryTrackerHandleInner {
     pub state_sender: watch::Sender<TrackedMemoryState>,
     // Written to by tracker, TODO read from snapshot collector
     pub reading_sender: watch::Sender<Option<MemoryReading>>,
-    resource_control_scheduled_event_reporter:
-        watch::Sender<Option<buck2_data::ResourceControlEvents>>,
+    resource_control_scheduled_event_reporter: watch::Sender<Option<ResourceControlEventMostly>>,
     // Written to by executors and tracker, read by executors
     pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
 }
@@ -125,7 +125,7 @@ impl MemoryTrackerHandleInner {
     fn new(
         action_cgroups: ActionCgroups,
         resource_control_scheduled_event_reporter: watch::Sender<
-            Option<buck2_data::ResourceControlEvents>,
+            Option<ResourceControlEventMostly>,
         >,
     ) -> Self {
         let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
@@ -252,9 +252,9 @@ pub fn spawn_memory_reporter(
                     }
                 }
                 resource_control_event_receiver = receive_and_clone(&mut resource_control_event_receiver) => {
-                    if let Some(mut resource_control_event) = resource_control_event_receiver {
-                        resource_control_event.uuid = dispatcher.trace_id().to_string();
-                        dispatcher.instant_event(resource_control_event);
+                    if let Some(resource_control_event) = resource_control_event_receiver {
+                        let event = resource_control_event.complete(dispatcher.trace_id());
+                        dispatcher.instant_event(event);
                     }
                 }
                 _ = cancel.cancelled() => {

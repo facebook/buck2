@@ -8,12 +8,10 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
-use std::time::SystemTime;
 
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
@@ -33,6 +31,8 @@ use crate::CommandType;
 use crate::KillFuture;
 use crate::RetryFuture;
 use crate::cgroup_info::CGroupInfo;
+use crate::event::EventSenderState;
+use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;
@@ -55,7 +55,7 @@ use crate::systemd::CgroupMemoryFile;
 /// - Understanding the actual resource bounds available to Buck2 processes
 /// - Respecting system-level resource policies set by administrators or orchestrators
 /// - Most effective in non-container environments, note that in container environments, processes often cannot see memory limits
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct AncestorCgroupConstraints {
     pub memory_max: Option<u64>,
     pub memory_high: Option<u64>,
@@ -158,22 +158,22 @@ enum WakeImplementation {
 }
 
 #[derive(Debug)]
-struct ActionCgroup {
+pub(crate) struct ActionCgroup {
     path: CgroupPathBuf,
     memory_current_file: File,
     memory_swap_current_file: File,
     memory_initial: u64,
-    memory_peak: u64,
-    memory_current: u64,
+    pub(crate) memory_peak: u64,
+    pub(crate) memory_current: u64,
     swap_initial: u64,
-    swap_current: u64,
-    swap_peak: u64,
+    pub(crate) swap_current: u64,
+    pub(crate) swap_peak: u64,
     error: Option<buck2_error::Error>,
     suspend_duration: Option<Duration>,
     suspend_count: u64,
     suspend_strategy: ActionSuspendStrategy,
-    command_type: CommandType,
-    action_digest: Option<String>,
+    pub(crate) command_type: CommandType,
+    pub(crate) action_digest: Option<String>,
     dispatcher: EventDispatcher,
 }
 
@@ -216,13 +216,8 @@ pub(crate) struct ActionCgroups {
     // Total memory of buck2.slice (Which contains daemon, forkserver and workers cgroups) when the last suspend happened.
     // Used to calculate when we should wake cgroups.
     total_memory_during_last_suspend: Option<u64>,
-    // Buck2 metadata for telemetry logging purposes
-    metadata: HashMap<String, String>,
-    resource_control_scheduled_event_reporter:
-        watch::Sender<Option<buck2_data::ResourceControlEvents>>,
-    last_scheduled_event_time: Option<Instant>,
+    event_sender_state: EventSenderState,
     // Constraints for the cgroup hierarchy
-    ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
     cgroup_pool: CgroupPool,
 }
 
@@ -295,7 +290,7 @@ impl ActionCgroups {
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
         resource_control_scheduled_event_reporter: watch::Sender<
-            Option<buck2_data::ResourceControlEvents>,
+            Option<ResourceControlEventMostly>,
         >,
         cgroup_pool: CgroupPool,
     ) -> buck2_error::Result<Self> {
@@ -319,7 +314,7 @@ impl ActionCgroups {
         ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
         daemon_id: &DaemonId,
         resource_control_scheduled_event_reporter: watch::Sender<
-            Option<buck2_data::ResourceControlEvents>,
+            Option<ResourceControlEventMostly>,
         >,
         cgroup_pool: CgroupPool,
     ) -> Self {
@@ -332,10 +327,11 @@ impl ActionCgroups {
             last_wake_time: None,
             last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
             total_memory_during_last_suspend: None,
-            metadata: buck2_events::metadata::collect(daemon_id),
-            ancestor_cgroup_constraints,
-            resource_control_scheduled_event_reporter,
-            last_scheduled_event_time: None,
+            event_sender_state: EventSenderState::new(
+                daemon_id,
+                ancestor_cgroup_constraints,
+                resource_control_scheduled_event_reporter,
+            ),
             cgroup_pool,
         }
     }
@@ -452,6 +448,8 @@ impl ActionCgroups {
         pressure_state: MemoryPressureState,
         memory_reading: &MemoryReading,
     ) {
+        self.event_sender_state
+            .update_memory_reading(*memory_reading);
         for cgroup in self
             .running_cgroups
             .iter_mut()
@@ -497,20 +495,11 @@ impl ActionCgroups {
         } else {
             Duration::from_secs(10)
         };
-        let now = Instant::now();
-        if self
-            .last_scheduled_event_time
-            .is_none_or(|last| now.duration_since(last) > scheduled_event_freq)
-        {
-            let e = self.make_resource_control_event(
-                memory_reading,
-                buck2_data::ResourceControlEventKind::Scheduled,
-                None,
-            );
-            self.resource_control_scheduled_event_reporter
-                .send_replace(Some(e));
-            self.last_scheduled_event_time = Some(now);
-        }
+        self.event_sender_state.maybe_send_scheduled_event(
+            scheduled_event_freq,
+            self.running_cgroups.len() as u64,
+            self.suspended_cgroups.len() as u64,
+        );
     }
 
     // Currently we suspend the largest cgroup and we keep freezing until only one action is executing.
@@ -554,7 +543,6 @@ impl ActionCgroups {
 
         self.emit_resource_control_event(
             &suspended_cgroup.cgroup.dispatcher,
-            memory_reading,
             event_kind,
             &suspended_cgroup.cgroup,
         );
@@ -596,10 +584,10 @@ impl ActionCgroups {
         }
 
         self.last_wake_time = Some(Instant::now());
-        self.wake(memory_reading)
+        self.wake()
     }
 
-    fn wake(&mut self, memory_reading: &MemoryReading) {
+    fn wake(&mut self) {
         let Some(mut suspended_cgroup) = self.suspended_cgroups.pop_front() else {
             return;
         };
@@ -633,67 +621,24 @@ impl ActionCgroups {
 
         self.emit_resource_control_event(
             &running_cgroup.cgroup.dispatcher,
-            memory_reading,
             event_kind,
             &running_cgroup.cgroup,
         );
     }
 
-    fn make_resource_control_event(
-        &self,
-        memory_reading: &MemoryReading,
-        kind: buck2_data::ResourceControlEventKind,
-        cgroup: Option<&ActionCgroup>,
-    ) -> buck2_data::ResourceControlEvents {
-        buck2_data::ResourceControlEvents {
-            // To be replaced later
-            uuid: String::new(),
-
-            kind: kind.into(),
-
-            event_time: Some(SystemTime::now().into()),
-
-            allprocs_memory_current: memory_reading.buck2_slice_memory_current,
-            allprocs_memory_swap_current: memory_reading.buck2_slice_memory_swap_current,
-            allprocs_memory_pressure: memory_reading.buck2_slice_memory_pressure,
-
-            daemon_memory_current: memory_reading.daemon_memory_current,
-            daemon_swap_current: memory_reading.daemon_memory_swap_current,
-
-            action_kind: cgroup.map(|cgroup| cgroup.command_type.to_string()),
-            action_digest: cgroup.map(|cgroup| cgroup.action_digest.clone().unwrap_or_default()),
-
-            action_cgroup_memory_current: cgroup.map(|cgroup| cgroup.memory_current),
-            action_cgroup_memory_peak: cgroup.map(|cgroup| cgroup.memory_peak),
-
-            action_cgroup_swap_current: cgroup.map(|cgroup| cgroup.swap_current),
-            action_cgroup_swap_peak: cgroup.map(|cgroup| cgroup.swap_peak),
-
-            actions_suspended_count: self.suspended_cgroups.len() as u64,
-            actions_running_count: self.running_cgroups.len() as u64,
-
-            metadata: self.metadata.clone(),
-
-            ancestor_cgroup_constraints: self.ancestor_cgroup_constraints.as_ref().map(
-                |constraints| buck2_data::AncestorCgroupConstraints {
-                    memory_max: constraints.memory_max,
-                    memory_high: constraints.memory_high,
-                    memory_swap_max: constraints.memory_swap_max,
-                    memory_swap_high: constraints.memory_swap_high,
-                },
-            ),
-        }
-    }
-
     fn emit_resource_control_event(
         &self,
         dispatcher: &EventDispatcher,
-        memory_reading: &MemoryReading,
         kind: buck2_data::ResourceControlEventKind,
         cgroup: &ActionCgroup,
     ) {
-        let mut event = self.make_resource_control_event(memory_reading, kind, Some(cgroup));
-        event.uuid = dispatcher.trace_id().to_string();
+        let event = self.event_sender_state.make_event(
+            kind,
+            Some(cgroup),
+            self.running_cgroups.len() as u64,
+            self.suspended_cgroups.len() as u64,
+        );
+        let event = event.complete(dispatcher.trace_id());
         dispatcher.instant_event(event);
     }
 }
