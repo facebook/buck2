@@ -12,14 +12,13 @@
 import os
 import re
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-def _includes(output: BuckResult) -> List[str]:
+def _includes(output: BuckResult) -> list[str]:
     return sorted(
         [
             re.sub(".*[/\\\\]", "", line)

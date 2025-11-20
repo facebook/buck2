@@ -19,7 +19,7 @@ import sys
 import tempfile
 import winreg
 from pathlib import Path
-from typing import IO, List, NamedTuple
+from typing import IO, NamedTuple
 
 VC_EXE_NAMES = ["cl.exe", "cvtres.exe", "lib.exe", "ml64.exe", "link.exe"]
 UCRT_EXE_NAMES = ["rc.exe"]
@@ -37,9 +37,9 @@ class OutputJsonFiles(NamedTuple):
 
 class Tool(NamedTuple):
     exe: Path
-    LIB: List[Path] = []
-    PATH: List[Path] = []
-    INCLUDE: List[Path] = []
+    LIB: list[Path] = []
+    PATH: list[Path] = []
+    INCLUDE: list[Path] = []
 
 
 def find_in_path(executable, is_optional=False):

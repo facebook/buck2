@@ -11,18 +11,18 @@ import json
 import os
 import subprocess
 import sys
-from typing import List, NamedTuple
+from typing import NamedTuple
 
 
 class Tool(NamedTuple):
     # Path of the executable
     exe: str
     # Paths to prepend onto $LIB
-    LIB: List[str]
+    LIB: list[str]
     # Paths to prepend onto $PATH
-    PATH: List[str]
+    PATH: list[str]
     # Paths to prepend onto $INCLUDE
-    INCLUDE: List[str]
+    INCLUDE: list[str]
 
 
 def prepend_env(env, key, entries):

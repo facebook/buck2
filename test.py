@@ -21,10 +21,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Generator, Iterable, List, Optional
+from typing import Optional
 
 # To prevent the next line from creating a pycache dir
 sys.dont_write_bytecode = True
@@ -83,7 +84,7 @@ def timing() -> Generator:
 def run(
     args: Iterable[str],
     capture_output: bool = False,
-    env: Optional[Dict[str, str]] = None,
+    env: Optional[dict[str, str]] = None,
     timeout: Optional[int] = None,
 ) -> subprocess.CompletedProcess:
     """
@@ -229,7 +230,7 @@ RUSTC_ALLOW = {
 }
 
 
-def _get_default_rustc_warnings() -> List[str]:
+def _get_default_rustc_warnings() -> list[str]:
     """
     We want to error on all Rustc default warnings. The very natural way to do
     this would be to simply enable -Dwarnings, which would enable the
@@ -260,7 +261,7 @@ def _get_default_rustc_warnings() -> List[str]:
     return lints
 
 
-def clippy(package_args: List[str], fix: bool) -> None:
+def clippy(package_args: list[str], fix: bool) -> None:
     """
     Run cargo clippy.
     Also fails on any rustc warnings or build errors.
@@ -331,7 +332,7 @@ def _lookup(d, *keys):
     return d
 
 
-def rustdoc(package_args: List[str]) -> None:
+def rustdoc(package_args: list[str]) -> None:
     print_running("cargo doc")
     # We have to chose between showing the output, or capturing it.
     # We have to capture it to figure out if there were warnings.
@@ -382,7 +383,7 @@ def rustdoc(package_args: List[str]) -> None:
         sys.exit(1)
 
 
-def test(package_args: List[str]) -> None:
+def test(package_args: list[str]) -> None:
     print_running("cargo test --lib")
     extra_args = []
     # Limit number of parallel jobs to prevent OOMs

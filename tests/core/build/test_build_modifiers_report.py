@@ -11,7 +11,6 @@
 
 import json
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -26,7 +25,7 @@ from buck2.tests.e2e_util.helper.golden import (
 
 def build_report_test(
     name: str,
-    command: List[str],
+    command: list[str],
     expect_error: bool = False,
 ) -> None:
     async def impl(buck: Buck, tmp_path: Path) -> None:

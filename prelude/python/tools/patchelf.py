@@ -12,10 +12,9 @@
 import argparse
 import subprocess
 import sys
-from typing import List
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--patchelf", action="append", required=True)
     parser.add_argument("-f", action="store_true")

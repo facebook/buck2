@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, IO, NamedTuple, Optional
+from typing import Any, IO, NamedTuple, Optional
 
 
 IS_WINDOWS: bool = os.name == "nt"
@@ -27,11 +27,11 @@ def eprint(*args: Any, **kwargs: Any) -> None:
     print(*args, end="\n", file=sys.stderr, flush=True, **kwargs)
 
 
-def cfg_env(rustc_cfg: Path) -> Dict[str, str]:
+def cfg_env(rustc_cfg: Path) -> dict[str, str]:
     with rustc_cfg.open(encoding="utf-8") as f:
         lines = f.readlines()
 
-    cfgs: Dict[str, str] = {}
+    cfgs: dict[str, str] = {}
     for line in lines:
         if (
             line.startswith("unix")
@@ -113,7 +113,7 @@ def create_cwd(path: Path, manifest_dir: Path) -> Path:
 # when such a thing happens, but in practice they don't. To mitigate, we
 # manually invoke `rustc --version` and make sure that succeeds.
 def ensure_rustc_available(
-    env: Dict[str, str],
+    env: dict[str, str],
     cwd: Path,
     target: str,
 ) -> None:
@@ -160,7 +160,7 @@ def ensure_rustc_available(
 
 def run_buildscript(
     buildscript: str,
-    env: Dict[str, str],
+    env: dict[str, str],
     cwd: Path,
 ) -> str:
     try:

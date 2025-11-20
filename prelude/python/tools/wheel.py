@@ -19,7 +19,7 @@ import shutil
 import sys
 import zipfile
 from types import TracebackType
-from typing import cast, Dict, List, Optional, Set, Tuple, Type
+from typing import cast, Optional
 
 
 def normalize_name(name: str) -> str:
@@ -44,8 +44,8 @@ class WheelBuilder(contextlib.AbstractContextManager):
         name: str,
         version: str,
         output: str,
-        entry_points: Optional[Dict[str, str]] = None,
-        metadata: Optional[List[Tuple[str, str]]] = None,
+        entry_points: Optional[dict[str, str]] = None,
+        metadata: Optional[list[tuple[str, str]]] = None,
     ) -> None:
         self._name = name
 
@@ -58,8 +58,8 @@ class WheelBuilder(contextlib.AbstractContextManager):
         self._version = version
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
-        self._entry_points: Optional[Dict[str, str]] = entry_points
-        self._metadata: List[Tuple[str, str]] = []
+        self._entry_points: Optional[dict[str, str]] = entry_points
+        self._metadata: list[tuple[str, str]] = []
         self._metadata.append(("Name", name))
         self._metadata.append(("Version", version))
         if metadata is not None:
@@ -104,13 +104,13 @@ class WheelBuilder(contextlib.AbstractContextManager):
         record = self._dist_info("RECORD")
         self._outf.writestr(
             zinfo_or_arcname=zipfile.ZipInfo(filename=record),
-            data="".join(["{},,\n".format(f) for f in (self._record + [record])]),
+            data="".join([f"{f},,\n" for f in (self._record + [record])]),
         )
 
     def close(self) -> None:
         self.writestr(
             self._dist_info("METADATA"),
-            "".join(["{}: {}\n".format(key, val) for key, val in self._metadata]),
+            "".join([f"{key}: {val}\n" for key, val in self._metadata]),
         )
         self.writestr(
             self._dist_info("WHEEL"),
@@ -122,7 +122,7 @@ Wheel-Version: 1.0
         # Write entry points.
         if self._entry_points is not None:
             config = configparser.ConfigParser()
-            config.read_dict(cast(Dict[str, Dict[str, str]], self._entry_points))
+            config.read_dict(cast(dict[str, dict[str, str]], self._entry_points))
             with io.TextIOWrapper(
                 self._outf.open(self._dist_info("entry_points.txt"), mode="w"),
                 encoding="utf-8",
@@ -134,14 +134,14 @@ Wheel-Version: 1.0
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_value: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
         self.close()
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
     parser.add_argument("--name", required=True)
@@ -155,7 +155,7 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--data", nargs=2, action="append", default=[])
     args = parser.parse_args(argv[1:])
 
-    pkgs: Set[str] = set()
+    pkgs: set[str] = set()
     pkgs_with_init = set()
 
     def _add_pkg(pkg: str) -> None:

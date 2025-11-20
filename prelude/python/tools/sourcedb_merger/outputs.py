@@ -12,7 +12,7 @@
 import dataclasses
 import json
 import pathlib
-from typing import Dict, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 import inputs
 
@@ -27,7 +27,7 @@ class SourceInfo:
 class FullBuildMap:
     content: Mapping[str, SourceInfo] = dataclasses.field(default_factory=dict)
 
-    def to_build_map_json(self) -> Dict[str, str]:
+    def to_build_map_json(self) -> dict[str, str]:
         return {
             artifact_path: source_info.source_path
             for artifact_path, source_info in self.content.items()
@@ -39,7 +39,7 @@ class FullBuildMap:
 
 
 def merge_partial_build_map_inplace(
-    sofar: Dict[str, SourceInfo],
+    sofar: dict[str, SourceInfo],
     target_entry: inputs.TargetEntry,
 ) -> None:
     for artifact_path, source_path in target_entry.build_map.content.items():
@@ -52,7 +52,7 @@ def merge_partial_build_map_inplace(
 def merge_partial_build_maps(
     target_entries: Iterable[inputs.TargetEntry],
 ) -> FullBuildMap:
-    result: Dict[str, SourceInfo] = {}
+    result: dict[str, SourceInfo] = {}
     for target_entry in target_entries:
         merge_partial_build_map_inplace(result, target_entry)
     return FullBuildMap(result)

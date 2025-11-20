@@ -12,7 +12,8 @@
 import dataclasses
 import json
 import pathlib
-from typing import Dict, Iterable, Mapping, Optional, Set
+from collections.abc import Iterable, Mapping
+from typing import Optional
 
 import inputs
 import outputs
@@ -25,7 +26,7 @@ class ConflictInfo:
     preserved_source_path: str
     dropped_source_path: str
 
-    def to_json(self) -> Dict[str, str]:
+    def to_json(self) -> dict[str, str]:
         return {
             "conflict_with": self.conflict_with.name,
             "artifact_path": self.artifact_path,
@@ -38,10 +39,10 @@ class ConflictInfo:
 class FullBuildMap:
     content: Mapping[str, outputs.SourceInfo] = dataclasses.field(default_factory=dict)
 
-    def get_all_targets(self) -> Set[inputs.Target]:
+    def get_all_targets(self) -> set[inputs.Target]:
         return {source_info.target for _, source_info in self.content.items()}
 
-    def to_json(self) -> Dict[str, str]:
+    def to_json(self) -> dict[str, str]:
         return {
             artifact_path: source_info.source_path
             for artifact_path, source_info in self.content.items()
@@ -54,7 +55,7 @@ class ConflictMap:
         default_factory=dict
     )
 
-    def to_json(self) -> Dict[str, Dict[str, str]]:
+    def to_json(self) -> dict[str, dict[str, str]]:
         return {
             target.name: conflict_info.to_json()
             for target, conflict_info in self.content.items()
@@ -66,7 +67,7 @@ class MergeResult:
     build_map: FullBuildMap
     dropped_targets: ConflictMap
 
-    def to_json(self) -> Dict[str, object]:
+    def to_json(self) -> dict[str, object]:
         return {
             "build_map": self.build_map.to_json(),
             "built_targets_count": len(
@@ -101,7 +102,7 @@ def detect_conflict(
 
 
 def insert_build_map_inplace(
-    build_map: Dict[str, outputs.SourceInfo],
+    build_map: dict[str, outputs.SourceInfo],
     target: inputs.Target,
     merge_candidate: Mapping[str, str],
 ) -> None:
@@ -112,8 +113,8 @@ def insert_build_map_inplace(
 
 
 def merge_partial_build_map_inplace(
-    build_map: Dict[str, outputs.SourceInfo],
-    dropped_targets: Dict[inputs.Target, ConflictInfo],
+    build_map: dict[str, outputs.SourceInfo],
+    dropped_targets: dict[inputs.Target, ConflictInfo],
     target_entry: inputs.TargetEntry,
 ) -> None:
     target = target_entry.target
@@ -137,8 +138,8 @@ def merge_partial_build_map_inplace(
 def merge_partial_build_maps(
     target_entries: Iterable[inputs.TargetEntry],
 ) -> MergeResult:
-    build_map: Dict[str, outputs.SourceInfo] = {}
-    dropped_targets: Dict[inputs.Target, ConflictInfo] = {}
+    build_map: dict[str, outputs.SourceInfo] = {}
+    dropped_targets: dict[inputs.Target, ConflictInfo] = {}
     for target_entry in sorted(target_entries, key=lambda entry: entry.target.name):
         merge_partial_build_map_inplace(
             build_map,

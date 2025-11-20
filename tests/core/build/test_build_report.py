@@ -11,7 +11,6 @@
 
 import json
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -19,7 +18,7 @@ from buck2.tests.e2e_util.helper.golden import golden
 from buck2.tests.e2e_util.helper.utils import replace_digest, replace_hash
 
 
-def build_report_test(name: str, command: List[str]) -> None:
+def build_report_test(name: str, command: list[str]) -> None:
     async def impl(buck: Buck, tmp_path: Path) -> None:
         report = tmp_path / "build-report.json"
         await buck.build("--build-report", str(report), *command)
@@ -237,7 +236,7 @@ async def test_build_report_contains_per_target_build_metrics(
         assert report["build_metrics"]
 
 
-def streaming_build_report_test(name: str, command: List[str]) -> None:
+def streaming_build_report_test(name: str, command: list[str]) -> None:
     async def impl(buck: Buck, tmp_path: Path) -> None:
         base_report = tmp_path / "build-report.json"
         report = tmp_path / "streaming-build-report.json"

@@ -8,7 +8,6 @@
 
 # pyre-strict
 import re
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -89,7 +88,7 @@ async def test_audit_subtargets_json(buck: Buck) -> None:
     golden(output=result.stdout, rel_path="json/golden.deeply_nested_subs_of_sub.json")
 
 
-def _extract_configuration(s: str) -> List[str]:
+def _extract_configuration(s: str) -> list[str]:
     return re.findall(r"\((.*?)\)", s)
 
 
