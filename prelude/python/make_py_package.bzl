@@ -504,7 +504,7 @@ def _make_py_package_impl(
         common_modules_args,
         runtime_artifacts,
         debug_artifacts,
-        standalone,
+        package_style,
         pyc_mode,
         symlink_tree_path,
         manifest_module,
@@ -1007,7 +1007,7 @@ def _pex_modules_args(
         common_args: cmd_args,
         dep_artifacts: list[ArgLike],
         debug_artifacts: list[(str | (str, SharedLibrary, str), ArgLike)],
-        is_standalone: bool,
+        package_style: PackageStyle,
         pyc_mode: PycInvalidationMode,
         symlink_tree_path: Artifact | None,
         manifest_module: ManifestModule | None,
@@ -1048,7 +1048,8 @@ def _pex_modules_args(
 
     hidden.extend([s for _, s in debug_artifacts])
 
-    resources = pex_modules.manifests.resource_manifests(is_standalone)
+    standalone = package_style == PackageStyle("standalone")
+    resources = pex_modules.manifests.resource_manifests(standalone)
     if resources:
         resource_manifests_path = ctx.actions.write(
             "__resource_manifests{}.txt".format(output_suffix),
