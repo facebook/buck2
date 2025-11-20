@@ -149,6 +149,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     /// 'end_col': Optional, end column number for error ranges.
     /// 'error_type': Optional, type of error (e.g., error, warning, info).
     /// 'error_number': Optional, numeric error code.
+    /// 'show_in_stderr': Optional, whether to show this error in stderr (default: false).
     ///
     /// The message will be emitted to the build report, and to the stderr in the error diagnostics
     /// section.
@@ -163,6 +164,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] end_col: NoneOr<u64>,
         #[starlark(require = named, default = NoneOr::None)] error_type: NoneOr<String>,
         #[starlark(require = named, default = NoneOr::None)] error_number: NoneOr<u64>,
+        #[starlark(require = named, default = false)] show_in_stderr: bool,
     ) -> starlark::Result<StarlarkActionSubError> {
         Ok(StarlarkActionSubError {
             category: RefCell::new(category),
@@ -174,6 +176,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
             end_col: end_col.into_option(),
             error_type: error_type.into_option(),
             error_number: error_number.into_option(),
+            show_in_stderr: RefCell::new(show_in_stderr),
         })
     }
 
@@ -230,6 +233,8 @@ pub(crate) struct StarlarkActionSubError {
     error_type: Option<String>,
     // Numeric error code (e.g., 404, 500)
     error_number: Option<u64>,
+    // Whether to show this error in stderr
+    show_in_stderr: RefCell<bool>,
 }
 
 impl Display for StarlarkActionSubError {
@@ -268,6 +273,8 @@ impl Display for StarlarkActionSubError {
             write!(f, ", error_number={}", error_number)?;
         }
 
+        write!(f, ", show_in_stderr={}", self.show_in_stderr.borrow())?;
+
         write!(f, ")")
     }
 }
@@ -283,6 +290,7 @@ impl PartialEq for StarlarkActionSubError {
             && self.end_col == other.end_col
             && self.error_type == other.error_type
             && self.error_number == other.error_number
+            && *self.show_in_stderr.borrow() == *other.show_in_stderr.borrow()
     }
 }
 
@@ -303,6 +311,7 @@ impl StarlarkActionSubError {
             end_col: entry.end_col.map(|x| x as u64),
             error_type: entry.error_type,
             error_number: entry.error_number.map(|x| x as u64),
+            show_in_stderr: RefCell::new(false),
         }
     }
 }
@@ -325,6 +334,13 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
             "category" => {
                 let new_category = new_value.unpack_str_err()?;
                 *self.category.borrow_mut() = new_category.to_owned();
+                Ok(())
+            }
+            "show_in_stderr" => {
+                let new_show_in_stderr = new_value
+                    .unpack_bool()
+                    .expect("show_in_stderr expected bool");
+                *self.show_in_stderr.borrow_mut() = new_show_in_stderr;
                 Ok(())
             }
             _ => ValueError::unsupported(self, &format!(".{attribute}=")),
@@ -406,6 +422,12 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     fn error_number<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<u64>> {
         Ok(NoneOr::from_option(this.error_number))
     }
+
+    /// Whether to show this error in stderr.
+    #[starlark(attribute)]
+    fn show_in_stderr<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<bool> {
+        Ok(*this.show_in_stderr.borrow())
+    }
 }
 
 impl StarlarkActionSubError {
@@ -420,6 +442,7 @@ impl StarlarkActionSubError {
             end_col: self.end_col,
             error_type: self.error_type.clone(),
             error_number: self.error_number,
+            show_in_stderr: *self.show_in_stderr.borrow(),
         }
     }
 }

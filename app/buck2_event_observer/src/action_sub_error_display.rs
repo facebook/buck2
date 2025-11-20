@@ -90,6 +90,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -108,6 +109,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -129,6 +131,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -150,6 +153,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -171,6 +175,7 @@ mod tests {
             end_col: Some(10),
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -192,6 +197,7 @@ mod tests {
             end_col: Some(25),
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -213,6 +219,7 @@ mod tests {
             end_col: None,
             error_type: Some("error".to_owned()),
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -234,6 +241,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: Some(404),
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -252,6 +260,7 @@ mod tests {
             end_col: None,
             error_type: Some("error".to_owned()),
             error_number: Some(502),
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -273,6 +282,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -292,6 +302,7 @@ mod tests {
             end_col: None,
             error_type: None,
             error_number: None,
+            show_in_stderr: false,
         };
 
         let display = error.display();
@@ -310,6 +321,7 @@ mod tests {
             end_col: Some(20),
             error_type: Some("warning".to_owned()),
             error_number: Some(1001),
+            show_in_stderr: false,
         };
 
         let display = error.display();

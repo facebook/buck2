@@ -1797,6 +1797,9 @@ message ActionSubError {
 
   // Numeric error code (e.g., 404, 500)
   optional uint64 error_number = 10;
+
+  // Whether to show this error in stderr
+  bool show_in_stderr = 11;
 }
 
 message ActionErrorHandlerExecutionStart {}
