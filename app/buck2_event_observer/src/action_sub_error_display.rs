@@ -11,7 +11,6 @@
 use buck2_data::ActionSubError;
 
 pub trait ActionSubErrorDisplay {
-    #[allow(dead_code)]
     fn display(&self) -> Option<String>;
     fn has_location_info(&self) -> bool;
 }

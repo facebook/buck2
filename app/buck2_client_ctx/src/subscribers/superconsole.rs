@@ -644,17 +644,13 @@ impl StatefulSuperConsoleImpl {
                     let sub_errors = &sub_errors.sub_errors;
                     if !sub_errors.is_empty() {
                         for sub_error in sub_errors {
-                            // Display only sub-errors with messages but no location information.
-                            // Errors with location info are filtered out due to user feedback about console noise.
-                            // TODO(nero): Improve presentation of errors with location info; may require redesigning Buck's diagnostic output
-                            if let Some(msg) = &sub_error.message
-                                && !msg.is_empty()
-                                && !sub_error.has_location_info()
-                            {
-                                lines.push(Line::from_iter([Span::new_styled_lossy(
-                                    format!("[{}] {}", sub_error.category, msg)
-                                        .with(Color::DarkCyan),
-                                )]));
+                            // Display errors based on show_in_stderr flag is true
+                            if sub_error.show_in_stderr {
+                                if let Some(display_msg) = sub_error.display() {
+                                    lines.push(Line::from_iter([Span::new_styled_lossy(
+                                        display_msg.with(Color::DarkCyan),
+                                    )]))
+                                }
                             }
                         }
                     }
