@@ -234,7 +234,7 @@ def cxx_toolchain_impl(ctx):
         remap_cwd = ctx.attrs.remap_cwd,
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
-        minimum_os_version = ctx.attrs.target_sdk_version,
+        minimum_os_version = ctx.attrs.minimum_os_version,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
     )
@@ -275,6 +275,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "llvm_cgdata": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
+        # Darwin only: the deployment target to use for this build
+        "minimum_os_version": attrs.option(attrs.string(), default = None),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
         "objdump": attrs.option(dep_type(providers = [RunInfo]), default = None),
@@ -303,8 +305,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "supports_content_based_paths": attrs.bool(default = False),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "supports_two_phase_compilation": attrs.bool(default = False),
-        # Darwin only: the deployment target to use for this build
-        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "thin_lto_double_codegen_enabled": attrs.bool(default = False),
         "thin_lto_premerger_enabled": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),
