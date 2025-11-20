@@ -446,6 +446,129 @@ public class InstrumentationTestRunnerTest {
   }
 
   @Test
+  public void pullDirPullsContentsDirectlyToDestination() throws Throwable {
+    // Set up a device directory structure with files
+    Map<Path, byte[]> filesOnDevice = new HashMap<>();
+    filesOnDevice.put(Paths.get("/device/source_dir/file1.txt"), "content1".getBytes());
+    filesOnDevice.put(Paths.get("/device/source_dir/subdir/file2.txt"), "content2".getBytes());
+
+    // Create a temporary destination directory
+    Path destinationDir = tmp.newFolder("destination").getPath();
+
+    String[] args = {
+      "--target-package-name",
+      "com.example",
+      "--test-package-name",
+      "com.example.test",
+      "--test-runner",
+      "com.example.test.TestRunner",
+      "--adb-executable-path",
+      "required_but_not_used",
+      "--output",
+      "/dev/null",
+      "--auto-run-on-connected-device"
+    };
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
+    argsParser.fromArgs(args);
+
+    InstrumentationTestRunner runner =
+        new InstrumentationTestRunner(
+            deviceArgs,
+            argsParser.packageName,
+            argsParser.targetPackageName,
+            argsParser.testRunner,
+            argsParser.outputDirectory,
+            argsParser.instrumentationApkPath,
+            argsParser.apkUnderTestPath,
+            argsParser.exopackageLocalPath,
+            argsParser.apkUnderTestExopackageLocalPath,
+            argsParser.attemptUninstallApkUnderTest,
+            argsParser.attemptUninstallInstrumentationApk,
+            argsParser.debug,
+            argsParser.codeCoverage,
+            argsParser.codeCoverageOutputFile,
+            argsParser.isSelfInstrumenting,
+            argsParser.extraInstrumentationArguments,
+            argsParser.extraInstrumentationTestListener,
+            argsParser.extraFilesToPull,
+            argsParser.extraDirsToPull,
+            argsParser.clearPackageData,
+            argsParser.disableAnimations,
+            argsParser.preTestSetupScript,
+            argsParser.extraApksToInstall) {
+
+          @Override
+          protected void initializeAndroidDevice() throws Exception {
+            // Skip AndroidDevice initialization for tests
+          }
+
+          @Override
+          public boolean directoryExists(String dirPath) throws Exception {
+            // return true for the source directory being tested
+            return dirPath.equals("/device/source_dir") || dirPath.equals("/device/source_dir/.");
+          }
+
+          @Override
+          protected void transferFile(String operation, String source, String destination)
+              throws Exception {
+            // Simulate actual adb pull behavior:
+            // "adb pull /device/source_dir /local/dest" creates /local/dest/source_dir/ (nested)
+            // "adb pull /device/source_dir/. /local/dest" puts contents in /local/dest/ (correct)
+            Path sourcePath = Paths.get(source);
+            Path destPath = Paths.get(destination);
+
+            if (operation.equals("pull")) {
+              // Check if source ends with "/."
+              boolean pullContents = source.endsWith("/.");
+              if (pullContents) {
+                // Remove "/." from source path for lookup
+                sourcePath = Paths.get(source.substring(0, source.length() - 2));
+              }
+
+              for (Map.Entry<Path, byte[]> entry : filesOnDevice.entrySet()) {
+                if (entry.getKey().startsWith(sourcePath)) {
+                  Path relativePath = sourcePath.relativize(entry.getKey());
+                  Path target;
+
+                  if (pullContents) {
+                    // With "/." - put contents directly in destination
+                    target = destPath.resolve(relativePath);
+                  } else {
+                    // Without "/." - create nested directory (broken behavior)
+                    String dirName = sourcePath.getFileName().toString();
+                    target = destPath.resolve(dirName).resolve(relativePath);
+                  }
+
+                  File parent = target.getParent().toFile();
+                  if (!parent.exists()) {
+                    parent.mkdirs();
+                  }
+                  Files.write(target, entry.getValue());
+                }
+              }
+            }
+          }
+        };
+
+    runner.pullDir("/device/source_dir", destinationDir.toString());
+
+    Path file1 = destinationDir.resolve("file1.txt");
+    Path file2 = destinationDir.resolve("subdir/file2.txt");
+    Path wrongFile1 = destinationDir.resolve("source_dir/file1.txt");
+
+    Assert.assertTrue("file1.txt should be directly in destination", Files.exists(file1));
+    Assert.assertTrue(
+        "subdir/file2.txt should preserve subdirectory structure", Files.exists(file2));
+    Assert.assertFalse(
+        "source_dir should not be created as a nested directory", Files.exists(wrongFile1));
+
+    Assert.assertEquals("content1", Files.readString(file1));
+    Assert.assertEquals("content2", Files.readString(file2));
+  }
+
+  @Test
   public void installsSingleApkWhenNoApkUnderTest() throws Throwable {
     List<String> installedPackages = new ArrayList<>();
 

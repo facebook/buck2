@@ -1014,7 +1014,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return output.contains("exists");
   }
 
-  private void transferFile(String operation, String source, String destination) throws Exception {
+  protected void transferFile(String operation, String source, String destination)
+      throws Exception {
     adbUtils.executeAdbCommand(
         operation + " " + source + " " + destination, androidDevice.getSerialNumber(), false);
   }
