@@ -99,6 +99,16 @@ def get_modifier_info(
                     default = None
             elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
+                if cfg_info.values:
+                    soft_error(
+                        "starlark_config_setting_non_empty_buckconfig_values_in_conditional_modifier",
+                        "config_setting `{}` defines buckconfig values {} which are NOT supported in conditional modifiers.\n".format(key, cfg_info.values) +
+                        "These buckconfig values are being IGNORED.\n\n" +
+                        "Action required: Remove the `values` parameter from this config_setting {} and use only `constraint_values` instead.\n".format(key) +
+                        "Note: This may become a hard error in the future to prevent silent misconfiguration.",
+                        quiet = True,
+                        stack = False,
+                    )
                 if sub_modifier:
                     sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location)
                     constraint_settings[sub_constraint_setting] = None
