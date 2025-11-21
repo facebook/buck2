@@ -200,11 +200,11 @@ impl BuildTargetResultBuilder {
         match variant {
             ConfiguredBuildEventVariant::SkippedIncompatible => {
                 self.incompatible_targets.insert(label.target().dupe());
-                self.res.entry((*label).dupe()).or_insert(None);
+                self.res.entry(label.dupe()).or_insert(None);
             }
             ConfiguredBuildEventVariant::MapModifiers { modifiers } => {
                 self.configured_to_pattern_modifiers
-                    .entry((*label).dupe())
+                    .entry(label.dupe())
                     .or_default()
                     .push(modifiers);
             }
@@ -213,7 +213,7 @@ impl BuildTargetResultBuilder {
                 target_rule_type_name,
             } => {
                 self.res
-                    .entry((*label).dupe())
+                    .entry(label.dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
                         provider_collection,
@@ -224,7 +224,7 @@ impl BuildTargetResultBuilder {
             }
             ConfiguredBuildEventVariant::Execution(execution_variant) => {
                 let is_err = {
-                    let results = self.res.get_mut(label.as_ref())
+                    let results = self.res.get_mut(&label)
                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {label}"))?
                         .as_mut()
                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{label}`"))?;
@@ -256,14 +256,14 @@ impl BuildTargetResultBuilder {
                 }
             }
             ConfiguredBuildEventVariant::GraphProperties { graph_properties } => {
-                self.res.get_mut(label.as_ref())
+                self.res.get_mut(&label)
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{label}`"))?
                      .graph_properties = Some(graph_properties);
             }
             ConfiguredBuildEventVariant::Timeout => {
-                self.res.get_mut(label.as_ref())
+                self.res.get_mut(&label)
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?
@@ -274,7 +274,7 @@ impl BuildTargetResultBuilder {
             ConfiguredBuildEventVariant::Error { err } => {
                 self.build_failed = true;
                 self.res
-                    .entry((*label).dupe())
+                    .entry(label.dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
                         provider_collection: None,
@@ -434,7 +434,7 @@ pub enum ConfiguredBuildEventVariant {
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
 pub struct ConfiguredBuildEvent {
-    label: Arc<ConfiguredProvidersLabel>,
+    label: ConfiguredProvidersLabel,
     variant: ConfiguredBuildEventVariant,
 }
 
@@ -452,10 +452,7 @@ impl BuildEvent {
         label: ConfiguredProvidersLabel,
         variant: ConfiguredBuildEventVariant,
     ) -> Self {
-        Self::Configured(ConfiguredBuildEvent {
-            label: Arc::new(label),
-            variant,
-        })
+        Self::Configured(ConfiguredBuildEvent { label, variant })
     }
 }
 
@@ -486,7 +483,6 @@ pub async fn build_configured_label(
     opts: BuildConfiguredLabelOptions,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
-    let providers_label = Arc::new(providers_label);
     if let Err(e) = build_configured_label_inner(
         event_consumer,
         ctx,
@@ -509,7 +505,7 @@ async fn build_configured_label_inner<'a>(
     event_consumer: &dyn BuildEventConsumer,
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     materialization_and_upload: &'a MaterializationAndUploadContext,
-    providers_label: Arc<ConfiguredProvidersLabel>,
+    providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
@@ -543,7 +539,7 @@ async fn build_configured_label_inner<'a>(
         .require_compatible()?;
 
     ctx.get().top_level_target(TopLevelTargetSpec {
-        label: providers_label.dupe(),
+        label: Arc::new(providers_label.dupe()),
         target: node,
         outputs: outputs.dupe(),
     })?;
@@ -554,7 +550,7 @@ async fn build_configured_label_inner<'a>(
     let provider_collection = if providers_to_build.run {
         let providers = ctx
             .get()
-            .get_providers(providers_label.as_ref())
+            .get_providers(&providers_label)
             .await?
             .require_compatible()?;
         Some(providers)
