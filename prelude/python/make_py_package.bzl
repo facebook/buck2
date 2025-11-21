@@ -470,12 +470,6 @@ def _make_py_package_impl(
         else:
             hidden_resources = pex_modules.manifests.hidden_resources(standalone)
 
-    if not (standalone or
-            package_style == PackageStyle("outplace") or
-            package_style == PackageStyle("inplace") or
-            package_style == PackageStyle("inplace_lite")):
-        fail("unsupported package style: {}".format(package_style))
-
     pyc_mode = PycInvalidationMode("checked_hash") if inplace else PycInvalidationMode("unchecked_hash")
 
     # Accumulate all of the artifacts required by the build
