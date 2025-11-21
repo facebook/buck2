@@ -157,7 +157,7 @@ impl ActionQueryNode {
 
     pub fn new_analysis(target: ConfiguredProvidersLabel, analysis: AnalysisResult) -> Self {
         Self {
-            key: ActionQueryNodeRef::Analysis(Arc::new(target.dupe())),
+            key: ActionQueryNodeRef::Analysis(target.dupe()),
             data: ActionQueryNodeData::Analysis(AnalysisData { target, analysis }),
         }
     }
@@ -287,7 +287,7 @@ impl ActionData {
     Allocative
 )]
 pub enum ActionQueryNodeRef {
-    Analysis(Arc<ConfiguredProvidersLabel>),
+    Analysis(ConfiguredProvidersLabel),
     Action(ActionKey),
 }
 
