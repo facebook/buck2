@@ -156,10 +156,8 @@ impl ActionQueryNode {
     }
 
     pub fn new_analysis(target: ConfiguredProvidersLabel, analysis: AnalysisResult) -> Self {
-        let target = Arc::new(target);
-
         Self {
-            key: ActionQueryNodeRef::Analysis(target.dupe()),
+            key: ActionQueryNodeRef::Analysis(Arc::new(target.dupe())),
             data: ActionQueryNodeData::Analysis(AnalysisData { target, analysis }),
         }
     }
@@ -198,7 +196,7 @@ impl LabeledNode for ActionQueryNode {
 #[derive(Derivative, Clone, Dupe)]
 #[derivative(Debug)]
 pub struct AnalysisData {
-    target: Arc<ConfiguredProvidersLabel>,
+    target: ConfiguredProvidersLabel,
     #[derivative(Debug = "ignore")]
     analysis: AnalysisResult,
 }
@@ -212,7 +210,7 @@ impl AnalysisData {
         &self.analysis
     }
 
-    pub fn target(&self) -> &Arc<ConfiguredProvidersLabel> {
+    pub fn target(&self) -> &ConfiguredProvidersLabel {
         &self.target
     }
 }
