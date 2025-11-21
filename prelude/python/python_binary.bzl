@@ -196,6 +196,7 @@ def python_executable(
         shared_libraries = shared_deps,
         native_deps = merge_native_deps(ctx, raw_deps),
         is_native_dep = False,
+        par_style = ctx.attrs.par_style,
     )
 
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)

@@ -127,7 +127,8 @@ def create_python_library_info(
         extensions: [dict[str, LinkedObject], None] = None,
         deps: list[PythonLibraryInfo] = [],
         shared_libraries: list[SharedLibraryInfo] = [],
-        extension_shared_libraries: list[SharedLibraryInfo] = []):
+        extension_shared_libraries: list[SharedLibraryInfo] = [],
+        par_style: str | None = None):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -171,6 +172,7 @@ def create_python_library_info(
         extension_shared_libraries = new_extension_shared_libraries,
         is_native_dep = is_native_dep,
         native_deps = native_deps,
+        par_style = par_style,
     )
 
 def gather_dep_libraries(
