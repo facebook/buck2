@@ -1,0 +1,47 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+# BXL script to extract the Java class-to-source map debug info from a target
+# Usage:
+# buck2 bxl @//arvr/mode/android/apk/vr_standalone/linux/dev prelude//debugging/java/get_jdb_classmap.bxl:get_jdb_classmap -- --target=<your target here>
+# This script extracts Java class-to-source mapping information from a buck target and outputs the path to a debuginfo JSON file
+# that can be used by Java debuggers (like java-dap) to map compiled classes back to their source files for debugging purposes.
+
+load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
+
+def get_jdb_classmap_impl(ctx: bxl.Context):
+    # Get the target from the command line arguments
+    target = ctx.configured_targets(ctx.cli_args.target, modifiers = ctx.modifiers)
+
+    # Analyze the target to get its providers
+    providers = ctx.analysis(target).providers()
+
+    # Check if the target has the JavaClassToSourceMapInfo provider
+    if JavaClassToSourceMapInfo not in providers:
+        ctx.output.print("Error: Target does not have JavaClassToSourceMapInfo provider")
+        return
+
+    # Get the debuginfo from the provider
+    debuginfo = providers[JavaClassToSourceMapInfo].debuginfo
+
+    if not debuginfo:
+        ctx.output.print("Error: No debuginfo available for this target")
+        return
+
+    # Ensure the debuginfo file is materialized and get its path
+    debuginfo_path = ctx.output.ensure(debuginfo)
+
+    # Print the path to the debuginfo file
+    ctx.output.print(debuginfo_path)
+
+get_jdb_classmap = bxl_main(
+    impl = get_jdb_classmap_impl,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)
