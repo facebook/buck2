@@ -942,6 +942,14 @@ impl ChromeTraceWriter {
                             "http_download_bytes",
                             snapshot.http_download_bytes,
                         )?;
+                } else if let buck2_data::instant_event::Data::ResourceControlEvents(events) =
+                    instant_data
+                {
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "allprocs_memory_pressure",
+                        events.allprocs_memory_pressure,
+                    )?
                 }
             }
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
