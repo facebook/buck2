@@ -54,6 +54,7 @@ import argparse
 import errno
 import json
 import os
+import platform
 import shutil
 from pathlib import Path
 from typing import Dict, Set, Tuple
@@ -202,12 +203,17 @@ def add_path_mapping(
             out += " (from {})".format(origin)
         return out
 
+    def _realpath(src: Path) -> str:
+        "get the realpath of a path, but if we are on windows, we strip the longpath prefix"
+        real_src = os.path.realpath(src)
+        if platform.system() == "Windows":
+            real_src = real_src.removeprefix("\\\\?\\")
+        return real_src
+
     if copy_files:
         link_path = os.path.realpath(src)
     else:
-        link_path = os.path.relpath(
-            os.path.realpath(src), os.path.realpath(new_dest.parent)
-        )
+        link_path = os.path.relpath(_realpath(src), _realpath(new_dest.parent))
     if new_dest in path_mapping:
         prev, prev_origin = path_mapping[new_dest]
         if prev != link_path and not (
