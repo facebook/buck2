@@ -20,7 +20,7 @@ _TARGETS = [
     "ovr_config//os/constraints:linux",
     "ovr_config//os/constraints:macos",
     "ovr_config//os/constraints:windows",
-    "ovr_config//build_mode/constraints:san",
+    "ovr_config//build_mode:sanitizer_type",
     "ovr_config//build_mode/constraints:no-san",
     "ovr_config//build_mode/constraints:asan",
     "ovr_config//build_mode/constraints:asan-ubsan",
