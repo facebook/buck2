@@ -148,7 +148,7 @@ The `buck2 install` command builds an installable target, typically a mobile app
 ## How buck2 install works
 
 The `InstallInfo` provider is used to make targets installable, it specifies an installer implementation (e.g. Android or Apple installer) and a set of files to install. For example (from `buck2 audit providers`):
-```
+```python
 InstallInfo(
     installer = buck//src/com/facebook/buck/installer/apple:apple_installer,
     files = {

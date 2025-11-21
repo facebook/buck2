@@ -21,7 +21,7 @@ storing data on the disk mid-build.
 
 For example:
 
-```starlark
+```python
 cxx_test(
     name = "my_test",
     srcs = ["main.cpp"],
@@ -51,7 +51,7 @@ the source tree, rather than a copy or symlink in `buck-out`.
 
 For example:
 
-```starlark
+```python
 cxx_test(
     name = "my_test",
     srcs = ["main.cpp"],
@@ -83,7 +83,7 @@ the target platform, rather than the execution platform.
 This is for example useful to get the paths to executables to be run as part of
 tests. For example:
 
-```starlark
+```python
 sh_test(
     name = "my_test",
     args = [
@@ -103,7 +103,7 @@ targets.
 
 For example:
 
-```starlark
+```python
 my_rule(
     name = "example",
     # Will be replaced by all dependencies of `some_target`.
@@ -118,7 +118,7 @@ matching targets.
 
 For example:
 
-```starlark
+```python
 my_rule(
     name = "example",
     # Will be replaced by the outputs of all dependencies of `some_target`.
@@ -134,7 +134,7 @@ space).
 
 For example:
 
-```starlark
+```python
 my_rule(
     name = "example",
     # Will be replaced by the space-separated dependencies of `some_target`, as
@@ -169,13 +169,13 @@ then writes the results of the expanded macro to a temporary file and replaces
 the macro with the path to that file _while keeping the `@` prefix_. For
 example:
 
-```
+```sh
 $(@query_targets_and_outputs //...)
 ```
 
 expands to something similar to:
 
-```
+```sh
 @/tmp/tempfile
 ```
 
@@ -187,7 +187,7 @@ file to obtain the necessary arguments_.
 If you need to prevent expansion of a string parameter macro, prefix the macro
 with a backslash.
 
-```
+```sh
 \$(dirname ...)
 ```
 
@@ -196,7 +196,7 @@ execute in a subshell; `dirname` is a Unix/Linux command-line utility that
 returns the directory of a specified file. We need to use an escape because the
 syntax for subshells is the same as the syntax for string parameter macros:
 
-```starlark
+```python
 genrule(
   name = 'gen',
   out  = 'out.txt',
@@ -246,7 +246,7 @@ following query functions:
 
 The Extended Backus-Naur form (EBNF) grammar for a macro is as follows:
 
-```
+```python
 macro = "$(", macro_name, whitespace, [arg_list], ")";
 macro_name = {all_ascii_chars - whitespace - parens};
 whitespace = "\t" | "\n" | " " | "\r";
