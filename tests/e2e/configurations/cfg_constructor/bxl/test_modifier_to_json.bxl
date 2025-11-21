@@ -24,7 +24,7 @@ def _impl(_ctx: bxl.Context):
                 }),
                 "ovr_config//os/constraints:windows": modifiers.match({
                     "DEFAULT": modifiers.match({
-                        "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:tsan",
+                        "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[tsan]",
                     }),
                 }),
             })],

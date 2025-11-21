@@ -25,7 +25,7 @@ _TARGETS = [
     "ovr_config//build_mode/constraints:asan",
     "ovr_config//build_mode/constraints:asan-ubsan",
     "ovr_config//build_mode/constraints:hwasan",
-    "ovr_config//build_mode/constraints:tsan",
+    "ovr_config//build_mode:sanitizer_type[tsan]",
     # TODO: This will probably get broken by updates to clang constraints.
     # Figure out how to handle this.
     "ovr_config//toolchain/clang/constraints:15",
