@@ -10,3 +10,4 @@
 ## ActionSubError.file
 ## ActionSubError.lnum
 ## ActionSubError.message
+## ActionSubError.show\_in\_stderr
