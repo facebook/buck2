@@ -74,7 +74,7 @@ fn maybe_declared_at(location: &Option<FileSpan>) -> String {
 #[derive(Clone, Debug, Dupe, Allocative)]
 pub struct PromiseArtifact {
     artifact: Arc<OnceLock<Artifact>>,
-    pub id: Arc<PromiseArtifactId>,
+    pub id: PromiseArtifactId,
 }
 
 #[derive(
@@ -109,7 +109,7 @@ impl Display for PromiseArtifactId {
 }
 
 impl PromiseArtifact {
-    pub fn new(artifact: Arc<OnceLock<Artifact>>, id: Arc<PromiseArtifactId>) -> Self {
+    pub fn new(artifact: Arc<OnceLock<Artifact>>, id: PromiseArtifactId) -> Self {
         Self { artifact, id }
     }
 
@@ -167,7 +167,7 @@ impl PromiseArtifact {
     }
 
     pub fn id(&self) -> &PromiseArtifactId {
-        self.id.as_ref()
+        &self.id
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {

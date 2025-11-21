@@ -159,8 +159,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 let fulfilled = OnceLock::new();
                 fulfilled.set(artifact.dupe()).unwrap();
 
-                let fulfilled_promise_inner =
-                    PromiseArtifact::new(Arc::new(fulfilled), Arc::new(promise_id));
+                let fulfilled_promise_inner = PromiseArtifact::new(Arc::new(fulfilled), promise_id);
 
                 let fulfilled_promise_artifact = StarlarkPromiseArtifact::new(
                     None,

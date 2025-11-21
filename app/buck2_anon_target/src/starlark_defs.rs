@@ -336,7 +336,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let promise = artifact.artifact.dupe();
 
         let short_path = ForwardRelativePathBuf::new(short_path.to_owned())?;
-        (*this).record_short_path_assertion(short_path.clone(), promise.id.as_ref().clone());
+        (*this).record_short_path_assertion(short_path.clone(), promise.id.clone());
 
         Ok(StarlarkPromiseArtifact::new(
             artifact.declaration_location.dupe(),
@@ -353,7 +353,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let mut this = this.state()?;
         let promise = artifact.artifact.dupe();
 
-        (*this).record_has_content_based_path_assertion(promise.id.as_ref().clone());
+        (*this).record_has_content_based_path_assertion(promise.id.clone());
 
         Ok(StarlarkPromiseArtifact::new(
             artifact.declaration_location.dupe(),

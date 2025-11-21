@@ -129,7 +129,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 // allow anon targets to accept unresolved promise artifacts.
                 if let Some(promise_artifact) = StarlarkPromiseArtifact::from_value(value) {
                     Ok(AnonTargetAttr::PromiseArtifact(PromiseArtifactAttr {
-                        id: promise_artifact.artifact.id.as_ref().clone(),
+                        id: promise_artifact.artifact.id.clone(),
                         short_path: promise_artifact.short_path.clone(),
                         has_content_based_path: promise_artifact.has_content_based_path,
                     }))
