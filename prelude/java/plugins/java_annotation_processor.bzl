@@ -108,6 +108,9 @@ def create_annotation_processor_properties(
         "buck.current_buck_target=" + str(ctx.label.raw_target()),
     ]
 
+    if hasattr(ctx.attrs, "required_for_source_only_abi"):
+        annotation_processor_params.append("buck.required_for_source_only_abi=" + str(ctx.attrs.required_for_source_only_abi))
+
     return AnnotationProcessorProperties(
         annotation_processors = annotation_processors,
         annotation_processor_params = annotation_processor_params,
