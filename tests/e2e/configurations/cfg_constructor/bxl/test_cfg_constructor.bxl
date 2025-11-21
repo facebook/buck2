@@ -236,7 +236,7 @@ def test_cfg_constructor_with_modifiers_match_ordering(
     target_modifiers = [
         modifiers.match({
             "ovr_config//cpu/constraints:arm64": "ovr_config//build_mode/constraints:no-san",
-            "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:asan",
+            "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[asan]",
         }),
         modifiers.match({
             "ovr_config//os/constraints:linux": "ovr_config//cpu/constraints:x86_64",
@@ -260,7 +260,7 @@ def test_cfg_constructor_with_modifiers_match_ordering(
     expected_cfg = test_refs.make_cfg([
         "ovr_config//os/constraints:linux",
         "ovr_config//cpu/constraints:x86_64",
-        "ovr_config//build_mode/constraints:asan",
+        "ovr_config//build_mode:sanitizer_type[asan]",
     ])
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:linux-x86_64-asan", platform.label)

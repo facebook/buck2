@@ -20,7 +20,7 @@ def _impl(_ctx: bxl.Context):
             modifiers = [modifiers.match({
                 "ovr_config//os/constraints:linux": modifiers.match({
                     "DEFAULT": "ovr_config//build_mode/constraints:no-san",
-                    "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:asan",
+                    "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[asan]",
                 }),
                 "ovr_config//os/constraints:windows": modifiers.match({
                     "DEFAULT": modifiers.match({
