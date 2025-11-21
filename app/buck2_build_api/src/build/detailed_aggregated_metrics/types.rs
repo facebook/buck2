@@ -37,7 +37,7 @@ pub struct AnalysisMetrics {
 }
 
 pub struct TopLevelTargetSpec {
-    pub label: Arc<ConfiguredProvidersLabel>,
+    pub label: ConfiguredProvidersLabel,
     pub target: ConfiguredTargetNode,
     pub outputs: Arc<Vec<(ArtifactGroup, BuildProviderType)>>,
 }
@@ -103,7 +103,7 @@ impl ToProtoMessage for AggregatedBuildMetrics {
 }
 
 pub struct TopLevelTargetAggregatedData {
-    pub target: Arc<ConfiguredProvidersLabel>,
+    pub target: ConfiguredProvidersLabel,
     pub action_graph_size: Option<u64>,
     pub metrics: AggregatedBuildMetrics,
     pub amortized_metrics: AggregatedBuildMetrics,
@@ -118,7 +118,7 @@ pub enum BuiltWhen {
 }
 
 impl TopLevelTargetAggregatedData {
-    pub fn new(target: Arc<ConfiguredProvidersLabel>, action_graph_size: Option<usize>) -> Self {
+    pub fn new(target: ConfiguredProvidersLabel, action_graph_size: Option<usize>) -> Self {
         Self {
             target,
             action_graph_size: action_graph_size.map(|v| v as u64),

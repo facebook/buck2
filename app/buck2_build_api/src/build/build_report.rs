@@ -370,7 +370,7 @@ impl<'a> BuildReportCollector<'a> {
         if let Some(detailed_metrics) = detailed_metrics.as_ref() {
             for top_level_metrics in &detailed_metrics.top_level_target_metrics {
                 metrics_by_configured.insert(
-                    &*top_level_metrics.target,
+                    &top_level_metrics.target,
                     Self::convert_per_target_metrics(top_level_metrics).into(),
                 );
             }

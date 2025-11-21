@@ -539,7 +539,7 @@ async fn build_configured_label_inner<'a>(
         .require_compatible()?;
 
     ctx.get().top_level_target(TopLevelTargetSpec {
-        label: Arc::new(providers_label.dupe()),
+        label: providers_label.dupe(),
         target: node,
         outputs: outputs.dupe(),
     })?;
