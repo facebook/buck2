@@ -66,7 +66,7 @@ def get_tagged_modifiers(
         for rule_name, modifiers in extra_cfg_modifiers_per_rule.items()
     ]
 
-def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
+def get_constraint_setting(constraint_settings: set[TargetLabel], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
     if len(constraint_settings) == 0:
         fail("`modifiers.match` cannot be empty. Found empty `modifiers.match` at `{}`".format(location_to_string(location)))
     if len(constraint_settings) > 1:
@@ -75,9 +75,9 @@ def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifie
             "Modifier `{}` from `{}` is found to modify the following constraint settings:\n".format(
                 modifier,
                 location_to_string(location),
-            ) + "\n".join([str(k) for k in constraint_settings.keys()]),
+            ) + "\n".join([str(k) for k in constraint_settings]),
         )
-    return list(constraint_settings.keys())[0]
+    return list(constraint_settings)[0]
 
 def get_modifier_info(
         refs: dict[str, ProviderCollection],
@@ -89,12 +89,12 @@ def get_modifier_info(
     if is_modifiers_match(modifier):
         default = None
         modifiers_match_info = []
-        constraint_settings = {}  # Used like a set
+        constraint_settings = set()
         for key, sub_modifier in modifier.items():
             if key == "DEFAULT":
                 if sub_modifier:
                     default_constraint_setting, default = get_modifier_info(refs, sub_modifier, location)
-                    constraint_settings[default_constraint_setting] = None
+                    constraint_settings.add(default_constraint_setting)
                 else:
                     default = None
             elif key != "_type":
@@ -111,7 +111,7 @@ def get_modifier_info(
                     )
                 if sub_modifier:
                     sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location)
-                    constraint_settings[sub_constraint_setting] = None
+                    constraint_settings.add(sub_constraint_setting)
                 else:
                     sub_modifier_info = None
                 modifiers_match_info.append((cfg_info, sub_modifier_info))
