@@ -1075,7 +1075,7 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
 
 _LinkableSharedNode = record(
     raw_target = field(str),
-    soname = field(str),
+    soname = field(str | None),
     labels = field(list[str], []),
     # Linkable deps of this target.
     deps = field(list[Label], []),
@@ -1087,9 +1087,6 @@ def encode_linkable_graph_for_mergemap(graph_node_map_by_platform: dict[str, dic
         platform: {
             target: _LinkableSharedNode(
                 raw_target = str(target.raw_target()),
-                # FIXME(JakobDegen): The definition of `LinkableNode` claims that it's ok for this
-                # to be `None` (I assume in the case of static preferred linkage), so either that is
-                # wrong or this is. See the diff that added this FIXME for how to reproduce
                 soname = node.default_soname,
                 labels = node.labels,
                 deps = node.deps + node.exported_deps,
