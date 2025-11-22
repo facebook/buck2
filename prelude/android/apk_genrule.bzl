@@ -19,7 +19,6 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
 
     input_android_apk_under_test_info = None
-    input_unstripped_shared_libraries = None
     input_android_apk_subtargets = None
     input_android_apk_template_placeholder_info = None
     input_android_aab_subtargets = None
@@ -47,6 +46,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_manifest = input_android_aab_info.manifest
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
         input_android_aab_subtargets = ctx.attrs.aab[DefaultInfo].sub_targets
+        input_unstripped_shared_libraries = input_android_aab_info.unstripped_shared_libraries
 
         env_vars = {
             "AAB": cmd_args(input_apk),
@@ -85,6 +85,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 aab = genrule_default_output,
                 manifest = input_manifest,
                 materialized_artifacts = input_materialized_artifacts,
+                unstripped_shared_libraries = input_unstripped_shared_libraries,
             )
             output_apk = None
         else:
