@@ -160,6 +160,7 @@ pub struct FileChangeTracker {
     exists_matching_exact_case_to_dirty: HashSet<ExistsMatchingExactCaseKey>,
 
     maybe_modified_dirs: HashSet<CellPath>,
+    missed_events: bool,
 }
 
 impl FileChangeTracker {
@@ -170,6 +171,7 @@ impl FileChangeTracker {
             paths_to_dirty: Default::default(),
             maybe_modified_dirs: Default::default(),
             exists_matching_exact_case_to_dirty: Default::default(),
+            missed_events: false,
         }
     }
 
@@ -249,6 +251,14 @@ impl FileChangeTracker {
     /// is not aware of our ignore rules.
     pub fn dir_entries_changed_for_watchman_bug(&mut self, path: CellPath) {
         self.maybe_modified_dirs.insert(path);
+    }
+
+    pub fn set_missed_events(&mut self) {
+        self.missed_events = true;
+    }
+
+    pub fn missed_events(&self) -> bool {
+        self.missed_events
     }
 }
 
