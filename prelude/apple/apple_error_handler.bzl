@@ -150,6 +150,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
             severity = error_json["severity"]
             category = "swift_" + severity
+            message = error_json["message"]
             show_in_stderr = False
 
             # Swift serializes the category in the form:
@@ -157,12 +158,11 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             if "@" in error_json.get("category", ""):
                 # Convert to markdown links for phabricator
                 components = error_json["category"].split("@")
-                postfix = " [{}]({})".format(components[0], components[1])
+                message += " [{}]({})".format(components[0], components[1])
                 category += "_" + components[0].lower()
             else:
                 # With no category in the error itself we categorise based on
                 # the message content.
-                postfix = ""
                 custom_category = _category_match(
                     message = error_json["message"],
                     path = error_json["path"],
@@ -172,12 +172,12 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                     category += "_" + custom_category.category
                     if custom_category.message:
                         show_in_stderr = True
-                        postfix = ". " + custom_category.message
+                        message = custom_category.message
 
             errors.append(
                 ctx.new_sub_error(
                     category = category,
-                    message = error_json["message"] + postfix,
+                    message = message,
                     file = error_json["path"],
                     lnum = error_json["line"],
                     col = error_json["col"],
