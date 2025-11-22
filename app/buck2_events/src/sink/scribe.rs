@@ -184,7 +184,6 @@ impl RemoteEventSink {
 
                 match &s.data {
                     Some(Data::Command(..)) => true,
-                    Some(Data::MemoryPressure(..)) => true,
                     None => false,
                     _ => false,
                 }
@@ -233,8 +232,6 @@ impl RemoteEventSink {
                     Some(Data::CleanStaleResult(..)) => true,
                     Some(Data::ConfigurationCreated(..)) => true,
                     Some(Data::DetailedAggregatedMetrics(..)) => true,
-                    Some(Data::MemoryPressure(..)) => true,
-                    Some(Data::LocalActionRunningCount(..)) => true,
                     Some(Data::ResourceControlEvents(..)) => true,
                     None => false,
                     _ => false,

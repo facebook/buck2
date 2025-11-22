@@ -47,7 +47,7 @@ message BuckEvent {
 
 // An event that begins a span.
 message SpanStartEvent {
-  reserved 83;
+  reserved 83, 90;
   // TODO(swgillespie) add fields common to span events
   // bool suspending = 1;
   oneof data {
@@ -91,7 +91,6 @@ message SpanStartEvent {
     DepFileUploadStart dep_file_upload = 88;
     ComputeDetailedAggregatedMetricsStart compute_detailed_aggregated_metrics =
         89;
-    MemoryPressureStart memory_pressure = 90;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -99,7 +98,7 @@ message SpanStartEvent {
 
 // An event that ends a span.
 message SpanEndEvent {
-  reserved 84;
+  reserved 84, 90;
   SpanStats stats = 1;
   // The total duration of this span, as observed by the client.
   google.protobuf.Duration duration = 2;
@@ -145,7 +144,6 @@ message SpanEndEvent {
     DepFileUploadEnd dep_file_upload = 88;
     ComputeDetailedAggregatedMetricsEnd compute_detailed_aggregated_metrics =
         89;
-    MemoryPressureEnd memory_pressure = 90;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -205,7 +203,7 @@ message StdoutStreamingOutput {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41;
+  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -320,30 +318,9 @@ message InstantEvent {
     // Event that used for emitting streaming std output
     StdoutStreamingOutput streaming_output = 51;
 
-    // Event used to track the % of memory pressure experienced
-    MemoryPressure memory_pressure = 52;
-
-    // Event used to track the number of actions running concurrently
-    LocalActionRunningCount local_action_running_count = 53;
-
     // Used to track all resource control events as they happen
     ResourceControlEvents resource_control_events = 54;
   }
-}
-
-message MemoryPressureStart {}
-
-message MemoryPressureEnd {}
-
-message MemoryPressure {
-  // Peak % memory pressure experienced during the build if it exceeded the
-  // threshold
-  uint64 peak_pressure = 1;
-}
-
-message LocalActionRunningCount {
-  // Number of actions running concurrently
-  uint32 count = 1;
 }
 
 message PreviousCommandWithMismatchedConfig {
