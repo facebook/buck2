@@ -38,6 +38,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -50,6 +51,7 @@ use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
@@ -169,41 +171,82 @@ enum ConfigurationInfoError {
     BuckConfigsNotAllowed,
 }
 
+/// Unpack type that accepts either a constraints dictionary or a `StarlarkConstraints` object.
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum ConstraintsUnpack<'v> {
+    Dict(
+        UnpackDictEntries<
+            ValueOf<'v, &'v StarlarkTargetLabel>,
+            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        >,
+    ),
+    Constraints(&'v StarlarkConstraints<'v>),
+}
+
+/// Helper function to validate and build a constraints map from dictionary entries.
+fn build_constraints_map_from_dict<'v>(
+    dict_entries: UnpackDictEntries<
+        ValueOf<'v, &'v StarlarkTargetLabel>,
+        ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+    >,
+) -> starlark::Result<SmallMap<Value<'v>, Value<'v>>> {
+    let mut new_constraints = SmallMap::new();
+
+    for (constraint_setting, constraint_value) in dict_entries.entries {
+        let constraint_setting_hashed = constraint_setting
+            .value
+            .get_hashed()
+            .expect("should be hashable, we picked it from dict");
+        let constraint_setting_from_constraint_value =
+            constraint_value.typed.setting().typed.label();
+        if *constraint_setting.typed != *constraint_setting_from_constraint_value {
+            return Err(buck2_error::Error::from(
+                ConfigurationInfoError::ConstraintsKeyValueMismatch(
+                    constraint_setting.value.to_string(),
+                    constraint_value.to_string(),
+                ),
+            )
+            .into());
+        }
+        let prev = new_constraints.insert_hashed(constraint_setting_hashed, constraint_value.value);
+        assert!(prev.is_none());
+    }
+
+    Ok(new_constraints)
+}
+
 #[starlark_module]
 fn configuration_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConfigurationInfo)]
     fn ConfigurationInfo<'v>(
-        #[starlark(require = named)] constraints: UnpackDictEntries<
-            ValueOf<'v, &'v StarlarkTargetLabel>,
-            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
-        >,
+        #[starlark(require = named)] constraints: ConstraintsUnpack<'v>,
         #[starlark(require = named)] values: ValueOf<
             'v,
             UnpackDictEntries<&'v str, UnpackAndDiscard<&'v str>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ConfigurationInfo<'v>> {
-        let mut new_constraints = SmallMap::new();
-        for (constraint_setting, constraint_value) in constraints.entries {
-            let constraint_setting_hashed = constraint_setting
-                .value
-                .get_hashed()
-                .expect("should be hashable, we picked it from dict");
-            let constraint_setting_from_constraint_value =
-                constraint_value.typed.setting().typed.label();
-            if *constraint_setting.typed != *constraint_setting_from_constraint_value {
-                return Err(buck2_error::Error::from(
-                    ConfigurationInfoError::ConstraintsKeyValueMismatch(
-                        constraint_setting.value.to_string(),
-                        constraint_value.to_string(),
-                    ),
-                )
-                .into());
+        let new_constraints = match constraints {
+            ConstraintsUnpack::Dict(dict_entries) => build_constraints_map_from_dict(dict_entries)?,
+            ConstraintsUnpack::Constraints(starlark_constraints) => {
+                // Extract from StarlarkConstraints object.
+                // The constraints were already validated during StarlarkConstraints construction,
+                // and all methods of StarlarkConstraints preserve the constraints mapping,
+                // so we can directly copy them without re-validation.
+                let constraints_dict =
+                    DictRef::from_value(starlark_constraints.constraints.get().to_value())
+                        .expect("StarlarkConstraints should contain a valid dict");
+
+                let mut new_map = SmallMap::new();
+                for (k, v) in constraints_dict.iter() {
+                    let hashed = k.get_hashed().expect("StarlarkTargetLabel is hashable");
+                    let prev = new_map.insert_hashed(hashed, v);
+                    assert!(prev.is_none());
+                }
+                new_map
             }
-            let prev =
-                new_constraints.insert_hashed(constraint_setting_hashed, constraint_value.value);
-            assert!(prev.is_none());
-        }
+        };
+
         for (k, _) in &values.typed.entries {
             // Validate the config section and key can be parsed correctly
             parse_config_section_and_key(k, None)?;
