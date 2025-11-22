@@ -27,7 +27,6 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::BufReader;
 use tokio::sync::mpsc;
-use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use crate::action_cgroups::ActionCgroups;
@@ -112,21 +111,13 @@ pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
 #[derive(Allocative)]
 #[allocative(skip)]
 pub struct MemoryTrackerHandleInner {
-    // Written to by tracker, read by reporter, executors
-    pub state_sender: watch::Sender<TrackedMemoryState>,
-    // Written to by tracker, TODO read from snapshot collector
-    pub reading_sender: watch::Sender<Option<MemoryReading>>,
     // Written to by executors and tracker, read by executors
     pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
 }
 
 impl MemoryTrackerHandleInner {
     fn new(action_cgroups: ActionCgroups) -> Self {
-        let (state_sender, _rx) = watch::channel(TrackedMemoryState::Uninitialized);
-        let (reading_sender, _rx) = watch::channel(None);
         Self {
-            state_sender,
-            reading_sender,
             action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
         }
     }
@@ -192,12 +183,6 @@ pub struct MemoryReporter {
     cancel: CancellationToken,
 }
 
-/// Used to ensure that the lock is not help for an extended amount of time
-async fn receive_and_clone<T: Clone>(r: &mut tokio::sync::watch::Receiver<T>) -> T {
-    drop(r.changed().await);
-    r.borrow_and_update().clone()
-}
-
 // Per command task to listen to memory state changes and send events to the client.
 pub fn spawn_memory_reporter(
     dispatcher: EventDispatcher,
@@ -205,9 +190,6 @@ pub fn spawn_memory_reporter(
 ) -> MemoryReporter {
     let cancel = CancellationToken::new();
     tokio::task::spawn(buck2_util::async_move_clone!(cancel, {
-        let mut state_receiver = memory_tracker.state_sender.subscribe();
-        let mut reading_receiver = memory_tracker.reading_sender.subscribe();
-
         let (resource_control_event_tx, mut resource_control_event_rx) = mpsc::unbounded_channel();
         memory_tracker
             .action_cgroups
@@ -215,47 +197,13 @@ pub fn spawn_memory_reporter(
             .await
             .command_started(resource_control_event_tx);
 
-        let mut span = None;
-        let mut peak_memory_pressure = 0;
-
         loop {
             tokio::select! {
-                state = receive_and_clone(&mut state_receiver) => {
-                    if let TrackedMemoryState::Reading(state) = state {
-                        match (span.is_some(), state.memory_pressure_state) {
-                            (false, MemoryPressureState::AbovePressureLimit) => {
-                                let new_span = dispatcher.create_span(buck2_data::MemoryPressureStart {});
-                                span = Some(new_span);
-                            }
-                            (true, MemoryPressureState::BelowPressureLimit) => {
-                                if let Some(span) = span.take() {
-                                    span.end(buck2_data::MemoryPressureEnd {});
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                },
-                reading = receive_and_clone(&mut reading_receiver) => {
-                    if let Some(reading) = reading {
-                        if reading.buck2_slice_memory_pressure > peak_memory_pressure {
-                            peak_memory_pressure = reading.buck2_slice_memory_pressure;
-                            // NOTE: This is OK because it will get sent at most 100 times (Since peak pressure is a %
-                            // and can't be more than 100). We should always limit this as sending more can overload scribe
-                            dispatcher.instant_event(buck2_data::MemoryPressure {
-                                peak_pressure: peak_memory_pressure,
-                            });
-                        }
-                    }
-                }
                 Some(resource_control_event) = resource_control_event_rx.recv() => {
                     let event = resource_control_event.complete(dispatcher.trace_id());
                     dispatcher.instant_event(event);
                 }
                 _ = cancel.cancelled() => {
-                    if let Some(span) = span.take() {
-                        span.end(buck2_data::MemoryPressureEnd {})
-                    }
                     break;
                 }
             }
@@ -352,8 +300,6 @@ impl MemoryTracker {
                 continue;
             }
 
-            let old_state = *self.handle.state_sender.borrow();
-
             // Manual destructuring to allow parallel reads of different files
             let MemoryTracker {
                 ref mut buck2_slice_memory_current,
@@ -366,7 +312,7 @@ impl MemoryTracker {
                 ..
             } = self;
 
-            let (new_state, new_reading) = match tokio::try_join!(
+            let state = match tokio::try_join!(
                 read_memory_current(buck2_slice_memory_current),
                 read_memory_swap_current(buck2_slice_memory_swap_current),
                 read_some_memory_pressure_avg10(buck2_slice_memory_pressure),
@@ -400,34 +346,24 @@ impl MemoryTracker {
                         .update(memory_pressure_state, &memory_reading)
                         .await;
 
-                    (
-                        TrackedMemoryState::Reading(MemoryStates {
-                            memory_pressure_state,
-                        }),
-                        Some(memory_reading),
-                    )
+                    TrackedMemoryState::Reading(MemoryStates {
+                        memory_pressure_state,
+                    })
                 }
-                _ => (TrackedMemoryState::Failure, None),
+                _ => TrackedMemoryState::Failure,
             };
-            handle.state_sender.send_if_modified(|x| {
-                *x = new_state;
-                old_state != new_state
-            });
 
-            handle.reading_sender.send_replace(new_reading);
-
-            match (old_state, new_state) {
-                (TrackedMemoryState::Failure, TrackedMemoryState::Failure) => {
-                    backoff_data
-                        .as_mut()
-                        .expect("Backoff data should be present when `Failure` state")
-                        .next_retry();
-                }
-                (_, TrackedMemoryState::Failure) => {
-                    _ = backoff_data.insert(BackoffData::new(self.max_retries))
+            match state {
+                TrackedMemoryState::Failure => {
+                    if let Some(backoff) = backoff_data.as_mut() {
+                        backoff.next_retry()
+                    } else {
+                        _ = backoff_data.insert(BackoffData::new(self.max_retries))
+                    }
                 }
                 _ => _ = backoff_data.take(),
             }
+
             if let Some(ref backoff) = backoff_data
                 && backoff.exceeded_retry_attempts()
             {
@@ -509,11 +445,10 @@ pub async fn read_memory_swap_current(memory_swap_current: &mut File) -> buck2_e
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::sync::Arc;
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::atomic::Ordering;
     use std::time::Duration;
 
+    use buck2_data::ResourceControlEvents;
+    use buck2_wrapper_common::invocation_id::TraceId;
     use tokio::fs::File;
 
     use super::*;
@@ -547,6 +482,12 @@ mod tests {
             return Ok(());
         };
         let handle = MemoryTrackerHandleInner::new(action_cgroups);
+        let (resource_control_event_tx, mut resource_control_event_rx) = mpsc::unbounded_channel();
+        handle
+            .action_cgroups
+            .lock()
+            .await
+            .command_started(resource_control_event_tx);
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -557,65 +498,56 @@ mod tests {
             0,
             10,
         );
-        let mut state_rx = tracker.handle.state_sender.subscribe();
-        let mut reading_rx = tracker.handle.reading_sender.subscribe();
+
         tracker.spawn(TICK_DURATION).await?;
 
-        // NOTE: This is the only assert that could potentially be flaky, if spawn function was too slow.
-        // If that happens, increasing TICK_DURATION should be enough to resolve it
-        assert_eq!(
-            *state_rx.borrow_and_update(),
-            TrackedMemoryState::Uninitialized
-        );
+        let event: ResourceControlEvents = resource_control_event_rx
+            .recv()
+            .await
+            .unwrap()
+            .complete(&TraceId::new());
 
-        state_rx.changed().await?;
-        assert_eq!(
-            *state_rx.borrow_and_update(),
-            TrackedMemoryState::Reading(MemoryStates {
-                memory_pressure_state: MemoryPressureState::BelowPressureLimit
-            })
-        );
-
-        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.buck2_slice_memory_current, 6);
-        assert_eq!(reading.buck2_slice_memory_swap_current, 2);
-        assert_eq!(reading.buck2_slice_memory_pressure, 1);
-        assert_eq!(reading.daemon_memory_current, 4);
-        assert_eq!(reading.daemon_memory_swap_current, 1);
+        assert_eq!(event.allprocs_memory_current, 6);
+        assert_eq!(event.allprocs_memory_swap_current, 2);
+        assert_eq!(event.allprocs_memory_pressure, 1);
+        assert_eq!(event.daemon_memory_current, 4);
+        assert_eq!(event.daemon_swap_current, 1);
         fs::write(&current, "9").unwrap();
         fs::write(&swap, "3").unwrap();
         fs::write(&daemon_current, "7").unwrap();
         fs::write(&daemon_memory_swap_current, "2").unwrap();
 
-        state_rx.changed().await?;
-        assert_eq!(
-            *state_rx.borrow_and_update(),
-            TrackedMemoryState::Reading(MemoryStates {
-                memory_pressure_state: MemoryPressureState::BelowPressureLimit
-            })
-        );
+        let event: ResourceControlEvents = resource_control_event_rx
+            .recv()
+            .await
+            .unwrap()
+            .complete(&TraceId::new());
 
-        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.buck2_slice_memory_current, 9);
-        assert_eq!(reading.buck2_slice_memory_swap_current, 3);
-        assert_eq!(reading.buck2_slice_memory_pressure, 1);
-        assert_eq!(reading.daemon_memory_current, 7);
-        assert_eq!(reading.daemon_memory_swap_current, 2);
+        assert_eq!(event.allprocs_memory_current, 9);
+        assert_eq!(event.allprocs_memory_swap_current, 3);
+        assert_eq!(event.allprocs_memory_pressure, 1);
+        assert_eq!(event.daemon_memory_current, 7);
+        assert_eq!(event.daemon_swap_current, 2);
 
         // change reading but not state
         fs::write(&current, "10").unwrap();
         fs::write(&swap, "4").unwrap();
-        reading_rx.changed().await?;
 
-        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.buck2_slice_memory_current, 10);
-        assert_eq!(reading.buck2_slice_memory_swap_current, 4);
-        assert_eq!(reading.buck2_slice_memory_pressure, 1);
-        assert_eq!(reading.daemon_memory_current, 7);
-        assert_eq!(reading.daemon_memory_swap_current, 2);
+        let event: ResourceControlEvents = resource_control_event_rx
+            .recv()
+            .await
+            .unwrap()
+            .complete(&TraceId::new());
+
+        assert_eq!(event.allprocs_memory_current, 10);
+        assert_eq!(event.allprocs_memory_swap_current, 4);
+        assert_eq!(event.allprocs_memory_pressure, 1);
+        assert_eq!(event.daemon_memory_current, 7);
+        assert_eq!(event.daemon_swap_current, 2);
+
         // expect timeout error, no state change
         assert!(
-            tokio::time::timeout(TIMEOUT_DURATION, state_rx.changed())
+            tokio::time::timeout(TIMEOUT_DURATION, resource_control_event_rx.recv())
                 .await
                 .is_err()
         );
@@ -652,6 +584,12 @@ mod tests {
             return Ok(());
         };
         let handle = MemoryTrackerHandleInner::new(action_cgroups);
+        let (resource_control_event_tx, mut resource_control_event_rx) = mpsc::unbounded_channel();
+        handle
+            .action_cgroups
+            .lock()
+            .await
+            .command_started(resource_control_event_tx);
         let tracker = MemoryTracker::new(
             handle,
             buck2_slice_memory_current,
@@ -662,49 +600,37 @@ mod tests {
             0,
             10,
         );
-        let mut state_rx = tracker.handle.state_sender.subscribe();
-        let mut reading_rx = tracker.handle.reading_sender.subscribe();
+
         tracker.spawn(TICK_DURATION).await?;
 
-        // NOTE: This is the only assert that could potentially be flaky, if spawn function was too slow.
-        // If that happens, increasing TICK_DURATION should be enough to resolve it
-        assert_eq!(
-            *state_rx.borrow_and_update(),
-            TrackedMemoryState::Uninitialized
-        );
+        let event: ResourceControlEvents = resource_control_event_rx
+            .recv()
+            .await
+            .unwrap()
+            .complete(&TraceId::new());
 
-        state_rx.changed().await?;
-        assert_eq!(
-            *state_rx.borrow_and_update(),
-            TrackedMemoryState::Reading(MemoryStates {
-                memory_pressure_state: MemoryPressureState::BelowPressureLimit
-            })
-        );
-        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.buck2_slice_memory_current, 6);
-        assert_eq!(reading.buck2_slice_memory_swap_current, 1);
-        assert_eq!(reading.buck2_slice_memory_pressure, 1);
-        assert_eq!(reading.daemon_memory_current, 3);
-        assert_eq!(reading.daemon_memory_swap_current, 4);
+        assert_eq!(event.allprocs_memory_current, 6);
+        assert_eq!(event.allprocs_memory_swap_current, 1);
+        assert_eq!(event.allprocs_memory_pressure, 1);
+        assert_eq!(event.daemon_memory_current, 3);
+        assert_eq!(event.daemon_swap_current, 4);
         fs::write(
             &pressure,
             "some avg10=15.95 avg60=0.00 avg300=0.00 total=440000",
         )
         .unwrap();
 
-        state_rx.changed().await?;
-        assert_eq!(
-            *state_rx.borrow_and_update(),
-            TrackedMemoryState::Reading(MemoryStates {
-                memory_pressure_state: MemoryPressureState::AbovePressureLimit
-            })
-        );
-        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.buck2_slice_memory_current, 6);
-        assert_eq!(reading.buck2_slice_memory_swap_current, 1);
-        assert_eq!(reading.buck2_slice_memory_pressure, 16);
-        assert_eq!(reading.daemon_memory_current, 3);
-        assert_eq!(reading.daemon_memory_swap_current, 4);
+        let event: ResourceControlEvents = resource_control_event_rx
+            .recv()
+            .await
+            .unwrap()
+            .complete(&TraceId::new());
+
+        assert_eq!(event.allprocs_memory_current, 6);
+        assert_eq!(event.allprocs_memory_swap_current, 1);
+        assert_eq!(event.allprocs_memory_pressure, 16);
+        assert_eq!(event.daemon_memory_current, 3);
+        assert_eq!(event.daemon_swap_current, 4);
 
         // change reading but not state
         fs::write(
@@ -712,69 +638,19 @@ mod tests {
             "some avg10=18.3 avg60=0.00 avg300=0.00 total=600000",
         )
         .unwrap();
-        reading_rx.changed().await?;
-        let reading = *reading_rx.borrow_and_update().as_ref().unwrap();
-        assert_eq!(reading.buck2_slice_memory_current, 6);
-        assert_eq!(reading.buck2_slice_memory_swap_current, 1);
-        assert_eq!(reading.buck2_slice_memory_pressure, 18);
-        assert_eq!(reading.daemon_memory_current, 3);
-        assert_eq!(reading.daemon_memory_swap_current, 4);
 
-        Ok(())
-    }
+        let event: ResourceControlEvents = resource_control_event_rx
+            .recv()
+            .await
+            .unwrap()
+            .complete(&TraceId::new());
 
-    #[tokio::test]
-    async fn test_backoff_stops_after_max_retries() -> buck2_error::Result<()> {
-        let dir = tempfile::tempdir()?;
-        let current = dir.path().join("current.memory");
-        fs::write(&current, "abc").unwrap();
-        let swap = dir.path().join("current.swap");
-        fs::write(&swap, "xyz").unwrap();
-        let pressure = dir.path().join("current.pressure");
-        fs::write(&pressure, "idk").unwrap();
-        let daemon_current = dir.path().join("daemon.swap");
-        fs::write(&daemon_current, "aaa").unwrap();
-        let daemon_swap = dir.path().join("daemon.pressure");
-        fs::write(&daemon_swap, "idc").unwrap();
-        let buck2_slice_memory_current = File::open(current.clone()).await?;
-        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
-        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
-        let daemon_memory_current = File::open(daemon_current.clone()).await?;
-        let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
-        let Some(action_cgroups) = ActionCgroups::testing_new() else {
-            return Ok(());
-        };
-        let handle = MemoryTrackerHandleInner::new(action_cgroups);
-        let tracker = MemoryTracker::new(
-            handle,
-            buck2_slice_memory_current,
-            buck2_slice_memory_swap_current,
-            buck2_slice_memory_pressure,
-            daemon_memory_current,
-            daemon_memory_swap_current,
-            3,
-            0,
-        );
-        let handle = tracker.handle.dupe();
-        tracker.spawn(Duration::from_millis(100)).await?;
-        let mut rx = handle.reading_sender.subscribe();
+        assert_eq!(event.allprocs_memory_current, 6);
+        assert_eq!(event.allprocs_memory_swap_current, 1);
+        assert_eq!(event.allprocs_memory_pressure, 18);
+        assert_eq!(event.daemon_memory_current, 3);
+        assert_eq!(event.daemon_swap_current, 4);
 
-        let counter = Arc::new(AtomicUsize::new(0));
-        let wait = rx.wait_for(|x| match x {
-            None => {
-                counter.fetch_add(1, Ordering::Relaxed);
-                false
-            }
-            _ => unreachable!("Not expected"),
-        });
-
-        assert!(
-            tokio::time::timeout(Duration::from_secs(5), wait)
-                .await
-                .is_err()
-        );
-        // Need to add 1 to expected value because `wait_for` calls the closure once before starting
-        assert_eq!(counter.load(Ordering::Relaxed), 5);
         Ok(())
     }
 }

@@ -49,18 +49,18 @@ async def test_memory_pressure_telemetry(
         "build.execution_platforms=//:platforms",
     )
 
-    memory_pressure = await filter_events(
-        buck, "Event", "data", "Instant", "data", "MemoryPressure"
+    resource_control_events = await filter_events(
+        buck, "Event", "data", "Instant", "data", "ResourceControlEvents"
     )
 
     # We can't reliably predict how many events will be fired and how high the pressure % will reach,
     # but it should be more than 0 with how low we set the memory_high as and obviously % should be <= 100
-    assert len(memory_pressure) > 0
-    last_pressure = memory_pressure[-1]
-    peak_value = last_pressure["peak_pressure"]
+    assert len(resource_control_events) > 0
+    last_event = resource_control_events[-1]
+    pressure = last_event["allprocs_memory_pressure"]
     assert (
-        peak_value <= 100
-    ), f"Expected % peak_pressure to be at most 100, got {peak_value}"
+        pressure <= 100
+    ), f"Expected % memory_pressure to be at most 100, got {pressure}"
 
 
 @buck_test(skip_for_os=["darwin", "windows"])
