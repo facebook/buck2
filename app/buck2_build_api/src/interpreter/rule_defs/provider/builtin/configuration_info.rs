@@ -20,18 +20,25 @@ use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
+use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
@@ -42,6 +49,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
@@ -227,4 +235,45 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<String, String>>> {
         Ok(this.values.to_value())
     }
+
+    /// Returns a `Constraints` object of set of constraints.
+    #[starlark(attribute)]
+    fn constraints_v2<'v>(
+        this: &ConfigurationInfo<'v>,
+    ) -> starlark::Result<StarlarkConstraints<'v>> {
+        let constraints_wrapper = StarlarkConstraints::new(this.constraints.to_value());
+        Ok(constraints_wrapper)
+    }
 }
+
+/// Constraints that wrap of set of constaint values
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative, Trace)]
+#[display("Constraints(...)")]
+pub(crate) struct StarlarkConstraints<'v> {
+    constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
+}
+
+impl<'v> StarlarkConstraints<'v> {
+    pub(crate) fn new(
+        constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
+    ) -> Self {
+        Self { constraints }
+    }
+}
+
+impl<'v> AllocValue<'v> for StarlarkConstraints<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
+
+#[starlark_value(type = "Constraints", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StarlarkConstraints<'v> {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(starlark_constraints_methods)
+    }
+}
+
+#[starlark_module]
+fn starlark_constraints_methods(builder: &mut MethodsBuilder) {}
