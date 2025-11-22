@@ -39,6 +39,7 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -50,6 +51,7 @@ use crate::typing::TyBasic;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::error::InternalError;
+use crate::typing::error::TypingError;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::Approximation;
@@ -97,31 +99,55 @@ pub(crate) struct Bindings<'a> {
     /// if expr: ...
     /// ```
     pub(crate) check: Vec<&'a CstExpr>,
-    pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
+    /// Bind expressions that need to be checked.
+    ///
+    /// While collecting, this is just `return` (None bindexpr),
+    /// `return bindexpr`, and `x: ty = bindexpr`.
+    ///
+    /// But once we know which bindings are annotated, we can
+    /// insert a check_type for any expression bound to an annotated binding.
+    pub(crate) check_type: Vec<(Span, Option<BindExpr<'a>>, Ty)>,
+
+    /// Includes double-binding errors, like `x: str = ...; x: str = ...`.
+    /// These break compiler typechecker, but LSP continues past them.
+    pub(crate) errors: Vec<TypingError>,
+}
+
+/// Basically a child `def`.
+pub(crate) struct ChildDef<'a> {
+    pub(crate) body: &'a CstStmt,
+    pub(crate) return_type: Ty,
+    pub(crate) param_types: HashMap<BindingId, Ty>,
 }
 
 pub(crate) struct BindingsCollect<'a, 'b> {
     pub(crate) bindings: Bindings<'a>,
     pub(crate) approximations: &'b mut Vec<Approximation>,
+    pub(crate) children_sink: &'b mut Vec<ChildDef<'a>>,
 }
 
 impl<'a, 'b> BindingsCollect<'a, 'b> {
-    /// Collect all the assignments to variables.
+    /// Collect all the assignments to variables in a scope.
     ///
     /// This function only fails on internal errors.
-    pub(crate) fn collect_one(
-        x: &'a mut CstStmt,
+    pub(crate) fn collect_scope(
+        scope: &'a CstStmt,
+        return_type: &Ty,
+        visible: &HashMap<BindingId, Ty>,
         typecheck_mode: TypecheckMode,
         codemap: &CodeMap,
         approximations: &'b mut Vec<Approximation>,
-    ) -> Result<Self, InternalError> {
+        children_sink: &'b mut Vec<ChildDef<'a>>,
+    ) -> Result<Bindings<'a>, InternalError> {
         let mut res = BindingsCollect {
             bindings: Bindings::default(),
             approximations,
+            children_sink,
         };
+        res.bindings.types = visible.clone();
 
-        res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
-        Ok(res)
+        res.visit(Visit::Stmt(scope), return_type, typecheck_mode, codemap)?;
+        Ok(res.bindings)
     }
 
     fn assign(
@@ -206,6 +232,43 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         }
     }
 
+    /// Check declare-once and insert an explicit type for the binding.
+    fn type_annotation(
+        &mut self,
+        binding: &CstAssignIdent,
+        ty: Ty,
+        error_span: Span,
+        codemap: &CodeMap,
+    ) -> Result<(), InternalError> {
+        let resolved_id = binding.resolved_binding_id(codemap)?;
+        // This is always an error for the compiler, but LSP might continue typechecking in a
+        // degraded state.
+        //
+        // Two cases:
+        // 1. `x = ...; x: str = ...`. We don't add the annotation. Binding goes through the solver.
+        // 2. `x: str = ...; x: int = ...`, even if they're the same type. Keep the original for
+        //    degraded typecheck.
+        //
+        let entry = self.bindings.types.entry(resolved_id);
+        // Previous un-annotated assignment
+        if self.bindings.expressions.contains_key(&resolved_id)
+			// Previous typed assignment
+            || matches!(entry, std::collections::hash_map::Entry::Occupied(_))
+        {
+            self.bindings.errors.push(TypingError::new(
+                crate::Error::new_kind(starlark_syntax::ErrorKind::Other(anyhow::anyhow!(
+                    "Second declaration of binding `{}`",
+                    binding.node.ident,
+                ))),
+                error_span,
+                codemap,
+            ));
+            return Ok(());
+        }
+        entry.or_insert(ty);
+        Ok(())
+    }
+
     fn visit_def(
         &mut self,
         def: &'a DefP<CstPayload>,
@@ -226,12 +289,13 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let mut args = None;
         let mut named_only = Vec::new();
         let mut kwargs = None;
+        let mut param_types = HashMap::new();
 
         for p in params {
             let name = &p.node.ident;
             let ty = p.node.ty;
             let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
-            let name_ty = match &p.node.kind {
+            let ty = match &p.node.kind {
                 DefParamKind::Regular(mode, default_value) => {
                     let required = match default_value.is_some() {
                         true => ParamIsRequired::No,
@@ -256,34 +320,48 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                             ));
                         }
                     }
-                    Some((name, ty))
+                    ty
                 }
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
                     args = Some(ty.dupe());
-                    Some((name, Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))))
+                    Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))
                 }
                 DefParamKind::Kwargs => {
                     let var_ty = Ty::dict(Ty::string(), ty.clone());
                     kwargs = Some(ty.dupe());
-                    Some((name, var_ty))
+                    var_ty
                 }
             };
-            if let Some((name, ty)) = name_ty {
-                self.bindings
-                    .types
-                    .insert(name.resolved_binding_id(codemap)?, ty);
-            }
+            param_types.insert(name.resolved_binding_id(codemap)?, ty);
         }
         let params2 = ParamSpec::new_parts(pos_only, pos_or_named, args, named_only, kwargs)
             .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
         let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
-        self.bindings.types.insert(
-            name.resolved_binding_id(codemap)?,
+
+        // Defining a function is like an annotated assignment
+        //
+        //     foo: Function[...] = lambda x, y: ...
+        //
+        // (even if there are no type annotations, because even just having parameters
+        // is a kind of type annotation).
+        //
+        self.type_annotation(
+            name,
             Ty::function(params2, ret_ty.clone()),
-        );
-        def.visit_children_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+            name.span,
+            codemap,
+        )?;
+
+        def.visit_header_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+
+        // Function body just gets added to the queue.
+        self.children_sink.push(ChildDef {
+            body: &def.body,
+            param_types,
+            return_type: ret_ty,
+        });
         Ok(())
     }
 
@@ -299,15 +377,25 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                 StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                     if let Some(ty) = ty {
                         let ty2 = Self::resolved_ty(ty, typecheck_mode, codemap)?;
-                        self.bindings
-                            .check_type
-                            .push((ty.span, Some(rhs), ty2.clone()));
+                        self.bindings.check_type.push((
+                            ty.span,
+                            Some(BindExpr::Expr(rhs)),
+                            ty2.clone(),
+                        ));
                         if let AssignTargetP::Identifier(id) = &**lhs {
-                            // FIXME: This could be duplicated if you declare the type of a variable twice,
-                            // we would only see the second one.
-                            self.bindings
-                                .types
-                                .insert(id.resolved_binding_id(codemap)?, ty2);
+                            self.type_annotation(id, ty2, lhs.span.merge(ty.span), codemap)?;
+                        } else {
+                            // We should have caught this when parsing.
+                            return Err(InternalError::from_error(
+                                crate::Error::new_kind(starlark_syntax::ErrorKind::Other(
+                                    anyhow::anyhow!(
+                                        "Cannot annotate type of complex assign target",
+                                    ),
+                                )),
+                                lhs.span.merge(ty.span),
+                                codemap,
+                            )
+                            .into());
                         }
                     }
                     self.assign(lhs, BindExpr::Expr(rhs), codemap)?
@@ -324,11 +412,11 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     return Ok(());
                 }
                 StmtP::Load(..) => {}
-                StmtP::Return(ret) => {
-                    self.bindings
-                        .check_type
-                        .push((x.span, ret.as_ref(), return_type.clone()))
-                }
+                StmtP::Return(ret) => self.bindings.check_type.push((
+                    x.span,
+                    ret.as_ref().map(BindExpr::Expr),
+                    return_type.clone(),
+                )),
                 StmtP::Expression(x) => {
                     // We want to find ident.append(), ident.extend(), ident.extend()
                     // to fake up a BindExpr::ListAppend/ListExtend

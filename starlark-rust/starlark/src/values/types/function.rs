@@ -172,9 +172,12 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         self.as_type.clone()
     }
 
-    fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
-        // TODO(nga): implement properly.
-        false
+    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
+        if self.as_type.is_some() {
+            attribute == "type"
+        } else {
+            false
+        }
     }
 
     fn dir_attr(&self) -> Vec<String> {

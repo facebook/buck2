@@ -25,6 +25,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert::Assert;
 use crate::starlark_simple_value;
+use crate::typing::Ty;
 use crate::values::StarlarkAttrs;
 use crate::values::StarlarkValue;
 
@@ -53,6 +54,11 @@ fn test_derive_attrs() {
     #[starlark_value(type = "example")]
     impl<'v> StarlarkValue<'v> for Example {
         starlark_attrs!();
+
+        // Ideally we could derive a TyUser.
+        fn typechecker_ty(&self) -> Option<Ty> {
+            Some(Ty::any())
+        }
     }
 
     #[derive(

@@ -221,7 +221,7 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// Into entries, in arbitrary order.
     #[inline]
-    pub(crate) fn into_entries_unordered(self) -> impl ExactSizeIterator<Item = (K, V)> {
+    pub fn into_entries_unordered(self) -> impl ExactSizeIterator<Item = (K, V)> {
         self.0.into_iter()
     }
 

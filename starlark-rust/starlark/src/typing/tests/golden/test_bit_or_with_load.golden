@@ -10,14 +10,18 @@ test = int | foo()
 def test() -> test:
     pass
 
-No errors.
+Error:
+error: Second declaration of binding `test`
+ --> filename:4:5
+  |
+4 | def test() -> test:
+  |     ^^^^
+  |
 
 Approximations:
 Approximation: Unknown type = "Span { begin: Pos(57), end: Pos(61) }"
 
 Compiler typechecker (eval):
-Compiler typechecker and eval results mismatch.
-
 error: String literals are not allowed in type expressions: `"test"`
  --> filename:3:8
   |

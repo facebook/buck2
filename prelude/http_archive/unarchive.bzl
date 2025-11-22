@@ -215,17 +215,18 @@ def unarchive(
     if needs_strip_prefix:
         ctx.actions.copy_dir(output.as_output(), script_output.project(strip_prefix), has_content_based_path = has_content_based_path)
 
+    sub_targets_dict: dict[str, list[Provider]] = {}
     if type(sub_targets) == type([]):
-        sub_targets = {
+        sub_targets_dict = {
             path: [DefaultInfo(default_output = output.project(path))]
             for path in sub_targets
         }
     elif type(sub_targets) == type({}):
-        sub_targets = {
+        sub_targets_dict = {
             name: [DefaultInfo(default_outputs = [output.project(path) for path in paths])]
             for name, paths in sub_targets.items()
         }
     else:
         fail("sub_targets must be a list or dict")
 
-    return output, sub_targets
+    return output, sub_targets_dict
