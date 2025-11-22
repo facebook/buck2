@@ -64,6 +64,22 @@ impl<'v> ConstraintValueInfo<'v> {
             label: label.as_unchecked().cast(),
         }
     }
+
+    pub(crate) fn default_from_constraint_setting(
+        setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+    ) -> Option<ConstraintValueInfo<'v>> {
+        match setting.typed.default() {
+            Some(default_provider_label) => {
+                let constraint_value = ConstraintValueInfo::new(
+                    setting,
+                    ValueOf::unpack_value_err(default_provider_label.to_value())
+                        .expect("validated at construction"),
+                );
+                Some(constraint_value)
+            }
+            None => None,
+        }
+    }
 }
 
 #[starlark_module]

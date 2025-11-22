@@ -59,7 +59,8 @@ impl<'v> Dupe for DictRef<'v> {}
 
 /// Mutably borrowed `Dict`.
 pub struct DictMut<'v> {
-    pub(crate) aref: RefMut<'v, Dict<'v>>,
+    /// Mutable reference to the dict
+    pub aref: RefMut<'v, Dict<'v>>,
 }
 
 /// Reference to frozen `Dict`.
