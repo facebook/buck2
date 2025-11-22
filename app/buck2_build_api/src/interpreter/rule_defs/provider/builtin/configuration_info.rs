@@ -20,25 +20,18 @@ use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
-use starlark::values::NoSerialize;
-use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -52,8 +45,6 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
@@ -173,18 +164,6 @@ enum ConfigurationInfoError {
     BuckConfigsNotAllowed,
 }
 
-/// Unpack type that accepts either a constraints dictionary or a `StarlarkConstraints` object.
-#[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum ConstraintsUnpack<'v> {
-    Dict(
-        UnpackDictEntries<
-            ValueOf<'v, &'v StarlarkTargetLabel>,
-            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
-        >,
-    ),
-    Constraints(&'v StarlarkConstraints<'v>),
-}
-
 /// Helper function to validate and build a constraints map from dictionary entries.
 fn build_constraints_map_from_dict<'v>(
     dict_entries: UnpackDictEntries<
@@ -221,33 +200,17 @@ fn build_constraints_map_from_dict<'v>(
 fn configuration_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConfigurationInfo)]
     fn ConfigurationInfo<'v>(
-        #[starlark(require = named)] constraints: ConstraintsUnpack<'v>,
+        #[starlark(require = named)] constraints: UnpackDictEntries<
+            ValueOf<'v, &'v StarlarkTargetLabel>,
+            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        >,
         #[starlark(require = named)] values: ValueOf<
             'v,
             UnpackDictEntries<&'v str, UnpackAndDiscard<&'v str>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ConfigurationInfo<'v>> {
-        let new_constraints = match constraints {
-            ConstraintsUnpack::Dict(dict_entries) => build_constraints_map_from_dict(dict_entries)?,
-            ConstraintsUnpack::Constraints(starlark_constraints) => {
-                // Extract from StarlarkConstraints object.
-                // The constraints were already validated during StarlarkConstraints construction,
-                // and all methods of StarlarkConstraints preserve the constraints mapping,
-                // so we can directly copy them without re-validation.
-                let constraints_dict =
-                    DictRef::from_value(starlark_constraints.constraints.get().to_value())
-                        .expect("StarlarkConstraints should contain a valid dict");
-
-                let mut new_map = SmallMap::new();
-                for (k, v) in constraints_dict.iter() {
-                    let hashed = k.get_hashed().expect("StarlarkTargetLabel is hashable");
-                    let prev = new_map.insert_hashed(hashed, v);
-                    assert!(prev.is_none());
-                }
-                new_map
-            }
-        };
+        let new_constraints = build_constraints_map_from_dict(constraints)?;
 
         for (k, _) in &values.typed.entries {
             // Validate the config section and key can be parsed correctly
@@ -428,35 +391,6 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-/// Constraints that wrap of set of constaint values
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative, Trace)]
-#[display("Constraints(...)")]
-pub(crate) struct StarlarkConstraints<'v> {
-    constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
-}
-
-impl<'v> StarlarkConstraints<'v> {
-    pub(crate) fn new(
-        constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
-    ) -> Self {
-        Self { constraints }
-    }
-}
-
-impl<'v> AllocValue<'v> for StarlarkConstraints<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex_no_freeze(self)
-    }
-}
-
-#[starlark_value(type = "Constraints", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkConstraints<'v> {
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(starlark_constraints_methods)
-    }
-}
-
 /// Helper function to get the default constraint value from a constraint setting.
 /// Returns the default constraint value if one exists, otherwise returns None.
 fn get_default_constraint_value<'v>(
@@ -467,202 +401,4 @@ fn get_default_constraint_value<'v>(
         ConstraintValueInfo::default_from_constraint_setting(key)
             .map(|constraint_value| heap.alloc_typed(constraint_value).into()),
     )
-}
-
-#[starlark_module]
-fn starlark_constraints_methods(builder: &mut MethodsBuilder) {
-    /// Get a constraint value by its constraint setting.
-    ///
-    /// Accepts a `ConstraintSettingInfo` and returns the corresponding
-    /// `ConstraintValueInfo`. If the constraint is not set,
-    /// returns the default constraint value from the setting (if defined).
-    ///
-    /// - Arguments
-    ///
-    ///     - `key`: A `ConstraintSettingInfo` to look up
-    ///
-    /// - Returns
-    ///
-    /// The `ConstraintValueInfo` for the given setting. If not set in the
-    /// constraints, returns the default constraint value from the setting.
-    /// Returns `None` only if the constraint is not present and the constraint has no default.
-    ///
-    /// # Example
-    ///
-    /// ```python
-    /// constraints = config_info.constraints_v2()
-    ///
-    /// # Get constraint value by setting
-    /// cpu_setting = ref.cpu_setting[ConstraintSettingInfo]
-    /// value = constraints.get(cpu_setting)
-    /// if value:
-    ///     print("CPU constraint: {}".format(value))
-    /// ```
-    fn get<'v>(
-        this: &StarlarkConstraints<'v>,
-        #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-        heap: &'v Heap,
-    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
-        let constraints = DictRef::from_value(this.constraints.get().to_value())
-            .expect("type checked on construction");
-
-        let label = key.typed.label();
-        match constraints.get(label.to_value())? {
-            Some(v) => {
-                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
-                Ok(NoneOr::Other(v))
-            }
-            // if not find in the constraints, we return the deault constrailt value
-            None => Ok(get_default_constraint_value(key, heap)),
-        }
-    }
-
-    /// Insert a ConstraintValueInto the constraints.
-    ///
-    /// - Arguments
-    ///
-    ///     - `value`: The `ConstraintValueInfo` to insert
-    ///
-    /// - Returns
-    ///
-    /// The previously set `ConstraintValueInfo` for this setting, if any.
-    /// If no previous value existed, returns the default constraint value from the setting
-    /// (if defined). Returns `None` only if there was no previous value and the constraint
-    /// has no default.
-    ///
-    /// # Example
-    ///
-    /// ```python
-    /// constraints = config_info.constraints_v2()
-    ///
-    /// # Insert a new constraint value
-    /// new_value = ref.some_constraint[ConstraintValueInfo]
-    /// old_value = constraints.insert(new_value)
-    /// if old_value:
-    ///     print("Replaced previous value: {}".format(old_value))
-    /// ```
-    fn insert<'v>(
-        this: &StarlarkConstraints<'v>,
-        #[starlark(require = pos)] value: ValueOf<'v, &'v ConstraintValueInfo<'v>>,
-        heap: &'v Heap,
-    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
-        let constraint_value = value.typed;
-        let setting_info = constraint_value.setting();
-        let label = setting_info.typed.label();
-
-        let mut constraints = DictMut::from_value(this.constraints.get().to_value())?;
-
-        let v = constraints.aref.insert_hashed(
-            label
-                .to_value()
-                .get_hashed()
-                .expect("StarlarkTargetLabel is hashable"),
-            value.to_value(),
-        );
-
-        match v {
-            Some(v) => {
-                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
-                Ok(NoneOr::Other(v))
-            }
-            // if not found in the constraints, we return the default constraint value
-            None => Ok(get_default_constraint_value(setting_info, heap)),
-        }
-    }
-
-    /// Remove and return a constraint value by its setting.
-    ///
-    /// Accepts a `ConstraintSettingInfo` and returns the corresponding
-    /// `ConstraintValueInfo`. If the constraint is not set,
-    /// returns the default constraint value from the setting (if defined).
-    ///
-    /// - Arguments
-    ///
-    ///     - `key`: A `ConstraintSettingInfo` to remove
-    ///
-    /// - Returns
-    ///
-    /// The removed `ConstraintValueInfo` if it was set.
-    /// If not present, returns the default constraint value from the setting (if defined).
-    /// Returns `None` only if the constraint was not set and the constraint has no default.
-    ///
-    /// # Example
-    ///
-    /// ```python
-    /// constraints = config_info.constraints_v2()
-    ///
-    /// # Remove a constraint
-    /// cpu_setting = ref.cpu_setting[ConstraintSettingInfo]
-    /// removed_value = constraints.pop(cpu_setting)
-    /// if removed_value:
-    ///     print("Removed: {}".format(removed_value))
-    /// ```
-    fn pop<'v>(
-        this: &StarlarkConstraints<'v>,
-        #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-        heap: &'v Heap,
-    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
-        let label = key.typed.label();
-        let mut constraints = DictMut::from_value(this.constraints.get().to_value())?;
-
-        // Remove and return the value
-        let removed = constraints.aref.remove_hashed(
-            label
-                .to_value()
-                .get_hashed()
-                .expect("StarlarkTargetLabel is hashable"),
-        );
-
-        match removed {
-            Some(v) => {
-                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
-                Ok(NoneOr::Other(v))
-            }
-            // if not found in the constraints, we return the default constraint value
-            None => Ok(get_default_constraint_value(key, heap)),
-        }
-    }
-}
-
-#[starlark_module]
-fn starlark_constraints_creator(globals: &mut GlobalsBuilder) {
-    /// Create a new Constraints object from a dictionary of constraint settings to constraint values.
-    ///
-    /// - Arguments
-    ///
-    ///     - `constraints`: A dictionary mapping `StarlarkTargetLabel` (constraint settings) to
-    ///   `ConstraintValueInfo` (constraint values)
-    ///
-    /// - Returns
-    ///
-    /// A new `Constraints` object containing the provided constraints.
-    ///
-    /// Example
-    ///
-    /// ```python
-    /// constraints = Constraints({
-    ///     cpu_setting.label: cpu_value,
-    ///     os_setting.label: os_value,
-    /// })
-    /// ```
-    fn Constraints<'v>(
-        #[starlark(require = pos)] constraints: UnpackDictEntries<
-            ValueOf<'v, &'v StarlarkTargetLabel>,
-            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
-        >,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<StarlarkConstraints<'v>> {
-        let new_constraints = build_constraints_map_from_dict(constraints)?;
-
-        Ok(StarlarkConstraints::new(ValueOfUnchecked::new(
-            eval.heap().alloc(new_constraints),
-        )))
-    }
-}
-
-/// Register the `Constraints` constructor with the Starlark globals.
-///
-/// This allows users to create `Constraints` objects directly from Starlark code.
-pub fn register_constraints_constructor(globals: &mut GlobalsBuilder) {
-    starlark_constraints_creator(globals);
 }
