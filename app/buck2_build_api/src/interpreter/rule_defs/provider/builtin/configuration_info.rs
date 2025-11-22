@@ -320,3 +320,46 @@ impl<'v> StarlarkValue<'v> for StarlarkConstraints<'v> {
 
 #[starlark_module]
 fn starlark_constraints_methods(builder: &mut MethodsBuilder) {}
+
+#[starlark_module]
+fn starlark_constraints_creator(globals: &mut GlobalsBuilder) {
+    /// Create a new Constraints object from a dictionary of constraint settings to constraint values.
+    ///
+    /// - Arguments
+    ///
+    ///     - `constraints`: A dictionary mapping `StarlarkTargetLabel` (constraint settings) to
+    ///   `ConstraintValueInfo` (constraint values)
+    ///
+    /// - Returns
+    ///
+    /// A new `Constraints` object containing the provided constraints.
+    ///
+    /// Example
+    ///
+    /// ```python
+    /// constraints = Constraints({
+    ///     cpu_setting.label: cpu_value,
+    ///     os_setting.label: os_value,
+    /// })
+    /// ```
+    fn Constraints<'v>(
+        #[starlark(require = pos)] constraints: UnpackDictEntries<
+            ValueOf<'v, &'v StarlarkTargetLabel>,
+            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        >,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<StarlarkConstraints<'v>> {
+        let new_constraints = build_constraints_map_from_dict(constraints)?;
+
+        Ok(StarlarkConstraints::new(ValueOfUnchecked::new(
+            eval.heap().alloc(new_constraints),
+        )))
+    }
+}
+
+/// Register the `Constraints` constructor with the Starlark globals.
+///
+/// This allows users to create `Constraints` objects directly from Starlark code.
+pub fn register_constraints_constructor(globals: &mut GlobalsBuilder) {
+    starlark_constraints_creator(globals);
+}
