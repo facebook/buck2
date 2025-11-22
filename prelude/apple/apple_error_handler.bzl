@@ -150,6 +150,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
             severity = error_json["severity"]
             category = "swift_" + severity
+            show_in_stderr = False
 
             # Swift serializes the category in the form:
             # SendableClosureCaptures@https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures
@@ -170,6 +171,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 if custom_category:
                     category += "_" + custom_category.category
                     if custom_category.message:
+                        show_in_stderr = True
                         postfix = ". " + custom_category.message
 
             errors.append(
@@ -180,6 +182,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                     lnum = error_json["line"],
                     col = error_json["col"],
                     error_type = _get_error_type(severity),
+                    show_in_stderr = show_in_stderr,
                 ),
             )
 
