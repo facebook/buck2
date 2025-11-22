@@ -18,6 +18,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_fs::fs_util;
 use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
@@ -104,7 +105,9 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> starlark::Result<Va
 fn artifact_value_methods(builder: &mut MethodsBuilder) {
     fn read_string(this: &StarlarkArtifactValue) -> starlark::Result<String> {
         let path = this.fs.resolve(&this.path);
-        Ok(fs_util::read_to_string(path).map_err(buck2_error::Error::from)?)
+        let contents = fs_util::read_to_string(path)
+            .map_err(|e| buck2_error::Error::from(e).tag([ErrorTag::StarlarkValue]))?;
+        Ok(contents)
     }
 
     fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> starlark::Result<Value<'v>> {
