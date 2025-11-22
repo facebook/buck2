@@ -2325,7 +2325,8 @@ enum DaemonWasStartedReason {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235, 400,
+      401;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2614,12 +2615,6 @@ message InvocationRecord {
   optional uint64 time_to_first_unknown_test_result_ms = 302;
   // Time elapsed from a build's start until first infra failure test result.
   optional uint64 time_to_first_infra_failure_test_result_ms = 305;
-
-  // Number of memory pressure events fired by the memory tracker.
-  optional uint64 memory_tracker_pressure_events = 400;
-
-  // Peak % memory pressure percentage over the lifetime of the command.
-  optional uint64 peak_memory_pressure_percentage = 401;
 
   // Maximum in-progress DICE key evaluations tracked during the command.
   optional uint64 max_dice_in_progress_keys = 402;

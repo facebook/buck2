@@ -248,8 +248,6 @@ pub struct InvocationRecorder {
     initial_local_cache_hits_files_from_filesystem_cache: Option<i64>,
     initial_local_cache_lookups: Option<i64>,
     initial_local_cache_lookup_latency_microseconds: Option<i64>,
-    memory_tracker_pressure_events: u64,
-    peak_memory_pressure_percentage: u64,
     max_dice_in_progress_keys: u64,
     max_dice_compute_keys: u64,
     current_in_progress_actions: u64,
@@ -461,8 +459,6 @@ impl InvocationRecorder {
             initial_local_cache_hits_files_from_filesystem_cache: None,
             initial_local_cache_lookups: None,
             initial_local_cache_lookup_latency_microseconds: None,
-            memory_tracker_pressure_events: 0,
-            peak_memory_pressure_percentage: 0,
             max_dice_in_progress_keys: 0,
             max_dice_compute_keys: 0,
             current_in_progress_actions: 0,
@@ -1046,8 +1042,6 @@ impl InvocationRecorder {
             install_device_metadata: self.install_device_metadata.drain(..).collect(),
             installer_log_url: self.installer_log_url.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
-            memory_tracker_pressure_events: Some(self.memory_tracker_pressure_events),
-            peak_memory_pressure_percentage: Some(self.peak_memory_pressure_percentage),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
@@ -1705,20 +1699,6 @@ impl InvocationRecorder {
         Ok(())
     }
 
-    fn handle_memory_pressure_start(&mut self) -> buck2_error::Result<()> {
-        self.memory_tracker_pressure_events += 1;
-        Ok(())
-    }
-
-    fn handle_memory_pressure(
-        &mut self,
-        pressure_info: buck2_data::MemoryPressure,
-    ) -> buck2_error::Result<()> {
-        self.peak_memory_pressure_percentage = pressure_info.peak_pressure;
-
-        Ok(())
-    }
-
     fn handle_dice_state_snapshot(
         &mut self,
         dice_state_snapshot: &buck2_data::DiceStateSnapshot,
@@ -2160,9 +2140,6 @@ impl InvocationRecorder {
                     buck2_data::span_start_event::Data::FileWatcher(file_watcher) => {
                         self.handle_file_watcher_start(*file_watcher)
                     }
-                    buck2_data::span_start_event::Data::MemoryPressure(_) => {
-                        self.handle_memory_pressure_start()
-                    }
                     _ => Ok(()),
                 }
             }
@@ -2272,9 +2249,6 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::TestResult(result) => {
                         self.handle_test_result(result, event)
-                    }
-                    buck2_data::instant_event::Data::MemoryPressure(memory_pressure) => {
-                        self.handle_memory_pressure(*memory_pressure)
                     }
                     buck2_data::instant_event::Data::DiceStateSnapshot(dice_state_snapshot) => {
                         self.handle_dice_state_snapshot(dice_state_snapshot)
