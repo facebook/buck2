@@ -8,4 +8,3 @@ Caused by:
     0: Error connecting to the daemon, daemon stderr follows:
        <none>
     1: timed out before establishing connection to Buck daemon or start a daemon
-    2: NoneError

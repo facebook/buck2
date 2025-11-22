@@ -28,6 +28,7 @@ use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::daemon::client::connect::BuckdProcessInfo;
 use crate::daemon::client::connect::buckd_startup_timeout;
+use crate::startup_deadline::StartupDeadline;
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 /// Kill request does not wait for the process to exit.
@@ -167,9 +168,11 @@ pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> buck2_error::Result<(
 
 pub(crate) async fn hard_kill_until(
     info: &DaemonProcessInfo,
-    deadline: Instant,
+    deadline: &StartupDeadline,
 ) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
+
+    let deadline = deadline.down_deadline()?.deadline();
 
     let now = Instant::now();
     hard_kill_impl(pid, now, deadline.saturating_duration_since(now)).await

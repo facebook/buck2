@@ -90,6 +90,7 @@ enum ErrorTag {
   // - Transport error (e.g. connection closed)
   // - Not application error (e.g. bzl file not found)
   CLIENT_GRPC = 4;
+  CLIENT_STARTUP_TIMEOUT = 40;
   // Connect to buckd failed.
   DAEMON_CONNECT = 5;
   // Daemon is running another command.
@@ -100,6 +101,15 @@ enum ErrorTag {
   DAEMON_STATE_INIT_FAILED = 503;
   DAEMON_STATUS = 504;
   DAEMON_REDIRECT = 505;
+  DAEMON_STARTUP_FAILED = 507;
+  DAEMON_LAUNCH_FAILED = 508;
+  DAEMON_NESTED_CONSTRAINTS_MISMATCH = 509;
+  DAEMON_CONSTRAINTS_WRONG_AFTER_START = 510;
+  DAEMON_DIR_CLEANUP_FAILED = 511;
+  DAEMON_KILL_FAILED = 512;
+  BUCKD_LIFECYCLE_LOCK = 513;
+  BUCKD_INFO_MISSING = 514;
+  BUCKD_INFO_PARSE_ERROR = 515;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.

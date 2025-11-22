@@ -15,7 +15,6 @@ use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_util::threads::thread_spawn;
 
@@ -35,8 +34,7 @@ pub fn start_in_process_daemon(
             daemon_dir,
             StartupDeadline::duration_from_now(buckd_startup_timeout()?)?,
         )
-        .await
-        .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
+        .await?;
 
         kill_command_impl(&lifecycle_lock, "A command with `--no-buckd` is invoked").await
     })?;

@@ -164,8 +164,7 @@ impl BuckSubcommand for InnerCleanCommand {
             daemon_dir.clone(),
             StartupDeadline::duration_from_now(Duration::from_secs(10))?,
         )
-        .await
-        .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
+        .await?;
 
         kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
 

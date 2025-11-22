@@ -28,6 +28,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -296,7 +297,10 @@ impl<'a> BuckdLifecycle<'a> {
     }
 
     fn clean_daemon_dir(&self) -> buck2_error::Result<()> {
-        self.lock.clean_daemon_dir(true)
+        self.lock
+            .clean_daemon_dir(true)
+            .buck_error_context("Cleaning daemon dir")
+            .tag(ErrorTag::DaemonDirCleanupFailed)
     }
 
     async fn start_server(&self) -> buck2_error::Result<()> {
@@ -512,16 +516,15 @@ impl<'a> BuckdLifecycle<'a> {
         // so we wait for termination of the child process.
         let joined = try_join3(status_fut, stdout_fut, stderr_fut).await;
         match joined {
-            Err(e) => Err(BuckdConnectError::BuckDaemonStartupFailed {
-                code: 1,
-                stdout: "".to_owned(),
-                stderr: format!("Failed to launch Buck2 daemon: {e:#}"),
-            }
-            .into()),
+            Err(error) => Err(BuckdConnectError::BuckDaemonLaunchFailed { error }.into()),
             Ok((status, stdout, stderr)) => {
                 if !status.success() {
+                    let code = status
+                        .code()
+                        .map(|c| c.to_string())
+                        .unwrap_or("unknown".to_owned());
                     Err(BuckdConnectError::BuckDaemonStartupFailed {
-                        code: status.code().unwrap_or(1),
+                        code,
                         stdout: String::from_utf8_lossy(&stdout).to_string(),
                         stderr: String::from_utf8_lossy(&stderr).to_string(),
                     }
@@ -793,16 +796,16 @@ async fn establish_connection_inner(
                         reason.to_daemon_was_started_reason()
                     }
                     Err(reason) => {
-                        // TODO(nga): should print some proper message here.
-                        hard_kill_until(&buckd_info.info, deadline.down_deadline()?.deadline())
-                            .await?;
-
                         events_ctx
                             .eprintln(&format!(
-                                "Could not connect to buck2 daemon ({}), starting a new one...",
+                                "Could not connect to buck2 daemon ({}), killing daemon..",
                                 explain_failed_to_connect_reason(reason)
                             ))
                             .await?;
+
+                        hard_kill_until(&buckd_info.info, &deadline)
+                            .await
+                            .map_err(|error| BuckdConnectError::DaemonKillFailed { error })?;
 
                         reason
                     }
@@ -854,12 +857,13 @@ async fn start_new_buckd_and_connect(
     daemon_was_started_reason: buck2_data::DaemonWasStartedReason,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     // Daemon dir may be corrupted. Safer to delete it.
-    lifecycle_lock
-        .clean_daemon_dir()
-        .buck_error_context("Cleaning daemon dir")?;
+    lifecycle_lock.clean_daemon_dir()?;
 
     // Now there's definitely no server that can be connected to
-    lifecycle_lock.start_server().await?;
+    lifecycle_lock
+        .start_server()
+        .await
+        .buck_error_context("Error starting buck2 daemon")?;
     // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
     // file to appear, but it's just as easy to just retry the connection itself.
 
@@ -975,12 +979,14 @@ impl<'a> BuckdProcessInfo<'a> {
     }
 
     pub fn load(daemon_dir: &'a DaemonDir) -> buck2_error::Result<Self> {
-        Self::load_if_exists(daemon_dir)?.with_buck_error_context(|| {
-            format!(
-                "buckd info {} does not exist",
-                daemon_dir.buckd_info().display()
-            )
-        })
+        match Self::load_if_exists(daemon_dir) {
+            Ok(Some(info)) => Ok(info),
+            Ok(None) => Err(BuckdConnectError::BuckdInfoMissing {
+                path: daemon_dir.buckd_info(),
+            }
+            .into()),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn load_if_exists(daemon_dir: &'a DaemonDir) -> buck2_error::Result<Option<Self>> {
@@ -995,13 +1001,8 @@ impl<'a> BuckdProcessInfo<'a> {
             }
         };
         let reader = BufReader::new(file);
-        let info = serde_json::from_reader(reader).with_buck_error_context(|| {
-            format!(
-                "Error parsing daemon info in `{}`. \
-                Try deleting that file and running `buck2 killall` before running your command again",
-                location.display(),
-            )
-        })?;
+        let info = serde_json::from_reader(reader)
+            .map_err(|error| BuckdConnectError::BuckdInfoParseError { location, error })?;
 
         Ok(Some(BuckdProcessInfo { info, daemon_dir }))
     }
@@ -1076,21 +1077,48 @@ enum BuckdConnectError {
     #[error(
         "buck daemon startup failed with exit code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
     )]
+    #[buck2(tag = DaemonStartupFailed)]
     BuckDaemonStartupFailed {
-        code: i32,
+        code: String,
         stdout: String,
         stderr: String,
+    },
+    #[error("Failed to launch Buck2 daemon: {error:#}")]
+    #[buck2(tag = DaemonLaunchFailed)]
+    BuckDaemonLaunchFailed {
+        #[source]
+        error: buck2_error::Error,
     },
     #[error(
         "during buck daemon startup, the started process did not match constraints ({reason}).\nexpected: {expected:?}\nactual: {actual:?}"
     )]
+    #[buck2(tag = DaemonConstraintsWrongAfterStart)]
     BuckDaemonConstraintWrongAfterStart {
         reason: ConstraintUnsatisfiedReason,
         expected: DaemonConstraintsRequest,
         actual: buck2_cli_proto::DaemonConstraints,
     },
     #[error("buck2 daemon constraint mismatch during nested invocation: {reason}")]
+    #[buck2(tag = DaemonNestedConstraintsMismatch)]
     NestedConstraintMismatch { reason: ConstraintUnsatisfiedReason },
+    #[error("buckd info {path} does not exist")]
+    #[buck2(tag = BuckdInfoMissing)]
+    BuckdInfoMissing { path: AbsNormPathBuf },
+    #[error("Error parsing daemon info in `{}`. \
+                Try deleting that file and running `buck2 killall` before running your command again",
+                location.display())]
+    #[buck2(tag = BuckdInfoParseError)]
+    BuckdInfoParseError {
+        location: AbsNormPathBuf,
+        #[source]
+        error: serde_json::Error,
+    },
+    #[error("Failed to kill buckd: {error:#}")]
+    #[buck2(tag = DaemonKillFailed)]
+    DaemonKillFailed {
+        #[source]
+        error: buck2_error::Error,
+    },
 }
 
 async fn daemon_connect_error(
