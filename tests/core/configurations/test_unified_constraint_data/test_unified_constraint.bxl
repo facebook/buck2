@@ -12,6 +12,10 @@ def _assert_eq(a, b):
     if a != b:
         fail("Expected {} == {}".format(a, b))
 
+def _assert_not_eq(a, b):
+    if a == b:
+        fail("Expected {} != {}".format(a, b))
+
 def _main(ctx: bxl.Context):
     contrait_setting_node = ctx.unconfigured_targets("root//:os")
 
@@ -110,7 +114,9 @@ def _constraint_v2(ctx: bxl.Context):
 
     default = analysis_res.providers()[DefaultInfo]
     cpu_x86_64 = default.sub_targets["x86_64"]
+    cpu_arm64 = default.sub_targets["arm64"]
     x86_64_constraint_value_info = cpu_x86_64[ConstraintValueInfo]
+    arm64_constraint_value_info = cpu_arm64[ConstraintValueInfo]
 
     cpu_default_constraint_value_info = ctx.analysis(cpu_constraint_setting_info.default).providers()[ConstraintValueInfo]
 
@@ -118,6 +124,8 @@ def _constraint_v2(ctx: bxl.Context):
     _assert_eq(cfg_info.get(cpu_constraint_setting_info), cpu_default_constraint_value_info)
 
     # Test 5: Insert overrides default, and get() returns the inserted value
+    cfg_info.insert(arm64_constraint_value_info)
+    _assert_eq(cfg_info.get(cpu_constraint_setting_info), arm64_constraint_value_info)
     cfg_info.insert(x86_64_constraint_value_info)
     _assert_eq(cfg_info.get(cpu_constraint_setting_info), x86_64_constraint_value_info)
 
@@ -127,6 +135,12 @@ def _constraint_v2(ctx: bxl.Context):
 
     # Test 7: After pop, get() returns default constraint value again
     _assert_eq(cfg_info.get(cpu_constraint_setting_info), cpu_default_constraint_value_info)
+
+    # Test 8: Test copy()
+    copied_cfg_info = cfg_info.copy()
+    _assert_eq(copied_cfg_info.get(cpu_constraint_setting_info), cfg_info.get(cpu_constraint_setting_info))
+    copied_cfg_info.insert(arm64_constraint_value_info)
+    _assert_not_eq(copied_cfg_info.get(cpu_constraint_setting_info), cfg_info.get(cpu_constraint_setting_info))
 
 constraint_v2 = bxl_main(
     impl = _constraint_v2,

@@ -389,6 +389,51 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
             None => Ok(get_default_constraint_value(key, heap)),
         }
     }
+
+    /// Create a copy of the ConfigurationInfo.
+    ///
+    /// Returns a new `ConfigurationInfo` instance with copies of the original one.
+    /// Operations on the copy will not affect the original.
+    ///
+    /// - Returns
+    ///
+    /// A new `ConfigurationInfo` with the same constraints and values as the original.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// # Create a copy and modify it without affecting the original
+    /// config_copy = config_info.copy()
+    /// config_copy.insert(new_constraint_value)
+    /// # Original config_info remains unchanged
+    /// ```
+    fn copy<'v>(
+        this: &ConfigurationInfo<'v>,
+        heap: &'v Heap,
+    ) -> starlark::Result<ConfigurationInfo<'v>> {
+        // Copy constraints dict
+        let constraints = DictRef::from_value(this.constraints.get().to_value())
+            .expect("type checked on construction");
+        let mut new_constraints = SmallMap::new();
+        for (k, v) in constraints.iter() {
+            let key_hashed = k.get_hashed().expect("should be hashable");
+            new_constraints.insert_hashed(key_hashed, v);
+        }
+
+        // Copy values dict
+        let values = DictRef::from_value(this.values.get().to_value())
+            .expect("type checked on construction");
+        let mut new_values = SmallMap::new();
+        for (k, v) in values.iter() {
+            let key_hashed = k.get_hashed().expect("should be hashable");
+            new_values.insert_hashed(key_hashed, v);
+        }
+
+        Ok(ConfigurationInfo {
+            constraints: ValueOfUnchecked::new(heap.alloc(new_constraints)),
+            values: ValueOfUnchecked::new(heap.alloc(new_values)),
+        })
+    }
 }
 
 /// Helper function to get the default constraint value from a constraint setting.
