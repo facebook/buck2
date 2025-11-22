@@ -25,7 +25,9 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::Trace;
@@ -49,7 +51,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Fro
 /// Provider that signals that a rule contains configuration info. This is used both as part of
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"
 /// a configuration or not (`config_setting()`, `constraint_value()`)
-#[internal_provider(configuration_info_creator)]
+#[internal_provider(configuration_info_creator, methods = configuration_info_methods)]
 #[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct ConfigurationInfoGen<V: ValueLifetimeless> {
@@ -202,5 +204,27 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             constraints: ValueOfUnchecked::new(eval.heap().alloc(new_constraints)),
             values: values.as_unchecked().cast(),
         })
+    }
+}
+
+// Explicit methods definition for ConfigurationInfo provider.
+#[starlark_module]
+fn configuration_info_methods(builder: &mut MethodsBuilder) {
+    /// A dictionary mapping constraint setting labels to their corresponding constraint values.
+    #[starlark(attribute)]
+    fn constraints<'v>(
+        this: &ConfigurationInfo<'v>,
+    ) -> starlark::Result<
+        ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
+    > {
+        Ok(this.constraints.to_value())
+    }
+
+    /// A dictionary of buckconfig section.key pairs and their values.
+    #[starlark(attribute)]
+    fn values<'v>(
+        this: &ConfigurationInfo<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, DictType<String, String>>> {
+        Ok(this.values.to_value())
     }
 }
