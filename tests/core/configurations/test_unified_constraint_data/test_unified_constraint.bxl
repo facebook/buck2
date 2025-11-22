@@ -59,3 +59,63 @@ test_cfg_transition = bxl_main(
     impl = _test_cfg_transition,
     cli_args = {},
 )
+
+def _constraint_v2(ctx: bxl.Context):
+    # Setup: Get OS constraint setting and Linux constraint value
+    os_contrait_setting_node = ctx.unconfigured_targets("root//:os")
+    os_setting_label = os_contrait_setting_node.label
+    analysis_res = ctx.analysis(os_contrait_setting_node)
+    os_constraint_setting_info = analysis_res.providers()[ConstraintSettingInfo]
+
+    default = analysis_res.providers()[DefaultInfo]
+    os_linux = default.sub_targets["linux"]
+
+    linux_constraint_value_info = os_linux[ConstraintValueInfo]
+
+    # Test 1: Get constraint value from ConfigurationInfo.constraints_v2()
+    configuration_info = os_linux[ConfigurationInfo]
+    constraints = configuration_info.constraints_v2()
+    _assert_eq(constraints.get(os_constraint_setting_info), linux_constraint_value_info)
+
+    # Test 2: Create new Constraints object and verify get() works
+    constraints = Constraints({
+        os_setting_label: linux_constraint_value_info,
+    })
+    _assert_eq(constraints.get(os_constraint_setting_info), linux_constraint_value_info)
+
+    # Test 3: Insert new constraint value and verify it returns previous value
+    os_macos = default.sub_targets["macos"]
+    macos_constraint_value_info = os_macos[ConstraintValueInfo]
+
+    prev = constraints.insert(macos_constraint_value_info)
+    _assert_eq(prev, linux_constraint_value_info)
+
+    # Setup: Get CPU constraint setting with a default value
+    cpu_constraint_setting_node = ctx.unconfigured_targets("root//:cpu")
+    analysis_res = ctx.analysis(cpu_constraint_setting_node)
+    cpu_constraint_setting_info = analysis_res.providers()[ConstraintSettingInfo]
+
+    default = analysis_res.providers()[DefaultInfo]
+    cpu_x86_64 = default.sub_targets["x86_64"]
+    x86_64_constraint_value_info = cpu_x86_64[ConstraintValueInfo]
+
+    cpu_default_constraint_value_info = ctx.analysis(cpu_constraint_setting_info.default).providers()[ConstraintValueInfo]
+
+    # Test 4: Get() returns default constraint value when key is not set
+    _assert_eq(constraints.get(cpu_constraint_setting_info), cpu_default_constraint_value_info)
+
+    # Test 5: Insert overrides default, and get() returns the inserted value
+    constraints.insert(x86_64_constraint_value_info)
+    _assert_eq(constraints.get(cpu_constraint_setting_info), x86_64_constraint_value_info)
+
+    # Test 6: Pop removes the constraint value and returns it
+    removed = constraints.pop(cpu_constraint_setting_info)
+    _assert_eq(removed, x86_64_constraint_value_info)
+
+    # Test 7: After pop, get() returns default constraint value again
+    _assert_eq(constraints.get(cpu_constraint_setting_info), cpu_default_constraint_value_info)
+
+constraint_v2 = bxl_main(
+    impl = _constraint_v2,
+    cli_args = {},
+)
