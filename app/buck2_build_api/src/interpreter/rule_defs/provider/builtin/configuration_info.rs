@@ -281,13 +281,150 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
         Ok(this.values.to_value())
     }
 
-    /// Returns a `Constraints` object of set of constraints.
-    #[starlark(attribute)]
-    fn constraints_v2<'v>(
+    /// Get a constraint value by its constraint setting.
+    ///
+    /// Accepts a `ConstraintSettingInfo` and returns the corresponding
+    /// `ConstraintValueInfo`. If the constraint is not set,
+    /// returns the default constraint value from the setting (if defined).
+    ///
+    /// - Arguments
+    ///
+    ///     - `key`: A `ConstraintSettingInfo` to look up
+    ///
+    /// - Returns
+    ///
+    /// The `ConstraintValueInfo` for the given setting. If not set in the
+    /// constraints, returns the default constraint value from the setting.
+    /// Returns `None` only if the constraint is not present and the constraint has no default.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// # Get constraint value by setting
+    /// cpu_setting = ref.cpu_setting[ConstraintSettingInfo]
+    /// value = config_info.get(cpu_setting)
+    /// if value:
+    ///     print("CPU constraint: {}".format(value))
+    /// ```
+    fn get<'v>(
         this: &ConfigurationInfo<'v>,
-    ) -> starlark::Result<StarlarkConstraints<'v>> {
-        let constraints_wrapper = StarlarkConstraints::new(this.constraints.to_value());
-        Ok(constraints_wrapper)
+        #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
+        let constraints = DictRef::from_value(this.constraints.get().to_value())
+            .expect("type checked on construction");
+
+        let label = key.typed.label();
+        match constraints.get(label.to_value())? {
+            Some(v) => {
+                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
+                Ok(NoneOr::Other(v))
+            }
+            // if not find in the constraints, we return the default constraint value
+            None => Ok(get_default_constraint_value(key, heap)),
+        }
+    }
+
+    /// Insert a ConstraintValueInfo into the constraints.
+    ///
+    /// - Arguments
+    ///
+    ///     - `value`: The `ConstraintValueInfo` to insert
+    ///
+    /// - Returns
+    ///
+    /// The previously set `ConstraintValueInfo` for this setting, if any.
+    /// If no previous value existed, returns the default constraint value from the setting
+    /// (if defined). Returns `None` only if there was no previous value and the constraint
+    /// has no default.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// # Insert a new constraint value
+    /// new_value = ref.some_constraint[ConstraintValueInfo]
+    /// old_value = config_info.insert(new_value)
+    /// if old_value:
+    ///     print("Replaced previous value: {}".format(old_value))
+    /// ```
+    fn insert<'v>(
+        this: &ConfigurationInfo<'v>,
+        #[starlark(require = pos)] value: ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
+        let constraint_value = value.typed;
+        let setting_info = constraint_value.setting();
+        let label = setting_info.typed.label();
+
+        let mut constraints = DictMut::from_value(this.constraints.get().to_value())?;
+
+        let v = constraints.aref.insert_hashed(
+            label
+                .to_value()
+                .get_hashed()
+                .expect("StarlarkTargetLabel is hashable"),
+            value.to_value(),
+        );
+
+        match v {
+            Some(v) => {
+                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
+                Ok(NoneOr::Other(v))
+            }
+            // if not found in the constraints, we return the default constraint value
+            None => Ok(get_default_constraint_value(setting_info, heap)),
+        }
+    }
+
+    /// Remove and return a constraint value by its setting.
+    ///
+    /// Accepts a `ConstraintSettingInfo` and returns the corresponding
+    /// `ConstraintValueInfo`. If the constraint is not set,
+    /// returns the default constraint value from the setting (if defined).
+    ///
+    /// - Arguments
+    ///
+    ///     - `key`: A `ConstraintSettingInfo` to remove
+    ///
+    /// - Returns
+    ///
+    /// The removed `ConstraintValueInfo` if it was set.
+    /// If not present, returns the default constraint value from the setting (if defined).
+    /// Returns `None` only if the constraint was not set and the constraint has no default.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// # Remove a constraint
+    /// cpu_setting = ref.cpu_setting[ConstraintSettingInfo]
+    /// removed_value = config_info.pop(cpu_setting)
+    /// if removed_value:
+    ///     print("Removed: {}".format(removed_value))
+    /// ```
+    fn pop<'v>(
+        this: &ConfigurationInfo<'v>,
+        #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
+        let label = key.typed.label();
+        let mut constraints = DictMut::from_value(this.constraints.get().to_value())?;
+
+        // Remove and return the value
+        let removed = constraints.aref.remove_hashed(
+            label
+                .to_value()
+                .get_hashed()
+                .expect("StarlarkTargetLabel is hashable"),
+        );
+
+        match removed {
+            Some(v) => {
+                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
+                Ok(NoneOr::Other(v))
+            }
+            // if not found in the constraints, we return the default constraint value
+            None => Ok(get_default_constraint_value(key, heap)),
+        }
     }
 }
 

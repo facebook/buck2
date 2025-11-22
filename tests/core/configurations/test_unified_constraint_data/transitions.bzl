@@ -34,14 +34,11 @@ force_opt_mode = transition(
 def _force_opt_mode_impl_v2(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     opt_value = refs.opt[ConstraintValueInfo]
 
-    new_constraints = platform.configuration.constraints_v2
+    # new_constraints = platform.configuration.constraints_v2
+    new_cfg = platform.configuration
+    platform.configuration.insert(opt_value)
 
-    new_constraints.insert(opt_value)
-
-    new_cfg = ConfigurationInfo(
-        constraints = new_constraints,
-        values = platform.configuration.values,
-    )
+    new_cfg.insert(opt_value)
 
     return PlatformInfo(
         label = "<transitioned-to-opt-v2>",
